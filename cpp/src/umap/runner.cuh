@@ -91,6 +91,94 @@ inline void find_ab(UMAPParams* params, cudaStream_t stream)
   Optimize::find_params_ab(params, stream);
 }
 
+template <typename value_t>
+inline value_t get_threshold(const raft::handle_t& handle,
+                             raft::sparse::COO<value_t>& in,
+                             int n_rows,
+                             int n_epochs)
+{
+  if (n_epochs <= 0) {
+    if (n_rows <= 10000)
+      n_epochs = 500;
+    else
+      n_epochs = 200;
+  }
+
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
+  value_t max_val = *(thrust::max_element(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz));
+
+  value_t threshold = max_val / static_cast<value_t>(n_epochs);
+  return threshold;
+}
+
+template <typename value_t>
+inline bool should_perform_thresholding(const raft::handle_t& handle,
+                                        raft::sparse::COO<value_t>& in,
+                                        value_t threshold)
+{
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
+  value_t min_val = *(thrust::min_element(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz));
+
+  return min_val < threshold;
+}
+
+template <typename value_t>
+inline void perform_thresholding(const raft::handle_t& handle,
+                                 raft::sparse::COO<value_t>& in,
+                                 value_t threshold)
+{
+  auto stream = raft::resource::get_cuda_stream(handle);
+
+  /**
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
+  raft::linalg::unaryOp<value_t>(
+    in.vals(),
+    in.vals(),
+    in.nnz,
+    [=] __device__(value_t input) {
+      if (input < threshold)
+        return 0.0f;
+      else
+        return input;
+    },
+    stream);
+}
+
+template <typename value_t, typename value_idx, typename nnz_t>
+void trim_graph(const raft::handle_t& handle,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& in,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& trimmed_graph,
+                value_t threshold)
+{
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  trimmed_graph.allocate(in.nnz, in.n_rows, in.n_cols, false, stream);
+
+  auto begin_zip = thrust::make_zip_iterator(thrust::make_tuple(in.rows(), in.cols(), in.vals()));
+  auto end_zip   = thrust::make_zip_iterator(
+    thrust::make_tuple(in.rows() + in.nnz, in.cols() + in.nnz, in.vals() + in.nnz));
+  auto begin_out_zip = thrust::make_zip_iterator(
+    thrust::make_tuple(trimmed_graph.rows(), trimmed_graph.cols(), trimmed_graph.vals()));
+
+  auto predicate = [=] __device__(const auto& tuple) { return thrust::get<2>(tuple) >= threshold; };
+
+  auto end_out_zip =
+    thrust::copy_if(thrust_exec_policy, begin_zip, end_zip, begin_out_zip, predicate);
+
+  nnz_t new_nnz = static_cast<nnz_t>(thrust::distance(begin_out_zip, end_out_zip));
+
+  trimmed_graph.allocate(new_nnz, in.n_rows, in.n_cols, false, stream);  // effectively resizing
+}
+
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _get_strengths(const raft::handle_t& handle,
                     const umap_inputs& inputs,
@@ -151,6 +239,10 @@ void _get_graph(const raft::handle_t& handle,
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&fss_graph, stream);
+
+  value_t threshold = get_threshold(handle, fss_graph, inputs.n, params->n_epochs);
+  perform_thresholding(handle, fss_graph, threshold);
+
   raft::sparse::op::coo_remove_zeros<value_t>(&fss_graph, graph, stream);
 }
 
@@ -183,6 +275,10 @@ void _get_graph_supervised(const raft::handle_t& handle,
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&ci_graph, stream);
+
+  value_t threshold = get_threshold(handle, ci_graph, inputs.n, params->n_epochs);
+  perform_thresholding(handle, ci_graph, threshold);
+
   raft::sparse::op::coo_remove_zeros<value_t>(&ci_graph, graph, stream);
 }
 
@@ -195,6 +291,15 @@ void _refine(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
+
+  value_t threshold       = get_threshold(handle, *graph, inputs.n, params->n_epochs);
+  bool apply_thresholding = should_perform_thresholding(handle, *graph, threshold);
+
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  if (apply_thresholding) {
+    trim_graph(handle, *graph, trimmed_graph, threshold);
+    graph = &trimmed_graph;
+  }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -211,6 +316,15 @@ void _init_and_refine(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
+
+  value_t threshold       = get_threshold(handle, *graph, inputs.n, params->n_epochs);
+  bool apply_thresholding = should_perform_thresholding(handle, *graph, threshold);
+
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  if (apply_thresholding) {
+    trim_graph(handle, *graph, trimmed_graph, threshold);
+    graph = &trimmed_graph;
+  }
 
   // Initialize embeddings
   InitEmbed::run<value_t, nnz_t>(
