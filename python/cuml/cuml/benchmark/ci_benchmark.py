@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@
 NOTE: This is currently experimental as the ops team builds out the CI
 platform to support benchmark reporting.
 """
-from cuml.benchmark.runners import run_variations
-from cuml.benchmark import algorithms
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
+import pandas as pd
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
+from cuml.benchmark import algorithms
+from cuml.benchmark.runners import run_variations
 
 
 def log_range(start, end, n):
@@ -47,8 +46,9 @@ def report_asv(
     output_dir : str
       Directory for ASV output database
     """
-    import asvdb
     import platform
+
+    import asvdb
     import psutil
 
     uname = platform.uname()

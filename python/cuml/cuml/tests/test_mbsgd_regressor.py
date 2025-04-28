@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sklearn.model_selection import train_test_split
-from cuml.datasets import make_regression
-from sklearn.linear_model import SGDRegressor
-from cuml.testing.utils import unit_param, quality_param, stress_param
-from cuml.metrics import r2_score
-from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.linear_model import SGDRegressor
+from sklearn.model_selection import train_test_split
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
+from cuml.datasets import make_regression
+from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
+from cuml.metrics import r2_score
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 
 @pytest.fixture(

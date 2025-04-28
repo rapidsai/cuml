@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.svm.svc import SVC
-from cuml.svm.svr import SVR
 from cuml.svm.linear_svc import LinearSVC
 from cuml.svm.linear_svr import LinearSVR
+from cuml.svm.svc import SVC
+from cuml.svm.svr import SVR

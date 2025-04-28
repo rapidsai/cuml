@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,19 @@
 # distutils: language = c++
 
 import typing
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator
-)
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+from random import randint
 
-np = cpu_only_import('numpy')
-
-import cuml.internals
-from cuml.internals.array import CumlArray
-from pylibraft.common.handle cimport handle_t
+import numpy as np
 from pylibraft.common.handle import Handle
 
-from libcpp cimport bool
-from libc.stdint cimport uint64_t, uintptr_t
+import cuml.internals
+import cuml.internals.nvtx as nvtx
+from cuml.internals.array import CumlArray
 
-from random import randint
+from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
+
 
 cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
     void cpp_make_regression "ML::Datasets::make_regression" (
@@ -78,7 +73,7 @@ inp_to_dtype = {
 }
 
 
-@nvtx_annotate(message="datasets.make_regression", domain="cuml_python")
+@nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_regression(
     n_samples=100,

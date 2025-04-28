@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,11 @@
 # limitations under the License.
 #
 
-from cuml.model_selection import StratifiedKFold
+import cudf
+import cupy as cp
 import pytest
-from cuml.internals.safe_imports import gpu_only_import
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
+from cuml.model_selection import StratifiedKFold
 
 
 def get_x_y(n_samples, n_classes):

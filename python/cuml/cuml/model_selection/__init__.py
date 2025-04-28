@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.model_selection._split import train_test_split
-from cuml.model_selection._split import StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
+from cuml.model_selection._split import StratifiedKFold, train_test_split
 
 if has_sklearn():
     from sklearn.model_selection import GridSearchCV

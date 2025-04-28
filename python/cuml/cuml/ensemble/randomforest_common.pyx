@@ -13,35 +13,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import threading
-import treelite.sklearn
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.global_settings import GlobalSettings
-
-cp = gpu_only_import('cupy')
 import math
-import warnings
 import typing
+import warnings
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.legacy.fil.fil import ForestInference
-from cuml.legacy.fil.fil import TreeliteModel
+import cupy as cp
+import numpy as np
+import treelite.sklearn
 from pylibraft.common.handle import Handle
-from cuml.internals.base import UniversalBase
-from cuml.internals.array import CumlArray
-from cuml.common.exceptions import NotFittedError
+
+import cuml.accel
 import cuml.internals
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+from cuml.legacy.fil.fil import ForestInference, TreeliteModel
 
 from cython.operator cimport dereference as deref
 
-from cuml.ensemble.randomforest_shared import treelite_serialize, \
-    treelite_deserialize
+from cuml.ensemble.randomforest_shared import (
+    treelite_deserialize,
+    treelite_serialize,
+)
+
 from cuml.ensemble.randomforest_shared cimport *
+
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.prims.label.classlabels import make_monotonic, check_labels
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 class BaseRandomForestModel(UniversalBase):
@@ -118,7 +118,7 @@ class BaseRandomForestModel(UniversalBase):
                           "class_weight": class_weight}
 
         for key, vals in sklearn_params.items():
-            if vals and not GlobalSettings().accelerator_active:
+            if vals and not cuml.accel.enabled():
                 raise TypeError(
                     " The Scikit-learn variable ", key,
                     " is not supported in cuML,"
@@ -127,7 +127,7 @@ class BaseRandomForestModel(UniversalBase):
                     "api.html#random-forest) for more information")
 
         for key in kwargs.keys():
-            if key not in self._param_names and not GlobalSettings().accelerator_active:
+            if key not in self._param_names and not cuml.accel.enabled():
                 raise TypeError(
                     " The variable ", key,
                     " is not supported in cuML,"
@@ -195,7 +195,6 @@ class BaseRandomForestModel(UniversalBase):
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
         self.treelite_serialized_model = None
-        self._cpu_model_class_lock = threading.RLock()
 
     def __len__(self):
         """Return the number of estimators in the ensemble."""
@@ -327,7 +326,7 @@ class BaseRandomForestModel(UniversalBase):
         # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
         # instances, as these could be used by the GPU model to make predictions.
         # The list of names below is hand vetted.
-        if GlobalSettings().accelerator_active:
+        if cuml.accel.enabled():
             for name in ('n_features_in_', 'n_outputs_', 'n_classes_', 'oob_score_'):
                 # Not all attributes are always present
                 try:

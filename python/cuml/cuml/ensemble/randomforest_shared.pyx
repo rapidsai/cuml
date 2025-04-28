@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 # distutils: language = c++
 
-from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_FULL_RO
-
-from libcpp.vector cimport vector
+from cpython.buffer cimport PyBUF_FULL_RO, PyBuffer_Release, PyObject_GetBuffer
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport unique_ptr
+from libcpp.vector cimport vector
+
 from typing import Dict, List, Union
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+import numpy as np
+
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:

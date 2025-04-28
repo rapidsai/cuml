@@ -14,13 +14,11 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 
 from cuml.common import has_scipy
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 
 
 def rosenbrock(x, a=1, b=100):

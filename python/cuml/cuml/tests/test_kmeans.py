@@ -13,30 +13,25 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import adjusted_rand_score
-from sklearn import cluster
-from cuml.testing.utils import (
-    get_pattern,
-    unit_param,
-    quality_param,
-    stress_param,
-    array_equal,
-)
-from cuml.datasets import make_blobs
-import pytest
 import random
+
+import cupy as cp
+import numpy as np
+import pytest
+from sklearn import cluster
+from sklearn.metrics import adjusted_rand_score
+from sklearn.preprocessing import StandardScaler
 
 import cuml
 import cuml.internals.logger as logger
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
-
-cp = gpu_only_import("cupy")
-
+from cuml.datasets import make_blobs
+from cuml.testing.datasets import make_pattern
+from cuml.testing.utils import (
+    array_equal,
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 dataset_names = ["blobs", "noisy_circles", "noisy_moons", "varied", "aniso"]
 
@@ -199,12 +194,14 @@ def test_kmeans_clusters_blobs(
         random_state=0,
     )
 
+    # Set n_init to 2 to improve stability of k-means|| initialization
+    # See https://github.com/rapidsai/cuml/issues/5530 for details
     cuml_kmeans = cuml.KMeans(
         init="k-means||",
         n_clusters=nclusters,
         random_state=random_state,
         output_type="numpy",
-        n_init=1,
+        n_init=2,
     )
 
     preds = cuml_kmeans.fit_predict(X)
@@ -225,7 +222,7 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -270,7 +267,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])

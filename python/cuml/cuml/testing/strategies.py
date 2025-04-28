@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.array import CumlArray
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+import cudf
+import cupy as cp
+import numpy as np
 from hypothesis import assume
 from hypothesis.extra.numpy import (
     array_shapes,
@@ -32,10 +33,7 @@ from hypothesis.strategies import (
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
+from cuml.internals.array import CumlArray
 
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 

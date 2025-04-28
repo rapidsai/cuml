@@ -21,10 +21,11 @@
 #include <cuml/svm/svc.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 #include <iostream>
 
@@ -32,7 +33,7 @@ namespace ML {
 namespace SVM {
 
 using namespace MLCommon;
-using namespace raft::distance::kernels;
+using namespace cuvs::distance::kernels;
 
 // Explicit instantiation for the library
 template void svcFit<float>(const raft::handle_t& handle,

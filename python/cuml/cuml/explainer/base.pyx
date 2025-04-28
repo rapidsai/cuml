@@ -13,30 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pandas = cpu_only_import('pandas')
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 
 import cuml.internals.logger as logger
+from cuml.explainer.common import (
+    get_dtype_from_model_func,
+    get_handle_from_cuml_model_func,
+    get_link_fn_from_str_or_fn,
+    get_tag_from_model_func,
+    model_func_call,
+    output_list_shap_values,
+)
 from cuml.internals.import_utils import has_shap
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 from cuml.internals.logger import warn
-from cuml.explainer.common import get_dtype_from_model_func
-from cuml.explainer.common import get_handle_from_cuml_model_func
-from cuml.explainer.common import get_link_fn_from_str_or_fn
-from cuml.explainer.common import get_tag_from_model_func
-from cuml.explainer.common import model_func_call
-from cuml.explainer.common import output_list_shap_values
 
-from pylibraft.common.handle cimport handle_t
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 
 cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
@@ -184,9 +181,7 @@ class SHAPBase():
 
         self.random_state = random_state
 
-        if isinstance(background,
-                      pandas.DataFrame) or isinstance(background,
-                                                      cudf.DataFrame):
+        if isinstance(background, pd.DataFrame) or isinstance(background, cudf.DataFrame):
             self.feature_names = background.columns.to_list()
         else:
             self.feature_names = [None for _ in range(len(background))]

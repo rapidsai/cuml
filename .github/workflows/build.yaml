@@ -83,6 +83,8 @@ jobs:
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libcuml
+      package-type: cpp
   wheel-publish-libcuml:
     needs: wheel-build-libcuml
     secrets: inherit
@@ -104,6 +106,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_cuml.sh
+      package-name: cuml
+      package-type: python
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit

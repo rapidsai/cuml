@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +13,18 @@
 # limitations under the License.
 #
 
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 import contextlib
 import doctest
 import inspect
 import io
 
+import cudf
+import dask_cudf
+import numpy as np
+import pytest
+
 import cuml
 import cuml.dask
-from cuml.internals.safe_imports import gpu_only_import
-
-dask_cudf = gpu_only_import("dask_cudf")
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
 
 
 def _name_in_all(parent, name):

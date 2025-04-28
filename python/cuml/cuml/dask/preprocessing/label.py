@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.preprocessing.label import LabelBinarizer as LB
-from cuml.dask.common.input_utils import _extract_partitions
-from cuml.dask.common.base import BaseEstimator
+import cupy as cp
+import cupyx
+import dask
 
 from cuml.common import rmm_cupy_ary
-
-import dask
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
+from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.input_utils import _extract_partitions
+from cuml.preprocessing.label import LabelBinarizer as LB
 
 
 class LabelBinarizer(BaseEstimator):

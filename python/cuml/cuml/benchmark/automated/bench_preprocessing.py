@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 #
 
 import pytest
-from .utils.utils import _benchmark_algo
-from .utils.utils import bench_step  # noqa: F401
+
 from .. import datagen
+from .utils.utils import bench_step  # noqa: F401
+from .utils.utils import _benchmark_algo
 
 #
 # Core tests

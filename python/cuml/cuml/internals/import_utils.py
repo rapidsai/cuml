@@ -15,19 +15,15 @@
 #
 import platform
 
+import numba
 from packaging.version import Version
-
-from cuml.internals.safe_imports import gpu_only_import, UnavailableError
-
-
-numba = gpu_only_import("numba")
 
 
 def has_dask():
     try:
         import dask  # NOQA
-        import dask.distributed  # NOQA
         import dask.dataframe  # NOQA
+        import dask.distributed  # NOQA
 
         return True
     except ImportError:
@@ -129,10 +125,7 @@ def check_min_dask_version(version):
 
 
 def check_min_numba_version(version):
-    try:
-        return Version(str(numba.__version__)) >= Version(version)
-    except UnavailableError:
-        return False
+    return Version(str(numba.__version__)) >= Version(version)
 
 
 def check_min_cupy_version(version):

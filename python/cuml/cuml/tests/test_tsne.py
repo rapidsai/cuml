@@ -13,23 +13,20 @@
 # limitations under the License.
 #
 
+import cupyx
+import numpy as np
 import pytest
-from sklearn.manifold import TSNE as skTSNE
+import scipy
 from sklearn import datasets
-from sklearn.manifold import trustworthiness
 from sklearn.datasets import make_blobs
+from sklearn.manifold import TSNE as skTSNE
+from sklearn.manifold import trustworthiness
 from sklearn.neighbors import NearestNeighbors
+
 from cuml.manifold import TSNE
-from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.metrics import pairwise_distances
+from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import array_equal, stress_param
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-np = cpu_only_import("numpy")
-scipy = cpu_only_import("scipy")
-cupyx = gpu_only_import("cupyx")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:Method 'fft' is " "experimental::"
@@ -55,9 +52,11 @@ def validate_embedding(X, Y, score=0.74, n_neighbors=DEFAULT_N_NEIGHBORS):
 
 @pytest.mark.parametrize("type_knn_graph", ["cuml", "sklearn"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
-def test_tsne_knn_graph_used(test_datasets, type_knn_graph, method):
+def test_tsne_knn_graph_used(
+    supervised_learning_dataset, type_knn_graph, method
+):
 
-    X = test_datasets.data
+    X = supervised_learning_dataset
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS, metric="euclidean").fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype("float32")
@@ -113,9 +112,11 @@ def test_tsne_knn_graph_used(test_datasets, type_knn_graph, method):
 
 @pytest.mark.parametrize("type_knn_graph", ["cuml", "sklearn"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
-def test_tsne_knn_parameters(test_datasets, type_knn_graph, method):
+def test_tsne_knn_parameters(
+    supervised_learning_dataset, type_knn_graph, method
+):
 
-    X = test_datasets.data
+    X = supervised_learning_dataset
 
     from sklearn.preprocessing import normalize
 
@@ -190,7 +191,7 @@ def test_tsne_precomputed_knn(precomputed_type, sparse_input):
 
 @pytest.mark.parametrize("init", ["random", "pca"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
-def test_tsne(test_datasets, method, init):
+def test_tsne(supervised_learning_dataset, method, init):
     """
     This tests how TSNE handles a lot of input data across time.
     (1) Numpy arrays are passed in
@@ -200,7 +201,7 @@ def test_tsne(test_datasets, method, init):
     (5) Tests NAN in TSNE output for learning rate explosions
     (6) Tests verbosity
     """
-    X = test_datasets.data
+    X = supervised_learning_dataset
 
     tsne = TSNE(
         n_components=2,

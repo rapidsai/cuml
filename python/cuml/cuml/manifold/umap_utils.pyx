@@ -18,16 +18,16 @@
 
 from typing import Literal
 
-from rmm.pylibrmm.memory_resource cimport get_current_device_resource
+from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
+from rmm.pylibrmm.memory_resource cimport get_current_device_resource
+
 from cuml.manifold.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
-from libcpp.utility cimport move
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+import cupy as cp
+import cupyx
+import numpy as np
 
 
 cdef class GraphHolder:
