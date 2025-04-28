@@ -32,7 +32,7 @@ from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double entropy(const handle_t &handle,
                    const int *y,
                    const int n,
