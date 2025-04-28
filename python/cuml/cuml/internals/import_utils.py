@@ -15,7 +15,6 @@
 #
 import platform
 
-import numba
 from packaging.version import Version
 
 
@@ -68,10 +67,6 @@ def has_xgboost():
             ).format(str(ex))
         )
         return False
-
-
-def check_min_numba_version(version):
-    return Version(str(numba.__version__)) >= Version(version)
 
 
 def check_min_cupy_version(version):
