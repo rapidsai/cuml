@@ -18,6 +18,7 @@
 import argparse
 import sys
 import xml.etree.ElementTree as ET
+from collections import OrderedDict
 from pathlib import Path
 
 import yaml
@@ -37,6 +38,12 @@ def setup_yaml():
         return dumper.represent_scalar(scalar_tag, data, style='"')
 
     yaml.add_representer(QuoteTestID, quoted_scalar)
+    yaml.add_representer(
+        OrderedDict,
+        lambda dumper, data: dumper.represent_mapping(
+            "tag:yaml.org,2002:map", data.items()
+        ),
+    )
 
 
 def parse_args():
@@ -106,7 +113,7 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
     """Update existing xfail list based on test results.
 
     Args:
-        existing_list: List of existing xfail entries
+        existing_list: List of existing xfail groups
         test_results: Dict containing test results by test ID
         xpassed_action: How to handle XPASS tests
             ("keep", "remove", or "mark-flaky")
@@ -115,53 +122,96 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
         Updated xfail list
     """
     # Convert existing list to dict for easier lookup
-    existing_by_id = {entry["id"]: entry for entry in existing_list}
-    updated_entries = {}
+    existing_by_id = {}
+    for group in existing_list:
+        for test_id in group.get("tests", []):
+            existing_by_id[QuoteTestID(test_id)] = group
 
-    # First add all existing entries that are still failing,
-    # xfailing, or marked as non-strict
-    for test_id, entry in existing_by_id.items():
-        if test_id in test_results:
-            result = test_results[test_id]
-            if result["status"] in ("fail", "xfail"):
-                # Keep failing tests
-                updated_entries[test_id] = entry
-            elif result["status"] == "xpass":
-                if xpassed_action == "keep":
-                    # Keep all xpassed tests
-                    updated_entries[test_id] = entry
-                elif xpassed_action == "mark-flaky" and entry.get(
-                    "strict", True
-                ):
-                    # Mark strict xpassed tests as flaky
-                    entry = entry.copy()
-                    entry["strict"] = False
-                    entry["reason"] = "Test is flaky with cuml.accel"
-                    updated_entries[test_id] = entry
-                # For "remove", we don't add xpassed tests at all
-            elif entry.get("strict", True) is False:
-                # Always keep non-strict tests
-                updated_entries[test_id] = entry
-        else:
-            # Test not in results - keep it to be safe
-            updated_entries[test_id] = entry
+    updated_groups = {}
+
+    # First process existing groups
+    for group in existing_list:
+        reason = group["reason"]
+        strict = group.get("strict", True)
+        tests = group.get("tests", [])
+        condition = group.get("condition", None)
+
+        # Track which tests from this group are still relevant
+        relevant_tests = []
+
+        for test_id in tests:
+            test_id = QuoteTestID(test_id)
+            if test_id in test_results:
+                result = test_results[test_id]
+                if result["status"] in ("fail", "xfail"):
+                    # Keep failing tests
+                    relevant_tests.append(test_id)
+                elif result["status"] == "xpass":
+                    if xpassed_action == "keep":
+                        # Keep all xpassed tests
+                        relevant_tests.append(test_id)
+                    elif xpassed_action == "mark-flaky" and strict:
+                        # Move strict xpassed tests to flaky group instead of
+                        # modifying their existing group
+                        flaky_reason = "Test is flaky with cuml.accel"
+                        if flaky_reason not in updated_groups:
+                            updated_groups[flaky_reason] = OrderedDict(
+                                [
+                                    ("reason", flaky_reason),
+                                    ("strict", False),
+                                    ("tests", []),
+                                ]
+                            )
+                            if condition is not None:
+                                updated_groups[flaky_reason][
+                                    "condition"
+                                ] = condition
+                        updated_groups[flaky_reason]["tests"].append(test_id)
+                    # For "remove", we don't add xpassed tests at all
+                elif not strict:
+                    # Always keep non-strict tests
+                    relevant_tests.append(test_id)
+            else:
+                # Test not in results - keep it to be safe
+                relevant_tests.append(test_id)
+
+        if relevant_tests:
+            if reason not in updated_groups:
+                updated_groups[reason] = OrderedDict(
+                    [
+                        ("reason", reason),
+                        ("strict", strict),
+                        ("tests", []),
+                    ]
+                )
+                if condition is not None:
+                    updated_groups[reason]["condition"] = condition
+            updated_groups[reason]["tests"].extend(relevant_tests)
 
     # Then add any new failing tests
     for test_id, result in test_results.items():
-        if test_id not in updated_entries and result["status"] in (
+        if test_id not in existing_by_id and result["status"] in (
             "fail",
             "xfail",
         ):
-            updated_entries[test_id] = {"id": QuoteTestID(test_id)}
+            # Create a new group for this test
+            reason = "Test fails with cuml.accel"
+            if reason not in updated_groups:
+                updated_groups[reason] = OrderedDict(
+                    [
+                        ("reason", reason),
+                        ("strict", True),
+                        ("tests", []),
+                    ]
+                )
+            updated_groups[reason]["tests"].append(test_id)
 
     # Convert back to list and sort
-    # Ensure all test IDs are properly quoted
-    final_entries = []
-    for entry in sorted(updated_entries.values(), key=lambda x: x["id"]):
-        entry = entry.copy()
-        entry["id"] = QuoteTestID(entry["id"])
-        final_entries.append(entry)
-    return final_entries
+    final_groups = []
+    for group in sorted(updated_groups.values(), key=lambda x: x["reason"]):
+        group["tests"] = sorted(group["tests"])
+        final_groups.append(group)
+    return final_groups
 
 
 def get_test_results(testsuite):
@@ -174,7 +224,7 @@ def get_test_results(testsuite):
         classname = testcase.get("classname", "")
         if not classname.startswith("sklearn."):
             classname = f"sklearn.{classname}"
-        test_id = f"{classname}::{testcase.get('name')}"
+        test_id = QuoteTestID(f"{classname}::{testcase.get('name')}")
 
         failure = testcase.find("failure")
         error = testcase.find("error")
@@ -346,8 +396,19 @@ def main():
             xfail_list = []
             for test_id, result in test_results.items():
                 if result["status"] in ("fail", "xfail"):
-                    xfail_list.append({"id": QuoteTestID(test_id)})
-            xfail_list.sort(key=lambda x: x["id"])
+                    if not xfail_list:
+                        xfail_list.append(
+                            OrderedDict(
+                                [
+                                    ("reason", "Test fails with cuml.accel"),
+                                    ("strict", True),
+                                    ("tests", []),
+                                ]
+                            )
+                        )
+                    xfail_list[0]["tests"].append(test_id)
+            if xfail_list:
+                xfail_list[0]["tests"].sort()
             # Print to stdout
             setup_yaml()
             print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))

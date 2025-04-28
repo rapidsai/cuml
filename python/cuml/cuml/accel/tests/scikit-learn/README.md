@@ -78,23 +78,31 @@ Example with all options:
 ```
 
 ### Format
-The xfail list is a YAML file containing test IDs to mark as xfail. Each entry can include:
-- `id`: Test ID in format "module::test_name"
-- `reason`: Optional reason for xfail (default: "Test listed in xfail list")
+The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
+- `reason`: Description of why the tests in this group are expected to fail
 - `strict`: Whether to enforce xfail (default: true)
+- `tests`: List of test IDs in format "module::test_name"
 - `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
 
 Example:
 ```yaml
-- id: "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
-  reason: "Known issue with sparse inputs"
+- reason: "Known issues with sparse inputs"
   strict: true
-- id: "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+  tests:
+    - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
+    - "sklearn.linear_model.tests.test_ridge::test_ridge_sparse"
+
+- reason: "Unsupported hyperparameters for older scikit-learn version"
   condition: "scikit-learn<1.5.2"
-  reason: "Unsupported hyperparameter for older scikit-learn version."
-- id: "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
-  reason: "Flaky test due to random seed sensitivity"
+  tests:
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+
+- reason: "Flaky tests due to random seed sensitivity"
   strict: false
+  tests:
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_regressor"
 ```
 
 **Note on `strict: false`**:

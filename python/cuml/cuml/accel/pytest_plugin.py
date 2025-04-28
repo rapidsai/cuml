@@ -85,28 +85,30 @@ def pytest_collection_modifyitems(config, items):
     xfail_list = yaml.safe_load(xfail_list_path.read_text())
 
     if not isinstance(xfail_list, list):
-        raise ValueError("Xfail list must be a list of test entries")
+        raise ValueError("Xfail list must be a list of test groups")
 
-    # Convert list of dicts into dict mapping test IDs to lists of xfail configs
+    # Convert list of groups into dict mapping test IDs to lists of xfail
+    # configs
     xfail_configs = defaultdict(list)
-    for entry in xfail_list:
-        if not isinstance(entry, dict):
+    for group in xfail_list:
+        if not isinstance(group, dict):
             raise ValueError("Xfail list entry must be a dictionary")
-        if "id" not in entry:
-            raise ValueError("Xfail list entry must contain an 'id' field")
+        if "reason" not in group:
+            raise ValueError("Xfail list entry must contain a 'reason' field")
+        if "tests" not in group:
+            raise ValueError("Xfail list entry must contain a 'tests' field")
 
-        test_id = entry["id"]
+        reason = group["reason"]
+        strict = group.get("strict", True)
+        tests = group["tests"]
         condition = True
-        if "condition" in entry:
-            condition = create_version_condition(entry["condition"])
+        if "condition" in group:
+            condition = create_version_condition(group["condition"])
 
-        config = {
-            "reason": entry.get("reason", "Test listed in xfail list"),
-            "strict": entry.get("strict", True),
-            "condition": condition,
-        }
+        config = {"reason": reason, "strict": strict, "condition": condition}
 
-        xfail_configs[test_id].append(config)
+        for test_id in tests:
+            xfail_configs[test_id].append(config)
 
     for item in items:
         test_id = f"{item.module.__name__}::{item.name}"
