@@ -15,36 +15,34 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
+import cupy
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+
 from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
+
+from cuml.common import input_to_cuml_array, using_output_type
 from cuml.internals.input_utils import determine_array_type_full
-from cuml.common import using_output_type
 from cuml.internals.logger import warn
+
 from cuml.internals.logger cimport level_enum
-from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+
 from libcpp cimport bool
 
 
-cdef extern from "raft/distance/distance_types.hpp" \
-        namespace "raft::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp" \
+        namespace "cuvs::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -743,26 +741,22 @@ class SVMBase(UniversalBase,
 
         self._intercept_ = input_to_cuml_array(
             intercept_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
         self.dual_coef_ = input_to_cuml_array(
             dual_coef_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
         self.support_ = input_to_cuml_array(
             self._cpu_model.support_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.int32,
             order='F')[0]
         self.support_vectors_ = input_to_cuml_array(
             self._cpu_model.support_vectors_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
 

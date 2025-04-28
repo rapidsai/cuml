@@ -13,36 +13,32 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
+from numpy.testing import assert_allclose
+from sklearn.cluster import KMeans as SkKMeans
+from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.decomposition import PCA as SkPCA
+from sklearn.decomposition import TruncatedSVD as SkTruncatedSVD
+from sklearn.linear_model import ElasticNet as SkElasticNet
+from sklearn.linear_model import Lasso as SkLasso
+from sklearn.linear_model import LinearRegression as SkLinearRegression
+from sklearn.linear_model import LogisticRegression as SkLogisticRegression
+from sklearn.linear_model import Ridge as SkRidge
+from sklearn.utils.validation import check_is_fitted
 
-from cuml.cluster import KMeans, DBSCAN
+from cuml.cluster import DBSCAN, KMeans
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.linear_model import (
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
 from cuml.manifold import TSNE
 from cuml.neighbors import NearestNeighbors
-
 from cuml.testing.utils import array_equal
-
-from numpy.testing import assert_allclose
-
-from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans
-from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
-from sklearn.linear_model import (
-    LinearRegression as SkLinearRegression,
-    LogisticRegression as SkLogisticRegression,
-    ElasticNet as SkElasticNet,
-    Ridge as SkRidge,
-    Lasso as SkLasso,
-)
 
 ###############################################################################
 #                              Helper functions                               #

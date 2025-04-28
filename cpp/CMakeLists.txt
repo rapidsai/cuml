@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(../rapids_config.cmake)
+include(../cmake/rapids_config.cmake)
 
 include(rapids-cmake)
 include(rapids-cpm)
@@ -349,7 +349,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/decisiontree/batched-levelalgo/kernels/mse-float.cu
         src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
         src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
-        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu)
   endif()
 
@@ -609,7 +608,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
-  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=CUML_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
+  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC

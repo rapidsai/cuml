@@ -15,24 +15,18 @@
 import warnings
 from typing import Optional
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
+from cudf import Index
+
 import cuml.internals.logger as logger
-from cuml import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
+from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.preprocessing import LabelEncoder
-
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-
-Index = gpu_only_import_from("cudf", "Index")
+from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 
 class CheckFeaturesMixIn:

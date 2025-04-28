@@ -14,18 +14,16 @@
 #
 
 
-from cuml.common import rmm_cupy_ary, has_scipy
-from dask.distributed import default_client
-from cuml.internals.memory_utils import with_cupy_rmm
-import dask.dataframe as dd
+import cudf
+import cupy as cp
+import cupyx
 import dask
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+import dask.dataframe as dd
+import numpy as np
+from dask.distributed import default_client
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-cudf = gpu_only_import("cudf")
+from cuml.common import has_scipy, rmm_cupy_ary
+from cuml.internals.memory_utils import with_cupy_rmm
 
 
 def validate_dask_array(darray, client=None):

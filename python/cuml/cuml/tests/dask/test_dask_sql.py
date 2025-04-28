@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,16 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
+import cudf
+import dask_cudf
+import numpy as np
+import pytest
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
-from cuml.internals.import_utils import has_dask_sql
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
+from sklearn.model_selection import train_test_split
+
 import cuml
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-dask_cudf = gpu_only_import("dask_cudf")
-np = cpu_only_import("numpy")
-
+from cuml.internals.import_utils import has_dask_sql
 
 if has_dask_sql():
     from dask_sql import Context

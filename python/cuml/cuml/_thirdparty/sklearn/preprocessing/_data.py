@@ -28,42 +28,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ....internals.memory_utils import using_output_type
-from ....internals import api_return_generic
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.array import CumlArray
-from ....thirdparty_adapters.sparsefuncs_fast import \
-    (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
-     csr_polynomial_expansion)
-from ..utils.sparsefuncs import (inplace_column_scale,
-                                 min_max_axis,
-                                 mean_variance_axis)
-from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
-                                check_random_state)
-from ..utils.extmath import _incremental_mean_and_var
-from ..utils.extmath import row_norms
-from ....thirdparty_adapters import check_array
-from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
-    StatelessTagMixin
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from scipy.special import boxcox
-from scipy import optimize
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-from itertools import chain, combinations
 import numbers
 import warnings
+from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
 
-from cuml.internals.safe_imports import cpu_only_import
-cpu_np = cpu_only_import('numpy')
-np = gpu_only_import('cupy')
-resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
-stats = cpu_only_import_from('scipy', 'stats')
+import cupy as np
+import numpy as cpu_np
+from cupyx.scipy import sparse
+from scipy import optimize, stats
+from scipy.special import boxcox
 
+from cuml.internals.mixins import (
+    AllowNaNTagMixin,
+    SparseInputTagMixin,
+    StatelessTagMixin,
+)
+
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals import api_return_generic
+from ....internals.array import CumlArray
+from ....internals.array_sparse import SparseCumlArray
+from ....internals.memory_utils import using_output_type
+from ....thirdparty_adapters import check_array
+from ....thirdparty_adapters.sparsefuncs_fast import (
+    csr_polynomial_expansion,
+    inplace_csr_row_normalize_l1,
+    inplace_csr_row_normalize_l2,
+)
+from ..utils.extmath import _incremental_mean_and_var, row_norms
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.sparsefuncs import (
+    inplace_column_scale,
+    mean_variance_axis,
+    min_max_axis,
+)
+from ..utils.validation import (
+    FLOAT_DTYPES,
+    check_is_fitted,
+    check_random_state,
+)
 
 BOUNDS_THRESHOLD = 1e-7
 
@@ -2292,6 +2296,7 @@ class QuantileTransformer(TransformerMixin,
         X = np.asnumpy(X)
         if self.subsample is not None and self.subsample < n_samples:
             # Take a subsample of `X`
+            from sklearn.utils import resample
             X = resample(
                 X, replace=False, n_samples=self.subsample, random_state=random_state
             )

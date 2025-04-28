@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,24 +14,23 @@
 #
 
 import platform
-from cuml.testing.utils import array_equal
-from sklearn.neighbors import KNeighborsClassifier
-from cuml.testing.utils import unit_param, quality_param, stress_param
-from cuml.dask.common import utils as dask_utils
-from cuml.common import has_scipy
-from cuml.internals.safe_imports import cpu_only_import
+
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
 import pytest
+from sklearn.neighbors import KNeighborsClassifier
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-dask_cudf = gpu_only_import("dask_cudf")
-
-pd = cpu_only_import("pandas")
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-
+from cuml.common import has_scipy
+from cuml.dask.common import utils as dask_utils
+from cuml.testing.utils import (
+    array_equal,
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -94,9 +93,9 @@ def _test_compare_skl(
 ):
     client = request.getfixturevalue(dask_client)
 
-    from cuml.dask.neighbors import NearestNeighbors as daskNN
-
     from sklearn.datasets import make_blobs
+
+    from cuml.dask.neighbors import NearestNeighbors as daskNN
 
     nrows = _scale_rows(client, nrows)
 
@@ -274,9 +273,9 @@ def _test_batch_size(nrows, ncols, n_parts, batch_size, dask_client, request):
 
     n_neighbors = 10
     n_clusters = 5
-    from cuml.dask.neighbors import NearestNeighbors as daskNN
-
     from sklearn.datasets import make_blobs
+
+    from cuml.dask.neighbors import NearestNeighbors as daskNN
 
     nrows = _scale_rows(client, nrows)
 
@@ -339,9 +338,9 @@ def _test_return_distance(dask_client, request):
     n_feats = 50
     k = 5
 
-    from cuml.dask.neighbors import NearestNeighbors as daskNN
-
     from sklearn.datasets import make_blobs
+
+    from cuml.dask.neighbors import NearestNeighbors as daskNN
 
     n_samples = _scale_rows(client, n_samples)
 
@@ -385,12 +384,12 @@ def _test_default_n_neighbors(dask_client, request):
     n_feats = 50
     k = 15
 
+    from sklearn.datasets import make_blobs
+
     from cuml.dask.neighbors import NearestNeighbors as daskNN
     from cuml.neighbors.nearest_neighbors_mg import (
         NearestNeighborsMG as cumlNN,
     )
-
-    from sklearn.datasets import make_blobs
 
     n_samples = _scale_rows(client, n_samples)
 
@@ -432,8 +431,8 @@ def test_default_n_neighbors_ucxx(request):
 def _test_one_query_partition(dask_client, request):
     client = request.getfixturevalue(dask_client)  # noqa
 
-    from cuml.dask.neighbors import NearestNeighbors as daskNN
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.neighbors import NearestNeighbors as daskNN
 
     X_train, _ = make_blobs(n_samples=4000, n_features=16, n_parts=8)
 

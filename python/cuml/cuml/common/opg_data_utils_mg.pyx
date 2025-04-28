@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
+
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free, malloc
 
 from cuml.common.opg_data_utils_mg cimport *
-from libc.stdlib cimport malloc, free
-from libc.stdint cimport uintptr_t
+
 from cuml.common import input_to_cuml_array
+
 from cython.operator cimport dereference as deref
+
 from cuml.internals.array import CumlArray
 
 

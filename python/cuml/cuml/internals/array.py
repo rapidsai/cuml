@@ -16,62 +16,33 @@
 
 import copy
 import operator
+from functools import cached_property
 from typing import Tuple
 
+import cudf
+import cupy as cp
+import dask.dataframe as dd
+import dask_cudf
+import numpy as np
+import pandas as pd
+from numba import cuda
+from numba.cuda import is_cuda_array as is_numba_array
+
+import cuml.accel
+import cuml.internals.nvtx as nvtx
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-    return_false,
-    safe_import,
-    safe_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-rmm = gpu_only_import("rmm")
-host_xpy = safe_import("numpy", alt=cp)
-
-cuda = gpu_only_import_from("numba", "cuda")
-cached_property = safe_import_from(
-    "functools", "cached_property", alt=null_decorator
-)
-CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
-CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-CudfIndex = gpu_only_import_from("cudf", "Index")
-CudfSeries = gpu_only_import_from("cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
-DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
-DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
-DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-PandasIndex = cpu_only_import_from("pandas", "Index")
-PandasSeries = cpu_only_import_from("pandas", "Series")
-is_numba_array = gpu_only_import_from(
-    "numba.cuda", "is_cuda_array", alt=return_false
-)
-
-cp_ndarray = gpu_only_import_from("cupy", "ndarray")
-np_ndarray = cpu_only_import_from("numpy", "ndarray")
-numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
 
 _specific_supported_types = (
-    np_ndarray,
-    cp_ndarray,
-    CudfSeries,
-    CudfDataFrame,
-    PandasSeries,
-    PandasDataFrame,
+    np.ndarray,
+    cp.ndarray,
+    cudf.Series,
+    cudf.DataFrame,
+    pd.Series,
+    pd.DataFrame,
 )
 
 
@@ -79,18 +50,14 @@ def _order_to_strides(order, shape, dtype):
     """
     Given memory order, shape and dtype, return expected strides
     """
-    dtype = host_xpy.dtype(dtype)
+    dtype = np.dtype(dtype)
     if order == "C":
         strides = (
-            host_xpy.append(
-                host_xpy.cumprod(host_xpy.array(shape[:0:-1]))[::-1], 1
-            )
+            np.append(np.cumprod(np.array(shape[:0:-1]))[::-1], 1)
             * dtype.itemsize
         )
     elif order == "F":
-        strides = (
-            host_xpy.cumprod(host_xpy.array([1, *shape[:-1]])) * dtype.itemsize
-        )
+        strides = np.cumprod(np.array([1, *shape[:-1]])) * dtype.itemsize
     else:
         raise ValueError(
             "Must specify strides or order, and order must"
@@ -110,16 +77,16 @@ def _determine_memory_order(shape, strides, dtype, default="C"):
         return "C"
     if len(shape) < 2:
         return "C" if default in (None, "K") else default
-    shape = host_xpy.array(shape)
-    strides = host_xpy.array(strides)
-    itemsize = host_xpy.dtype(dtype).itemsize
+    shape = np.array(shape)
+    strides = np.array(strides)
+    itemsize = np.dtype(dtype).itemsize
     c_contiguous = False
     f_contiguous = False
     if strides[-1] == itemsize:
-        if host_xpy.all(strides[:-1] == shape[1:] * strides[1:]):
+        if np.all(strides[:-1] == shape[1:] * strides[1:]):
             c_contiguous = True
     if strides[0] == itemsize:
-        if host_xpy.all(strides[1:] == shape[:-1] * strides[:-1]):
+        if np.all(strides[1:] == shape[:-1] * strides[:-1]):
             f_contiguous = True
     if c_contiguous and f_contiguous:
         return "C" if default in (None, "K") else default
@@ -205,7 +172,7 @@ class CumlArray:
 
     """
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="internals.CumlArray.__init__",
         category="utils",
         domain="cuml_python",
@@ -222,7 +189,6 @@ class CumlArray:
         mem_type=None,
         validate=None,
     ):
-
         if dtype is not None:
             dtype = GlobalSettings().xpy.dtype(dtype)
 
@@ -247,6 +213,12 @@ class CumlArray:
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
+            elif isinstance(data, (list, tuple)) and cuml.accel.enabled():
+                # we accept lists and tuples in accel mode
+                data = np.asarray(data)
+                self._owner = data
+                self._array_interface = data.__array_interface__
+                self._mem_type = MemoryType.host
             else:  # Must construct array interface
                 if dtype is None:
                     if hasattr(data, "dtype"):
@@ -355,12 +327,12 @@ class CumlArray:
 
         array_strides = self._array_interface["strides"]
         if array_strides is not None:
-            array_strides = host_xpy.array(array_strides)
+            array_strides = np.array(array_strides)
 
         if (
             array_strides is None
             or len(array_strides) == 1
-            or host_xpy.all(array_strides[1:] == array_strides[:-1])
+            or np.all(array_strides[1:] == array_strides[:-1])
         ) and order not in ("K", None):
             self._order = order
         else:
@@ -389,12 +361,12 @@ class CumlArray:
                     "Specified owner object does not seem to match data"
                 )
             if shape is not None:
-                shape_arr = host_xpy.array(shape)
+                shape_arr = np.array(shape)
                 if len(shape_arr.shape) == 0:
-                    shape_arr = host_xpy.reshape(shape_arr, (1,))
+                    shape_arr = np.reshape(shape_arr, (1,))
 
-                if not host_xpy.array_equal(
-                    host_xpy.array(self._array_interface["shape"]), shape_arr
+                if not np.array_equal(
+                    np.array(self._array_interface["shape"]), shape_arr
                 ):
                     raise ValueError(
                         "Specified shape inconsistent with input data object"
@@ -402,9 +374,9 @@ class CumlArray:
             if (
                 strides is not None
                 and self._array_interface["strides"] is not None
-                and not host_xpy.array_equal(
-                    host_xpy.array(self._array_interface["strides"]),
-                    host_xpy.array(strides),
+                and not np.array_equal(
+                    np.array(self._array_interface["strides"]),
+                    np.array(strides),
                 )
             ):
                 raise ValueError(
@@ -438,8 +410,8 @@ class CumlArray:
     @cached_property
     def size(self):
         return (
-            host_xpy.prod(self._array_interface["shape"])
-            * host_xpy.dtype(self._array_interface["typestr"]).itemsize
+            np.prod(self._array_interface["shape"])
+            * np.dtype(self._array_interface["typestr"]).itemsize
         )
 
     @property
@@ -547,7 +519,7 @@ class CumlArray:
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_output",
         category="utils",
         domain="cuml_python",
@@ -721,7 +693,7 @@ class CumlArray:
 
         return self
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.host_serialize",
         category="utils",
         domain="cuml_python",
@@ -740,7 +712,7 @@ class CumlArray:
         obj = cls.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.device_serialize",
         category="utils",
         domain="cuml_python",
@@ -759,7 +731,7 @@ class CumlArray:
         obj = cls.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.serialize",
         category="utils",
         domain="cuml_python",
@@ -800,7 +772,7 @@ class CumlArray:
         header, frames = self.host_serialize()
         return self.host_deserialize, (header, frames)
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -814,7 +786,7 @@ class CumlArray:
             validate=False,
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -822,7 +794,7 @@ class CumlArray:
     def to_host_array(self):
         return self.to_output("numpy")
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -831,7 +803,7 @@ class CumlArray:
         return self.to_output("cupy")
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.empty",
         category="utils",
         domain="cuml_python",
@@ -855,7 +827,7 @@ class CumlArray:
         return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.full", category="utils", domain="cuml_python"
     )
     def full(cls, shape, value, dtype, order="F", index=None, mem_type=None):
@@ -879,7 +851,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.zeros",
         category="utils",
         domain="cuml_python",
@@ -909,7 +881,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.ones", category="utils", domain="cuml_python"
     )
     def ones(
@@ -937,7 +909,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.from_input",
         category="utils",
         domain="cuml_python",
@@ -1047,7 +1019,7 @@ class CumlArray:
                 else convert_to_mem_type
             )
         if convert_to_dtype:
-            convert_to_dtype = host_xpy.dtype(convert_to_dtype)
+            convert_to_dtype = np.dtype(convert_to_dtype)
         # Provide fast-path for CumlArray input
         if (
             isinstance(X, CumlArray)
@@ -1070,7 +1042,7 @@ class CumlArray:
                 return X
 
         if isinstance(
-            X, (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
+            X, (dask_cudf.Series, dask_cudf.DataFrame, dd.Series, dd.DataFrame)
         ):
             # TODO: Warn, but not when using dask_sql
             X = X.compute()
@@ -1078,27 +1050,27 @@ class CumlArray:
         index = getattr(X, "index", None)
         if index is not None:
             if convert_to_mem_type is MemoryType.host and isinstance(
-                index, CudfIndex
+                index, cudf.Index
             ):
                 index = cudf_to_pandas(index)
             elif convert_to_mem_type is MemoryType.device and isinstance(
-                index, PandasIndex
+                index, pd.Index
             ):
                 try:
-                    index = CudfIndex.from_pandas(index)
+                    index = cudf.Index.from_pandas(index)
                 except TypeError:
-                    index = CudfIndex(index)
+                    index = cudf.Index(index)
 
-        if isinstance(X, CudfSeries):
+        if isinstance(X, cudf.Series):
             if X.null_count != 0:
                 raise ValueError(
                     "Error: cuDF Series has missing/null values, "
                     "which are not supported by cuML."
                 )
 
-        if isinstance(X, CudfDataFrame):
+        if isinstance(X, cudf.DataFrame):
             X = X.to_cupy(copy=False)
-        elif isinstance(X, (PandasDataFrame, PandasSeries)):
+        elif isinstance(X, (pd.DataFrame, pd.Series)):
             X = X.to_numpy(copy=False)
             # by default pandas converts to numpy 'C' major, which
             # does not keep the original order
@@ -1109,6 +1081,10 @@ class CumlArray:
             # temporarily use this codepath to avoid errors, substitute
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
+            deepcopy = False
+        elif isinstance(X, (list, tuple)) and cuml.accel.enabled():
+            # we accept lists and tuples in accel mode
+            X = np.asarray(X)
             deepcopy = False
 
         requested_order = (order, None)[fail_on_order]

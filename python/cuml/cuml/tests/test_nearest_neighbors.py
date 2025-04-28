@@ -15,40 +15,32 @@
 #
 
 import gc
-from cuml.common import has_scipy
-import cuml
-import sklearn
-from cuml.internals.safe_imports import cpu_only_import_from
-from numpy.testing import assert_array_equal, assert_allclose
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
 import math
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
+import pandas as pd
+import pytest
+import sklearn
+from numpy.testing import assert_allclose, assert_array_equal
+from scipy.sparse import isspmatrix_csr
+from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors as skKNN
+
+import cuml
+from cuml.common import has_scipy
+from cuml.datasets import make_blobs
+from cuml.internals import logger  # noqa: F401
+from cuml.metrics import pairwise_distances as cuPW
+from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.neighbors import NearestNeighbors as cuKNN
-
-from sklearn.neighbors import NearestNeighbors as skKNN
-from cuml.datasets import make_blobs
-
-from sklearn.metrics import pairwise_distances
-from cuml.metrics import pairwise_distances as cuPW
-
-from cuml.internals import logger  # noqa: F401
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-cudf = gpu_only_import("cudf")
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-isspmatrix_csr = cpu_only_import_from("scipy.sparse", "isspmatrix_csr")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:((.|\n)*)#4020((.|\n)*):" "UserWarning:cuml[.*]"

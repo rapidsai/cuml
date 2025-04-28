@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ void svrFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* y,
                   const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
+                  cuvs::distance::kernels::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight = nullptr);
 

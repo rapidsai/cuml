@@ -1,0 +1,32 @@
+# Initial pre-commit configuration setup
+3bab4d1f79bbf811ce86759de223a0d6aebcd239
+
+# Add codespell as a linter and fix spelling errors
+d41a081cc5809ef0f14e1c7f4f77749ab044ec93
+
+# Update pre-commit-hooks to v0.0.3
+84989a5aad40cfa0d9bee427b0cfdac8fa177a5f
+
+# Replace local copyright check with pre-commit-hooks verify-copyright
+c52ca5265c8477be9a1d4b3863dd42a6c5527cd2
+
+# Update rapidsai/pre-commit-hooks to version 0.4.0
+2f1157047c4db32897bcfe2c477c55c0708a34ec
+
+# Update pre-commit hooks to latest versions
+990db7190ddbc026dcbf88936a9cd9ad860106fd
+
+# Normalize whitespace (trim trailing whitespace and enforce consistent EOL)
+1bcd5c731a76b261ed12cbb138361f0be58b0cf3
+
+# Add verify-codeowners hook
+71bc290649b52c40d61e4cf98ba2d7643a9ee617
+
+# Remove unused imports and enforce flake8 F401 check
+6e759810119631e8360287d247afe1f452ff443d
+
+# Add shellcheck to pre-commit and fix shell script warnings
+cc68aee1b224cdca0587ecd7c57b098b07b9b1af
+
+# Add isort to pre-commit hooks and fix circular imports
+b01e2d1d4cf358dbc0a435a663c546fa9cf3e3cb

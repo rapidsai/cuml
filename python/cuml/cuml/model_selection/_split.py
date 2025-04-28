@@ -14,27 +14,20 @@
 #
 from __future__ import annotations
 
-from typing import Optional, Union, List, Tuple
+from typing import List, Optional, Tuple, Union
+
+import cudf
+import cupy as cp
+import numpy as np
+from numba import cuda
 
 from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray, array_to_memory_order
 from cuml.internals.input_utils import (
     determine_array_type,
     determine_df_obj_type,
 )
 from cuml.internals.output_utils import output_to_df_obj_like
-from cuml.internals.array import array_to_memory_order, CumlArray
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
-
-cuda = gpu_only_import_from("numba", "cuda")
 
 
 def _compute_stratify_split_indices(

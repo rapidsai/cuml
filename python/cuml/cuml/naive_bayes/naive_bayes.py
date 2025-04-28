@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,29 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.prims.array import binarize
-from cuml.prims.label import invert_labels
-from cuml.prims.label import check_labels
-from cuml.prims.label import make_monotonic
-from cuml.internals.import_utils import has_scipy
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common import CumlArray
 import math
 import warnings
-from cuml.internals.safe_imports import (
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
+import cupy as cp
+import cupyx
+
+import cuml.internals.nvtx as nvtx
+from cuml.common import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.base import Base
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.mixins import ClassifierMixin
+from cuml.prims.array import binarize
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -395,7 +389,7 @@ class GaussianNB(_BaseNB):
             sample_weight=sample_weight,
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
     def _partial_fit(
@@ -826,7 +820,7 @@ class _BaseDiscreteNB(_BaseNB):
             X, y, sample_weight=sample_weight, _classes=classes
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )

@@ -12,23 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import cpu_only_import
-import cuml.internals.logger as logger
-from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 import numbers
-from cuml.internals.safe_imports import gpu_only_import
 from functools import partial
-from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
-from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+from cudf import Series
+
+import cuml.internals.logger as logger
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.common.sparsefuncs import (
+    create_csr_matrix_from_count_df,
+    csr_row_normalize_l1,
+    csr_row_normalize_l2,
+)
+from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 
-Series = gpu_only_import_from("cudf", "Series")
 
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
-pd = cpu_only_import("pandas")
+def min_signed_type(n):
+    for int_dtype in (np.int8, np.int16, np.int32, np.int64):
+        dtype = np.dtype(int_dtype)
+        if (dtype.itemsize * 8) >= 8:
+            if np.iinfo(int_dtype).min <= n <= np.iinfo(int_dtype).max:
+                return dtype
+    # resort to using `int64` and let numpy raise appropriate exception:
+    return np.int64(n).dtype
 
 
 def _preprocess(
@@ -255,7 +266,7 @@ class _VectorizerMixin:
         of documents.
         """
         remaining_docs = count_df["doc_id"].unique()
-        dtype = cudf.utils.dtypes.min_signed_type(n_doc)
+        dtype = min_signed_type(n_doc)
         doc_ids = cudf.DataFrame(
             data={"all_ids": cp.arange(0, n_doc, dtype=dtype)}, dtype=dtype
         )
@@ -468,7 +479,7 @@ class CountVectorizer(_VectorizerMixin):
         tokenized_df["token"] = (
             tokenized_df["token"]
             .cat.set_categories(self.vocabulary_)
-            ._column.codes
+            .cat.codes
         )
 
         # Count of each token in each document
@@ -491,7 +502,7 @@ class CountVectorizer(_VectorizerMixin):
             df[column]
             .astype("category")
             .cat.set_categories(keep_values)
-            ._column.codes
+            .cat.codes
         )
         df = df.dropna(subset=column)
         return df

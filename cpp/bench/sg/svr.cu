@@ -21,7 +21,8 @@
 #include <cuml/svm/svm_parameter.h>
 #include <cuml/svm/svr.hpp>
 
-#include <raft/distance/kernels.cuh>
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 #include <cmath>
 #include <utility>
@@ -34,7 +35,7 @@ template <typename D>
 struct SvrParams {
   DatasetParams data;
   RegressionParams regression;
-  raft::distance::kernels::KernelParams kernel;
+  cuvs::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D>* model;
 };
@@ -76,7 +77,7 @@ class SVR : public RegressionFixture<D> {
   }
 
  private:
-  raft::distance::kernels::KernelParams kernel;
+  cuvs::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D>* model;
 };
@@ -107,11 +108,11 @@ std::vector<SvrParams<D>> getInputs()
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 
-  std::vector<raft::distance::kernels::KernelParams> kernels{
-    raft::distance::kernels::KernelParams{raft::distance::kernels::LINEAR, 3, 1, 0},
-    raft::distance::kernels::KernelParams{raft::distance::kernels::POLYNOMIAL, 3, 1, 0},
-    raft::distance::kernels::KernelParams{raft::distance::kernels::RBF, 3, 1, 0},
-    raft::distance::kernels::KernelParams{raft::distance::kernels::TANH, 3, 0.1, 0}};
+  std::vector<cuvs::distance::kernels::KernelParams> kernels{
+    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::LINEAR, 3, 1, 0},
+    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::POLYNOMIAL, 3, 1, 0},
+    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::RBF, 3, 1, 0},
+    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
     p.data.nrows               = rc.nrows;

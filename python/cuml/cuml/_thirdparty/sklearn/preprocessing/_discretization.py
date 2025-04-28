@@ -25,22 +25,22 @@
 # limitations under the License.
 #
 
-from ....internals.memory_utils import using_output_type
+import numbers
+import warnings
+
+import cupy as np
+import numpy as cpu_np
+
+from cuml.cluster import KMeans
+from cuml.internals.mixins import SparseInputTagMixin
+from cuml.preprocessing.encoders import OneHotEncoder
+
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
+from ....internals.memory_utils import using_output_type
 from ....thirdparty_adapters import check_array
-from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import check_is_fitted
-from cuml.internals.mixins import SparseInputTagMixin
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from cuml.cluster import KMeans
-from cuml.preprocessing import OneHotEncoder
-import warnings
-from cuml.internals.safe_imports import cpu_only_import
-import numbers
-from cuml.internals.safe_imports import gpu_only_import
-np = gpu_only_import('cupy')
-cpu_np = cpu_only_import('numpy')
+from ..utils.validation import FLOAT_DTYPES, check_is_fitted
 
 
 def digitize(x, bins):

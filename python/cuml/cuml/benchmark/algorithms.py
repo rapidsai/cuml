@@ -13,59 +13,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import treelite
-from cuml.benchmark.bench_helper_funcs import (
-    fit,
-    transform,
-    predict,
-    fit_transform,
-    fit_predict,
-    fit_kneighbors,
-    _build_cpu_skl_classifier,
-    _build_fil_skl_classifier,
-    _build_fil_classifier,
-    _build_gtil_classifier,
-    _build_optimized_fil_classifier,
-    _treelite_fil_accuracy_score,
-    _training_data_to_numpy,
-    _build_mnmg_umap,
-)
-from cuml.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    MaxAbsScaler,
-    Normalizer,
-    SimpleImputer,
-    RobustScaler,
-    PolynomialFeatures,
-)
 import tempfile
-import cuml
 
+import numpy as np
 import sklearn
 import sklearn.cluster
-import sklearn.neighbors
 import sklearn.ensemble
-import sklearn.random_projection
 import sklearn.naive_bayes
+import sklearn.neighbors
+import sklearn.random_projection
+import treelite
 from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
-import cuml.metrics
+
+import cuml
 import cuml.decomposition
 import cuml.experimental
+import cuml.metrics
 import cuml.naive_bayes
+from cuml.benchmark.bench_helper_funcs import (
+    _build_cpu_skl_classifier,
+    _build_fil_classifier,
+    _build_fil_skl_classifier,
+    _build_gtil_classifier,
+    _build_mnmg_umap,
+    _build_optimized_fil_classifier,
+    _training_data_to_numpy,
+    _treelite_fil_accuracy_score,
+    fit,
+    fit_kneighbors,
+    fit_predict,
+    fit_transform,
+    predict,
+    transform,
+)
 from cuml.dask import (  # noqa: F401
-    neighbors,
     cluster,
-    manifold,
     decomposition,
     linear_model,
+    manifold,
+    neighbors,
 )
 from cuml.internals.import_utils import has_hdbscan, has_umap
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
+from cuml.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PolynomialFeatures,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+)
 
 if has_umap():
     import umap

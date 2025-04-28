@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,28 +19,16 @@ import operator
 import re
 from functools import wraps
 
+import cudf
+import pandas as pd
+from cupy.cuda import using_allocator as cupy_using_allocator
+from rmm.allocators.cupy import rmm_cupy_allocator
+
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
-)
-from cuml.internals.safe_imports import (
-    cpu_only_import_from,
-    gpu_only_import_from,
-    UnavailableNullContext,
-)
-
-CudfSeries = gpu_only_import_from("cudf", "Series")
-CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-cupy_using_allocator = gpu_only_import_from(
-    "cupy.cuda", "using_allocator", alt=UnavailableNullContext
-)
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-rmm_cupy_allocator = gpu_only_import_from(
-    "rmm.allocators.cupy", "rmm_cupy_allocator"
 )
 
 
@@ -82,10 +70,8 @@ def with_cupy_rmm(func):
 
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
-        if GPU_ENABLED:
-            with cupy_using_allocator(rmm_cupy_allocator):
-                return func(*args, **kwargs)
-        return func(*args, **kwargs)
+        with cupy_using_allocator(rmm_cupy_allocator):
+            return func(*args, **kwargs)
 
     # Mark the function as already wrapped
     cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
@@ -189,14 +175,8 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     array([0., 0., 0., 0., 0.])
 
     """
-
-    if GPU_ENABLED:
-        with cupy_using_allocator(rmm_cupy_allocator):
-            result = cupy_fn(*args, **kwargs)
-    else:
-        result = cupy_fn(*args, **kwargs)
-
-    return result
+    with cupy_using_allocator(rmm_cupy_allocator):
+        return cupy_fn(*args, **kwargs)
 
 
 def _get_size_from_shape(shape, dtype):
@@ -403,8 +383,8 @@ def determine_array_memtype(X):
         return MemoryType.device
     if hasattr(X, "__array_interface__"):
         return MemoryType.host
-    if isinstance(X, (CudfDataFrame, CudfSeries)):
+    if isinstance(X, (cudf.DataFrame, cudf.Series)):
         return MemoryType.device
-    if isinstance(X, (PandasDataFrame, PandasSeries)):
+    if isinstance(X, (pd.DataFrame, pd.Series)):
         return MemoryType.host
     return None

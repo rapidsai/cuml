@@ -15,10 +15,10 @@
 #
 
 from cuml.internals.api_decorators import (
-    api_base_return_generic,
-    api_base_return_array,
-    api_base_return_sparse_array,
     api_base_return_any,
+    api_base_return_array,
+    api_base_return_generic,
+    api_base_return_sparse_array,
     api_return_any,
 )
 from cuml.internals.base_return_types import _get_base_return_type

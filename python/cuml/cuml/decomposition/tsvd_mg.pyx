@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,11 @@
 #
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
 
-from cuml.internals.safe_imports import gpu_only_import
-rmm = gpu_only_import('rmm')
-
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 import cuml.internals
@@ -35,6 +30,7 @@ from cuml.decomposition.utils_mg cimport *
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
+
 
 cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 

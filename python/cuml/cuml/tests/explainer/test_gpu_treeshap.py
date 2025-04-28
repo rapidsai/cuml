@@ -14,32 +14,24 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import as_type
-import cuml
-from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.import_utils import has_lightgbm, has_shap
-from cuml.explainer.tree_shap import TreeExplainer
-from hypothesis import (
-    example,
-    given,
-    settings,
-    assume,
-    HealthCheck,
-    strategies as st,
-)
-from cuml.internals.safe_imports import gpu_only_import
 import json
+
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 import treelite
-from cuml.internals.safe_imports import cpu_only_import
+from hypothesis import HealthCheck, assume, example, given, settings
+from hypothesis import strategies as st
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
+import cuml
+from cuml.common.exceptions import NotFittedError
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.explainer.tree_shap import TreeExplainer
+from cuml.internals.import_utils import has_lightgbm, has_shap, has_sklearn
+from cuml.testing.utils import as_type
 
 pytestmark = pytest.mark.skip
 
@@ -57,9 +49,9 @@ if has_lightgbm():
 if has_shap():
     import shap
 if has_sklearn():
-    from sklearn.datasets import make_regression, make_classification
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
+    from sklearn.datasets import make_classification, make_regression
     from sklearn.ensemble import RandomForestClassifier as sklrfc
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 
 def make_classification_with_categorical(

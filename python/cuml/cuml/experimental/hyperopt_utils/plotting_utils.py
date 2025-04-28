@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
 # limitations under the License.
 #
 
-import seaborn as sns
 import matplotlib.pyplot as plt
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
+import numpy as np
+import pandas as pd
+import seaborn as sns
 
 
 def plot_heatmap(df, col1, col2):

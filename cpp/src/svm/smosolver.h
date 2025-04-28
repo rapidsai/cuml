@@ -26,6 +26,9 @@
 
 #include <thrust/device_ptr.h>
 
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
+
 #include <cassert>
 #include <chrono>
 #include <cstdlib>
@@ -68,8 +71,8 @@ class SmoSolver {
  public:
   SmoSolver(const raft::handle_t& handle,
             SvmParameter param,
-            raft::distance::kernels::KernelType kernel_type,
-            raft::distance::kernels::GramMatrixBase<math_t>* kernel)
+            cuvs::distance::kernels::KernelType kernel_type,
+            cuvs::distance::kernels::GramMatrixBase<math_t>* kernel)
     : handle(handle),
       C(param.C),
       tol(param.tol),
@@ -252,8 +255,8 @@ class SmoSolver {
   math_t tol;      //!< tolerance for stopping condition
   math_t epsilon;  //!< epsilon parameter for epsiolon-SVR
 
-  raft::distance::kernels::GramMatrixBase<math_t>* kernel;
-  raft::distance::kernels::KernelType kernel_type;
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel;
+  cuvs::distance::kernels::KernelType kernel_type;
   float cache_size;  //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve

@@ -16,96 +16,94 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+import cupy as cp
+import numpy as np
 
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.internals import logger
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+
+from libc.stdint cimport int64_t, uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
+
 from cuml.internals.logger cimport level_enum
+from cuml.metrics.distance_type cimport DistanceType
+
+from cuml.common import input_to_cuml_array, using_output_type
 
 
-IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from libc.stdint cimport uintptr_t, int64_t
-    from pylibraft.common.handle cimport handle_t
-    from cuml.metrics.distance_type cimport DistanceType
-    from cuml.common import input_to_cuml_array
-    from cuml.common import using_output_type
-    cdef extern from "cuml/cluster/dbscan.hpp" \
-            namespace "ML::Dbscan":
+cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML::Dbscan":
 
-        ctypedef enum EpsNnMethod:
-            BRUTE_FORCE "ML::Dbscan::EpsNnMethod::BRUTE_FORCE"
-            RBC "ML::Dbscan::EpsNnMethod::RBC"
+    ctypedef enum EpsNnMethod:
+        BRUTE_FORCE "ML::Dbscan::EpsNnMethod::BRUTE_FORCE"
+        RBC "ML::Dbscan::EpsNnMethod::RBC"
 
-        cdef void fit(handle_t& handle,
-                      float *input,
-                      int n_rows,
-                      int n_cols,
-                      float eps,
-                      int min_pts,
-                      DistanceType metric,
-                      int *labels,
-                      int *core_sample_indices,
-                      float* sample_weight,
-                      size_t max_mbytes_per_batch,
-                      EpsNnMethod eps_nn_method,
-                      level_enum verbosity,
-                      bool opg) except +
+    cdef void fit(handle_t& handle,
+                  float *input,
+                  int n_rows,
+                  int n_cols,
+                  float eps,
+                  int min_pts,
+                  DistanceType metric,
+                  int *labels,
+                  int *core_sample_indices,
+                  float* sample_weight,
+                  size_t max_mbytes_per_batch,
+                  EpsNnMethod eps_nn_method,
+                  level_enum verbosity,
+                  bool opg) except +
 
-        cdef void fit(handle_t& handle,
-                      double *input,
-                      int n_rows,
-                      int n_cols,
-                      double eps,
-                      int min_pts,
-                      DistanceType metric,
-                      int *labels,
-                      int *core_sample_indices,
-                      double* sample_weight,
-                      size_t max_mbytes_per_batch,
-                      EpsNnMethod eps_nn_method,
-                      level_enum verbosity,
-                      bool opg) except +
+    cdef void fit(handle_t& handle,
+                  double *input,
+                  int n_rows,
+                  int n_cols,
+                  double eps,
+                  int min_pts,
+                  DistanceType metric,
+                  int *labels,
+                  int *core_sample_indices,
+                  double* sample_weight,
+                  size_t max_mbytes_per_batch,
+                  EpsNnMethod eps_nn_method,
+                  level_enum verbosity,
+                  bool opg) except +
 
-        cdef void fit(handle_t& handle,
-                      float *input,
-                      int64_t n_rows,
-                      int64_t n_cols,
-                      double eps,
-                      int min_pts,
-                      DistanceType metric,
-                      int64_t *labels,
-                      int64_t *core_sample_indices,
-                      float* sample_weight,
-                      size_t max_mbytes_per_batch,
-                      EpsNnMethod eps_nn_method,
-                      level_enum verbosity,
-                      bool opg) except +
+    cdef void fit(handle_t& handle,
+                  float *input,
+                  int64_t n_rows,
+                  int64_t n_cols,
+                  double eps,
+                  int min_pts,
+                  DistanceType metric,
+                  int64_t *labels,
+                  int64_t *core_sample_indices,
+                  float* sample_weight,
+                  size_t max_mbytes_per_batch,
+                  EpsNnMethod eps_nn_method,
+                  level_enum verbosity,
+                  bool opg) except +
 
-        cdef void fit(handle_t& handle,
-                      double *input,
-                      int64_t n_rows,
-                      int64_t n_cols,
-                      double eps,
-                      int min_pts,
-                      DistanceType metric,
-                      int64_t *labels,
-                      int64_t *core_sample_indices,
-                      double* sample_weight,
-                      size_t max_mbytes_per_batch,
-                      EpsNnMethod eps_nn_method,
-                      level_enum verbosity,
-                      bool opg) except +
+    cdef void fit(handle_t& handle,
+                  double *input,
+                  int64_t n_rows,
+                  int64_t n_cols,
+                  double eps,
+                  int min_pts,
+                  DistanceType metric,
+                  int64_t *labels,
+                  int64_t *core_sample_indices,
+                  double* sample_weight,
+                  size_t max_mbytes_per_batch,
+                  EpsNnMethod eps_nn_method,
+                  level_enum verbosity,
+                  bool opg) except +
 
 
 class DBSCAN(UniversalBase,
@@ -282,156 +280,155 @@ class DBSCAN(UniversalBase,
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
-        IF GPUBUILD == 1:
-            X_m, n_rows, self.n_features_in_, self.dtype = \
+        X_m, n_rows, self.n_features_in_, self.dtype = \
+            input_to_cuml_array(
+                X,
+                order='C',
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[np.float32, np.float64]
+            )
+
+        if n_rows == 0:
+            raise ValueError("No rows in the input array. DBScan cannot be "
+                             "fitted!")
+
+        cdef uintptr_t input_ptr = X_m.ptr
+
+        cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
                 input_to_cuml_array(
-                    X,
-                    order='C',
-                    convert_to_dtype=(np.float32 if convert_dtype
+                    sample_weight,
+                    convert_to_dtype=(self.dtype if convert_dtype
                                       else None),
-                    check_dtype=[np.float32, np.float64]
-                )
+                    check_dtype=self.dtype,
+                    check_rows=n_rows,
+                    check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
 
-            if n_rows == 0:
-                raise ValueError("No rows in the input array. DBScan cannot be "
-                                 "fitted!")
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            cdef uintptr_t input_ptr = X_m.ptr
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                       index=X_m.index)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
-            cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
-            if sample_weight is not None:
-                sample_weight_m, _, _, _ = \
-                    input_to_cuml_array(
-                        sample_weight,
-                        convert_to_dtype=(self.dtype if convert_dtype
-                                          else None),
-                        check_dtype=self.dtype,
-                        check_rows=n_rows,
-                        check_cols=1)
-                sample_weight_ptr = sample_weight_m.ptr
+        cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        # metric
+        metric_parsing = {
+            "L2": DistanceType.L2SqrtExpanded,
+            "euclidean": DistanceType.L2SqrtExpanded,
+            "cosine": DistanceType.CosineExpanded,
+            "precomputed": DistanceType.Precomputed
+        }
+        if self.metric in metric_parsing:
+            metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
 
-            self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
-                                           index=X_m.index)
-            cdef uintptr_t labels_ptr = self.labels_.ptr
+        # algo
+        algo_parsing = {
+            "brute": EpsNnMethod.BRUTE_FORCE,
+            "rbc": EpsNnMethod.RBC
+        }
+        if self.algorithm in algo_parsing:
+            algorithm = algo_parsing[self.algorithm.lower()]
+        else:
+            raise ValueError("Invalid value for algorithm: {}"
+                             .format(self.algorithm))
 
-            cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
+        # Create the output core_sample_indices only if needed
+        if self.calc_core_sample_indices:
+            self.core_sample_indices_ = \
+                CumlArray.empty(n_rows, dtype=out_dtype)
+            core_sample_indices_ptr = self.core_sample_indices_.ptr
 
-            # metric
-            metric_parsing = {
-                "L2": DistanceType.L2SqrtExpanded,
-                "euclidean": DistanceType.L2SqrtExpanded,
-                "cosine": DistanceType.CosineExpanded,
-                "precomputed": DistanceType.Precomputed
-            }
-            if self.metric in metric_parsing:
-                metric = metric_parsing[self.metric.lower()]
+        if self.dtype == np.float32:
+            if out_dtype == "int32" or out_dtype is np.int32:
+                fit(handle_[0],
+                    <float*>input_ptr,
+                    <int> n_rows,
+                    <int> self.n_features_in_,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <DistanceType> metric,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <float*> sample_weight_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <EpsNnMethod> algorithm,
+                    <level_enum> self.verbose,
+                    <bool> opg)
             else:
-                raise ValueError("Invalid value for metric: {}"
-                                 .format(self.metric))
+                fit(handle_[0],
+                    <float*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> self.n_features_in_,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <DistanceType> metric,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <float*> sample_weight_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <EpsNnMethod> algorithm,
+                    <level_enum> self.verbose,
+                    <bool> opg)
 
-            # algo
-            algo_parsing = {
-                "brute": EpsNnMethod.BRUTE_FORCE,
-                "rbc": EpsNnMethod.RBC
-            }
-            if self.algorithm in algo_parsing:
-                algorithm = algo_parsing[self.algorithm.lower()]
+        else:
+            if out_dtype == "int32" or out_dtype is np.int32:
+                fit(handle_[0],
+                    <double*>input_ptr,
+                    <int> n_rows,
+                    <int> self.n_features_in_,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <DistanceType> metric,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <double*> sample_weight_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <EpsNnMethod> algorithm,
+                    <level_enum> self.verbose,
+                    <bool> opg)
             else:
-                raise ValueError("Invalid value for algorithm: {}"
-                                 .format(self.algorithm))
+                fit(handle_[0],
+                    <double*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> self.n_features_in_,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <DistanceType> metric,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <double*> sample_weight_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <EpsNnMethod> algorithm,
+                    <level_enum> self.verbose,
+                    <bool> opg)
 
-            # Create the output core_sample_indices only if needed
-            if self.calc_core_sample_indices:
-                self.core_sample_indices_ = \
-                    CumlArray.empty(n_rows, dtype=out_dtype)
-                core_sample_indices_ptr = self.core_sample_indices_.ptr
+        # make sure that the `fit` is complete before the following
+        # delete call happens
+        self.handle.sync()
+        del X_m
 
-            if self.dtype == np.float32:
-                if out_dtype == "int32" or out_dtype is np.int32:
-                    fit(handle_[0],
-                        <float*>input_ptr,
-                        <int> n_rows,
-                        <int> self.n_features_in_,
-                        <float> self.eps,
-                        <int> self.min_samples,
-                        <DistanceType> metric,
-                        <int*> labels_ptr,
-                        <int*> core_sample_indices_ptr,
-                        <float*> sample_weight_ptr,
-                        <size_t>self.max_mbytes_per_batch,
-                        <EpsNnMethod> algorithm,
-                        <level_enum> self.verbose,
-                        <bool> opg)
+        # Finally, resize the core_sample_indices array if necessary
+        if self.calc_core_sample_indices:
+            # Temp convert to cupy array (better than using `cupy.asarray`)
+            with using_output_type("cupy"):
+                # First get the min index. These have to monotonically
+                # increasing, so the min index should be the first returned -1
+                min_index = cp.argmin(self.core_sample_indices_).item()
+                # Check for the case where there are no -1's
+                if ((min_index == 0 and
+                        self.core_sample_indices_[min_index].item() != -1)):
+                    # Nothing to delete. The array has no -1's
+                    pass
                 else:
-                    fit(handle_[0],
-                        <float*>input_ptr,
-                        <int64_t> n_rows,
-                        <int64_t> self.n_features_in_,
-                        <float> self.eps,
-                        <int> self.min_samples,
-                        <DistanceType> metric,
-                        <int64_t*> labels_ptr,
-                        <int64_t*> core_sample_indices_ptr,
-                        <float*> sample_weight_ptr,
-                        <size_t>self.max_mbytes_per_batch,
-                        <EpsNnMethod> algorithm,
-                        <level_enum> self.verbose,
-                        <bool> opg)
-
-            else:
-                if out_dtype == "int32" or out_dtype is np.int32:
-                    fit(handle_[0],
-                        <double*>input_ptr,
-                        <int> n_rows,
-                        <int> self.n_features_in_,
-                        <double> self.eps,
-                        <int> self.min_samples,
-                        <DistanceType> metric,
-                        <int*> labels_ptr,
-                        <int*> core_sample_indices_ptr,
-                        <double*> sample_weight_ptr,
-                        <size_t> self.max_mbytes_per_batch,
-                        <EpsNnMethod> algorithm,
-                        <level_enum> self.verbose,
-                        <bool> opg)
-                else:
-                    fit(handle_[0],
-                        <double*>input_ptr,
-                        <int64_t> n_rows,
-                        <int64_t> self.n_features_in_,
-                        <double> self.eps,
-                        <int> self.min_samples,
-                        <DistanceType> metric,
-                        <int64_t*> labels_ptr,
-                        <int64_t*> core_sample_indices_ptr,
-                        <double*> sample_weight_ptr,
-                        <size_t> self.max_mbytes_per_batch,
-                        <EpsNnMethod> algorithm,
-                        <level_enum> self.verbose,
-                        <bool> opg)
-
-            # make sure that the `fit` is complete before the following
-            # delete call happens
-            self.handle.sync()
-            del X_m
-
-            # Finally, resize the core_sample_indices array if necessary
-            if self.calc_core_sample_indices:
-                # Temp convert to cupy array (better than using `cupy.asarray`)
-                with using_output_type("cupy"):
-                    # First get the min index. These have to monotonically
-                    # increasing, so the min index should be the first returned -1
-                    min_index = cp.argmin(self.core_sample_indices_).item()
-                    # Check for the case where there are no -1's
-                    if ((min_index == 0 and
-                         self.core_sample_indices_[min_index].item() != -1)):
-                        # Nothing to delete. The array has no -1's
-                        pass
-                    else:
-                        self.core_sample_indices_ = \
-                            self.core_sample_indices_[:min_index]
+                    self.core_sample_indices_ = \
+                        self.core_sample_indices_[:min_index]
 
         return self
 

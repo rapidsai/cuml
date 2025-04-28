@@ -9,8 +9,9 @@
 import warnings
 
 import cuml
+
 from ....internals.array_sparse import SparseCumlArray
-from ..utils.skl_dependencies import TransformerMixin, BaseEstimator
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import _allclose_dense_sparse
 
 
