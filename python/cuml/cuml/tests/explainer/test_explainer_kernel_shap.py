@@ -19,6 +19,7 @@ import math
 import cupy as cp
 import numpy as np
 import pytest
+import scipy.special
 import sklearn.neighbors
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
@@ -26,7 +27,7 @@ from sklearn.model_selection import train_test_split
 import cuml
 from cuml import KernelExplainer, Lasso
 from cuml.datasets import make_regression
-from cuml.internals.import_utils import has_scipy, has_shap
+from cuml.internals.import_utils import has_shap
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
 
@@ -243,10 +244,7 @@ def test_kernel_housing_dataset(housing_dataset):
 def test_binom_coef():
     for i in range(1, 101):
         val = cuml.explainer.kernel_shap._binomCoef(100, i)
-        if has_scipy():
-            from scipy.special import binom
-
-            assert math.isclose(val, binom(100, i), rel_tol=1e-15)
+        assert math.isclose(val, scipy.special.binom(100, i), rel_tol=1e-15)
 
 
 def test_shapley_kernel():

@@ -28,7 +28,6 @@ from cuml.internals.import_utils import (
     check_min_numba_version,
     has_cupy,
     has_dask,
-    has_scipy,
 )
 from cuml.internals.input_utils import (
     input_to_cuml_array,
@@ -58,7 +57,6 @@ __all__ = [
     "has_dask",
     "check_min_numba_version",
     "check_min_cupy_version",
-    "has_scipy",
     "input_to_cuml_array",
     "input_to_host_array",
     "input_to_host_array_with_sparse_support",

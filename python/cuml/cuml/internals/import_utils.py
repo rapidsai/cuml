@@ -137,22 +137,6 @@ def check_min_cupy_version(version):
         return False
 
 
-def has_scipy(raise_if_unavailable=False, min_version=None):
-    try:
-        import scipy  # NOQA
-
-        if min_version is None:
-            return True
-        else:
-            return Version(str(scipy.__version__)) >= Version(min_version)
-
-    except ImportError:
-        if not raise_if_unavailable:
-            return False
-        else:
-            raise ImportError("Scipy is not available.")
-
-
 def has_sklearn():
     try:
         import sklearn  # NOQA
@@ -198,11 +182,3 @@ def has_daskglm(min_version=None):
             return Version(str(dask_glm.__version__)) >= Version(min_version)
     except ImportError:
         return False
-
-
-def dummy_function_always_false(*args, **kwargs):
-    return False
-
-
-class DummyClass(object):
-    pass
