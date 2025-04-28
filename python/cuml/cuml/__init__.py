@@ -24,13 +24,14 @@ else:
     libcuml.load_library()
     del libcuml
 
+from pylibraft.common import Handle
+
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
-from cuml.common.handle import Handle
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
