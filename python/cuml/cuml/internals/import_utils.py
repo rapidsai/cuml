@@ -65,20 +65,6 @@ def has_sklearn():
         return False
 
 
-def has_hdbscan(raise_if_unavailable=False):
-    try:
-        import hdbscan  # NOQA
-
-        return True
-    except ImportError:
-        if not raise_if_unavailable:
-            return False
-        else:
-            raise ImportError(
-                "hdbscan is not available. Please install hdbscan."
-            )
-
-
 def has_shap(min_version="0.37"):
     try:
         import shap  # noqa

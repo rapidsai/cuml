@@ -20,11 +20,11 @@ from libc.stdint cimport uintptr_t
 import numpy as np
 
 import cuml
+from cuml.cluster.hdbscan.hdbscan import import_hdbscan
 from cuml.common import input_to_cuml_array, input_to_host_array
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.device_type import DeviceType
-from cuml.internals.import_utils import has_hdbscan
 
 from cython.operator cimport dereference as deref
 from pylibraft.common.handle cimport handle_t
@@ -151,10 +151,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            all_points_membership_vectors as cpu_all_points_membership_vectors,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -175,7 +172,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
         # this method on cpu does not work without this copy for some reason
         clusterer._cpu_model.prediction_data_.raw_data = \
             clusterer._cpu_model.prediction_data_.raw_data.copy()
-        return cpu_all_points_membership_vectors(clusterer._cpu_model)
+        return hdbscan.prediction.all_points_membership_vectors(clusterer._cpu_model)
     # gpu infer, cpu/gpu train
     elif device_type == DeviceType.device:
         # trained on cpu
@@ -260,10 +257,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            membership_vector as cpu_membership_vector,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -275,8 +269,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                              "model has been trained on GPU")
 
         host_points_to_predict = input_to_host_array(points_to_predict).array
-        return cpu_membership_vector(clusterer._cpu_model,
-                                     host_points_to_predict)
+        return hdbscan.prediction.membership_vector(
+            clusterer._cpu_model, host_points_to_predict
+        )
 
     elif device_type == DeviceType.device:
         # trained on cpu
@@ -380,10 +375,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            approximate_predict as cpu_approximate_predict,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -395,8 +387,9 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                              "model has been trained on GPU")
 
         host_points_to_predict = input_to_host_array(points_to_predict).array
-        return cpu_approximate_predict(clusterer._cpu_model,
-                                       host_points_to_predict)
+        return hdbscan.prediction.approximate_predict(
+            clusterer._cpu_model, host_points_to_predict
+        )
 
     elif device_type == DeviceType.device:
         # trained on cpu

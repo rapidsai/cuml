@@ -21,6 +21,7 @@ from warnings import warn
 
 import cupy as cp
 import numpy as np
+from pylibraft.common.handle import Handle
 
 import cuml
 import cuml.accel
@@ -33,19 +34,15 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.internals.import_utils import has_hdbscan
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
 from libc.stdlib cimport free
 from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_uvector cimport device_uvector
 
 from cuml.metrics.distance_type cimport DistanceType
-
-from pylibraft.common.handle import Handle
-
-from pylibraft.common.handle cimport handle_t
 
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
@@ -166,6 +163,19 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
                                    int max_cluster_size,
                                    float cluster_selection_epsilon)
 
+
+def import_hdbscan():
+    """Import `hdbscan`, raising a nicer error if missing"""
+    try:
+        import hdbscan
+        return hdbscan
+    except ImportError as exc:
+        raise ImportError(
+            "The `hdbscan` library is required to use this functionality, "
+            "but is not currently installed."
+        ) from exc
+
+
 _metrics_mapping = {
     'l2': DistanceType.L2SqrtExpanded,
     'euclidean': DistanceType.L2SqrtExpanded,
@@ -206,13 +216,10 @@ def _build_condensed_tree_plot_host(
     raw_tree['lambda_val'] = lambdas
     raw_tree['child_size'] = sizes
 
-    if has_hdbscan(raise_if_unavailable=True):
-        from hdbscan.plots import CondensedTree
-        return CondensedTree(raw_tree,
-                             cluster_selection_method,
-                             allow_single_cluster)
-
-    return None
+    hdbscan = import_hdbscan()
+    return hdbscan.plots.CondensedTree(
+        raw_tree, cluster_selection_method, allow_single_cluster
+    )
 
 
 def condense_hierarchy(dendrogram,
@@ -575,8 +582,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     @property
     def single_linkage_tree_(self):
-
         if self.single_linkage_tree_obj is None:
+            hdbscan = import_hdbscan()
+
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack(
                     (self.children_[0, :self.n_leaves_-1],
@@ -586,9 +594,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan(raise_if_unavailable=True):
-                from hdbscan.plots import SingleLinkageTree
-                self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
+            self.single_linkage_tree_obj = hdbscan.plots.SingleLinkageTree(raw_tree)
 
         return self.single_linkage_tree_obj
 
@@ -605,30 +611,29 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                'model.generate_prediction_data()')
 
         if self.prediction_data_obj is None:
-            if has_hdbscan(raise_if_unavailable=True):
-                from hdbscan.prediction import PredictionData
-                from sklearn.neighbors import BallTree, KDTree
+            hdbscan = import_hdbscan()
+            from sklearn.neighbors import BallTree, KDTree
 
-                FAST_METRICS = KDTree.valid_metrics + \
-                    BallTree.valid_metrics + ["cosine", "arccos"]
+            FAST_METRICS = KDTree.valid_metrics + \
+                BallTree.valid_metrics + ["cosine", "arccos"]
 
-                if self.metric in FAST_METRICS:
-                    min_samples = self.min_samples or self.min_cluster_size
-                    if self.metric in KDTree.valid_metrics:
-                        tree_type = "kdtree"
-                    elif self.metric in BallTree.valid_metrics:
-                        tree_type = "balltree"
-                    else:
-                        warn("Metric {} not supported"
-                             "for prediction data!".format(self.metric))
-                        return
+            if self.metric in FAST_METRICS:
+                min_samples = self.min_samples or self.min_cluster_size
+                if self.metric in KDTree.valid_metrics:
+                    tree_type = "kdtree"
+                elif self.metric in BallTree.valid_metrics:
+                    tree_type = "balltree"
+                else:
+                    warn("Metric {} not supported for prediction data!".format(self.metric))
+                    return
 
-                self.prediction_data_obj = PredictionData(
-                                            self.X_m.to_output("numpy"),
-                                            self.condensed_tree_,
-                                            min_samples,
-                                            tree_type=tree_type,
-                                            metric=self.metric)
+            self.prediction_data_obj = hdbscan.prediction.PredictionData(
+                self.X_m.to_output("numpy"),
+                self.condensed_tree_,
+                min_samples,
+                tree_type=tree_type,
+                metric=self.metric
+            )
 
         return self.prediction_data_obj
 
@@ -637,8 +642,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data_obj = new_val
 
     def build_minimum_spanning_tree(self, X):
-
         if self.gen_min_span_tree and self.minimum_spanning_tree_ is None:
+            hdbscan = import_hdbscan()
+
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack((self.mst_src_,
                                             self.mst_dst_,
@@ -646,10 +652,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan(raise_if_unavailable=True):
-                from hdbscan.plots import MinimumSpanningTree
-                self.minimum_spanning_tree_ = \
-                    MinimumSpanningTree(raw_tree, X.to_output("numpy"))
+            self.minimum_spanning_tree_ = hdbscan.plots.MinimumSpanningTree(
+                raw_tree, X.to_output("numpy")
+            )
         return self.minimum_spanning_tree_
 
     @enable_device_interop

@@ -54,7 +54,6 @@ from cuml.dask import (  # noqa: F401
     manifold,
     neighbors,
 )
-from cuml.internals.import_utils import has_hdbscan
 from cuml.preprocessing import (
     MaxAbsScaler,
     MinMaxScaler,
@@ -71,8 +70,10 @@ except ImportError:
     UMAP = None
 
 
-if has_hdbscan():
-    import hdbscan
+try:
+    from hdbscan import HDBSCAN
+except ImportError:
+    HDBSCAN = None
 
 
 class AlgorithmPair:
@@ -285,7 +286,7 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            hdbscan.HDBSCAN if has_hdbscan() else None,
+            HDBSCAN,
             cuml.cluster.HDBSCAN,
             shared_args={},
             cpu_args={},
