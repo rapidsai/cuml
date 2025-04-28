@@ -201,6 +201,20 @@ class LogisticRegression(UniversalBase,
             "saga": "qn"
         },
     }
+    _reverse_hyperparam_interop_translator = {
+            "1.6": {
+                "solver": {"qn": "lbfgs"},
+            },
+            "1.5": {
+                "solver": {"qn": "lbfgs"},
+            },
+            "1.4": {
+                "solver": {"qn": "lbfgs"},
+            },
+            "1.3": {
+                "solver": {"qn": "lbfgs"},
+            },
+    }
 
     @device_interop_preparation
     def __init__(

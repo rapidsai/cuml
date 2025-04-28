@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -272,6 +272,13 @@ class LinearRegression(LinearPredictMixin,
         "positive": {
             True: "NotImplemented",
         },
+    }
+
+    _reverse_hyperparam_interop_translator = {
+            "1.6": {},
+            "1.5": {},
+            "1.4": {},
+            "1.3": {},
     }
 
     @device_interop_preparation

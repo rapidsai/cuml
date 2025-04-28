@@ -648,17 +648,22 @@ class UniversalBase(Base):
             all_kwargs.update(self._full_kwargs)
 
             filtered_kwargs = {}
-            for keyword, arg in all_kwargs.items():
-                # These are cuml specific arguments that should not be passed
-                # to scikit-learn
-                if keyword in ("output_type", "handle"):
+            # Translate cuml hyper-parameters to scikit-learn
+            sklearn_version = Version(sklearn.__version__)
+            translations = self._reverse_hyperparam_interop_translator[f"{sklearn_version.major}.{sklearn_version.minor}"]
+
+            for parameter_name, value in all_kwargs.items():
+                if parameter_name not in self._cpu_hyperparams:
                     continue
-                if keyword in self._cpu_hyperparams:
-                    filtered_kwargs[keyword] = arg
-                else:
-                    logger.debug("Unused keyword parameter: {} "
-                                 "during CPU estimator "
-                                 "initialization".format(keyword))
+                try:
+                    remapping = translations[parameter_name][value]
+                    filtered_kwargs[parameter_name] = remapping
+                except (KeyError, TypeError):
+                    filtered_kwargs[parameter_name] = value
+
+            filtered_kwargs.pop("output_type", None)
+            filtered_kwargs.pop("handle", None)
+            filtered_kwargs.pop("verbose", None)
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
@@ -902,32 +907,10 @@ class UniversalBase(Base):
         """
         self.import_cpu_model()
         self.build_cpu_model()
-
-        # Translate cuml hyper-parameters to scikit-learn
-        sklearn_version = Version(sklearn.__version__)
-        translations = self._reverse_hyperparam_interop_translator[f"{sklearn_version.major}.{sklearn_version.minor}"]
-
-        params = self.get_params()
-        for parameter_name, value in params.items():
-            try:
-                remapping = translations[parameter_name][value]
-                params[parameter_name] = remapping
-            except (KeyError, TypeError):
-                pass
-
-        params.pop("output_type", None)
-        params.pop("handle", None)
-        params.pop("verbose", None)
-
         self.gpu_to_cpu()
         if deepcopy:
-            model = copy.deepcopy(self._cpu_model)
-            model.set_params(**params)
-            return model
+            return copy.deepcopy(self._cpu_model)
         else:
-            # XXX This modifies the model held as part of this instance,
-            # XXX not sure that is great
-            self._cpu_model.set_params(**params)
             return self._cpu_model
 
     @classmethod

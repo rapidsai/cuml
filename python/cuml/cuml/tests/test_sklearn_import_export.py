@@ -309,7 +309,7 @@ def test_mismatching_default_values(monkeypatch):
                 "solver": {"qn": "lbfgs"},
             },
             "1.4": {
-                "solver": {"qn": "auto"},
+                "solver": {"qn": "lbfgs"},
             },
         }
 

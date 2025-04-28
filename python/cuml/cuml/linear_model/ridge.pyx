@@ -206,6 +206,12 @@ class Ridge(UniversalBase,
             "sparse_cg": "eig"
         },
     }
+    _reverse_hyperparam_interop_translator = {
+            "1.6": {},
+            "1.5": {},
+            "1.4": {},
+            "1.3": {},
+    }
 
     @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='auto', fit_intercept=True,
