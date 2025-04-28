@@ -32,15 +32,18 @@ def _generate_hypercube(samples, dimensions, random_state):
 
     from sklearn.utils.random import sample_without_replacement
 
+    # This function and those it calls need a Numpy random state object
+    np_generator = np.random.RandomState(check_random_seed(random_state))
+
     if dimensions > 30:
         return np.hstack(
             [
-                random_state.randint(2, size=(samples, dimensions - 30)),
-                _generate_hypercube(samples, 30, random_state),
+                np_generator.randint(2, size=(samples, dimensions - 30)),
+                _generate_hypercube(samples, 30, np_generator),
             ]
         )
     out = sample_without_replacement(
-        2**dimensions, samples, random_state=random_state
+        2**dimensions, samples, random_state=np_generator
     ).astype(dtype=">u4", copy=False)
     out = np.unpackbits(out.view(">u1")).reshape((-1, 32))[:, -dimensions:]
     return out
@@ -272,9 +275,8 @@ def make_classification(
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:
-        np_generator = np.random.RandomState(check_random_seed(generator))
         centroids = cp.array(
-            _generate_hypercube(n_clusters, n_informative, np_generator)
+            _generate_hypercube(n_clusters, n_informative, generator)
         ).astype(dtype, copy=False)
     else:
         centroids = _centroids
