@@ -70,15 +70,6 @@ def has_xgboost():
         return False
 
 
-def has_pytest_benchmark():
-    try:
-        import pytest_benchmark  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def check_min_dask_version(version):
     try:
         import dask
