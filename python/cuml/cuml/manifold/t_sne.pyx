@@ -51,7 +51,6 @@ from libc.stdint cimport int64_t, uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 
-cimport cuml.common.cuda
 from cuml.metrics.distance_type cimport DistanceType
 
 

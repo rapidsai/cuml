@@ -45,7 +45,6 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.neighbors.ann cimport *
