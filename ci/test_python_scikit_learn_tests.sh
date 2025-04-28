@@ -15,7 +15,7 @@ set +e
 rapids-logger "Running scikit-learn tests with cuML acceleration"
 
 # Run the tests
-./python/cuml/cuml/accel/tests/scikit-learn/run-tests.sh \
+timeout 1h ./python/cuml/cuml/accel/tests/scikit-learn/run-tests.sh \
     --numprocesses=8 \
     --dist=worksteal \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
