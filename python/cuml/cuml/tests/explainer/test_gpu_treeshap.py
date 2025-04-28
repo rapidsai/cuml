@@ -30,7 +30,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.internals.import_utils import has_lightgbm, has_sklearn
+from cuml.internals.import_utils import has_sklearn
 from cuml.testing.utils import as_type
 
 shap = pytest.importorskip("shap")
@@ -46,8 +46,6 @@ def has_xgboost():
     return False
 
 
-if has_lightgbm():
-    import lightgbm as lgb
 if has_sklearn():
     from sklearn.datasets import make_classification, make_regression
     from sklearn.ensemble import RandomForestClassifier as sklrfc
@@ -598,9 +596,10 @@ def test_xgb_regressor_with_categorical():
     )
 
 
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_regressor_with_categorical():
+    lgb = pytest.importorskip("lightgbm")
+
     n_samples = 100
     n_features = 8
     n_categorical = 8
@@ -641,9 +640,10 @@ def test_lightgbm_regressor_with_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_classifier_with_categorical(n_classes):
+    lgb = pytest.importorskip("lightgbm")
+
     n_samples = 100
     n_features = 8
     n_categorical = 8
@@ -770,7 +770,10 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             pred = model.predict_proba(X)
         return model, pred
     elif learner == "lgbm":
-        assume(has_lightgbm())
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            assume(False)
         if task == "regression":
             model = lgb.LGBMRegressor(n_estimators=n_estimators).fit(X, y)
         elif task == "classification":

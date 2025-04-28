@@ -34,7 +34,7 @@ from sklearn.model_selection import train_test_split
 
 from cuml.common.device_selection import using_device_type
 from cuml.experimental import ForestInference
-from cuml.internals.import_utils import has_lightgbm, has_xgboost
+from cuml.internals.import_utils import has_xgboost
 from cuml.testing.utils import (
     array_equal,
     quality_param,
@@ -630,11 +630,10 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 def test_lightgbm(
     train_device, infer_device, tmp_path, num_classes, n_categorical
 ):
-    import lightgbm as lgb
+    lgb = pytest.importorskip("lightgbm")
 
     if n_categorical > 0:
         n_features = 10

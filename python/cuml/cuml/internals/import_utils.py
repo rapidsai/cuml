@@ -24,15 +24,6 @@ def has_dask():
         return False
 
 
-def has_lightgbm():
-    try:
-        import lightgbm  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def has_xgboost():
     try:
         import xgboost  # NOQA

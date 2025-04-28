@@ -40,13 +40,8 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-# from cuml.internals.import_utils import has_lightgbm
-
-
 if has_xgboost():
     import xgboost as xgb
-
-# pytestmark = pytest.mark.skip
 
 
 def simulate_data(
@@ -683,11 +678,9 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
 @pytest.mark.skip(reason="Causing CI to hang.")
-# @pytest.mark.skipif(has_lightgbm() is False,
-#                     reason="need to install lightgbm")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
-    import lightgbm as lgb
+    lgb = pytest.importorskip("lightgbm")
 
     if n_categorical > 0:
         n_features = 10
