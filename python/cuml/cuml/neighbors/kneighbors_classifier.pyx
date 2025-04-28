@@ -38,7 +38,7 @@ from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
 
     void knn_classify(
         handle_t &handle,
