@@ -24,26 +24,6 @@ def has_dask():
         return False
 
 
-def has_xgboost():
-    try:
-        import xgboost  # NOQA
-
-        return True
-    except ImportError:
-        return False
-    except Exception as ex:
-        import warnings
-
-        warnings.warn(
-            (
-                "The XGBoost library was found but raised an exception during "
-                "import. Importing xgboost will be skipped. "
-                "Error message:\n{}"
-            ).format(str(ex))
-        )
-        return False
-
-
 def has_sklearn():
     try:
         import sklearn  # NOQA
