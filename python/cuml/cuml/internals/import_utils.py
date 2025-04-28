@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from packaging.version import Version
-
-
 def has_dask():
     try:
         import dask  # NOQA
@@ -61,17 +58,5 @@ def has_sklearn():
         import sklearn  # NOQA
 
         return True
-    except ImportError:
-        return False
-
-
-def has_shap(min_version="0.37"):
-    try:
-        import shap  # noqa
-
-        if min_version is None:
-            return True
-        else:
-            return Version(str(shap.__version__)) >= Version(min_version)
     except ImportError:
         return False
