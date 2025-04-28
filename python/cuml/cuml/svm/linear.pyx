@@ -19,9 +19,8 @@ import inspect
 import re
 import typing
 
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
 
-np = cpu_only_import('numpy')
 import cuml
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view

@@ -16,14 +16,12 @@
 
 from functools import partial
 
+import cupy as cp
+import numpy as np
 import pytest
 
 from cuml.datasets.classification import make_classification
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import array_equal
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 @pytest.mark.parametrize("n_samples", [500, 1000])

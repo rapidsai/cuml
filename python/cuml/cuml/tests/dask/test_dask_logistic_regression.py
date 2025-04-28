@@ -16,6 +16,11 @@
 import random
 from functools import partial
 
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix
 from sklearn.datasets import make_classification
@@ -24,16 +29,7 @@ from sklearn.metrics import accuracy_score
 
 from cuml.dask.common import utils as dask_utils
 from cuml.internals import logger
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import array_equal
-
-random.seed(0)
-
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-dask_cudf = gpu_only_import("dask_cudf")
-cudf = gpu_only_import("cudf")
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):

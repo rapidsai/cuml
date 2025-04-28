@@ -16,6 +16,8 @@
 import os
 from math import ceil
 
+import numpy as np
+import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
@@ -31,16 +33,12 @@ from sklearn.model_selection import train_test_split
 
 from cuml import ForestInference
 from cuml.internals.import_utils import has_xgboost
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import (
     array_equal,
     quality_param,
     stress_param,
     unit_param,
 )
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
 
 # from cuml.internals.import_utils import has_lightgbm
 

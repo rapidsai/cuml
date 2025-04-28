@@ -17,12 +17,7 @@
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
+import numpy as np
 
 import cuml
 from cuml.common import input_to_cuml_array, input_to_host_array

@@ -13,15 +13,13 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx
 import pytest
 
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.prims.stats import cov
 from cuml.prims.stats.covariance import _cov_sparse
 from cuml.testing.utils import array_equal
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 @pytest.mark.parametrize("nrows", [1000])

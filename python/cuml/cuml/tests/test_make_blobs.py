@@ -13,12 +13,10 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import pytest
 
 import cuml
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
 
 # Testing parameters for scalar parameter tests
 

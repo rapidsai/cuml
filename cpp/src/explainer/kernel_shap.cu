@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -199,7 +199,15 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
   // check if random part of the dataset is needed
   if (len_samples > 0) {
-    nblks = len_samples / 2;
+    // The kernel handles one row per block, but that row also attempts
+    // to modify values from the next row. This means that if the number of
+    // len_samples is even, we launch 1 extra block that then attempts
+    // to modify a row that is out of bounds.
+    if (len_samples % 2 == 0) {
+      nblks = len_samples / 2 - 1;
+    } else {
+      nblks = len_samples / 2;
+    }
     // each block does a sample and its compliment
     sampled_rows_kernel<<<nblks, nthreads, 0, stream>>>(
       nsamples,

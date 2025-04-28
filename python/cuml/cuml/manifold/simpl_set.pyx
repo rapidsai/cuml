@@ -16,13 +16,8 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+import cupyx
+import numpy as np
 
 from cuml.manifold.umap_utils cimport *
 

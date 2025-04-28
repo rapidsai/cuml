@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda as nbcuda
 from pandas import Series as pdSeries
 
 from cuml.common import (
@@ -26,22 +30,7 @@ from cuml.common import (
     input_to_host_array,
 )
 from cuml.internals.input_utils import convert_dtype, input_to_cupy_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.manifold import umap
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-nbcuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-pdDF = cpu_only_import_from("pandas", "DataFrame")
-
 
 ###############################################################################
 #                                    Parameters                               #
@@ -371,11 +360,12 @@ def check_numpy_order(ary, order):
 
 def check_ptr(a, b, input_type):
     if input_type == "cudf":
-        for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
-            with cudf.core.buffer.acquire_spill_lock():
-                assert col_a.base_data.get_ptr(
-                    mode="read"
-                ) == col_b.base_data.get_ptr(mode="read")
+        for col_a, col_b in zip(a._columns, b._columns, strict=True):
+            # get_ptr could spill the buffer data, but possibly OK
+            # if this is only used for testing
+            assert col_a.base_data.get_ptr(
+                mode="read"
+            ) == col_b.base_data.get_ptr(mode="read")
     else:
 
         def get_ptr(x):
@@ -413,7 +403,7 @@ def get_input(
         result = cudf.Series(rand_mat.reshape(nrows), index=index)
 
     if type == "pandas":
-        result = pdDF(cp.asnumpy(rand_mat), index=index)
+        result = pd.DataFrame(cp.asnumpy(rand_mat), index=index)
 
     if type == "pandas-series":
         result = pdSeries(

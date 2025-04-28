@@ -18,8 +18,15 @@ import platform
 import random
 from itertools import chain, permutations
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
 import pytest
 import sklearn.metrics
+from numba import cuda
+from numpy.testing import assert_almost_equal
+from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 from sklearn import preprocessing
 from sklearn.datasets import make_blobs, make_classification
@@ -45,12 +52,6 @@ import cuml.internals.logger as logger
 from cuml import LogisticRegression as cu_log
 from cuml.common import has_scipy
 from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.metrics import (
     PAIRWISE_DISTANCE_METRICS,
     PAIRWISE_DISTANCE_SPARSE_METRICS,
@@ -81,20 +82,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
-
-
-cuda = gpu_only_import_from("numba", "cuda")
-assert_almost_equal = cpu_only_import_from(
-    "numpy.testing", "assert_almost_equal"
-)
-
-
-scipy_pairwise_distances = cpu_only_import_from("scipy.spatial", "distance")
 
 IS_ARM = platform.processor() == "aarch64"
 

@@ -33,19 +33,16 @@ import warnings
 from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
 
-from scipy import optimize
+import cupy as np
+import numpy as cpu_np
+from cupyx.scipy import sparse
+from scipy import optimize, stats
 from scipy.special import boxcox
 
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
     StatelessTagMixin,
-)
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
 )
 
 from ....common.array_descriptor import CumlArrayDescriptor
@@ -71,13 +68,6 @@ from ..utils.validation import (
     check_is_fitted,
     check_random_state,
 )
-
-cpu_np = cpu_only_import('numpy')
-np = gpu_only_import('cupy')
-resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
-stats = cpu_only_import_from('scipy', 'stats')
-
 
 BOUNDS_THRESHOLD = 1e-7
 
@@ -2306,6 +2296,7 @@ class QuantileTransformer(TransformerMixin,
         X = np.asnumpy(X)
         if self.subsample is not None and self.subsample < n_samples:
             # Take a subsample of `X`
+            from sklearn.utils import resample
             X = resample(
                 X, replace=False, n_samples=self.subsample, random_state=random_state
             )

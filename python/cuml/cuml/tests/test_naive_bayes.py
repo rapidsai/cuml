@@ -16,6 +16,8 @@
 
 import math
 
+import cupy as cp
+import numpy as np
 import pytest
 from numpy.testing import (
     assert_allclose,
@@ -32,7 +34,6 @@ from sklearn.naive_bayes import MultinomialNB as skNB
 
 from cuml.datasets import make_classification
 from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.naive_bayes import (
     BernoulliNB,
     CategoricalNB,
@@ -40,11 +41,6 @@ from cuml.naive_bayes import (
     GaussianNB,
     MultinomialNB,
 )
-
-cp = gpu_only_import("cupy")
-
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])

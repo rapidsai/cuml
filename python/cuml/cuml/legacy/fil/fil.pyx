@@ -16,15 +16,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
 from inspect import getdoc
 
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free as c_free

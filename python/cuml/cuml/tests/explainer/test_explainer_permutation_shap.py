@@ -15,6 +15,8 @@
 #
 
 
+import cupy as cp
+import numpy as np
 import pytest
 import sklearn.neighbors
 from sklearn.datasets import make_regression
@@ -22,13 +24,8 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml import PermutationExplainer
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()

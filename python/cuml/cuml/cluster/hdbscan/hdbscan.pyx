@@ -17,16 +17,13 @@
 
 from libc.stdint cimport uintptr_t
 
-import cuml.accel
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
 from warnings import warn
 
+import cupy as cp
+import numpy as np
+
 import cuml
+import cuml.accel
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring

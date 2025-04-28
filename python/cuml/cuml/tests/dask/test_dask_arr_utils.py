@@ -13,18 +13,16 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import cupyx
 import dask
+import dask_cudf
 import pytest
 
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.testing.utils import array_equal
-
-dask_cudf = gpu_only_import("dask_cudf")
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 @pytest.mark.parametrize(

@@ -15,7 +15,13 @@
 
 import platform
 
+import cudf
+import cupy as cp
+import numpy as np
 import pytest
+import scipy.sparse as scipy_sparse
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 from sklearn import svm
 from sklearn.datasets import (
     load_iris,
@@ -32,11 +38,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,
@@ -45,15 +46,6 @@ from cuml.testing.utils import (
     svm_array_equal,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-cuda = gpu_only_import_from("numba", "cuda")
-
-cudf = gpu_only_import("cudf")
-scipy_sparse = cpu_only_import("scipy.sparse")
-
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -415,6 +407,7 @@ def test_svm_gamma(params):
 
 @pytest.mark.parametrize("x_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
+@pytest.mark.xfail(reason="SVC testing inflexibility (see issue #6575)")
 def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
     X = X.astype(x_dtype, order="F")

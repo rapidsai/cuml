@@ -14,15 +14,13 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx
 import pytest
+import scipy.sparse as scipy_sparse
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-scipy_sparse = cpu_only_import("scipy.sparse")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 test_input_types = ["cupy", "scipy"]
 

@@ -13,16 +13,13 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx
+import numpy as np
 import pytest
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
 from cuml.feature_extraction.text import TfidfTransformer
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-
 
 # data_ids correspond to data, order is important
 data_ids = ["base_case", "diag", "empty_feature", "123", "empty_doc"]

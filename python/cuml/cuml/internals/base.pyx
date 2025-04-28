@@ -22,14 +22,9 @@ import numbers
 import os
 from importlib import import_module
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
+import numpy as np
 
-np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+import cuml.internals.nvtx as nvtx
 
 try:
     from sklearn.utils import estimator_html_repr
@@ -37,9 +32,14 @@ except ImportError:
     estimator_html_repr = None
 
 
+import cupy as cp
+import pylibraft.common.handle
+from cupy import ndarray as cp_ndarray
+
 import cuml
 import cuml.accel
 import cuml.common
+import cuml.common.cuda
 import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
@@ -47,7 +47,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import api_context_managers
 from cuml.internals.array import CumlArray
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
@@ -66,15 +65,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
-
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
-cp = gpu_only_import('cupy')
-
-
-import pylibraft.common.handle
-
-import cuml.common.cuda
 
 
 class VerbosityDescriptor:
@@ -520,7 +510,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
     @classmethod
@@ -660,8 +650,7 @@ class UniversalBase(Base):
 
     def cpu_to_gpu(self):
         """Transfer attributes from CPU estimator to GPU estimator."""
-        mem_type = MemoryType.device if is_cuda_available() else MemoryType.host
-        with using_memory_type(mem_type):
+        with using_memory_type(MemoryType.device):
             for name in self.get_attr_names():
                 try:
                     value = getattr(self._cpu_model, name)
@@ -673,7 +662,9 @@ class UniversalBase(Base):
                     # Coerce arrays to CumlArrays with the proper order
                     descriptor = getattr(type(self), name, None)
                     order = descriptor.order if isinstance(descriptor, CumlArrayDescriptor) else "K"
-                    value = input_to_cuml_array(value, order=order, convert_to_mem_type=mem_type)[0]
+                    value = input_to_cuml_array(
+                        value, order=order, convert_to_mem_type=MemoryType.device
+                    )[0]
 
                 setattr(self, name, value)
 

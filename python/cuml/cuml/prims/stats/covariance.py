@@ -16,13 +16,11 @@
 
 import math
 
+import cupy as cp
+import cupyx
+
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-
 
 cov_kernel_str = r"""
 ({0} *cov_values, {0} *gram_matrix, {0} *mean_x, {0} *mean_y, int n_cols) {

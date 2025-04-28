@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.tsa import auto_arima
-
-np = cpu_only_import("numpy")
-
 
 ###############################################################################
 #                       Helpers and reference functions                       #
