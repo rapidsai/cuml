@@ -39,7 +39,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 
 
-cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
 
     cdef void tsvdFit(handle_t& handle,
                       float *input,

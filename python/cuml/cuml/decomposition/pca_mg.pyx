@@ -35,7 +35,7 @@ from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *
 
 
-cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,
