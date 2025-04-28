@@ -13,17 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
-from cuml.metrics import adjusted_rand_score
+import cupy as cp
 import dask.array as da
-from cuml.testing.utils import stress_param
-from cuml.testing.utils import quality_param
-from cuml.testing.utils import unit_param
 import pytest
-from cuml.internals.safe_imports import gpu_only_import
+from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
-cp = gpu_only_import("cupy")
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.metrics import adjusted_rand_score
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 
 @pytest.mark.mg
@@ -44,7 +41,6 @@ def test_end_to_end(
 ):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
-
     from cuml.dask.datasets import make_blobs
 
     X, y = make_blobs(
@@ -147,7 +143,6 @@ def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
 def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
     cluster_std = 10000.0
     from cuml.dask.cluster import KMeans as cumlKMeans
-
     from cuml.dask.datasets import make_blobs
 
     # Using fairly high variance between points in clusters
@@ -221,7 +216,6 @@ def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
 def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
-
     from cuml.dask.datasets import make_blobs
 
     X, y = make_blobs(
@@ -291,7 +285,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
 def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
-
     from cuml.dask.datasets import make_blobs
 
     X, y = make_blobs(

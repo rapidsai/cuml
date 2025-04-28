@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+import pytest
 from sklearn.metrics import r2_score
 from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
+
 from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
 
 airpassengers = [
     112,

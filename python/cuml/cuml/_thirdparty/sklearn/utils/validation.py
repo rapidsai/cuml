@@ -15,16 +15,15 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from ....thirdparty_adapters import check_array
-from ....common.exceptions import NotFittedError
-from inspect import isclass
-from cuml.internals.safe_imports import gpu_only_import
 import numbers
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-sp = gpu_only_import('cupyx.scipy.sparse')
+from inspect import isclass
 
+import cupy as cp
+import cupyx.scipy.sparse as sp
+import numpy as np
+
+from ....common.exceptions import NotFittedError
+from ....thirdparty_adapters import check_array
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 

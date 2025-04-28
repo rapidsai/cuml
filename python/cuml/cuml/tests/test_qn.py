@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.metrics import accuracy_score
+import cupy as cp
+import numpy as np
+import pytest
+
 from cuml.datasets.classification import make_classification
+from cuml.metrics import accuracy_score
 from cuml.model_selection import train_test_split
 from cuml.solvers import QN as cuQN
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 # todo: add util functions to better compare against precomputed solutions

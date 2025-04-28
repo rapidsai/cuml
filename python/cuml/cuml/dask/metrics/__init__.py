@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
 import warnings
+
+from cuml.internals.import_utils import has_dask
 
 if has_dask():
     from cuml.dask.metrics.confusion_matrix import confusion_matrix

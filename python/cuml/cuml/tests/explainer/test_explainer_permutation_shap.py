@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,21 +15,17 @@
 #
 
 
-from cuml.testing.utils import (
-    ClassEnumerator,
-    get_shap_values,
-    create_synthetic_dataset,
-)
-from cuml import PermutationExplainer
-import sklearn.neighbors
+import cupy as cp
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+import sklearn.neighbors
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
 import cuml
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
+from cuml import PermutationExplainer
+from cuml.testing.datasets import with_dtype
+from cuml.testing.utils import ClassEnumerator, get_shap_values
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
@@ -105,13 +101,17 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
 def test_different_parameters(
     dtype, n_features, n_background, model, npermutations
 ):
-    cp.random.seed(42)
-    X_train, X_test, y_train, y_test = create_synthetic_dataset(
-        n_samples=n_background + 5,
-        n_features=n_features,
-        test_size=5,
-        noise=0.1,
-        dtype=dtype,
+    X, y = with_dtype(
+        make_regression(
+            n_samples=n_background + 5,
+            n_features=n_features,
+            noise=0.1,
+            random_state=42,
+        ),
+        dtype,
+    )
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=5, random_state=42
     )
 
     mod = model().fit(X_train, y_train)

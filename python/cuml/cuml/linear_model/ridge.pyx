@@ -16,57 +16,57 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
 import warnings
+
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.internals.array import CumlArray
-from cuml.common.doc_utils import generate_docstring
-from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.linear_model.base import LinearPredictMixin
+
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 
-IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from pylibraft.common.handle cimport handle_t
-    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-        cdef void ridgeFit(handle_t& handle,
-                           float *input,
-                           size_t n_rows,
-                           size_t n_cols,
-                           float *labels,
-                           float *alpha,
-                           int n_alpha,
-                           float *coef,
-                           float *intercept,
-                           bool fit_intercept,
-                           bool normalize,
-                           int algo,
-                           float *sample_weight) except +
+    cdef void ridgeFit(handle_t& handle,
+                       float *input,
+                       size_t n_rows,
+                       size_t n_cols,
+                       float *labels,
+                       float *alpha,
+                       int n_alpha,
+                       float *coef,
+                       float *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo,
+                       float *sample_weight) except +
 
-        cdef void ridgeFit(handle_t& handle,
-                           double *input,
-                           size_t n_rows,
-                           size_t n_cols,
-                           double *labels,
-                           double *alpha,
-                           int n_alpha,
-                           double *coef,
-                           double *intercept,
-                           bool fit_intercept,
-                           bool normalize,
-                           int algo,
-                           double *sample_weight) except +
+    cdef void ridgeFit(handle_t& handle,
+                       double *input,
+                       size_t n_rows,
+                       size_t n_cols,
+                       double *labels,
+                       double *alpha,
+                       int n_alpha,
+                       double *coef,
+                       double *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo,
+                       double *sample_weight) except +
 
 
 class Ridge(UniversalBase,
@@ -264,7 +264,6 @@ class Ridge(UniversalBase,
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
-
         """
         self._select_solver(self.solver)
 
@@ -310,7 +309,12 @@ class Ridge(UniversalBase,
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
+        # Initialize coef_ with correct shape based on y
+        if len(y_m.shape) == 2:
+            assert y_m.shape == (n_rows, 1)
+            self.coef_ = CumlArray.zeros((1, self.n_features_in_), dtype=self.dtype)
+        else:
+            self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t _coef_ptr = self.coef_.ptr
 
         cdef float _c_intercept_f32
@@ -318,43 +322,42 @@ class Ridge(UniversalBase,
         cdef float _c_alpha_f32
         cdef double _c_alpha_f64
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if self.dtype == np.float32:
-                _c_alpha_f32 = self.alpha
-                ridgeFit(handle_[0],
-                         <float*>_X_ptr,
-                         <size_t>n_rows,
-                         <size_t>self.n_features_in_,
-                         <float*>_y_ptr,
-                         <float*>&_c_alpha_f32,
-                         <int>self.n_alpha,
-                         <float*>_coef_ptr,
-                         <float*>&_c_intercept_f32,
-                         <bool>self.fit_intercept,
-                         <bool>self.normalize,
-                         <int>self.algo,
-                         <float*>_sample_weight_ptr)
+        if self.dtype == np.float32:
+            _c_alpha_f32 = self.alpha
+            ridgeFit(handle_[0],
+                     <float*>_X_ptr,
+                     <size_t>n_rows,
+                     <size_t>self.n_features_in_,
+                     <float*>_y_ptr,
+                     <float*>&_c_alpha_f32,
+                     <int>self.n_alpha,
+                     <float*>_coef_ptr,
+                     <float*>&_c_intercept_f32,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo,
+                     <float*>_sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f32
-            else:
-                _c_alpha_f64 = self.alpha
-                ridgeFit(handle_[0],
-                         <double*>_X_ptr,
-                         <size_t>n_rows,
-                         <size_t>self.n_features_in_,
-                         <double*>_y_ptr,
-                         <double*>&_c_alpha_f64,
-                         <int>self.n_alpha,
-                         <double*>_coef_ptr,
-                         <double*>&_c_intercept_f64,
-                         <bool>self.fit_intercept,
-                         <bool>self.normalize,
-                         <int>self.algo,
-                         <double*>_sample_weight_ptr)
+            self.intercept_ = _c_intercept_f32
+        else:
+            _c_alpha_f64 = self.alpha
+            ridgeFit(handle_[0],
+                     <double*>_X_ptr,
+                     <size_t>n_rows,
+                     <size_t>self.n_features_in_,
+                     <double*>_y_ptr,
+                     <double*>&_c_alpha_f64,
+                     <int>self.n_alpha,
+                     <double*>_coef_ptr,
+                     <double*>&_c_intercept_f64,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo,
+                     <double*>_sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f64
+            self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
@@ -372,3 +375,14 @@ class Ridge(UniversalBase,
 
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_', 'solver_']
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        Dispatch fit() function to CPU implementation for multi-target regression.
+        """
+        if func_name == "fit" and len(args) > 1:
+            y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
+
+            # Check if we have multiple targets or 2D array
+            return len(y_m.shape) > 1
+        return False

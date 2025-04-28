@@ -14,42 +14,41 @@
 # limitations under the License.
 #
 import itertools
-import numpy as np
 import pathlib
-import treelite.sklearn
-from libcpp cimport bool
-from libc.stdint cimport uint32_t, uintptr_t
+from time import perf_counter
 
+import numpy as np
+import treelite.sklearn
+
+import cuml.internals.nvtx as nvtx
 from cuml.common.device_selection import using_device_type
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
-)
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
-from cuml.experimental.fil.infer_kind cimport infer_kind
-from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
-from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
+from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.mixins import CMajorInputTagMixin
+
+from libc.stdint cimport uint32_t, uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
-from time import perf_counter
 
-nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
-
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+    cuda_stream as raft_proto_stream_t,
 )
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+    device_type as raft_proto_device_t,
+)
+from cuml.experimental.fil.detail.raft_proto.handle cimport (
+    handle_t as raft_proto_handle_t,
+)
+from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
+from cuml.experimental.fil.infer_kind cimport infer_kind
+from cuml.experimental.fil.postprocessing cimport element_op, row_op
+from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle
@@ -1058,7 +1057,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
@@ -1108,7 +1107,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict',
         domain='cuml_python'
     )
@@ -1196,7 +1195,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict_per_tree',
         domain='cuml_python'
     )
@@ -1250,7 +1249,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.apply',
         domain='cuml_python'
     )

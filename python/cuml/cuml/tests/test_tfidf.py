@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,13 @@
 # limitations under the License.
 #
 
-from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
-from cuml.feature_extraction.text import TfidfTransformer
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
+import cupyx
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-
+from cuml.feature_extraction.text import TfidfTransformer
 
 # data_ids correspond to data, order is important
 data_ids = ["base_case", "diag", "empty_feature", "123", "empty_doc"]

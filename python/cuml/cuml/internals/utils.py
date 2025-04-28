@@ -15,7 +15,9 @@
 #
 
 import numbers
+
 import numpy as np
+
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")

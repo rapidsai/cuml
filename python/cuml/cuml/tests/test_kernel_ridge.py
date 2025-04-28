@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.testing.utils import as_type
-from hypothesis.extra.numpy import arrays
-from hypothesis import example, given, settings, assume, strategies as st
-from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 import inspect
 import math
-import pytest
-from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
-import cuml
-from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
-from cuml import KernelRidge as cuKernelRidge
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
 
-cp = gpu_only_import("cupy")
-linalg = gpu_only_import_from("cupy", "linalg")
-np = cpu_only_import("numpy")
-cuda = gpu_only_import_from("numba", "cuda")
+import cupy as cp
+import numpy as np
+import pytest
+from cupy import linalg
+from hypothesis import assume, example, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
+from numba import cuda
+from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
+from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
+
+import cuml
+from cuml import KernelRidge as cuKernelRidge
+from cuml.metrics import PAIRWISE_KERNEL_FUNCTIONS, pairwise_kernels
+from cuml.testing.utils import as_type
 
 
 def gradient_norm(model, X, y, K, sw=None):

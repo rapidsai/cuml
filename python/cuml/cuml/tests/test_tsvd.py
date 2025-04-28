@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sklearn.utils import check_random_state
-from sklearn.decomposition import TruncatedSVD as skTSVD
+import numpy as np
+import pytest
 from sklearn.datasets import make_blobs
+from sklearn.decomposition import TruncatedSVD as skTSVD
+from sklearn.utils import check_random_state
+
+from cuml import TruncatedSVD as cuTSVD
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
+    get_handle,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.testing.utils import get_handle
-from cuml import TruncatedSVD as cuTSVD
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

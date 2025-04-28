@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.preprocessing.LabelEncoder import LabelEncoder
-
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 def _df_to_similarity_mat(df):

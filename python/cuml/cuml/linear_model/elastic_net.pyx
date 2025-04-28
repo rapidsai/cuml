@@ -18,16 +18,19 @@
 
 from inspect import signature
 
-from cuml.solvers import CD, QN
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.logger import warn
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.solvers import CD, QN
 
 
 class ElasticNet(UniversalBase,
@@ -260,11 +263,19 @@ class ElasticNet(UniversalBase,
         Fit the model with X and y.
 
         """
-        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
-        if hasattr(X, 'index'):
-            self.feature_names_in_ = X.index
+        X_m, _, self.n_features_in_, self.dtype = input_to_cuml_array(X)
+        y_m, _, _, _ = input_to_cuml_array(y)
+        if hasattr(X_m, 'index'):
+            self.feature_names_in_ = X_m.index
 
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype,
+        # Check for multi-target regression
+        if (self.solver in ['cd', 'qn']) and y_m.ndim > 1 and y_m.shape[1] > 1:
+            raise ValueError(
+                f"The {self.solver} solver does not support "
+                "multi-target regression."
+            )
+
+        self.solver_model.fit(X_m, y_m, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
             coefs = self.solver_model.coef_
@@ -276,6 +287,9 @@ class ElasticNet(UniversalBase,
                 shape=(coefs.shape[1],)
             )
             self.intercept_ = self.solver_model.intercept_.item()
+        else:
+            self.coef_ = self.solver_model.coef_
+            self.intercept_ = self.solver_model.intercept_
 
         return self
 

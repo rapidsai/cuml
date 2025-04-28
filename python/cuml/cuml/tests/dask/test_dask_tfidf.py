@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +13,18 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import dask
+import dask.array as da
+import numpy as np
+import pytest
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
+from scipy.sparse import csr_matrix as scipy_csr_matrix
 from sklearn.feature_extraction.text import (
     TfidfTransformer as SkTfidfTransformer,
 )
-from cuml.dask.feature_extraction.text import TfidfTransformer
-import dask
-import dask.array as da
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-scipy_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
-cp_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+from cuml.dask.feature_extraction.text import TfidfTransformer
 
 
 # Testing Util Functions

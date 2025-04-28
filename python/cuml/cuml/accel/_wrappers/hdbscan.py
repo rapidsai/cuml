@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.accel.estimator_proxy import intercept
+import cuml.cluster
+from cuml.accel.estimator_proxy import ProxyMixin
+
+__all__ = ("HDBSCAN",)
 
 
-HDBSCAN = intercept(
-    original_module="hdbscan",
-    accelerated_module="cuml.cluster",
-    original_class_name="HDBSCAN",
-)
+class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
+    pass

@@ -16,109 +16,59 @@
 
 from collections import namedtuple
 
+import cudf
+import cupy as cp
+import cupyx
+import dask_cudf
+import numba.cuda as numba_cuda
+import numpy as np
+import pandas as pd
+import scipy.sparse as scipy_sparse
+from scipy.sparse import isspmatrix as scipy_isspmatrix
+
+import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-    safe_import,
-    safe_import_from,
-    null_decorator,
-    return_false,
-    UnavailableError,
-)
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 global_settings = GlobalSettings()
-numba_cuda = gpu_only_import("numba.cuda")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-scipy_sparse = safe_import(
-    "scipy.sparse", msg="Optional dependency scipy is not installed"
-)
-
-cp_ndarray = gpu_only_import_from("cupy", "ndarray")
-CudfSeries = gpu_only_import_from("cudf", "Series")
-CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-CudfIndex = gpu_only_import_from("cudf", "Index")
-DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
-np_ndarray = cpu_only_import_from("numpy", "ndarray")
-numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
-try:
-    NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
-except UnavailableError:
-    NumbaDeviceNDArrayBase = numba_devicearray
-scipy_isspmatrix = safe_import_from(
-    "scipy.sparse", "isspmatrix", alt=return_false
-)
-cupyx_isspmatrix = gpu_only_import_from(
-    "cupyx.scipy.sparse", "isspmatrix", alt=return_false
-)
-
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-PandasIndex = cpu_only_import_from("pandas", "Index")
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
 
 _input_type_to_str = {
     CumlArray: "cuml",
     SparseCumlArray: "cuml",
-    np_ndarray: "numpy",
-    PandasSeries: "pandas",
-    PandasDataFrame: "pandas",
-    PandasIndex: "pandas",
+    np.ndarray: "numpy",
+    pd.Series: "pandas",
+    pd.DataFrame: "pandas",
+    pd.Index: "pandas",
+    cp.ndarray: "cupy",
+    cudf.Series: "cudf",
+    cudf.DataFrame: "cudf",
+    cudf.Index: "cudf",
+    numba_cuda.devicearray.DeviceNDArrayBase: "numba",
+    cupyx.scipy.sparse.spmatrix: "cupy",
+    scipy_sparse.spmatrix: "numpy",
 }
-
-
-try:
-    _input_type_to_str[cp_ndarray] = "cupy"
-    _input_type_to_str[CudfSeries] = "cudf"
-    _input_type_to_str[CudfDataFrame] = "cudf"
-    _input_type_to_str[CudfIndex] = "cudf"
-    _input_type_to_str[NumbaDeviceNDArrayBase] = "numba"
-except UnavailableError:
-    pass
-
 
 _input_type_to_mem_type = {
-    np_ndarray: MemoryType.host,
-    PandasSeries: MemoryType.host,
-    PandasDataFrame: MemoryType.host,
+    np.ndarray: MemoryType.host,
+    pd.Series: MemoryType.host,
+    pd.DataFrame: MemoryType.host,
+    scipy_sparse.spmatrix: MemoryType.host,
+    cp.ndarray: MemoryType.device,
+    cudf.Series: MemoryType.device,
+    cudf.DataFrame: MemoryType.device,
+    numba_cuda.devicearray.DeviceNDArrayBase: MemoryType.device,
+    cupyx.scipy.sparse.spmatrix: MemoryType.device,
 }
 
-
-try:
-    _input_type_to_mem_type[cp_ndarray] = MemoryType.device
-    _input_type_to_mem_type[CudfSeries] = MemoryType.device
-    _input_type_to_mem_type[CudfDataFrame] = MemoryType.device
-    _input_type_to_mem_type[NumbaDeviceNDArrayBase] = MemoryType.device
-except UnavailableError:
-    pass
-
-_SPARSE_TYPES = [SparseCumlArray]
-
-try:
-    _input_type_to_str[cupyx.scipy.sparse.spmatrix] = "cupy"
-    _SPARSE_TYPES.append(cupyx.scipy.sparse.spmatrix)
-    _input_type_to_mem_type[cupyx.scipy.sparse.spmatrix] = MemoryType.device
-except UnavailableError:
-    pass
-
-try:
-    _input_type_to_str[scipy_sparse.spmatrix] = "numpy"
-    _SPARSE_TYPES.append(scipy_sparse.spmatrix)
-    _input_type_to_mem_type[scipy_sparse.spmatrix] = MemoryType.device
-except UnavailableError:
-    pass
+_SPARSE_TYPES = [
+    SparseCumlArray,
+    cupyx.scipy.sparse.spmatrix,
+    scipy_sparse.spmatrix,
+]
 
 
 def get_supported_input_type(X):
@@ -152,26 +102,26 @@ def get_supported_input_type(X):
     if isinstance(X, SparseCumlArray):
         return SparseCumlArray
 
-    if isinstance(X, CudfSeries):
+    if isinstance(X, cudf.Series):
         if X.null_count != 0:
             return None
         else:
-            return CudfSeries
+            return cudf.Series
 
-    if isinstance(X, PandasDataFrame):
-        return PandasDataFrame
+    if isinstance(X, pd.DataFrame):
+        return pd.DataFrame
 
-    if isinstance(X, PandasSeries):
-        return PandasSeries
+    if isinstance(X, pd.Series):
+        return pd.Series
 
-    if isinstance(X, PandasIndex):
-        return PandasIndex
+    if isinstance(X, pd.Index):
+        return pd.Index
 
-    if isinstance(X, CudfDataFrame):
-        return CudfDataFrame
+    if isinstance(X, cudf.DataFrame):
+        return cudf.DataFrame
 
-    if isinstance(X, CudfIndex):
-        return CudfIndex
+    if isinstance(X, cudf.Index):
+        return cudf.Index
 
     # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
     # which means without this we'd always return a cupy array. We don't want
@@ -179,11 +129,8 @@ def get_supported_input_type(X):
     if getattr(X, "_fsproxy_slow_type", None) is np.ndarray:
         return np.ndarray
 
-    try:
-        if numba_cuda.devicearray.is_cuda_ndarray(X):
-            return numba_cuda.devicearray.DeviceNDArrayBase
-    except UnavailableError:
-        pass
+    if numba_cuda.devicearray.is_cuda_ndarray(X):
+        return numba_cuda.devicearray.DeviceNDArrayBase
 
     if hasattr(X, "__cuda_array_interface__"):
         return cp.ndarray
@@ -195,17 +142,11 @@ def get_supported_input_type(X):
         if not isinstance(X, np.generic) and not isinstance(X, type):
             return np.ndarray
 
-    try:
-        if cupyx.scipy.sparse.isspmatrix(X):
-            return cupyx.scipy.sparse.spmatrix
-    except UnavailableError:
-        pass
+    if cupyx.scipy.sparse.isspmatrix(X):
+        return cupyx.scipy.sparse.spmatrix
 
-    try:
-        if scipy_sparse.isspmatrix(X):
-            return scipy_sparse.spmatrix
-    except UnavailableError:
-        pass
+    if scipy_sparse.isspmatrix(X):
+        return scipy_sparse.spmatrix
 
     # Return None if this type is not supported
     return None
@@ -228,9 +169,9 @@ def determine_df_obj_type(X):
     # Get the generic type
     gen_type = get_supported_input_type(X)
 
-    if gen_type in (CudfDataFrame, PandasDataFrame):
+    if gen_type in (cudf.DataFrame, pd.DataFrame):
         return "dataframe"
-    elif gen_type in (CudfSeries, PandasSeries):
+    elif gen_type in (cudf.Series, pd.Series):
         return "series"
 
     return None
@@ -241,7 +182,7 @@ def determine_array_dtype(X):
     if X is None:
         return None
 
-    if isinstance(X, (CudfDataFrame, PandasDataFrame)):
+    if isinstance(X, (cudf.DataFrame, pd.DataFrame)):
         # Assume single-label target
         dtype = X[X.columns[0]].dtype
     else:
@@ -279,7 +220,22 @@ def determine_array_type_full(X):
     return _input_type_to_str[gen_type], gen_type in _SPARSE_TYPES
 
 
-def is_array_like(X):
+def is_array_like(X, accept_lists=False):
+    """Check if X is array-like.
+
+    Parameters
+    ----------
+    X : object
+        The object to check
+    accept_lists : bool, default=False
+        If True, treat list and tuple objects as array-like.
+        If False, only treat actual array-like objects as array-like.
+
+    Returns
+    -------
+    bool
+        True if X is array-like, False otherwise
+    """
     if (
         hasattr(X, "__cuda_array_interface__")
         or (
@@ -293,34 +249,26 @@ def is_array_like(X):
             X,
             (
                 SparseCumlArray,
-                CudfSeries,
-                PandasSeries,
-                CudfDataFrame,
-                PandasDataFrame,
+                cudf.Series,
+                pd.Series,
+                cudf.DataFrame,
+                pd.DataFrame,
             ),
         )
+        or (accept_lists and isinstance(X, (list, tuple)))
     ):
         return True
 
-    try:
-        if cupyx_isspmatrix(X):
-            return True
-    except UnavailableError:
-        pass
-    try:
-        if scipy_isspmatrix(X):
-            return True
-    except UnavailableError:
-        pass
-    try:
-        if numba_cuda.devicearray.is_cuda_ndarray(X):
-            return True
-    except UnavailableError:
-        pass
+    if cupyx.scipy.sparse.isspmatrix(X):
+        return True
+    if scipy_isspmatrix(X):
+        return True
+    if numba_cuda.devicearray.is_cuda_ndarray(X):
+        return True
     return False
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_cuml_array",
     category="utils",
     domain="cuml_python",
@@ -437,7 +385,7 @@ def input_to_cuml_array(
     return cuml_array(array=arr, n_rows=n_rows, n_cols=n_cols, dtype=arr.dtype)
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_cupy_array",
     category="utils",
     domain="cuml_python",
@@ -459,7 +407,7 @@ def input_to_cupy_array(
     CumlArray
     """
     if not fail_on_null:
-        if isinstance(X, (CudfDataFrame, CudfSeries)):
+        if isinstance(X, (cudf.DataFrame, cudf.Series)):
             try:
                 X = X.values
             except ValueError:
@@ -483,7 +431,7 @@ def input_to_cupy_array(
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_host_array",
     category="utils",
     domain="cuml_python",
@@ -504,7 +452,7 @@ def input_to_host_array(
     Identical to input_to_cuml_array but it returns a host (NumPy array instead
     of CumlArray
     """
-    if not fail_on_null and isinstance(X, (CudfDataFrame, CudfSeries)):
+    if not fail_on_null and isinstance(X, (cudf.DataFrame, cudf.Series)):
         try:
             X = X.values
         except ValueError:
@@ -531,11 +479,8 @@ def input_to_host_array(
 def input_to_host_array_with_sparse_support(X):
     if X is None:
         return None
-    try:
-        if scipy_sparse.issparse(X):
-            return X
-    except UnavailableError:
-        pass
+    if scipy_sparse.issparse(X):
+        return X
     _array_type, is_sparse = determine_array_type_full(X)
     if is_sparse:
         if _array_type == "cupy":
@@ -555,7 +500,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
     if the conversion would lose information.
     """
 
-    if isinstance(X, (DaskCudfSeries, DaskCudfDataFrame)):
+    if isinstance(X, (dask_cudf.Series, dask_cudf.DataFrame)):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
@@ -576,15 +521,12 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
 
             if out_of_range:
                 raise TypeError("Data type conversion would lose information.")
-    try:
-        if numba_cuda.is_cuda_array(X):
-            arr = cp.asarray(X, dtype=to_dtype)
-            if legacy:
-                return numba_cuda.as_cuda_array(arr)
-            else:
-                return CumlArray(data=arr)
-    except UnavailableError:
-        pass
+    if numba_cuda.is_cuda_array(X):
+        arr = cp.asarray(X, dtype=to_dtype)
+        if legacy:
+            return numba_cuda.as_cuda_array(arr)
+        else:
+            return CumlArray(data=arr)
 
     try:
         return X.astype(to_dtype, copy=False)

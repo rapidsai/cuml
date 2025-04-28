@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,19 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from cuml.dask.datasets import make_regression
-from cuml.dask.linear_model import LinearRegression
-from cuml.internals.safe_imports import cpu_only_import_from
+import cupy
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
-from cuml.dask.datasets import make_blobs
-from cuml.testing.dask.utils import load_text_corpus
-from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
-from cuml.dask.cluster import KMeans
 from dask_ml.wrappers import ParallelPostFit
-from cuml.internals.safe_imports import gpu_only_import
+from numpy.testing import assert_equal
+from sklearn.model_selection import train_test_split
 
-cupy = gpu_only_import("cupy")
-
-
-np = cpu_only_import("numpy")
-
-assert_equal = cpu_only_import_from("numpy.testing", "assert_equal")
+import cuml
+from cuml.dask.cluster import KMeans
+from cuml.dask.datasets import make_blobs, make_regression
+from cuml.dask.linear_model import LinearRegression
+from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
+from cuml.testing.dask.utils import load_text_corpus
 
 
 def make_dataset(datatype, nrows, ncols, n_info):

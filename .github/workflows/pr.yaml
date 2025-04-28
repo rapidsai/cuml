@@ -30,6 +30,7 @@ jobs:
       - wheel-build-libcuml
       - wheel-build-cuml
       - wheel-tests-cuml
+      - wheel-tests-cuml-dask
       - devcontainer
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.06
@@ -149,7 +150,8 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
-      matrix_filter: map(select(.ARCH == "amd64"))
+      # Select the amd64 entry with the highest CUDA and Python version
+      matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
       build_type: pull-request
       script: "ci/test_python_integration.sh"
   conda-python-tests-dask:
@@ -168,6 +170,8 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
+      # Select the amd64 entry with the highest CUDA and Python version
+      matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -204,6 +208,8 @@ jobs:
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libcuml
+      package-type: cpp
   wheel-build-cuml:
     needs: [checks, wheel-build-libcuml]
     secrets: inherit
@@ -211,6 +217,8 @@ jobs:
     with:
       build_type: pull-request
       script: ci/build_wheel_cuml.sh
+      package-name: cuml
+      package-type: python
   wheel-tests-cuml:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
@@ -219,6 +227,14 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
+  wheel-tests-cuml-dask:
+    needs: [wheel-build-cuml, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      script: ci/test_wheel_dask.sh
   devcontainer:
     needs: telemetry-setup
     secrets: inherit

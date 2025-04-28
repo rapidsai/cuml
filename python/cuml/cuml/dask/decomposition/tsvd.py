@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.dask.decomposition.base import BaseDecomposition
-from cuml.dask.decomposition.base import DecompositionSyncFitMixin
-
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import DelayedInverseTransformMixin
+from cuml.dask.common.base import (
+    DelayedInverseTransformMixin,
+    DelayedTransformMixin,
+    mnmg_import,
+)
+from cuml.dask.decomposition.base import (
+    BaseDecomposition,
+    DecompositionSyncFitMixin,
+)
 
 
 class TruncatedSVD(
