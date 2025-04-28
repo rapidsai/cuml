@@ -70,15 +70,6 @@ def has_xgboost():
         return False
 
 
-def check_min_dask_version(version):
-    try:
-        import dask
-
-        return Version(dask.__version__) >= Version(version)
-    except ImportError:
-        return False
-
-
 def check_min_numba_version(version):
     return Version(str(numba.__version__)) >= Version(version)
 
