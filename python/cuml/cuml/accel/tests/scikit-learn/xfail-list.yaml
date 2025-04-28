@@ -747,7 +747,6 @@
 - id: "sklearn.manifold.tests.test_t_sne::test_n_components_range"
 - id: "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
 - id: "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
-- id: "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_array]"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_matrix]"
