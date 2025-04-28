@@ -24,7 +24,6 @@ else:
     libcuml.load_library()
     del libcuml
 
-import cuml.common.cuda as cuda
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
@@ -116,7 +115,6 @@ __all__ = [
     "AutoARIMA",
     "Base",
     "CD",
-    "cuda",
     "DBSCAN",
     "ElasticNet",
     "ExponentialSmoothing",
