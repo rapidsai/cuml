@@ -32,7 +32,7 @@ from cuml.benchmark.runners import (
     SpeedupComparisonRunner,
     run_variations,
 )
-from cuml.internals.import_utils import has_umap, has_xgboost
+from cuml.internals.import_utils import has_xgboost
 
 pytestmark = pytest.mark.skip
 
@@ -188,9 +188,7 @@ def test_accuracy_runner():
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if (algo_name == "UMAP-Supervised" and not has_umap()) or (
-        algo_name == "FIL" and not has_xgboost()
-    ):
+    if algo_name == "FIL" and not has_xgboost():
         pytest.xfail()
 
     runner = AccuracyComparisonRunner(

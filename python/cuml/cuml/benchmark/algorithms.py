@@ -54,7 +54,7 @@ from cuml.dask import (  # noqa: F401
     manifold,
     neighbors,
 )
-from cuml.internals.import_utils import has_hdbscan, has_umap
+from cuml.internals.import_utils import has_hdbscan
 from cuml.preprocessing import (
     MaxAbsScaler,
     MinMaxScaler,
@@ -65,8 +65,10 @@ from cuml.preprocessing import (
     StandardScaler,
 )
 
-if has_umap():
-    import umap
+try:
+    from umap import UMAP
+except ImportError:
+    UMAP = None
 
 
 if has_hdbscan():
@@ -571,7 +573,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Unsupervised",
@@ -579,7 +581,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Supervised",

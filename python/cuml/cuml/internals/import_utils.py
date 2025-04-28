@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import platform
-
 from packaging.version import Version
 
 
@@ -23,17 +21,6 @@ def has_dask():
         import dask  # NOQA
         import dask.dataframe  # NOQA
         import dask.distributed  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
-def has_umap():
-    if platform.processor() == "aarch64":
-        return False
-    try:
-        import umap  # NOQA
 
         return True
     except ImportError:
