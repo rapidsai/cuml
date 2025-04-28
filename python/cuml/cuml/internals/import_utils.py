@@ -30,15 +30,6 @@ def has_dask():
         return False
 
 
-def has_dask_cudf():
-    try:
-        import dask_cudf  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def has_dask_sql():
     try:
         import dask_sql  # NOQA
