@@ -32,7 +32,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
 
     cdef cppclass CondensedHierarchy[value_idx, value_t]:
         CondensedHierarchy(
@@ -72,7 +72,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         size_t n_rows
         size_t n_cols
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
 
     void compute_all_points_membership_vectors(
         const handle_t &handle,

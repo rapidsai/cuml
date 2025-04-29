@@ -24,7 +24,7 @@ from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double c_kl_divergence "ML::Metrics::kl_divergence"(
         const handle_t &handle,
         const double *y,

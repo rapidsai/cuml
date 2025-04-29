@@ -32,7 +32,7 @@ from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
+cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML" nogil:
     void kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
         float* X,

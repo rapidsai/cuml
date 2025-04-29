@@ -45,7 +45,7 @@ from rmm.librmm.device_uvector cimport device_uvector
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
 
     ctypedef enum CLUSTER_SELECTION_METHOD:
         EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
@@ -115,7 +115,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
                                   int n_selected_clusters,
                                   PredictionData[int, float]& prediction_data)
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
 
     void hdbscan(const handle_t & handle,
                  const float * X,
@@ -142,7 +142,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER" nogil:
 
     void compute_core_dists(const handle_t& handle,
                             const float* X,

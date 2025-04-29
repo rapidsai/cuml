@@ -32,7 +32,7 @@ from cuml.linear_model import LinearRegression
 from cuml.linear_model.base_mg import MGFitMixin
 
 
-cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg":
+cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,

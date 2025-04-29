@@ -46,7 +46,7 @@ from cuml.ensemble.randomforest_shared cimport *
 from cuml.internals.logger cimport level_enum
 
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, int]*,

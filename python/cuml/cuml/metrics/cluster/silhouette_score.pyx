@@ -31,7 +31,7 @@ from cuml.metrics.distance_type cimport DistanceType
 from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nogil:
     float silhouette_score(
         const handle_t &handle,
         float *y,

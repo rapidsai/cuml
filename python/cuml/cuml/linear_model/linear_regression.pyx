@@ -40,7 +40,7 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
     cdef void olsFit(handle_t& handle,
                      float *input,
