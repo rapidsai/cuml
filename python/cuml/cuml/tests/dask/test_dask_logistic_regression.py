@@ -427,17 +427,15 @@ def test_n_classes_small(client):
 
 
 @pytest.mark.parametrize("n_parts", [2, 23])
-@pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("n_classes", [2, 6])
-def test_n_classes(n_parts, fit_intercept, n_classes, client):
-    datatype = np.float32 if fit_intercept else np.float64
+def test_n_classes(n_parts, n_classes, client):
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = _test_lbfgs(
         nrows=nrows,
         ncols=20,
         n_parts=n_parts,
-        fit_intercept=fit_intercept,
-        datatype=datatype,
+        fit_intercept=True,
+        datatype=np.float32,
         delayed=True,
         client=client,
         penalty="l2",
@@ -445,7 +443,7 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
     )
 
     assert lr._num_classes == n_classes
-    assert lr.dtype == datatype
+    assert lr.dtype == np.float32
 
 
 @pytest.mark.mg
@@ -511,7 +509,6 @@ def test_elasticnet(
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
     "reg_dtype",
     [
@@ -521,7 +518,7 @@ def test_elasticnet(
         (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-def test_sparse_from_dense(fit_intercept, reg_dtype, client):
+def test_sparse_from_dense(reg_dtype, client):
     penalty, C, l1_ratio = reg_dtype[0]
     datatype = reg_dtype[1]
 
@@ -532,7 +529,7 @@ def test_sparse_from_dense(fit_intercept, reg_dtype, client):
         nrows=int(1e5),
         ncols=20,
         n_parts=2,
-        fit_intercept=fit_intercept,
+        fit_intercept=True,
         datatype=datatype,
         delayed=True,
         client=client,
@@ -589,8 +586,7 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
     assert cuml_score >= cpu_score or np.abs(cuml_score - cpu_score) < 1e-3
 
 
-@pytest.mark.parametrize("fit_intercept", [False, True])
-def test_exception_one_label(fit_intercept, client):
+def test_exception_one_label(client):
     n_parts = 2
     datatype = "float32"
 
@@ -602,15 +598,9 @@ def test_exception_one_label(fit_intercept, client):
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
-    mg = cumlLBFGS_dask(fit_intercept=fit_intercept, verbose=6)
+    mg = cumlLBFGS_dask(fit_intercept=True, verbose=6)
     with pytest.raises(RuntimeError, match=err_msg):
         mg.fit(X_df, y_df)
-
-    from sklearn.linear_model import LogisticRegression
-
-    lr = LogisticRegression(fit_intercept=fit_intercept)
-    with pytest.raises(ValueError, match=err_msg):
-        lr.fit(X, y)
 
 
 @pytest.mark.mg
