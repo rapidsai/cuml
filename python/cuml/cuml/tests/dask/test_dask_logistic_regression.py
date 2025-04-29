@@ -428,7 +428,7 @@ def test_n_classes_small(client):
 
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("n_classes", [8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
     datatype = np.float32 if fit_intercept else np.float64
     nrows = int(1e5) if n_classes < 5 else int(2e5)
