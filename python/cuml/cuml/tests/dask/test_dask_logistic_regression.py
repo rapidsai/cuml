@@ -585,7 +585,7 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     from sklearn.linear_model import LogisticRegression as CPULR
 
-    cpu = CPULR(C=20.0)
+    cpu = CPULR(C=20.0, solver="saga")
     cpu.fit(X_train, y_train)
     cpu_preds = cpu.predict(X_test)
     cpu_score = accuracy_score(y_test, cpu_preds.tolist())
