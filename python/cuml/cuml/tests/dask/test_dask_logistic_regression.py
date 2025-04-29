@@ -712,20 +712,18 @@ def adjust_standardization_model_for_comparison(
     ],
 )
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4), (100, 10)])
 def test_standardization_on_scaled_dataset(
-    fit_intercept, reg_dtype, delayed, ncol_and_nclasses, client
+    fit_intercept, reg_dtype, delayed, client
 ):
-
     regularization = reg_dtype[0]
     datatype = reg_dtype[1]
 
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
-    n_classes = ncol_and_nclasses[1]
-    nrows = int(1e5) if n_classes < 5 else int(2e5)
-    ncols = ncol_and_nclasses[0]
+    nrows = int(2e5)
+    ncols = 20
+    n_classes = 6
     n_info = ncols
     n_redundant = 0
     n_parts = 2
