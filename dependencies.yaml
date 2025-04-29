@@ -269,9 +269,6 @@ dependencies:
           - joblib>=0.11
           - numba>=0.59.1,<0.61.0a0
           - numpy>=1.23,<3.0a0
-            # TODO: Is scipy really a hard dependency, or should
-            # we make it optional (i.e. an extra for pip
-            # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.6.*,>=0.0.0a0
