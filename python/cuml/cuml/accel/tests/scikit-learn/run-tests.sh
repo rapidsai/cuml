@@ -11,6 +11,8 @@
 
 set -eu
 
-pytest -p cuml.accel --pyargs sklearn -v \
+cd "$(dirname "$0")"
+export PYTHONPATH=$PWD
+pytest -p cuml.accel --pyargs sklearn -v -s --log-cli-level=INFO \
     --xfail-list="$(dirname "$0")/xfail-list.yaml" \
     "$@"
