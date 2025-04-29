@@ -135,6 +135,7 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
         strict = group.get("strict", True)
         tests = group.get("tests", [])
         condition = group.get("condition", None)
+        marker = group.get("marker", None)
 
         # Track which tests from this group are still relevant
         relevant_tests = []
@@ -166,6 +167,8 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
                                 updated_groups[flaky_reason][
                                     "condition"
                                 ] = condition
+                            if marker is not None:
+                                updated_groups[flaky_reason]["marker"] = marker
                         updated_groups[flaky_reason]["tests"].append(test_id)
                     # For "remove", we don't add xpassed tests at all
                 elif not strict:
@@ -186,6 +189,8 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
                 )
                 if condition is not None:
                     updated_groups[reason]["condition"] = condition
+                if marker is not None:
+                    updated_groups[reason]["marker"] = marker
             updated_groups[reason]["tests"].extend(relevant_tests)
 
     # Then add any new failing tests

@@ -1275,6 +1275,7 @@
   - "sklearn.utils.tests.test_validation::test_has_fit_parameter"
 - reason: Test is flaky with cuml.accel
   strict: false
+  marker: cuml_accel_flaky
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
