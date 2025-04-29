@@ -44,8 +44,6 @@ from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
-
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 

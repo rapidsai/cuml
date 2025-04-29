@@ -32,8 +32,6 @@ from cuml.internals.base import Base
 
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
-
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle

@@ -41,7 +41,6 @@ from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.internals.logger cimport level_enum
 
