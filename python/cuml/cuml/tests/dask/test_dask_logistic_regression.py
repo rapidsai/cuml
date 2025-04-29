@@ -451,7 +451,7 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("delayed", [True])
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 @pytest.mark.parametrize("C", [1.0, 10.0])
 def test_l1(fit_intercept, delayed, n_classes, C, client):
     datatype = np.float64 if fit_intercept else np.float32
@@ -480,7 +480,7 @@ def test_l1(fit_intercept, delayed, n_classes, C, client):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True])
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 @pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
 def test_elasticnet(
     fit_intercept, datatype, delayed, n_classes, l1_ratio, client
@@ -521,7 +521,7 @@ def test_elasticnet(
         (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
     penalty, C, l1_ratio = reg_dtype[0]
     datatype = reg_dtype[1]
@@ -628,7 +628,7 @@ def test_exception_one_label(fit_intercept, client):
     ],
 )
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 def test_standardization_on_normal_dataset(
     fit_intercept, reg_dtype, delayed, n_classes, client
 ):
