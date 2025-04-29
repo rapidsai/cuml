@@ -19,8 +19,8 @@
 import cupyx
 import numpy as np
 
+import cuml
 from cuml.manifold.umap_utils cimport *
-
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
