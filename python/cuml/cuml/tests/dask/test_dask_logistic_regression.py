@@ -14,7 +14,6 @@
 #
 
 import random
-from functools import partial
 
 import cudf
 import cupy as cp
@@ -476,13 +475,10 @@ def test_l1(fit_intercept, delayed, n_classes, C, client):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True])
 @pytest.mark.parametrize("n_classes", [2, 6])
 @pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
-def test_elasticnet(
-    fit_intercept, datatype, delayed, n_classes, l1_ratio, client
-):
+def test_elasticnet(fit_intercept, delayed, n_classes, l1_ratio, client):
     datatype = np.float32 if fit_intercept else np.float64
 
     nrows = int(1e5) if n_classes < 5 else int(2e5)
@@ -524,8 +520,7 @@ def test_sparse_from_dense(reg_dtype, client):
 
     _convert_index = np.int32 if random.choice([True, False]) else np.int64
 
-    run_test = partial(
-        _test_lbfgs,
+    lr = _test_lbfgs(
         nrows=int(1e5),
         ncols=20,
         n_parts=2,
@@ -540,8 +535,6 @@ def test_sparse_from_dense(reg_dtype, client):
         convert_to_sparse=True,
         _convert_index=_convert_index,
     )
-
-    lr = run_test()
     assert lr.dtype == datatype
     assert lr.index_dtype == _convert_index
 
