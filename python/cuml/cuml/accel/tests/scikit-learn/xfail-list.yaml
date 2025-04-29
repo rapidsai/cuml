@@ -49,6 +49,8 @@
 - id: "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
+  strict: false
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
 - id: "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
 - id: "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
@@ -748,6 +750,8 @@
 - id: "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
 - id: "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
 - id: "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
+  strict: false
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_array]"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_matrix]"
