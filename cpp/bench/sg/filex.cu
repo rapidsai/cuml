@@ -22,10 +22,8 @@
 #include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
 #include <cuml/experimental/fil/treelite_importer.hpp>
-#include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
 
-#include <treelite/c_api.h>
 #include <treelite/tree.h>
 
 #include <chrono>
@@ -40,8 +38,6 @@ struct Params {
   DatasetParams data;
   RegressionParams blobs;
   TreeliteModelHandle model;
-  ML::fil::storage_type_t storage;
-  bool use_experimental;
   RF_params rf;
   int predict_repetitions;
 };
@@ -77,104 +73,47 @@ class FILEX : public RegressionFixture<float> {
       0,
       stream);
 
-    ML::fil::treelite_params_t tl_params = {
-      .algo              = ML::fil::algo_t::NAIVE,
-      .output_class      = false,
-      .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
-      .storage_type      = p_rest.storage,
-      .blocks_per_sm     = 8,
-      .threads_per_tree  = 1,
-      .n_items           = 0,
-      .pforest_shape_str = nullptr};
-    ML::fil::forest_variant forest_variant;
-    auto optimal_chunk_size    = 1;
-    auto optimal_storage_type  = p_rest.storage;
-    auto optimal_algo_type     = ML::fil::algo_t::NAIVE;
-    auto optimal_layout        = ML::experimental::fil::tree_layout::breadth_first;
-    auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
-    if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
-      allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
-      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
-      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
-    } else {
-      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
-      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
-    }
+    auto optimal_chunk_size = 1;
+    auto optimal_layout     = ML::experimental::fil::tree_layout::breadth_first;
     auto allowed_layouts = std::vector<ML::experimental::fil::tree_layout>{
       ML::experimental::fil::tree_layout::depth_first,
       ML::experimental::fil::tree_layout::breadth_first,
       ML::experimental::fil::tree_layout::layered_children_together};
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
-    // Iterate through storage type, algorithm type, and chunk sizes and find optimum
-    for (auto storage_type : allowed_storage_types) {
-      auto allowed_algo_types = std::vector<ML::fil::algo_t>{};
-      allowed_algo_types.push_back(ML::fil::algo_t::NAIVE);
-      if (storage_type == ML::fil::storage_type_t::DENSE) {
-        allowed_algo_types.push_back(ML::fil::algo_t::TREE_REORG);
-        allowed_algo_types.push_back(ML::fil::algo_t::BATCH_TREE_REORG);
-      }
-      tl_params.storage_type = storage_type;
-
-      for (auto algo_type : allowed_algo_types) {
-        tl_params.algo = algo_type;
-        for (auto layout : allowed_layouts) {
-          filex_model = ML::experimental::fil::import_from_treelite_handle(
-            model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
-          for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
-            if (!p_rest.use_experimental) {
-              tl_params.threads_per_tree = chunk_size;
-              ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-              forest = std::get<ML::fil::forest_t<float>>(forest_variant);
-            }
-            handle->sync_stream();
-            handle->sync_stream_pool();
-            auto start = std::chrono::high_resolution_clock::now();
-            for (int i = 0; i < p_rest.predict_repetitions; i++) {
-              // Create FIL forest
-              if (p_rest.use_experimental) {
-                filex_model.predict(*handle,
-                                    data.y.data(),
-                                    data.X.data(),
-                                    params.nrows,
-                                    raft_proto::device_type::gpu,
-                                    raft_proto::device_type::gpu,
-                                    ML::experimental::fil::infer_kind::default_kind,
-                                    chunk_size);
-              } else {
-                ML::fil::predict(
-                  *handle, forest, data.y.data(), data.X.data(), params.nrows, false);
-              }
-            }
-            handle->sync_stream();
-            handle->sync_stream_pool();
-            auto end = std::chrono::high_resolution_clock::now();
-            auto elapsed =
-              std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-            if (elapsed < min_time) {
-              min_time             = elapsed;
-              optimal_chunk_size   = chunk_size;
-              optimal_storage_type = storage_type;
-              optimal_algo_type    = algo_type;
-              optimal_layout       = layout;
-            }
-
-            // Clean up from FIL
-            if (!p_rest.use_experimental) { ML::fil::free(*handle, forest); }
-          }
-          if (!p_rest.use_experimental) { break; }
+    // Find optimal configuration
+    for (auto layout : allowed_layouts) {
+      filex_model = ML::experimental::fil::import_from_treelite_handle(
+        model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
+      for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
+        handle->sync_stream();
+        handle->sync_stream_pool();
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < p_rest.predict_repetitions; i++) {
+          // Create FIL forest
+          filex_model.predict(*handle,
+                              data.y.data(),
+                              data.X.data(),
+                              params.nrows,
+                              raft_proto::device_type::gpu,
+                              raft_proto::device_type::gpu,
+                              ML::experimental::fil::infer_kind::default_kind,
+                              chunk_size);
         }
-        if (p_rest.use_experimental) { break; }
+        handle->sync_stream();
+        handle->sync_stream_pool();
+        auto end = std::chrono::high_resolution_clock::now();
+        auto elapsed =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        if (elapsed < min_time) {
+          min_time             = elapsed;
+          optimal_chunk_size   = chunk_size;
+          optimal_layout       = layout;
+        }
       }
-      if (p_rest.use_experimental) { break; }
     }
 
     // Build optimal FIL tree
-    tl_params.storage_type     = optimal_storage_type;
-    tl_params.algo             = optimal_algo_type;
-    tl_params.threads_per_tree = optimal_chunk_size;
-    ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-    forest      = std::get<ML::fil::forest_t<float>>(forest_variant);
     filex_model = ML::experimental::fil::import_from_treelite_handle(
       model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);
 
@@ -186,27 +125,16 @@ class FILEX : public RegressionFixture<float> {
       state,
       [this, &filex_model, optimal_chunk_size]() {
         for (int i = 0; i < p_rest.predict_repetitions; i++) {
-          if (p_rest.use_experimental) {
-            filex_model.predict(*handle,
-                                this->data.y.data(),
-                                this->data.X.data(),
-                                this->params.nrows,
-                                raft_proto::device_type::gpu,
-                                raft_proto::device_type::gpu,
-                                ML::experimental::fil::infer_kind::default_kind,
-                                optimal_chunk_size);
-            handle->sync_stream();
-            handle->sync_stream_pool();
-          } else {
-            ML::fil::predict(*this->handle,
-                             this->forest,
-                             this->data.y.data(),
-                             this->data.X.data(),
-                             this->params.nrows,
-                             false);
-            handle->sync_stream();
-            handle->sync_stream_pool();
-          }
+          filex_model.predict(*handle,
+                              this->data.y.data(),
+                              this->data.X.data(),
+                              this->params.nrows,
+                              raft_proto::device_type::gpu,
+                              raft_proto::device_type::gpu,
+                              ML::experimental::fil::infer_kind::default_kind,
+                              optimal_chunk_size);
+          handle->sync_stream();
+          handle->sync_stream_pool();
         }
       },
       true);
@@ -216,12 +144,10 @@ class FILEX : public RegressionFixture<float> {
 
   void deallocateBuffers(const ::benchmark::State& state) override
   {
-    ML::fil::free(*handle, forest);
     Base::deallocateBuffers(state);
   }
 
  private:
-  ML::fil::forest_t<float> forest;
   TreeliteModelHandle model;
   Params p_rest;
 };
@@ -232,8 +158,6 @@ struct FilBenchParams {
   int nclasses;
   int max_depth;
   int ntrees;
-  ML::fil::storage_type_t storage;
-  bool use_experimental;
 };
 
 std::vector<Params> getInputs()
@@ -265,21 +189,13 @@ std::vector<Params> getInputs()
                        128                 /* max_batch_size */
   );
 
-  using ML::fil::algo_t;
-  using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
-    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
-    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}};
+    {(int)1e6, 20, 1, 10, 1000},
+    {(int)1e6, 20, 1, 3, 1000},
+    {(int)1e6, 20, 1, 28, 1000},
+    {(int)1e6, 20, 1, 10, 100},
+    {(int)1e6, 20, 1, 10, 10000},
+    {(int)1e6, 200, 1, 10, 1000}};
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
@@ -288,8 +204,6 @@ std::vector<Params> getInputs()
     p.data.nclasses            = i.nclasses;
     p.rf.tree_params.max_depth = i.max_depth;
     p.rf.n_trees               = i.ntrees;
-    p.storage                  = i.storage;
-    p.use_experimental         = i.use_experimental;
     p.predict_repetitions      = 10;
     out.push_back(p);
   }
