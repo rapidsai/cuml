@@ -33,8 +33,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 
 
-cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
-        "ML::KNN::opg":
+cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
 
     cdef void knn_regress(
         handle_t &handle,

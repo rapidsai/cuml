@@ -25,7 +25,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
+cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
 
     void permutation_shap_dataset "ML::Explainer::permutation_shap_dataset"(
         const handle_t& handle,

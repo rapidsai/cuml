@@ -47,7 +47,7 @@ from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, float]*,

@@ -26,12 +26,12 @@ from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance":
+cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance" nogil:
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(cuvs::distance::DistanceType)5"
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
 
     cdef double trustworthiness_score[T, DistanceType](const handle_t& h,
                                                        T* X,

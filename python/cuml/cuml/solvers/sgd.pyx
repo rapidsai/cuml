@@ -32,7 +32,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
 
     cdef void sgdFit(handle_t& handle,
                      float *input,

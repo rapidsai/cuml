@@ -35,7 +35,7 @@ from libc.stdlib cimport free
 from libcpp.memory cimport unique_ptr
 
 
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
 
     unique_ptr[COO] get_graph(handle_t &handle,
                               float* X,

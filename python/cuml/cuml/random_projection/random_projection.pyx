@@ -33,7 +33,7 @@ from cuml.internals.mixins import FMajorInputTagMixin
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 
-cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
+cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML" nogil:
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
