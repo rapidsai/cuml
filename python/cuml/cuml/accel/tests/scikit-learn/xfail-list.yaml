@@ -1,62 +1,7 @@
 - reason: Test is failing with cuml.accel
+  marker: cuml_accel_bugs
   tests:
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[False]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[True]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed_different_eps"
-  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-sparse_array]"
-  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-sparse_matrix]"
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
-  - "sklearn.cluster.tests.test_k_means::test_float_precision[42-KMeans-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int32-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int64-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int32-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int64-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-k-means++-1]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-random-default]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-lloyd]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-lloyd]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_warns_less_centers_than_unique_points[42]"
-  - "sklearn.cluster.tests.test_k_means::test_n_init_auto[KMeans-10]"
-  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-k-means++-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-k-means++-X_csr1]"
-  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-random-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-random-X_csr1]"
-  - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
-  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
-  - "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param2-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param4-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
-  - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[ggparam1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
   - "sklearn.cross_decomposition.tests.test_pls::test_pls_regression_fit_1d_y"
   - "sklearn.datasets.tests.test_arff_parser::test_pandas_arff_parser_strip_no_quotes[_liac_arff_parser]"
   - "sklearn.decomposition.tests.test_pca::test_infer_dim_by_explained_variance[X0-0.95-2]"
@@ -1277,7 +1222,6 @@
   strict: false
   marker: cuml_accel_flaky
   tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
@@ -1286,3 +1230,110 @@
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
+- reason: "cuml.accel bug: Missing components_ attribute"
+  tests:
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
+- reason: "cuml.accel bug: ValueError: internal: _fit_method not recognized"
+  tests:
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[False]"
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[True]"
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed_different_eps"
+- reason: Unexpected deviations in inertia values in cuml.accel
+  marker: cuml_accel_kmeans_inertia_weights
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_float_precision[42-KMeans-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
+- reason: Flaky deviations in n_iter_ values in cuml.accel
+  strict: true
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+- reason: "RAFT library limitation: tolerance must be positive"
+  marker: cuml_accel_kmeans_needs_nonnegative_tolerance
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-lloyd]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-elkan]"
+- reason: "cuml.accel does not support callable initialization for KMeans"
+  marker: cuml_accel_kmeans_callable_init
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-sparse_array]"
+  - "sklearn.cluster.tests.test_k_means::test_all_init[KMeans-callable-sparse_matrix]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
+- reason: "cuml.accel fails for KMeans with AttributeError: 'KMeans' object has no attribute '_n_init'"
+  marker: cuml_accel_kmeans_n_init
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-k-means++-1]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-random-default]"
+  - "sklearn.cluster.tests.test_k_means::test_n_init_auto[KMeans-10]"
+- reason: "cuml.accel deviates in log output for KMeans"
+  marker: cuml_accel_kmeans_verbose_logging_message_deviation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-elkan]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-lloyd]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_warns_less_centers_than_unique_points[42]"
+  - "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
+- reason: "cuml.accel does not emit RuntimeWarning when n_init > 1 and precomputed centers are passed"
+  marker: cuml_accel_kmeans_warning_n_init_precomputed_centers
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
+- reason: "cuml.accel deviates in repeated predict output for KMeans"
+  marker: cuml_accel_kmeans_repeated_predict_output_deviation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-lloyd-dense]"
+- reason: "cuml.accel deviates in predict output for KMeans"
+  marker: cuml_accel_kmeans_predict_output_deviation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
+  - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
+- reason: "cuml.accel fails on sparse matrix inputs for KMeans"
+  marker: cuml_accel_kmeans_sparse_unsupported
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-k-means++-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-k-means++-X_csr1]"
+  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-random-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_predict_dense_sparse[KMeans-random-X_csr1]"
+- reason: "Integer inputs are converted to float32 instead of float64 with cuml.accel"
+  marker: cuml_accel_kmeans_integer_dtype
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int32-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int64-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int32-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int64-dense]"
+- reason: "cuml.accel deviates in KMeans cluster_centers_ attribute"
+  marker: cuml_accel_kmeans_cluster_centers_attribute
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
+- reason: "Parameter validation differs from scikit-learn"
+  marker: cuml_accel_kmeans_param_validation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param2-The shape of the initial centers .* does not match the number of clusters-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param4-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
+- reason: "cuml.accel deviates in KMeans empty cluster reloacation (number of labels)"
+  marker: cuml_accel_kmeans_empty_clusters_num_labels
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
+- reason: "cuml.accel fails with AttributeError: 'memmap' object has no attribute 'ptr'."
+  marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
