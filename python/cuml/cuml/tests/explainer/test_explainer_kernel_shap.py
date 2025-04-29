@@ -27,7 +27,6 @@ from sklearn.model_selection import train_test_split
 import cuml
 from cuml import KernelExplainer, Lasso
 from cuml.datasets import make_regression
-from cuml.internals.import_utils import has_shap
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
 
@@ -170,6 +169,8 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
 @pytest.mark.parametrize("n_background", [30])
 @pytest.mark.parametrize("model", [cuml.SVR])
 def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
+    shap = pytest.importorskip("shap")
+
     X, y = with_dtype(
         make_regression(
             n_samples=n_background + 3,
@@ -199,15 +200,10 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
             np.sum(shap_values[test_idx]) - abs(fx[test_idx] - exp_v)
         ) <= 1e-5
 
-    if has_shap():
-        import shap
+    explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
+    cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
 
-        explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
-        cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
-
-        assert np.allclose(
-            shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01
-        )
+    assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01)
 
 
 def test_kernel_housing_dataset(housing_dataset):

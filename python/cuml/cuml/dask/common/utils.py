@@ -25,7 +25,6 @@ import numba.cuda as numba_cuda
 from dask.distributed import default_client, wait
 
 from cuml.common import device_of_gpu_matrix
-from cuml.internals.import_utils import check_min_dask_version
 
 
 def get_visible_devices():
@@ -137,12 +136,8 @@ def persist_across_workers(client, objects, workers=None):
     if workers is None:
         workers = client.has_what().keys()  # Default to all workers
 
-    if check_min_dask_version("2020.12.0"):
-        with dask.annotate(workers=set(workers)):
-            return client.persist(objects)
-
-    else:
-        return client.persist(objects, workers={o: workers for o in objects})
+    with dask.annotate(workers=set(workers)):
+        return client.persist(objects)
 
 
 def raise_exception_from_futures(futures):
