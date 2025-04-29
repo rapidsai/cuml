@@ -1104,7 +1104,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if not self.is_classifier:
             raise RuntimeError(
                 "predict_proba is not available for regression models. Load"
-                " with is_classifer=True if this is a classifier."
+                " with is_classifier=True if this is a classifier."
             )
         return self.forest.predict(
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
