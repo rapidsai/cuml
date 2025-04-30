@@ -66,14 +66,18 @@ def test_logreg_penalty_deprecation():
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @given(
+    datatype=st.sampled_from([np.float32, np.float64]),
+    algorithm=st.sampled_from(["eig", "svd"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@example(nrows=1000, column_info=[20, 10])
-@example(nrows=5000, column_info=[100, 50])
+@example(
+    datatype=np.float32, algorithm="eig", nrows=1000, column_info=[20, 10]
+)
+@example(
+    datatype=np.float64, algorithm="svd", nrows=5000, column_info=[100, 50]
+)
 def test_linear_regression_model(
     datatype, algorithm, nrows, column_info, ntargets
 ):
@@ -109,18 +113,23 @@ def test_linear_regression_model(
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
-@pytest.mark.parametrize(
-    "fit_intercept, distribution",
-    [
-        (True, "lognormal"),
-        (True, "exponential"),
-        (True, "uniform"),
-        (True, "exponential"),
-        (False, "lognormal"),
-        (False, "uniform"),
-    ],
+@given(
+    datatype=st.sampled_from([np.float32, np.float64]),
+    algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr"]),
+    fit_intercept=st.booleans(),
+    distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
+)
+@example(
+    datatype=np.float32,
+    algorithm="eig",
+    fit_intercept=True,
+    distribution="uniform",
+)
+@example(
+    datatype=np.float64,
+    algorithm="svd",
+    fit_intercept=False,
+    distribution="lognormal",
 )
 def test_weighted_linear_regression(
     ntargets, datatype, algorithm, fit_intercept, distribution
@@ -283,14 +292,16 @@ def test_ridge_regression_model_default(dataset):
     assert equal
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @given(
+    datatype=st.sampled_from([np.float32, np.float64]),
+    algorithm=st.sampled_from(["eig", "svd"]),
     nrows=st.integers(min_value=500, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@example(nrows=500, column_info=[20, 10])
-@example(nrows=5000, column_info=[100, 50])
+@example(datatype=np.float32, algorithm="eig", nrows=500, column_info=[20, 10])
+@example(
+    datatype=np.float64, algorithm="svd", nrows=5000, column_info=[100, 50]
+)
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     if algorithm == "svd" and nrows > 46340:
@@ -335,18 +346,23 @@ def test_ridge_and_least_squares_equal_when_alpha_is_0():
     assert array_equal(ridge.coef_, ols.coef_)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd"])
-@pytest.mark.parametrize(
-    "fit_intercept, distribution",
-    [
-        (True, "lognormal"),
-        (True, "exponential"),
-        (True, "uniform"),
-        (True, "exponential"),
-        (False, "lognormal"),
-        (False, "uniform"),
-    ],
+@given(
+    datatype=st.sampled_from([np.float32, np.float64]),
+    algorithm=st.sampled_from(["eig", "svd"]),
+    fit_intercept=st.booleans(),
+    distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
+)
+@example(
+    datatype=np.float32,
+    algorithm="eig",
+    fit_intercept=True,
+    distribution="uniform",
+)
+@example(
+    datatype=np.float64,
+    algorithm="svd",
+    fit_intercept=False,
+    distribution="lognormal",
 )
 def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
     nrows, ncols, n_info = 1000, 20, 10
@@ -972,15 +988,27 @@ def test_linear_models_set_params(algo):
     assert array_equal(coef_after, coef_test)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("alpha", [0.1, 1.0, 10.0])
-@pytest.mark.parametrize("l1_ratio", [0.1, 0.5, 0.9])
 @given(
+    datatype=st.sampled_from([np.float32, np.float64]),
+    alpha=st.sampled_from([0.1, 1.0, 10.0]),
+    l1_ratio=st.sampled_from([0.1, 0.5, 0.9]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@example(nrows=1000, column_info=[20, 10])
-@example(nrows=5000, column_info=[100, 50])
+@example(
+    datatype=np.float32,
+    alpha=0.1,
+    l1_ratio=0.1,
+    nrows=1000,
+    column_info=[20, 10],
+)
+@example(
+    datatype=np.float64,
+    alpha=10.0,
+    l1_ratio=0.9,
+    nrows=5000,
+    column_info=[100, 50],
+)
 def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 
     ncols, n_info = column_info
@@ -1030,14 +1058,14 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
-@pytest.mark.parametrize("solver", ["cd", "qn"])
 @given(
     datatype=dataset_dtypes(),
+    solver=st.sampled_from(["cd", "qn"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@example(datatype=np.float32, nrows=1000, column_info=[20, 10])
-@example(datatype=np.float64, nrows=5000, column_info=[100, 50])
+@example(datatype=np.float32, solver="cd", nrows=1000, column_info=[20, 10])
+@example(datatype=np.float64, solver="qn", nrows=5000, column_info=[100, 50])
 def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(

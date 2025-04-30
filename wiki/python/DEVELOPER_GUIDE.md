@@ -70,7 +70,7 @@ We support three main approaches for test input generation:
 
 2. **Parametrization** (`@pytest.mark.parametrize`):
    - For testing specific input combinations
-   - Good for hyperparameters and configurations
+   - Good for hyperparameters and configurations that we need to test _exhaustively_
    ```python
    @pytest.mark.parametrize("solver", ["svd", "eig"])
    def test_estimator(solver):
@@ -80,11 +80,11 @@ We support three main approaches for test input generation:
 3. **Hypothesis** (`@given`):
    - For property-based testing with random inputs
    - Must include at least one `@example` for deterministic testing
-   - Preferred for dataset generation
+   - Preferred for dataset generation and most hyperparameter testing
    ```python
-   @example(dataset=small_regression_dataset(np.float32))
-   @given(dataset=standard_regression_datasets())
-   def test_estimator(dataset):
+   @example(dataset=small_regression_dataset(np.float32), alpha=floats(0.1, 10.0))
+   @given(dataset=standard_regression_datasets(), alpha=1.0)
+   def test_estimator(dataset, alpha):
        pass
    ```
 
