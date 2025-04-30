@@ -531,13 +531,15 @@ def test_logistic_regression(
         assert np.array_equal(culog.intercept_, sklog.intercept_)
 
 
-@pytest.mark.parametrize("penalty", [None, "l1", "l2", "elasticnet"])
 @given(
     dtype=dataset_dtypes(),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
+    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
 )
-@example(dtype=np.float32, l1_ratio=None)
-@example(dtype=np.float64, l1_ratio=None)
+@example(dtype=np.float32, l1_ratio=None, penalty=None)
+@example(dtype=np.float64, l1_ratio=None, penalty="l1")
+@example(dtype=np.float64, l1_ratio=0.5, penalty="elasticnet")
+@example(dtype=np.float64, l1_ratio=0.5, penalty="l2")
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     if penalty == "elasticnet":
         assume(l1_ratio is not None)
