@@ -15,7 +15,6 @@
 
 import logging
 import os
-from datetime import datetime
 from functools import wraps
 
 import pytest
@@ -25,11 +24,12 @@ from pynvml import (
     nvmlInit,
     nvmlShutdown,
 )
+from rmm.statistics import get_statistics, statistics
 
 # Set up logging to console and file
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+    format="\n%(asctime)s %(message)s",
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
@@ -61,24 +61,17 @@ def get_worker_id():
 def wrap_test_function(original_func):
     @wraps(original_func)
     def wrapper(*args, **kwargs):
+        with statistics():
+            result = original_func(*args, **kwargs)
+            stats = get_statistics()
+            test_memory_peak = stats.peak_bytes / (1024 * 1024)
+
+        total_vram = get_vram_usage()
+
         test_name = original_func.__name__
         worker = get_worker_id()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logger.info(f"Running test: {test_name} [Worker: {worker}]")
-        print(
-            f"[{timestamp}] Running test: {test_name} [Worker: {worker}]",
-            flush=True,
-        )
-
-        result = original_func(*args, **kwargs)
-
-        vram = get_vram_usage()
         logger.info(
-            f"[Worker: {worker}] [Test: {test_name}] VRAM Usage: {vram:.2f} MB"
-        )
-        print(
-            f"[{timestamp}] [Worker: {worker}] [Test: {test_name}] VRAM Usage: {vram:.2f} MB",
-            flush=True,
+            f"[{worker}] [{test_name}] RMM test peak: {test_memory_peak:.2f}MB, Overall VRAM Usage: {total_vram:.2f}MB"
         )
         return result
 
