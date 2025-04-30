@@ -29,6 +29,8 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -174,8 +176,8 @@ void build_linkage(const raft::handle_t& handle,
   // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
   // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
   // and be consistent with Scikit learn Contrib.
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream,
-                                                                (params.min_samples + 1) * m * 2);
+  size_t mutual_reachability_nnz = ((params.min_samples + 1) * m * 2);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, mutual_reachability_nnz);
 
   cuvs::neighbors::reachability::mutual_reachability_graph(
     handle,
@@ -186,22 +188,20 @@ void build_linkage(const raft::handle_t& handle,
     mutual_reachability_coo,
     metric,
     params.alpha);
+  
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists, m);
+  value_idx n_edges = m - 1;
 
-  size_t n_edges = m - 1;
-
-  cuvs::cluster::agglomerative::build_mutual_reachability_linkage(
-    handle,
-    raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
-    metric,
-    raft::make_device_vector_view<value_t, value_idx>(core_dists, m),
-    raft::make_device_vector_view<value_idx, value_idx>(mutual_reachability_indptr.data(), m + 1),
-    mutual_reachability_coo,
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_mst_src(), n_edges),
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_mst_dst(), n_edges),
-    raft::make_device_vector_view<value_t, value_idx>(out.get_mst_weights(), n_edges),
-    raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
+    cuvs::cluster::agglomerative::build_linkage(
+      handle,
+      raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
+      metric,
+      raft::make_device_vector_view<value_idx, value_idx>(mutual_reachability_indptr.data(), m + 1),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(mutual_reachability_coo.vals(), raft::make_device_coordinate_structure_view(mutual_reachability_coo.rows(), mutual_reachability_coo.cols(), value_idx(m), value_idx(m), mutual_reachability_nnz)),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, value_idx>(out.get_mst_weights(), raft::make_device_coordinate_structure_view(out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
+      raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
     raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges));
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges), red_op);
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
