@@ -44,8 +44,6 @@ from rmm.pylibrmm.memory_resource cimport (
 
 import treelite.sklearn as tl_skl
 
-cimport cuml.common.cuda
-
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:

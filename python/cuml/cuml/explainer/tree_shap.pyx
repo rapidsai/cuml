@@ -47,7 +47,7 @@ cdef extern from "treelite/c_api.h":
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char * TreeliteGetLastError()
 
-cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
+cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer" nogil:
     cdef cppclass TreePathHandle:
         pass
 

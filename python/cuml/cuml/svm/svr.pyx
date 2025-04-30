@@ -40,7 +40,7 @@ from cuml.svm.svm_base import SVMBase
 from cuml.internals.logger cimport level_enum
 
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
@@ -50,7 +50,7 @@ cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double gamma
         double coef0
 
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
@@ -65,7 +65,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
 
     cdef cppclass SupportStorage[math_t]:
         int nnz

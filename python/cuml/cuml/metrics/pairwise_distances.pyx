@@ -40,7 +40,7 @@ from cuml.metrics.distance_type cimport DistanceType
 from cuml.thirdparty_adapters import _get_mask
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     void pairwise_distance(const handle_t &handle, const double *x,
                            const double *y, double *dist, int m, int n, int k,
                            DistanceType metric, bool isRowMajor,

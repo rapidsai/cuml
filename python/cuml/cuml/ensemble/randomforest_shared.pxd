@@ -32,14 +32,12 @@ from cuml.internals.base import Base
 
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
-
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle
     cdef const char* TreeliteGetLastError()
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -50,7 +48,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         INVERSE_GAUSSIAN,
         CRITERION_END
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef enum RF_type:
         CLASSIFICATION,

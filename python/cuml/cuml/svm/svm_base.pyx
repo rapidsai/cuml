@@ -41,8 +41,7 @@ from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from libcpp cimport bool
 
 
-cdef extern from "cuvs/distance/distance.hpp" \
-        namespace "cuvs::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance::kernels" nogil:
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -55,7 +54,7 @@ cdef extern from "cuvs/distance/distance.hpp" \
         double gamma
         double coef0
 
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
         C_SVC,
         NU_SVC,
@@ -74,7 +73,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
 
     cdef cppclass SupportStorage[math_t]:
         int nnz
@@ -93,7 +92,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
     cdef void svcPredict[math_t](
         const handle_t &handle, math_t* data, int n_rows, int n_cols,

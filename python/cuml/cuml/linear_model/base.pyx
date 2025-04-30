@@ -30,7 +30,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
     cdef void gemmPredict(handle_t& handle,
                           const float *input,

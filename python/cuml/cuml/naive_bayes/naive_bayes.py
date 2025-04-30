@@ -18,6 +18,7 @@ import warnings
 
 import cupy as cp
 import cupyx
+import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
@@ -25,7 +26,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.base import Base
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.prims.array import binarize
@@ -176,16 +176,10 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.internals.import_utils import (
-                dummy_function_always_false as scipy_sparse_isspmatrix,
-            )
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
+        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
         else:
@@ -225,16 +219,9 @@ class _BaseNB(Base, ClassifierMixin):
         Return log-probability estimates for the test vector X.
 
         """
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.internals.import_utils import (
-                dummy_function_always_false as scipy_sparse_isspmatrix,
-            )
-
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
+        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
         else:
@@ -401,19 +388,12 @@ class GaussianNB(_BaseNB):
         sample_weight=None,
         convert_dtype=True,
     ) -> "GaussianNB":
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.internals.import_utils import (
-                dummy_function_always_false as scipy_sparse_isspmatrix,
-            )
-
         if getattr(self, "classes_") is None and _classes is None:
             raise ValueError(
                 "classes must be passed on the first call " "to partial_fit."
             )
 
-        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
+        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(
@@ -827,15 +807,8 @@ class _BaseDiscreteNB(_BaseNB):
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.internals.import_utils import (
-                dummy_function_always_false as scipy_sparse_isspmatrix,
-            )
-
         # TODO: use SparseCumlArray
-        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
+        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(

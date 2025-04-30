@@ -39,7 +39,6 @@ from cupy import ndarray as cp_ndarray
 import cuml
 import cuml.accel
 import cuml.common
-import cuml.common.cuda
 import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
@@ -218,7 +217,7 @@ class Base(TagsMixin,
 
         # stream and handle example:
 
-        stream = cuml.common.cuda.Stream()
+        stream = pylibraft.common.Stream()
         handle = pylibraft.common.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
@@ -226,7 +225,7 @@ class Base(TagsMixin,
         result = algo.predict(...)
 
         # final sync of all gpu-work launched inside this object
-        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # this is same as `pylibraft.common.Stream.sync()` call, but safer in case
         # the default stream inside the `raft::handle_t` is being used
         base.handle.sync()
         del base  # optional!

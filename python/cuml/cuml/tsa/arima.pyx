@@ -34,12 +34,11 @@ from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 
 import cuml.internals.logger as logger
-from cuml.common import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
-cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
+cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
         DataT* beta
@@ -57,7 +56,7 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
 
 
-cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     ctypedef enum LoglikeMethod: CSS, MLE
 
     void cpp_pack "pack" (
@@ -113,7 +112,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         const ARIMAOrder& order, bool missing)
 
 
-cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
 
     void batched_jones_transform(
         handle_t& handle, ARIMAMemory[double]& arima_mem,
@@ -317,11 +316,6 @@ class ARIMA(Base):
                  verbose=False,
                  output_type=None,
                  convert_dtype=True):
-
-        if not has_scipy():
-            raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
-                               " Please install it to enable ARIMA "
-                               "estimation.")
 
         # Initialize base class
         super().__init__(handle=handle,
