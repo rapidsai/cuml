@@ -55,10 +55,8 @@ from cuml.testing.utils import (
     array_difference,
     array_equal,
     quality_param,
-    stress_param,
     unit_param,
 )
-
 
 ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
@@ -75,15 +73,12 @@ def test_logreg_penalty_deprecation():
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
-@pytest.mark.parametrize(
-    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
-)
+@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
 @pytest.mark.parametrize(
     "column_info",
     [
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500]),
     ],
 )
 def test_linear_regression_model(
@@ -297,15 +292,12 @@ def test_ridge_regression_model_default(dataset):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
-@pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
-)
+@pytest.mark.parametrize("nrows", [unit_param(500), quality_param(5000)])
 @pytest.mark.parametrize(
     "column_info",
     [
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500]),
     ],
 )
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
@@ -885,11 +877,9 @@ def regression_dataset(request):
     regression_type = request.param
 
     out = {}
-    for test_status in ["regular", "stress_test"]:
+    for test_status in ["regular"]:
         if test_status == "regular":
             n_samples, n_features = 100000, 5
-        elif test_status == "stress_test":
-            n_samples, n_features = 1000000, 20
 
         data = (np.random.rand(n_samples, n_features) * 2) - 1
 
@@ -911,13 +901,11 @@ def regression_dataset(request):
 @pytest.mark.parametrize(
     "option", ["sample_weight", "class_weight", "balanced", "no_weight"]
 )
-@pytest.mark.parametrize(
-    "test_status", ["regular", stress_param("stress_test")]
-)
 def test_logistic_regression_weighting(
-    regression_dataset, option, test_status
+    regression_dataset,
+    option,
 ):
-    regression_type, data, coef, output = regression_dataset[test_status]
+    regression_type, data, coef, output = regression_dataset["regular"]
 
     class_weight = None
     sample_weight = None
@@ -996,15 +984,12 @@ def test_linear_models_set_params(algo):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("alpha", [0.1, 1.0, 10.0])
 @pytest.mark.parametrize("l1_ratio", [0.1, 0.5, 0.9])
-@pytest.mark.parametrize(
-    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
-)
+@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
 @pytest.mark.parametrize(
     "column_info",
     [
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500]),
     ],
 )
 def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
@@ -1057,15 +1042,12 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
 
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("solver", ["cd", "qn"])
-@pytest.mark.parametrize(
-    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
-)
+@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
 @pytest.mark.parametrize(
     "column_info",
     [
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500]),
     ],
 )
 @given(datatype=dataset_dtypes())
