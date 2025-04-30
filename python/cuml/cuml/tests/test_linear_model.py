@@ -66,7 +66,7 @@ def test_logreg_penalty_deprecation():
 
 
 @given(
-    datatype=st.sampled_from([np.float32, np.float64]),
+    datatype=dataset_dtypes(),
     algorithm=st.sampled_from(["eig", "svd"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
@@ -122,7 +122,7 @@ def test_linear_regression_model(
 
 @given(
     ntargets=st.integers(min_value=1, max_value=2),
-    datatype=st.sampled_from([np.float32, np.float64]),
+    datatype=dataset_dtypes(),
     algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr"]),
     fit_intercept=st.booleans(),
     distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
@@ -303,7 +303,7 @@ def test_ridge_regression_model_default(dataset):
 
 
 @given(
-    datatype=st.sampled_from([np.float32, np.float64]),
+    datatype=dataset_dtypes(),
     algorithm=st.sampled_from(["eig", "svd"]),
     nrows=st.integers(min_value=500, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
@@ -357,7 +357,7 @@ def test_ridge_and_least_squares_equal_when_alpha_is_0():
 
 
 @given(
-    datatype=st.sampled_from([np.float32, np.float64]),
+    datatype=dataset_dtypes(),
     algorithm=st.sampled_from(["eig", "svd"]),
     fit_intercept=st.booleans(),
     distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
@@ -1051,7 +1051,7 @@ def test_linear_models_set_params(algo):
 
 
 @given(
-    datatype=st.sampled_from([np.float32, np.float64]),
+    datatype=dataset_dtypes(),
     alpha=st.sampled_from([0.1, 1.0, 10.0]),
     l1_ratio=st.sampled_from([0.1, 0.5, 0.9]),
     nrows=st.integers(min_value=1000, max_value=5000),
