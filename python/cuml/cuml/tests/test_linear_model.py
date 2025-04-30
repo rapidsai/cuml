@@ -51,12 +51,7 @@ from cuml.testing.datasets import (
     standard_regression_datasets,
 )
 from cuml.testing.strategies import dataset_dtypes
-from cuml.testing.utils import (
-    array_difference,
-    array_equal,
-    quality_param,
-    unit_param,
-)
+from cuml.testing.utils import array_difference, array_equal
 
 ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
@@ -73,14 +68,12 @@ def test_logreg_penalty_deprecation():
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
-@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
-@pytest.mark.parametrize(
-    "column_info",
-    [
-        unit_param([20, 10]),
-        quality_param([100, 50]),
-    ],
+@given(
+    nrows=st.integers(min_value=1000, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
+@example(nrows=1000, column_info=[20, 10])
+@example(nrows=5000, column_info=[100, 50])
 def test_linear_regression_model(
     datatype, algorithm, nrows, column_info, ntargets
 ):
@@ -292,14 +285,12 @@ def test_ridge_regression_model_default(dataset):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
-@pytest.mark.parametrize("nrows", [unit_param(500), quality_param(5000)])
-@pytest.mark.parametrize(
-    "column_info",
-    [
-        unit_param([20, 10]),
-        quality_param([100, 50]),
-    ],
+@given(
+    nrows=st.integers(min_value=500, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
+@example(nrows=500, column_info=[20, 10])
+@example(nrows=5000, column_info=[100, 50])
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     if algorithm == "svd" and nrows > 46340:
@@ -406,8 +397,9 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
         (10, np.float32, "elasticnet", 1.0, False, 0.5, 1e-3),
     ],
 )
-@pytest.mark.parametrize("nrows", [unit_param(1000)])
-@pytest.mark.parametrize("column_info", [unit_param([20, 10])])
+@given(nrows=st.integers(min_value=1000, max_value=5000))
+@example(nrows=1000)
+@example(nrows=5000)
 # ignoring UserWarnings in sklearn about setting unused parameters
 # like l1 for none penalty
 @pytest.mark.filterwarnings("ignore::UserWarning:sklearn[.*]")
@@ -418,11 +410,10 @@ def test_logistic_regression(
     l1_ratio,
     fit_intercept,
     nrows,
-    column_info,
     C,
     tol,
 ):
-    ncols, n_info = column_info
+    ncols, n_info = 20, 10
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
     if not sk_check and penalty == "elasticnet":
@@ -984,14 +975,12 @@ def test_linear_models_set_params(algo):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("alpha", [0.1, 1.0, 10.0])
 @pytest.mark.parametrize("l1_ratio", [0.1, 0.5, 0.9])
-@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
-@pytest.mark.parametrize(
-    "column_info",
-    [
-        unit_param([20, 10]),
-        quality_param([100, 50]),
-    ],
+@given(
+    nrows=st.integers(min_value=1000, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
+@example(nrows=1000, column_info=[20, 10])
+@example(nrows=5000, column_info=[100, 50])
 def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 
     ncols, n_info = column_info
@@ -1042,17 +1031,13 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
 
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("solver", ["cd", "qn"])
-@pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
-@pytest.mark.parametrize(
-    "column_info",
-    [
-        unit_param([20, 10]),
-        quality_param([100, 50]),
-    ],
+@given(
+    datatype=dataset_dtypes(),
+    nrows=st.integers(min_value=1000, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@given(datatype=dataset_dtypes())
-@example(datatype=np.float32)
-@example(datatype=np.float64)
+@example(datatype=np.float32, nrows=1000, column_info=[20, 10])
+@example(datatype=np.float64, nrows=5000, column_info=[100, 50])
 def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
