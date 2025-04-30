@@ -272,7 +272,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.6.*,>=0.0.0a0
-          - &scikit_learn scikit-learn==1.6.*
+          - &scikit_learn scikit-learn>=1.5
           - *treelite
       - output_types: requirements
         packages:
@@ -474,6 +474,15 @@ dependencies:
         packages:
           - *cmake_ver
   test_python:
+    specific:
+      - output_types: [conda, requirements]
+        matrices:
+          # Package versions to user for the "oldest-dep" CI run
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - scikit-learn==1.5.2
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
