@@ -54,7 +54,7 @@ We use [pytest](https://docs.pytest.org/en/latest/) for writing and running test
   - Performance testing/benchmarking
   - Generic estimator checks (e.g., `test_base.py`)
 - Use small, focused datasets for correctness testing
-- Only parametrize scale when it triggers alternate code paths
+- Only explicitly parametrize dataset size when it triggers alternate code paths
 
 ### Test Input Generation
 We support three main approaches for test input generation:
