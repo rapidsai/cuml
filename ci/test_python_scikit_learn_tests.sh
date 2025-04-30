@@ -2,7 +2,7 @@
 # Copyright (c) 2025, NVIDIA CORPORATION.
 
 # Support invoking test script outside the script directory
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/accel/tests/scikit-learn || exit 1
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 
 # Common setup steps shared by Python test jobs
 source ./ci/test_python_common.sh
@@ -13,6 +13,8 @@ set +e
 
 # Run scikit-learn tests with acceleration enabled
 rapids-logger "Running scikit-learn tests with cuML acceleration"
+
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/accel/tests/scikit-learn || exit 1
 
 # Run the tests
 timeout 1h ./run-tests.sh \
