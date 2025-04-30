@@ -16,7 +16,10 @@
 
 from uuid import uuid1
 
+import cudf
 import dask.array as da
+import numpy as np
+import pandas as pd
 from dask.dataframe import Series as DaskSeries
 from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
@@ -28,11 +31,6 @@ from cuml.dask.common.utils import (
     wait_and_raise_from_futures,
 )
 from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
 
 
 class KNeighborsClassifier(NearestNeighbors):

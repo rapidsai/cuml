@@ -16,9 +16,7 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -35,7 +33,7 @@ from cuml.internals.mixins import FMajorInputTagMixin
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 
-cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
+cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML" nogil:
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:

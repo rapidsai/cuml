@@ -15,19 +15,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
+import cudf
+import cupy as cp
+import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -65,7 +55,6 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mem_type import MemoryType
 from cuml.svm.svm_base import SVMBase
@@ -132,8 +121,7 @@ if has_sklearn():
                 return self.multi_class_model.predict_proba(X)
 
 
-cdef extern from "cuvs/distance/distance.hpp" \
-        namespace "cuvs::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp"  namespace "cuvs::distance::kernels" nogil:
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -146,7 +134,7 @@ cdef extern from "cuvs/distance/distance.hpp" \
         double gamma
         double coef0
 
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
         C_SVC,
         NU_SVC,
@@ -164,7 +152,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
 
     cdef cppclass SupportStorage[math_t]:
         int nnz
@@ -871,33 +859,28 @@ class SVC(SVMBase,
 
             gpu_est._intercept_ = input_to_cuml_array(
                 intercept_,
-                convert_to_mem_type=(MemoryType.host,
-                                     MemoryType.device)[is_cuda_available()],
+                convert_to_mem_type=MemoryType.device,
                 convert_to_dtype=np.float64,
                 order='F')[0]
             gpu_est.dual_coef_ = input_to_cuml_array(
                 dual_coef_,
-                convert_to_mem_type=(MemoryType.host,
-                                     MemoryType.device)[is_cuda_available()],
+                convert_to_mem_type=MemoryType.device,
                 convert_to_dtype=np.float64,
                 order='F')[0]
             gpu_est.support_ = input_to_cuml_array(
                 cpu_est.support_,
-                convert_to_mem_type=(MemoryType.host,
-                                     MemoryType.device)[is_cuda_available()],
+                convert_to_mem_type=MemoryType.device,
                 convert_to_dtype=np.int32,
                 order='F')[0]
             gpu_est.support_vectors_ = input_to_cuml_array(
                 cpu_est.support_vectors_,
-                convert_to_mem_type=(MemoryType.host,
-                                     MemoryType.device)[is_cuda_available()],
+                convert_to_mem_type=MemoryType.device,
                 convert_to_dtype=np.float64,
                 order='F')[0]
             gpu_est._unique_labels_ = input_to_cuml_array(
                 np.array(cpu_est.classes_, dtype=np.float64),
                 deepcopy=True,
-                convert_to_mem_type=(MemoryType.host,
-                                     MemoryType.device)[is_cuda_available()],
+                convert_to_mem_type=MemoryType.device,
                 convert_to_dtype=np.float64,
                 order='F')[0]
 

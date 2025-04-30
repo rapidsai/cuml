@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_blobs
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from sklearn.utils import check_random_state
 
 from cuml import TruncatedSVD as cuTSVD
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import (
     array_equal,
     get_handle,
@@ -26,8 +26,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

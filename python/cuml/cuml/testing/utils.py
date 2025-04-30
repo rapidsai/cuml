@@ -17,7 +17,13 @@ from itertools import dropwhile
 from numbers import Number
 from textwrap import dedent, indent
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 from pylibraft.common.cuda import Stream
 from sklearn.metrics import brier_score_loss, mean_squared_error
@@ -26,20 +32,6 @@ import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
-cudf = gpu_only_import("cudf")
 
 
 def array_difference(a, b, with_sign=True):

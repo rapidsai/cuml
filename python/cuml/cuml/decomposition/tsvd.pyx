@@ -16,13 +16,8 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
 
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
 
 from enum import IntEnum
@@ -44,7 +39,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 
 
-cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
 
     cdef void tsvdFit(handle_t& handle,
                       float *input,

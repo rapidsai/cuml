@@ -17,15 +17,12 @@
 
 from enum import Enum, auto
 
-from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
-np = cpu_only_import("numpy")
-pandas = cpu_only_import("pandas")
-scipy_sparse = cpu_only_import("scipy.sparse")
+import cudf
+import cupy as cp
+import cupyx.scipy.sparse as cpx_sparse
+import numpy as np
+import pandas
+import scipy.sparse as scipy_sparse
 
 
 class MemoryTypeError(Exception):
@@ -55,27 +52,21 @@ class MemoryType(Enum):
 
     @property
     def xpy(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return np
         else:
             return cp
 
     @property
     def xdf(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return pandas
         else:
             return cudf
 
     @property
     def xsparse(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return scipy_sparse
         else:
             return cpx_sparse

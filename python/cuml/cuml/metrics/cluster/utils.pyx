@@ -16,13 +16,12 @@
 
 # distutils: language = c++
 
+import cupy as cp
+
 import cuml.internals
 from cuml.common import input_to_cuml_array
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
-
-cp = gpu_only_import('cupy')
 
 
 @cuml.internals.api_return_generic(get_output_type=True)

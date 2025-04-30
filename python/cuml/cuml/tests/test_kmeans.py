@@ -15,6 +15,8 @@
 
 import random
 
+import cupy as cp
+import numpy as np
 import pytest
 from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
@@ -23,7 +25,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.internals.logger as logger
 from cuml.datasets import make_blobs
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
@@ -31,10 +32,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-
 
 dataset_names = ["blobs", "noisy_circles", "noisy_moons", "varied", "aniso"]
 

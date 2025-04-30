@@ -14,23 +14,15 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
 from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
 
 ###############################################################################
 #                                    Parameters                               #

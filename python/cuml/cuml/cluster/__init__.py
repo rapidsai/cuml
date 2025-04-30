@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 
@@ -23,7 +24,3 @@ from cuml.cluster.hdbscan.prediction import (
     approximate_predict,
 )
 from cuml.cluster.kmeans import KMeans
-from cuml.internals.device_support import GPU_ENABLED
-
-if GPU_ENABLED:
-    from cuml.cluster.agglomerative import AgglomerativeClustering

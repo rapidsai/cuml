@@ -16,46 +16,28 @@
 
 # distutils: language = c++
 
-import typing
-
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
 import math
+import typing
+import warnings
+
+import cupy as cp
+import cupyx
+import numpy as np
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-
-from cuml.metrics.distance_type cimport DistanceType
-from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
-
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-
-from cuml.neighbors.ann cimport *
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
-rmm = gpu_only_import('rmm')
-
-cimport cuml.common.cuda
-
-import warnings
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
@@ -63,8 +45,12 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
+from cuml.metrics.distance_type cimport DistanceType
+from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
+from cuml.neighbors.ann cimport *
 
-cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatial::knn":
+
+cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatial::knn" nogil:
     cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,
                        float *X,
@@ -72,7 +58,7 @@ cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatia
                        uint32_t n_cols,
                        RaftDistanceType metric) except +
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     void brute_force_knn(
         const handle_t &handle,
         vector[float*] &inputs,
@@ -125,7 +111,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int n
     ) except +
 
-cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
+cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
     void brute_force_knn(handle_t &handle,
                          const int *idxIndptr,
                          const int *idxIndices,

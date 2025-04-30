@@ -16,16 +16,10 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-scipy = cpu_only_import('scipy')
-
-rmm = gpu_only_import('rmm')
+import cupy as cp
+import cupyx
+import numpy as np
+import scipy.sparse
 
 from libc.stdint cimport uintptr_t
 
@@ -58,7 +52,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 
 
-cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
 
     cdef void pcaFit(handle_t& handle,
                      float *input,

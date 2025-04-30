@@ -16,17 +16,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
 import warnings
 
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
@@ -48,7 +40,7 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
     cdef void olsFit(handle_t& handle,
                      float *input,

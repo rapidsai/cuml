@@ -16,62 +16,44 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-
 import warnings
 
+import cupy
+import cupyx
 import joblib
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cupy = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-
-from cuml.common.sparsefuncs import extract_knn_infos
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
-cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
-cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
+import numpy as np
 
 import cuml.accel
 import cuml.internals
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
-from cuml.internals.base import UniversalBase
-
-from cuml.internals.logger cimport level_enum
-
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
-
-rmm = gpu_only_import('rmm')
+from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
+from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from pylibraft.common.handle cimport handle_t
 
+from cuml.internals.logger cimport level_enum
 from cuml.manifold.umap_utils cimport *
 
-from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
-from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
-from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
-
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
 
     void fit(handle_t & handle,
              float * X,

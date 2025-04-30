@@ -19,6 +19,8 @@ import functools
 import inspect
 import typing
 
+import numpy as np
+
 import cuml.accel
 
 # TODO: Try to resolve circular import that makes this necessary:
@@ -40,10 +42,7 @@ from cuml.internals.api_context_managers import (
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.type_utils import _DecoratorType
-
-np = cpu_only_import("numpy")
 
 
 def _wrap_once(wrapped, *args, **kwargs):

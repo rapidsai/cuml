@@ -18,9 +18,6 @@
 
 import typing
 
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
@@ -40,8 +37,7 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 
 
-cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
-        "ML::KNN::opg":
+cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
 
     cdef void knn(
         handle_t &handle,

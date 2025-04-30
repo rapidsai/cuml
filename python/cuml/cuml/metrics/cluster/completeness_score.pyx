@@ -26,7 +26,7 @@ from pylibraft.common.handle import Handle
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double completeness_score(const handle_t & handle, const int *y,
                               const int *y_hat, const int n,
                               const int lower_class_range,

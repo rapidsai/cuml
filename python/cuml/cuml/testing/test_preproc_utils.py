@@ -13,29 +13,20 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx.scipy.sparse as gpu_sparse
+import numpy as np
 import pytest
+import scipy.sparse as cpu_sparse
 from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
+from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
+from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from scipy.sparse import coo_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
+from scipy.sparse import csr_matrix as cpu_csr_matrix
 
 from cuml.common import input_to_cuml_array
 from cuml.datasets import make_blobs, make_classification
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-np_assert_allclose = cpu_only_import_from("numpy.testing", "assert_allclose")
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-gpu_sparse = gpu_only_import("cupyx.scipy.sparse")
-cpu_sparse = cpu_only_import("scipy.sparse")
-gpu_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
-gpu_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
-cpu_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
 
 
 def to_output_type(array, output_type, order="F"):
@@ -343,4 +334,6 @@ def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05, ratio_tol=None):
         diff_ratio = (actual != desired).sum() / actual.size
         assert diff_ratio <= ratio_tol
     else:
-        return np_assert_allclose(actual, desired, rtol=rtol, atol=atol)
+        return np.testing.assert_allclose(
+            actual, desired, rtol=rtol, atol=atol
+        )

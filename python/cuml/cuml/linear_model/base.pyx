@@ -16,17 +16,9 @@
 
 # distutils: language = c++
 
+import numpy as np
+
 import cuml.internals
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
 
 from libc.stdint cimport uintptr_t
 
@@ -38,7 +30,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
     cdef void gemmPredict(handle_t& handle,
                           const float *input,

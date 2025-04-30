@@ -29,18 +29,5 @@ rapids-logger "pytest cuml single GPU"
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
 
-
-if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
-  rapids-logger "memory leak pytests"
-
-  ./ci/run_cuml_singlegpu_memleak_pytests.sh \
-    --numprocesses=1 \
-    --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-memleak.xml" \
-    --cov-config=../../.coveragerc \
-    --cov=cuml \
-    --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
-    -m "memleak"
-fi
-
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

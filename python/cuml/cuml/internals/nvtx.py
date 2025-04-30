@@ -15,23 +15,19 @@
 #
 
 
-from packaging.version import Version
-
-MIN_SKLEARN_VERSION = Version('1.5')
-
-
 try:
-    import sklearn  # noqa: F401  # no-cython-lint
-
-    CPU_ENABLED = True
-
-    if (Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
-        MIN_SKLEARN_PRESENT = (True, None, None)
-    else:
-        MIN_SKLEARN_PRESENT = (False, sklearn.__version__, MIN_SKLEARN_VERSION)
-
+    from nvtx import annotate
 except ImportError:
-    CPU_ENABLED = False
-    MIN_SKLEARN_PRESENT = (False, None, None)
 
-GPU_ENABLED = True
+    from contextlib import contextmanager
+
+    @contextmanager
+    def annotate(*args, **kwargs):
+        if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
+            return args[0]
+        else:
+
+            def inner(func):
+                return func
+
+            return inner

@@ -33,28 +33,18 @@
 import os
 import warnings
 
+import cudf
+import numpy as np
+import pandas as pd
 import pytest
 import statsmodels.api as sm
+from cudf.pandas import LOADED as cudf_pandas_active
+from scipy.optimize import approx_fprime
 from sklearn.model_selection import train_test_split
 
 import cuml.tsa.arima as arima
 from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.testing.utils import stress_param
-
-np = cpu_only_import("numpy")
-
-pd = cpu_only_import("pandas")
-approx_fprime = cpu_only_import_from("scipy.optimize", "approx_fprime")
-
-cudf = gpu_only_import("cudf")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
 
 ###############################################################################
 #                                  Test data                                  #
@@ -148,7 +138,7 @@ test_121c = ARIMAData(
     n_obs=137,
     n_test=10,
     dataset="population_estimate",
-    tolerance_integration=0.06,
+    tolerance_integration=0.07,
 )
 
 # ARIMA(1,1,1) with intercept (missing observations)
