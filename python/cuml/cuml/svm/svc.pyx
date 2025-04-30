@@ -621,14 +621,24 @@ class SVC(SVMBase,
         if self.n_classes_ > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
+        if hasattr(X, 'dtype'):
+            input_dtype = X.dtype
+            if input_dtype == np.float32:
+                self.dtype = np.float32
+            else:
+                # Default to float64
+                self.dtype = np.float64
+        else:
+            # Default to float64
+            self.dtype = np.float64
+
         if is_sparse:
-            X_m = SparseCumlArray(X)
+            X_m = SparseCumlArray(X, convert_to_dtype=self.dtype)
             self.n_rows = X_m.shape[0]
             self.n_features_in_ = X_m.shape[1]
-            self.dtype = X_m.dtype
         else:
-            X_m, self.n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(X, order='F')
+            X_m, self.n_rows, self.n_features_in_, _ = \
+                input_to_cuml_array(X, order='F', convert_to_dtype=self.dtype)
 
         # Fit binary classifier
         convert_to_dtype = self.dtype if convert_dtype else None
@@ -647,6 +657,10 @@ class SVC(SVMBase,
                                     convert_to_dtype=convert_to_dtype,
                                     check_rows=self.n_rows, check_cols=1)
             sample_weight_ptr = sample_weight_m.ptr
+
+            sw_check = sample_weight_m.to_output("numpy")
+            if np.all(sw_check == 0) or np.all(sw_check < 0):
+                raise ValueError("Invalid input - all samples have zero or negative weights.")
 
         self._dealloc()  # delete any previously fitted model
         self.coef_ = None

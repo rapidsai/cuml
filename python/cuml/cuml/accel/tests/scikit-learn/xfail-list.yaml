@@ -1292,3 +1292,39 @@
 - id: "sklearn.utils.tests.test_estimator_html_repr::test_estimator_html_repr_fitted_icon[estimator2]"
 - id: "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - id: "sklearn.utils.tests.test_validation::test_has_fit_parameter"
+- id: "sklearn.svm.tests.test_svm::test_precomputed"
+  reason: "Precomputed kernel not implemented"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_sparse_precomputed[csr_matrix]"
+  reason: "Precomputed kernel not implemented"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_sparse_precomputed[csr_array]"
+  reason: "Precomputed kernel not implemented"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
+  reason: "Precomputed kernel not implemented"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
+  reason: "Precomputed kernel not implemented"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
+  reason: "Should check weights for all samples with positive weights belong to the same class"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
+  reason: "Should check weights for all samples with positive weights belong to the same class"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
+  reason: "SVC does not expose n_iter_"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVC-ndarray]"
+  reason: "SVC does not expose n_iter_"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
+  reason: "SVR does not expose n_iter_"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
+  reason: "SVR does not expose n_iter_"
+  strict: true
+- id: "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
+  reason: "SVR does not expose n_iter_"
+  strict: true
