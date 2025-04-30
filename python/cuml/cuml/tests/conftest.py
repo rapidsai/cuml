@@ -39,7 +39,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 # =============================================================================
 
 # Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
+pytest_plugins = [
+    "cuml.testing.plugins.quick_run_plugin",
+    "cuml.testing.plugins.memory_profiler",
+]
 
 
 def pytest_sessionstart(session):
