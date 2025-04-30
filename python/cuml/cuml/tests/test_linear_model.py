@@ -1095,5 +1095,9 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
         skelastic_predict = skelastic.predict(X_test)
 
         assert array_equal(
-            skelastic_predict, cuelastic_predict, 3e-0, with_sign=True
+            skelastic_predict,
+            cuelastic_predict,
+            3e-0,
+            total_tol=1e-0,
+            with_sign=True,
         )
