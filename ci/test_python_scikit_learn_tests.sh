@@ -18,8 +18,6 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/accel/test
 
 # Run the tests
 timeout 1h ./run-tests.sh \
-    --numprocesses=8 \
-    --dist=worksteal \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 
 # Analyze results and check pass rate threshold
