@@ -19,9 +19,14 @@ import operator
 import pickle
 from copy import deepcopy
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
+from numba import cuda
 
 from cuml import global_settings
 from cuml.internals.array import (
@@ -34,16 +39,6 @@ from cuml.internals.memory_utils import (
     _get_size_from_shape,
     determine_array_memtype,
     using_memory_type,
-)
-
-# Temporarily disabled due to CUDA 11.0 issue
-# https://github.com/rapidsai/cuml/issues/4332
-# from rmm import DeviceBuffer
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
 )
 from cuml.testing.strategies import (
     UNSUPPORTED_CUDF_DTYPES,
@@ -63,23 +58,6 @@ from cuml.testing.utils import (
     to_nparray,
 )
 
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
-CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-CudfSeries = gpu_only_import_from("cudf", "Series")
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-cp_array = gpu_only_import_from("cupy", "ndarray")
-np_array = gpu_only_import_from("numpy", "ndarray")
-numba_array = gpu_only_import_from(
-    "numba.cuda.cudadrv.devicearray", "DeviceNDArray"
-)
-
-
 test_input_types = ["numpy", "numba", "cupy", "series", None]
 
 test_output_types = (
@@ -94,14 +72,13 @@ test_output_types = (
     "df_obj",
 )
 
-
 _OUTPUT_TYPES_MAPPING = {
     "cupy": cp.ndarray,
     "numpy": np.ndarray,
-    "cudf": (CudfDataFrame, CudfSeries),
-    "pandas": (PandasDataFrame, PandasSeries),
-    "dataframe": (CudfDataFrame, PandasDataFrame),
-    "series": (CudfSeries, PandasSeries),
+    "cudf": (cudf.DataFrame, cudf.Series),
+    "pandas": (pd.DataFrame, pd.Series),
+    "dataframe": (cudf.DataFrame, pd.DataFrame),
+    "series": (cudf.Series, pd.Series),
 }
 
 
@@ -387,32 +364,33 @@ def test_output(inp, input_mem_type, output_type):
         assert cuda.devicearray.is_cuda_ndarray(res)
     elif output_type == "cudf":
         assert isinstance(
-            res, CudfDataFrame if _multidimensional(inp.shape) else CudfSeries
+            res,
+            cudf.DataFrame if _multidimensional(inp.shape) else cudf.Series,
         )
     elif output_type == "pandas":
         assert isinstance(
             res,
-            PandasDataFrame if _multidimensional(inp.shape) else PandasSeries,
+            pd.DataFrame if _multidimensional(inp.shape) else pd.Series,
         )
     else:
         assert isinstance(res, _OUTPUT_TYPES_MAPPING[output_type])
 
     def assert_data_equal_(res):
         # Check output data equality
-        if isinstance(res, CudfSeries):
+        if isinstance(res, cudf.Series):
             # A simple equality check `assert cudf.Series(inp).equals(res)`
             # does not work for with multi-dimensional data.
-            assert CudfSeries(np.ravel(inp)).equals(res)
-        elif isinstance(res, PandasSeries):
-            assert PandasSeries(np.ravel(inp)).equals(res)
-        elif isinstance(res, CudfDataFrame):
+            assert cudf.Series(np.ravel(inp)).equals(res)
+        elif isinstance(res, pd.Series):
+            assert pd.Series(np.ravel(inp)).equals(res)
+        elif isinstance(res, cudf.DataFrame):
             # Assumption required because of:
             #   https://github.com/rapidsai/cudf/issues/12266
             assume(not np.isnan(res.to_numpy()).any())
 
-            assert CudfDataFrame(inp).equals(res)
-        elif isinstance(res, PandasDataFrame):
-            assert PandasDataFrame(inp).equals(res)
+            assert cudf.DataFrame(inp).equals(res)
+        elif isinstance(res, pd.DataFrame):
+            assert pd.DataFrame(inp).equals(res)
         else:
             assert np.array_equal(
                 to_nparray(inp), to_nparray(res), equal_nan=True
@@ -505,7 +483,7 @@ def test_output_dtype(output_type, shape, dtype, order, out_dtype, mem_type):
         res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
 
         # Check output dtype
-        if isinstance(res, (CudfDataFrame, PandasDataFrame)):
+        if isinstance(res, (cudf.DataFrame, pd.DataFrame)):
             res.values.dtype is out_dtype
         else:
             res.dtype is out_dtype
@@ -520,9 +498,9 @@ def test_array_interface(inp, mem_type):
         ary = CumlArray(inp)
 
         in_mem_type = determine_array_memtype(inp)
-        if isinstance(inp, PandasSeries):
+        if isinstance(inp, pd.Series):
             converted_inp = inp.to_numpy()
-        elif isinstance(inp, CudfSeries):
+        elif isinstance(inp, cudf.Series):
             converted_inp = cp.asnumpy(inp.to_cupy())
         else:
             converted_inp = inp
@@ -538,7 +516,7 @@ def test_array_interface(inp, mem_type):
         assert inp_ai["shape"] == ary_ai["shape"]
         assert inp_ai["typestr"] == ary_ai["typestr"]
         if (
-            not isinstance(inp, (PandasSeries, CudfSeries))
+            not isinstance(inp, (pd.Series, cudf.Series))
             and determine_array_memtype(inp) is global_settings.memory_type
         ):
             assert inp_ai["data"] == ary_ai["data"]

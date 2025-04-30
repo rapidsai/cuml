@@ -12,8 +12,18 @@
 import functools
 import numbers
 import timeit
+import warnings
+from collections import defaultdict
+from contextlib import contextmanager
 from itertools import chain, compress
 
+import cudf
+import cupy as np
+import numba
+import numpy as cpu_np
+import pandas as pd
+import scipy.sparse as sp_sparse
+from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
 
 import cuml
@@ -33,25 +43,6 @@ from ..utils.validation import check_is_fitted
 if has_sklearn():
     from sklearn.base import clone
     from sklearn.utils import Bunch
-
-import warnings
-from collections import defaultdict
-from contextlib import contextmanager
-
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cpu_np = cpu_only_import('numpy')
-cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
-np = gpu_only_import('cupy')
-numba = gpu_only_import('numba')
-pd = cpu_only_import('pandas')
-sp_sparse = cpu_only_import_from('scipy', 'sparse')
-cudf = gpu_only_import('cudf')
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "

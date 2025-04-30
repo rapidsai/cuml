@@ -15,12 +15,7 @@
 #
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
+import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -37,7 +32,7 @@ from cuml.linear_model import LinearRegression
 from cuml.linear_model.base_mg import MGFitMixin
 
 
-cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg":
+cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,

@@ -15,6 +15,12 @@
 import numbers
 from functools import partial
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+from cudf import Series
+
 import cuml.internals.logger as logger
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparsefuncs import (
@@ -23,19 +29,7 @@ from cuml.common.sparsefuncs import (
     csr_row_normalize_l2,
 )
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
-
-Series = gpu_only_import_from("cudf", "Series")
-
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
 
 
 def min_signed_type(n):

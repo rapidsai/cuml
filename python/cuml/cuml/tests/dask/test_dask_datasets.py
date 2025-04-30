@@ -14,17 +14,15 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import dask.array as da
+import numpy as np
 import pytest
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.datasets.blobs import make_blobs
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import quality_param, stress_param, unit_param
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 @pytest.mark.parametrize(

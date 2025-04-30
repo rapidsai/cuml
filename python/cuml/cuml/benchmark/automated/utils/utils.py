@@ -40,8 +40,11 @@ import time
 import warnings
 from copy import copy
 
+import cudf
+import cupy as cp
 import dask.array as da
 import dask.dataframe as df
+import numpy as np
 import pytest
 from dask.distributed import wait
 
@@ -57,11 +60,6 @@ from cuml.benchmark.bench_helper_funcs import (
     transform,
 )
 from cuml.benchmark.nvtx_benchmark import Profiler
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
 
 
 def distribute(client, data):

@@ -23,13 +23,8 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
+import cupy as cp
+import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -51,7 +46,7 @@ from cuml.tsa.stationarity import kpss_test
 # - Would a "one-fits-all" method be useful?
 
 
-cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
+cdef extern from "cuml/tsa/auto_arima.h" namespace "ML" nogil:
     int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
                                    int* index, int batch_size)
 
@@ -103,7 +98,7 @@ cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
-cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     bool detect_missing(
         handle_t& handle, const double* d_y, int n_elem)
 

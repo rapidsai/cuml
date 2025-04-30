@@ -18,8 +18,12 @@ import os
 import random
 import warnings
 
+import cudf
+import numpy as np
 import pytest
 import treelite
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 from sklearn.datasets import (
     fetch_california_housing,
     load_breast_cancer,
@@ -40,11 +44,6 @@ import cuml
 import cuml.internals.logger as logger
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.metrics import r2_score
 from cuml.testing.utils import (
     get_handle,
@@ -52,13 +51,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore: For reproducible results(.*)" "::cuml[.*]"

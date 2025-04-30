@@ -15,15 +15,10 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
+import cudf
+import cupy as cp
+import numpy as np
 
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
@@ -36,12 +31,12 @@ from cuml.internals.input_utils import input_to_cupy_array
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
+cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML" nogil:
     enum SeasonalType:
         ADDITIVE
         MULTIPLICATIVE
 
-cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
+cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters" nogil:
     cdef void buffer_size(
         int n, int batch_size, int frequency,
         int *start_leveltrend_len, int *start_season_len,

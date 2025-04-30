@@ -12,21 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 
 from cuml.explainer.sampling import kmeans_sampling
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 @pytest.mark.parametrize(

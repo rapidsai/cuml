@@ -13,18 +13,16 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_regression
 from sklearn.linear_model import ElasticNet, Lasso
 from sklearn.model_selection import train_test_split
 
 from cuml import Lasso as cuLasso
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.linear_model import ElasticNet as cuElasticNet
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

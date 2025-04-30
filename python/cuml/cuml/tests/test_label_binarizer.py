@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cupy as cp
+import numpy as np
 import pytest
+import scipy.sparse
 from sklearn.preprocessing import LabelBinarizer as skLB
 
-from cuml.common import has_scipy
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.preprocessing import LabelBinarizer
 from cuml.testing.utils import array_equal
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 @pytest.mark.parametrize(
@@ -52,14 +50,6 @@ def test_basic_functions(labels, dtype, sparse_output):
 
     if sparse_output:
         skl_bin_xformed = skl_bin.transform(xform_labels.get())
-
-        if has_scipy():
-            import scipy.sparse
-        else:
-            pytest.skip(
-                "Skipping test_basic_functions(sparse_output=True) "
-                + "because Scipy is missing"
-            )
 
         skl_csr = scipy.sparse.coo_matrix(skl_bin_xformed).tocsr()
         cuml_csr = xformed

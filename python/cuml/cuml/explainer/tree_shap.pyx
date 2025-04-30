@@ -26,9 +26,7 @@ from libc.stdint cimport uintptr_t
 
 import re
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 import treelite
 
 if has_sklearn():
@@ -49,7 +47,7 @@ cdef extern from "treelite/c_api.h":
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char * TreeliteGetLastError()
 
-cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
+cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer" nogil:
     cdef cppclass TreePathHandle:
         pass
 

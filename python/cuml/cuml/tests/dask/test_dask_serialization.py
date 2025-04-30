@@ -15,6 +15,8 @@
 
 import pickle
 
+import cupy as cp
+import cupyx
 import numpy as np
 from dask import array as da
 from distributed.protocol.serialize import serialize
@@ -22,11 +24,7 @@ from sklearn.datasets import make_regression
 
 from cuml.dask.linear_model import LinearRegression
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.naive_bayes.naive_bayes import MultinomialNB
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 def test_register_naive_bayes_serialization():

@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import cupy as cp
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
 
@@ -25,9 +26,6 @@ from cuml.dask.common.base import (
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):

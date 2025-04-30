@@ -18,9 +18,18 @@ import platform
 import random
 from itertools import chain, permutations
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
 import pytest
+import scipy.sparse
 import sklearn.metrics
+from numba import cuda
+from numpy.testing import assert_almost_equal
+from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
+from scipy.stats import entropy as sp_entropy
 from sklearn import preprocessing
 from sklearn.datasets import make_blobs, make_classification
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
@@ -43,14 +52,7 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.internals.logger as logger
 from cuml import LogisticRegression as cu_log
-from cuml.common import has_scipy
 from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.metrics import (
     PAIRWISE_DISTANCE_METRICS,
     PAIRWISE_DISTANCE_SPARSE_METRICS,
@@ -81,20 +83,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
-
-
-cuda = gpu_only_import_from("numba", "cuda")
-assert_almost_equal = cpu_only_import_from(
-    "numpy.testing", "assert_almost_equal"
-)
-
-
-scipy_pairwise_distances = cpu_only_import_from("scipy.spatial", "distance")
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -792,11 +780,6 @@ def test_entropy(use_handle):
 @pytest.mark.parametrize("base", [None, 2, 10, 50])
 @pytest.mark.parametrize("use_handle", [True, False])
 def test_entropy_random(n_samples, base, use_handle):
-    if has_scipy():
-        from scipy.stats import entropy as sp_entropy
-    else:
-        pytest.skip("Skipping test_entropy_random because Scipy is missing")
-
     handle, stream = get_handle(use_handle)
 
     clustering, _, _, _ = generate_random_labels(
@@ -1478,19 +1461,16 @@ def test_sparse_pairwise_distances_corner_cases(
 
 
 def test_sparse_pairwise_distances_exceptions():
-    if not has_scipy():
-        pytest.skip(
-            "Skipping sparse_pairwise_distances_exceptions "
-            "if Scipy is missing"
-        )
-    from scipy import sparse
-
     X_int = (
-        sparse.random(5, 4, dtype=np.float32, random_state=123, density=0.3)
+        scipy.sparse.random(
+            5, 4, dtype=np.float32, random_state=123, density=0.3
+        )
         * 10
     )
     X_int.dtype = cp.int32
-    X_bool = sparse.random(5, 4, dtype=bool, random_state=123, density=0.3)
+    X_bool = scipy.sparse.random(
+        5, 4, dtype=bool, random_state=123, density=0.3
+    )
     X_double = cupyx.scipy.sparse.random(
         5, 4, dtype=cp.float64, random_state=123, density=0.3
     )
@@ -1593,11 +1573,6 @@ def test_sparse_pairwise_distances_sklearn_comparison(
 @pytest.mark.parametrize("input_type", ["numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_sparse_pairwise_distances_output_types(input_type, output_type):
-    # Test larger sizes to sklearn
-    if not has_scipy():
-        pytest.skip("Skipping sparse_pairwise_distances if Scipy is missing")
-    import scipy
-
     if input_type == "cupy":
         X = cupyx.scipy.sparse.random(
             100, 100, dtype=cp.float64, random_state=123
@@ -1687,11 +1662,6 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
 @pytest.mark.parametrize("dtypeP", [cp.float32, cp.float64])
 @pytest.mark.parametrize("dtypeQ", [cp.float32, cp.float64])
 def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
-    if not has_scipy():
-        pytest.skip("Skipping test_kl_divergence because Scipy is missing")
-
-    from scipy.stats import entropy as sp_entropy
-
     rng = np.random.RandomState(5)
 
     P = rng.random_sample((nfeatures))

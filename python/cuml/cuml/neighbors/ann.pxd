@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 
-cdef extern from "cuml/neighbors/knn.hpp" \
-        namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
 
     cdef cppclass knnIndex:
         pass

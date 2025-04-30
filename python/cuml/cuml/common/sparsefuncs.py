@@ -16,33 +16,18 @@
 
 import math
 
+import cupy as cp
+import cupyx
+import numpy as np
+from cupyx.scipy.sparse import coo_matrix as cp_coo_matrix
+from cupyx.scipy.sparse import csc_matrix as cp_csc_matrix
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
+from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
+
 import cuml
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-cp_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
-cp_coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
-cp_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
-
-
-if has_scipy():
-    from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
-else:
-    from cuml.common.import_utils import DummyClass
-
-    csr_matrix = DummyClass
-    coo_matrix = DummyClass
-    csc_matrix = DummyClass
 
 
 def _map_l1_norm_kernel(dtype):

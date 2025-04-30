@@ -15,6 +15,8 @@
 
 import pickle
 
+import cupy as cp
+import numpy as np
 import pytest
 
 import cuml
@@ -26,10 +28,6 @@ from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
 )
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 test_input_types = ["numpy", "numba", "cupy", "cudf"]
 

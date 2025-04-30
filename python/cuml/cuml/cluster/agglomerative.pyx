@@ -20,9 +20,7 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -37,7 +35,7 @@ from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuvs/cluster/agglomerative.hpp" namespace "cuvs::cluster::agglomerative":
+cdef extern from "cuvs/cluster/agglomerative.hpp" namespace "cuvs::cluster::agglomerative" nogil:
 
     cdef cppclass single_linkage_output[int]:
         int m
@@ -47,7 +45,7 @@ cdef extern from "cuvs/cluster/agglomerative.hpp" namespace "cuvs::cluster::aggl
         int *labels
         int *children
 
-cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
+cdef extern from "cuml/cluster/linkage.hpp" namespace "ML" nogil:
 
     cdef void single_linkage_pairwise(
         const handle_t &handle,

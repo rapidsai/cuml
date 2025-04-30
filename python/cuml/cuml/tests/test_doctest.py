@@ -18,13 +18,11 @@ import doctest
 import inspect
 import io
 
+import cudf
+import numpy as np
 import pytest
 
 import cuml
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
 
 
 def _name_in_all(parent, name):

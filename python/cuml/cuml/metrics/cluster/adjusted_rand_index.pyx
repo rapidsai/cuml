@@ -16,24 +16,17 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-
-from libc.stdint cimport uintptr_t
-
-import cuml.internals
-
-from pylibraft.common.handle cimport handle_t
-
+import cupy as cp
 from pylibraft.common.handle import Handle
 
+import cuml.internals
 from cuml.common import input_to_cuml_array
 
-cimport cuml.common.cuda
+from libc.stdint cimport uintptr_t
+from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
 
     double adjusted_rand_index(handle_t &handle,
                                int *y,

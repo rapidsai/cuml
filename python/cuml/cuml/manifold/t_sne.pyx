@@ -18,15 +18,10 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
 import warnings
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cupy = gpu_only_import('cupy')
+import cupy
+import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -51,19 +46,15 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
-from cuml.metrics.distance_type cimport DistanceType
-
-rmm = gpu_only_import('rmm')
-
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 
-cimport cuml.common.cuda
+from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
@@ -101,7 +92,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         TSNE_ALGORITHM algorithm
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     cdef void TSNE_fit(
         handle_t &handle,

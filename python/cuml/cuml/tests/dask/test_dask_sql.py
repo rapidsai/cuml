@@ -13,24 +13,17 @@
 # limitations under the License.
 #
 
+import cudf
+import dask_cudf
+import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
 import cuml
-from cuml.internals.import_utils import has_dask_sql
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
-cudf = gpu_only_import("cudf")
-dask_cudf = gpu_only_import("dask_cudf")
-np = cpu_only_import("numpy")
-
-
-if has_dask_sql():
-    from dask_sql import Context
-else:
-    pytest.skip("Dask-SQL not available", allow_module_level=True)
+dask_sql = pytest.importorskip("dask_sql")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -57,7 +50,7 @@ def test_dask_sql_sg_logistic_regression(
     train_df["target"] = y_train
     train_ddf = dask_cudf.from_cudf(train_df, npartitions=n_parts)
 
-    c = Context()
+    c = dask_sql.Context()
     c.create_table("train_df", train_ddf)
 
     train_query = f"""

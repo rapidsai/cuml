@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import dask
+import numpy as np
 from dask.distributed import default_client
 
 from cuml.dask.common.base import (
@@ -25,10 +27,6 @@ from cuml.dask.common.base import (
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.ensemble.base import BaseRandomForestModel
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 class RandomForestClassifier(

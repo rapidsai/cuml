@@ -16,16 +16,15 @@
 
 import platform
 
+import cupy as cp
+import cupyx as cpx
+import numpy as np
 import pytest
+from cupyx.scipy.sparse import coo_matrix
+from scipy import stats
 from sklearn.preprocessing import normalize as sk_normalize
 from sklearn.utils._mask import _get_mask as sk_get_mask
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.thirdparty_adapters.adapters import _get_mask as cu_get_mask
 from cuml.thirdparty_adapters.adapters import (
@@ -41,13 +40,6 @@ from cuml.thirdparty_adapters.sparsefuncs_fast import (
     inplace_csr_row_normalize_l1,
     inplace_csr_row_normalize_l2,
 )
-
-cp = gpu_only_import("cupy")
-cpx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
-coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
-stats = cpu_only_import_from("scipy", "stats")
-
 
 IS_ARM = platform.processor() == "aarch64"
 
