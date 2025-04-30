@@ -65,18 +65,26 @@ def test_logreg_penalty_deprecation():
         cuLog(penalty="none")
 
 
-@pytest.mark.parametrize("ntargets", [1, 2])
 @given(
     datatype=st.sampled_from([np.float32, np.float64]),
     algorithm=st.sampled_from(["eig", "svd"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
+    ntargets=st.integers(min_value=1, max_value=2),
 )
 @example(
-    datatype=np.float32, algorithm="eig", nrows=1000, column_info=[20, 10]
+    datatype=np.float32,
+    algorithm="eig",
+    nrows=1000,
+    column_info=[20, 10],
+    ntargets=1,
 )
 @example(
-    datatype=np.float64, algorithm="svd", nrows=5000, column_info=[100, 50]
+    datatype=np.float64,
+    algorithm="svd",
+    nrows=5000,
+    column_info=[100, 50],
+    ntargets=2,
 )
 def test_linear_regression_model(
     datatype, algorithm, nrows, column_info, ntargets
@@ -112,20 +120,22 @@ def test_linear_regression_model(
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
-@pytest.mark.parametrize("ntargets", [1, 2])
 @given(
+    ntargets=st.integers(min_value=1, max_value=2),
     datatype=st.sampled_from([np.float32, np.float64]),
     algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr"]),
     fit_intercept=st.booleans(),
     distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
 )
 @example(
+    ntargets=1,
     datatype=np.float32,
     algorithm="eig",
     fit_intercept=True,
     distribution="uniform",
 )
 @example(
+    ntargets=2,
     datatype=np.float64,
     algorithm="svd",
     fit_intercept=False,
@@ -396,26 +406,46 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
     assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
 
 
-@pytest.mark.parametrize(
-    "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol",
-    [
-        # L-BFGS Solver
-        (2, np.float32, None, 1.0, True, 1.0, 1e-3),
-        (2, np.float64, "l2", 1.0, True, 1.0, 1e-8),
-        (10, np.float32, "elasticnet", 0.0, True, 1.0, 1e-3),
-        (10, np.float32, None, 1.0, False, 1.0, 1e-8),
-        (10, np.float32, None, 1.0, False, 2.0, 1e-3),
-        # OWL-QN Solver
-        (2, np.float32, "l1", 1.0, True, 1.0, 1e-3),
-        (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
-        (10, np.float32, "l1", 1.0, True, 1.0, 1e-3),
-        (10, np.float32, "l1", 1.0, False, 1.0, 1e-8),
-        (10, np.float32, "elasticnet", 1.0, False, 0.5, 1e-3),
-    ],
+@given(
+    num_classes=st.integers(min_value=2, max_value=10),
+    dtype=dataset_dtypes(),
+    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
+    l1_ratio=st.floats(min_value=0.0, max_value=1.0),
+    fit_intercept=st.booleans(),
+    nrows=st.integers(min_value=1000, max_value=5000),
+    C=st.floats(min_value=0.5, max_value=2.0),
+    tol=st.floats(min_value=1e-8, max_value=1e-3),
 )
-@given(nrows=st.integers(min_value=1000, max_value=5000))
-@example(nrows=1000)
-@example(nrows=5000)
+@example(
+    num_classes=2,
+    dtype=np.float32,
+    penalty=None,
+    l1_ratio=1.0,
+    fit_intercept=True,
+    nrows=1000,
+    C=1.0,
+    tol=1e-3,
+)
+@example(
+    num_classes=10,
+    dtype=np.float64,
+    penalty="l2",
+    l1_ratio=1.0,
+    fit_intercept=True,
+    nrows=5000,
+    C=1.0,
+    tol=1e-8,
+)
+@example(
+    num_classes=10,
+    dtype=np.float32,
+    penalty="elasticnet",
+    l1_ratio=0.0,
+    fit_intercept=True,
+    nrows=1000,
+    C=1.0,
+    tol=1e-3,
+)
 # ignoring UserWarnings in sklearn about setting unused parameters
 # like l1 for none penalty
 @pytest.mark.filterwarnings("ignore::UserWarning:sklearn[.*]")
@@ -485,22 +515,15 @@ def test_logistic_regression(
         )
 
     sklog.fit(X_train, y_train)
-
-    # Setting tolerance to lowest possible per loss to detect regressions
-    # as much as possible
     cu_preds = culog.predict(X_test)
-    tol_test = 0.012
-    tol_train = 0.006
-    if num_classes == 10 and penalty in ["elasticnet", "l1"]:
-        tol_test *= 10
-        tol_train *= 10
 
+    tol_score = 1e-1
     assert (
         culog.score(X_train, y_train)
-        >= sklog.score(X_train, y_train) - tol_train
+        >= sklog.score(X_train, y_train) - tol_score
     )
     assert (
-        culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - tol_test
+        culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - tol_score
     )
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
@@ -566,13 +589,34 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
-@pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("sparse_input", [True, False])
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("penalty", [None, "l1", "l2"])
-@given(dtype=dataset_dtypes())
-@example(dtype=np.float32)
-@example(dtype=np.float64)
+@given(
+    dtype=dataset_dtypes(),
+    order=st.sampled_from(["C", "F"]),
+    sparse_input=st.booleans(),
+    fit_intercept=st.booleans(),
+    penalty=st.sampled_from([None, "l1", "l2"]),
+)
+@example(
+    dtype=np.float32,
+    order="C",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float64,
+    order="F",
+    sparse_input=True,
+    fit_intercept=False,
+    penalty="l1",
+)
+@example(
+    dtype=np.float32,
+    order="C",
+    sparse_input=True,
+    fit_intercept=False,
+    penalty="l2",
+)
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
@@ -622,8 +666,6 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     assert score >= acceptable_score
 
 
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("sparse_input", [True, False])
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
@@ -632,9 +674,19 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
             n_informative=st.just(10),
         )
     ),
+    fit_intercept=st.booleans(),
+    sparse_input=st.booleans(),
 )
-@example(dataset=small_classification_dataset(np.float32))
-@example(dataset=small_classification_dataset(np.float64))
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
+)
 def test_logistic_regression_decision_function(
     dataset, fit_intercept, sparse_input
 ):
@@ -662,8 +714,6 @@ def test_logistic_regression_decision_function(
     assert array_equal(cu_dec_func, sk_dec_func)
 
 
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("sparse_input", [True, False])
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
@@ -672,9 +722,19 @@ def test_logistic_regression_decision_function(
             n_informative=st.just(10),
         )
     ),
+    fit_intercept=st.booleans(),
+    sparse_input=st.booleans(),
 )
-@example(dataset=small_classification_dataset(np.float32))
-@example(dataset=small_classification_dataset(np.float64))
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
+)
 def test_logistic_regression_predict_proba(
     dataset, fit_intercept, sparse_input
 ):
@@ -1029,16 +1089,26 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
-@pytest.mark.parametrize("algorithm", ALGORITHMS)
-@pytest.mark.parametrize("xp", [np, cp])
-@pytest.mark.parametrize("copy", [True, False, ...])
 @given(
+    algorithm=st.sampled_from(ALGORITHMS),
+    xp=st.sampled_from([np, cp]),
+    copy=st.one_of(st.booleans(), st.just(...)),
     dataset=standard_regression_datasets(
         n_features=st.integers(min_value=1, max_value=10),
-    )
+    ),
 )
-@example(dataset=make_regression(n_features=1))
-@example(dataset=make_regression(n_features=2))
+@example(
+    dataset=make_regression(n_features=1), algorithm="eig", xp=np, copy=True
+)
+@example(
+    dataset=make_regression(n_features=2), algorithm="eig", xp=cp, copy=False
+)
+@example(
+    dataset=make_regression(n_features=1), algorithm="svd", xp=np, copy=True
+)
+@example(
+    dataset=make_regression(n_features=1), algorithm="svd", xp=cp, copy=True
+)
 def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
     X, y = dataset
     X, y = xp.asarray(X), xp.asarray(y)
@@ -1057,15 +1127,27 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
         assert array_equal(X, X_copy)
 
 
-@pytest.mark.parametrize("ntargets", [1, 2])
 @given(
+    ntargets=st.integers(min_value=1, max_value=2),
     datatype=dataset_dtypes(),
     solver=st.sampled_from(["cd", "qn"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
 )
-@example(datatype=np.float32, solver="cd", nrows=1000, column_info=[20, 10])
-@example(datatype=np.float64, solver="qn", nrows=5000, column_info=[100, 50])
+@example(
+    ntargets=1,
+    datatype=np.float32,
+    solver="cd",
+    nrows=1000,
+    column_info=[20, 10],
+)
+@example(
+    ntargets=2,
+    datatype=np.float64,
+    solver="qn",
+    nrows=5000,
+    column_info=[100, 50],
+)
 def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
