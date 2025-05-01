@@ -30,8 +30,14 @@ __all__ = (
 )
 
 
-class LinearRegression(ProxyMixin, cuml.linear_model.LinearRegression):
-    pass
+class LinearRegression(ProxyBase):
+    _gpu_class = cuml.linear_model.LinearRegression
+    _cpu_class = sklearn.linear_model.LinearRegression
+
+    def _gpu_fit(self, X, y, sample_weight=None):
+        if is_sparse(X):
+            raise UnsupportedOnGPU
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
 class LogisticRegression(ProxyBase):
