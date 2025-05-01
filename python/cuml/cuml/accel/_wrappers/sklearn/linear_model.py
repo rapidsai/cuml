@@ -13,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sklearn.linear_model
 
 import cuml.linear_model
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase, ProxyMixin
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = (
     "LinearRegression",
@@ -30,16 +34,26 @@ class LinearRegression(ProxyMixin, cuml.linear_model.LinearRegression):
     pass
 
 
-class LogisticRegression(ProxyMixin, cuml.linear_model.LogisticRegression):
-    pass
+class LogisticRegression(ProxyBase):
+    _gpu_class = cuml.linear_model.LogisticRegression
+    _cpu_class = sklearn.linear_model.LogisticRegression
 
 
 class ElasticNet(ProxyMixin, cuml.linear_model.ElasticNet):
     pass
 
 
-class Ridge(ProxyMixin, cuml.linear_model.Ridge):
-    pass
+class Ridge(ProxyBase):
+    _gpu_class = cuml.linear_model.Ridge
+    _cpu_class = sklearn.linear_model.Ridge
+
+    def _gpu_fit(self, X, y, sample_weight=None):
+        y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
+        if len(y.shape) > 1:
+            raise UnsupportedOnGPU
+        if is_sparse(X):
+            raise UnsupportedOnGPU
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
 class Lasso(ProxyMixin, cuml.linear_model.Lasso):

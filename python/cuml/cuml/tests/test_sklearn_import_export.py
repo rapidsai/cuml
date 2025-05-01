@@ -193,7 +193,7 @@ def test_logistic_regression(random_state):
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
     )
-    original = LogisticRegression(random_state=random_state, max_iter=500)
+    original = LogisticRegression(C=5.0, max_iter=500)
     assert_estimator_roundtrip(original, SkLogisticRegression, X, y)
 
 
@@ -209,7 +209,7 @@ def test_ridge(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Ridge(alpha=1.0, random_state=random_state)
+    original = Ridge(alpha=1.0)
     assert_estimator_roundtrip(original, SkRidge, X, y)
 
 

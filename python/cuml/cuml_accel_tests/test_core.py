@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import cuml.accel
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy import is_proxy
 
 
 def test_multiple_import_styles_work():
@@ -21,7 +21,7 @@ def test_multiple_import_styles_work():
     from sklearn.linear_model import LogisticRegression
 
     assert linear_model.LogisticRegression is LogisticRegression
-    assert issubclass(LogisticRegression, ProxyMixin)
+    assert is_proxy(LogisticRegression)
 
 
 def test_enabled():

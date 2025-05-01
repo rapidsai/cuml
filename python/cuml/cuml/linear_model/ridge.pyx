@@ -25,12 +25,9 @@ from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 
@@ -69,7 +66,26 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        double *sample_weight) except +
 
 
-class Ridge(UniversalBase,
+# TODO: check these
+_SOLVER_SKLEARN_TO_CUML = {
+    "auto": "auto",
+    "svd": "svd",
+    "cholesky": "eig",
+    "lsqr": "eig",
+    "sag": "eig",
+    "saga": "eig",
+    "sparse_cg": "eig"
+}
+_SOLVER_CUML_TO_SKLEARN = {
+    "auto": "auto",
+    "svd": "svd",
+    "eig": "cholesky",
+    "cd": "sag",
+}
+
+
+class Ridge(Base,
+            InteropMixin,
             RegressorMixin,
             LinearPredictMixin,
             FMajorInputTagMixin):
@@ -188,26 +204,63 @@ class Ridge(UniversalBase,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.Ridge'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "positive": {
-            True: "NotImplemented"
-        },
-        "solver": {
-            "auto": "auto",
-            "cholesky": "eig",
-            "lsqr": "eig",
-            "sag": "eig",
-            "saga": "eig",
-            "lbfgs": "NotImplemented",
-            "sparse_cg": "eig"
-        },
-    }
+    _cpu_class_path = "sklearn.linear_model.Ridge"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ['solver', 'fit_intercept', 'normalize', 'alpha']
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.positive:
+            raise UnsupportedOnGPU
+
+        solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver)
+        if solver is None:
+            raise UnsupportedOnGPU
+
+        return {
+            "alpha": model.alpha,
+            "fit_intercept": model.fit_intercept,
+            "solver": solver,
+        }
+
+    def _params_to_cpu(self):
+        solver = _SOLVER_CUML_TO_SKLEARN[self.solver]
+        return {
+            "alpha": self.alpha,
+            "fit_intercept": self.fit_intercept,
+            "solver": solver,
+        }
+
+    def _attrs_from_cpu(self, model):
+        solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver_)
+        if solver is None:
+            raise UnsupportedOnGPU
+
+        return {
+            "intercept_": float(model.intercept_),
+            "coef_": to_gpu(model.coef_, order="F"),
+            "solver_": solver,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        if model.solver == "auto":
+            solver = _SOLVER_CUML_TO_SKLEARN[self.solver_]
+        else:
+            solver = model.solver
+
+        return {
+            "intercept_": np.float64(self.intercept_),
+            "coef_": self.coef_.to_output("numpy"),
+            "solver_": solver,
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, alpha=1.0, solver='auto', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
@@ -260,7 +313,6 @@ class Ridge(UniversalBase,
         self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
 
     @generate_docstring()
-    @enable_device_interop
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
@@ -367,22 +419,3 @@ class Ridge(UniversalBase,
             del sample_weight_m
 
         return self
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['solver', 'fit_intercept', 'normalize', 'alpha']
-
-    def get_attr_names(self):
-        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_', 'solver_']
-
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        """
-        Dispatch fit() function to CPU implementation for multi-target regression.
-        """
-        if func_name == "fit" and len(args) > 1:
-            y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
-
-            # Check if we have multiple targets or 2D array
-            return len(y_m.shape) > 1
-        return False
