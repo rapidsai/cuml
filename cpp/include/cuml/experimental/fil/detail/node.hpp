@@ -170,6 +170,10 @@ struct alignas(
   /* The offset to the child of this node if it evaluates to given condition */
   HOST DEVICE auto constexpr child_offset(bool condition) const
   {
+    // Handle a degenerate tree with a childless root node
+    if (aligned_data.inner_data.distant_offset == 0) {
+      return offset_type{} + aligned_data.inner_data.distant_offset;
+    }
     if constexpr (layout == tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
     } else if constexpr (layout == tree_layout::breadth_first ||
