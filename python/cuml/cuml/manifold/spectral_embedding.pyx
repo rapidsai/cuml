@@ -42,6 +42,7 @@ from pylibraft.random.cpp.rng_state cimport RngState
 
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.common import input_to_cuml_array
 
 
 cdef extern from "cuml/manifold/spectral_embedding_types.hpp" namespace "ML":
@@ -68,8 +69,15 @@ def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, nor
 
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    A = cai_wrapper(A)
-    A_ptr = <uintptr_t>A.data
+    A, n_rows, n_cols, _ = \
+                input_to_cuml_array(A, order='C', check_dtype=np.float32,
+                                    convert_to_dtype=cp.float32)
+
+    # print(A.shape)
+    # print(type(A), A.dtype)
+
+    # A = cai_wrapper(A)
+    A_ptr = <uintptr_t>A.ptr
 
     config.n_components = n_components
     config.seed = random_state if random_state is not None else 42
