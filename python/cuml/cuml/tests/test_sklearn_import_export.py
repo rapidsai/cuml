@@ -201,7 +201,7 @@ def test_elasticnet(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = ElasticNet(random_state=random_state)
+    original = ElasticNet(alpha=0.1)
     assert_estimator_roundtrip(original, SkElasticNet, X, y)
 
 
@@ -217,7 +217,7 @@ def test_lasso(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Lasso(alpha=0.1, random_state=random_state)
+    original = Lasso(alpha=0.1)
     assert_estimator_roundtrip(original, SkLasso, X, y)
 
 

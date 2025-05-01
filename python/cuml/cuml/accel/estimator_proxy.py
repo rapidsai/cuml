@@ -224,18 +224,18 @@ class ProxyBase(BaseEstimator):
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
         if is_fit:
-            # Fitting a new estimator.
-            # First clear all fit attributes on the CPU estimator.
-            self._cpu = sklearn.clone(self._cpu)
-            self._synced = False
 
-            # Then attempt to create a new GPU estimator with the
+            # Attempt to create a new GPU estimator with the
             # current hyperparameters.
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
             except UnsupportedOnGPU:
                 # Unsupported, fallback to CPU
                 self._gpu = None
+            else:
+                # New estimator successfully initialized on GPU, reset on CPU
+                self._cpu = sklearn.clone(self._cpu)
+                self._synced = False
 
         if self._gpu is not None:
             # The hyperparameters are supported, now check for a GPU method to run.

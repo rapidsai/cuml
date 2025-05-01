@@ -33,8 +33,6 @@ from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.kernel_ridge import KernelRidge as skKernelRidge
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.linear_model import Lasso as skLasso
 from sklearn.manifold import TSNE as refTSNE
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
@@ -51,7 +49,6 @@ from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.kernel_ridge import KernelRidge
-from cuml.linear_model import ElasticNet, Lasso
 from cuml.manifold import TSNE, UMAP
 from cuml.metrics import adjusted_rand_score, trustworthiness
 from cuml.neighbors import NearestNeighbors
@@ -225,86 +222,6 @@ def fixture_generation_helper(params):
 @fixture(
     **fixture_generation_helper(
         {
-            "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "fit_intercept": [False, True],
-            "selection": ["cyclic", "random"],
-        }
-    )
-)
-def lasso_test_data(request):
-    kwargs = {
-        "fit_intercept": request.param["fit_intercept"],
-        "selection": request.param["selection"],
-        "tol": 0.0001,
-    }
-
-    sk_model = skLasso(**kwargs)
-    sk_model.fit(X_train_reg, y_train_reg)
-
-    input_type = request.param["input_type"]
-
-    if input_type == "dataframe":
-        modified_y_train = pd.Series(y_train_reg)
-    elif input_type == "cudf":
-        modified_y_train = cudf.Series(y_train_reg)
-    else:
-        modified_y_train = to_output_type(y_train_reg, input_type)
-
-    return {
-        "cuEstimator": Lasso,
-        "kwargs": kwargs,
-        "infer_func": "predict",
-        "assert_func": check_allclose,
-        "X_train": to_output_type(X_train_reg, input_type),
-        "y_train": modified_y_train,
-        "X_test": to_output_type(X_test_reg, input_type),
-        "ref_y_test": sk_model.predict(X_test_reg),
-    }
-
-
-@fixture(
-    **fixture_generation_helper(
-        {
-            "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "fit_intercept": [False, True],
-            "selection": ["cyclic", "random"],
-        }
-    )
-)
-def elasticnet_test_data(request):
-    kwargs = {
-        "fit_intercept": request.param["fit_intercept"],
-        "selection": request.param["selection"],
-        "tol": 0.0001,
-    }
-
-    sk_model = skElasticNet(**kwargs)
-    sk_model.fit(X_train_reg, y_train_reg)
-
-    input_type = request.param["input_type"]
-
-    if input_type == "dataframe":
-        modified_y_train = pd.Series(y_train_reg)
-    elif input_type == "cudf":
-        modified_y_train = cudf.Series(y_train_reg)
-    else:
-        modified_y_train = to_output_type(y_train_reg, input_type)
-
-    return {
-        "cuEstimator": ElasticNet,
-        "kwargs": kwargs,
-        "infer_func": "predict",
-        "assert_func": check_allclose,
-        "X_train": to_output_type(X_train_reg, input_type),
-        "y_train": modified_y_train,
-        "X_test": to_output_type(X_test_reg, input_type),
-        "ref_y_test": sk_model.predict(X_test_reg),
-    }
-
-
-@fixture(
-    **fixture_generation_helper(
-        {
             "input_type": ["cupy"],
             "n_components": [2, 16],
             "init": ["spectral", "random"],
@@ -461,7 +378,6 @@ def nn_test_data(request):
 fixture_union(
     "test_data",
     [
-        "lasso_test_data",
         "umap_test_data",
         "pca_test_data",
         "tsvd_test_data",
@@ -472,8 +388,6 @@ fixture_union(
 
 def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is Lasso:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -570,8 +484,6 @@ def test_pickle_interop(tmp_path, test_data):
 @pytest.mark.parametrize(
     "estimator",
     [
-        Lasso,
-        ElasticNet,
         UMAP,
         PCA,
         TruncatedSVD,
@@ -613,40 +525,6 @@ def test_hyperparams_defaults(estimator):
 
     if not similar:
         raise ValueError(error_msg)
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_lasso_methods(train_device, infer_device):
-    ref_model = skLasso()
-    ref_model.fit(X_train_reg, y_train_reg)
-    ref_output = ref_model.score(X_train_reg, y_train_reg)
-
-    model = Lasso()
-    with using_device_type(train_device):
-        model.fit(X_train_reg, y_train_reg)
-    with using_device_type(infer_device):
-        output = model.score(X_train_reg, y_train_reg)
-
-    tol = 0.01
-    assert ref_output - tol <= output <= ref_output + tol
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_elasticnet_methods(train_device, infer_device):
-    ref_model = skElasticNet()
-    ref_model.fit(X_train_reg, y_train_reg)
-    ref_output = ref_model.score(X_train_reg, y_train_reg)
-
-    model = ElasticNet()
-    with using_device_type(train_device):
-        model.fit(X_train_reg, y_train_reg)
-    with using_device_type(infer_device):
-        output = model.score(X_train_reg, y_train_reg)
-
-    tol = 0.01
-    assert ref_output - tol <= output <= ref_output + tol
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
