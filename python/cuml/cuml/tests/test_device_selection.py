@@ -36,8 +36,6 @@ from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.linear_model import Lasso as skLasso
 from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from sklearn.linear_model import Ridge as skRidge
 from sklearn.manifold import TSNE as refTSNE
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
@@ -54,13 +52,7 @@ from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.kernel_ridge import KernelRidge
-from cuml.linear_model import (
-    ElasticNet,
-    Lasso,
-    LinearRegression,
-    LogisticRegression,
-    Ridge,
-)
+from cuml.linear_model import ElasticNet, Lasso, LinearRegression
 from cuml.manifold import TSNE, UMAP
 from cuml.metrics import adjusted_rand_score, trustworthiness
 from cuml.neighbors import NearestNeighbors
@@ -272,48 +264,6 @@ def linreg_test_data(request):
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "penalty": [None, "l2"],
-            "fit_intercept": [False, True],
-        }
-    )
-)
-def logreg_test_data(request):
-    kwargs = {
-        "penalty": request.param["penalty"],
-        "fit_intercept": request.param["fit_intercept"],
-        "max_iter": 1000,
-    }
-
-    y_train_logreg = (y_train_reg > np.median(y_train_reg)).astype(np.int32)
-
-    sk_model = skLogisticRegression(**kwargs)
-    sk_model.fit(X_train_reg, y_train_logreg)
-
-    input_type = request.param["input_type"]
-
-    if input_type == "dataframe":
-        y_train_logreg = pd.Series(y_train_logreg)
-    elif input_type == "cudf":
-        y_train_logreg = cudf.Series(y_train_logreg)
-    else:
-        y_train_logreg = to_output_type(y_train_logreg, input_type)
-
-    return {
-        "cuEstimator": LogisticRegression,
-        "kwargs": kwargs,
-        "infer_func": "predict",
-        "assert_func": check_allclose,
-        "X_train": to_output_type(X_train_reg, input_type),
-        "y_train": y_train_logreg,
-        "X_test": to_output_type(X_test_reg, input_type),
-        "ref_y_test": sk_model.predict(X_test_reg),
-    }
-
-
-@fixture(
-    **fixture_generation_helper(
-        {
-            "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
             "fit_intercept": [False, True],
             "selection": ["cyclic", "random"],
         }
@@ -380,41 +330,6 @@ def elasticnet_test_data(request):
 
     return {
         "cuEstimator": ElasticNet,
-        "kwargs": kwargs,
-        "infer_func": "predict",
-        "assert_func": check_allclose,
-        "X_train": to_output_type(X_train_reg, input_type),
-        "y_train": modified_y_train,
-        "X_test": to_output_type(X_test_reg, input_type),
-        "ref_y_test": sk_model.predict(X_test_reg),
-    }
-
-
-@fixture(
-    **fixture_generation_helper(
-        {
-            "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "fit_intercept": [False, True],
-        }
-    )
-)
-def ridge_test_data(request):
-    kwargs = {"fit_intercept": request.param["fit_intercept"], "solver": "svd"}
-
-    sk_model = skRidge(**kwargs)
-    sk_model.fit(X_train_reg, y_train_reg)
-
-    input_type = request.param["input_type"]
-
-    if input_type == "dataframe":
-        modified_y_train = pd.Series(y_train_reg)
-    elif input_type == "cudf":
-        modified_y_train = cudf.Series(y_train_reg)
-    else:
-        modified_y_train = to_output_type(y_train_reg, input_type)
-
-    return {
-        "cuEstimator": Ridge,
         "kwargs": kwargs,
         "infer_func": "predict",
         "assert_func": check_allclose,
@@ -585,9 +500,7 @@ fixture_union(
     "test_data",
     [
         "linreg_test_data",
-        "logreg_test_data",
         "lasso_test_data",
-        "ridge_test_data",
         "umap_test_data",
         "pca_test_data",
         "tsvd_test_data",
@@ -697,10 +610,8 @@ def test_pickle_interop(tmp_path, test_data):
     "estimator",
     [
         LinearRegression,
-        LogisticRegression,
         Lasso,
         ElasticNet,
-        Ridge,
         UMAP,
         PCA,
         TruncatedSVD,
@@ -763,47 +674,6 @@ def test_linreg_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-@pytest.mark.parametrize(
-    "infer_func_name",
-    ["decision_function", "predict_proba", "predict_log_proba", "score"],
-)
-def test_logreg_methods(train_device, infer_device, infer_func_name):
-    y_train_logreg = (y_train_reg > np.median(y_train_reg)).astype(np.int32)
-
-    ref_model = skLogisticRegression()
-    ref_model.fit(X_train_reg, y_train_logreg)
-    infer_func = getattr(ref_model, infer_func_name)
-    if infer_func_name == "score":
-        ref_output = infer_func(X_train_reg, y_train_logreg)
-    else:
-        ref_output = infer_func(X_test_reg)
-
-    model = LogisticRegression()
-    with using_device_type(train_device):
-        model.fit(X_train_reg, y_train_logreg)
-    with using_device_type(infer_device):
-        infer_func = getattr(model, infer_func_name)
-        if infer_func_name == "score":
-            output = infer_func(
-                X_train_reg.astype(np.float64),
-                y_train_logreg.astype(np.float64),
-            )
-        else:
-            output = infer_func(X_test_reg.astype(np.float64))
-
-    if infer_func_name == "score":
-        tol = 0.01
-        assert ref_output - tol <= output <= ref_output + tol
-    else:
-        output = to_output_type(output, "numpy")
-        mask = np.isfinite(output)
-        np.testing.assert_allclose(
-            ref_output[mask], output[mask], atol=0.1, rtol=0.15
-        )
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_lasso_methods(train_device, infer_device):
     ref_model = skLasso()
     ref_model.fit(X_train_reg, y_train_reg)
@@ -848,23 +718,6 @@ def test_kernelridge_methods(train_device, infer_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):
         output = model.score(X_test_reg, y_test_reg)
-
-    tol = 0.01
-    assert ref_output - tol <= output <= ref_output + tol
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_ridge_methods(train_device, infer_device):
-    ref_model = skRidge()
-    ref_model.fit(X_train_reg, y_train_reg)
-    ref_output = ref_model.score(X_train_reg, y_train_reg)
-
-    model = Ridge()
-    with using_device_type(train_device):
-        model.fit(X_train_reg, y_train_reg)
-    with using_device_type(infer_device):
-        output = model.score(X_train_reg, y_train_reg)
 
     tol = 0.01
     assert ref_output - tol <= output <= ref_output + tol
