@@ -46,6 +46,7 @@
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
+#include <treelite/tree.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 
@@ -201,7 +202,8 @@ FilPredict(const raft::handle_t& handle,
     workspace = std::make_shared<thrust::device_vector<DataT>>(params.n_rows * params.n_labels);
   } else {
     // For regressors, no need to post-process predictions from FIL
-    pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows * params.n_labels);
+    static_assert(std::is_same_v<LabelT, DataT>, "LabelT and DataT must be identical for regression task");
+    pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
     workspace = pred;
   }
   TreeliteModelHandle model;
@@ -211,10 +213,14 @@ FilPredict(const raft::handle_t& handle,
     model,
     ML::experimental::fil::tree_layout::breadth_first,
     128,
-    false,
+    std::is_same_v<DataT, double>,
     raft_proto::device_type::gpu,
     handle.get_device(),
-    handle.get_stream());
+    handle.get_next_usable_stream());
+  handle.sync_stream();
+  handle.sync_stream_pool();
+  delete static_cast<treelite::Model*>(model);
+
   filex_model.predict(handle,
                       workspace->data().get(),
                       X_transpose,
@@ -224,6 +230,7 @@ FilPredict(const raft::handle_t& handle,
                       ML::experimental::fil::infer_kind::default_kind,
                       1);
   handle.sync_stream();
+  handle.sync_stream_pool();
 
   if constexpr (std::is_integral_v<LabelT>) {
     // Perform argmax to convert probabilities into class outputs
@@ -270,10 +277,14 @@ auto FilPredictProba(const raft::handle_t& handle,
     model,
     ML::experimental::fil::tree_layout::breadth_first,
     128,
-    false,
+    std::is_same_v<DataT, double>,
     raft_proto::device_type::gpu,
     handle.get_device(),
-    handle.get_stream());
+    handle.get_next_usable_stream());
+  handle.sync_stream();
+  handle.sync_stream_pool();
+  delete static_cast<treelite::Model*>(model);
+
   filex_model.predict(handle,
                       pred->data().get(),
                       X_transpose,
@@ -283,6 +294,7 @@ auto FilPredictProba(const raft::handle_t& handle,
                       ML::experimental::fil::infer_kind::default_kind,
                       1);
   handle.sync_stream();
+  handle.sync_stream_pool();
 
   return pred;
 }
@@ -644,8 +656,12 @@ TEST(RfTests, IntegerOverflow)
       128,
       false,
       raft_proto::device_type::gpu,
-      0,
-      handle.get_stream());
+      handle.get_device(),
+    handle.get_next_usable_stream());
+  handle.sync_stream();
+  handle.sync_stream_pool();
+  delete static_cast<treelite::Model*>(model);
+
   filex_model.predict(handle,
                       pred.data().get(),
                       X.data().get(),
@@ -654,6 +670,8 @@ TEST(RfTests, IntegerOverflow)
                       raft_proto::device_type::gpu,
                       ML::experimental::fil::infer_kind::default_kind,
                       1);
+  handle.sync_stream();
+  handle.sync_stream_pool();
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
