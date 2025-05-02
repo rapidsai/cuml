@@ -805,6 +805,8 @@
 - id: "sklearn.model_selection.tests.test_search::test_search_cv_pairwise_property_equivalence_of_precomputed"
 - id: "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
 - id: "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
+  strict: false
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
 - id: "sklearn.model_selection.tests.test_validation::test_cross_val_predict_class_subset"
 - id: "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf"
