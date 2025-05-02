@@ -13,66 +13,67 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import treelite
-from cuml.benchmark.bench_helper_funcs import (
-    fit,
-    transform,
-    predict,
-    fit_transform,
-    fit_predict,
-    fit_kneighbors,
-    _build_cpu_skl_classifier,
-    _build_fil_skl_classifier,
-    _build_fil_classifier,
-    _build_gtil_classifier,
-    _build_optimized_fil_classifier,
-    _treelite_fil_accuracy_score,
-    _training_data_to_numpy,
-    _build_mnmg_umap,
-)
-from cuml.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    MaxAbsScaler,
-    Normalizer,
-    SimpleImputer,
-    RobustScaler,
-    PolynomialFeatures,
-)
 import tempfile
-import cuml
 
+import numpy as np
 import sklearn
 import sklearn.cluster
-import sklearn.neighbors
 import sklearn.ensemble
-import sklearn.random_projection
 import sklearn.naive_bayes
+import sklearn.neighbors
+import sklearn.random_projection
+import treelite
 from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
-import cuml.metrics
+
+import cuml
 import cuml.decomposition
 import cuml.experimental
+import cuml.metrics
 import cuml.naive_bayes
+from cuml.benchmark.bench_helper_funcs import (
+    _build_cpu_skl_classifier,
+    _build_fil_classifier,
+    _build_fil_skl_classifier,
+    _build_gtil_classifier,
+    _build_mnmg_umap,
+    _build_optimized_fil_classifier,
+    _training_data_to_numpy,
+    _treelite_fil_accuracy_score,
+    fit,
+    fit_kneighbors,
+    fit_predict,
+    fit_transform,
+    predict,
+    transform,
+)
 from cuml.dask import (  # noqa: F401
-    neighbors,
     cluster,
-    manifold,
     decomposition,
     linear_model,
+    manifold,
+    neighbors,
 )
-from cuml.internals.import_utils import has_hdbscan, has_umap
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PolynomialFeatures,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+)
 
-np = cpu_only_import("numpy")
+try:
+    from umap import UMAP
+except ImportError:
+    UMAP = None
 
 
-if has_umap():
-    import umap
-
-
-if has_hdbscan():
-    import hdbscan
+try:
+    from hdbscan import HDBSCAN
+except ImportError:
+    HDBSCAN = None
 
 
 class AlgorithmPair:
@@ -285,7 +286,7 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            hdbscan.HDBSCAN if has_hdbscan() else None,
+            HDBSCAN,
             cuml.cluster.HDBSCAN,
             shared_args={},
             cpu_args={},
@@ -511,6 +512,7 @@ def all_algorithms():
                 output_class=False,
                 precision="float32",
                 infer_type="default",
+                model_type="xgboost_ubj",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -572,7 +574,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Unsupervised",
@@ -580,7 +582,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Supervised",

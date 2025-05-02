@@ -13,15 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import numpy as np
 import pytest
 
-import numpy as np
 import cuml
 from cuml.datasets import make_blobs
-
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-)
 
 
 @pytest.mark.parametrize(

@@ -399,6 +399,7 @@ Forest Inferencing
 
 .. autoclass:: cuml.ForestInference
     :members:
+    :inherited-members:
 
 Coordinate Descent
 ------------------
@@ -419,6 +420,7 @@ Support Vector Machines
     :members:
 
 .. autoclass:: cuml.svm.SVC
+    :members: decision_function, fit, predict, predict_log_proba, predict_proba
 
 .. autoclass:: cuml.svm.LinearSVC
     :members:

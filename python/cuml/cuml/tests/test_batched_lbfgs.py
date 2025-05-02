@@ -14,13 +14,12 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+import scipy
+from packaging.version import Version
 
-from cuml.common import has_scipy
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 
 
 def rosenbrock(x, a=1, b=100):
@@ -68,7 +67,7 @@ def g_batched_rosenbrock(
 
 
 @pytest.mark.xfail(
-    condition=has_scipy(min_version="1.15"),
+    condition=Version(scipy.__version__) >= Version("1.15"),
     reason="https://github.com/rapidsai/cuml/issues/6210",
 )
 def test_batched_lbfgs_rosenbrock():

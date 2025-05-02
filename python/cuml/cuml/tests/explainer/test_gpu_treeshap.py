@@ -14,52 +14,35 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import as_type
-import cuml
-from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.import_utils import has_lightgbm, has_shap
-from cuml.explainer.tree_shap import TreeExplainer
-from hypothesis import (
-    example,
-    given,
-    settings,
-    assume,
-    HealthCheck,
-    strategies as st,
-)
-from cuml.internals.safe_imports import gpu_only_import
 import json
+
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 import treelite
-from cuml.internals.safe_imports import cpu_only_import
+from hypothesis import HealthCheck, assume, example, given, settings
+from hypothesis import strategies as st
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
+import cuml
+from cuml.common.exceptions import NotFittedError
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.explainer.tree_shap import TreeExplainer
+from cuml.internals.import_utils import has_sklearn
+from cuml.testing.utils import as_type
 
+shap = pytest.importorskip("shap")
+
+# See issue #4729 and PR #4777
 pytestmark = pytest.mark.skip
 
-# See issue #4729
-# Xgboost disabled due to CI failures
-xgb = None
 
-
-def has_xgboost():
-    return False
-
-
-if has_lightgbm():
-    import lightgbm as lgb
-if has_shap():
-    import shap
 if has_sklearn():
-    from sklearn.datasets import make_regression, make_classification
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
+    from sklearn.datasets import make_classification, make_regression
     from sklearn.ensemble import RandomForestClassifier as sklrfc
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 
 def make_classification_with_categorical(
@@ -148,10 +131,10 @@ def count_categorical_split(tl_model):
         "reg:pseudohubererror",
     ],
 )
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
+    xgb = pytest.importorskip("xgboost")
+
     n_samples = 100
     X, y = make_regression(
         n_samples=n_samples,
@@ -222,10 +205,10 @@ def test_xgb_regressor(objective):
         "multi:softprob",
     ],
 )
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
+    xgb = pytest.importorskip("xgboost")
+
     n_samples = 100
     X, y = make_classification(
         n_samples=n_samples,
@@ -404,7 +387,6 @@ def test_cuml_rf_classifier(n_classes, input_type):
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_regressor():
     n_samples = 100
@@ -438,7 +420,6 @@ def test_sklearn_rf_regressor():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_classifier(n_classes):
     n_samples = 100
@@ -477,8 +458,9 @@ def test_sklearn_rf_classifier(n_classes):
     )
 
 
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_toy_categorical():
+    xgb = pytest.importorskip("xgboost")
+
     X = pd.DataFrame(
         {
             "dummy": np.zeros(5, dtype=np.float32),
@@ -510,9 +492,10 @@ def test_xgb_toy_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier_with_categorical(n_classes):
+    xgb = pytest.importorskip("xgboost")
+
     n_samples = 100
     n_features = 8
     X, y = make_classification_with_categorical(
@@ -571,9 +554,10 @@ def test_xgb_classifier_with_categorical(n_classes):
     )
 
 
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor_with_categorical():
+    xgb = pytest.importorskip("xgboost")
+
     n_samples = 100
     n_features = 8
     X, y = make_regression_with_categorical(
@@ -610,10 +594,10 @@ def test_xgb_regressor_with_categorical():
     )
 
 
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_lightgbm_regressor_with_categorical():
+    lgb = pytest.importorskip("lightgbm")
+
     n_samples = 100
     n_features = 8
     n_categorical = 8
@@ -654,10 +638,10 @@ def test_lightgbm_regressor_with_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
-@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_lightgbm_classifier_with_categorical(n_classes):
+    lgb = pytest.importorskip("lightgbm")
+
     n_samples = 100
     n_features = 8
     n_categorical = 8
@@ -717,7 +701,10 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
     # for lgbm or xgb return the booster or sklearn object?
     use_sklearn_estimator = draw(st.booleans())
     if learner == "xgb":
-        assume(has_xgboost())
+        try:
+            import xgboost as xgb
+        except ImportError:
+            assume(False)
         if task == "regression":
             objective = draw(
                 st.sampled_from(["reg:squarederror", "reg:pseudohubererror"])
@@ -784,7 +771,10 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             pred = model.predict_proba(X)
         return model, pred
     elif learner == "lgbm":
-        assume(has_lightgbm())
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            assume(False)
         if task == "regression":
             model = lgb.LGBMRegressor(n_estimators=n_estimators).fit(X, y)
         elif task == "classification":

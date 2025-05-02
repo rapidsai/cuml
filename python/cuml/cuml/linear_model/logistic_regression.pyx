@@ -16,29 +16,33 @@
 
 # distutils: language = c++
 
+import pprint
 import warnings
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-import pprint
+import cupy as cp
+import numpy as np
 
 import cuml.internals
-from cuml.solvers import QN
-from cuml.preprocessing import LabelEncoder
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.output_utils import cudf_to_pandas
 from cuml.common import using_output_type
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.mixins import (
+    ClassifierMixin,
+    FMajorInputTagMixin,
+    SparseInputTagMixin,
+)
+from cuml.internals.output_utils import cudf_to_pandas
+from cuml.preprocessing import LabelEncoder
+from cuml.solvers import QN
 
 supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
 
@@ -295,7 +299,22 @@ class LogisticRegression(UniversalBase,
         Fit the model with X and y.
 
         """
-        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
+        if is_sparse(X):
+            # Skip conversion of sparse arrays since sparse are already in the
+            # correct format and don't need array-like input handling. The
+            # conversion will be handled by the solver model.
+            n_rows, self.n_features_in_, self.dtype = (
+                X.shape[0],
+                (X.shape[1] if X.ndim == 2 else 1),
+                X.dtype)
+        else:
+            X, n_rows, self.n_features_in_, self.dtype = \
+                input_to_cuml_array(X,
+                                    convert_to_dtype=(np.float32 if convert_dtype
+                                                      else None),
+                                    check_dtype=[np.float32, np.float64],
+                                    order='K')
+
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
@@ -601,8 +620,7 @@ class LogisticRegression(UniversalBase,
         self._classes = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
-    def coef_(self):
+    def coef_(self) -> CumlArray:
         return self.solver_model.coef_
 
     @coef_.setter
@@ -610,8 +628,7 @@ class LogisticRegression(UniversalBase,
         self.solver_model.coef_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
-    def intercept_(self):
+    def intercept_(self) -> CumlArray:
         return self.solver_model.intercept_
 
     @intercept_.setter

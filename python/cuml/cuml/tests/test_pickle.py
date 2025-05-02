@@ -13,27 +13,27 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.manifold import trustworthiness
-from sklearn.datasets import load_iris, make_classification, make_regression
+import pickle
+
+import numpy as np
+import pytest
+import scipy.sparse as scipy_sparse
 from sklearn.base import clone
+from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.manifold import trustworthiness
+from sklearn.model_selection import train_test_split
+
+import cuml
 from cuml.testing.utils import (
-    array_equal,
-    unit_param,
-    stress_param,
     ClassEnumerator,
-    get_classes_from_package,
-    compare_svm,
+    array_equal,
     compare_probabilistic_svm,
+    compare_svm,
+    get_classes_from_package,
+    stress_param,
+    unit_param,
 )
 from cuml.tsa.arima import ARIMA
-import pytest
-import pickle
-import cuml
-from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
-
-np = cpu_only_import("numpy")
-scipy_sparse = cpu_only_import_from("scipy", "sparse")
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -418,6 +418,7 @@ def test_unfit_pickle(model_name):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
@@ -614,8 +615,10 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize("prediction_data", [True, False])
 def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
     result = {}
-    from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
-    from cuml.cluster.hdbscan.prediction import approximate_predict
+    from cuml.cluster.hdbscan.prediction import (
+        all_points_membership_vectors,
+        approximate_predict,
+    )
 
     def create_mod():
         nrows, ncols, n_info = data_size

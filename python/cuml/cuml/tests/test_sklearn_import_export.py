@@ -13,36 +13,32 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
+from numpy.testing import assert_allclose
+from sklearn.cluster import KMeans as SkKMeans
+from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.decomposition import PCA as SkPCA
+from sklearn.decomposition import TruncatedSVD as SkTruncatedSVD
+from sklearn.linear_model import ElasticNet as SkElasticNet
+from sklearn.linear_model import Lasso as SkLasso
+from sklearn.linear_model import LinearRegression as SkLinearRegression
+from sklearn.linear_model import LogisticRegression as SkLogisticRegression
+from sklearn.linear_model import Ridge as SkRidge
+from sklearn.utils.validation import check_is_fitted
 
-from cuml.cluster import KMeans, DBSCAN
+from cuml.cluster import DBSCAN, KMeans
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.linear_model import (
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
 from cuml.manifold import TSNE
 from cuml.neighbors import NearestNeighbors
-
 from cuml.testing.utils import array_equal
-
-from numpy.testing import assert_allclose
-
-from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans
-from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
-from sklearn.linear_model import (
-    LinearRegression as SkLinearRegression,
-    LogisticRegression as SkLogisticRegression,
-    ElasticNet as SkElasticNet,
-    Ridge as SkRidge,
-    Lasso as SkLasso,
-)
 
 ###############################################################################
 #                              Helper functions                               #
@@ -103,12 +99,6 @@ def assert_estimator_roundtrip(
         _ = original_params.pop("init", None)
         _ = rm_params.pop("init", None)
 
-        # This failure will be fixed by
-        # https://github.com/rapidsai/cuml/pull/6142
-        # otherwise the predict with default n_init like this
-        # roundtrip will fail later.
-        pytest.xfail(reason="auto is not supported by cuML n_init yet")
-
     def dict_diff(a, b):
         # Get all keys from both dictionaries
         all_keys = set(a.keys()) | set(b.keys())
@@ -158,9 +148,6 @@ def test_basic_roundtrip():
     assert ckm.n_clusters == 13
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-)
 def test_kmeans(random_state):
     # Using sklearn directly for demonstration
     X, _ = make_blobs(

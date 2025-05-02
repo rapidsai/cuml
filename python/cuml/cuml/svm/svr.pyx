@@ -15,29 +15,32 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
+
 from libcpp cimport nullptr
+
 from cuml.svm.svm_base import SVMBase
+
 from cuml.internals.logger cimport level_enum
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+
+cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
@@ -47,7 +50,7 @@ cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double gamma
         double coef0
 
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
@@ -62,7 +65,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
 
     cdef cppclass SupportStorage[math_t]:
         int nnz

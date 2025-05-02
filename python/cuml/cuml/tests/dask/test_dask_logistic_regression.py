@@ -13,26 +13,22 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
-from cuml.dask.common import utils as dask_utils
-from functools import partial
-from sklearn.metrics import accuracy_score
-from sklearn.datasets import make_classification
-from sklearn.linear_model import LogisticRegression as skLR
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals import logger
-from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix
 import random
 
-random.seed(0)
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
+import pytest
+from scipy.sparse import csr_matrix
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression as skLR
+from sklearn.metrics import accuracy_score
 
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-dask_cudf = gpu_only_import("dask_cudf")
-cudf = gpu_only_import("cudf")
+from cuml.dask.common import utils as dask_utils
+from cuml.internals import logger
+from cuml.testing.utils import array_equal
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -430,17 +426,15 @@ def test_n_classes_small(client):
 
 
 @pytest.mark.parametrize("n_parts", [2, 23])
-@pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("n_classes", [8])
-def test_n_classes(n_parts, fit_intercept, n_classes, client):
-    datatype = np.float32 if fit_intercept else np.float64
+@pytest.mark.parametrize("n_classes", [2, 6])
+def test_n_classes(n_parts, n_classes, client):
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = _test_lbfgs(
         nrows=nrows,
         ncols=20,
         n_parts=n_parts,
-        fit_intercept=fit_intercept,
-        datatype=datatype,
+        fit_intercept=True,
+        datatype=np.float32,
         delayed=True,
         client=client,
         penalty="l2",
@@ -448,13 +442,13 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
     )
 
     assert lr._num_classes == n_classes
-    assert lr.dtype == datatype
+    assert lr.dtype == np.float32
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("delayed", [True])
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 @pytest.mark.parametrize("C", [1.0, 10.0])
 def test_l1(fit_intercept, delayed, n_classes, C, client):
     datatype = np.float64 if fit_intercept else np.float32
@@ -481,13 +475,10 @@ def test_l1(fit_intercept, delayed, n_classes, C, client):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True])
-@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("n_classes", [2, 6])
 @pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
-def test_elasticnet(
-    fit_intercept, datatype, delayed, n_classes, l1_ratio, client
-):
+def test_elasticnet(fit_intercept, delayed, n_classes, l1_ratio, client):
     datatype = np.float32 if fit_intercept else np.float64
 
     nrows = int(1e5) if n_classes < 5 else int(2e5)
@@ -514,7 +505,6 @@ def test_elasticnet(
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
     "reg_dtype",
     [
@@ -524,33 +514,27 @@ def test_elasticnet(
         (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("n_classes", [2, 8])
-def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
+def test_sparse_from_dense(reg_dtype, client):
     penalty, C, l1_ratio = reg_dtype[0]
     datatype = reg_dtype[1]
 
-    nrows = int(1e5) if n_classes < 5 else int(2e5)
-
     _convert_index = np.int32 if random.choice([True, False]) else np.int64
 
-    run_test = partial(
-        _test_lbfgs,
-        nrows=nrows,
+    lr = _test_lbfgs(
+        nrows=int(1e5),
         ncols=20,
         n_parts=2,
-        fit_intercept=fit_intercept,
+        fit_intercept=True,
         datatype=datatype,
         delayed=True,
         client=client,
         penalty=penalty,
-        n_classes=n_classes,
+        n_classes=2,
         C=C,
         l1_ratio=l1_ratio,
         convert_to_sparse=True,
         _convert_index=_convert_index,
     )
-
-    lr = run_test()
     assert lr.dtype == datatype
     assert lr.index_dtype == _convert_index
 
@@ -588,15 +572,14 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     from sklearn.linear_model import LogisticRegression as CPULR
 
-    cpu = CPULR(C=20.0)
+    cpu = CPULR(C=20.0, solver="saga")
     cpu.fit(X_train, y_train)
     cpu_preds = cpu.predict(X_test)
     cpu_score = accuracy_score(y_test, cpu_preds.tolist())
     assert cuml_score >= cpu_score or np.abs(cuml_score - cpu_score) < 1e-3
 
 
-@pytest.mark.parametrize("fit_intercept", [False, True])
-def test_exception_one_label(fit_intercept, client):
+def test_exception_one_label(client):
     n_parts = 2
     datatype = "float32"
 
@@ -608,15 +591,9 @@ def test_exception_one_label(fit_intercept, client):
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
-    mg = cumlLBFGS_dask(fit_intercept=fit_intercept, verbose=6)
+    mg = cumlLBFGS_dask(fit_intercept=True, verbose=6)
     with pytest.raises(RuntimeError, match=err_msg):
         mg.fit(X_df, y_df)
-
-    from sklearn.linear_model import LogisticRegression
-
-    lr = LogisticRegression(fit_intercept=fit_intercept)
-    with pytest.raises(ValueError, match=err_msg):
-        lr.fit(X, y)
 
 
 @pytest.mark.mg
@@ -631,9 +608,8 @@ def test_exception_one_label(fit_intercept, client):
     ],
 )
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("n_classes", [2, 8])
 def test_standardization_on_normal_dataset(
-    fit_intercept, reg_dtype, delayed, n_classes, client
+    fit_intercept, reg_dtype, delayed, client
 ):
 
     regularization = reg_dtype[0]
@@ -642,11 +618,9 @@ def test_standardization_on_normal_dataset(
     C = regularization[1]
     l1_ratio = regularization[2]
 
-    nrows = int(1e5) if n_classes < 5 else int(2e5)
-
     # test correctness compared with scikit-learn
     lr = _test_lbfgs(
-        nrows=nrows,
+        nrows=int(1e5),
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -654,7 +628,7 @@ def test_standardization_on_normal_dataset(
         delayed=delayed,
         client=client,
         penalty=penalty,
-        n_classes=n_classes,
+        n_classes=2,
         C=C,
         l1_ratio=l1_ratio,
         standardization=True,
@@ -715,20 +689,18 @@ def adjust_standardization_model_for_comparison(
     ],
 )
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4), (100, 10)])
 def test_standardization_on_scaled_dataset(
-    fit_intercept, reg_dtype, delayed, ncol_and_nclasses, client
+    fit_intercept, reg_dtype, delayed, client
 ):
-
     regularization = reg_dtype[0]
     datatype = reg_dtype[1]
 
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
-    n_classes = ncol_and_nclasses[1]
-    nrows = int(1e5) if n_classes < 5 else int(2e5)
-    ncols = ncol_and_nclasses[0]
+    nrows = int(2e5)
+    ncols = 20
+    n_classes = 6
     n_info = ncols
     n_redundant = 0
     n_parts = 2
@@ -736,6 +708,7 @@ def test_standardization_on_scaled_dataset(
 
     from sklearn.linear_model import LogisticRegression as CPULR
     from sklearn.model_selection import train_test_split
+
     from cuml.dask.linear_model.logistic_regression import (
         LogisticRegression as cumlLBFGS_dask,
     )

@@ -13,18 +13,47 @@
 # limitations under the License.
 #
 
-import platform
-from cuml.testing.test_preproc_utils import to_output_type
-from cuml.testing.utils import array_equal
+import gc
+import inspect
+import itertools as it
+import pickle
+from importlib import import_module
 
+import cudf
+import numpy as np
+import pandas as pd
+import pytest
+from hdbscan import HDBSCAN as refHDBSCAN
+from pytest_cases import fixture, fixture_union
+from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.cluster import KMeans as skKMeans
+from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.ensemble import RandomForestClassifier as skRFC
+from sklearn.ensemble import RandomForestRegressor as skRFR
+from sklearn.kernel_ridge import KernelRidge as skKernelRidge
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Lasso as skLasso
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.manifold import TSNE as refTSNE
+from sklearn.metrics import accuracy_score, r2_score
+from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
+from sklearn.svm import SVC as skSVC
+from sklearn.svm import SVR as skSVR
+from umap import UMAP as refUMAP
+
+import cuml
+from cuml.cluster import DBSCAN, KMeans
 from cuml.cluster.hdbscan import HDBSCAN
-from cuml.neighbors import NearestNeighbors
-from cuml.metrics import trustworthiness
-from cuml.metrics import adjusted_rand_score
-from cuml.manifold import (
-    UMAP,
-    TSNE,
-)
+from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.decomposition import PCA, TruncatedSVD
+from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
+from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -32,54 +61,12 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge,
 )
-from cuml.internals.memory_utils import using_memory_type
-from cuml.internals.mem_type import MemoryType
-from cuml.decomposition import PCA, TruncatedSVD
-from cuml.cluster import KMeans
-from cuml.cluster import DBSCAN
-from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.manifold import TSNE, UMAP
+from cuml.metrics import adjusted_rand_score, trustworthiness
+from cuml.neighbors import NearestNeighbors
 from cuml.svm import SVC, SVR
-from cuml.kernel_ridge import KernelRidge
-from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.testing.utils import assert_dbscan_equal
-from hdbscan import HDBSCAN as refHDBSCAN
-from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.linear_model import Lasso as skLasso
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.decomposition import PCA as skPCA
-from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
-from sklearn.kernel_ridge import KernelRidge as skKernelRidge
-from sklearn.cluster import KMeans as skKMeans
-from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.datasets import make_regression, make_classification, make_blobs
-from sklearn.ensemble import RandomForestClassifier as skRFC
-from sklearn.ensemble import RandomForestRegressor as skRFR
-from sklearn.svm import SVC as skSVC
-from sklearn.svm import SVR as skSVR
-from sklearn.manifold import TSNE as refTSNE
-from sklearn.metrics import accuracy_score, r2_score
-from pytest_cases import fixture_union, fixture
-from importlib import import_module
-import inspect
-import pickle
-from cuml.internals.safe_imports import gpu_only_import
-import itertools as it
-import pytest
-import cuml
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-
-
-IS_ARM = platform.processor() == "aarch64"
-
-if not IS_ARM:
-    from umap import UMAP as refUMAP
+from cuml.testing.test_preproc_utils import to_output_type
+from cuml.testing.utils import array_equal, assert_dbscan_equal
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -455,15 +442,10 @@ def umap_test_data(request):
         "random_state": 42,
     }
 
-    # todo: remove after https://github.com/rapidsai/cuml/issues/5441 is
-    # fixed
-    if not IS_ARM:
-        ref_model = refUMAP(**kwargs)
-        ref_model.fit(X_train_blob, y_train_blob)
-        ref_embedding = ref_model.transform(X_test_blob)
-        ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
-    else:
-        ref_trust = 0.0
+    ref_model = refUMAP(**kwargs)
+    ref_model.fit(X_train_blob, y_train_blob)
+    ref_embedding = ref_model.transform(X_test_blob)
+    ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
 
     input_type = request.param["input_type"]
 
@@ -618,8 +600,6 @@ def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is Lasso:
         pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -654,8 +634,6 @@ def test_train_gpu_infer_cpu(test_data):
 
 def test_train_cpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -673,8 +651,6 @@ def test_train_cpu_infer_gpu(test_data):
 
 def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -732,8 +708,6 @@ def test_pickle_interop(tmp_path, test_data):
     ],
 )
 def test_hyperparams_defaults(estimator):
-    if estimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters
 
@@ -897,9 +871,6 @@ def test_ridge_methods(train_device, infer_device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "gpu"])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_methods(device):
     ref_model = refUMAP(n_neighbors=12)
     ref_embedding = ref_model.fit_transform(X_train_blob, y_train_blob)
@@ -995,6 +966,8 @@ def test_hdbscan_methods(train_device, infer_device):
 
     from hdbscan.prediction import (
         all_points_membership_vectors as cpu_all_points_membership_vectors,
+    )
+    from hdbscan.prediction import (
         approximate_predict as cpu_approximate_predict,
     )
 
@@ -1143,6 +1116,8 @@ def test_svc_methods(
     class_type,
     probability,
 ):
+    gc.collect()  # mitigation for https://github.com/rapidsai/cuml/issues/6480
+
     if class_type == "single_class":
         X_train = X_train_class
         y_train = y_train_class

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.prims.label import make_monotonic
-from cuml.prims.label import invert_labels
-from cuml.prims.label import check_labels
-
-from cuml.testing.utils import array_equal
-
+import cupy as cp
+import numpy as np
 import pytest
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.testing.utils import array_equal
 
 
 @pytest.mark.parametrize("arr_type", ["np", "cp"])

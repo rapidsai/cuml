@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,27 +14,21 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from cuml.testing.utils import (
-    create_synthetic_dataset,
-    ClassEnumerator,
-    get_shap_values,
-)
-from cuml.datasets import make_regression
-from cuml.internals.import_utils import has_shap
-from cuml.internals.import_utils import has_scipy
-from cuml import KernelExplainer
-from cuml import Lasso
-import sklearn.neighbors
-import pytest
 import math
-from cuml.internals.safe_imports import cpu_only_import
+
+import cupy as cp
+import numpy as np
+import pytest
+import scipy.special
+import sklearn.neighbors
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
 import cuml
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
+from cuml import KernelExplainer, Lasso
+from cuml.datasets import make_regression
+from cuml.testing.datasets import with_dtype
+from cuml.testing.utils import ClassEnumerator, get_shap_values
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
@@ -130,12 +124,17 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
 @pytest.mark.parametrize("n_background", [10, 30])
 @pytest.mark.parametrize("model", [cuml.TruncatedSVD, cuml.PCA])
 def test_kernel_shap_standalone(dtype, n_features, n_background, model):
-    X_train, X_test, y_train, y_test = create_synthetic_dataset(
-        n_samples=n_background + 3,
-        n_features=n_features,
-        test_size=3,
-        noise=0.1,
-        dtype=dtype,
+    X, y = with_dtype(
+        make_regression(
+            n_samples=n_background + 3,
+            n_features=n_features,
+            noise=0.1,
+            random_state=42,
+        ),
+        dtype,
+    )
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=3, random_state=42
     )
 
     mod = model(n_components=3).fit(X_train, y_train)
@@ -170,12 +169,19 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
 @pytest.mark.parametrize("n_background", [30])
 @pytest.mark.parametrize("model", [cuml.SVR])
 def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
-    X_train, X_test, y_train, y_test = create_synthetic_dataset(
-        n_samples=n_background + 3,
-        n_features=n_features,
-        test_size=3,
-        noise=0.1,
-        dtype=dtype,
+    shap = pytest.importorskip("shap")
+
+    X, y = with_dtype(
+        make_regression(
+            n_samples=n_background + 3,
+            n_features=n_features,
+            noise=0.1,
+            random_state=42,
+        ),
+        dtype,
+    )
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=3, random_state=42
     )
 
     mod = model().fit(X_train, y_train)
@@ -194,15 +200,10 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
             np.sum(shap_values[test_idx]) - abs(fx[test_idx] - exp_v)
         ) <= 1e-5
 
-    if has_shap():
-        import shap
+    explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
+    cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
 
-        explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
-        cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
-
-        assert np.allclose(
-            shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01
-        )
+    assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01)
 
 
 def test_kernel_housing_dataset(housing_dataset):
@@ -239,10 +240,7 @@ def test_kernel_housing_dataset(housing_dataset):
 def test_binom_coef():
     for i in range(1, 101):
         val = cuml.explainer.kernel_shap._binomCoef(100, i)
-        if has_scipy():
-            from scipy.special import binom
-
-            assert math.isclose(val, binom(100, i), rel_tol=1e-15)
+        assert math.isclose(val, scipy.special.binom(100, i), rel_tol=1e-15)
 
 
 def test_shapley_kernel():

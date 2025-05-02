@@ -13,49 +13,44 @@
 # limitations under the License.
 #
 
+import json
+import os
+import random
+import warnings
+
+import cudf
+import numpy as np
+import pytest
 import treelite
-from sklearn.model_selection import train_test_split
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 from sklearn.datasets import (
     fetch_california_housing,
+    load_breast_cancer,
+    load_iris,
     make_classification,
     make_regression,
-    load_iris,
-    load_breast_cancer,
 )
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import (
     accuracy_score,
     mean_squared_error,
     mean_tweedie_deviance,
 )
-from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.model_selection import train_test_split
+
+import cuml
 import cuml.internals.logger as logger
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.metrics import r2_score
 from cuml.testing.utils import (
     get_handle,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.metrics import r2_score
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.ensemble import RandomForestClassifier as curfc
-import cuml
-from cuml.internals.safe_imports import gpu_only_import_from
-import os
-import json
-import random
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-
-import warnings
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore: For reproducible results(.*)" "::cuml[.*]"
@@ -472,6 +467,11 @@ def test_rf_regression(
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
 
@@ -1447,3 +1447,10 @@ def test_rf_predict_returns_int():
     clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
     pred = clf.predict(X)
     assert pred.dtype == np.int64
+
+
+def test_ensemble_estimator_length():
+    X, y = make_classification()
+    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
+    clf.fit(X, y)
+    assert len(clf) == 3

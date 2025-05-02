@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import_from
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+import pytest
+from numba import cuda
+
 from cuml.datasets import make_classification
 from cuml.model_selection import train_test_split
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
 
 test_seeds = ["int", "cupy", "numpy"]
 

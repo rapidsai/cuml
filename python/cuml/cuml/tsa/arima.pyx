@@ -16,31 +16,29 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator
-)
-np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+import numpy as np
+
+import cuml.internals.nvtx as nvtx
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from typing import Tuple, Dict, Mapping, Optional, Union
+
+from typing import Dict, Mapping, Optional, Tuple, Union
 
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
+
 import cuml.internals.logger as logger
-from cuml.common import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
-cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
+cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
         DataT* beta
@@ -58,7 +56,7 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
 
 
-cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     ctypedef enum LoglikeMethod: CSS, MLE
 
     void cpp_pack "pack" (
@@ -114,7 +112,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         const ARIMAOrder& order, bool missing)
 
 
-cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
 
     void batched_jones_transform(
         handle_t& handle, ARIMAMemory[double]& arima_mem,
@@ -319,11 +317,6 @@ class ARIMA(Base):
                  output_type=None,
                  convert_dtype=True):
 
-        if not has_scipy():
-            raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
-                               " Please install it to enable ARIMA "
-                               "estimation.")
-
         # Initialize base class
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -458,7 +451,7 @@ class ARIMA(Base):
             return "ARIMA({},{},{}) ({}) - {} series".format(
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
+    @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
@@ -751,7 +744,7 @@ class ARIMA(Base):
                     d_lower,
                     d_upper)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
+    @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
     @cuml.internals.api_base_return_generic_skipall
     def forecast(
         self,
@@ -823,7 +816,7 @@ class ARIMA(Base):
         if not hasattr(self, "sigma2_"):
             self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA._estimate_x0",
+    @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _estimate_x0(self):
@@ -946,7 +939,7 @@ class ARIMA(Base):
         self.unpack(self._batched_transform(x), convert_dtype)
         return self
 
-    @nvtx_annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
+    @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
@@ -1013,7 +1006,7 @@ class ARIMA(Base):
 
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA._loglike_grad",
+    @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
@@ -1136,7 +1129,7 @@ class ARIMA(Base):
 
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
+    @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
     def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1165,7 +1158,7 @@ class ARIMA(Base):
         cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,
                    <double*>d_x_ptr)
 
-    @nvtx_annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
+    @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -1189,7 +1182,7 @@ class ARIMA(Base):
 
         return d_x_array.to_output("numpy")
 
-    @nvtx_annotate(message="tsa.arima.ARIMA._batched_transform",
+    @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):

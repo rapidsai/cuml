@@ -13,33 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pandas = cpu_only_import('pandas')
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 
 import cuml.internals.logger as logger
-from cuml.internals.import_utils import has_shap
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.logger import warn
-from cuml.explainer.common import get_dtype_from_model_func
-from cuml.explainer.common import get_handle_from_cuml_model_func
-from cuml.explainer.common import get_link_fn_from_str_or_fn
-from cuml.explainer.common import get_tag_from_model_func
-from cuml.explainer.common import model_func_call
-from cuml.explainer.common import output_list_shap_values
+from cuml.explainer.common import (
+    get_dtype_from_model_func,
+    get_handle_from_cuml_model_func,
+    get_link_fn_from_str_or_fn,
+    get_tag_from_model_func,
+    model_func_call,
+    output_list_shap_values,
+)
+from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 
-from pylibraft.common.handle cimport handle_t
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
+cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
 
     void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
         const handle_t& handle,
@@ -184,9 +179,7 @@ class SHAPBase():
 
         self.random_state = random_state
 
-        if isinstance(background,
-                      pandas.DataFrame) or isinstance(background,
-                                                      cudf.DataFrame):
+        if isinstance(background, pd.DataFrame) or isinstance(background, cudf.DataFrame):
             self.feature_names = background.columns.to_list()
         else:
             self.feature_names = [None for _ in range(len(background))]
@@ -300,22 +293,27 @@ class SHAPBase():
 
         return shap_values
 
-    def __call__(self,
-                 X,
-                 main_effects=False,
-                 **kwargs):
-
-        if not has_shap(min_version="0.37"):
-            raise ImportError("SHAP >= 0.37 was not found, please install it "
-                              " or use the explainer.shap_values function "
-                              "instead. ")
-        else:
-            warn("Support for the new API is in experimental state, tested "
-                 "with SHAP 0.37, but changes in further versions could "
-                 "affect its functioning. The functions explainer.shap_values "
-                 " and explainer.main_effects are the stable calls currently.")
-
+    def __call__(self, X, main_effects=False, **kwargs):
+        try:
+            import shap
+            from packaging.version import Version
             from shap import Explanation
+
+            shap_atleast_037 = Version(shap.__version__) >= Version("0.37")
+        except ImportError:
+            shap_atleast_037 = False
+
+        if not shap_atleast_037:
+            raise ImportError(
+                "SHAP >= 0.37 was not found, please install it or use the "
+                "explainer.shap_values function instead."
+            )
+
+        logger.warn(
+            "Support for the new API is in experimental state, tested with SHAP 0.37, but "
+            "changes in further versions could affect its functioning. The functions "
+            "explainer.shap_values and explainer.main_effects are the stable calls currently."
+        )
 
         shap_values = self.shap_values(X,
                                        as_list=False,

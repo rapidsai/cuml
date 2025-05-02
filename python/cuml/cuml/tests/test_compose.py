@@ -14,45 +14,32 @@
 #
 
 
-from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.preprocessing import (
-    StandardScaler as skStandardScaler,
-    Normalizer as skNormalizer,
-    PolynomialFeatures as skPolynomialFeatures,
-    OneHotEncoder as skOneHotEncoder,
-)
-from cuml.preprocessing import (
-    StandardScaler as cuStandardScaler,
-    Normalizer as cuNormalizer,
-    PolynomialFeatures as cuPolynomialFeatures,
-    OneHotEncoder as cuOneHotEncoder,
-)
-from sklearn.compose import (
-    ColumnTransformer as skColumnTransformer,
-    make_column_transformer as sk_make_column_transformer,
-    make_column_selector as sk_make_column_selector,
-)
-from cuml.compose import (
-    ColumnTransformer as cuColumnTransformer,
-    make_column_transformer as cu_make_column_transformer,
-    make_column_selector as cu_make_column_selector,
-)
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
+import cudf
+import numpy as np
+import pandas as pd
 import pytest
+from sklearn.compose import ColumnTransformer as skColumnTransformer
+from sklearn.compose import make_column_selector as sk_make_column_selector
+from sklearn.compose import (
+    make_column_transformer as sk_make_column_transformer,
+)
+from sklearn.preprocessing import Normalizer as skNormalizer
+from sklearn.preprocessing import OneHotEncoder as skOneHotEncoder
+from sklearn.preprocessing import PolynomialFeatures as skPolynomialFeatures
+from sklearn.preprocessing import StandardScaler as skStandardScaler
 
-from cuml.internals.safe_imports import gpu_only_import
-
+from cuml.compose import ColumnTransformer as cuColumnTransformer
+from cuml.compose import make_column_selector as cu_make_column_selector
+from cuml.compose import make_column_transformer as cu_make_column_transformer
+from cuml.preprocessing import Normalizer as cuNormalizer
+from cuml.preprocessing import OneHotEncoder as cuOneHotEncoder
+from cuml.preprocessing import PolynomialFeatures as cuPolynomialFeatures
+from cuml.preprocessing import StandardScaler as cuStandardScaler
 from cuml.testing.test_preproc_utils import (  # noqa: F401
+    assert_allclose,
     clf_dataset,
     sparse_clf_dataset,
 )
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
-cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
 @pytest.mark.parametrize("remainder", ["drop", "passthrough"])
@@ -68,7 +55,7 @@ def test_column_transformer(
     sk_selec2 = [1, 3]
     cu_selec1 = sk_selec1
     cu_selec2 = sk_selec2
-    if isinstance(X, (pdDataFrame, cuDataFrame)):
+    if isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         cu_selec1 = ["c" + str(i) for i in sk_selec1]
         cu_selec2 = ["c" + str(i) for i in sk_selec2]
 
@@ -162,7 +149,7 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
     sk_selec2 = [1, 3]
     cu_selec1 = sk_selec1
     cu_selec2 = sk_selec2
-    if isinstance(X, (pdDataFrame, cuDataFrame)):
+    if isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         cu_selec1 = ["c" + str(i) for i in sk_selec1]
         cu_selec2 = ["c" + str(i) for i in sk_selec2]
 
@@ -263,7 +250,7 @@ def test_column_transformer_named_transformers_(clf_dataset):  # noqa: F811
 
 
 def test_make_column_selector():
-    X_np = pdDataFrame(
+    X_np = pd.DataFrame(
         {
             "city": ["London", "London", "Paris", "Sallisaw"],
             "rating": [5, 3, 4, 5],
@@ -319,7 +306,7 @@ def test_make_column_selector():
 def test_column_transformer_index(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
-    if not isinstance(X, (pdDataFrame, cuDataFrame)):
+    if not isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         pytest.skip()
 
     cu_transformers = [("scaler", cuStandardScaler(), X.columns)]

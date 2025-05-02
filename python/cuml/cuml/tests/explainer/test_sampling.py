@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.explainer.sampling import kmeans_sampling
-from cuml.internals.safe_imports import gpu_only_import_from
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
+from cuml.explainer.sampling import kmeans_sampling
 
 
 @pytest.mark.parametrize(

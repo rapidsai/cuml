@@ -14,16 +14,15 @@
 #
 
 import cuml.internals
-
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
 from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import ClassifierMixin
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
@@ -57,7 +56,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         >>> cls.fit(X, y)
         MulticlassClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
-        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
+        array([1, 1, 0, 1, 1, 1, 2, 2, 1, 2])
 
     Parameters
     ----------
@@ -217,7 +216,7 @@ class OneVsRestClassifier(MulticlassClassifier):
         >>> cls.fit(X, y)
         OneVsRestClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
-        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
+        array([1, 1, 0, 1, 1, 1, 2, 2, 1, 2])
 
 
     Parameters
@@ -292,7 +291,7 @@ class OneVsOneClassifier(MulticlassClassifier):
         >>> cls.fit(X, y)
         OneVsOneClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
-        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
+        array([1, 1, 0, 1, 1, 1, 2, 2, 1, 2])
 
     Parameters
     ----------

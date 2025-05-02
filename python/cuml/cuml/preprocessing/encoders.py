@@ -15,25 +15,18 @@
 import warnings
 from typing import Optional
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
+from cudf import Index
+
 import cuml.internals.logger as logger
-from cudf import DataFrame, Series
-from cuml import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
+from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.preprocessing import LabelEncoder
-
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-
-Index = gpu_only_import_from("cudf", "Index")
+from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 
 class CheckFeaturesMixIn:
@@ -95,7 +88,7 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
             self._set_input_type("array")
             if is_categories:
                 X = X.transpose()
-            return DataFrame(X)
+            return cudf.DataFrame(X)
         else:
             self._set_input_type("df")
             return X
@@ -346,7 +339,7 @@ class OneHotEncoder(BaseEncoder):
                 )
             drop_idx = dict()
             for feature in self.drop.keys():
-                self.drop[feature] = Series(self.drop[feature])
+                self.drop[feature] = cudf.Series(self.drop[feature])
                 if len(self.drop[feature]) != 1:
                     msg = (
                         "Trying to drop multiple values for feature {}, "
@@ -361,7 +354,7 @@ class OneHotEncoder(BaseEncoder):
                         "categories.".format(feature)
                     )
                     raise ValueError(msg)
-                cats = Series(cats)
+                cats = cudf.Series(cats)
                 idx = cats.isin(self.drop[feature])
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx
@@ -517,7 +510,7 @@ class OneHotEncoder(BaseEncoder):
             # if close: `and not cupyx.scipy.sparse.issparsecsc(X)`
             # and change the following line by `X = X.tocsc()`
             X = X.toarray()
-        result = DataFrame(columns=self._encoders.keys())
+        result = cudf.DataFrame(columns=self._encoders.keys())
         j = 0
         for feature in self._encoders.keys():
             feature_enc = self._encoders[feature]
@@ -525,10 +518,12 @@ class OneHotEncoder(BaseEncoder):
 
             if self.drop is not None:
                 # Remove dropped categories
-                dropped_class_idx = Series(self.drop_idx_[feature])
-                dropped_class_mask = Series(cats).isin(cats[dropped_class_idx])
+                dropped_class_idx = cudf.Series(self.drop_idx_[feature])
+                dropped_class_mask = cudf.Series(cats).isin(
+                    cats[dropped_class_idx]
+                )
                 if len(cats) == 1:
-                    inv = Series(Index([cats[0]]).repeat(X.shape[0]))
+                    inv = cudf.Series(Index([cats[0]]).repeat(X.shape[0]))
                     result[feature] = inv
                     continue
                 cats = cats[~dropped_class_mask]
@@ -536,7 +531,7 @@ class OneHotEncoder(BaseEncoder):
             enc_size = len(cats)
             x_feature = X[:, j : j + enc_size]
             idx = cp.argmax(x_feature, axis=1)
-            inv = Series(cats.iloc[idx]).reset_index(drop=True)
+            inv = cudf.Series(cats.iloc[idx]).reset_index(drop=True)
 
             if self.handle_unknown == "ignore":
                 not_null_idx = x_feature.any(axis=1)
@@ -548,7 +543,7 @@ class OneHotEncoder(BaseEncoder):
                 dropped_mask = cp.asarray(x_feature.sum(axis=1) == 0).flatten()
                 if dropped_mask.any():
                     inv[dropped_mask] = feature_enc.inverse_transform(
-                        Series(self.drop_idx_[feature])
+                        cudf.Series(self.drop_idx_[feature])
                     )[0]
 
             result[feature] = inv
@@ -624,7 +619,7 @@ def _slice_feat(X, i):
 def _get_output(
     output_type: Optional[str],
     input_type: Optional[str],
-    out: DataFrame,
+    out: "cudf.DataFrame",
     dtype,
 ):
     if output_type == "input":
@@ -729,7 +724,7 @@ class OrdinalEncoder(BaseEncoder):
             col_idx = self._encoders[feature].transform(Xi)
             result[feature] = col_idx
 
-        r = DataFrame(result)
+        r = cudf.DataFrame(result)
         return _get_output(self.output_type, self.input_type, r, self.dtype)
 
     @generate_docstring(
@@ -766,7 +761,7 @@ class OrdinalEncoder(BaseEncoder):
             inv = self._encoders[feature].inverse_transform(Xi)
             result[feature] = inv
 
-        r = DataFrame(result)
+        r = cudf.DataFrame(result)
         return _get_output(self.output_type, self.input_type, r, self.dtype)
 
     @classmethod

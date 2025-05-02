@@ -3,7 +3,6 @@
 channels:
 - rapidsai
 - rapidsai-nightly
-- dask/label/dev
 - conda-forge
 - nvidia
 dependencies:
@@ -43,6 +42,7 @@ dependencies:
 - libcuvs==25.6.*,>=0.0.0a0
 - libraft==25.6.*,>=0.0.0a0
 - librmm==25.6.*,>=0.0.0a0
+- matplotlib
 - nbsphinx
 - ninja
 - nltk
@@ -60,6 +60,7 @@ dependencies:
 - pytest-xdist
 - pytest==7.*
 - python>=3.10,<3.13
+- pyyaml
 - raft-dask==25.6.*,>=0.0.0a0
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
 - rapids-dask-dependency==25.6.*,>=0.0.0a0
@@ -75,7 +76,8 @@ dependencies:
 - sphinx<8.2.0
 - statsmodels
 - sysroot_linux-64==2.28
+- tenacity
 - treelite==4.4.1
 - umap-learn==0.5.6
-- xgboost>=2.1.0
+- xgboost>=2.1.0,<3.0.0
 name: all_cuda-118_arch-x86_64

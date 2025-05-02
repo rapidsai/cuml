@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,22 +15,23 @@
 #
 
 from cuml.common import input_to_cuml_array
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.internals.array import CumlArray
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.input_utils import determine_array_type
-from cuml.fil.fil import TreeliteModel
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.legacy.fil.fil import TreeliteModel
 
 from libc.stdint cimport uintptr_t
+
 import re
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+import numpy as np
 import treelite
 
 if has_sklearn():
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
     from sklearn.ensemble import RandomForestClassifier as sklrfc
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
 else:
     sklrfr = object
     sklrfc = object
@@ -46,7 +47,7 @@ cdef extern from "treelite/c_api.h":
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char * TreeliteGetLastError()
 
-cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
+cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer" nogil:
     cdef cppclass TreePathHandle:
         pass
 

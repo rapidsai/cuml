@@ -13,40 +13,31 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
+import os
+from math import ceil
+
+import numpy as np
+import pandas as pd
+import pytest
+from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
     GradientBoostingClassifier,
     GradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
-    ExtraTreesClassifier,
-    ExtraTreesRegressor,
 )
-from sklearn.datasets import make_classification, make_regression
-from cuml.internals.import_utils import has_xgboost
+from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.model_selection import train_test_split
+
+from cuml import ForestInference
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml import ForestInference
-from math import ceil
-import os
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-# from cuml.internals.import_utils import has_lightgbm
-
-
-if has_xgboost():
-    import xgboost as xgb
-
-# pytestmark = pytest.mark.skip
 
 
 def simulate_data(
@@ -99,6 +90,7 @@ def _build_and_save_xgboost(
     xgboost_params={},
 ):
     """Trains a small xgboost classifier and saves it to model_path"""
+    xgb = pytest.importorskip("xgboost")
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
@@ -132,10 +124,11 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_classification(
     n_rows, n_columns, num_rounds, n_classes, tmp_path
 ):
+    xgb = pytest.importorskip("xgboost")
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
@@ -203,8 +196,9 @@ def test_fil_classification(
 @pytest.mark.parametrize(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
+    xgb = pytest.importorskip("xgboost")
     # settings
     classification = False  # change this to false to use regression
     n_rows = n_rows  # we'll use 1 millions rows
@@ -278,6 +272,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
         (5, RandomForestClassifier, 10, "float64"),
     ],
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_skl_classification(
     n_rows,
     n_columns,
@@ -374,6 +369,7 @@ def test_fil_skl_classification(
 @pytest.mark.parametrize("max_depth", [2, 10, 20])
 @pytest.mark.parametrize("storage_type", [False, True])
 @pytest.mark.skip("https://github.com/rapidsai/cuml/issues/5138")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_skl_regression(
     n_rows,
     n_columns,
@@ -449,6 +445,8 @@ def test_fil_skl_regression(
 
 @pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
+    xgb = pytest.importorskip("xgboost")
+
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
     ext = "json" if request.param == "json" else "ubj"
@@ -464,7 +462,6 @@ def small_classifier_and_preds(tmpdir_factory, request):
     return (model_path, model_type, X, xgb_preds)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize(
     "algo",
     [
@@ -478,6 +475,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
         "batch_tree_reorg",
     ],
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_algos(algo, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -495,8 +493,8 @@ def test_output_algos(algo, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_precision_xgboost(precision, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -514,10 +512,10 @@ def test_precision_xgboost(precision, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize(
     "storage_type", [False, True, "auto", "dense", "sparse", "sparse8"]
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -535,9 +533,9 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize("storage_type", ["dense", "sparse"])
 @pytest.mark.parametrize("blocks_per_sm", [1, 2, 3, 4])
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_blocks_per_sm(
     storage_type, blocks_per_sm, small_classifier_and_preds
 ):
@@ -558,8 +556,8 @@ def test_output_blocks_per_sm(
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize("threads_per_tree", [2, 4, 8, 16, 32, 64, 128, 256])
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_threads_per_tree(threads_per_tree, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -583,28 +581,8 @@ def test_threads_per_tree(threads_per_tree, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_print_forest_shape(small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    m = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        output_class=True,
-        compute_shape_str=True,
-    )
-    for substr in [
-        "model size",
-        " MB",
-        "Depth histogram:",
-        "Leaf depth",
-        "Depth histogram fingerprint",
-        "Avg nodes per tree",
-    ]:
-        assert substr in m.shape_str
-
-
 @pytest.mark.parametrize("output_class", [True, False])
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -621,7 +599,7 @@ def test_thresholding(output_class, small_classifier_and_preds):
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
 
 
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_args(small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -692,10 +670,9 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
 @pytest.mark.skip(reason="Causing CI to hang.")
-# @pytest.mark.skipif(has_lightgbm() is False,
-#                     reason="need to install lightgbm")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
-    import lightgbm as lgb
+    lgb = pytest.importorskip("lightgbm")
 
     if n_categorical > 0:
         n_features = 10

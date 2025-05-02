@@ -3,13 +3,14 @@
 set -euo pipefail
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
+PYTHON_CHANNEL=$(rapids-download-conda-from-github python)
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
-export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+export RAPIDS_VERSION_MAJOR_MINOR
 
 rapids-dependency-file-generator \
   --output conda \
@@ -24,7 +25,8 @@ conda activate docs
 
 rapids-print-env
 
-export RAPIDS_DOCS_DIR="$(mktemp -d)"
+RAPIDS_DOCS_DIR="$(mktemp -d)"
+export RAPIDS_DOCS_DIR
 
 rapids-logger "Build CPP docs"
 pushd cpp

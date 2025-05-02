@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,35 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import class_with_cupy_rmm
-from cuml.internals.logger import debug
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-    UnavailableError,
-)
 from collections import namedtuple
 
+import cupyx.scipy.sparse as cpx_sparse
+import scipy.sparse as scipy_sparse
 
-cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-scipy_sparse = cpu_only_import("scipy.sparse")
+import cuml.internals.nvtx as nvtx
+from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.logger import debug
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import class_with_cupy_rmm
 
-sparse_matrix_classes = []
-try:
-    sparse_matrix_classes.append(cpx_sparse.csr_matrix)
-except UnavailableError:
-    pass
-try:
-    sparse_matrix_classes.append(scipy_sparse.csr_matrix)
-except UnavailableError:
-    pass
-sparse_matrix_classes = tuple(sparse_matrix_classes)
+sparse_matrix_classes = (
+    cpx_sparse.csr_matrix,
+    scipy_sparse.csr_matrix,
+)
 
 SparseCumlArrayInput = namedtuple(
     "SparseCumlArrayInput",
@@ -93,7 +80,7 @@ class SparseCumlArray:
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.SparseCumlArray.__init__",
         category="utils",
         domain="cuml_python",
@@ -107,19 +94,11 @@ class SparseCumlArray:
         convert_format=True,
     ):
         if not isinstance(data, SparseCumlArrayInput):
-            is_sparse = False
-            try:
-                is_sparse = cpx_sparse.isspmatrix(data)
+            if cpx_sparse.isspmatrix(data):
                 from_mem_type = MemoryType.device
-            except UnavailableError:
-                pass
-            if not is_sparse:
-                try:
-                    is_sparse = scipy_sparse.isspmatrix(data)
-                    from_mem_type = MemoryType.host
-                except UnavailableError:
-                    pass
-            if not is_sparse:
+            elif scipy_sparse.isspmatrix(data):
+                from_mem_type = MemoryType.host
+            else:
                 raise ValueError(
                     "A sparse matrix is expected as input. "
                     "Received %s" % type(data)
@@ -187,7 +166,7 @@ class SparseCumlArray:
         self.nnz = data.nnz
         self.index = None
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.SparseCumlArray.to_output",
         category="utils",
         domain="cuml_python",

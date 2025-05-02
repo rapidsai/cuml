@@ -17,34 +17,31 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-import pytest
 import copy
+
+import cupy as cp
+import cupyx
 import joblib
+import numpy as np
+import pytest
+import scipy.sparse as scipy_sparse
 import umap
-from sklearn.metrics import adjusted_rand_score
-from sklearn.manifold import trustworthiness
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.neighbors import NearestNeighbors
 from sklearn import datasets
-from cuml.internals import logger
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.manifold import trustworthiness
+from sklearn.metrics import adjusted_rand_score
+from sklearn.neighbors import NearestNeighbors
+
+from cuml.internals import GraphBasedDimRedCallback, logger
+from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.manifold.umap import UMAP as cuUMAP
-from cuml.internals import GraphBasedDimRedCallback
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-scipy_sparse = cpu_only_import("scipy.sparse")
-
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
@@ -888,3 +885,17 @@ def test_callback():
     reducer = cuUMAP(n_components=2, callback=callback)
     reducer.fit(digits.data)
     callback.check()
+
+
+def test_umap_small_fit_large_transform():
+    data, _ = make_blobs(
+        n_samples=10_000, n_features=8, centers=5, random_state=0
+    )
+    train, infer = data[:1000], data[1000:]
+
+    model = cuUMAP(build_algo="brute_force_knn", init="random")
+    model.fit(train)
+    embeddings = model.transform(infer)
+
+    trust = trustworthiness(infer, embeddings, n_neighbors=10)
+    assert trust >= 0.9

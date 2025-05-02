@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from contextlib import redirect_stdout
-from io import StringIO, TextIOWrapper, BytesIO
+from io import BytesIO, StringIO, TextIOWrapper
 
 import pytest
 

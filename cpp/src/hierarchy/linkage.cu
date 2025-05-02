@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 #include <cuml/cluster/linkage.hpp>
 
-#include <raft/cluster/single_linkage.cuh>
 #include <raft/core/handle.hpp>
+
+#include <cuvs/cluster/agglomerative.hpp>
 
 namespace ML {
 
@@ -25,32 +26,41 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             raft::cluster::linkage_output<int>* out,
+                             cuvs::cluster::agglomerative::single_linkage_output<int>* out,
                              cuvs::distance::DistanceType metric,
                              int n_clusters)
 {
-  raft::cluster::single_linkage<int, float, raft::cluster::LinkageDistance::PAIRWISE>(
-    handle, X, m, n, static_cast<raft::distance::DistanceType>(metric), out, 0, n_clusters);
+  auto X_view = raft::make_device_matrix_view<const float, int, raft::row_major>(
+    X, static_cast<int>(m), static_cast<int>(n));
+  cuvs::cluster::agglomerative::single_linkage(handle,
+                                               X_view,
+                                               out->get_children(),
+                                               out->get_labels(),
+                                               metric,
+                                               static_cast<size_t>(n_clusters),
+                                               cuvs::cluster::agglomerative::Linkage::PAIRWISE,
+                                               0);
 }
 
 void single_linkage_neighbors(const raft::handle_t& handle,
                               const float* X,
                               size_t m,
                               size_t n,
-                              raft::cluster::linkage_output<int>* out,
+                              cuvs::cluster::agglomerative::single_linkage_output<int>* out,
                               cuvs::distance::DistanceType metric,
                               int c,
                               int n_clusters)
 {
-  raft::cluster::single_linkage<int, float, raft::cluster::LinkageDistance::KNN_GRAPH>(
-    handle, X, m, n, static_cast<raft::distance::DistanceType>(metric), out, c, n_clusters);
+  auto X_view = raft::make_device_matrix_view<const float, int, raft::row_major>(
+    X, static_cast<int>(m), static_cast<int>(n));
+  cuvs::cluster::agglomerative::single_linkage(handle,
+                                               X_view,
+                                               out->get_children(),
+                                               out->get_labels(),
+                                               metric,
+                                               static_cast<size_t>(n_clusters),
+                                               cuvs::cluster::agglomerative::Linkage::KNN_GRAPH,
+                                               c);
 }
-
-struct distance_graph_impl_int_float
-  : public raft::cluster::detail::
-      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, float> {};
-struct distance_graph_impl_int_double
-  : public raft::cluster::detail::
-      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, double> {};
 
 };  // end namespace ML

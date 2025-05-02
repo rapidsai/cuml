@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
 # limitations under the License.
 #
 
-from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft_dask.common.comms import get_raft_comm_state
-from raft_dask.common.comms import Comms
-from cuml.dask.common.base import mnmg_import
+import numpy as np
 from dask.distributed import get_worker
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import BaseEstimator
-from cuml.internals.safe_imports import cpu_only_import
+from raft_dask.common.comms import Comms, get_raft_comm_state
 
-np = cpu_only_import("numpy")
+from cuml.dask.common.base import (
+    BaseEstimator,
+    DelayedPredictionMixin,
+    DelayedTransformMixin,
+    mnmg_import,
+)
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):

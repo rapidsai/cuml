@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.common.kernel_utils import cuda_kernel_factory
-import cuml.internals
 import math
-from cuml.internals.safe_imports import gpu_only_import
 
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
+import cupy as cp
+import cupyx
 
+import cuml.internals
+from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r"""
 ({0} *cov_values, {0} *gram_matrix, {0} *mean_x, {0} *mean_y, int n_cols) {

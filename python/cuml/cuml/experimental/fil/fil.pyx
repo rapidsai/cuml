@@ -14,42 +14,41 @@
 # limitations under the License.
 #
 import itertools
-import numpy as np
 import pathlib
-import treelite.sklearn
-from libcpp cimport bool
-from libc.stdint cimport uint32_t, uintptr_t
+from time import perf_counter
 
+import numpy as np
+import treelite.sklearn
+
+import cuml.internals.nvtx as nvtx
 from cuml.common.device_selection import using_device_type
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
-)
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
-from cuml.experimental.fil.infer_kind cimport infer_kind
-from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
-from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
+from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.mixins import CMajorInputTagMixin
+
+from libc.stdint cimport uint32_t, uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
-from time import perf_counter
 
-nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
-
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+    cuda_stream as raft_proto_stream_t,
 )
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+    device_type as raft_proto_device_t,
+)
+from cuml.experimental.fil.detail.raft_proto.handle cimport (
+    handle_t as raft_proto_handle_t,
+)
+from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
+from cuml.experimental.fil.infer_kind cimport infer_kind
+from cuml.experimental.fil.postprocessing cimport element_op, row_op
+from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle
@@ -73,7 +72,7 @@ cdef raft_proto_device_t get_device_type(arr):
         dev = raft_proto_device_t.cpu
     return dev
 
-cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:
     cdef cppclass forest_model:
         void predict[io_t](
             const raft_proto_handle_t&,
@@ -94,7 +93,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
 
-cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil" nogil:
     forest_model import_from_treelite_handle(
         TreeliteModelHandle,
         fil_tree_layout,
@@ -115,7 +114,7 @@ cdef class ForestInference_impl():
             raft_handle,
             tl_model,
             *,
-            layout='breadth_first',
+            layout='depth_first',
             align_bytes=0,
             use_double_precision=None,
             mem_type=None,
@@ -159,10 +158,14 @@ cdef class ForestInference_impl():
         else:
             dev_type = raft_proto_device_t.cpu
         cdef fil_tree_layout tree_layout
-        if layout.lower() == 'breadth_first':
-            tree_layout = fil_tree_layout.breadth_first
-        else:
+        if layout.lower() == 'depth_first':
             tree_layout = fil_tree_layout.depth_first
+        elif layout.lower() == 'breadth_first':
+            tree_layout = fil_tree_layout.breadth_first
+        elif layout.lower() == 'layered':
+            tree_layout = fil_tree_layout.layered_children_together
+        else:
+            raise RuntimeError(f'Unrecognized tree layout {layout}')
 
         self.model = import_from_treelite_handle(
             <TreeliteModelHandle><uintptr_t>model_handle,
@@ -343,22 +346,21 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     This experimental implementation
     (`cuml.experimental.ForestInference`) of ForestInference is similar to the
     original (`cuml.ForestInference`) FIL, but it also offers CPU
-    execution and in some cases superior performance for GPU execution.
+    execution and in most cases superior performance for GPU execution.
 
     Note: This is an experimental feature. Although it has been
     extensively reviewed and tested, it has not been as thoroughly evaluated
     as the original FIL. For maximum stability, we recommend using the
     original FIL until this implementation moves out of experimental.
 
-    In general, the experimental implementation tends to underperform
-    the existing implementation on shallow trees but otherwise tends to offer
-    comparable or superior performance. Which implementation offers the best
-    performance depends on a range of factors including hardware and details of
-    the individual model, so for now it is recommended that users test both
-    implementations in cases where CPU execution is unnecessary and performance
-    is critical.
-
     **Performance Tuning**
+    FIL offers a number of hyperparameters that can be tuned to obtain optimal
+    performance for a given model, hardware, and batch size. The easiest way to
+    optimize these parameters is using the automated `.optimize` method, which
+    will find the optimum for an indicated batch size. For some use cases,
+    manual adjustment of these parameters is preferred, so available
+    performance hyperparameters are described in detail below.
+
     To obtain optimal performance with this implementation of FIL, the single
     most important value is the `chunk_size` parameter passed to the predict
     method. Essentially, `chunk_size` determines how many rows to evaluate
@@ -378,21 +380,27 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     seen a case where they yield improved performance.
 
     After chunk size, the most important performance parameter is `layout`,
-    also described below. Testing both breadth-first and depth-first is
-    recommended to optimize performance, but the impact is likely to be
-    substantially less than optimizing `chunk_size`. Particularly for large
-    models, the default value (depth-first) is likely to improve cache
-    hits and thereby increase performance, but this is not universally true.
+    also described below. Testing available layouts is recommended to optimize
+    performance, but the impact is likely to be substantially less than
+    optimizing `chunk_size`. There is no universal rule for predicting which
+    layout will produce best performance. On both GPU and CPU, the
+    `depth_first` layout can improve performance by increasing cache hits
+    during tree traversal. This tends to be the strongest effect for most use
+    cases, so `depth_first` is used as the default value.
 
-    `align_bytes` is the final performance parameter, but it has minimal
-    impact on both CPU and GPU and may be removed in a later version.
-    If set, this value causes trees to be padded with empty nodes until
-    their total in-memory size is a multiple of the given value.
-    Theoretically, this can improve performance by ensuring that reads of
-    tree data begin at a cache line boundary, but experimental evidence
-    offers limited support for this. It is recommended that a value of 128 be
-    used for GPU execution and a value of either None or 64 be used for CPU
-    execution.
+    `align_bytes` is the final performance parameter. This parameter allows
+    trees to be padded with empty nodes until their total in-memory size is a
+    multiple of the given value. In general, if a non-default value is used, it
+    should either be 0 or the cache line byte size for the device being used
+    for execution (64 for CPU or 128 for GPU). If left unpadded, forest data
+    remains more compact in memory, which can improve the frequency of cache
+    hits. On the other hand, padding to the size of the cache line ensures that
+    trees begin on cache line boundaries. It is difficult to predict for any
+    given model which effect will be the greater determinant of performance. If
+    left at the default value of `None`, trees will be unpadded for GPU
+    execution and padded to 64 bytes for CPU execution. This value has no
+    effect for the `layered` layout, since trees in this layout overlap in
+    memory.
 
     Parameters
     ----------
@@ -421,16 +429,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         See :ref:`verbosity-levels` for more info.
     output_class : boolean
         True for classifier models, false for regressors.
-    layout : {'breadth_first', 'depth_first'}, default='depth_first'
+    layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
         optimization. For performance-critical applications, it is
-        recommended that both layouts be tested with realistic batch sizes to
+        recommended that each layout be tested with realistic batch sizes to
         determine the optimal value.
     align_bytes : int or None, default=None
-        If set, each tree will be padded with empty nodes until its in-memory
-        size is a multiple of the given value. It is recommended that a
-        value of 128 be used for GPU and either None or 64 be used for CPU.
+        Pad each tree with empty nodes until its in-memory size is a multiple
+        of the given value. If None, use 0 for GPU and 64 for CPU.
     precision : {'single', 'double', None}, default='single'
         Use the given floating point precision for evaluating the model. If
         None, use the native precision of the model. Note that
@@ -455,26 +462,34 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with using_device_type('cpu'):
                 self._load_to_fil(device_id=self.device_id)
 
+    @staticmethod
+    def _get_default_align_bytes():
+        if GlobalSettings().device_type == DeviceType.host:
+            return 64
+        else:
+            return 0
+
     @property
     def align_bytes(self):
         try:
             return self._align_bytes_
         except AttributeError:
-            self._align_bytes_ = 0
-            return self._align_bytes_
+            return self._get_default_align_bytes()
 
     @align_bytes.setter
     def align_bytes(self, value):
         try:
             old_value = self._align_bytes_
         except AttributeError:
-            old_value = value
+            old_value = None
         if value is None:
-            self._align_bytes_ = 0
+            if old_value is not None:
+                del self._align_bytes_
+                self._reload_model()
         else:
             self._align_bytes_ = value
-        if self.align_bytes != old_value:
-            self._reload_model()
+            if old_value is None or value != old_value:
+                self._reload_model()
 
     @property
     def precision(self):
@@ -748,16 +763,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             If set, predict calls without a specified chunk size will use
             this default value.
         align_bytes : int or None, default=None
-            If set, each tree will be padded with empty nodes until its
-            in-memory size is a multiple of the given value. It is recommended
-            that a value of 128 be used for GPU and either None or 64 be used
-            for CPU.
-        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            Pad each tree with empty nodes until its in-memory size is a multiple
+            of the given value. If None, use 0 for GPU and 64 for CPU.
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
-            recommended that both layouts be tested with realistic batch sizes
-            to determine the optimal value.
+            recommended that available layouts be tested with realistic batch
+            sizes to determine the optimal value.
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
@@ -823,7 +836,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             default_chunk_size=None,
             align_bytes=None,
-            layout='breadth_first',
+            layout='depth_first',
             device_id=0,
             handle=None):
         """Load a Scikit-Learn forest model to FIL
@@ -883,16 +896,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             If set, predict calls without a specified chunk size will use
             this default value.
         align_bytes : int or None, default=None
-            If set, each tree will be padded with empty nodes until its
-            in-memory size is a multiple of the given value. It is recommended
-            that a
-            value of 128 be used for GPU and either None or 64 be used for CPU.
-        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            Pad each tree with empty nodes until its in-memory size is a multiple
+            of the given value. If None, use 0 for GPU and 64 for CPU.
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
-            recommended that both layouts be tested with realistic batch sizes
-            to determine the optimal value.
+            recommended that available layouts be tested with realistic batch
+            sizes to determine the optimal value.
         mem_type : {'device', 'host', None}, default='single'
             The memory type to use for initially loading the model. If None,
             the current global memory type setting will be used. If the model
@@ -946,7 +957,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             default_chunk_size=None,
             align_bytes=None,
-            layout='breadth_first',
+            layout='depth_first',
             device_id=0,
             handle=None):
         """Load a Treelite model to FIL
@@ -1006,16 +1017,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             If set, predict calls without a specified chunk size will use
             this default value.
         align_bytes : int or None, default=None
-            If set, each tree will be padded with empty nodes until its
-            in-memory size is a multiple of the given value. It is recommended
-            that a value of 128 be used for GPU and either None or 64 be used
-            for CPU.
-        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            Pad each tree with empty nodes until its in-memory size is a multiple
+            of the given value. If None, use 0 for GPU and 64 for CPU.
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
-            recommended that both layouts be tested with realistic batch sizes
-            to determine the optimal value.
+            recommended that available layouts be tested with realistic batch
+            sizes to determine the optimal value.
         mem_type : {'device', 'host', None}, default='single'
             The memory type to use for initially loading the model. If None,
             the current global memory type setting will be used. If the model
@@ -1048,7 +1057,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
@@ -1098,7 +1107,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict',
         domain='cuml_python'
     )
@@ -1186,7 +1195,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.predict_per_tree',
         domain='cuml_python'
     )
@@ -1240,7 +1249,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message='ForestInference.apply',
         domain='cuml_python'
     )
@@ -1374,12 +1383,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if GlobalSettings().device_type is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
+        max_chunk_size = min(max_chunk_size, batch_size)
+
         infer = getattr(self, predict_method)
 
         optimal_layout = 'depth_first'
         optimal_chunk_size = 1
 
-        valid_layouts = ('depth_first', 'breadth_first')
+        valid_layouts = ('depth_first', 'breadth_first', 'layered')
         chunk_size = 1
         valid_chunk_sizes = []
         while chunk_size <= max_chunk_size:

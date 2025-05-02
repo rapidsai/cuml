@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
 #
 
 import warnings
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
 
-cudf = gpu_only_import("cudf")
-pandas = cpu_only_import("pandas")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+
+from cuml.common.exceptions import NotFittedError
 
 
 def get_stat_func(stat):
@@ -332,7 +331,7 @@ class TargetEncoder:
         """
         Create a target column given y
         """
-        if isinstance(y, cudf.Series) or isinstance(y, pandas.Series):
+        if isinstance(y, cudf.Series) or isinstance(y, pd.Series):
             return y.values
         elif isinstance(y, cp.ndarray) or isinstance(y, np.ndarray):
             if len(y.shape) == 1:
@@ -481,9 +480,9 @@ class TargetEncoder:
                 df = cudf.DataFrame(
                     x, columns=[f"{self.x_col}_{i}" for i in range(x.shape[1])]
                 )
-        elif isinstance(x, pandas.DataFrame):
+        elif isinstance(x, pd.DataFrame):
             df = cudf.from_pandas(x)
-        elif isinstance(x, pandas.Series):
+        elif isinstance(x, pd.Series):
             df = cudf.from_pandas(x.to_frame())
         else:
             raise TypeError(
@@ -502,8 +501,8 @@ class TargetEncoder:
             return self.output_type
         if (
             isinstance(x, np.ndarray)
-            or isinstance(x, pandas.DataFrame)
-            or isinstance(x, pandas.Series)
+            or isinstance(x, pd.DataFrame)
+            or isinstance(x, pd.Series)
         ):
             return "numpy"
         return "cupy"

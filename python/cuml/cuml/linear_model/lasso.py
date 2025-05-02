@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.linear_model.elastic_net import ElasticNet
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.linear_model.elastic_net import ElasticNet
 
 
 class Lasso(ElasticNet):

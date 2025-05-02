@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 # distutils: language = c++
 
 
+import numpy as np
+
 import cuml.common.opg_data_utils_mg as opg
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.internals.array import CumlArray
+
 from cuml.common.opg_data_utils_mg cimport *
+
 from cuml.internals.input_utils import input_to_cuml_array
+
 from cuml.decomposition.utils cimport *
 
 from cuml.common.sparse_utils import is_sparse

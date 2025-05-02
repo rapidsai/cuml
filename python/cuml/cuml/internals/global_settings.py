@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,10 @@
 # limitations under the License.
 #
 
-import os
 import threading
-from cuml.internals.available_devices import is_cuda_available
+
 from cuml.internals.device_type import DeviceType
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -31,30 +26,12 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
     def __init__(self):
         super().__init__()
-        # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
-        if "RAPIDS_NO_INITIALIZE" not in os.environ:
-            if is_cuda_available():
-                default_device_type = DeviceType.device
-                default_memory_type = MemoryType.device
-            else:
-                default_device_type = DeviceType.host
-                default_memory_type = MemoryType.host
-            self.shared_state = {
-                "_device_type": default_device_type,
-                "_memory_type": default_memory_type,
-            }
-        else:
-            self.shared_state = {}
-
-        self.shared_state.update(
-            {
-                "_output_type": None,
-                "root_cm": None,
-                "accelerator_active": False,
-                "accelerator_loaded": False,
-                "accelerated_modules": {},
-            }
-        )
+        self.shared_state = {
+            "root_cm": None,
+            "_output_type": None,
+            "_device_type": DeviceType.device,
+            "_memory_type": MemoryType.device,
+        }
 
 
 _global_settings_data = _GlobalSettingsData()
@@ -90,14 +67,7 @@ class GlobalSettings:
 
     @property
     def device_type(self):
-        try:
-            return self._device_type
-        except AttributeError:
-            if is_cuda_available():
-                self.device_type = DeviceType.device
-            else:
-                self.device_type = DeviceType.host
-            return self._device_type
+        return self._device_type
 
     @device_type.setter
     def device_type(self, value):
@@ -109,14 +79,7 @@ class GlobalSettings:
 
     @property
     def memory_type(self):
-        try:
-            return self._memory_type
-        except AttributeError:
-            if is_cuda_available():
-                self.memory_type = MemoryType.device
-            else:
-                self.memory_type = MemoryType.host
-            return self._memory_type
+        return self._memory_type
 
     @memory_type.setter
     def memory_type(self, value):

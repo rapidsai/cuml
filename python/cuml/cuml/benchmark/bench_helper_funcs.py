@@ -13,31 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.manifold import UMAP
-from cuml.benchmark import datagen
-from cuml.common.device_selection import using_device_type
-from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    safe_import,
-)
-import sklearn.ensemble as skl_ensemble
-import pickle as pickle
 import os
-import cuml
-from cuml.internals import input_utils
+import pickle as pickle
 from time import perf_counter
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-cuda = gpu_only_import_from("numba", "cuda")
-cp = gpu_only_import("cupy")
-xgb = safe_import("xgboost")
-treelite = safe_import("treelite")
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+import sklearn.ensemble as skl_ensemble
+from numba import cuda
+
+import cuml
+from cuml.benchmark import datagen
+from cuml.common.device_selection import using_device_type
+from cuml.internals import input_utils
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
+from cuml.manifold import UMAP
 
 
 def call(m, func_name, X, y=None):
@@ -125,6 +118,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
+    import xgboost as xgb
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -183,6 +177,8 @@ class OptimizedFilWrapper:
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
+    import xgboost as xgb
+
     with using_device_type("gpu"):
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
@@ -201,7 +197,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         n_feature = data[0].shape[1]
         train_size = data[0].shape[0]
         model_name = (
-            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
         )
         model_path = os.path.join(tmpdir, model_name)
         bst = xgb.train(params, dtrain, num_rounds)
@@ -245,6 +241,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         allowed_layout_types = ["breadth_first"]
         if experimental:
             allowed_layout_types.append("depth_first")
+            allowed_layout_types.append("layered")
         for algo in allowed_algo_types:
             fil_kwargs["algo"] = algo
             for layout in allowed_layout_types:
@@ -367,6 +364,8 @@ class GtilWrapper:
         self.infer_type = infer_type
 
     def predict(self, X):
+        import treelite
+
         if self.infer_type == "per_tree":
             return treelite.gtil.predict_per_tree(self.tl_model, X)
         return treelite.gtil.predict(self.tl_model, X)
@@ -374,13 +373,15 @@ class GtilWrapper:
 
 def _build_gtil_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
+    import treelite
+    import xgboost as xgb
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]
     infer_type = args.get("infer_type", "default")
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
     model_path = os.path.join(tmpdir, model_name)
 
     bst = xgb.Booster()

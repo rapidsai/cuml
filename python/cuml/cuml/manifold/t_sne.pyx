@@ -18,42 +18,43 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
 import warnings
-from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
+
+import cupy
+import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
+
 from pylibraft.common.handle cimport handle_t
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-from cuml.internals.utils import check_random_seed
+
 from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.utils import check_random_seed
+
 from cuml.internals cimport logger
 
+from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.sparsefuncs import extract_knn_infos
-from cuml.metrics.distance_type cimport DistanceType
-rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
-from libc.stdint cimport int64_t
-from libc.stdlib cimport free
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport free
+from libcpp cimport bool
 
-cimport cuml.common.cuda
+from cuml.metrics.distance_type cimport DistanceType
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
@@ -91,7 +92,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         TSNE_ALGORITHM algorithm
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     cdef void TSNE_fit(
         handle_t &handle,

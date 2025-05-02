@@ -26,6 +26,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/copy.h>
 #include <thrust/count.h>
 #include <thrust/execution_policy.h>
@@ -129,9 +130,23 @@ void generate_prediction_data(const raft::handle_t& handle,
   prediction_data.set_n_clusters(handle, n_clusters);
 
   // this is to find maximum lambdas of all children under a parent
-  cudaError_t (*reduce_func)(
-    void*, size_t&, const float*, float*, int, const int*, const int*, cudaStream_t) =
-    cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>;
+  auto reduce_func = [](void* d_temp_storage,
+                        size_t& temp_storage_bytes,
+                        const float* d_in,
+                        float* d_out,
+                        int num_segments,
+                        const int* d_begin_offsets,
+                        const int* d_end_offsets,
+                        cudaStream_t stream = 0) -> cudaError_t {
+    return cub::DeviceSegmentedReduce::Max(d_temp_storage,
+                                           temp_storage_bytes,
+                                           d_in,
+                                           d_out,
+                                           num_segments,
+                                           d_begin_offsets,
+                                           d_end_offsets,
+                                           stream);
+  };
   detail::Utils::cub_segmented_reduce(lambdas,
                                       prediction_data.get_deaths(),
                                       n_clusters,

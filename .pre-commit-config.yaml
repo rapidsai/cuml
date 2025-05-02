@@ -13,6 +13,12 @@ repos:
           - id: black
             files: python/.*
             args: [--config, python/cuml/pyproject.toml]
+    - repo: https://github.com/pycqa/isort
+      rev: 5.13.2
+      hooks:
+          - id: isort
+            files: python/.*
+            args: ["--settings-path", "python/cuml/pyproject.toml"]
     - repo: https://github.com/PyCQA/flake8
       rev: 7.1.1
       hooks:
@@ -87,6 +93,12 @@ repos:
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
+    - repo: https://github.com/shellcheck-py/shellcheck-py
+      rev: v0.10.0.1
+      hooks:
+        - id: shellcheck
+          args: ["--severity=warning"]
+          files: ^ci/
 
 default_language_version:
     python: python3

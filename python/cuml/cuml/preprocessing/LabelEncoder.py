@@ -16,22 +16,18 @@
 
 from typing import TYPE_CHECKING
 
-from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-)
+from cuml.internals.base import Base
 
 if TYPE_CHECKING:
     import cudf
     import cupy as cp
     import numpy as np
 else:
-    cudf = gpu_only_import("cudf")
-    cp = gpu_only_import("cupy")
-    np = cpu_only_import("numpy")
-    pd = cpu_only_import("pandas")
+    import cudf
+    import cupy as cp
+    import numpy as np
+    import pandas as pd
 
 
 def _to_cudf_series(y, **kwargs):
@@ -207,7 +203,7 @@ class LabelEncoder(Base):
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         return self
 
-    def transform(self, y) -> cudf.Series:
+    def transform(self, y):
         """
         Transform an input into its categorical keys.
 
@@ -242,7 +238,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y, z=None) -> cudf.Series:
+    def fit_transform(self, y, z=None):
         """
         Simultaneously fit and transform an input
 
@@ -258,7 +254,7 @@ class LabelEncoder(Base):
 
         return y.cat.codes
 
-    def inverse_transform(self, y: cudf.Series) -> cudf.Series:
+    def inverse_transform(self, y: "cudf.Series"):
         """
         Revert ordinal label to original label
 
@@ -292,12 +288,7 @@ class LabelEncoder(Base):
 
         y = y.astype(self.dtype)
 
-        # TODO: Remove ._column once .replace correctly accepts cudf.Index
-        ran_idx = (
-            cudf.Index(cp.arange(len(self.classes_)))
-            .astype(self.dtype)
-            ._column
-        )
+        ran_idx = cudf.Index(cp.arange(len(self.classes_))).astype(self.dtype)
         res = y.replace(ran_idx, self.classes_)
 
         return res

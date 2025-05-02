@@ -19,24 +19,30 @@ import functools
 import inspect
 import typing
 
+import numpy as np
+
+import cuml.accel
+
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
-from cuml.internals.api_context_managers import BaseReturnAnyCM
-from cuml.internals.api_context_managers import BaseReturnArrayCM
-from cuml.internals.api_context_managers import BaseReturnGenericCM
-from cuml.internals.api_context_managers import BaseReturnSparseArrayCM
-from cuml.internals.api_context_managers import InternalAPIContextBase
-from cuml.internals.api_context_managers import ReturnAnyCM
-from cuml.internals.api_context_managers import ReturnArrayCM
-from cuml.internals.api_context_managers import ReturnGenericCM
-from cuml.internals.api_context_managers import ReturnSparseArrayCM
-from cuml.internals.api_context_managers import set_api_output_dtype
-from cuml.internals.api_context_managers import set_api_output_type
+from cuml.internals import logger
+from cuml.internals.api_context_managers import (
+    BaseReturnAnyCM,
+    BaseReturnArrayCM,
+    BaseReturnGenericCM,
+    BaseReturnSparseArrayCM,
+    InternalAPIContextBase,
+    ReturnAnyCM,
+    ReturnArrayCM,
+    ReturnGenericCM,
+    ReturnSparseArrayCM,
+    set_api_output_dtype,
+    set_api_output_type,
+)
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals.type_utils import _DecoratorType
-from cuml.internals import logger
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -65,21 +71,26 @@ def _find_arg(sig, arg_name, default_position):
         raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
 
-def _get_value(args, kwargs, name, index, default_value):
+def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
     """Determine value for a given set of args, kwargs, name and index."""
     try:
-        return kwargs[name]
+        value = kwargs[name]
     except KeyError:
         try:
-            return args[index]
+            value = args[index]
         except IndexError:
             if default_value is not inspect._empty:
-                return default_value
+                value = default_value
             else:
                 raise IndexError(
                     f"Specified arg idx: {index}, and argument name: {name}, "
                     "were not found in args or kwargs."
                 )
+    # Accept list/tuple inputs when requested
+    if accept_lists and isinstance(value, (list, tuple)):
+        return np.asarray(value)
+
+    return value
 
 
 def _make_decorator_function(
@@ -143,16 +154,29 @@ def _make_decorator_function(
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
 
+                # Accept list/tuple inputs when accelerator is active
+                accept_lists = cuml.accel.enabled()
+
                 with context_manager_cls(func, args) as cm:
 
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
-                        input_val = _get_value(args, kwargs, *input_arg_)
+                        input_val = _get_value(
+                            args,
+                            kwargs,
+                            *input_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         input_val = None
                     if target_arg_:
-                        target_val = _get_value(args, kwargs, *target_arg_)
+                        target_val = _get_value(
+                            args,
+                            kwargs,
+                            *target_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         target_val = None
 

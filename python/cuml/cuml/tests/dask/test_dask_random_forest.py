@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 
 
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,28 +29,26 @@
 # limitations under the License.
 #
 
-from dask.distributed import Client
-from sklearn.ensemble import RandomForestClassifier as skrfc
-from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import make_regression, make_classification
-from dask.array import from_array
-from cuml.ensemble import RandomForestRegressor as cuRFR_sg
-from cuml.ensemble import RandomForestClassifier as cuRFC_sg
-from cuml.dask.common import utils as dask_utils
-from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
-from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
-from cuml.internals.safe_imports import cpu_only_import
 import json
+
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
 import pytest
-from cuml.internals.safe_imports import gpu_only_import
+from dask.array import from_array
+from dask.distributed import Client
+from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-dask_cudf = gpu_only_import("dask_cudf")
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
+from cuml.dask.common import utils as dask_utils
+from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
+from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
+from cuml.ensemble import RandomForestClassifier as cuRFC_sg
+from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -323,7 +321,7 @@ def test_rf_classification_dask_fil_predict_proba(
 def test_rf_concatenation_dask(client, model_type):
     n_workers = len(client.scheduler_info()["workers"])
 
-    from cuml.fil.fil import TreeliteModel
+    from cuml.legacy.fil.fil import TreeliteModel
 
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=30, random_state=123, n_classes=2

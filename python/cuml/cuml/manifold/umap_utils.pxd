@@ -16,18 +16,18 @@
 
 # distutils: language = c++
 
-from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
-from libcpp.memory cimport unique_ptr
-
-from libc.stdint cimport uint64_t, uintptr_t, int64_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
+
+from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
-from cuml.internals.logger cimport level_enum
 
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
+
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams" nogil:
 
     enum MetricType:
         EUCLIDEAN = 0,
@@ -41,7 +41,7 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
     cdef cppclass GraphBasedDimRedCallback
 
 
-cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
+cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent" nogil:
     cdef struct index_params:
         uint64_t graph_degree,
         uint64_t intermediate_graph_degree,
@@ -52,7 +52,7 @@ cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbor
         RaftDistanceType metric,
         float metric_arg
 
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
 
     cdef cppclass UMAPParams:
         int n_neighbors,
@@ -82,7 +82,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         GraphBasedDimRedCallback * callback,
         index_params nn_descent_params
 
-cdef extern from "raft/sparse/coo.hpp":
+cdef extern from "raft/sparse/coo.hpp" nogil:
     cdef cppclass COO "raft::sparse::COO<float, int>":
         COO(cuda_stream_view stream)
         void allocate(int nnz, int size, bool init, cuda_stream_view stream)

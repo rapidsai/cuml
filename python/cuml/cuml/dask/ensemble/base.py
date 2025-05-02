@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,20 @@
 # limitations under the License.
 #
 
-from cuml.fil.fil import TreeliteModel
-from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
-from dask.distributed import Future
-from collections.abc import Iterable
-from cuml import using_output_type
-import warnings
-from cuml.internals.safe_imports import gpu_only_import
-import dask
 import json
 import math
-from cuml.internals.safe_imports import cpu_only_import
+import warnings
+from collections.abc import Iterable
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
+import cupy as cp
+import dask
+import numpy as np
+from dask.distributed import Future
+
+from cuml import using_output_type
+from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
+from cuml.legacy.fil.fil import TreeliteModel
 
 
 class BaseRandomForestModel(object):

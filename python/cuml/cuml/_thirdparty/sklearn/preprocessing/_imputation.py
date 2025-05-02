@@ -10,27 +10,30 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array_sparse import SparseCumlArray
-from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import check_is_fitted
-from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
-    StringInputTagMixin
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ....thirdparty_adapters import (_get_mask,
-                                     _masked_column_median,
-                                     _masked_column_mean,
-                                     _masked_column_mode)
-from cuml.internals.safe_imports import gpu_only_import_from
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
 import numbers
 import warnings
 
-from cuml.internals.safe_imports import cpu_only_import
-numpy = cpu_only_import('numpy')
-np = gpu_only_import('cupy')
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+import cupy as np
+import numpy as cpu_np
+from cupyx.scipy import sparse
+
+import cuml
+from cuml.internals.mixins import (
+    AllowNaNTagMixin,
+    SparseInputTagMixin,
+    StringInputTagMixin,
+)
+
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals.array_sparse import SparseCumlArray
+from ....thirdparty_adapters import (
+    _get_mask,
+    _masked_column_mean,
+    _masked_column_median,
+    _masked_column_mode,
+)
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.validation import FLOAT_DTYPES, check_is_fitted
 
 
 def is_scalar_nan(x):
@@ -712,8 +715,7 @@ class MissingIndicator(TransformerMixin,
         if self.features == "missing-only":
             with cuml.using_output_type("numpy"):
                 np_features = np.asnumpy(features)
-                features_diff_fit_trans = numpy.setdiff1d(np_features,
-                                                          self.features_)
+                features_diff_fit_trans = cpu_np.setdiff1d(np_features, self.features_)
                 if (self.error_on_new and features_diff_fit_trans.size > 0):
                     raise ValueError("The features {} have missing values "
                                      "in transform but have no missing values "

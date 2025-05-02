@@ -1,12 +1,11 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 
-from sklearn.datasets import fetch_20newsgroups
-from cuml.dask.common import to_sparse_dask_array
-from sklearn.feature_extraction.text import HashingVectorizer
+import cupy as cp
 import dask
-from cuml.internals.safe_imports import gpu_only_import
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import HashingVectorizer
 
-cp = gpu_only_import("cupy")
+from cuml.dask.common import to_sparse_dask_array
 
 
 def load_text_corpus(client):

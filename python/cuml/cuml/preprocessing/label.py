@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,16 @@
 # limitations under the License.
 #
 
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common import CumlArray, has_scipy
-import cuml.internals
-from cuml import Base
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
+import cupyx
+import scipy.sparse
 
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
+import cuml.internals
+from cuml.common import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import Base
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
 @cuml.internals.api_return_sparse_array()
@@ -266,18 +266,10 @@ class LabelBinarizer(Base):
 
         arr : array with original labels
         """
-
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.internals.import_utils import (
-                dummy_function_always_false as scipy_sparse_isspmatrix,
-            )
-
         # If we are already given multi-class, just return it.
         if cupyx.scipy.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
-        elif scipy_sparse_isspmatrix(y):
+        elif scipy.sparse.isspmatrix(y):
             y = y.tocsr()
             y_mapped = cp.array(y.indices, dtype=y.indices.dtype)
         else:

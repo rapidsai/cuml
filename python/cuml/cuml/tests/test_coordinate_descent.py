@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +13,16 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import make_regression
-from sklearn.linear_model import Lasso, ElasticNet
-from cuml.testing.utils import unit_param, quality_param, stress_param
-from cuml.metrics import r2_score
-from cuml.linear_model import ElasticNet as cuElasticNet
-from cuml import Lasso as cuLasso
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.datasets import make_regression
+from sklearn.linear_model import ElasticNet, Lasso
+from sklearn.model_selection import train_test_split
 
-np = cpu_only_import("numpy")
+from cuml import Lasso as cuLasso
+from cuml.linear_model import ElasticNet as cuElasticNet
+from cuml.metrics import r2_score
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
