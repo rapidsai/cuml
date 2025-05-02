@@ -171,7 +171,7 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select the amd64 entry with the highest CUDA and Python version
-      matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
+      matrix_filter: map(select(.ARCH=="amd64")) | map(select(.CUDA_VER=="11.8")) | [max_by([.PY_VER]|map(split(".")|map(tonumber)))]
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
