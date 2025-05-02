@@ -513,8 +513,9 @@ class SVC(SVMBase,
 
         params = self.get_params()
         strategy = params.pop('decision_function_shape', 'ovo')
+        est = SVC(**params, output_type=self.output_type)
         self.multiclass_svc = MulticlassClassifier(
-            estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
+            estimator=est, handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
 
