@@ -170,7 +170,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
-      matrix_filter: map(select(.ARCH=="amd64")) | map(select(.CUDA_VER=="11.8")) | map(select(.PY_VER=="3.10"))
+      matrix_filter: map(select(.ARCH=="amd64")) | map(select(.CUDA_VER=="11.8.0")) | map(select(.PY_VER=="3.10"))
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
