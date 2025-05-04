@@ -21,6 +21,5 @@ auto spectral_embedding_cuvs(raft::resources const& handle,
                              raft::device_matrix_view<float, int, raft::col_major> embedding,
                              cuvs::preprocessing::spectral::spectral_embedding_config config) -> int
 {
-  cuvs::preprocessing::spectral::spectral_embedding(handle, nums, embedding, config);
-  return 100;
+  return cuvs::preprocessing::spectral::spectral_embedding(handle, nums, embedding, config);
 }
