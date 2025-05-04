@@ -14,18 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/spectral_embedding_types.hpp>
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cuvs/preprocessing/spectral/spectral_embedding_types.hpp>
-
-// template <typename IndexTypeT, typename ValueTypeT>
-auto spectral_embedding_cuml(raft::resources const& handle,
-                             raft::device_matrix_view<float, int, raft::row_major> nums,
-                             raft::device_matrix_view<float, int, raft::col_major> embedding,
-                             ML::spectral_embedding_config config) -> int;
 
 auto spectral_embedding_cuvs(raft::resources const& handle,
                              raft::device_matrix_view<float, int, raft::row_major> nums,
