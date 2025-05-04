@@ -39,6 +39,7 @@
 #include <thrust/tuple.h>
 
 #include <cuvs/neighbors/brute_force.hpp>
+#include <cuvs/preprocessing/spectral/spectral_embedding.hpp>
 
 #include <cstdio>
 #include <iostream>
@@ -544,7 +545,11 @@ auto spectral_embedding_cuml(raft::resources const& handle,
 
   // L, dd = csgraph_laplacian(knn_graph_csr, normed=True, return_diag=True)
   // TODO: return diag and normed true
-  auto laplacian           = raft::sparse::linalg::compute_graph_laplacian(handle, csr_matrix_view);
+  auto diagonal            = raft::make_device_vector<float>(handle, csr_structure.get_n_rows());
+  auto laplacian           = spectral_embedding_config.norm_laplacian
+                               ? raft::sparse::linalg::compute_graph_laplacian_normalized(
+                         handle, csr_matrix_view, diagonal.view())
+                               : raft::sparse::linalg::compute_graph_laplacian(handle, csr_matrix_view);
   auto laplacian_structure = laplacian.structure_view();
 
   // raft::print_device_vector("laplacian.get_elements().data()", laplacian.get_elements().data(),
@@ -554,19 +559,34 @@ auto spectral_embedding_cuml(raft::resources const& handle,
   // raft::print_device_vector("laplacian_structure.get_indptr().data()",
   // laplacian_structure.get_indptr().data(), laplacian_structure.get_n_rows() + 1, std::cout);
 
-  auto diagonal = raft::make_device_vector<float>(handle, laplacian_structure.get_n_rows());
-  extract_csr_diagonal_thrust(raft::make_device_csr_matrix_view<float, int, int, int>(
-                                laplacian.get_elements().data(), laplacian_structure),
-                              diagonal,
-                              handle);
+  // auto diagonal = raft::make_device_vector<float>(handle, csr_structure.get_n_rows());
 
-  thrust::transform(thrust::device,
-                    diagonal.data_handle(),
-                    diagonal.data_handle() + diagonal.size(),
-                    diagonal.data_handle(),  // in-place
-                    [] __device__(float x) { return std::sqrt(x); });
+  // auto diagonal_normalized = raft::make_device_vector<float>(handle,
+  // laplacian_structure.get_n_rows());
+
+  // if (spectral_embedding_config.norm_laplacian) {
+  //   auto laplacian_normalized = raft::sparse::linalg::compute_graph_laplacian_normalized(handle,
+  //   csr_matrix_view, diagonal.view());
+  // } else {
+  //   auto laplacian           = raft::sparse::linalg::compute_graph_laplacian(handle,
+  //   csr_matrix_view);
+  // }
+
+  // extract_csr_diagonal_thrust(raft::make_device_csr_matrix_view<float, int, int, int>(
+  //                               laplacian.get_elements().data(), laplacian_structure),
+  //                             diagonal,
+  //                             handle);
+
+  // thrust::transform(thrust::device,
+  //                   diagonal.data_handle(),
+  //                   diagonal.data_handle() + diagonal.size(),
+  //                   diagonal.data_handle(),  // in-place
+  //                   [] __device__(float x) { return std::sqrt(x); });
 
   // raft::print_device_vector("diagonal", diagonal.data_handle(), diagonal.size(), std::cout);
+  // raft::print_device_vector("diagonal_normalized", diagonal_normalized.data_handle(),
+  // diagonal_normalized.size(), std::cout); raft::print_device_vector("diagonal",
+  // diagonal.data_handle(), diagonal.size(), std::cout);
 
   // scale_csr_by_diagonal_column_wise(
   //     raft::make_device_csr_matrix_view<float, int, int, int>(
@@ -577,15 +597,15 @@ auto spectral_embedding_cuml(raft::resources const& handle,
   //     handle
   // );
 
-  if (spectral_embedding_config.norm_laplacian) {
-    scale_csr_by_diagonal_symmetric(raft::make_device_csr_matrix_view<float, int, int, int>(
-                                      laplacian.get_elements().data(), laplacian_structure),
-                                    diagonal,
-                                    handle);
-    set_csr_diagonal_to_ones_thrust(raft::make_device_csr_matrix_view<float, int, int, int>(
-                                      laplacian.get_elements().data(), laplacian_structure),
-                                    handle);
-  }
+  // if (spectral_embedding_config.norm_laplacian) {
+  //   scale_csr_by_diagonal_symmetric(raft::make_device_csr_matrix_view<float, int, int, int>(
+  //                                     laplacian.get_elements().data(), laplacian_structure),
+  //                                   diagonal,
+  //                                   handle);
+  //   set_csr_diagonal_to_ones_thrust(raft::make_device_csr_matrix_view<float, int, int, int>(
+  //                                     laplacian.get_elements().data(), laplacian_structure),
+  //                                   handle);
+  // }
 
   // extract_csr_diagonal_thrust(raft::make_device_csr_matrix_view<float, int, int,
   // int>(laplacian.get_elements().data(), laplacian_structure), diagonal, handle);
@@ -682,5 +702,14 @@ auto spectral_embedding_cuml(raft::resources const& handle,
   // copy eigenvectors to embedding
   // raft::copy(embedding.data_handle(), eigenvectors.data_handle(), eigenvectors.size(), stream);
 
+  return 100;
+}
+
+auto spectral_embedding_cuvs(raft::resources const& handle,
+                             raft::device_matrix_view<float, int, raft::row_major> nums,
+                             raft::device_matrix_view<float, int, raft::col_major> embedding,
+                             cuvs::preprocessing::spectral::spectral_embedding_config config) -> int
+{
+  cuvs::preprocessing::spectral::spectral_embedding(handle, nums, embedding, config);
   return 100;
 }

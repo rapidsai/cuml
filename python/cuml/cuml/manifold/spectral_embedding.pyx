@@ -40,12 +40,19 @@ from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 from pylibraft.random.cpp.rng_state cimport RngState
 
+from cuml.common import input_to_cuml_array
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.common import input_to_cuml_array
 
+# cdef extern from "cuml/manifold/spectral_embedding_types.hpp" namespace "ML":
+#     cdef cppclass spectral_embedding_config:
+#         int n_components
+#         int n_neighbors
+#         bool norm_laplacian
+#         bool drop_first
+#         uint64_t seed
 
-cdef extern from "cuml/manifold/spectral_embedding_types.hpp" namespace "ML":
+cdef extern from "cuvs/preprocessing/spectral/spectral_embedding_types.hpp" namespace "cuvs::preprocessing::spectral":
     cdef cppclass spectral_embedding_config:
         int n_components
         int n_neighbors
@@ -57,7 +64,13 @@ cdef spectral_embedding_config config
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp":
 
-    cdef int spectral_embedding_cuml(
+    # cdef int spectral_embedding_cuml(
+    #     const device_resources &handle,
+    #     device_matrix_view[float, int, row_major] nums,
+    #     device_matrix_view[float, int, col_major] embedding,
+    #     spectral_embedding_config config) except +
+
+    cdef int spectral_embedding_cuvs(
         const device_resources &handle,
         device_matrix_view[float, int, row_major] nums,
         device_matrix_view[float, int, col_major] embedding,
@@ -100,7 +113,7 @@ def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, nor
     eigenvectors_cai = cai_wrapper(eigenvectors)
     eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
 
-    cdef int result = spectral_embedding_cuml(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
+    cdef int result = spectral_embedding_cuvs(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
 
     return cp.asarray(eigenvectors)
 
