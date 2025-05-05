@@ -21,6 +21,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
@@ -129,10 +130,10 @@ inline void launcher(const raft::handle_t& handle,
         target[i * n_neighbors + j] = source[i * graph_degree + j];
       }
     }
-    raft::copy(out.knn_indices,
-               temp_indices_h.data_handle(),
-               inputsA.n * n_neighbors,
-               raft::resource::get_cuda_stream(handle));
+
+    raft::copy(handle,
+               raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors),
+               temp_indices_h.view());
 
     // `graph.distances()` is a device array (n x graph_degree).
     // Slice and copy to the output device array `out.knn_dists` (n x n_neighbors).
