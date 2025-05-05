@@ -213,10 +213,15 @@ class BaseRandomForestModel(object):
                     pure=False,
                 )
             )
-        partial_infs = dask.delayed(dask.array.concatenate)(
-            partial_infs, axis=1, allow_unknown_chunksizes=True
+        shape = (X.shape[0], 1, self.num_classes)
+        objs = [
+            dask.array.from_delayed(partial_inf, shape=shape, dtype=np.float32)
+            for partial_inf in partial_infs
+        ]
+        result = dask.array.concatenate(
+            objs, axis=1, allow_unknown_chunksizes=True
         )
-        return partial_infs
+        return result
 
     def _predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
