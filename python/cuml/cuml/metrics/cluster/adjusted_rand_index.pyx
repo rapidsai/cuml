@@ -25,10 +25,8 @@ from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 
-
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
 
     double adjusted_rand_index(handle_t &handle,
                                int *y,

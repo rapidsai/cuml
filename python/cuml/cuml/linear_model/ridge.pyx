@@ -38,7 +38,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
     cdef void ridgeFit(handle_t& handle,
                        float *input,

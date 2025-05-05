@@ -53,7 +53,7 @@ from cuml.internals.logger cimport level_enum
 from cuml.manifold.umap_utils cimport *
 
 
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
 
     void fit(handle_t & handle,
              float * X,

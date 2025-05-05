@@ -308,7 +308,7 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
         weights=weights,
         dtype=x_dtype,
         n_informative=9,
-        random_state=1,
+        random_state=2,
     )
     X -= X.min(0)  # Make all inputs positive
     y = y.astype(y_dtype)

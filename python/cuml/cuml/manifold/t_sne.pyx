@@ -51,11 +51,10 @@ from libc.stdint cimport int64_t, uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 
-cimport cuml.common.cuda
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
@@ -93,7 +92,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         TSNE_ALGORITHM algorithm
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     cdef void TSNE_fit(
         handle_t &handle,
