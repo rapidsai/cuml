@@ -19,8 +19,12 @@
 
 import copy
 
+import cupy as cp
+import cupyx
 import joblib
+import numpy as np
 import pytest
+import scipy.sparse as scipy_sparse
 import umap
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -30,7 +34,6 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
 
 from cuml.internals import GraphBasedDimRedCallback, logger
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
@@ -39,12 +42,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-scipy_sparse = cpu_only_import("scipy.sparse")
-
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 

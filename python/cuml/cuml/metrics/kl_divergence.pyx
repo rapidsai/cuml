@@ -14,22 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
+import numpy as np
+from pylibraft.common.handle import Handle
 
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
 import cuml.internals
 from cuml.common import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
 
-
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double c_kl_divergence "ML::Metrics::kl_divergence"(
         const handle_t &handle,
         const double *y,

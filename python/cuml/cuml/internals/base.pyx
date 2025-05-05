@@ -22,21 +22,19 @@ import numbers
 import os
 from importlib import import_module
 
-from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
+import numpy as np
 
-np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+import cuml.internals.nvtx as nvtx
 
 try:
     from sklearn.utils import estimator_html_repr
 except ImportError:
     estimator_html_repr = None
 
+
+import cupy as cp
+import pylibraft.common.handle
+from cupy import ndarray as cp_ndarray
 
 import cuml
 import cuml.accel
@@ -48,13 +46,11 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import api_context_managers
 from cuml.internals.array import CumlArray
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
-    input_to_host_array,
     input_to_host_array_with_sparse_support,
     is_array_like,
 )
@@ -68,16 +64,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
-
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
-cp = gpu_only_import('cupy')
-
-
-IF GPUBUILD == 1:
-    import pylibraft.common.handle
-
-    import cuml.common.cuda
 
 
 class VerbosityDescriptor:
@@ -231,7 +217,7 @@ class Base(TagsMixin,
 
         # stream and handle example:
 
-        stream = cuml.common.cuda.Stream()
+        stream = pylibraft.common.Stream()
         handle = pylibraft.common.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
@@ -239,7 +225,7 @@ class Base(TagsMixin,
         result = algo.predict(...)
 
         # final sync of all gpu-work launched inside this object
-        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # this is same as `pylibraft.common.Stream.sync()` call, but safer in case
         # the default stream inside the `raft::handle_t` is being used
         base.handle.sync()
         del base  # optional!
@@ -256,11 +242,7 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        IF GPUBUILD == 1:
-            self.handle = pylibraft.common.handle.Handle() if handle is None \
-                else handle
-        ELSE:
-            self.handle = None
+        self.handle = pylibraft.common.handle.Handle() if handle is None else handle
 
         # The following manipulation of the root_cm ensures that the verbose
         # descriptor sees any set or get of the verbose attribute as happening
@@ -527,7 +509,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
     @classmethod
@@ -667,8 +649,7 @@ class UniversalBase(Base):
 
     def cpu_to_gpu(self):
         """Transfer attributes from CPU estimator to GPU estimator."""
-        mem_type = MemoryType.device if is_cuda_available() else MemoryType.host
-        with using_memory_type(mem_type):
+        with using_memory_type(MemoryType.device):
             for name in self.get_attr_names():
                 try:
                     value = getattr(self._cpu_model, name)
@@ -680,7 +661,9 @@ class UniversalBase(Base):
                     # Coerce arrays to CumlArrays with the proper order
                     descriptor = getattr(type(self), name, None)
                     order = descriptor.order if isinstance(descriptor, CumlArrayDescriptor) else "K"
-                    value = input_to_cuml_array(value, order=order, convert_to_mem_type=mem_type)[0]
+                    value = input_to_cuml_array(
+                        value, order=order, convert_to_mem_type=MemoryType.device
+                    )[0]
 
                 setattr(self, name, value)
 
@@ -795,10 +778,6 @@ class UniversalBase(Base):
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
 
-        # if using accelerator and doing inference, always use GPU
-        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
-            device_type = DeviceType.device
-
         # otherwise we select CPU when _gpuaccel is off
         elif not self._gpuaccel:
             device_type = DeviceType.host
@@ -889,7 +868,7 @@ class UniversalBase(Base):
         estimator = cls()
         estimator.import_cpu_model()
         estimator._cpu_model = model
-        params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+        params, _ = cls._hyperparam_translator(**model.get_params())
         params = {key: params[key] for key in cls._get_param_names() if key in params}
         estimator.set_params(**params)
         estimator.cpu_to_gpu()

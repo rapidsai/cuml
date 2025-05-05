@@ -17,11 +17,9 @@
 
 from math import ceil
 
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
-
-cp = gpu_only_import("cupy")
-cpx = gpu_only_import("cupyx")
-cuda = gpu_only_import_from("numba", "cuda")
+import cupy as cp
+import cupyx as cpx
+from numba import cuda
 
 
 def csr_mean_variance_axis0(X):

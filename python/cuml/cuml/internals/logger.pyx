@@ -18,29 +18,28 @@
 
 
 import logging
+import sys
 
-IF GPUBUILD == 1:
-    import sys
 
-    cdef void _log_callback(int lvl, const char * msg) with gil:
-        """
-        Default spdlogs callback function to redirect logs correctly to sys.stdout
+cdef void _log_callback(int lvl, const char * msg) with gil:
+    """
+    Default spdlogs callback function to redirect logs correctly to sys.stdout
 
-        Parameters
-        ----------
-        lvl : int
-            Level of the logging message as defined by spdlogs
-        msg : char *
-            Message to be logged
-        """
-        print(msg.decode('utf-8'), end='')
+    Parameters
+    ----------
+    lvl : int
+        Level of the logging message as defined by spdlogs
+    msg : char *
+        Message to be logged
+    """
+    print(msg.decode('utf-8'), end='')
 
-    cdef void _log_flush() with gil:
-        """
-        Default spdlogs callback function to flush logs
-        """
-        if sys.stdout is not None:
-            sys.stdout.flush()
+cdef void _log_flush() with gil:
+    """
+    Default spdlogs callback function to flush logs
+    """
+    if sys.stdout is not None:
+        sys.stdout.flush()
 
 
 def _verbose_to_level(verbose: bool | int) -> level_enum:
@@ -68,8 +67,7 @@ cdef class LogLevelSetter:
         pass
 
     def __exit__(self, a, b, c):
-        IF GPUBUILD == 1:
-            default_logger().set_level(self.prev_log_level)
+        default_logger().set_level(self.prev_log_level)
 
 
 def set_level(level):
@@ -101,19 +99,17 @@ def set_level(level):
         This is useful if one wants to temporarily set a different logging
         level for a code section, as described in the example section above.
     """
-    IF GPUBUILD == 1:
-        cdef level_enum prev = default_logger().level()
-        context_object = LogLevelSetter(prev)
-        default_logger().set_level(level)
-        return context_object
+    cdef level_enum prev = default_logger().level()
+    context_object = LogLevelSetter(prev)
+    default_logger().set_level(level)
+    return context_object
 
 
 def get_level() -> level_enum:
     """
     Get the current logging level.
     """
-    IF GPUBUILD == 1:
-        return default_logger().level()
+    return default_logger().level()
 
 
 cdef class PatternSetter:
@@ -126,8 +122,7 @@ cdef class PatternSetter:
         pass
 
     def __exit__(self, a, b, c):
-        IF GPUBUILD == 1:
-            default_logger().set_pattern(self.prev_pattern)
+        default_logger().set_pattern(self.prev_pattern)
 
 
 def set_pattern(pattern):
@@ -159,18 +154,17 @@ def set_pattern(pattern):
         This is useful if one wants to temporarily set a different logging
         pattern for a code section, as described in the example section above.
     """
-    IF GPUBUILD == 1:
-        # TODO: We probably can't implement this exact API because you can't
-        # get the pattern from a spdlog logger since it could be different for
-        # every sink (conversely, you could set because it forces every sink to
-        # be the same). The best we can probably do is revert to the default
-        # pattern.
-        cdef string prev = default_pattern()
-        # TODO: Need to cast to a Python string?
-        context_object = PatternSetter(prev)
-        cdef string s = pattern.encode("UTF-8")
-        default_logger().set_pattern(s)
-        return context_object
+    # TODO: We probably can't implement this exact API because you can't
+    # get the pattern from a spdlog logger since it could be different for
+    # every sink (conversely, you could set because it forces every sink to
+    # be the same). The best we can probably do is revert to the default
+    # pattern.
+    cdef string prev = default_pattern()
+    # TODO: Need to cast to a Python string?
+    context_object = PatternSetter(prev)
+    cdef string s = pattern.encode("UTF-8")
+    default_logger().set_pattern(s)
+    return context_object
 
 
 def should_log_for(level):
@@ -193,8 +187,7 @@ def should_log_for(level):
     level : level_enum
         Logging level to be set.
     """
-    IF GPUBUILD == 1:
-        return default_logger().should_log(level)
+    return default_logger().should_log(level)
 
 
 def _log(level_enum lvl, msg, default_func):
@@ -210,11 +203,8 @@ def _log(level_enum lvl, msg, default_func):
     default_func : function
         Default logging function to be used if GPU build is disabled.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        default_logger().log(lvl, s)
-    ELSE:
-        default_func(msg)
+    cdef string s = msg.encode("UTF-8")
+    default_logger().log(lvl, s)
 
 
 def trace(msg):
@@ -336,11 +326,9 @@ def flush():
     """
     Flush the logs.
     """
-    IF GPUBUILD == 1:
-        default_logger().flush()
+    default_logger().flush()
 
 
-IF GPUBUILD == 1:
-    # Clear existing sinks and add a callback sink to redirect to sys.stdout
-    default_logger().sinks().clear()
-    default_logger().sinks().push_back(<sink_ptr> make_shared[callback_sink_mt](_log_callback, _log_flush))
+# Clear existing sinks and add a callback sink to redirect to sys.stdout
+default_logger().sinks().clear()
+default_logger().sinks().push_back(<sink_ptr> make_shared[callback_sink_mt](_log_callback, _log_flush))

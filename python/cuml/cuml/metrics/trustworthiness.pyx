@@ -16,30 +16,22 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
-
-from libc.stdint cimport uintptr_t
-
+import numpy as np
 from pylibraft.common.handle import Handle
 
 import cuml.internals
 from cuml.internals.input_utils import input_to_cuml_array
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance":
+cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance" nogil:
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(cuvs::distance::DistanceType)5"
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
 
     cdef double trustworthiness_score[T, DistanceType](const handle_t& h,
                                                        T* X,

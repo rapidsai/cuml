@@ -14,12 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
+
+import cudf
 
 from .consonant_vowel_utils import is_consonant, is_vowel
 from .len_flags_utils import len_eq_n, len_gt_n
-
-cudf = gpu_only_import("cudf")
 
 
 def ends_with_double_constant(string_ser):

@@ -23,7 +23,9 @@ from urllib.request import HTTPSHandler, build_opener, install_opener
 
 import certifi
 import cudf.pandas
+import cupy as cp
 import hypothesis
+import numpy as np
 import pandas as pd
 import pytest
 from sklearn import datasets
@@ -31,11 +33,6 @@ from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.utils import Bunch
 from tenacity import retry, stop_after_attempt, wait_exponential
-
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 # =============================================================================
 # Pytest Configuration
@@ -124,6 +121,7 @@ def pytest_addoption(parser):
     - --run_stress: Run stress tests
     - --run_quality: Run quality tests
     - --run_unit: Run unit tests
+    - --run_memleak: Run memleak tests
     """
     group = parser.getgroup("cuML Custom Options")
 
@@ -158,6 +156,13 @@ def pytest_addoption(parser):
         ),
     )
 
+    group.addoption(
+        "--run_memleak",
+        action="store_true",
+        default=False,
+        help="Runs tests marked with 'memleak'. These test for memory leaks.",
+    )
+
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on command line options.
@@ -190,6 +195,7 @@ def pytest_collection_modifyitems(config, items):
     # Handle test categories (unit/quality/stress)
     should_run_quality = config.getoption("--run_quality")
     should_run_stress = config.getoption("--run_stress")
+    should_run_memleak = config.getoption("--run_memleak")
 
     # Run unit is implied if no --run_XXX is set
     should_run_unit = config.getoption("--run_unit") or not (
@@ -220,6 +226,14 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress" in item.keywords:
                 item.add_marker(skip_stress)
+
+    if not should_run_memleak:
+        skip_memleak = pytest.mark.skip(
+            reason="Memory leak tests run with --run_memleak flag."
+        )
+        for item in items:
+            if "memleak" in item.keywords:
+                item.add_marker(skip_memleak)
 
 
 def pytest_configure(config):

@@ -15,27 +15,22 @@
 
 import platform
 
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
 import pytest
+import scipy.stats
 from sklearn.neighbors import KNeighborsClassifier
 
-from cuml.common import has_scipy
 from cuml.dask.common import utils as dask_utils
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
     array_equal,
     quality_param,
     stress_param,
     unit_param,
 )
-
-cudf = gpu_only_import("cudf")
-dask_cudf = gpu_only_import("dask_cudf")
-
-pd = cpu_only_import("pandas")
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -48,14 +43,9 @@ if IS_ARM and cp.cuda.runtime.runtimeGetVersion() < 11080:
 
 
 def predict(neigh_ind, _y, n_neighbors):
-    if has_scipy():
-        import scipy.stats as stats
-    else:
-        raise RuntimeError("Scipy is needed to run predict()")
-
     neigh_ind = neigh_ind.astype(np.int64)
 
-    ypred, count = stats.mode(_y[neigh_ind], axis=1)
+    ypred, count = scipy.stats.mode(_y[neigh_ind], axis=1)
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 

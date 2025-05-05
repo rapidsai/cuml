@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,20 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
 
-from pylibraft.common.handle import Handle as raftHandle
+try:
+    from nvtx import annotate
+except ImportError:
 
-Handle = raftHandle
+    from contextlib import contextmanager
+
+    @contextmanager
+    def annotate(*args, **kwargs):
+        if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
+            return args[0]
+        else:
+
+            def inner(func):
+                return func
+
+            return inner

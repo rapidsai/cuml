@@ -34,18 +34,12 @@ from sklearn.model_selection import train_test_split
 
 from cuml.common.device_selection import using_device_type
 from cuml.experimental import ForestInference
-from cuml.internals.import_utils import has_lightgbm, has_xgboost
 from cuml.testing.utils import (
     array_equal,
     quality_param,
     stress_param,
     unit_param,
 )
-
-if has_xgboost():
-    import xgboost as xgb
-
-# pytestmark = pytest.mark.skip
 
 
 def simulate_data(
@@ -98,6 +92,8 @@ def _build_and_save_xgboost(
     xgboost_params={},
 ):
     """Trains a small xgboost classifier and saves it to model_path"""
+    xgb = pytest.importorskip("xgboost")
+
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
@@ -133,7 +129,6 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_fil_classification(
     train_device,
     infer_device,
@@ -143,6 +138,8 @@ def test_fil_classification(
     n_classes,
     tmp_path,
 ):
+    xgb = pytest.importorskip("xgboost")
+
     with using_device_type(train_device):
         # settings
         classification = True  # change this to false to use regression
@@ -227,7 +224,6 @@ def test_fil_classification(
 @pytest.mark.parametrize(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_fil_regression(
     train_device,
     infer_device,
@@ -237,6 +233,8 @@ def test_fil_regression(
     tmp_path,
     max_depth,
 ):
+    xgb = pytest.importorskip("xgboost")
+
     with using_device_type(train_device):
         # settings
         classification = False  # change this to false to use regression
@@ -491,6 +489,8 @@ def test_fil_skl_regression(
 
 @pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
+    xgb = pytest.importorskip("xgboost")
+
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
     ext = "json" if request.param == "json" else "ubj"
@@ -508,7 +508,6 @@ def small_classifier_and_preds(tmpdir_factory, request):
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
 def test_precision_xgboost(
     train_device, infer_device, precision, small_classifier_and_preds
@@ -532,7 +531,6 @@ def test_precision_xgboost(
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize("layout", ["depth_first", "breadth_first", "layered"])
 @pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32])
 def test_performance_hyperparameters(
@@ -560,7 +558,6 @@ def test_performance_hyperparameters(
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_output_args(train_device, infer_device, small_classifier_and_preds):
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
@@ -630,11 +627,10 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
-@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 def test_lightgbm(
     train_device, infer_device, tmp_path, num_classes, n_categorical
 ):
-    import lightgbm as lgb
+    lgb = pytest.importorskip("lightgbm")
 
     if n_categorical > 0:
         n_features = 10
@@ -720,10 +716,11 @@ def test_lightgbm(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.parametrize("num_boost_round", [10, 100])
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
+    xgb = pytest.importorskip("xgboost")
+
     n_rows = 1000
     n_columns = 30
 
@@ -781,7 +778,6 @@ def test_predict_per_tree(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [5, 25])
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_predict_per_tree_with_vector_leaf(
     train_device, infer_device, n_classes, tmp_path
 ):
@@ -827,8 +823,9 @@ def test_predict_per_tree_with_vector_leaf(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_apply(train_device, infer_device, n_classes, tmp_path):
+    xgb = pytest.importorskip("xgboost")
+
     n_rows = 1000
     n_columns = 30
     num_boost_round = 10

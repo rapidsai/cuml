@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+import cudf
+import numpy as np
+
 from cuml.preprocessing.text.stem.porter_stemmer_utils import (
     porter_stemmer_rules,
 )
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
 
 
 def test_ends_with_suffix():

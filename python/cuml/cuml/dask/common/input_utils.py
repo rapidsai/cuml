@@ -19,11 +19,16 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from functools import reduce
 
+import cudf
+import cupy as cp
 import dask.array as da
 import dask.dataframe as dd
+import numpy as np
+from cudf import DataFrame
 from dask.dataframe import DataFrame as daskDataFrame
 from dask.dataframe import Series as daskSeries
 from dask.distributed import default_client, wait
+from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
 from toolz import first
 
@@ -33,19 +38,6 @@ from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.common.utils import get_client
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-
-DataFrame = gpu_only_import_from("cudf", "DataFrame")
-dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class DistributedDataHandler:

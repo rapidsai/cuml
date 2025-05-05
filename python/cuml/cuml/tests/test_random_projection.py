@@ -13,14 +13,14 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+from scipy.spatial.distance import pdist
 from sklearn.datasets import make_blobs
 from sklearn.random_projection import (
     johnson_lindenstrauss_min_dim as sklearn_johnson_lindenstrauss_min_dim,
 )
 
-from cuml.common import has_scipy
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
@@ -28,8 +28,6 @@ from cuml.random_projection import (
 from cuml.random_projection import (
     johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim,
 )
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -57,14 +55,6 @@ def test_random_projection_fit(datatype, method):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("method", ["gaussian", "sparse"])
 def test_random_projection_fit_transform(datatype, method):
-    if has_scipy():
-        from scipy.spatial.distance import pdist
-    else:
-        pytest.skip(
-            "Skipping test_random_projection_fit_transform because "
-            + "Scipy is missing"
-        )
-
     eps = 0.2
 
     # dataset generation
@@ -111,14 +101,6 @@ def test_johnson_lindenstrauss_min_dim():
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("method", ["sparse"])
 def test_random_projection_fit_transform_default(datatype, method):
-    if has_scipy():
-        from scipy.spatial.distance import pdist
-    else:
-        pytest.skip(
-            "Skipping test_random_projection_fit_transform_default "
-            + "because Scipy is missing"
-        )
-
     eps = 0.8
     # dataset generation
     data, target = make_blobs(n_samples=30, centers=4, n_features=5000)

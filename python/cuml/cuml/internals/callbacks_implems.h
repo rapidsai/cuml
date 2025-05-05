@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,27 +41,33 @@ class DefaultGraphBasedDimRedCallback : public GraphBasedDimRedCallback {
 
   void on_preprocess_end(void* embeddings) override
   {
+    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* numba_matrix = get_numba_matrix(embeddings);
     PyObject* res =
       PyObject_CallMethod(this->pyCallbackClass, "on_preprocess_end", "(O)", numba_matrix);
     Py_DECREF(numba_matrix);
     Py_DECREF(res);
+    PyGILState_Release(gstate);
   }
 
   void on_epoch_end(void* embeddings) override
   {
+    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* numba_matrix = get_numba_matrix(embeddings);
     PyObject* res = PyObject_CallMethod(this->pyCallbackClass, "on_epoch_end", "(O)", numba_matrix);
     Py_DECREF(numba_matrix);
     Py_DECREF(res);
+    PyGILState_Release(gstate);
   }
 
   void on_train_end(void* embeddings) override
   {
+    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* numba_matrix = get_numba_matrix(embeddings);
     PyObject* res = PyObject_CallMethod(this->pyCallbackClass, "on_train_end", "(O)", numba_matrix);
     Py_DECREF(numba_matrix);
     Py_DECREF(res);
+    PyGILState_Release(gstate);
   }
 
  public:

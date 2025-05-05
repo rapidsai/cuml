@@ -15,6 +15,7 @@
 #
 import tempfile
 
+import numpy as np
 import sklearn
 import sklearn.cluster
 import sklearn.ensemble
@@ -53,8 +54,6 @@ from cuml.dask import (  # noqa: F401
     manifold,
     neighbors,
 )
-from cuml.internals.import_utils import has_hdbscan, has_umap
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.preprocessing import (
     MaxAbsScaler,
     MinMaxScaler,
@@ -65,15 +64,16 @@ from cuml.preprocessing import (
     StandardScaler,
 )
 
-np = cpu_only_import("numpy")
+try:
+    from umap import UMAP
+except ImportError:
+    UMAP = None
 
 
-if has_umap():
-    import umap
-
-
-if has_hdbscan():
-    import hdbscan
+try:
+    from hdbscan import HDBSCAN
+except ImportError:
+    HDBSCAN = None
 
 
 class AlgorithmPair:
@@ -286,7 +286,7 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            hdbscan.HDBSCAN if has_hdbscan() else None,
+            HDBSCAN,
             cuml.cluster.HDBSCAN,
             shared_args={},
             cpu_args={},
@@ -574,7 +574,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Unsupervised",
@@ -582,7 +582,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
-            umap.UMAP if has_umap() else None,
+            UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Supervised",

@@ -15,15 +15,13 @@
 
 import math
 
+import cupy as cp
+import numpy as np
 import pytest
 from sklearn.datasets import load_digits, load_iris
 
 from cuml.internals import logger
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import trustworthiness
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 def _load_dataset(dataset, n_rows):

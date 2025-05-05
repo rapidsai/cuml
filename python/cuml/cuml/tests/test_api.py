@@ -16,18 +16,15 @@
 
 import inspect
 
+import cupy as cp
+import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 
 import cuml
 import cuml.internals.mixins as cumix
 from cuml.internals.base import Base
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import ClassEnumerator
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 ###############################################################################
 #                        Helper functions and classes                         #

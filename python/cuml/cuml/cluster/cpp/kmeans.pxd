@@ -30,7 +30,7 @@ from cuml.common.rng_state cimport RngState
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
     cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const float *X,

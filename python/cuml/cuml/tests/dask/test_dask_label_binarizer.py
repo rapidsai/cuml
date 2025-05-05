@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cupy as cp
 import dask
+import numpy as np
 import pytest
 
 from cuml.dask.preprocessing import LabelBinarizer
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import array_equal
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 @pytest.mark.parametrize(

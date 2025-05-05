@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import hdbscan
+import numpy as np
 import pytest
 from hdbscan.plots import CondensedTree
 from sklearn import datasets
@@ -27,16 +29,9 @@ from cuml.cluster.hdbscan.prediction import (
     membership_vector,
 )
 from cuml.internals import logger
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
-
-np = cpu_only_import("numpy")
-
-
-cp = gpu_only_import("cupy")
-
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 from sklearn.datasets import make_blobs as sklearn_make_blobs
 from sklearn.datasets import (
     make_circles,
@@ -23,7 +24,6 @@ from sklearn.datasets import (
 from sklearn.model_selection import train_test_split
 
 from cuml.internals.array import elements_in_representable_range
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.strategies import (
     combined_datasets_strategy,
     regression_datasets,
@@ -32,8 +32,6 @@ from cuml.testing.strategies import (
     standard_datasets,
     standard_regression_datasets,
 )
-
-np = cpu_only_import("numpy")
 
 
 def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):

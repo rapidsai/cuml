@@ -15,9 +15,8 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
 
-np = cpu_only_import('numpy')
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
 
@@ -31,7 +30,7 @@ from pylibraft.common.handle import Handle
 from cuml.internals.input_utils import input_to_cuml_array
 
 
-cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
+cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
         const float* d_y,

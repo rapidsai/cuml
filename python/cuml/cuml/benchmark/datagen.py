@@ -38,25 +38,17 @@ import functools
 import os
 from urllib.request import urlretrieve
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+import scipy.sparse
 import sklearn.model_selection
+from numba import cuda
 from sklearn.datasets import fetch_covtype, load_svmlight_file
 
 import cuml.datasets
 from cuml.internals import input_utils
-from cuml.internals.import_utils import has_scipy
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-pd = cpu_only_import("pandas")
-
-
-cuda = gpu_only_import_from("numba", "cuda")
 
 
 def _gen_data_regression(
@@ -437,10 +429,6 @@ def _convert_to_gpuarray_c(data):
 
 def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
     """Randomly set values to 0 and produce a sparse array."""
-    if not has_scipy():
-        raise RuntimeError("Scipy is required")
-    import scipy
-
     random_loc = np.random.choice(
         data.size, int(data.size * sparsity_ratio), replace=False
     )

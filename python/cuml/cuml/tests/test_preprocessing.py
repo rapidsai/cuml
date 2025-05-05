@@ -13,7 +13,11 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx as cpx
+import numpy as np
 import pytest
+import scipy
 import sklearn
 from sklearn.impute import MissingIndicator as skMissingIndicator
 from sklearn.impute import SimpleImputer as skSimpleImputer
@@ -40,7 +44,6 @@ from sklearn.preprocessing import quantile_transform as sk_quantile_transform
 from sklearn.preprocessing import robust_scale as sk_robust_scale
 from sklearn.preprocessing import scale as sk_scale
 
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import pairwise_kernels
 from cuml.preprocessing import Binarizer as cuBinarizer
 from cuml.preprocessing import FunctionTransformer as cuFunctionTransformer
@@ -79,11 +82,6 @@ from cuml.testing.test_preproc_utils import (  # noqa: F401
     sparse_int_dataset,
     sparse_nan_filled_positive,
 )
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cpx = gpu_only_import("cupyx")
-scipy = cpu_only_import("scipy")
 
 
 @pytest.mark.parametrize("feature_range", [(0, 1), (0.1, 0.8)])

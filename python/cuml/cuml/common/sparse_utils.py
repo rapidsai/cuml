@@ -14,13 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_scipy
-from cuml.internals.safe_imports import gpu_only_import
-
-cupyx = gpu_only_import("cupyx")
-
-if has_scipy():
-    import scipy.sparse
+import cupyx
+import scipy.sparse
 
 
 def is_sparse(X):
@@ -36,8 +31,7 @@ def is_sparse(X):
     is_sparse : boolean
         is the input sparse?
     """
-    is_scipy_sparse = has_scipy() and scipy.sparse.issparse(X)
-    return cupyx.scipy.sparse.issparse(X) or is_scipy_sparse
+    return scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X)
 
 
 def is_dense(X):

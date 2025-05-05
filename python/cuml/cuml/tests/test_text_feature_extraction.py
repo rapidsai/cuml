@@ -14,8 +14,12 @@
 # limitations under the License.
 #
 
-
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from cudf import Series
+from numpy.testing import assert_array_equal
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
 from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
 from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
@@ -25,21 +29,6 @@ from cuml.feature_extraction.text import (
     HashingVectorizer,
     TfidfVectorizer,
 )
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cp = gpu_only_import("cupy")
-
-Series = gpu_only_import_from("cudf", "Series")
-assert_array_equal = cpu_only_import_from(
-    "numpy.testing", "assert_array_equal"
-)
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
 
 
 def test_count_vectorizer():

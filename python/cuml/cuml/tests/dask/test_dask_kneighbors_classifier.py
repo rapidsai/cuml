@@ -13,9 +13,12 @@
 # limitations under the License.
 #
 
+import cudf
 import dask.array as da
 import dask.dataframe as dd
+import numpy as np
 import pytest
+from cudf import DataFrame
 from sklearn.datasets import (
     make_classification,
     make_multilabel_classification,
@@ -24,17 +27,8 @@ from sklearn.model_selection import train_test_split
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.testing.utils import quality_param, stress_param, unit_param
-
-DataFrame = gpu_only_import_from("cudf", "DataFrame")
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
 
 
 def generate_dask_array(np_array, n_parts):

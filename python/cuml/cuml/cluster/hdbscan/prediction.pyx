@@ -17,110 +17,104 @@
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
+import numpy as np
 
 import cuml
+from cuml.cluster.hdbscan.hdbscan import import_hdbscan
 from cuml.common import input_to_cuml_array, input_to_host_array
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.device_type import DeviceType
-from cuml.internals.import_utils import has_hdbscan
 
-IF GPUBUILD == 1:
-    from cython.operator cimport dereference as deref
-    from pylibraft.common.handle cimport handle_t
+from cython.operator cimport dereference as deref
+from pylibraft.common.handle cimport handle_t
 
-    from cuml.metrics.distance_type cimport DistanceType
-    from pylibraft.common.handle import Handle
+from cuml.metrics.distance_type cimport DistanceType
 
-    cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
-        cdef cppclass CondensedHierarchy[value_idx, value_t]:
-            CondensedHierarchy(
-                const handle_t &handle, size_t n_leaves)
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
 
-            value_idx *get_parents()
-            value_idx *get_children()
-            value_t *get_lambdas()
-            value_idx get_n_edges()
+    cdef cppclass CondensedHierarchy[value_idx, value_t]:
+        CondensedHierarchy(
+            const handle_t &handle, size_t n_leaves)
 
-        cdef cppclass hdbscan_output[int, float]:
-            hdbscan_output(const handle_t &handle,
-                           int n_leaves,
-                           int *labels,
-                           float *probabilities,
-                           int *children,
-                           int *sizes,
-                           float *deltas,
-                           int *mst_src,
-                           int *mst_dst,
-                           float *mst_weights)
+        value_idx *get_parents()
+        value_idx *get_children()
+        value_t *get_lambdas()
+        value_idx get_n_edges()
 
-            int get_n_leaves()
-            int get_n_clusters()
-            float *get_stabilities()
-            int *get_labels()
-            int *get_inverse_label_map()
-            float *get_core_dists()
-            CondensedHierarchy[int, float] &get_condensed_tree()
+    cdef cppclass hdbscan_output[int, float]:
+        hdbscan_output(const handle_t &handle,
+                       int n_leaves,
+                       int *labels,
+                       float *probabilities,
+                       int *children,
+                       int *sizes,
+                       float *deltas,
+                       int *mst_src,
+                       int *mst_dst,
+                       float *mst_weights)
 
-        cdef cppclass PredictionData[int, float]:
-            PredictionData(const handle_t &handle,
-                           int m,
-                           int n,
-                           float *core_dists)
+        int get_n_leaves()
+        int get_n_clusters()
+        float *get_stabilities()
+        int *get_labels()
+        int *get_inverse_label_map()
+        float *get_core_dists()
+        CondensedHierarchy[int, float] &get_condensed_tree()
 
-            size_t n_rows
-            size_t n_cols
+    cdef cppclass PredictionData[int, float]:
+        PredictionData(const handle_t &handle,
+                       int m,
+                       int n,
+                       float *core_dists)
 
-    cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+        size_t n_rows
+        size_t n_cols
 
-        void compute_all_points_membership_vectors(
-            const handle_t &handle,
-            CondensedHierarchy[int, float] &condensed_tree,
-            PredictionData[int, float] &prediction_data_,
-            float* X,
-            DistanceType metric,
-            float* membership_vec,
-            size_t batch_size)
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
 
-        void compute_membership_vector(
-            const handle_t& handle,
-            CondensedHierarchy[int, float] &condensed_tree,
-            PredictionData[int, float] &prediction_data,
-            float* X,
-            float* points_to_predict,
-            size_t n_prediction_points,
-            int min_samples,
-            DistanceType metric,
-            float* membership_vec,
-            size_t batch_size)
+    void compute_all_points_membership_vectors(
+        const handle_t &handle,
+        CondensedHierarchy[int, float] &condensed_tree,
+        PredictionData[int, float] &prediction_data_,
+        float* X,
+        DistanceType metric,
+        float* membership_vec,
+        size_t batch_size)
 
-        void out_of_sample_predict(const handle_t &handle,
-                                   CondensedHierarchy[int, float] &condensed_tree,
-                                   PredictionData[int, float] &prediction_data,
-                                   float* X,
-                                   int* labels,
-                                   float* points_to_predict,
-                                   size_t n_prediction_points,
-                                   DistanceType metric,
-                                   int min_samples,
-                                   int* out_labels,
-                                   float* out_probabilities)
+    void compute_membership_vector(
+        const handle_t& handle,
+        CondensedHierarchy[int, float] &condensed_tree,
+        PredictionData[int, float] &prediction_data,
+        float* X,
+        float* points_to_predict,
+        size_t n_prediction_points,
+        int min_samples,
+        DistanceType metric,
+        float* membership_vec,
+        size_t batch_size)
 
-    _metrics_mapping = {
-        'l1': DistanceType.L1,
-        'cityblock': DistanceType.L1,
-        'manhattan': DistanceType.L1,
-        'l2': DistanceType.L2SqrtExpanded,
-        'euclidean': DistanceType.L2SqrtExpanded,
-        'cosine': DistanceType.CosineExpanded
-    }
+    void out_of_sample_predict(const handle_t &handle,
+                               CondensedHierarchy[int, float] &condensed_tree,
+                               PredictionData[int, float] &prediction_data,
+                               float* X,
+                               int* labels,
+                               float* points_to_predict,
+                               size_t n_prediction_points,
+                               DistanceType metric,
+                               int min_samples,
+                               int* out_labels,
+                               float* out_probabilities)
+
+_metrics_mapping = {
+    'l1': DistanceType.L1,
+    'cityblock': DistanceType.L1,
+    'manhattan': DistanceType.L1,
+    'l2': DistanceType.L2SqrtExpanded,
+    'euclidean': DistanceType.L2SqrtExpanded,
+    'cosine': DistanceType.CosineExpanded
+}
 
 
 def all_points_membership_vectors(clusterer, batch_size=4096):
@@ -157,10 +151,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            all_points_membership_vectors as cpu_all_points_membership_vectors,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -181,7 +172,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
         # this method on cpu does not work without this copy for some reason
         clusterer._cpu_model.prediction_data_.raw_data = \
             clusterer._cpu_model.prediction_data_.raw_data.copy()
-        return cpu_all_points_membership_vectors(clusterer._cpu_model)
+        return hdbscan.prediction.all_points_membership_vectors(clusterer._cpu_model)
     # gpu infer, cpu/gpu train
     elif device_type == DeviceType.device:
         # trained on cpu
@@ -209,20 +200,19 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
     cdef uintptr_t _membership_vec_ptr = membership_vec.ptr
 
-    IF GPUBUILD == 1:
-        cdef PredictionData *prediction_data_ = \
-            <PredictionData*><size_t>clusterer.prediction_data_ptr
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
 
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
-        compute_all_points_membership_vectors(handle_[0],
-                                              deref(condensed_tree),
-                                              deref(prediction_data_),
-                                              <float*> _input_ptr,
-                                              _metrics_mapping[clusterer.metric],
-                                              <float*> _membership_vec_ptr,
-                                              batch_size)
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+    compute_all_points_membership_vectors(handle_[0],
+                                          deref(condensed_tree),
+                                          deref(prediction_data_),
+                                          <float*> _input_ptr,
+                                          _metrics_mapping[clusterer.metric],
+                                          <float*> _membership_vec_ptr,
+                                          batch_size)
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -267,10 +257,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            membership_vector as cpu_membership_vector,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -282,8 +269,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                              "model has been trained on GPU")
 
         host_points_to_predict = input_to_host_array(points_to_predict).array
-        return cpu_membership_vector(clusterer._cpu_model,
-                                     host_points_to_predict)
+        return hdbscan.prediction.membership_vector(
+            clusterer._cpu_model, host_points_to_predict
+        )
 
     elif device_type == DeviceType.device:
         # trained on cpu
@@ -315,40 +303,39 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
 
-    IF GPUBUILD == 1:
-        cdef uintptr_t _prediction_ptr = _points_to_predict_m.ptr
-        cdef uintptr_t _input_ptr = clusterer.X_m.ptr
+    cdef uintptr_t _prediction_ptr = _points_to_predict_m.ptr
+    cdef uintptr_t _input_ptr = clusterer.X_m.ptr
 
-        membership_vec = CumlArray.empty(
-            (n_prediction_points * clusterer.n_clusters_,),
-            dtype="float32")
+    membership_vec = CumlArray.empty(
+        (n_prediction_points * clusterer.n_clusters_,),
+        dtype="float32")
 
-        cdef uintptr_t _membership_vec_ptr = membership_vec.ptr
+    cdef uintptr_t _membership_vec_ptr = membership_vec.ptr
 
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
 
-        cdef PredictionData *prediction_data_ = \
-            <PredictionData*><size_t>clusterer.prediction_data_ptr
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-        compute_membership_vector(handle_[0],
-                                  deref(condensed_tree),
-                                  deref(prediction_data_),
-                                  <float*> _input_ptr,
-                                  <float*> _prediction_ptr,
-                                  n_prediction_points,
-                                  clusterer.min_samples,
-                                  _metrics_mapping[clusterer.metric],
-                                  <float*> _membership_vec_ptr,
-                                  batch_size)
+    compute_membership_vector(handle_[0],
+                              deref(condensed_tree),
+                              deref(prediction_data_),
+                              <float*> _input_ptr,
+                              <float*> _prediction_ptr,
+                              n_prediction_points,
+                              clusterer.min_samples,
+                              _metrics_mapping[clusterer.metric],
+                              <float*> _membership_vec_ptr,
+                              batch_size)
 
-        clusterer.handle.sync()
-        return membership_vec.to_output(
-            output_type="numpy",
-            output_dtype="float32").reshape((n_prediction_points,
-                                             clusterer.n_clusters_))
+    clusterer.handle.sync()
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32").reshape((n_prediction_points,
+                                         clusterer.n_clusters_))
 
 
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
@@ -388,10 +375,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan(raise_if_unavailable=True)
-        from hdbscan.prediction import (
-            approximate_predict as cpu_approximate_predict,
-        )
+        hdbscan = import_hdbscan()
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -403,8 +387,9 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                              "model has been trained on GPU")
 
         host_points_to_predict = input_to_host_array(points_to_predict).array
-        return cpu_approximate_predict(clusterer._cpu_model,
-                                       host_points_to_predict)
+        return hdbscan.prediction.approximate_predict(
+            clusterer._cpu_model, host_points_to_predict
+        )
 
     elif device_type == DeviceType.device:
         # trained on cpu
@@ -457,26 +442,25 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef uintptr_t _labels_ptr = labels.ptr
 
-    IF GPUBUILD == 1:
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
 
-        cdef PredictionData *prediction_data_ = \
-            <PredictionData*><size_t>clusterer.prediction_data_ptr
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-        out_of_sample_predict(handle_[0],
-                              deref(condensed_tree),
-                              deref(prediction_data_),
-                              <float*> _input_ptr,
-                              <int*> _labels_ptr,
-                              <float*> _prediction_ptr,
-                              n_prediction_points,
-                              _metrics_mapping[clusterer.metric],
-                              clusterer.min_samples,
-                              <int*> _prediction_labels_ptr,
-                              <float*> _prediction_probs_ptr)
+    out_of_sample_predict(handle_[0],
+                          deref(condensed_tree),
+                          deref(prediction_data_),
+                          <float*> _input_ptr,
+                          <int*> _labels_ptr,
+                          <float*> _prediction_ptr,
+                          n_prediction_points,
+                          _metrics_mapping[clusterer.metric],
+                          clusterer.min_samples,
+                          <int*> _prediction_labels_ptr,
+                          <float*> _prediction_probs_ptr)
 
     clusterer.handle.sync()
     return prediction_labels.to_output(output_type="numpy"), \
