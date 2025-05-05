@@ -130,7 +130,6 @@ inline void launcher(const raft::handle_t& handle,
         target[i * n_neighbors + j] = source[i * graph_degree + j];
       }
     }
-
     raft::copy(handle,
                raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors),
                temp_indices_h.view());
