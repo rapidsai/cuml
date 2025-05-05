@@ -24,6 +24,7 @@ import numpy as np
 from dask.distributed import Future
 
 from cuml import using_output_type
+from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
 from cuml.legacy.fil.fil import TreeliteModel
@@ -52,7 +53,10 @@ class BaseRandomForestModel(object):
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
-            workers = list(self.client.scheduler_info()["workers"].keys())
+            kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+            workers = list(
+                self.client.scheduler_info(**kwargs)["workers"].keys()
+            )
         self.workers = workers
         self._set_internal_model(None)
         self.active_workers = list()
