@@ -32,7 +32,7 @@ from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
 
-cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
+cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,

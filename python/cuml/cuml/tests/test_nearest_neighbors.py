@@ -30,7 +30,6 @@ from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors as skKNN
 
 import cuml
-from cuml.common import has_scipy
 from cuml.datasets import make_blobs
 from cuml.internals import logger  # noqa: F401
 from cuml.metrics import pairwise_distances as cuPW
@@ -99,10 +98,6 @@ def metric_p_combinations():
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("metric_p", metric_p_combinations())
 @pytest.mark.parametrize("nrows", [1000, stress_param(10000)])
-@pytest.mark.skipif(
-    not has_scipy(),
-    reason="Skipping test_self_neighboring" " because Scipy is missing",
-)
 def test_self_neighboring(datatype, metric_p, nrows):
     """Test that searches using an indexed vector itself return sensible
     results for that vector
@@ -116,11 +111,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
     n_neighbors = 3
 
     metric, p = metric_p
-
-    if not has_scipy():
-        pytest.skip(
-            "Skipping test_self_neighboring because " + "Scipy is missing"
-        )
 
     X, y = make_blobs(
         n_samples=nrows, centers=n_clusters, n_features=ncols, random_state=0
@@ -178,12 +168,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
 def test_neighborhood_predictions(
     nrows, ncols, n_neighbors, n_clusters, datatype, algo
 ):
-    if not has_scipy():
-        pytest.skip(
-            "Skipping test_neighborhood_predictions because "
-            + "Scipy is missing"
-        )
-
     X, y = make_blobs(
         n_samples=nrows, centers=n_clusters, n_features=ncols, random_state=0
     )

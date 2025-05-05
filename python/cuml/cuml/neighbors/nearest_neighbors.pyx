@@ -45,13 +45,12 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.neighbors.ann cimport *
 
 
-cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatial::knn":
+cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatial::knn" nogil:
     cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,
                        float *X,
@@ -59,7 +58,7 @@ cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatia
                        uint32_t n_cols,
                        RaftDistanceType metric) except +
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     void brute_force_knn(
         const handle_t &handle,
         vector[float*] &inputs,
@@ -112,7 +111,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int n
     ) except +
 
-cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
+cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
     void brute_force_knn(handle_t &handle,
                          const int *idxIndptr,
                          const int *idxIndices,

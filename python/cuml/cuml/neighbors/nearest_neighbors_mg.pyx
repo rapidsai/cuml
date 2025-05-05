@@ -37,8 +37,7 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 
 
-cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
-        "ML::KNN::opg":
+cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
 
     cdef void knn(
         handle_t &handle,

@@ -46,7 +46,7 @@ from cuml.tsa.stationarity import kpss_test
 # - Would a "one-fits-all" method be useful?
 
 
-cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
+cdef extern from "cuml/tsa/auto_arima.h" namespace "ML" nogil:
     int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
                                    int* index, int batch_size)
 
@@ -98,7 +98,7 @@ cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
-cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     bool detect_missing(
         handle_t& handle, const double* d_y, int n_elem)
 

@@ -23,12 +23,7 @@ from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda as nbcuda
 from pandas import Series as pdSeries
 
-from cuml.common import (
-    CumlArray,
-    has_cupy,
-    input_to_cuml_array,
-    input_to_host_array,
-)
+from cuml.common import CumlArray, input_to_cuml_array, input_to_host_array
 from cuml.internals.input_utils import convert_dtype, input_to_cupy_array
 from cuml.manifold import umap
 
@@ -249,11 +244,6 @@ def test_convert_input_dtype(
             pytest.xfail(
                 "unsigned int types not yet supported by \
                          cuDF"
-            )
-        elif not has_cupy():
-            pytest.xfail(
-                "unsigned int types not yet supported by \
-                         cuDF and cuPy is not installed."
             )
 
     input_data, real_data = get_input(

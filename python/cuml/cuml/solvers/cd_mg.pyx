@@ -32,7 +32,7 @@ from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
 
-cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg":
+cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,

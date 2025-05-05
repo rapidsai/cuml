@@ -13,8 +13,6 @@
 # =============================================================================
 
 set(cython_sources "")
-add_module_gpu_default("cuda.pyx")
-add_module_gpu_default("handle.pyx")
 add_module_gpu_default("pointer_utils.pyx")
 
 if(NOT SINGLEGPU)

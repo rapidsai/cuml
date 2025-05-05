@@ -31,12 +31,12 @@ from cuml.internals.input_utils import input_to_cupy_array
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
+cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML" nogil:
     enum SeasonalType:
         ADDITIVE
         MULTIPLICATIVE
 
-cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
+cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters" nogil:
     cdef void buffer_size(
         int n, int batch_size, int frequency,
         int *start_leveltrend_len, int *start_season_len,
