@@ -700,7 +700,7 @@ class UMAP(UniversalBase,
                     <float*>_embed_raw_ptr,
                     <COO*> fss_graph.get())
 
-            self.graph_ = fss_graph.get_cupy_coo()
+            self.graph_ = fss_graph.get_scipy_coo()
 
             self.handle.sync()
 

@@ -111,6 +111,12 @@ cdef class GraphHolder:
 
         return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
 
+    def get_scipy_coo(self):
+        cp_coo = self.get_cupy_coo()
+        sp_coo = cp_coo.get()
+        self.c_graph.reset(NULL)
+        return sp_coo
+
     def __dealloc__(self):
         self.c_graph.reset(NULL)
 
