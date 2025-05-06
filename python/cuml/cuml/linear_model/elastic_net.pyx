@@ -25,7 +25,12 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
@@ -304,6 +309,7 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
+    @warn_legacy_device_interop
     def fit(self, X, y, convert_dtype=True,
             sample_weight=None) -> "ElasticNet":
         """

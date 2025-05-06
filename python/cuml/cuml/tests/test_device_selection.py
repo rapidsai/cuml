@@ -849,3 +849,32 @@ def test_svr_methods(train_device, infer_device):
         output = model.predict(X_test_reg)
 
     np.testing.assert_allclose(ref_output, output, rtol=0.15)
+
+
+@pytest.mark.parametrize(
+    "cls",
+    ["LogisticRegression", "LinearRegression", "ElasticNet", "Lasso", "Ridge"],
+)
+def test_legacy_device_selection_warns(cls):
+    """Check that running in a `using_device_type("cpu")` block warns
+    and doesn't fail for classes that used to support CPU execution in
+    this manner."""
+    model = getattr(cuml, cls)()
+    if model._estimator_type == "classifier":
+        X, y, X_test = (X_train_reg, y_train_reg, X_test_reg)
+    else:
+        X, y, X_test = (X_train_class, y_train_class, X_test_class)
+
+    with pytest.warns(
+        UserWarning, match="Support for setting the `device_type`"
+    ):
+        with using_device_type("cpu"):
+            model.fit(X, y)
+
+    with pytest.warns(
+        UserWarning, match="Support for setting the `device_type`"
+    ):
+        with using_device_type("cpu"):
+            res = model.predict(X_test)
+
+    assert type(res) is type(X_test)

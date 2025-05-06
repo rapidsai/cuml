@@ -13,9 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
+import functools
+import warnings
 from importlib import import_module
 from typing import Any
 
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_output_type
 
@@ -23,8 +27,39 @@ __all__ = (
     "UnsupportedOnGPU",
     "UnsupportedOnCPU",
     "InteropMixin",
+    "warn_legacy_device_interop",
     "to_gpu",
 )
+
+
+def warn_legacy_device_interop(gpu_func):
+    """A decorator for warning users that device selection no longer
+    works on methods previously decorated by `enable_device_selection`."""
+
+    @functools.wraps(gpu_func)
+    def inner(self, *args, **kwargs):
+        cls = type(self)
+        gpu_cls_name = cls.__name__
+        cpu_cls_path = cls._cpu_class_path
+        if GlobalSettings().device_type == DeviceType.host:
+            from cuml.common.device_selection import using_device_type
+
+            warnings.warn(
+                f"Support for setting the `device_type` to execute `{gpu_cls_name}` "
+                f"methods on CPU was removed in version 25.06. Please use "
+                f"`{cpu_cls_path}` directly to handle CPU execution, and "
+                f"`{gpu_cls_name}.from_sklearn`/`{gpu_cls_name}.as_sklearn` "
+                f"to manage conversion to/from cuML as needed."
+            )
+            # Some code internally still checks device_type and errors on the GPU
+            # path if device_type isn't device. For now we warn if set to host
+            # and change to device temporarily for just this method.
+            with using_device_type("device"):
+                return gpu_func(self, *args, **kwargs)
+        else:
+            return gpu_func(self, *args, **kwargs)
+
+    return inner
 
 
 def to_gpu(x, order="K"):

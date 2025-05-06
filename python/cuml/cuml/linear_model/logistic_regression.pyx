@@ -31,7 +31,11 @@ from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.interop import InteropMixin, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.mixins import (
     ClassifierMixin,
     FMajorInputTagMixin,
@@ -334,6 +338,7 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any()
+    @warn_legacy_device_interop
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
         """
@@ -456,6 +461,7 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
+    @warn_legacy_device_interop
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
@@ -472,6 +478,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_any()
+    @warn_legacy_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
@@ -535,6 +542,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
+    @warn_legacy_device_interop
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
@@ -551,6 +559,7 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
+    @warn_legacy_device_interop
     def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
