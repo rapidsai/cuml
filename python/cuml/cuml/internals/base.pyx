@@ -268,7 +268,6 @@ class Base(TagsMixin,
         self._input_type = None
         self._input_mem_type = None
         self.target_dtype = None
-        self.n_features_in_ = None
 
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
