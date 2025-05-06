@@ -91,6 +91,13 @@ cdef extern from "raft/sparse/coo.hpp" nogil:
         int* rows()
         int* cols()
 
+    cdef cppclass host_COO "raft::sparse::host_COO<float, int>":
+        COO()
+        int nnz
+        float* vals()
+        int* rows()
+        int* cols()
+
 cdef class GraphHolder:
     cdef unique_ptr[COO] c_graph
     cdef DeviceMemoryResource mr
@@ -109,3 +116,15 @@ cdef class GraphHolder:
     cdef uintptr_t rows(GraphHolder self)
     cdef uintptr_t cols(GraphHolder self)
     cdef uint64_t get_nnz(GraphHolder self)
+
+cdef class HostGraphHolder:
+    cdef unique_ptr[host_COO] c_graph
+
+    @staticmethod
+    cdef HostGraphHolder new_graph()
+
+    cdef host_COO* get(HostGraphHolder self)
+    cdef uintptr_t vals(HostGraphHolder self)
+    cdef uintptr_t rows(HostGraphHolder self)
+    cdef uintptr_t cols(HostGraphHolder self)
+    cdef uint64_t get_nnz(HostGraphHolder self)

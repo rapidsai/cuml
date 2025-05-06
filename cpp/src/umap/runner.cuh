@@ -345,18 +345,24 @@ void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
           value_t* embeddings,
-          raft::sparse::COO<float, int>* graph)
+          raft::sparse::host_COO<float, int>* host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
+  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, graph);
+    handle, inputs, params, &full_graph);
+
+  host_graph->init(full_graph, stream);
 
   raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
-  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
+  raft::sparse::COO<value_t>* graph =
+    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+
+  if (graph == &trimmed_graph) { full_graph.release(); }
 
   /**
    * Run initialization method
@@ -386,18 +392,24 @@ void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
                      value_t* embeddings,
-                     raft::sparse::COO<float, int>* graph)
+                     raft::sparse::host_COO<float, int>* host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
 
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
+  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, graph);
+    handle, inputs, params, &full_graph);
+
+  host_graph->init(full_graph, stream);
 
   raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
-  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
+  raft::sparse::COO<value_t>* graph =
+    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+
+  if (graph == &trimmed_graph) { full_graph.release(); }
 
   /**
    * Initialize embeddings

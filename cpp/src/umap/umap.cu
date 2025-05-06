@@ -78,7 +78,7 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
-         raft::sparse::COO<float, int>* graph)
+         raft::sparse::host_COO<float, int>* graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _fit<uint64_t>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph);
@@ -98,7 +98,7 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
-                raft::sparse::COO<float, int>* graph)
+                raft::sparse::host_COO<float, int>* graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _fit_sparse<uint64_t>(handle,

@@ -25,9 +25,12 @@ from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 from cuml.manifold.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
 
+import ctypes
+
 import cupy as cp
 import cupyx
 import numpy as np
+import scipy
 
 
 cdef class GraphHolder:
@@ -107,11 +110,44 @@ cdef class GraphHolder:
 
         return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
 
-    def get_scipy_coo(self):
-        cp_coo = self.get_cupy_coo()
-        sp_coo = cp_coo.get()
+    def __dealloc__(self):
         self.c_graph.reset(NULL)
-        return sp_coo
+
+cdef class HostGraphHolder:
+    @staticmethod
+    cdef HostGraphHolder new_graph():
+        cdef HostGraphHolder graph = HostGraphHolder.__new__(HostGraphHolder)
+        graph.c_graph.reset(new host_COO())
+        return graph
+
+    cdef uintptr_t vals(self):
+        return <uintptr_t>self.get().vals()
+
+    cdef uintptr_t rows(self):
+        return <uintptr_t>self.get().rows()
+
+    cdef uintptr_t cols(self):
+        return <uintptr_t>self.get().cols()
+
+    cdef uint64_t get_nnz(self):
+        return self.get().nnz
+
+    def get_scipy_coo(self):
+        def create_nonowning_numpy_array(ptr, dtype):
+            c_type = np.ctypeslib.as_ctypes_type(dtype)
+            c_pointer = ctypes.cast(ptr, ctypes.POINTER(c_type))
+            return np.ctypeslib.as_array(c_pointer, shape=(self.get_nnz(),))
+
+        vals = create_nonowning_numpy_array(self.vals(), np.float32)
+        rows = create_nonowning_numpy_array(self.rows(), np.int32)
+        cols = create_nonowning_numpy_array(self.cols(), np.int32)
+
+        graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
+        self.c_graph.reset(NULL)
+        return graph
+
+    cdef inline host_COO* get(self):
+        return self.c_graph.get()
 
     def __dealloc__(self):
         self.c_graph.reset(NULL)
