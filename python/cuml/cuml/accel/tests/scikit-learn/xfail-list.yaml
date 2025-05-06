@@ -727,7 +727,6 @@
   - "sklearn.model_selection.tests.test_search::test_grid_search_pipeline_steps"
   - "sklearn.model_selection.tests.test_search::test_search_cv_pairwise_property_equivalence_of_precomputed"
   - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_class_subset"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
@@ -1230,6 +1229,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
+  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
 - reason: "cuml.accel bug: Missing components_ attribute"
   tests:
   - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
