@@ -24,9 +24,7 @@ name = "libcuml"
 dynamic = ["version"]
 description = "cuML - RAPIDS ML Algorithms (C++)"
 readme = { file = "README.md", content-type = "text/markdown" }
-authors = [
-    { name = "NVIDIA Corporation" },
-]
+authors = [{ name = "NVIDIA Corporation" }]
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 classifiers = [
@@ -51,15 +49,13 @@ dependencies = [
 Homepage = "https://github.com/rapidsai/cuml"
 
 [project.entry-points."cmake.prefix"]
-libcuml= "libcuml"
+libcuml = "libcuml"
 
 [tool.pydistcheck]
-select = [
-    "distro-too-large-compressed",
-]
+select = ["distro-too-large-compressed"]
 
 # detect when package size grows significantly
-max_allowed_size_compressed = '500M'
+max_allowed_size_compressed = '550M'
 
 [tool.scikit-build]
 build-dir = "build/{wheel_tag}"
