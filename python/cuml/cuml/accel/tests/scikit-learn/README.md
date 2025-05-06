@@ -133,7 +133,8 @@ alias gitsha='git rev-parse --short HEAD'
 ### 2. Analyze and Group Failures
 Use the summarize-results script to analyze failures:
 ```bash
-./summarize-results.py report-bugs-$(gitsha).xml
+# Select the first 10 failures
+./summarize-results.py report-bugs-$(gitsha).xml --limit 10 --format=traceback
 ```
 
 Group similar failures together based on:

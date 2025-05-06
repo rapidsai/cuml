@@ -71,7 +71,7 @@ def parse_args():
     )
     parser.add_argument(
         "--format",
-        choices=["summary", "xfail_list"],
+        choices=["summary", "xfail_list", "traceback"],
         default="summary",
         help="Output format (default: summary)",
     )
@@ -91,6 +91,11 @@ def parse_args():
         choices=["keep", "remove", "mark-flaky"],
         default="keep",
         help="How to handle XPASS tests (default: keep)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit output to first N entries (default: no limit)",
     )
     return parser.parse_args()
 
@@ -298,6 +303,63 @@ def format_table(rows, col_sep="  "):
     return formatted_rows
 
 
+def format_traceback_output(testsuite, limit=None):
+    """Format test results showing tracebacks of failed tests.
+
+    Args:
+        testsuite: XML testsuite element containing test results
+        limit: Optional limit on number of entries to show
+
+    Returns:
+        List of formatted strings containing test results and tracebacks
+    """
+    output = []
+    output.append("Failed Tests with Tracebacks:")
+    output.append("=" * 80)
+
+    count = 0
+    for testcase in testsuite.findall(".//testcase"):
+        if limit is not None and count >= limit:
+            output.append(f"\n... (showing first {limit} entries)")
+            break
+
+        failure = testcase.find("failure")
+        error = testcase.find("error")
+
+        if failure is not None or error is not None:
+            classname = testcase.get("classname", "")
+            if not classname.startswith("sklearn."):
+                classname = f"sklearn.{classname}"
+            test_id = f"{classname}::{testcase.get('name')}"
+
+            msg = ""
+            details = ""
+
+            if failure is not None:
+                msg = failure.get("message", "")
+                details = failure.text
+            elif error is not None:
+                msg = error.get("message", "")
+                details = error.text
+
+            if "XPASS" in msg:
+                continue  # Skip xpassed tests
+            elif msg == "xfail":
+                continue  # Skip xfailed tests
+
+            output.append(f"\nTest: {test_id}")
+            output.append("-" * 80)
+            if msg:
+                output.append(f"Error: {msg}")
+            if details:
+                output.append("\nTraceback:")
+                output.append(details)
+            output.append("=" * 80)
+            count += 1
+
+    return output
+
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -371,6 +433,11 @@ def main():
     )
     pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
 
+    if args.format == "traceback":
+        output = format_traceback_output(testsuite, args.limit)
+        print("\n".join(output))
+        return
+
     if args.format == "xfail_list" or args.update_xfail_list:
         # Get test results
         test_results = get_test_results(testsuite)
@@ -399,7 +466,10 @@ def main():
         else:
             # Generate new xfail list
             xfail_list = []
+            count = 0
             for test_id, result in test_results.items():
+                if args.limit is not None and count >= args.limit:
+                    break
                 if result["status"] in ("fail", "xfail"):
                     if not xfail_list:
                         xfail_list.append(
@@ -412,6 +482,7 @@ def main():
                             )
                         )
                     xfail_list[0]["tests"].append(test_id)
+                    count += 1
             if xfail_list:
                 xfail_list[0]["tests"].sort()
             # Print to stdout
@@ -439,7 +510,11 @@ def main():
     # List failed tests in verbose mode
     if (regular_failures + total_errors) > 0 and args.verbose:
         print("\nFailed Tests:")
+        count = 0
         for testcase in testsuite.findall(".//testcase"):
+            if args.limit is not None and count >= args.limit:
+                print(f"  ... (showing first {args.limit} entries)")
+                break
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
@@ -454,11 +529,16 @@ def main():
                     print(f"  {testcase.get('name')} (xfail)")
                 else:
                     print(f"  {testcase.get('name')}")
+                count += 1
 
     # List strict xpasses in verbose mode
     if xpassed_strict > 0 and args.verbose:
         print("\nPotential Improvements (Strict XPASS):")
+        count = 0
         for testcase in testsuite.findall(".//testcase"):
+            if args.limit is not None and count >= args.limit:
+                print(f"  ... (showing first {args.limit} entries)")
+                break
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
@@ -469,6 +549,7 @@ def main():
                     msg = error.get("message")
                 if "XPASS(strict)" in msg:
                     print(f"  {testcase.get('name')}")
+                    count += 1
 
     # Check threshold
     if pass_rate < args.fail_below:
