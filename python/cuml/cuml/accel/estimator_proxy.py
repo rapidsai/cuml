@@ -14,9 +14,9 @@
 # limitations under the License.
 from __future__ import annotations
 
+import functools
 import importlib
 import inspect
-from functools import wraps
 from typing import Any
 
 import sklearn
@@ -35,7 +35,7 @@ def is_proxy(instance_or_class) -> bool:
     return issubclass(cls, (ProxyMixin, ProxyBase))
 
 
-def reconstruct_proxy(proxy_module, proxy_name, state):
+def reconstruct_proxy_mixin(proxy_module, proxy_name, state):
     module = importlib.import_module(proxy_module)
     cls = getattr(module, proxy_name)
     obj = cls.__new__(cls)
@@ -90,7 +90,7 @@ class ProxyMixin:
 
     def __reduce__(self):
         return (
-            reconstruct_proxy,
+            reconstruct_proxy_mixin,
             (
                 self._proxy_module,
                 type(self).__name__,
@@ -140,6 +140,61 @@ class ProxyMixin:
         return self
 
 
+class _ReconstructProxy:
+    """A function for reconstructing serialized estimators.
+
+    Defined this way so that it pickles by value, allowing unpickling in
+    environments where cuml isn't installed."""
+
+    @functools.cached_property
+    def _reconstruct(self):
+        # The reconstruct function is defined in a closure so that cloudpickle
+        # will always serialize it by value rather than by reference. This allows
+        # the saved model to be loaded in an environment without cuml installed,
+        # where it will load as the CPU model directly.
+        def reconstruct(cls_path, cpu_model):
+            """Reconstruct a serialized estimator.
+
+            Returns a proxy estimator if `cuml.accel` is installed, falling back
+            to a CPU model otherwise.
+            """
+            import importlib
+
+            path, _, name = cls_path.rpartition(".")
+            module = importlib.import_module(path)
+            try:
+                # `cuml` is in the exclude list, so this _reconstruct method is as well.
+                # To work around this, we directly access the accelerator override mapping
+                # (if available), falling back to CPU if not.
+                cls = module._accel_overrides[name]
+            except (KeyError, AttributeError):
+                # Either:
+                # - cuml.accel is not installed
+                # - The cuml version doesn't support this estimator type
+                # Return the CPU estimator directly
+                return cpu_model
+            # `cuml.accel` is installed, reconstruct a proxy estimator
+            return cls._reconstruct_from_cpu(cpu_model)
+
+        return reconstruct
+
+    def __reduce__(self):
+        import pickle
+
+        # Use cloudpickle bundled with joblib. Since joblib is a required dependency
+        # of sklearn (and sklearn is a required dep of cuml & all accelerated modules),
+        # this should always be installed.
+        import joblib.externals.cloudpickle as cloudpickle
+
+        return (pickle.loads, (cloudpickle.dumps(self._reconstruct),))
+
+    def __call__(self, cls_path, cpu):
+        return self._reconstruct(cls_path, cpu)
+
+
+_reconstruct_proxy = _ReconstructProxy()
+
+
 class ProxyBase(BaseEstimator):
     """A base class for defining new Proxy estimators.
 
@@ -176,6 +231,15 @@ class ProxyBase(BaseEstimator):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
 
+        # Forward some metadata to make the proxy class look like the CPU class
+        cls.__qualname__ = cls._cpu_class.__qualname__
+        cls.__doc__ = cls._cpu_class.__doc__
+        cls.__signature__ = inspect.signature(cls._cpu_class)
+        # We use the `_cpu_class_path` (which matches the patched path) instead of
+        # the original full module path so that the class (not an instance) can
+        # be pickled properly.
+        cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
         methods = [
@@ -188,7 +252,7 @@ class ProxyBase(BaseEstimator):
         def _make_method(name):
             cpu_method = getattr(cls._cpu_class, name)
 
-            @wraps(cpu_method)
+            @functools.wraps(cpu_method)
             def method(self, *args, **kwargs):
                 return self._call_method(name, *args, **kwargs)
 
@@ -199,7 +263,7 @@ class ProxyBase(BaseEstimator):
                 setattr(cls, name, _make_method(name))
 
     def _sync_params_to_gpu(self) -> None:
-        """Sync hyperparameters to GPU estimator.
+        """Sync hyperparameters to GPU estimator from CPU estimator.
 
         If the hyperparameters are unsupported, will cause proxy
         to fallback to CPU until refit."""
@@ -212,11 +276,36 @@ class ProxyBase(BaseEstimator):
                 self._gpu = None
 
     def _sync_attrs_to_cpu(self) -> None:
-        """Sync attributes to CPU estimator."""
-        if not self._synced:
-            if self._gpu is not None:
-                self._gpu._sync_attrs_to_cpu(self._cpu)
+        """Sync fit attributes to CPU estimator from GPU estimator.
+
+        This is a no-op if fit attributes are already in sync.
+        """
+        if self._gpu is not None and not self._synced:
+            self._gpu._sync_attrs_to_cpu(self._cpu)
             self._synced = True
+
+    @classmethod
+    def _reconstruct_from_cpu(cls, cpu):
+        """Reconstruct a proxy estimator from its CPU counterpart.
+
+        Primarily used when unpickling serialized proxy estimators."""
+        assert type(cpu) is cls._cpu_class
+        self = cls.__new__(cls)
+        self._cpu = cpu
+        self._synced = False
+        if hasattr(self._cpu, "n_features_in_"):
+            # This is a fit estimator. Try to convert model back to GPU
+            try:
+                self._gpu = self._gpu_class.from_sklearn(self._cpu)
+            except UnsupportedOnGPU:
+                self._gpu = None
+            else:
+                # Supported on GPU, clear fit attributes from CPU to release host memory
+                self._cpu = sklearn.clone(self._cpu)
+        else:
+            # Estimator is unfit, delay GPU init until needed
+            self._gpu = None
+        return self
 
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
@@ -275,10 +364,20 @@ class ProxyBase(BaseEstimator):
         self._sync_attrs_to_cpu()
         return dir(self._cpu)
 
+    def __reduce__(self):
+        # We only use the CPU estimator for pickling, ensure its fully synced
+        self._sync_attrs_to_cpu()
+        return (
+            _reconstruct_proxy,
+            (self._gpu_class._cpu_class_path, self._cpu),
+        )
+
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
             # Never proxy magic methods or private attributes
-            raise AttributeError(name)
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
+            )
 
         if name.endswith("_"):
             # Fit attributes require syncing
@@ -303,11 +402,11 @@ class ProxyBase(BaseEstimator):
     # Public sklearn methods                                   #
     ############################################################
 
-    @wraps(BaseEstimator.get_params)
+    @functools.wraps(BaseEstimator.get_params)
     def get_params(self, deep=True):
         return self._cpu.get_params(deep=deep)
 
-    @wraps(BaseEstimator.set_params)
+    @functools.wraps(BaseEstimator.set_params)
     def set_params(self, **kwargs):
         self._cpu.set_params(**kwargs)
         self._sync_params_to_gpu()
@@ -317,7 +416,7 @@ class ProxyBase(BaseEstimator):
 
     def __sklearn_clone__(self):
         cls = type(self)
-        out = cls.__new__()
+        out = cls.__new__(cls)
         # Clone only copies hyperparameters.
         out._cpu = sklearn.clone(self._cpu)
         out._gpu = None
@@ -334,7 +433,7 @@ class ProxyBase(BaseEstimator):
 
     @classmethod
     def _get_param_names(cls):
-        return cls._cpu._get_param_names()
+        return cls._cpu_class._get_param_names()
 
     def _validate_params(self):
         self._cpu._validate_params()

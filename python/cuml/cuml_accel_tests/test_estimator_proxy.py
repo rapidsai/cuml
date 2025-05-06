@@ -12,95 +12,282 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+import inspect
 import pickle
 import subprocess
 import sys
 from textwrap import dedent
 
-import numpy as np
-from sklearn import clone
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.neighbors import NearestNeighbors
+import pytest
+import sklearn
+from packaging.version import Version
+from sklearn.base import is_classifier, is_regressor
+from sklearn.datasets import make_classification, make_regression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 from cuml.accel import is_proxy
+
+SKLEARN_VERSION = Version(sklearn.__version__)
 
 
 def test_is_proxy():
     class Foo:
         pass
 
-    assert is_proxy(PCA)
-    assert is_proxy(PCA())
+    assert is_proxy(LogisticRegression)
+    assert is_proxy(LogisticRegression())
     assert not is_proxy(Foo)
     assert not is_proxy(Foo())
 
 
-def test_meta_attributes():
-    # Check that the proxy estimator pretends to look like the
-    # class it is proxying
+def test_class_metadata():
+    cpu_cls = LogisticRegression._cpu_class
 
-    # A random estimator, shouldn't matter which one as all are proxied
-    # the same way.
-    # We need an instance to get access to the `_cpu_model_class`
-    # but we want to compare to the PCA class
-    pca = PCA()
-    for attr in (
-        "__module__",
-        "__name__",
-        "__qualname__",
-        "__doc__",
-        "__annotate__",
-        "__type_params__",
-    ):
-        # if the original class has this attribute, the proxy should
-        # have it as well and the values should match
-        try:
-            original_value = getattr(pca._cpu_model_class, attr)
-        except AttributeError:
-            pass
-        else:
-            proxy_value = getattr(PCA, attr)
+    assert LogisticRegression.__name__ == cpu_cls.__name__
+    assert LogisticRegression.__qualname__ == cpu_cls.__qualname__
+    assert LogisticRegression.__doc__ == cpu_cls.__doc__
 
-            assert original_value == proxy_value
+    cls = importlib.import_module(
+        LogisticRegression.__module__
+    ).LogisticRegression
+    assert cls is LogisticRegression
+
+    cpu_sig = inspect.signature(cpu_cls)
+    assert inspect.signature(LogisticRegression) == cpu_sig
 
 
-def test_clone():
-    # Test that cloning a proxy estimator preserves parameters, even those we
-    # translate for the cuml class
-    pca = PCA(n_components=42, svd_solver="arpack")
-    pca_clone = clone(pca)
+def test_method_metadata():
+    cpu_cls = LogisticRegression._cpu_class
 
-    assert pca.get_params() == pca_clone.get_params()
+    assert LogisticRegression.fit.__name__ == cpu_cls.fit.__name__
+    assert LogisticRegression.fit.__doc__ == cpu_cls.fit.__doc__
 
-
-def test_pickle():
-    pca = PCA(n_components=42, svd_solver="arpack")
-    buf = pickle.dumps(pca)
-    pca2 = pickle.loads(buf)
-    assert type(pca2) is PCA
-    assert pca2.get_params() == pca2.get_params()
-    assert repr(pca) == repr(pca2)
+    cpu_sig = inspect.signature(cpu_cls.fit)
+    assert inspect.signature(LogisticRegression.fit) == cpu_sig
 
 
-def test_pickle_loads_doesnt_install_accelerator():
-    pca = PCA(n_components=42)
-    buf = pickle.dumps(pca)
+def test_sklearn_introspect_estimator_type():
+    assert is_classifier(LogisticRegression())
+    assert is_regressor(LinearRegression())
+
+
+@pytest.mark.skipif(
+    SKLEARN_VERSION < Version("1.6"), reason="sklearn >= 1.6 only"
+)
+def test_sklearn_utils_get_tags():
+    """sklearn.utils.get_tags was added in sklearn 1.6"""
+    from sklearn.utils import get_tags
+
+    model = LogisticRegression()
+    assert get_tags(model) == get_tags(model._cpu)
+
+
+@pytest.mark.skipif(
+    SKLEARN_VERSION >= Version("1.6"), reason="sklearn < 1.6 only"
+)
+def test_BaseEstimator__get_tags():
+    model = LogisticRegression()
+    assert model._get_tags() == model._cpu._get_tags()
+
+
+def test_BaseEstimator__validate_params():
+    model = LogisticRegression()
+    model._validate_params()
+
+    model.C = "oops"
+    with pytest.raises(Exception, match="C"):
+        model._validate_params()
+
+
+def test_BaseEstimator__get_param_names():
+    names = LogisticRegression._get_param_names()
+    sol = LogisticRegression._cpu_class._get_param_names()
+    assert names == sol
+
+
+def test_repr():
+    model = LogisticRegression(C=1.5)
+    assert str(model) == str(model._cpu)
+    assert repr(model) == repr(model._cpu)
+    # smoketest _repr_mimebundle_. It changes per-call, so can't directly compare
+    assert isinstance(model._repr_mimebundle_(), dict)
+
+
+def test_dir():
+    params = {"C", "fit_intercept"}
+    attrs = {"n_features_in_", "coef_", "intercept_"}
+    methods = {"fit", "predict"}
+    private = {"_cpu", "_gpu", "_synced", "_call_method"}
+
+    model = LogisticRegression(C=1.5)
+    names = set(dir(model))
+    assert names.issuperset(params | methods)
+    assert names.isdisjoint(attrs | private)
+
+    X, y = make_classification()
+    model.fit(X, y)
+    names = set(dir(model))
+    assert names.issuperset(params | attrs | methods)
+    assert names.isdisjoint(private)
+
+
+def test_getattr():
+    model = LogisticRegression(C=1.5, fit_intercept=False)
+    assert model.C == 1.5
+    assert model.fit_intercept is False
+
+    # Never proxy through private attributes
+    model._cpu._xxx_private_attr = "some_value"
+    with pytest.raises(AttributeError):
+        model._xxx_private_attr
+
+    # Unfit, no fit attributes
+    with pytest.raises(AttributeError):
+        model.coef_
+
+    X, y = make_classification()
+    model.fit(X, y)
+    # Fit attributes now available
+    assert model.coef_ is model._cpu.coef_
+
+
+def test_setattr():
+    model = LinearRegression()
+
+    # Hyperparameters are forwarded to CPU
+    model.fit_intercept = False
+    assert not model._cpu.fit_intercept
+    assert model._gpu is None
+
+    # Fit uses current hyperparameters
+    X, y = make_regression(n_samples=10)
+    model.fit(X, y)
+    assert not model._gpu.fit_intercept
+
+    # Changing hyperparameters forwards to both
+    model.fit_intercept = True
+    assert model._cpu.fit_intercept
+    assert model._gpu.fit_intercept
+
+    # But changing to an unsupported value causes fallback to CPU,
+    # ensuring fit attributes are forwarded to CPU
+    model.positive = True
+    assert model._cpu.positive
+    assert model._cpu.coef_ is not None
+    assert model._gpu is None
+
+    # Changing the value of fit attributes will raise. sklearn doesn't
+    # want users doing this, and there's not much else we can do
+    with pytest.raises(ValueError, match="Cannot set attribute"):
+        model.coef_ = [1, 2, 3]
+
+
+@pytest.mark.parametrize("fit", [False, True])
+def test_clone(fit):
+    model = LogisticRegression(
+        C=1.5,
+        fit_intercept=False,
+        solver="newton-cholesky",
+    )
+    params = model.get_params()
+
+    if fit:
+        X, y = make_classification(n_samples=10)
+        model.fit(X, y)
+
+    model2 = sklearn.clone(model)
+
+    # GPU state not initialized
+    assert model2._gpu is None
+    assert not model2._synced
+    # Parameters copied
+    assert model2.get_params() == params
+    # Fit attributes not copied
+    assert not hasattr(model2, "n_features_in_")
+
+
+def test_pickle_proxy_estimator_class():
+    """Check that the *class* can be roundtripped via pickle"""
+    cls = pickle.loads(pickle.dumps(LogisticRegression))
+    assert cls is LogisticRegression
+
+
+def test_pickle_unfit():
+    model = LogisticRegression(C=1.5, solver="newton-cholesky")
+
+    model2 = pickle.loads(pickle.dumps(model))
+
+    assert model2.get_params() == model.get_params()
+    assert model2._gpu is None
+    assert not model2._synced
+
+
+def test_pickle_gpu_fit():
+    X, y = make_classification(n_samples=10)
+    model = LogisticRegression(C=1.5, solver="newton-cholesky")
+    model.fit(X, y)
+    # Ensure the test case is one that is GPU accelerated
+    assert model._gpu is not None
+
+    model2 = pickle.loads(pickle.dumps(model))
+
+    assert model2.get_params() == model.get_params()
+    # GPU model exists and is fit
+    assert model2._gpu is not None
+    assert model2._gpu.coef_ is not None
+    # CPU model has fit attributes cleared to reduce host memory
+    assert not hasattr(model2._cpu, "coef_")
+    assert not model2._synced
+
+
+def test_pickle_cpu_fit():
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression(positive=True)
+    model.fit(X, y)
+    # Ensure the test case is one that isn't GPU accelerated
+    assert model._gpu is None
+
+    model2 = pickle.loads(pickle.dumps(model))
+
+    assert model2.get_params() == model.get_params()
+    # GPU model doesn't exist
+    assert model2._gpu is None
+    # CPU model has fit attributes
+    assert model2._cpu.coef_ is not None
+    assert not model2._synced
+
+
+def test_unpickle_cuml_accel_not_active():
+    """Unpickling in an process without cuml.accel enabled uses the CPU model"""
+    X, y = make_classification(n_samples=10)
+    model = LogisticRegression(C=1.5, solver="newton-cholesky")
+    model.fit(X, y)
+
+    buf = pickle.dumps((model, X, y))
     script = dedent(
         f"""
         import pickle
 
-        model = pickle.loads({buf!r})
+        model, X, y = pickle.loads({buf!r})
 
-        assert model.n_components == 42
-        assert type(model).__name__ == "PCA"
+        assert model.C == 1.5
+        assert model.solver == "newton-cholesky"
 
         from cuml.accel import enabled
-        from cuml.accel.estimator_proxy import ProxyMixin
-        from sklearn.decomposition import PCA
+        from cuml.accel.estimator_proxy import ProxyBase
+        from sklearn.linear_model import LogisticRegression
 
         # Unpickling hasn't installed the accelerator or patched sklearn
-        assert not issubclass(PCA, ProxyMixin)
         assert not enabled()
+        assert not issubclass(LogisticRegression, ProxyBase)
+
+        # Is a scikit-learn model of expected type
+        assert type(model) is LogisticRegression
+        assert not hasattr(model, "_cpu")
+
+        # Can run inference
+        model.score(X, y)
         """
     )
     res = subprocess.run(
@@ -115,57 +302,42 @@ def test_pickle_loads_doesnt_install_accelerator():
     assert returncode == 0, stdout
 
 
-def test_params():
-    # Test that parameters match between constructor and get_params()
-    # Mix of default and non-default values
-    pca = PCA(
-        n_components=5,
-        copy=False,
-        # Pass in an argument and set it to its default value
-        whiten=False,
+def test_unpickle_cuml_not_installed():
+    """Unpickling in an environment without cuml installed uses the CPU model"""
+    X, y = make_classification(n_samples=10)
+    model = LogisticRegression(C=1.5, solver="newton-cholesky")
+    model.fit(X, y)
+
+    buf = pickle.dumps((model, X, y))
+    script = dedent(
+        f"""
+        import pickle
+        import sys
+
+        # This prevents cuml from being imported
+        sys.modules["cuml"] = None
+
+        model, X, y = pickle.loads({buf!r})
+
+        assert model.C == 1.5
+        assert model.solver == "newton-cholesky"
+
+        # Is a scikit-learn model of expected type
+        from sklearn.linear_model import LogisticRegression
+        assert type(model) is LogisticRegression
+        assert not hasattr(model, "_cpu")
+
+        # Can run inference
+        model.score(X, y)
+        """
     )
-
-    params = pca.get_params()
-    assert params["n_components"] == 5
-    assert params["copy"] is False
-    assert params["whiten"] is False
-    # A parameter we never touched, should be the default
-    assert params["tol"] == 0.0
-
-    # Check that get_params doesn't return any unexpected parameters
-    expected_params = set(
-        [
-            "n_components",
-            "copy",
-            "whiten",
-            "tol",
-            "svd_solver",
-            "n_oversamples",
-            "random_state",
-            "iterated_power",
-            "power_iteration_normalizer",
-        ]
+    res = subprocess.run(
+        [sys.executable, "-c", script],
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE,
+        text=True,
     )
-    assert set(params.keys()) == expected_params
-
-
-def test_defaults_args_only_methods():
-    # Check that estimator methods that take no arguments work
-    # These are slightly weird because basically everything else takes
-    # a X as input.
-    X = np.random.rand(1000, 3)
-    y = X[:, 0] + np.sin(6 * np.pi * X[:, 1]) + 0.1 * np.random.randn(1000)
-
-    nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
-    nn.fit(X[:, 0].reshape((-1, 1)), y)
-    nn.kneighbors()
-
-
-def test_positional_arg_estimators_work():
-    """Some sklearn estimators take positional args, check that these
-    are handled properly"""
-    pca = PCA(42)
-    assert pca.n_components == 42
-
-    svd = TruncatedSVD(42)
-    assert svd.n_components == 42
+    # Pull out attributes before assert for nicer error reporting on failure
+    returncode = res.returncode
+    stdout = res.stdout
+    assert returncode == 0, stdout
