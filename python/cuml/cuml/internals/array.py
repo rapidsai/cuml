@@ -1010,6 +1010,18 @@ class CumlArray:
             A new CumlArray
 
         """
+        # Local to workaround circular imports
+        from cuml.common.sparse_utils import is_sparse
+
+        if is_sparse(X):
+            # We don't support coercing sparse arrays to dense via this method.
+            # Raising a NotImplementedError here lets us nicely error
+            # for estimators that don't support sparse arrays without requiring
+            # an additional external check. Otherwise they'd get an opaque error
+            # for code below.
+            raise NotImplementedError(
+                "Sparse inputs are not currently supported for this method"
+            )
         if convert_to_mem_type is None:
             convert_to_mem_type = GlobalSettings().memory_type
         else:
