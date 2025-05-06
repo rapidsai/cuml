@@ -24,8 +24,6 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
-#include <raft/cluster/detail/mst.cuh>            // build_sorted_mst
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
@@ -47,99 +45,6 @@
 
 namespace ML {
 namespace HDBSCAN {
-
-/**
- * Functor with reduction ops for performing fused 1-nn
- * computation and guaranteeing only cross-component
- * neighbors are considered.
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-struct FixConnectivitiesRedOp {
-  value_t* core_dists;
-  value_idx m;
-
-  DI FixConnectivitiesRedOp() : m(0) {}
-
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
-
-  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
-  {
-    if (rit < m && other.value < std::numeric_limits<value_t>::max()) {
-      value_t core_dist_rit   = core_dists[rit];
-      value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
-
-      value_t core_dist_out;
-      if (out->key > -1) {
-        core_dist_out = max(core_dist_rit, max(core_dists[out->key], out->value));
-      } else {
-        core_dist_out = out->value;
-      }
-
-      bool smaller = core_dist_other < core_dist_out;
-      out->key     = smaller ? other.key : out->key;
-      out->value   = smaller ? core_dist_other : core_dist_out;
-    }
-  }
-
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
-  {
-    if (rit < m && a.key > -1) {
-      value_t core_dist_rit = core_dists[rit];
-      value_t core_dist_a   = max(core_dist_rit, max(core_dists[a.key], a.value));
-
-      value_t core_dist_b;
-      if (b.key > -1) {
-        core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
-      } else {
-        core_dist_b = b.value;
-      }
-
-      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a) : KVP(b.key, core_dist_b);
-    }
-
-    return b;
-  }
-
-  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal) const
-  {
-    out->key   = -1;
-    out->value = maxVal;
-  }
-
-  DI void init_key(value_t& out, value_idx idx) const { return; }
-  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
-
-  DI value_t get_value(KVP& out) const { return out.value; }
-  DI value_t get_value(value_t& out) const { return out; }
-
-  void gather(const raft::resources& handle, value_idx* map)
-  {
-    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::gather(raft::resource::get_thrust_policy(handle),
-                   map,
-                   map + m,
-                   core_dists,
-                   tmp_core_dists.data_handle());
-    raft::copy_async(
-      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
-  }
-
-  void scatter(const raft::resources& handle, value_idx* map)
-  {
-    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::scatter(raft::resource::get_thrust_policy(handle),
-                    core_dists,
-                    core_dists + m,
-                    map,
-                    tmp_core_dists.data_handle());
-    raft::copy_async(
-      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
-  }
-};
 
 /**
  * Constructs a linkage by computing mutual reachability, mst, and
@@ -189,10 +94,9 @@ void build_linkage(const raft::handle_t& handle,
     metric,
     params.alpha);
 
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists, m);
   value_idx n_edges = m - 1;
 
-  cuvs::cluster::agglomerative::build_linkage(
+  cuvs::neighbors::reachability::helpers::build_single_linkage_dendrogram(
     handle,
     raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
     metric,
@@ -204,14 +108,14 @@ void build_linkage(const raft::handle_t& handle,
                                                   value_idx(m),
                                                   value_idx(m),
                                                   mutual_reachability_nnz)),
+    raft::make_device_vector_view<value_t, value_idx>(core_dists, m),
     raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, value_idx>(
       out.get_mst_weights(),
       raft::make_device_coordinate_structure_view(
         out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
     raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
     raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
-    red_op);
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges));
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
