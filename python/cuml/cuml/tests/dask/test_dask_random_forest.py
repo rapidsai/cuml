@@ -31,6 +31,11 @@
 
 import json
 
+import cudf
+import cupy as cp
+import dask_cudf
+import numpy as np
+import pandas as pd
 import pytest
 from dask.array import from_array
 from dask.distributed import Client
@@ -44,14 +49,6 @@ from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.ensemble import RandomForestClassifier as cuRFC_sg
 from cuml.ensemble import RandomForestRegressor as cuRFR_sg
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-dask_cudf = gpu_only_import("dask_cudf")
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):

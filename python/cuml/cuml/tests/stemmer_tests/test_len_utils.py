@@ -14,14 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+import cudf
+import numpy as np
+
 from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
     len_eq_n,
     len_gt_n,
 )
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
 
 
 def test_len_gt_n():

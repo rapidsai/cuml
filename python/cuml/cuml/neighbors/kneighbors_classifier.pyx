@@ -18,6 +18,9 @@
 
 import typing
 
+import cupy as cp
+import numpy as np
+
 import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -25,31 +28,15 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-
-
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-rmm = gpu_only_import('rmm')
 
-from libc.stdint cimport int64_t, uintptr_t
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
-
-cimport cuml.common.cuda
-
-
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
 
     void knn_classify(
         handle_t &handle,
@@ -164,17 +151,18 @@ class KNeighborsClassifier(ClassifierMixin,
         self.classes_ = None
         self.weights = weights
 
-        if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy is "
-                             "supported currently.")
-
     @generate_docstring(convert_dtype_cast='np.float32')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
+        if self.weights != "uniform":
+            raise ValueError("Only uniform weighting strategy is "
+                             "supported currently.")
+
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -190,6 +178,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to

@@ -26,11 +26,10 @@
 #    License: BSD 3 clause
 #
 
+import cupy as cp
+
 from cuml.feature_extraction._tfidf import TfidfTransformer
 from cuml.feature_extraction._vectorizers import CountVectorizer
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
 
 
 class TfidfVectorizer(CountVectorizer):

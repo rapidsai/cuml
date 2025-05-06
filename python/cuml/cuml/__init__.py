@@ -24,55 +24,29 @@ else:
     libcuml.load_library()
     del libcuml
 
-from cuml.internals.available_devices import GPU_ENABLED, is_cuda_available
-from cuml.internals.base import Base, UniversalBase
+from pylibraft.common import Handle
 
-# GPU only packages
-
-if is_cuda_available():
-    import cuml.common.cuda as cuda
-    import cuml.feature_extraction
-    from cuml.cluster.agglomerative import AgglomerativeClustering
-    from cuml.cluster.dbscan import DBSCAN
-    from cuml.cluster.kmeans import KMeans
-    from cuml.common.handle import Handle
-    from cuml.common.pointer_utils import device_of_gpu_matrix
-    from cuml.datasets.arima import make_arima
-    from cuml.datasets.blobs import make_blobs
-    from cuml.datasets.classification import make_classification
-    from cuml.datasets.regression import make_regression
-    from cuml.decomposition.incremental_pca import IncrementalPCA
-    from cuml.ensemble.randomforestclassifier import RandomForestClassifier
-    from cuml.ensemble.randomforestregressor import RandomForestRegressor
-    from cuml.explainer.kernel_shap import KernelExplainer
-    from cuml.explainer.permutation_shap import PermutationExplainer
-    from cuml.explainer.tree_shap import TreeExplainer
-    from cuml.kernel_ridge.kernel_ridge import KernelRidge
-    from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
-    from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
-    from cuml.manifold.t_sne import TSNE
-    from cuml.metrics import accuracy_score, adjusted_rand_score, r2_score
-    from cuml.model_selection import train_test_split
-    from cuml.naive_bayes.naive_bayes import MultinomialNB
-    from cuml.neighbors.kernel_density import KernelDensity
-    from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
-    from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
-    from cuml.neighbors.nearest_neighbors import NearestNeighbors
-    from cuml.preprocessing.LabelEncoder import LabelEncoder
-    from cuml.random_projection.random_projection import (
-        GaussianRandomProjection,
-        SparseRandomProjection,
-        johnson_lindenstrauss_min_dim,
-    )
-    from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
-    from cuml.tsa import stationarity
-    from cuml.tsa.arima import ARIMA
-    from cuml.tsa.auto_arima import AutoARIMA
-    from cuml.tsa.holtwinters import ExponentialSmoothing
-
-# Universal packages
-
+import cuml.feature_extraction
+from cuml._version import __git_commit__, __version__
+from cuml.cluster.agglomerative import AgglomerativeClustering
+from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
+from cuml.cluster.kmeans import KMeans
+from cuml.common.pointer_utils import device_of_gpu_matrix
+from cuml.datasets.arima import make_arima
+from cuml.datasets.blobs import make_blobs
+from cuml.datasets.classification import make_classification
+from cuml.datasets.regression import make_regression
+from cuml.decomposition.incremental_pca import IncrementalPCA
+from cuml.decomposition.pca import PCA
+from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.ensemble.randomforestclassifier import RandomForestClassifier
+from cuml.ensemble.randomforestregressor import RandomForestRegressor
+from cuml.explainer.kernel_shap import KernelExplainer
+from cuml.explainer.permutation_shap import PermutationExplainer
+from cuml.explainer.tree_shap import TreeExplainer
+from cuml.fil import ForestInference, fil
+from cuml.internals.base import Base, UniversalBase
 from cuml.internals.global_settings import (
     GlobalSettings,
     _global_settings_data,
@@ -81,25 +55,37 @@ from cuml.internals.memory_utils import (
     set_global_output_type,
     using_output_type,
 )
-
-# FIL is currently not built in cuml-cpu distributions, even though it can be
-# used in a CPU-only environment. Only import if the build supports it.
-if GPU_ENABLED:
-    from cuml.fil import ForestInference
-    from cuml.fil import fil
-
-from cuml._version import __git_commit__, __version__
-from cuml.decomposition.pca import PCA
-from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.kernel_ridge.kernel_ridge import KernelRidge
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
+from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
+from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
+from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
+from cuml.metrics import accuracy_score, adjusted_rand_score, r2_score
+from cuml.model_selection import train_test_split
+from cuml.naive_bayes.naive_bayes import MultinomialNB
+from cuml.neighbors.kernel_density import KernelDensity
+from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
+from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.random_projection.random_projection import (
+    GaussianRandomProjection,
+    SparseRandomProjection,
+    johnson_lindenstrauss_min_dim,
+)
 from cuml.solvers.cd import CD
 from cuml.solvers.qn import QN
 from cuml.solvers.sgd import SGD
+from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
+from cuml.tsa import stationarity
+from cuml.tsa.arima import ARIMA
+from cuml.tsa.auto_arima import AutoARIMA
+from cuml.tsa.holtwinters import ExponentialSmoothing
 
 
 def __getattr__(name):
@@ -130,7 +116,6 @@ __all__ = [
     "AutoARIMA",
     "Base",
     "CD",
-    "cuda",
     "DBSCAN",
     "ElasticNet",
     "ExponentialSmoothing",

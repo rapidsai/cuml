@@ -17,7 +17,11 @@ from collections.abc import Iterable
 from functools import wraps
 
 import cudf.comm.serialize  # noqa: F401
+import cupy as cp
 import dask
+import dask_cudf
+import numpy as np
+from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
 from distributed.client import Future
 from raft_dask.common.comms import Comms
@@ -29,18 +33,6 @@ from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
 from cuml.internals import BaseMetaClass
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-
-dask_cudf = gpu_only_import("dask_cudf")
-dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class BaseEstimator(object, metaclass=BaseMetaClass):

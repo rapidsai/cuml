@@ -23,9 +23,8 @@ from libcpp.vector cimport vector
 
 from typing import Dict, List, Union
 
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
 
-np = cpu_only_import('numpy')
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:

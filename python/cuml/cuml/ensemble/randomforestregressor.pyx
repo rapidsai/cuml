@@ -14,23 +14,15 @@
 # limitations under the License.
 #
 # distutils: language = c++
+import numpy as np
+
+import cuml.internals
+import cuml.internals.nvtx as nvtx
+from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
 )
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
-
-np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-rmm = gpu_only_import('rmm')
-
-import cuml.internals
-from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 
@@ -50,17 +42,10 @@ from cuml.legacy.fil.fil import TreeliteModel
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
-
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 
-
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, float]*,
@@ -440,7 +425,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
         domain="cuml_python")
     @generate_docstring()
@@ -563,7 +548,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         del X_m
         return preds
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -624,11 +609,12 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         return preds
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
+    @enable_device_interop
     def score(self, X, y, algo='auto', convert_dtype=True,
               fil_sparse_format='auto', predict_model="GPU"):
         """

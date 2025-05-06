@@ -15,12 +15,11 @@
 
 # distutils: language = c++
 
+import numpy as np
+
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
 
 # TODO: #2234 and #2235
 

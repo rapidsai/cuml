@@ -13,30 +13,16 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numpy as np
 import pytest
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_random_state
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-)
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 from cuml.testing.utils import array_equal
-
-cudf = gpu_only_import("cudf")
-
-
-assert_array_almost_equal = cpu_only_import_from(
-    "numpy.testing", "assert_array_almost_equal"
-)
-
-np = cpu_only_import("numpy")
-
-
-cp = gpu_only_import("cupy")
 
 
 def test_kneighbors_regressor(
@@ -79,7 +65,7 @@ def test_kneighborsRegressor_multioutput_uniform_weight():
 
     assert y_pred.shape[0] == y_test.shape[0]
     assert y_pred_idx.shape == y_test.shape
-    assert_array_almost_equal(y_pred, y_pred_idx)
+    np.testing.assert_array_almost_equal(y_pred, y_pred_idx)
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])

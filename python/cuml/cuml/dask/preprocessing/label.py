@@ -13,16 +13,14 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx
 import dask
 
 from cuml.common import rmm_cupy_ary
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import _extract_partitions
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.preprocessing.label import LabelBinarizer as LB
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 class LabelBinarizer(BaseEstimator):

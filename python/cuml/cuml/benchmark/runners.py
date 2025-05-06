@@ -19,14 +19,12 @@ import itertools
 import time
 import warnings
 
+import numpy as np
+import pandas as pd
+from cudf import Series
+
 from cuml.benchmark import datagen
 from cuml.common.device_selection import using_device_type
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import_from
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-Series = gpu_only_import_from("cudf", "Series")
 
 
 class BenchmarkTimer:

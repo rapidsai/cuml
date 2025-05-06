@@ -17,31 +17,21 @@
 # distutils: language = c++
 
 import typing
+from random import randint
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
-
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-
-np = cpu_only_import('numpy')
+import numpy as np
+from pylibraft.common.handle import Handle
 
 import cuml.internals
+import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-
-from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
-from random import randint
 
-
-cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
+cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
     void cpp_make_regression "ML::Datasets::make_regression" (
         const handle_t& handle,
         float* out,
@@ -83,7 +73,7 @@ inp_to_dtype = {
 }
 
 
-@nvtx_annotate(message="datasets.make_regression", domain="cuml_python")
+@nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_regression(
     n_samples=100,

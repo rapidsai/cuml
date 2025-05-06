@@ -18,12 +18,11 @@
 NOTE: This is currently experimental as the ops team builds out the CI
 platform to support benchmark reporting.
 """
+import numpy as np
+import pandas as pd
+
 from cuml.benchmark import algorithms
 from cuml.benchmark.runners import run_variations
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
 
 
 def log_range(start, end, n):

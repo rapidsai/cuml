@@ -16,17 +16,16 @@
 
 import numbers
 
+import cupy as cp
+import cupyx
+import scipy.sparse
+
 import cuml.internals
-from cuml import Base
 from cuml.common import input_to_cuml_array
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-scipy = cpu_only_import("scipy")
 
 
 class IncrementalPCA(PCA):
