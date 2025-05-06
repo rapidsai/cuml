@@ -40,7 +40,6 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 
-#include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/neighbors/reachability.hpp>
 
 namespace ML {
