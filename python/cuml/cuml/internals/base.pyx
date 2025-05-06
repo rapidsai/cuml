@@ -478,7 +478,12 @@ class Base(TagsMixin,
         if isinstance(X, int):
             self.n_features_in_ = X
         else:
-            self.n_features_in_ = X.shape[1]
+            shape = X.shape
+            # dataframes can have only one dimension
+            if len(shape) == 1:
+                self.n_features_in_ = 1
+            else:
+                self.n_features_in_ = shape[1]
 
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only applies to
