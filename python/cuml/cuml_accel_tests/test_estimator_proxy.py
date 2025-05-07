@@ -19,12 +19,18 @@ import subprocess
 import sys
 from textwrap import dedent
 
+import numpy as np
 import pytest
+import scipy.sparse
 import sklearn
 from packaging.version import Version
 from sklearn.base import is_classifier, is_regressor
 from sklearn.datasets import make_classification, make_regression
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import (
+    ElasticNet,
+    LinearRegression,
+    LogisticRegression,
+)
 
 from cuml.accel import is_proxy
 
@@ -384,3 +390,99 @@ def test_unpickle_cuml_not_installed():
     returncode = res.returncode
     stdout = res.stdout
     assert returncode == 0, stdout
+
+
+def test_fit_gpu():
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression()
+    assert model.fit(X, y) is model
+    # Fit happened on GPU, attrs kept on GPU
+    assert model._gpu is not None
+    assert not hasattr(model._cpu, "n_features_in_")
+
+    # Access something that requires moving to CPU
+    assert model.coef_ is not None
+    assert hasattr(model._cpu, "n_features_in_")
+
+    # Refitting resets CPU estimator
+    assert model.fit(X, y) is model
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_fit_unsupported_params():
+    """Hyperparameters not supported on GPU"""
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression(positive=True)
+    assert model.fit(X, y) is model
+    # Fit happened on CPU, attrs kept on GPU
+    assert model._gpu is None
+    assert hasattr(model._cpu, "n_features_in_")
+
+
+def test_fit_unsupported_args():
+    """Hyperparameters supported on GPU, but X/y type isn't"""
+    X_dense, y = make_regression(
+        n_samples=100, n_features=200, random_state=42
+    )
+    X_dense[X_dense < 2.5] = 0.0
+    X = scipy.sparse.coo_matrix(X_dense)
+    model = LinearRegression(fit_intercept=True)
+    assert model.fit(X, y) is model
+    # Fit happened on CPU, attrs kept on GPU
+    assert model._gpu is None
+    assert hasattr(model._cpu, "n_features_in_")
+
+
+@pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
+def test_fit_warm_start():
+    """Some sklearn estimators support a `warm_start` parameter where `fit`
+    updates an existing model rather than resetting it. cuml doesn't
+    support this. Here we check that fitting on CPU in this case doesn't
+    clear the prior CPU model but updates it"""
+    X, y = make_regression(
+        n_samples=50,
+        n_features=200,
+        n_informative=10,
+        random_state=42,
+    )
+    # 2 fits of 5 iters each w/ warm start should be equal to 1 fit of 10 iters
+    m1 = ElasticNet(random_state=42, max_iter=5, warm_start=True)
+    m1.fit(X, y).fit(X, y)
+    m2 = ElasticNet(random_state=42, max_iter=10)
+    m2.fit(X, y)
+    np.testing.assert_allclose(m1.coef_, m2.coef_)
+
+
+def test_fit_gpu_predict_gpu():
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression().fit(X, y)
+    y_pred = model.predict(X)
+    assert isinstance(y_pred, np.ndarray)
+    # fit attributes not transferred to host
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_fit_cpu_predict_cpu():
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression(positive=True).fit(X, y)
+    y_pred = model.predict(X)
+    assert isinstance(y_pred, np.ndarray)
+    # cpu estimator used
+    assert model._gpu is None
+
+
+def test_method_that_only_exists_on_cpu_estimator():
+    """For methods that cuml doesn't implement, we fallback to CPU
+    before executing."""
+    X, y = make_classification(n_samples=10)
+    model = LogisticRegression().fit(X, y)
+    # Fit on GPU, no host transfer
+    assert model._gpu is not None
+    assert not hasattr(model._cpu, "n_features_in_")
+    # Sanity check in case this method is implemented in cuml in the future
+    assert not hasattr(model._gpu, "sparsify")
+    assert model.sparsify() is model
+    # Unknown method caused host transfer
+    assert hasattr(model._cpu, "n_features_in_")
+    # Method was run on host
+    assert scipy.sparse.issparse(model.coef_)

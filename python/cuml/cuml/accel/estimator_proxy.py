@@ -197,9 +197,7 @@ class ProxyBase(BaseEstimator):
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
         if is_fit:
-
-            # Attempt to create a new GPU estimator with the
-            # current hyperparameters.
+            # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
             except UnsupportedOnGPU:
