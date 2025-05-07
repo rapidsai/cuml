@@ -24,8 +24,9 @@ import pytest
 import scipy.sparse
 import sklearn
 from packaging.version import Version
-from sklearn.base import is_classifier, is_regressor
+from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_classification, make_regression
+from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
     ElasticNet,
     LinearRegression,
@@ -395,8 +396,14 @@ def test_unpickle_cuml_not_installed():
 def test_fit_gpu():
     X, y = make_regression(n_samples=10)
     model = LinearRegression()
+
+    # Model isn't fit
+    with pytest.raises(NotFittedError):
+        check_is_fitted(model)
+
     assert model.fit(X, y) is model
     # Fit happened on GPU, attrs kept on GPU
+    check_is_fitted(model)
     assert model._gpu is not None
     assert not hasattr(model._cpu, "n_features_in_")
 
@@ -414,7 +421,8 @@ def test_fit_unsupported_params():
     X, y = make_regression(n_samples=10)
     model = LinearRegression(positive=True)
     assert model.fit(X, y) is model
-    # Fit happened on CPU, attrs kept on GPU
+    # Fit happened on CPU
+    check_is_fitted(model)
     assert model._gpu is None
     assert hasattr(model._cpu, "n_features_in_")
 
@@ -428,7 +436,8 @@ def test_fit_unsupported_args():
     X = scipy.sparse.coo_matrix(X_dense)
     model = LinearRegression(fit_intercept=True)
     assert model.fit(X, y) is model
-    # Fit happened on CPU, attrs kept on GPU
+    # Fit happened on CPU
+    check_is_fitted(model)
     assert model._gpu is None
     assert hasattr(model._cpu, "n_features_in_")
 

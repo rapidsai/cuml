@@ -33,6 +33,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
+    to_cpu,
     to_gpu,
     warn_legacy_device_interop,
 )
@@ -248,8 +249,8 @@ class LogisticRegression(Base,
     def _attrs_to_cpu(self, model):
         return {
             "classes_": self.classes_,
-            "intercept_": self.intercept_.to_output("numpy"),
-            "coef_": self.coef_.to_output("numpy"),
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
             **super()._attrs_to_cpu(model),
         }
 

@@ -18,6 +18,8 @@ import warnings
 from importlib import import_module
 from typing import Any
 
+import numpy as np
+
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
@@ -28,6 +30,7 @@ __all__ = (
     "UnsupportedOnCPU",
     "InteropMixin",
     "warn_legacy_device_interop",
+    "to_cpu",
     "to_gpu",
 )
 
@@ -63,13 +66,22 @@ def warn_legacy_device_interop(gpu_func):
 
 
 def to_gpu(x, order="K"):
-    """Coerce `x` to the equivalent GPU type."""
-    # Ideally we'd get rid of this helper eventually, using it for now to reduce typing
+    """Coerce `x` to the equivalent gpu type."""
     from cuml.internals.input_utils import input_to_cuml_array
 
+    if np.isscalar(x):
+        # cuml typically expects scalars on host
+        return x
     return input_to_cuml_array(
         x, order=order, convert_to_mem_type=MemoryType.device
     )[0]
+
+
+def to_cpu(x):
+    """Coerce `x` to the equivalent cpu type."""
+    if np.isscalar(x):
+        return x
+    return x.to_output("numpy")
 
 
 class UnsupportedOnGPU(ValueError):

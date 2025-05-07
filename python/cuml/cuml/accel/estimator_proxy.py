@@ -297,6 +297,10 @@ class ProxyBase(BaseEstimator):
     def __sklearn_tags__(self):
         return self._cpu.__sklearn_tags__()
 
+    def __sklearn_is_fitted__(self):
+        model = self._cpu if self._gpu is None else self._gpu
+        return getattr(model, "n_features_in_", None) is not None
+
     def __sklearn_clone__(self):
         cls = type(self)
         out = cls.__new__(cls)

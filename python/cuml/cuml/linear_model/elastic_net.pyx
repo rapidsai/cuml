@@ -18,8 +18,6 @@
 
 from inspect import signature
 
-import numpy as np
-
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -28,6 +26,7 @@ from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
+    to_cpu,
     to_gpu,
     warn_legacy_device_interop,
 )
@@ -210,15 +209,15 @@ class ElasticNet(Base,
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": float(model.intercept_),
+            "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "intercept_": np.float64(self.intercept_),
-            "coef_": self.coef_.to_output("numpy"),
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
             **super()._attrs_to_cpu(model),
         }
 
