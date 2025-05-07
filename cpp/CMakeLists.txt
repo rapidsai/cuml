@@ -669,10 +669,11 @@ if(BUILD_CUML_CPP_LIBRARY)
   list(APPEND ${_cuml_cpp_libs_var_name}
     $<$<BOOL:${CUML_RAFT_COMPILED}>:${RAFT_COMPILED_LIB}>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
+    ${CUVS_LIB}
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
   )
