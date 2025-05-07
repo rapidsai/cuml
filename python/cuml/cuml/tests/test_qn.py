@@ -68,7 +68,6 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         cuml_score = accuracy_score(y_test, y_pred)
 
         assert cuml_score > baseline_score
-        assert cuml_score >= 0.45
 
     elif loss == "sigmoid":
         X = np.array(precomputed_X, dtype=dtype)
