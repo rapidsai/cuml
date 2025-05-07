@@ -119,16 +119,16 @@ def assert_estimator_roundtrip(
     if transform:
         original_output = cuml_model.transform(X)
         roundtrip_output = roundtrip_model.transform(X)
-        array_equal(original_output, roundtrip_output)
+        assert array_equal(original_output, roundtrip_output)
     else:
         # For predict methods
         if hasattr(cuml_model, "predict"):
             original_pred = cuml_model.predict(X)
             roundtrip_pred = roundtrip_model.predict(X)
-            array_equal(original_pred, roundtrip_pred)
+            assert array_equal(original_pred, roundtrip_pred)
         # For models that only produce labels_ or similar attributes (e.g., clustering)
         elif hasattr(cuml_model, "labels_"):
-            array_equal(cuml_model.labels_, roundtrip_model.labels_)
+            assert array_equal(cuml_model.labels_, roundtrip_model.labels_)
         else:
             # If we get here, need a custom handling for that type
             raise NotImplementedError(
@@ -166,7 +166,7 @@ def test_dbscan(random_state):
     original.fit(X)
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
-    array_equal(original.labels_, roundtrip_model.labels_)
+    assert array_equal(original.labels_, roundtrip_model.labels_)
 
 
 def test_pca(random_state):
@@ -237,8 +237,8 @@ def test_tsne(random_state):
     sklearn_embedding = sklearn_model.embedding_
     roundtrip_embedding = roundtrip_model.embedding_
 
-    array_equal(original_embedding, sklearn_embedding)
-    array_equal(original_embedding, roundtrip_embedding)
+    assert array_equal(original_embedding, sklearn_embedding)
+    assert array_equal(original_embedding, roundtrip_embedding)
 
 
 def test_nearest_neighbors(random_state):
