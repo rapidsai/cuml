@@ -24,7 +24,6 @@ from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
 
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
-from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams" nogil:
@@ -41,7 +40,7 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
     cdef cppclass GraphBasedDimRedCallback
 
 
-cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent" nogil:
+cdef extern from "cuvs/neighbors/nn_descent.hpp" namespace "cuvs::neighbors::nn_descent" nogil:
     cdef struct index_params:
         uint64_t graph_degree,
         uint64_t intermediate_graph_degree,
@@ -49,7 +48,7 @@ cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbor
         float termination_threshold,
         bool return_distances,
         uint64_t n_clusters,
-        RaftDistanceType metric,
+        DistanceType metric,
         float metric_arg
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:

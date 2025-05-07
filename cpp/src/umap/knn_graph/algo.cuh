@@ -21,6 +21,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
@@ -29,17 +30,14 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/slice.cuh>
-#include <raft/neighbors/nn_descent.cuh>
-#include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
+#include <cuvs/neighbors/nn_descent.hpp>
 #include <stdint.h>
 
 #include <iostream>
-
-namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -58,27 +56,20 @@ void launcher(const raft::handle_t& handle,
               const ML::UMAPParams* params,
               cudaStream_t stream);
 
-//  Functor to post-process distances as L2Sqrt*
-template <typename value_idx, typename value_t = float>
-struct DistancePostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
-  DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
-};
-
 auto get_graph_nnd(const raft::handle_t& handle,
                    const ML::manifold_dense_inputs_t<float>& inputs,
                    const ML::UMAPParams* params)
 {
-  auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputs.X));
   float* ptr = reinterpret_cast<float*>(attr.devicePointer);
   if (ptr != nullptr) {
     auto dataset =
       raft::make_device_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
-    return NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
+    return cuvs::neighbors::nn_descent::build(handle, params->nn_descent_params, dataset);
   } else {
     auto dataset = raft::make_host_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
-    return NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
+    return cuvs::neighbors::nn_descent::build(handle, params->nn_descent_params, dataset);
   }
 }
 
