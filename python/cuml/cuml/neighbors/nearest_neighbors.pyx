@@ -44,19 +44,18 @@ from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
+from pylibraft.common.mdspan cimport *
 
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.neighbors.ann cimport *
 
 
-cdef extern from "raft/spatial/knn/ball_cover_types.hpp" namespace "raft::spatial::knn" nogil:
-    cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
-        BallCoverIndex(const handle_t &handle,
-                       float *X,
-                       uint32_t n_rows,
-                       uint32_t n_cols,
-                       RaftDistanceType metric) except +
+cdef extern from "cuvs/neighbors/ball_cover_types.hpp" namespace "cuvs::neighbors::ball_cover" nogil:
+    cdef cppclass Index[int64_t, float]:
+        Index(const handle_t &handle,
+              device_matrix_view[const float, int64_t, row_major] X,
+              RaftDistanceType metric) except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     void brute_force_knn(
@@ -86,6 +85,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         uint32_t k,
         float *search_items,
         uint32_t n_search_items,
+        int64_t dim,
         int64_t *out_inds,
         float *out_dists
     ) except +
@@ -415,9 +415,12 @@ class NearestNeighbors(UniversalBase,
         elif self._fit_method == "rbc":
             metric = self._build_metric_type(self.effective_metric_)
 
-            rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
-                handle_[0], <float*><uintptr_t>self._fit_X.ptr,
-                <uint32_t>self.n_samples_fit_, <uint32_t>self.n_features_in_,
+            cdef device_matrix_view[const float, int64_t, row_major] X_view = \
+                make_device_matrix_view(self._fit_X.ptr,
+                                        self.n_samples_fit_,
+                                        self.n_features_in_)
+            rbc_index = new Index[int64_t, float](
+                handle_[0], X_view,
                 <RaftDistanceType>metric)
             rbc_build_index(handle_[0],
                             deref(rbc_index))
@@ -750,13 +753,13 @@ class NearestNeighbors(UniversalBase,
                 <float>self.p
             )
         elif self._fit_method == "rbc":
-            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*>\
-                <uintptr_t>self.knn_index
+            rbc_index = <Index[int64_t, float]*><uintptr_t>self.knn_index
             rbc_knn_query(handle_[0],
                           deref(rbc_index),
                           <uint32_t> n_neighbors,
                           <float*><uintptr_t>X_m.ptr,
                           <uint32_t> N,
+                          <int64_t>self.n_features_in_,
                           <int64_t*>_I_ptr,
                           <float*>_D_ptr)
         else:
