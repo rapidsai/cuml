@@ -16,12 +16,9 @@ import cudf
 import cupy as cp
 import numpy as np
 from hypothesis import assume
-from hypothesis.extra.numpy import (
-    array_shapes,
-    arrays,
-    floating_dtypes,
-    integer_dtypes,
-)
+from hypothesis.extra.numpy import array_shapes, arrays
+from hypothesis.extra.numpy import floating_dtypes as np_floating_dtypes
+from hypothesis.extra.numpy import integer_dtypes
 from hypothesis.strategies import (
     composite,
     integers,
@@ -76,6 +73,23 @@ UNSUPPORTED_CUDF_DTYPES = [
     np.uint64,
     np.float16,
 ]
+
+
+@composite
+def dataset_dtypes(draw, sizes=(32, 64)):
+    """Generate floating point dtypes supported by cuML for datasets.
+
+    This strategy generates only little-endian float32 and float64 dtypes,
+    which are the floating point types supported by cuML for datasets.
+
+    Args:
+        sizes: A tuple of bit sizes to generate dtypes for. Defaults to
+               (32, 64) to generate float32 and float64 dtypes.
+
+    Returns:
+        A strategy that generates numpy dtypes.
+    """
+    return draw(np_floating_dtypes(sizes=sizes, endianness="<"))
 
 
 @composite
@@ -329,7 +343,7 @@ def _get_limits(strategy):
 @composite
 def standard_datasets(
     draw,
-    dtypes=floating_dtypes(),
+    dtypes=dataset_dtypes(),
     n_samples=integers(min_value=0, max_value=200),
     n_features=integers(min_value=0, max_value=200),
     *,
@@ -393,7 +407,7 @@ def combined_datasets_strategy(*datasets, name=None, doc=None):
     @composite
     def strategy(
         draw,
-        dtypes=floating_dtypes(),
+        dtypes=dataset_dtypes(),
         n_samples=integers(min_value=1, max_value=200),
         n_features=integers(min_value=1, max_value=200),
     ):
@@ -467,7 +481,7 @@ def split_datasets(
 @composite
 def standard_regression_datasets(
     draw,
-    dtypes=floating_dtypes(),
+    dtypes=dataset_dtypes(),
     n_samples=integers(min_value=100, max_value=200),
     n_features=integers(min_value=100, max_value=200),
     *,
@@ -562,7 +576,7 @@ regression_datasets = combined_datasets_strategy(
 @composite
 def standard_classification_datasets(
     draw,
-    dtypes=floating_dtypes(),
+    dtypes=dataset_dtypes(),
     n_samples=integers(min_value=100, max_value=200),
     n_features=integers(min_value=10, max_value=20),
     *,
