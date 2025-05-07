@@ -60,12 +60,14 @@ from cuml.benchmark.bench_helper_funcs import (
     transform,
 )
 from cuml.benchmark.nvtx_benchmark import Profiler
+from cuml.dask._compat import DASK_2025_4_0
 
 
 def distribute(client, data):
     if data is not None:
         n_rows = data.shape[0]
-        n_workers = len(client.scheduler_info()["workers"])
+        kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+        n_workers = len(client.scheduler_info(**kwargs)["workers"])
         rows_per_chunk = math.ceil(n_rows / n_workers)
         if isinstance(data, (np.ndarray, cp.ndarray)):
             dask_array = da.from_array(
