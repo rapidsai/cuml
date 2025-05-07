@@ -20,17 +20,8 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
 
-  checks:
-    secrets: inherit
-    needs: telemetry-setup
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-25.06
-    with:
-      enable_check_generated_files: false
-      ignored_pr_jobs: >-
-        optional-job-conda-python-tests-cudf-pandas-integration telemetry-summarize
-
   conda-cpp-build:
-    needs: checks
+    needs: telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.06
     with:
