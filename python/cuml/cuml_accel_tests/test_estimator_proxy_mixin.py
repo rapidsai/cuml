@@ -95,7 +95,7 @@ def test_pickle_loads_doesnt_install_accelerator():
         assert type(model).__name__ == "PCA"
 
         from cuml.accel import enabled
-        from cuml.accel.estimator_proxy import ProxyMixin
+        from cuml.accel.estimator_proxy_mixin import ProxyMixin
         from sklearn.decomposition import PCA
 
         # Unpickling hasn't installed the accelerator or patched sklearn
