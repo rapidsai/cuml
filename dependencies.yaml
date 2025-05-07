@@ -498,7 +498,7 @@ dependencies:
           - &xgboost xgboost>=2.1.0,<3.0.0
           - statsmodels
           - tenacity
-          - umap-learn==0.5.6
+          - umap-learn==0.5.7
           - pynndescent
   test_notebooks:
     common:
