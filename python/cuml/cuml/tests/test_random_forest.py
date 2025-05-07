@@ -252,7 +252,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    )
+    ).squeeze()
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
     mse_tweedie_deviance = mean_tweedie_deviance(

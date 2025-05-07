@@ -20,7 +20,9 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.internals.array import CumlArray
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.input_utils import determine_array_type
-from cuml.legacy.fil.fil import TreeliteModel
+
+from cuml.internals.treelite cimport *
+from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uintptr_t
 
@@ -35,17 +37,6 @@ if has_sklearn():
 else:
     sklrfr = object
     sklrfc = object
-
-cdef extern from "treelite/c_api.h":
-    cdef struct TreelitePyBufferFrame:
-        void* buf
-        char* format
-        size_t itemsize
-        size_t nitem
-    ctypedef void * TreeliteModelHandle
-    cdef int TreeliteGetHeaderField(
-            TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
-    cdef const char * TreeliteGetLastError()
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer" nogil:
     cdef cppclass TreePathHandle:
@@ -94,43 +85,6 @@ cdef FloatPointer type_erase_float_ptr(array):
     else:
         raise ValueError("Unsupported dtype")
     return ptr
-
-cdef class PyBufferFrameWrapper:
-    cdef TreelitePyBufferFrame _handle
-    cdef Py_ssize_t shape[1]
-    cdef Py_ssize_t strides[1]
-
-    def __cinit__(self):
-        pass
-
-    def __dealloc__(self):
-        pass
-
-    def __getbuffer__(self, Py_buffer* buffer, int flags):
-        cdef Py_ssize_t itemsize = self._handle.itemsize
-
-        self.shape[0] = self._handle.nitem
-        self.strides[0] = itemsize
-
-        buffer.buf = self._handle.buf
-        buffer.format = self._handle.format
-        buffer.internal = NULL
-        buffer.itemsize = itemsize
-        buffer.len = self._handle.nitem * itemsize
-        buffer.ndim = 1
-        buffer.obj = self
-        buffer.readonly = 0
-        buffer.shape = self.shape
-        buffer.strides = self.strides
-        buffer.suboffsets = NULL
-
-    def __releasebuffer__(self, Py_buffer *buffer):
-        pass
-
-cdef PyBufferFrameWrapper MakePyBufferFrameWrapper(TreelitePyBufferFrame handle):
-    cdef PyBufferFrameWrapper wrapper = PyBufferFrameWrapper()
-    wrapper._handle = handle
-    return wrapper
 
 cdef class TreeExplainer:
     """
@@ -223,43 +177,41 @@ cdef class TreeExplainer:
                 r'xgboost.*$', cls_module):
             if cls_name != 'Booster':
                 model = model.get_booster()
-            model = treelite.Model.from_xgboost(model)
-            handle = model.handle.value
+            tl_model = treelite.Model.from_xgboost(model)
         # LightGBM model object
         if re.match(
                 r'lightgbm.*$', cls_module):
             if cls_name != 'Booster':
                 model = model.booster_
-            model = treelite.Model.from_lightgbm(model)
-            handle = model.handle.value
+            tl_model = treelite.Model.from_lightgbm(model)
         # cuML RF model object
         elif isinstance(model, (curfr, curfc)):
-            model = model.convert_to_treelite_model()
-            handle = model.handle
+            tl_model = model.convert_to_treelite_model()
         # scikit-learn RF model object
         elif isinstance(model, (sklrfr, sklrfc)):
-            model = treelite.sklearn.import_model(model)
-            handle = model.handle.value
+            tl_model = treelite.sklearn.import_model(model)
         elif isinstance(model, treelite.Model):
-            handle = model.handle.value
-        elif isinstance(model, TreeliteModel):
-            handle = model.handle
+            tl_model = model
         else:
-            raise ValueError('Unrecognized model object type')
+            raise ValueError("Unrecognized model object type")
 
-        cdef TreeliteModelHandle model_ptr = <TreeliteModelHandle > <uintptr_t > handle
         # Get num_class
-        cdef TreelitePyBufferFrame frame
-        res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
-        if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError(f"Failed to fetch num_class: {err}")
-        view = memoryview(MakePyBufferFrameWrapper(frame))
-        self.num_class = np.asarray(view)
-        self.path_info = extract_path_info(model_ptr)
-
+        self.num_class = tl_model.get_header_accessor().get_field("num_class")
         if len(self.num_class) > 1:
             raise NotImplementedError("TreeExplainer does not support multi-target models")
+
+        # Serialize Treelite model object and de-serialize again,
+        # to get around C++ ABI incompatibilities (due to different compilers
+        # being used to build cuML pip wheel vs. Treelite pip wheel)
+        bytes_seq = tl_model.serialize_bytes()
+        cdef TreeliteModelHandle tl_handle = NULL
+        safe_treelite_call(
+            TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &tl_handle),
+            "Failed to load Treelite model from bytes"
+        )
+
+        # Process Treelite model to extract path info
+        self.path_info = extract_path_info(tl_handle)
 
     def _prepare_input(self, X, convert_dtype):
         try:

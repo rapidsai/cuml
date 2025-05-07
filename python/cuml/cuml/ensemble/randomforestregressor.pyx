@@ -15,6 +15,7 @@
 #
 # distutils: language = c++
 import numpy as np
+import treelite
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -30,15 +31,11 @@ from cuml.internals.logger cimport level_enum
 
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.ensemble.randomforest_common import (
-    BaseRandomForestModel,
-    _obtain_fil_model,
-)
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.utils import check_random_seed
+from cuml.fil.fil import ForestInference
 
 from cuml.ensemble.randomforest_shared cimport *
-
-from cuml.legacy.fil.fil import TreeliteModel
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -309,9 +306,8 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         state['n_cols'] = self.n_cols
         state["_verbose"] = self._verbose
-        state["treelite_serialized_model"] = self.treelite_serialized_model
+        state["treelite_serialized_bytes"] = self.treelite_serialized_bytes
         state['handle'] = self.handle
-        state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
 
         return state
@@ -333,7 +329,7 @@ class RandomForestRegressor(BaseRandomForestModel,
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.treelite_serialized_model = state["treelite_serialized_model"]
+        self.treelite_serialized_bytes = state["treelite_serialized_bytes"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -351,12 +347,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <RandomForestMetaData[double, double]*><uintptr_t>
                 self.rf_forest64)
             self.rf_forest64 = 0
-
-        if self.treelite_handle:
-            TreeliteModel.free_treelite_model(self.treelite_handle)
-
-        self.treelite_handle = None
-        self.treelite_serialized_model = None
+        self.treelite_serialized_bytes = None
         self.n_cols = None
 
     def get_attr_names(self):
@@ -370,12 +361,15 @@ class RandomForestRegressor(BaseRandomForestModel,
         -------
         tl_to_fil_model : Treelite version of this model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return TreeliteModel.from_treelite_model_handle(treelite_handle)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return treelite.Model.deserialize_bytes(treelite_bytes)
 
-    def convert_to_fil_model(self, output_class=False,
-                             algo='auto',
-                             fil_sparse_format='auto'):
+    def convert_to_fil_model(
+        self,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
@@ -421,12 +415,14 @@ class RandomForestRegressor(BaseRandomForestModel,
             inferencing on the random forest model.
 
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
-                                 depth=self.max_depth,
-                                 output_class=output_class,
-                                 algo=algo,
-                                 fil_sparse_format=fil_sparse_format)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return ForestInference(
+            treelite_model=treelite_bytes,
+            is_classifier=False,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
     @nvtx.annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
@@ -504,62 +500,19 @@ class RandomForestRegressor(BaseRandomForestModel,
         del y_m
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-        if self.dtype == np.float32:
-            predict(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <float*> preds_ptr,
-                    <level_enum> self.verbose)
-
-        elif self.dtype == np.float64:
-            predict(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <double*> preds_ptr,
-                    <level_enum> self.verbose)
-        else:
-            raise TypeError("supports only float32 and float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-
-        self.handle.sync()
-        # synchronous w/o a stream
-        del X_m
-        return preds
-
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @enable_device_interop
-    def predict(self, X, predict_model="GPU",
-                algo='auto', convert_dtype=True,
-                fil_sparse_format='auto') -> CumlArray:
+    def predict(
+        self,
+        X,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -601,16 +554,14 @@ class RandomForestRegressor(BaseRandomForestModel,
         y : {}
 
         """
-        if predict_model == "CPU":
-            preds = self._predict_model_on_cpu(X, convert_dtype)
-        else:
-            preds = self._predict_model_on_gpu(
-                X=X,
-                algo=algo,
-                convert_dtype=convert_dtype,
-                fil_sparse_format=fil_sparse_format)
-
-        return preds
+        return self._predict_model_on_gpu(
+            X=X,
+            is_classifier=False,
+            predict_proba=False,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
     @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
@@ -618,8 +569,14 @@ class RandomForestRegressor(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
     @enable_device_interop
-    def score(self, X, y, algo='auto', convert_dtype=True,
-              fil_sparse_format='auto', predict_model="GPU"):
+    def score(
+        self,
+        X,
+        y,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ):
         """
         Calculates the accuracy metric score of the model for X.
         In the 0.16 release, the default scoring metric was changed
@@ -670,17 +627,17 @@ class RandomForestRegressor(BaseRandomForestModel,
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None))
+                                convert_to_dtype=None)
         y_m, n_rows, _, _ = \
             input_to_cuml_array(y,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else False))
+                                convert_to_dtype=None)
         y_ptr = y_m.ptr
-        preds = self.predict(X, algo=algo,
-                             convert_dtype=convert_dtype,
-                             fil_sparse_format=fil_sparse_format,
-                             predict_model=predict_model)
+        preds = self.predict(
+            X,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
         cdef uintptr_t preds_ptr
         preds_m, _, _, _ = \

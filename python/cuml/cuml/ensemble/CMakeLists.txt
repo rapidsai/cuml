@@ -14,7 +14,6 @@
 
 set(cython_sources "")
 add_module_gpu_default("randomforest_common.pyx" ${randomforestclassifier_algo} ${randomforestregressor_algo} ${ensemble_algo})
-add_module_gpu_default("randomforest_shared.pyx" ${randomforestclassifier_algo} ${randomforestregressor_algo} ${ensemble_algo})
 add_module_gpu_default("randomforestclassifier.pyx" ${randomforestclassifier_algo} ${ensemble_algo})
 add_module_gpu_default("randomforestregressor.pyx" ${randomforestregressor_algo} ${ensemble_algo})
 

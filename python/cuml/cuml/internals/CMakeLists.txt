@@ -18,6 +18,7 @@ set(cython_sources
     base.pyx
     internals.pyx
     logger.pyx
+    treelite.pyx
 )
 
 rapids_cython_create_modules(

@@ -341,26 +341,6 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
 }
 
 /**
- * @brief Concatenates the forest information present in different workers to
- *  create a single forest. This concatenated forest is stored in a new treelite model.
- *  The model created is owned by and must be freed by the user.
- * @param[in] concat_tree_handle: ModelHandle for the concatenated forest.
- * @param[in] treelite_handles: List containing ModelHandles for the forest present in
- *   each worker.
- */
-TreeliteModelHandle concatenate_trees(std::vector<TreeliteModelHandle> treelite_handles)
-{
-  if (treelite_handles.empty()) { return nullptr; }
-  std::vector<tl::Model const*> model_objs;
-  std::transform(treelite_handles.begin(),
-                 treelite_handles.end(),
-                 std::back_inserter(model_objs),
-                 [](TreeliteModelHandle handle) { return static_cast<tl::Model const*>(handle); });
-  std::unique_ptr<tl::Model> concat_model = tl::ConcatenateModelObjects(model_objs);
-  return static_cast<TreeliteModelHandle>(concat_model.release());
-}
-
-/**
  * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t

@@ -323,8 +323,6 @@ def test_rf_classification_dask_fil_predict_proba(
 def test_rf_concatenation_dask(client, model_type):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
-    from cuml.legacy.fil.fil import TreeliteModel
-
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=30, random_state=123, n_classes=2
     )
