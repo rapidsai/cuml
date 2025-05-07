@@ -183,6 +183,49 @@ def test_setattr():
         model.coef_ = [1, 2, 3]
 
 
+def test_get_params():
+    model = LogisticRegression(
+        C=1.5,
+        fit_intercept=False,
+        solver="newton-cholesky",
+    )
+    params = model.get_params()
+    assert params["C"] == 1.5
+    assert not params["fit_intercept"]
+    assert params["solver"] == "newton-cholesky"
+    assert params == model._cpu.get_params()
+
+    params2 = model.get_params(deep=False)
+    assert params2 == model._cpu.get_params(deep=False)
+    assert model.get_params.__doc__ == model._cpu.get_params.__doc__
+
+
+def test_set_params():
+    model = LinearRegression()
+
+    # Hyperparameters are forwarded to CPU
+    assert model.set_params(fit_intercept=False) is model
+    assert not model._cpu.fit_intercept
+    assert model._gpu is None
+
+    # Fit uses current hyperparameters
+    X, y = make_regression(n_samples=10)
+    model.fit(X, y)
+    assert not model._gpu.fit_intercept
+
+    # Changing hyperparameters forwards to both
+    model.set_params(fit_intercept=True)
+    assert model._cpu.fit_intercept
+    assert model._gpu.fit_intercept
+
+    # But changing to an unsupported value causes fallback to CPU,
+    # ensuring fit attributes are forwarded to CPU
+    model.set_params(positive=True)
+    assert model._cpu.positive
+    assert model._cpu.coef_ is not None
+    assert model._gpu is None
+
+
 @pytest.mark.parametrize("fit", [False, True])
 def test_clone(fit):
     model = LogisticRegression(

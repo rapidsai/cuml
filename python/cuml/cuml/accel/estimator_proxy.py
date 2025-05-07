@@ -294,6 +294,7 @@ class ProxyBase(BaseEstimator):
     def set_params(self, **kwargs):
         self._cpu.set_params(**kwargs)
         self._sync_params_to_gpu()
+        return self
 
     def __sklearn_tags__(self):
         return self._cpu.__sklearn_tags__()
