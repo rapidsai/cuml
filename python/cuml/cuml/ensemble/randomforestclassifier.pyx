@@ -20,12 +20,10 @@ import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
+import treelite
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.ensemble.randomforest_common import (
-    BaseRandomForestModel,
-    _obtain_fil_model,
-)
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
@@ -34,8 +32,8 @@ from cuml.internals.api_decorators import (
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
-from cuml.legacy.fil.fil import TreeliteModel
 from cuml.prims.label.classlabels import check_labels, invert_labels
+from cuml.fil.fil import ForestInference
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -285,7 +283,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_serialized_model()  # Ensure we have this cached
+            self._serialize_treelite_bytes()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -300,8 +298,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         state["n_cols"] = self.n_cols
         state["_verbose"] = self._verbose
-        state["treelite_serialized_model"] = self.treelite_serialized_model
-        state["treelite_handle"] = None
+        state["treelite_serialized_bytes"] = self.treelite_serialized_bytes
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
 
@@ -325,7 +322,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.treelite_serialized_model = state["treelite_serialized_model"]
+        self.treelite_serialized_bytes = state["treelite_serialized_bytes"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -343,18 +340,13 @@ class RandomForestClassifier(BaseRandomForestModel,
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
             self.rf_forest64 = 0
-
-        if self.treelite_handle:
-            TreeliteModel.free_treelite_model(self.treelite_handle)
-
-        self.treelite_handle = None
-        self.treelite_serialized_model = None
+        self.treelite_serialized_bytes = None
         self.n_cols = None
 
     def get_attr_names(self):
         return []
 
-    def convert_to_treelite_model(self):
+    def convert_to_treelite_model(self) -> treelite.Model:
         """
         Converts the cuML RF model to a Treelite model
 
@@ -362,12 +354,15 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         tl_to_fil_model : Treelite version of this model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return TreeliteModel.from_treelite_model_handle(treelite_handle)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return treelite.Model.deserialize_bytes(treelite_bytes)
 
-    def convert_to_fil_model(self, output_class=True,
-                             threshold=0.5, algo='auto',
-                             fil_sparse_format='auto'):
+    def convert_to_fil_model(
+        self,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
@@ -417,13 +412,14 @@ class RandomForestClassifier(BaseRandomForestModel,
             inferencing on the random forest model.
 
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
-                                 depth=self.max_depth,
-                                 output_class=output_class,
-                                 threshold=threshold,
-                                 algo=algo,
-                                 fil_sparse_format=fil_sparse_format)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return ForestInference(
+            treelite_model=treelite_bytes,
+            is_classifier=True,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
     @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
@@ -519,53 +515,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         del y_m
         return self
 
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, _dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-        preds = CumlArray.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
-        if self.dtype == np.float32:
-            predict(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <int*> preds_ptr,
-                    <level_enum> self.verbose)
-
-        elif self.dtype == np.float64:
-            predict(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <int*> preds_ptr,
-                    <level_enum> self.verbose)
-        else:
-            raise TypeError("supports only np.float32 and np.float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-
-        self.handle.sync()
-        # synchronous w/o a stream
-        del X_m
-        return preds
-
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
@@ -573,9 +522,14 @@ class RandomForestClassifier(BaseRandomForestModel,
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
-    def predict(self, X, predict_model="GPU", threshold=0.5,
-                algo='auto', convert_dtype=True,
-                fil_sparse_format='auto') -> CumlArray:
+    def predict(
+        self,
+        X,
+        threshold = 0.5,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -600,11 +554,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
         fil_sparse_format : boolean or string (default = ``'auto'``)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
@@ -620,17 +569,15 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        if predict_model == "CPU":
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
-        else:
-            preds = \
-                self._predict_model_on_gpu(X=X, output_class=True,
-                                           threshold=threshold,
-                                           algo=algo,
-                                           convert_dtype=convert_dtype,
-                                           fil_sparse_format=fil_sparse_format,
-                                           predict_proba=False)
+        preds = self._predict_model_on_gpu(
+            X=X,
+            is_classifier=True,
+            predict_proba=False,
+            threshold=threshold,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
         if self.update_labels:
             preds = preds.to_output().astype(self.classes_.dtype)
@@ -639,9 +586,13 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict_proba(self, X, algo='auto',
-                      convert_dtype=True,
-                      fil_sparse_format='auto') -> CumlArray:
+    def predict_proba(
+        self,
+        X,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ) -> CumlArray:
         """
         Predicts class probabilities for X. This function uses the GPU
         implementation of predict.
@@ -681,23 +632,29 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        preds_proba = \
-            self._predict_model_on_gpu(X, output_class=True,
-                                       algo=algo,
-                                       convert_dtype=convert_dtype,
-                                       fil_sparse_format=fil_sparse_format,
-                                       predict_proba=True)
-
-        return preds_proba
+        return self._predict_model_on_gpu(
+            X=X,
+            is_classifier=True,
+            predict_proba=True,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
     @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
-    def score(self, X, y, threshold=0.5,
-              algo='auto', predict_model="GPU",
-              convert_dtype=True, fil_sparse_format='auto'):
+    def score(
+        self,
+        X,
+        y,
+        threshold = 0.5,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -750,19 +707,19 @@ class RandomForestClassifier(BaseRandomForestModel,
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
+                                convert_to_dtype=None,
                                 check_cols=self.n_cols)
         y_m, n_rows, _, _ = \
             input_to_cuml_array(y, check_dtype=np.int32,
-                                convert_to_dtype=(np.int32 if convert_dtype
-                                                  else False))
+                                convert_to_dtype=None)
         y_ptr = y_m.ptr
-        preds = self.predict(X,
-                             threshold=threshold, algo=algo,
-                             convert_dtype=convert_dtype,
-                             predict_model=predict_model,
-                             fil_sparse_format=fil_sparse_format)
+        preds = self.predict(
+            X,
+            threshold=threshold,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
         cdef uintptr_t preds_ptr
         preds_m, _, _, _ = \

@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-
 cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
     cdef enum infer_kind:

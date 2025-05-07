@@ -26,7 +26,6 @@ from dask.distributed import Future
 from cuml import using_output_type
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.legacy.fil.fil import TreeliteModel
 
 
 class BaseRandomForestModel(object):

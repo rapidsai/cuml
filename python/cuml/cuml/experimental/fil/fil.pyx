@@ -31,6 +31,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 
+
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
@@ -48,14 +49,8 @@ from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.experimental.fil.infer_kind cimport infer_kind
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
-
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
-                                               TreeliteModelHandle* out) except +
-    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
-    cdef const char* TreeliteGetLastError()
+from cuml.internals.treelite cimport *
+from cuml.internals.treelite import safe_treelite_call
 
 
 cdef raft_proto_device_t get_device_type(arr):
@@ -110,15 +105,16 @@ cdef class ForestInference_impl():
     cdef object raft_handle
 
     def __cinit__(
-            self,
-            raft_handle,
-            tl_model,
-            *,
-            layout='depth_first',
-            align_bytes=0,
-            use_double_precision=None,
-            mem_type=None,
-            device_id=0):
+        self,
+        raft_handle,
+        tl_model_bytes,
+        *,
+        layout='depth_first',
+        align_bytes=0,
+        use_double_precision=None,
+        mem_type=None,
+        device_id=0
+    ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
         self.raft_handle = raft_handle
@@ -138,19 +134,12 @@ cdef class ForestInference_impl():
             use_double_precision_bool = use_double_precision
             use_double_precision_c = use_double_precision_bool
 
-        if not isinstance(tl_model, treelite.Model):
-            raise ValueError("tl_model must be a treelite.Model object")
-        # Serialize Treelite model object and de-serialize again,
-        # to get around C++ ABI incompatibilities (due to different compilers
-        # being used to build cuML pip wheel vs. Treelite pip wheel)
-        bytes_seq = tl_model.serialize_bytes()
-        cdef TreeliteModelHandle model_handle = NULL
-        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq),
-                                                         &model_handle)
-        cdef str err_msg
-        if res < 0:
-            err_msg = TreeliteGetLastError().decode("UTF-8")
-            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
+        cdef TreeliteModelHandle tl_handle = NULL
+        safe_treelite_call(
+            TreeliteDeserializeModelFromBytes(
+                tl_model_bytes, len(tl_model_bytes), &tl_handle),
+            "Failed to load Treelite model from bytes:"
+        )
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
@@ -158,17 +147,17 @@ cdef class ForestInference_impl():
         else:
             dev_type = raft_proto_device_t.cpu
         cdef fil_tree_layout tree_layout
-        if layout.lower() == 'depth_first':
+        if layout.lower() == "depth_first":
             tree_layout = fil_tree_layout.depth_first
-        elif layout.lower() == 'breadth_first':
+        elif layout.lower() == "breadth_first":
             tree_layout = fil_tree_layout.breadth_first
-        elif layout.lower() == 'layered':
+        elif layout.lower() == "layered":
             tree_layout = fil_tree_layout.layered_children_together
         else:
-            raise RuntimeError(f'Unrecognized tree layout {layout}')
+            raise RuntimeError(f"Unrecognized tree layout {layout}")
 
         self.model = import_from_treelite_handle(
-            <TreeliteModelHandle><uintptr_t>model_handle,
+            tl_handle,
             tree_layout,
             align_bytes,
             use_double_precision_c,
@@ -177,7 +166,10 @@ cdef class ForestInference_impl():
             self.raft_proto_handle.get_next_usable_stream()
         )
 
-        TreeliteFreeModel(model_handle)
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle),
+            "Failed to free Treelite model:"
+        )
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
@@ -631,9 +623,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self.device_id = device_id
 
         if self.treelite_model is not None:
+            if isinstance(self.treelite_model, treelite.Model):
+                treelite_model_bytes = self.treelite_model.serialize_bytes()
+            elif isinstance(self.treelite_model, bytes):
+                treelite_model_bytes = self.treelite_model
+            else:
+                raise ValueError(f"treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
                 self.handle,
-                self.treelite_model,
+                treelite_model_bytes,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
                 use_double_precision=self._use_double_precision_,
@@ -964,7 +962,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         Parameters
         ----------
-        tl_model : treelite.model
+        tl_model : treelite.Model
             The Treelite model to load.
         output_class : boolean, default=False
             True for classification models, False for regressors
@@ -1112,12 +1110,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         domain='cuml_python'
     )
     def predict(
-            self,
-            X,
-            *,
-            preds=None,
-            chunk_size=None,
-            threshold=None) -> CumlArray:
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+        threshold=None
+    ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
         regression models, predict the output for each row.
