@@ -276,12 +276,12 @@ class TSNE(UniversalBase,
     _hyperparam_interop_translator = {
         "n_components": {
             3 : "NotImplemented",
-        }
+        },
         "method": {
             "exact": "exact",
             "barnes_hut": "NotImplemented",
             "fft": "fft"
-        }
+        },
     }
 
     @device_interop_preparation
