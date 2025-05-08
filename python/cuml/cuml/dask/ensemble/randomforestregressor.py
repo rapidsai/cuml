@@ -253,12 +253,13 @@ class RandomForestRegressor(
     def predict(
         self,
         X,
-        predict_model="GPU",
-        algo="auto",
-        convert_dtype=True,
-        fil_sparse_format="auto",
-        delayed=True,
-        broadcast_data=False,
+        convert_dtype = True,
+        predict_model = "GPU",
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        delayed = True,
+        broadcast_data = False,
     ):
         """
         Predicts the regressor outputs for X.
@@ -345,17 +346,19 @@ class RandomForestRegressor(
             if broadcast_data:
                 preds = self.partial_inference(
                     X,
-                    algo=algo,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
             else:
                 preds = self._predict_using_fil(
                     X,
-                    algo=algo,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
         return preds

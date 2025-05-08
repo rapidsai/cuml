@@ -274,13 +274,14 @@ class RandomForestClassifier(
     def predict(
         self,
         X,
-        algo="auto",
-        threshold=0.5,
-        convert_dtype=True,
-        predict_model="GPU",
-        fil_sparse_format="auto",
-        delayed=True,
-        broadcast_data=False,
+        threshold = 0.5,
+        convert_dtype = True,
+        predict_model = "GPU",
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        delayed = True,
+        broadcast_data = False,
     ):
         """
         Predicts the labels for X.
@@ -371,18 +372,20 @@ class RandomForestClassifier(
             if broadcast_data:
                 preds = self.partial_inference(
                     X,
-                    algo=algo,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
             else:
                 preds = self._predict_using_fil(
                     X,
-                    algo=algo,
                     threshold=threshold,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
         return preds

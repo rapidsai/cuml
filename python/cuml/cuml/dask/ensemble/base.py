@@ -22,6 +22,7 @@ import cupy as cp
 import dask
 import numpy as np
 from dask.distributed import Future
+import treelite
 
 from cuml import using_output_type
 from cuml.dask._compat import DASK_2025_4_0
@@ -104,12 +105,6 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
-        if self.datatype == "cudf":
-            has_float64 = (dataset[0].dtypes == np.float64).any()
-        else:
-            has_float64 = dataset[0].dtype == np.float64
-        if has_float64:
-            raise TypeError("To use Dask RF data should have dtype float32.")
 
         labels = self.client.persist(dataset[1])
         if self.datatype == "cudf":
@@ -179,19 +174,17 @@ class BaseRandomForestModel(object):
         model_serialized_futures = list()
         for w in self.active_workers:
             model_serialized_futures.append(
-                dask.delayed(_get_serialized_model)(self.rfs[w])
+                dask.delayed(_serialize_treelite_bytes)(self.rfs[w])
             )
         mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
         model = self.rfs[last_worker].result()
-        all_tl_mod_handles = [
-            model._tl_handle_from_bytes(indiv_worker_model_bytes)
+        tl_model_objs = [
+            treelite.Model.deserialize_bytes(indiv_worker_model_bytes)
             for indiv_worker_model_bytes in mod_bytes
         ]
-
-        model._concatenate_treelite_handle(all_tl_mod_handles)
-        for tl_handle in all_tl_mod_handles:
-            TreeliteModel.free_treelite_model(tl_handle)
+        concatenated_model = treelite.Model.concatenate(tl_model_objs)
+        model._deserialize_from_treelite(concatenated_model)
         return model
 
     def _partial_inference(self, X, op_type, delayed, **kwargs):
@@ -397,6 +390,8 @@ def _func_predict_proba_partial(model, input_data, **kwargs):
     than dataset.
     """
     X = concatenate(input_data)
+    if "convert_dtype" in kwargs:
+        del kwargs["convert_dtype"]
     with using_output_type("cupy"):
         prediction = model.predict_proba(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
@@ -422,5 +417,5 @@ def _func_set_params(model, **params):
     return model.set_params(**params)
 
 
-def _get_serialized_model(model):
-    return model._get_serialized_model()
+def _serialize_treelite_bytes(model):
+    return model._serialize_treelite_bytes()

@@ -288,6 +288,17 @@ class BaseRandomForestModel(UniversalBase):
         self.treelite_serialized_bytes = tl_serialized_bytes
         return self.treelite_serialized_bytes
 
+    def _deserialize_from_treelite(self, tl_model):
+        """
+        Update the cuML RF model to match the given Treelite model.
+        """
+        self._reset_forest_data()
+        self.treelite_serialized_bytes = tl_model.serialize_bytes()
+        self.n_cols = tl_model.num_feature
+        self.n_estimators = tl_model.num_tree
+
+        return self
+
     def cpu_to_gpu(self):
         tl_model = treelite.sklearn.import_model(self._cpu_model)
         self.treelite_serialized_bytes = tl_model.serialize_bytes()
