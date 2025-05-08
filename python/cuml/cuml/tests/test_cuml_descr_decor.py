@@ -68,7 +68,7 @@ class DummyTestEstimator(cuml.Base):
 
     # === Standard Functions ===
     def fit(self, X, convert_dtype=True) -> "DummyTestEstimator":
-
+        self._set_base_attributes(output_type=X, n_features=X)
         return self
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
@@ -228,11 +228,11 @@ def test_auto_fit(input_type, input_dtype, input_shape):
             # When cudf and shape[1] is used, a series is created which will
             # remove the last shape
             if input_type == "cudf" and shape[1] == 1:
-                return None
+                return 1
 
             return shape[1]
 
-        return None
+        return 1
 
     assert est._input_type == input_type
     assert est.target_dtype is None

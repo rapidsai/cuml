@@ -268,7 +268,6 @@ class Base(TagsMixin,
         self._input_type = None
         self._input_mem_type = None
         self.target_dtype = None
-        self.n_features_in_ = None
 
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
@@ -479,7 +478,12 @@ class Base(TagsMixin,
         if isinstance(X, int):
             self.n_features_in_ = X
         else:
-            self.n_features_in_ = X.shape[1]
+            shape = X.shape
+            # dataframes can have only one dimension
+            if len(shape) == 1:
+                self.n_features_in_ = 1
+            else:
+                self.n_features_in_ = shape[1]
 
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only applies to
