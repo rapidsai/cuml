@@ -221,7 +221,6 @@ class BaseRandomForestModel(object):
                 )
             )
 
-        meta = cp.zeros((0,) * 3, dtype=cp.float32)
         objs = [
             dask.array.from_delayed(partial_inf, shape=shape, meta=meta)
             for partial_inf in partial_infs
