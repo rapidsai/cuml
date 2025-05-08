@@ -25,13 +25,13 @@ rapids-logger "Analyzing test results"
     "${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 THRESHOLD_EXITCODE=$?
 
-# Set final exit code based on conditions
-if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
-    # For nightly runs, only fail if threshold is not met
-    EXITCODE=$THRESHOLD_EXITCODE
-else
-    # For regular runs, fail on any test failure
+# Set final exit code based on build type
+if [ "${RAPIDS_BUILD_TYPE}" == "pull-request" ]; then
+    # For pull requests, fail on any test failure
     EXITCODE=$TEST_EXITCODE
+else
+    # For all other builds, only fail if threshold is not met
+    EXITCODE=$THRESHOLD_EXITCODE
 fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
