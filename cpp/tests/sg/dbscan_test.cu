@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -312,14 +312,14 @@ INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int64, ::testing::ValuesIn(inpu
 template <typename T>
 struct DBScan2DArrayInputs {
   const T* points;
-  const int* out;
+  const int64_t* out;
   size_t n_row;
   // n_out allows to compare less labels than we have inputs
   // (some output labels can be ambiguous)
   size_t n_out;
   T eps;
   int min_pts;
-  const int* core_indices;  // Expected core_indices
+  const int64_t* core_indices;  // Expected core_indices
   const T* sample_weight = nullptr;
 };
 
@@ -328,15 +328,22 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
   void basicTest(Dbscan::EpsNnMethod eps_nn_method)
   {
+    if constexpr (std::is_same_v<T, double>) {
+      if (eps_nn_method == Dbscan::EpsNnMethod::RBC) {
+        GTEST_SKIP() << "RBC is not supported for double precision";
+      }
+    }
+    if (eps_nn_method == Dbscan::EpsNnMethod::RBC) { std::cout << "RBC test" << std::endl; }
+
     raft::handle_t handle;
     auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
     rmm::device_uvector<T> inputs(params.n_row * 2, stream);
-    rmm::device_uvector<int> labels(params.n_row, stream);
-    rmm::device_uvector<int> labels_ref(params.n_out, stream);
-    rmm::device_uvector<int> core_sample_indices_d(params.n_row, stream);
+    rmm::device_uvector<int64_t> labels(params.n_row, stream);
+    rmm::device_uvector<int64_t> labels_ref(params.n_out, stream);
+    rmm::device_uvector<int64_t> core_sample_indices_d(params.n_row, stream);
     rmm::device_uvector<T> sample_weight_d(params.n_row, stream);
 
     raft::copy(inputs.data(), params.points, params.n_row * 2, stream);
@@ -369,16 +376,16 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     if (score < 1.0) {
       auto str = raft::arr2Str(labels_ref.data(), params.n_out, "labels_ref", stream);
-      CUML_LOG_DEBUG("y: %s", str.c_str());
+      printf("y: %s\n", str.c_str());
       str = raft::arr2Str(labels.data(), params.n_row, "labels", stream);
-      CUML_LOG_DEBUG("y_hat: %s", str.c_str());
-      CUML_LOG_DEBUG("Score = %lf", score);
+      printf("y_hat: %s\n", str.c_str());
+      printf("Score = %lf\n", score);
     }
 
     EXPECT_TRUE(MLCommon::devArrMatchHost(params.core_indices,
                                           core_sample_indices_d.data(),
                                           params.n_row,
-                                          MLCommon::Compare<int>(),
+                                          MLCommon::Compare<int64_t>(),
                                           stream));
   }
 
@@ -404,14 +411,14 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 // and two noise points
 const std::vector<float> test2d1_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0};
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
-const std::vector<int> test2d1_l  = {0, 0, 0, 0, 0, -1, -1};
-const std::vector<int> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d1_l  = {0, 0, 0, 0, 0, -1, -1};
+const std::vector<int64_t> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
 // modified for weighted samples --> wheights are shifted so that
 // the rightmost point will be a core point as well
 const std::vector<float> test2d1w_f = {1, 2, 1, 1, -1, 1, 3};
 const std::vector<double> test2d1w_d(test2d1w_f.begin(), test2d1w_f.end());
-const std::vector<int> test2d1w_l  = {0, 0, 0, 0, 0, 1, 1};
-const std::vector<int> test2d1wc_l = {1, 6, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d1w_l  = {0, 0, 0, 0, 0, 1, 1};
+const std::vector<int64_t> test2d1wc_l = {1, 6, -1, -1, -1, -1, -1};
 
 // The input looks like a long two-barred (orhodox) cross or
 // two stars next to each other:
@@ -422,14 +429,14 @@ const std::vector<int> test2d1wc_l = {1, 6, -1, -1, -1, -1, -1};
 // So there should be two clusters, both in the form of a plus/star
 const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
-const std::vector<int> test2d2_l  = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
-const std::vector<int> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d2_l  = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+const std::vector<int64_t> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
 // modified for weighted samples --> wheight for the right center
 // is negative that the whole right star is noise
 const std::vector<float> test2d2w_f = {1, 1, 1, 1, 1, 1, -2, 1, 1, 1};
 const std::vector<double> test2d2w_d(test2d2w_f.begin(), test2d2w_f.end());
-const std::vector<int> test2d2w_l  = {0, 0, 0, 0, 0, -1, -1, -1, -1, -1};
-const std::vector<int> test2d2wc_l = {1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d2w_l  = {0, 0, 0, 0, 0, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d2wc_l = {1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a two-barred (orhodox) cross or
 // two stars sharing a link:
@@ -463,8 +470,8 @@ const std::vector<float> test2d3_f = {
   0,
 };
 const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
-const std::vector<int> test2d3_l  = {0, 0, 0, 0, 1, 1, 1, 1};
-const std::vector<int> test2d3c_l = {1, 4, -1, -1, -1, -1, -1, -1, -1};
+const std::vector<int64_t> test2d3_l  = {0, 0, 0, 0, 1, 1, 1, 1};
+const std::vector<int64_t> test2d3c_l = {1, 4, -1, -1, -1, -1, -1, -1, -1};
 
 // ones for functional sample_weight testing
 const std::vector<float> test2d_ones_f = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
