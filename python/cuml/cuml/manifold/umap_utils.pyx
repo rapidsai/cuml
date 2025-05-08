@@ -118,15 +118,10 @@ def find_ab_params(spread, min_dist):
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
     """
+    from scipy.optimize import curve_fit
 
     def curve(x, a, b):
         return 1.0 / (1.0 + a * x ** (2 * b))
-
-    from cuml.internals.import_utils import has_scipy
-    if has_scipy():
-        from scipy.optimize import curve_fit
-    else:
-        raise RuntimeError('Scipy is needed to run find_ab_params')
 
     xv = np.linspace(0, spread * 3, 300)
     yv = np.zeros(xv.shape)
@@ -158,7 +153,7 @@ _METRICS = {
 _SUPPORTED_METRICS = {
     "nn_descent": {
         "sparse": frozenset(),
-        "dense": frozenset((DistanceType.L2SqrtExpanded,))
+        "dense": frozenset((DistanceType.L2SqrtExpanded, DistanceType.L2Expanded, DistanceType.CosineExpanded))
     },
     "brute_force_knn": {
         "sparse": frozenset((

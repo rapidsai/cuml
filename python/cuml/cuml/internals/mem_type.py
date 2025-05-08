@@ -24,8 +24,6 @@ import numpy as np
 import pandas
 import scipy.sparse as scipy_sparse
 
-from cuml.internals.device_support import GPU_ENABLED
-
 
 class MemoryTypeError(Exception):
     """An exception thrown to indicate inconsistent memory type selection"""
@@ -54,27 +52,21 @@ class MemoryType(Enum):
 
     @property
     def xpy(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return np
         else:
             return cp
 
     @property
     def xdf(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return pandas
         else:
             return cudf
 
     @property
     def xsparse(self):
-        if self is MemoryType.host or (
-            self is MemoryType.mirror and not GPU_ENABLED
-        ):
+        if self is MemoryType.host:
             return scipy_sparse
         else:
             return cpx_sparse

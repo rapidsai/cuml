@@ -30,7 +30,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.tsa.arima cimport ARIMAOrder
 
 
-cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
+cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
     void cpp_make_arima "ML::Datasets::make_arima" (
         const handle_t& handle,
         float* out,

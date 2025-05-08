@@ -39,7 +39,6 @@ from cupy import ndarray as cp_ndarray
 import cuml
 import cuml.accel
 import cuml.common
-import cuml.common.cuda
 import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
@@ -47,7 +46,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import api_context_managers
 from cuml.internals.array import CumlArray
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
@@ -219,7 +217,7 @@ class Base(TagsMixin,
 
         # stream and handle example:
 
-        stream = cuml.common.cuda.Stream()
+        stream = pylibraft.common.Stream()
         handle = pylibraft.common.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
@@ -227,7 +225,7 @@ class Base(TagsMixin,
         result = algo.predict(...)
 
         # final sync of all gpu-work launched inside this object
-        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # this is same as `pylibraft.common.Stream.sync()` call, but safer in case
         # the default stream inside the `raft::handle_t` is being used
         base.handle.sync()
         del base  # optional!
@@ -651,8 +649,7 @@ class UniversalBase(Base):
 
     def cpu_to_gpu(self):
         """Transfer attributes from CPU estimator to GPU estimator."""
-        mem_type = MemoryType.device if is_cuda_available() else MemoryType.host
-        with using_memory_type(mem_type):
+        with using_memory_type(MemoryType.device):
             for name in self.get_attr_names():
                 try:
                     value = getattr(self._cpu_model, name)
@@ -664,7 +661,9 @@ class UniversalBase(Base):
                     # Coerce arrays to CumlArrays with the proper order
                     descriptor = getattr(type(self), name, None)
                     order = descriptor.order if isinstance(descriptor, CumlArrayDescriptor) else "K"
-                    value = input_to_cuml_array(value, order=order, convert_to_mem_type=mem_type)[0]
+                    value = input_to_cuml_array(
+                        value, order=order, convert_to_mem_type=MemoryType.device
+                    )[0]
 
                 setattr(self, name, value)
 

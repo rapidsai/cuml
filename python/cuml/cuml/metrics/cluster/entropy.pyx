@@ -29,10 +29,8 @@ from cuml.internals.input_utils import input_to_cupy_array
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
 
-
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double entropy(const handle_t &handle,
                    const int *y,
                    const int n,

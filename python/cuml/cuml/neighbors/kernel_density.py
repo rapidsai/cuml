@@ -19,16 +19,12 @@ import math
 import cupy as cp
 import numpy as np
 from numba import cuda
+from scipy.special import gammainc
 
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.metrics import pairwise_distances
-
-if has_scipy():
-    from scipy.special import gammainc
-
 
 VALID_KERNELS = [
     "gaussian",
@@ -428,7 +424,6 @@ class KernelDensity(Base):
             # we first draw points from a d-dimensional normal distribution,
             # then use an incomplete gamma function to map them to a uniform
             # d-dimensional tophat distribution.
-            has_scipy(raise_if_unavailable=True)
             dim = self.X_.shape[1]
             X = rng.normal(size=(n_samples, dim))
             s_sq = cp.einsum("ij,ij->i", X, X).get()

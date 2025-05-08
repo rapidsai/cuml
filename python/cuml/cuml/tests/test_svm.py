@@ -452,10 +452,7 @@ def get_memsize(svc):
     "n_iter", [unit_param(10), quality_param(100), stress_param(1000)]
 )
 @pytest.mark.parametrize("n_cols", [1000])
-@pytest.mark.parametrize("use_handle", [True, False])
-def test_svm_memleak(
-    params, n_rows, n_iter, n_cols, use_handle, dataset="blobs"
-):
+def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset="blobs"):
     """
     Test whether there is any memory leak.
 
@@ -464,8 +461,7 @@ def test_svm_memleak(
 
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
-    stream = cuml.cuda.Stream()
-    handle = cuml.Handle(stream=stream)
+    handle = cuml.Handle()
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
@@ -519,8 +515,7 @@ def test_svm_memleak_on_exception(
         n_samples=n_rows, n_features=n_cols, random_state=137, centers=2
     )
     X_train = X_train.astype(np.float32)
-    stream = cuml.cuda.Stream()
-    handle = cuml.Handle(stream=stream)
+    handle = cuml.Handle()
 
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done

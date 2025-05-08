@@ -21,9 +21,10 @@ import dask_cudf
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.stats
 from sklearn.neighbors import KNeighborsClassifier
 
-from cuml.common import has_scipy
+from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common import utils as dask_utils
 from cuml.testing.utils import (
     array_equal,
@@ -43,14 +44,9 @@ if IS_ARM and cp.cuda.runtime.runtimeGetVersion() < 11080:
 
 
 def predict(neigh_ind, _y, n_neighbors):
-    if has_scipy():
-        import scipy.stats as stats
-    else:
-        raise RuntimeError("Scipy is needed to run predict()")
-
     neigh_ind = neigh_ind.astype(np.int64)
 
-    ypred, count = stats.mode(_y[neigh_ind], axis=1)
+    ypred, count = scipy.stats.mode(_y[neigh_ind], axis=1)
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 
@@ -75,7 +71,8 @@ def _prep_training_data(
 
 
 def _scale_rows(client, nrows):
-    workers = list(client.scheduler_info()["workers"].keys())
+    kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+    workers = list(client.scheduler_info(**kwargs)["workers"].keys())
     n_workers = len(workers)
     return n_workers * nrows
 

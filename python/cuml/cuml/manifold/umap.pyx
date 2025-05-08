@@ -53,7 +53,7 @@ from cuml.internals.logger cimport level_enum
 from cuml.manifold.umap_utils cimport *
 
 
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
 
     void fit(handle_t & handle,
              float * X,
@@ -488,7 +488,7 @@ class UMAP(UniversalBase,
             umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
             umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
             # Forward metric & metric_kwds to nn_descent
-            umap_params.nn_descent_params.metric = <RaftDistanceType> umap_params.metric
+            umap_params.nn_descent_params.metric = <DistanceType> umap_params.metric
             umap_params.nn_descent_params.metric_arg = umap_params.p
 
         cdef uintptr_t callback_ptr = 0

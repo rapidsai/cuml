@@ -15,11 +15,7 @@
 #
 
 import cupyx
-
-from cuml.internals.import_utils import has_scipy
-
-if has_scipy():
-    import scipy.sparse
+import scipy.sparse
 
 
 def is_sparse(X):
@@ -35,8 +31,7 @@ def is_sparse(X):
     is_sparse : boolean
         is the input sparse?
     """
-    is_scipy_sparse = has_scipy() and scipy.sparse.issparse(X)
-    return cupyx.scipy.sparse.issparse(X) or is_scipy_sparse
+    return scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X)
 
 
 def is_dense(X):

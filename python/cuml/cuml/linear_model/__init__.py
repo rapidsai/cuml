@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
 # limitations under the License.
 #
 
-from cuml.internals.device_support import GPU_ENABLED
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
+from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
+from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
-
-if GPU_ENABLED:
-    from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
-    from cuml.linear_model.mbsgd_regressor import MBSGDRegressor

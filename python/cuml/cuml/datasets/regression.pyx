@@ -31,7 +31,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
+cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
     void cpp_make_regression "ML::Datasets::make_regression" (
         const handle_t& handle,
         float* out,

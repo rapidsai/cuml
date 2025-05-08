@@ -72,7 +72,7 @@ cdef raft_proto_device_t get_device_type(arr):
         dev = raft_proto_device_t.cpu
     return dev
 
-cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:
     cdef cppclass forest_model:
         void predict[io_t](
             const raft_proto_handle_t&,
@@ -93,7 +93,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
 
-cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil" nogil:
     forest_model import_from_treelite_handle(
         TreeliteModelHandle,
         fil_tree_layout,

@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import cache
 
-from cuml.internals.device_support import GPU_ENABLED
+import functools
 
-
-def gpu_available_no_context_creation():
-    """
-    Function tries to check if GPUs are available in the system without
-    creating a CUDA context. We check for CuPy presence as a proxy of that.
-    """
-    try:
-        import cupy  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+import dask
+import packaging.version
 
 
-@cache
-def is_cuda_available():
-    return GPU_ENABLED and gpu_available_no_context_creation()
+@functools.lru_cache
+def DASK_2025_4_0():
+    return packaging.version.parse(
+        dask.__version__
+    ) >= packaging.version.parse("2025.4.0")

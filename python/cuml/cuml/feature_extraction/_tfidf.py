@@ -17,7 +17,6 @@ import cupy as cp
 import cupyx
 
 import cuml.internals
-from cuml import Base
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparsefuncs import (
     csr_diag_mul,
@@ -25,6 +24,7 @@ from cuml.common.sparsefuncs import (
     csr_row_normalize_l2,
 )
 from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 
 
 def _sparse_document_frequency(X):
