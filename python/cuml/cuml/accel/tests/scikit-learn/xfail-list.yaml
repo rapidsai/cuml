@@ -1196,12 +1196,12 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
-  - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
   - "sklearn.utils.tests.test_validation::test_has_fit_parameter"
 - reason: Test is flaky with cuml.accel
   strict: false
   marker: cuml_accel_flaky
   tests:
+  - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
