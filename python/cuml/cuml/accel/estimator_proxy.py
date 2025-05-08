@@ -82,7 +82,8 @@ _reconstruct_proxy = _ReconstructProxy()
 class ProxyBase(BaseEstimator):
     """A base class for defining new Proxy estimators.
 
-    Subclasses should define ``_gpu_class`` and ``_cpu_class``.
+    Subclasses should define ``_gpu_class``, which must be a subclass of
+    ``InteropMixin``.
 
     Attributes and hyperparameters are always proxied through the CPU estimator.
 
@@ -114,6 +115,9 @@ class ProxyBase(BaseEstimator):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
+        cls._cpu_class = cls._gpu_class._cpu_class
 
         # Forward some metadata to make the proxy class look like the CPU class
         cls.__qualname__ = cls._cpu_class.__qualname__

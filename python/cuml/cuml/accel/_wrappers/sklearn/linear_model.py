@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import sklearn.linear_model
 
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
@@ -32,7 +31,6 @@ __all__ = (
 
 class LinearRegression(ProxyBase):
     _gpu_class = cuml.linear_model.LinearRegression
-    _cpu_class = sklearn.linear_model.LinearRegression
 
     def _gpu_fit(self, X, y, sample_weight=None):
         if is_sparse(X):
@@ -42,12 +40,10 @@ class LinearRegression(ProxyBase):
 
 class LogisticRegression(ProxyBase):
     _gpu_class = cuml.linear_model.LogisticRegression
-    _cpu_class = sklearn.linear_model.LogisticRegression
 
 
 class ElasticNet(ProxyBase):
     _gpu_class = cuml.linear_model.ElasticNet
-    _cpu_class = sklearn.linear_model.ElasticNet
 
     def _gpu_fit(self, X, y, sample_weight=None):
         if is_sparse(X):
@@ -57,7 +53,6 @@ class ElasticNet(ProxyBase):
 
 class Ridge(ProxyBase):
     _gpu_class = cuml.linear_model.Ridge
-    _cpu_class = sklearn.linear_model.Ridge
 
     def _gpu_fit(self, X, y, sample_weight=None):
         y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
@@ -70,7 +65,6 @@ class Ridge(ProxyBase):
 
 class Lasso(ProxyBase):
     _gpu_class = cuml.linear_model.Lasso
-    _cpu_class = sklearn.linear_model.Lasso
 
     def _gpu_fit(self, X, y, sample_weight=None):
         if is_sparse(X):
