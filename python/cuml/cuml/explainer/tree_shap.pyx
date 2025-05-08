@@ -173,17 +173,15 @@ cdef class TreeExplainer:
         cls = model.__class__
         cls_module, cls_name = cls.__module__, cls.__name__
         # XGBoost model object
-        if re.match(
-                r'xgboost.*$', cls_module):
+        if re.match(r'xgboost.*$', cls_module):
             if cls_name != 'Booster':
                 model = model.get_booster()
-            tl_model = treelite.Model.from_xgboost(model)
+            tl_model = treelite.frontend.from_xgboost(model)
         # LightGBM model object
-        if re.match(
-                r'lightgbm.*$', cls_module):
+        elif re.match(r'lightgbm.*$', cls_module):
             if cls_name != 'Booster':
                 model = model.booster_
-            tl_model = treelite.Model.from_lightgbm(model)
+            tl_model = treelite.frontend.from_lightgbm(model)
         # cuML RF model object
         elif isinstance(model, (curfr, curfc)):
             tl_model = model.convert_to_treelite_model()
@@ -193,10 +191,10 @@ cdef class TreeExplainer:
         elif isinstance(model, treelite.Model):
             tl_model = model
         else:
-            raise ValueError("Unrecognized model object type")
+            raise ValueError(f"Unrecognized model object type: {type(model)}")
 
         # Get num_class
-        self.num_class = tl_model.get_header_accessor().get_field("num_class")
+        self.num_class = tl_model.get_header_accessor().get_field("num_class").copy()
         if len(self.num_class) > 1:
             raise NotImplementedError("TreeExplainer does not support multi-target models")
 
@@ -282,15 +280,17 @@ cdef class TreeExplainer:
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.
-        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
+        # 2. Transpose SHAP values in dimension (row_id, feature_id, group_id)
+        # Note. The layout of the SHAP values from the `shap` package changed
+        #       in version 0.45.0. We use the changed layout.
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
         if self.num_class[0] > 1:
             preds = preds.reshape(
                 (n_rows, self.num_class[0], n_cols + 1))
-            preds = preds.transpose((1, 0, 2))
-            self.expected_value = preds[:, 0, -1]
-            return preds[:, :, :-1]
+            preds = preds.transpose((0, 2, 1))
+            self.expected_value = preds[0, -1, :]
+            return preds[:, :-1, :]
         else:
             assert self.num_class[0] == 1
             self.expected_value = preds[0, -1]
