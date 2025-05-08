@@ -415,6 +415,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
+            output_type="input",
             is_classifier=True,
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -515,6 +516,57 @@ class RandomForestClassifier(BaseRandomForestModel,
         del y_m
         return self
 
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def _predict_model_on_cpu(
+        self,
+        X,
+        convert_dtype = True,
+    ) -> CumlArray:
+        cdef uintptr_t X_ptr
+        X_m, n_rows, n_cols, _dtype = \
+            input_to_cuml_array(X, order='C',
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        X_ptr = X_m.ptr
+        preds = CumlArray.zeros(n_rows, dtype=np.int32)
+        cdef uintptr_t preds_ptr = preds.ptr
+
+        cdef handle_t* handle_ = \
+            <handle_t*> <uintptr_t> self.handle.getHandle()
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*> <uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*> <uintptr_t> self.rf_forest64
+        if self.dtype == np.float32:
+            predict(handle_[0],
+                    rf_forest,
+                    <float*> X_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int*> preds_ptr,
+                    <level_enum> self.verbose)
+
+        elif self.dtype == np.float64:
+            predict(handle_[0],
+                    rf_forest64,
+                    <double*> X_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int*> preds_ptr,
+                    <level_enum> self.verbose)
+        else:
+            raise TypeError("supports only np.float32 and np.float64 input,"
+                            " but input of type '%s' passed."
+                            % (str(self.dtype)))
+
+        self.handle.sync()
+        # synchronous w/o a stream
+        del X_m
+        return preds
+
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
@@ -526,6 +578,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         self,
         X,
         threshold = 0.5,
+        convert_dtype = True,
+        predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
@@ -569,15 +623,22 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        preds = self._predict_model_on_gpu(
-            X=X,
-            is_classifier=True,
-            predict_proba=False,
-            threshold=threshold,
-            layout=layout,
-            default_chunk_size=default_chunk_size,
-            align_bytes=align_bytes,
-        )
+        if predict_model == "CPU":
+            preds = self._predict_model_on_cpu(
+                X=X,
+                convert_dtype=convert_dtype,
+            )
+        else:
+            preds = self._predict_model_on_gpu(
+                X=X,
+                is_classifier=True,
+                predict_proba=False,
+                threshold=threshold,
+                convert_dtype=convert_dtype,
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+            )
 
         if self.update_labels:
             preds = preds.to_output().astype(self.classes_.dtype)
