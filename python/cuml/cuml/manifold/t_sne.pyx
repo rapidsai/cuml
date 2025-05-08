@@ -276,6 +276,11 @@ class TSNE(UniversalBase,
     _hyperparam_interop_translator = {
         "n_components": {
             3 : "NotImplemented",
+        },
+        "method": {
+            "exact" : "exact",
+            "barnes_hut" : "fft",  # mitigation for #6617
+            "fft" : "fft",
         }
     }
 
