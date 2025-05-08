@@ -44,6 +44,7 @@ from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
+from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common import utils as dask_utils
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
@@ -71,7 +72,8 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
-    n_workers = len(c.scheduler_info()["workers"])
+    kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+    n_workers = len(c.scheduler_info(**kwargs)["workers"])
 
     try:
 
@@ -125,7 +127,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("partitions_per_worker", [5])
 def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     X, y = make_regression(
@@ -175,7 +177,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
 
 @pytest.mark.parametrize("partitions_per_worker", [5])
 def test_rf_classification_dask_array(partitions_per_worker, client):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     X, y = make_classification(
         n_samples=n_workers * 2000,
@@ -214,7 +216,7 @@ def test_rf_classification_dask_array(partitions_per_worker, client):
 
 @pytest.mark.parametrize("partitions_per_worker", [5])
 def test_rf_regression_dask_cpu(partitions_per_worker, client):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     X, y = make_regression(
         n_samples=n_workers * 2000,
@@ -263,7 +265,7 @@ def test_rf_regression_dask_cpu(partitions_per_worker, client):
 def test_rf_classification_dask_fil_predict_proba(
     partitions_per_worker, client
 ):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     X, y = make_classification(
         n_samples=n_workers * 1500,
@@ -319,7 +321,7 @@ def test_rf_classification_dask_fil_predict_proba(
 
 @pytest.mark.parametrize("model_type", ["classification", "regression"])
 def test_rf_concatenation_dask(client, model_type):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=30, random_state=123, n_classes=2
@@ -365,7 +367,7 @@ def test_single_input_regression(client, ignore_empty_partitions):
 
     if (
         ignore_empty_partitions
-        or len(client.scheduler_info()["workers"].keys()) == 1
+        or len(client.scheduler_info(n_workers=-1)["workers"].keys()) == 1
     ):
         cu_rf_mg.fit(X, y)
         cuml_mod_predict = cu_rf_mg.predict(X)
@@ -382,7 +384,7 @@ def test_single_input_regression(client, ignore_empty_partitions):
 @pytest.mark.parametrize("n_estimators", [5, 10, 20])
 @pytest.mark.parametrize("estimator_type", ["regression", "classification"])
 def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     if n_estimators < n_workers:
         err_msg = "n_estimators cannot be lower than number of dask workers"
         pytest.xfail(err_msg)
@@ -484,7 +486,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 @pytest.mark.parametrize("max_depth", [1, 2, 3, 5, 10, 15, 20])
 @pytest.mark.parametrize("n_estimators", [5, 10, 20])
 def test_rf_instance_count(client, max_depth, n_estimators):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     if n_estimators < n_workers:
         err_msg = "n_estimators cannot be lower than number of dask workers"
         pytest.xfail(err_msg)
@@ -546,7 +548,7 @@ def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
     max_depth = 3
     n_estimators = 5
 
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     if n_estimators < n_workers:
         err_msg = "n_estimators cannot be lower than number of dask workers"
         pytest.xfail(err_msg)
@@ -591,7 +593,7 @@ def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
 @pytest.mark.parametrize("n_estimators", [5, 10, 20])
 @pytest.mark.parametrize("detailed_text", [True, False])
 def test_rf_get_text(client, n_estimators, detailed_text):
-    n_workers = len(client.scheduler_info()["workers"])
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
     X, y = make_classification(
         n_samples=500,
@@ -644,7 +646,7 @@ def test_rf_get_text(client, n_estimators, detailed_text):
 @pytest.mark.parametrize("transform_broadcast", [True, False])
 def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    workers = list(client.scheduler_info()["workers"].keys())
+    workers = list(client.scheduler_info(n_workers=-1)["workers"].keys())
     n_workers = len(workers)
 
     if model_type == "classification":
