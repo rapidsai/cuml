@@ -288,7 +288,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_serialized_model()  # Ensure we have this cached
+            self._serialize_treelite_bytes()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
