@@ -24,7 +24,21 @@
 
 namespace ML {
 
-using nn_index_params = cuvs::neighbors::nn_descent::index_params;
+namespace graph_build_params {
+
+struct nn_descent_params {
+  // not directly using cuvs::neighbors::nn_descent::index_params to distinguish UMAP-exposed NN
+  // Descent parameters
+  size_t graph_degree   = 64;
+  size_t max_iterations = 20;
+};
+
+struct graph_build_params {
+  size_t n_nearest_clusters = 2;
+  size_t n_clusters         = 4;
+  nn_descent_params nn_descent_params;
+};
+}  // namespace graph_build_params
 
 class UMAPParams {
  public:
@@ -149,7 +163,7 @@ class UMAPParams {
    */
   graph_build_algo build_algo = graph_build_algo::BRUTE_FORCE_KNN;
 
-  nn_index_params nn_descent_params = {};
+  graph_build_params::graph_build_params build_params;
 
   /**
    * The number of nearest neighbors to use to construct the target simplicial

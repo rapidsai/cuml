@@ -273,10 +273,16 @@ class UMAP(UniversalBase,
         'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
-        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
-        'nnd_n_clusters': 1}
-        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
+        Build algorithm argument. Default values are: {'n_clusters': 1, 'n_nearest_clusters':2, 'nn_descent': {'graph_degree': n_neigbors, 'max_iterations': 20}}.
+       "n_clusters": int (default=1). Number of clusters to split the data into when building the knn graph. Increasing this will use less device memory at the cost of accuracy. When using n_clusters > 1, put data on host (refer to data_on_host argument for fit_transform). The default value (n_clusters=1) will place the entire data on device memory.
+       "n_nearest_clusters": int (default=2). Number of clusters each data is assigned to. Only valid when n_clusters > 1.
+       "nn_descent": dict (default={"graph_degree": n_neighbors, "max_iterations": 20}). Arguments for when build_algo="nn_descent". graph_degree should be larger than or equal to n_neighbors. Increasing graph_degree and max_iterations may result in better accuracy.
+        [Hint1]: the ratio of n_nearest_clusters / n_clusters determines device memory usage. Approximately (n_nearest_clusters / n_clusters) * num_rows_in_entire_data number of rows will be put on device memory at once.
+        E.g. between (n_nearest_clusters / n_clusters) = 2/10 and 2/20, the latter will use less device memory.
+        [Hint2]: larger n_nearest_clusters results in better accuracy of the final all-neighbors knn graph.
+        E.g. With the similar device memory usages, (n_nearest_clusters / n_clusters) = 4/20 will have better accuracy than 2/10 at the cost of performance.
+        [Hint3]: for n_nearest_clusters, start with 2, and gradually increase (2->3->4 ...) for better accuracy
+        [Hint4]: for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage. This is independent from n_nearest_clusters as long as n_nearest_clusters < n_clusters
 
     Notes
     -----
@@ -430,6 +436,10 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
+        # for deprecation notice
+        if self.build_kwds is not None and "nnd" in self.build_kwds.keys():
+            raise Exception("build_kwds no longer supports nnd_* arguments. Please refer to docs for detailed configurations.")
+
     def validate_hyperparams(self):
 
         if self.min_dist > self.spread:
@@ -478,18 +488,20 @@ class UMAP(UniversalBase,
 
         if self.build_algo == "brute_force_knn":
             umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-        else:
-            umap_params.build_algo = graph_build_algo.NN_DESCENT
+        else:   # build algo nn descent
             build_kwds = self.build_kwds or {}
-            umap_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
-            umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
-            umap_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
-            umap_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
-            umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
-            umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
-            # Forward metric & metric_kwds to nn_descent
-            umap_params.nn_descent_params.metric = <DistanceType> umap_params.metric
-            umap_params.nn_descent_params.metric_arg = umap_params.p
+            umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("n_clusters", 1)
+            umap_params.build_params.n_nearest_clusters = <uint64_t> build_kwds.get("n_nearest_clusters", 2)
+            if umap_params.build_params.n_clusters > 1 and umap_params.build_params.n_nearest_clusters >= umap_params.build_params.n_clusters:
+                raise Exception("If n_clusters > 1, then n_nearest_clusters should be strictly smaller than n_clusters.")
+            umap_params.build_algo = graph_build_algo.NN_DESCENT
+
+            nnd_build_kwds = build_kwds.get("nn_descent", {})
+            umap_params.build_params.nn_descent_params.graph_degree = <uint64_t> nnd_build_kwds.get("graph_degree", self.n_neighbors)
+            umap_params.build_params.nn_descent_params.max_iterations = <uint64_t> nnd_build_kwds.get("max_iterations", 20)
+            if umap_params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
+                logger.warn("to use nn descent as the build algo, graph_degree should be larger than or equal to n_neigbors. setting graph_degree to n_neighbors.")
+                umap_params.build_params.nn_descent_params.graph_degree = self.n_neighbors
 
         cdef uintptr_t callback_ptr = 0
         if self.callback:

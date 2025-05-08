@@ -840,7 +840,7 @@ def test_umap_trustworthiness_on_batch_nnd(
         n_neighbors=10,
         min_dist=0.01,
         build_algo="nn_descent",
-        build_kwds={"nnd_n_clusters": num_clusters},
+        build_kwds={"n_clusters": num_clusters},
         metric=metric,
     )
 
