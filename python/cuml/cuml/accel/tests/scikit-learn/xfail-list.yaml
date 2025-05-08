@@ -1318,3 +1318,6 @@
   marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
+- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+  tests:
+  - "test_equivalence_components_pca_spca[42]"
