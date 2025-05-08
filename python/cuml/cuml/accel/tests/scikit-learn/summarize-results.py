@@ -46,6 +46,14 @@ def setup_yaml():
     )
 
 
+def load_config(config_path):
+    """Load configuration from YAML file."""
+    if not config_path.exists():
+        return {}
+    with open(config_path) as f:
+        return yaml.safe_load(f) or {}
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -57,6 +65,12 @@ def parse_args():
         help="Path to the JUnit XML report file",
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        help="Path to config file",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -66,7 +80,6 @@ def parse_args():
         "-f",
         "--fail-below",
         type=float,
-        default=0.0,
         help="Minimum pass rate threshold [0-100] (default: 0)",
     )
     parser.add_argument(
@@ -97,7 +110,22 @@ def parse_args():
         type=int,
         help="Limit output to first N entries (default: no limit)",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Handle fail-below threshold logic:
+    # 1. Use command line value if provided
+    # 2. Use config value if no command line value
+    # 3. Use default of 0.0 if neither is provided
+    if args.fail_below is None:
+        if args.config is not None:
+            config = load_config(args.config)
+            args.fail_below = config.get("threshold", {}).get(
+                "fail_below", 0.0
+            )
+        else:
+            args.fail_below = 0.0
+
+    return args
 
 
 def validate_threshold(threshold):
