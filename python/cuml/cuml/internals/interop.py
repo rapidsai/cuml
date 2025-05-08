@@ -224,11 +224,15 @@ class InteropMixin:
             If one or more attributes are unsupported by the CPU model.
         """
         out = {}
-        for name in ["n_features_in_", "feature_names_in_"]:
-            try:
-                out[name] = getattr(self, name)
-            except AttributeError:
-                pass
+        if (
+            n_features_in_ := getattr(self, "n_features_in_", None)
+        ) is not None:
+            out["n_features_in_"] = n_features_in_
+
+        # TODO: Some cuml estimators set `feature_names_in_`, but they don't
+        # do this properly per sklearn conventions. For now we skip forwarding
+        # feature_names_in_ to CPU. Revisit once
+        # https://github.com/rapidsai/cuml/issues/6650 is resolved.
         return out
 
     def _sync_attrs_to_cpu(self, model) -> None:

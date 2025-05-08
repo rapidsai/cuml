@@ -497,6 +497,14 @@ def test_fit_cpu_predict_cpu():
     assert model._gpu is None
 
 
+def test_common_fit_attributes():
+    X, y = make_regression(n_samples=10, n_features=5)
+    model = LinearRegression()
+    assert not hasattr(model, "n_features_in_")
+    model.fit(X, y)
+    assert model.n_features_in_ == X.shape[1]
+
+
 def test_method_that_only_exists_on_cpu_estimator():
     """For methods that cuml doesn't implement, we fallback to CPU
     before executing."""
