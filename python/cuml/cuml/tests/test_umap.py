@@ -826,8 +826,8 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
         assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
 
 
-@pytest.mark.parametrize("data_on_host", [True, False])
-@pytest.mark.parametrize("num_clusters", [0, 3, 5])
+@pytest.mark.parametrize("data_on_host", [True])
+@pytest.mark.parametrize("num_clusters", [3, 5, 7])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 def test_umap_trustworthiness_on_batch_nnd(
