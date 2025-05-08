@@ -387,6 +387,7 @@ class BaseRandomForestModel(UniversalBase):
         is_classifier = False,
         predict_proba = False,
         threshold = 0.5,
+        convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
