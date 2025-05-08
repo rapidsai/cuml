@@ -18,7 +18,7 @@ TEST_EXITCODE=$?
 # Analyze results and check pass rate threshold
 rapids-logger "Analyzing test results"
 ./python/cuml/cuml/accel/tests/scikit-learn/summarize-results.py \
-    --fail-below 80 \
+    --fail-below 85 \
     "${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 THRESHOLD_EXITCODE=$?
 
