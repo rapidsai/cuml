@@ -279,10 +279,27 @@ class ProxyBase(BaseEstimator):
             setattr(self._cpu, name, value)
             self._sync_params_to_gpu()
         else:
-            raise ValueError(
-                f"Cannot set attribute {name!r} on {type(self).__name__!r} "
-                "when running with `cuml.accel` enabled."
-            )
+            # Mutating non-hyperparameter (probably a fit attribute). This
+            # is weird to do, and should never be done during normal sklearn
+            # usage. This does happen sometimes in sklearn tests though.
+            # The only sane thing to do is to fallback to CPU and forward
+            # the mutation through.
+            self._sync_attrs_to_cpu()
+            self._gpu = None
+            setattr(self._cpu, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if name in ("_cpu", "_gpu", "_synced"):
+            # Internal state. We never call this, just here for parity.
+            object.__delattr__(self, name)
+        else:
+            # No normal workflow deletes attributes (hyperparameters or otherwise)
+            # from a sklearn estimator. The sklearn tests do sometimes though.
+            # The only sane thing to do is to fallback to CPU and forward
+            # the mutation through.
+            self._sync_attrs_to_cpu()
+            self._gpu = None
+            delattr(self._cpu, name)
 
     ############################################################
     # Public sklearn methods                                   #

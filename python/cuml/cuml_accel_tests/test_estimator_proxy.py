@@ -184,10 +184,27 @@ def test_setattr():
     assert model._cpu.coef_ is not None
     assert model._gpu is None
 
-    # Changing the value of fit attributes will raise. sklearn doesn't
-    # want users doing this, and there's not much else we can do
-    with pytest.raises(ValueError, match="Cannot set attribute"):
-        model.coef_ = [1, 2, 3]
+    # Changing the value of fit attributes causes fallback to CPU.
+    # This should never happen in normal workflows, but we want
+    # to handle even the weird things.
+    model = LinearRegression().fit(X, y)
+    model.coef_ = [1, 2, 3]
+    assert model._gpu is None
+    assert model.coef_ == [1, 2, 3]
+
+
+def test_delattr():
+    X, y = make_regression(n_samples=10)
+    model = LinearRegression().fit(X, y)
+    del model.n_features_in_
+    # Deleting an attribute causes fallback to CPU. This should never happen in
+    # normal workflows, but we want to handle even the weird things.
+    assert model._gpu is None
+    assert model._cpu.coef_ is not None
+    assert not hasattr(model._cpu, "n_features_in_")
+    # Smoketest that deleting internal state works. We never do this internally.
+    del model._synced
+    assert not hasattr(model, "_synced")
 
 
 def test_get_params():
