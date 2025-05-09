@@ -43,8 +43,9 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.handle cimport handle_t
-from pylibraft.common.mdspan cimport *
+from pylibraft.common.mdspan cimport const_float
 
 from pylibraft.common.cai_wrapper import cai_wrapper
 
