@@ -160,47 +160,19 @@ def test_ridge_solver_attribute_default():
 
 
 @pytest.mark.parametrize(
-    "solver,expected",
-    [
-        ("auto", "auto"),
-        ("cholesky", "eig"),
-        ("lsqr", "eig"),
-        ("sag", "eig"),
-        ("saga", "eig"),
-        ("lbfgs", "lbfgs"),
-        ("sparse_cg", "eig"),
-    ],
+    "solver", ["auto", "cholesky", "lsqr", "sag", "saga", "lbfgs", "sparse_cg"]
 )
-def test_ridge_solver_attribute_initialization(solver, expected):
-    """Test that the solver attribute is translated correctly."""
-    model = Ridge(solver=solver, random_state=42)
-    assert (
-        model.solver == expected
-    ), f"{solver} solver should be translated to '{expected}'"
-
-
-@pytest.mark.parametrize(
-    "solver,expected_solver_",
-    [
-        ("auto", "eig"),
-        ("cholesky", "eig"),
-        ("lsqr", "eig"),
-        ("sag", "eig"),
-        ("saga", "eig"),
-        ("lbfgs", "lbfgs"),
-        ("sparse_cg", "eig"),
-    ],
-)
-def test_ridge_solver_attribute_after_fit(solver, expected_solver_):
+def test_ridge_solver_attribute_after_fit(solver):
     """Test that the solver_ attribute is set correctly after fit."""
     # Set positive=True for lbfgs solver as it's required
     positive = solver == "lbfgs"
     model = Ridge(solver=solver, positive=positive, random_state=42)
     X, y = make_regression(n_samples=10, n_features=2, random_state=42)
     model.fit(X, y)
-    assert (
-        model.solver_ == expected_solver_
-    ), f"solver_ should be '{expected_solver_}' after fit"
+
+    expected = "cholesky" if solver == "auto" else solver
+    assert model.solver == solver
+    assert model.solver_ == expected
 
 
 def test_ridge_solver_attribute_invalid(regression_data):
