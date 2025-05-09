@@ -11,10 +11,6 @@ context:
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: ${{ git.head_rev(".")[:8] }}
 
-package:
-  name: cuml
-  version: ${{ version }}
-
 source:
   path: ../../..
 
