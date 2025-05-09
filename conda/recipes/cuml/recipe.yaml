@@ -11,12 +11,16 @@ context:
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: ${{ git.head_rev(".")[:8] }}
 
+recipe:
+  name: cuml
+  version: ${{ version }}
+
 source:
   path: ../../..
 
 outputs:
-  - name: cuml
-    version: ${{ version }}
+  - package:
+      name: cuml
     build:
       string: cuda${{ cuda_major }}_py${{ py_buildstring }}_${{ date_string }}_${{ head_rev }}
       files:
@@ -104,8 +108,8 @@ outputs:
       license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
       summary: ${{ load_from_file("python/cuml/pyproject.toml").project.description }}
 
-  - name: cuml-dask
-    version: ${{ version }}
+  - package:
+      name: cuml-dask
     requirements:
       run:
         - ${{ pin_subpackage('cuml', exact=True) }}
