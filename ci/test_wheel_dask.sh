@@ -13,7 +13,7 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
-  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[test]"
+  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[dask,test,test-dask]"
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
