@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import functools
-import inspect
 from typing import Any
 
 import sklearn
@@ -119,10 +118,18 @@ class ProxyBase(BaseEstimator):
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
         cls._cpu_class = cls._gpu_class._cpu_class
 
+        # Wrap __init__ to ensure signature compatibility.
+        orig_init = cls.__init__
+
+        @functools.wraps(cls._cpu_class.__init__)
+        def __init__(self, *args, **kwargs):
+            orig_init(self, *args, **kwargs)
+
+        cls.__init__ = __init__
+
         # Forward some metadata to make the proxy class look like the CPU class
         cls.__qualname__ = cls._cpu_class.__qualname__
         cls.__doc__ = cls._cpu_class.__doc__
-        cls.__signature__ = inspect.signature(cls._cpu_class)
         # We use the `_cpu_class_path` (which matches the patched path) instead of
         # the original full module path so that the class (not an instance) can
         # be pickled properly.
@@ -201,6 +208,11 @@ class ProxyBase(BaseEstimator):
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
         if is_fit:
+            # Attempt to call CPU param validation to validate hyperparameters.
+            # This ensures we match errors for invalid hyperparameters during fitting.
+            if hasattr(self._cpu, "_validate_params"):
+                self._cpu._validate_params()
+
             # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
@@ -238,12 +250,6 @@ class ProxyBase(BaseEstimator):
     ############################################################
     # Standard magic methods                                   #
     ############################################################
-
-    def __str__(self) -> str:
-        return self._cpu.__str__()
-
-    def __repr__(self) -> str:
-        return self._cpu.__repr__()
 
     def __dir__(self) -> list[str]:
         # Ensure attributes are synced so they show up
@@ -338,6 +344,10 @@ class ProxyBase(BaseEstimator):
     @property
     def _estimator_type(self):
         return self._cpu._estimator_type
+
+    @property
+    def _parameter_constraints(self):
+        return self._cpu._parameter_constraints
 
     @classmethod
     def _get_param_names(cls):

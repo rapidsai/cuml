@@ -32,6 +32,7 @@ from sklearn.linear_model import (
     LinearRegression,
     LogisticRegression,
 )
+from sklearn.pipeline import Pipeline
 
 from cuml.accel import is_proxy
 
@@ -119,6 +120,18 @@ def test_repr():
     assert repr(model) == repr(model._cpu)
     # smoketest _repr_mimebundle_. It changes per-call, so can't directly compare
     assert isinstance(model._repr_mimebundle_(), dict)
+
+
+def test_pipeline_repr():
+    """sklearn's pretty printer requires you not override __repr__
+    for pipelines to repr properly"""
+    model = LogisticRegression(C=1.5)
+    pipe = Pipeline([("cls", model)])
+    native = Pipeline([("cls", model._cpu)])
+    assert str(pipe) == str(native)
+    assert repr(pipe) == repr(native)
+    # smoketest _repr_mimebundle_. It changes per-call, so can't directly compare
+    assert isinstance(pipe._repr_mimebundle_(), dict)
 
 
 def test_dir():
@@ -503,6 +516,14 @@ def test_common_fit_attributes():
     assert not hasattr(model, "n_features_in_")
     model.fit(X, y)
     assert model.n_features_in_ == X.shape[1]
+
+
+def test_fit_validates_params():
+    X, y = make_classification()
+    model = LogisticRegression(C="oops")
+
+    with pytest.raises(Exception, match="C"):
+        model.fit(X, y)
 
 
 def test_method_that_only_exists_on_cpu_estimator():
