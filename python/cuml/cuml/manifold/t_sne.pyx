@@ -572,7 +572,6 @@ class TSNE(UniversalBase,
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
-                        skip_parameters_heading=True,
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \
