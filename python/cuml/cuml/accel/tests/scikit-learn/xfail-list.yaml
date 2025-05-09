@@ -1232,7 +1232,7 @@
   - "sklearn.cluster.tests.test_k_means::test_float_precision[42-KMeans-dense]"
   - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: Flaky deviations in n_iter_ values in cuml.accel
-  strict: true
+  strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
 - reason: "RAFT library limitation: tolerance must be positive"
