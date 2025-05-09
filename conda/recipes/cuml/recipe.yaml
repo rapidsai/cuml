@@ -18,95 +18,105 @@ package:
 source:
   path: ../../..
 
-build:
-  string: cuda${{ cuda_major }}_py${{ py_buildstring }}_${{ date_string }}_${{ head_rev }}
-  files:
-    exclude:
-      - '*libarrow.so.*gdb.py'
-  prefix_detection:
-    # See https://github.com/rapidsai/build-planning/issues/160
-    # Blanket ignore here as there are quite a few shared objects shipped in cuml
-    ignore_binary_files: True
-  script:
-    content: |
-      ./build.sh cuml -v
-    secrets:
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_SESSION_TOKEN
-    env:
-      CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
-      CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
-      CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
-      CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
-      SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
-      SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
-      SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
-      SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
-      SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
-      SCCACHE_S3_KEY_PREFIX: cuml/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
+outputs:
+  - name: cuml
+    version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_py${{ py_buildstring }}_${{ date_string }}_${{ head_rev }}
+      files:
+        exclude:
+          - '*libarrow.so.*gdb.py'
+      prefix_detection:
+        # See https://github.com/rapidsai/build-planning/issues/160
+        # Blanket ignore here as there are quite a few shared objects shipped in cuml
+        ignore_binary_files: True
+      script:
+        content: |
+          ./build.sh cuml -v
+        secrets:
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY
+          - AWS_SESSION_TOKEN
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+          CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+          CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+          SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+          SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+          SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+          SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+          SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+          SCCACHE_S3_KEY_PREFIX: cuml/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - cuda-version =${{ cuda_version }}
+        - cudf =${{ minor_version }}
+        - cython >=3.0.0
+        - libcuml =${{ version }}
+        - libcumlprims =${{ minor_version }}
+        - pip
+        - pylibraft =${{ minor_version }}
+        - python =${{ py_version }}
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-logger =0.1
+        - scikit-build-core >=0.10.0
+        - treelite ${{ treelite_version }}
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+            - cuda-python >=11.8.5,<12.0a0
+          else:
+            - cuda-cudart-dev
+            - cuda-python >=12.6.2,<13.0a0
+      run:
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - cudf =${{ minor_version }}
+        - cupy >=12.0.0
+        - joblib >=0.11
+        - libcuml =${{ version }}
+        - libcumlprims =${{ minor_version }}
+        - numpy >=1.23,<3.0a0
+        - packaging
+        - pylibraft =${{ minor_version }}
+        - python
+        - rapids-logger =0.1
+        - treelite ${{ treelite_version }}
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+            - cuda-python >=11.8.5,<12.0a0
+          else:
+            - cuda-cudart
+            - cuda-python >=12.6.2,<13.0a0
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    about:
+      homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/cuml/pyproject.toml").project.description }}
 
-requirements:
-  build:
-    - cmake ${{ cmake_version }}
-    - ninja
-    - ${{ compiler("c") }}
-    - ${{ compiler("cxx") }}
-    - ${{ compiler("cuda") }}
-    - cuda-version =${{ cuda_version }}
-    - ${{ stdlib("c") }}
-  host:
-    - cuda-version =${{ cuda_version }}
-    - cudf =${{ minor_version }}
-    - cython >=3.0.0
-    - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
-    - pip
-    - pylibraft =${{ minor_version }}
-    - python =${{ py_version }}
-    - raft-dask =${{ minor_version }}
-    - rapids-build-backend >=0.3.0,<0.4.0.dev0
-    - rapids-logger =0.1
-    - scikit-build-core >=0.10.0
-    - treelite ${{ treelite_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart-dev
-        - cuda-python >=12.6.2,<13.0a0
-  run:
-    - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-    - cudf =${{ minor_version }}
-    - cupy >=12.0.0
-    - dask-cudf =${{ minor_version }}
-    - joblib >=0.11
-    - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
-    - numpy >=1.23,<3.0a0
-    - packaging
-    - pylibraft =${{ minor_version }}
-    - python
-    - raft-dask =${{ minor_version }}
-    - rapids-dask-dependency =${{ minor_version }}
-    - rapids-logger =0.1
-    - treelite ${{ treelite_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart
-        - cuda-python >=12.6.2,<13.0a0
-  ignore_run_exports:
-    by_name:
-      - cuda-cudart
-      - cuda-version
-      - if: cuda_major == "11"
-        then: cudatoolkit
-
-about:
-  homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
-  license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
-  summary: ${{ load_from_file("python/cuml/pyproject.toml").project.description }}
+  - name: cuml-dask
+    version: ${{ version }}
+    requirements:
+      run:
+        - ${{ pin_subpackage('cuml', exact=True) }}
+        - dask-cudf =${{ minor_version }}
+        - raft-dask =${{ minor_version }}
+        - rapids-dask-dependency =${{ minor_version }}
+    about:
+      homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/cuml/pyproject.toml").project.description }}
