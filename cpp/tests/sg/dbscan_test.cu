@@ -328,11 +328,6 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
   void basicTest(Dbscan::EpsNnMethod eps_nn_method)
   {
-    if constexpr (std::is_same_v<T, double>) {
-      if (eps_nn_method == Dbscan::EpsNnMethod::RBC) {
-        GTEST_SKIP() << "RBC is not supported for double precision";
-      }
-    }
     if (eps_nn_method == Dbscan::EpsNnMethod::RBC) { std::cout << "RBC test" << std::endl; }
 
     raft::handle_t handle;
