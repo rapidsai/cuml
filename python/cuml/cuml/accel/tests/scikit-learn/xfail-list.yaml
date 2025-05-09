@@ -1319,5 +1319,6 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
 - reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+  condition: "cuda-python >= 12.9"
   tests:
-  - "test_equivalence_components_pca_spca[42]"
+  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
