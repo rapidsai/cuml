@@ -85,7 +85,6 @@ requirements:
     - libcuml =${{ version }}
     - libcumlprims =${{ minor_version }}
     - numpy >=1.23,<3.0a0
-    - scikit-learn >=1.5
     - packaging
     - pylibraft =${{ minor_version }}
     - python
