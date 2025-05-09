@@ -42,11 +42,8 @@ from copy import copy
 
 import cudf
 import cupy as cp
-import dask.array as da
-import dask.dataframe as df
 import numpy as np
 import pytest
-from dask.distributed import wait
 
 from cuml.benchmark import algorithms, datagen
 from cuml.benchmark.bench_helper_funcs import (
@@ -60,10 +57,15 @@ from cuml.benchmark.bench_helper_funcs import (
     transform,
 )
 from cuml.benchmark.nvtx_benchmark import Profiler
-from cuml.dask._compat import DASK_2025_4_0
 
 
 def distribute(client, data):
+    import dask.array as da
+    import dask.dataframe as df
+    from dask.distributed import wait
+
+    from cuml.dask._compat import DASK_2025_4_0
+
     if data is not None:
         n_rows = data.shape[0]
         kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
