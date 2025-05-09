@@ -316,9 +316,12 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        y_pred = self.predict(X, convert_dtype=convert_dtype)
-        if not isinstance(y_pred, da.Array):
-            y_pred = y_pred.to_dask_array(lengths=True)
+        y_pred_plain = self.predict(X, convert_dtype=convert_dtype)
+        if not isinstance(y_pred_plain, da.Array):
+            y_pred = y_pred_plain.to_dask_array(lengths=True)
+        else:
+            y_pred = y_pred_plain
+
         if not isinstance(y, da.Array):
             y = y.to_dask_array(lengths=True)
         y_true = y.squeeze()

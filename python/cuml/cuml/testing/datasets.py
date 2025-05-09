@@ -34,7 +34,7 @@ from cuml.testing.strategies import (
 )
 
 
-def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
+def is_sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
     """Check if a dataset is compatible with scikit-learn's requirements.
 
     Parameters
@@ -65,7 +65,7 @@ def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
     )
 
 
-def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
+def is_cuml_compatible_dataset(X_train, X_test, y_train, _=None):
     """Check if a dataset is compatible with cuML's requirements.
 
     Parameters
@@ -308,8 +308,8 @@ def with_dtype(data, dtype):
 
 __all__ = [
     # Dataset compatibility
-    "sklearn_compatible_dataset",
-    "cuml_compatible_dataset",
+    "is_sklearn_compatible_dataset",
+    "is_cuml_compatible_dataset",
     # Dataset generation
     "make_classification",
     "make_classification_dataset",
