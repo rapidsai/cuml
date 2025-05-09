@@ -71,7 +71,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        double *sample_weight) except +
 
 
-# TODO: check these
 _SOLVER_SKLEARN_TO_CUML = {
     "auto": "auto",
     "svd": "svd",

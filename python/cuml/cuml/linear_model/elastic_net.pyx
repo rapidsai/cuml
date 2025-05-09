@@ -182,7 +182,8 @@ class ElasticNet(Base,
         if model.precompute is not False:
             raise UnsupportedOnGPU
 
-        # TODO: do we want to be changing the tolerance?
+        # We use different algorithms than sklearn, adjust tolerance by a
+        # factor empirically determined to be ~equivalent.
         tol = 10 * model.tol
 
         return {
@@ -195,7 +196,8 @@ class ElasticNet(Base,
         }
 
     def _params_to_cpu(self):
-        # TODO: do we want to be changing the tolerance?
+        # We use different algorithms than sklearn, adjust tolerance by a
+        # factor empirically determined to be ~equivalent.
         tol = 0.1 * self.tol
 
         return {
