@@ -88,11 +88,9 @@ void make_epochs_per_sample(
 }
 
 template <typename T>
-void optimization_iteration_finalization(
-  UMAPParams* params, T* head_embedding, T& alpha, int n, int n_epochs, uint64_t& seed)
+void optimization_iteration_finalization(UMAPParams* params, T* head_embedding, uint64_t& seed)
 {
   if (params->callback) params->callback->on_epoch_end(head_embedding);
-  alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
   seed += 1;
 }
 
@@ -168,8 +166,7 @@ T create_rounding_factor(T max_abs, int n)
 }
 
 template <typename T, typename nnz_t>
-T create_gradient_rounding_factor(
-  const int* head, nnz_t nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
+uint32_t get_n_edges(const int* head, nnz_t nnz, int n_samples, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
   // calculate the maximum number of edges connected to 1 vertex.
@@ -181,8 +178,7 @@ T create_gradient_rounding_factor(
                         buffer.data());
   auto ptr         = thrust::device_pointer_cast(buffer.data());
   uint32_t n_edges = *(thrust::max_element(rmm::exec_policy(stream), ptr, ptr + buffer.size()));
-  T max_abs        = T(n_edges) * T(4.0) * std::abs(alpha);
-  return create_rounding_factor(max_abs, n_edges);
+  return n_edges;
 }
 
 /**
@@ -250,9 +246,27 @@ void optimize_layout(T* head_embedding,
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
-  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
+  uint32_t n_edges = get_n_edges<T, nnz_t>(head, nnz, head_n, stream_view);
+  T rounding;
+
+  int n_warmup_epochs      = n_epochs * 0.4;
+  int n_regular_epochs     = n_epochs - n_warmup_epochs;
+  T alpha_at_end_of_warmup = params->initial_alpha * (1.0 - (T(n_warmup_epochs) / T(n_epochs)));
 
   for (int n = 0; n < n_epochs; n++) {
+    if (n < n_warmup_epochs) {
+      // linear warmup to avoid large gradient updates
+      alpha = alpha_at_end_of_warmup * (T(n) / T(n_warmup_epochs));
+    } else {
+      // linear decay for convergence
+      alpha = alpha_at_end_of_warmup * (1.0 - (T(n - n_warmup_epochs) / T(n_regular_epochs)));
+    }
+
+    // Update the rounding factor every epoch to increase accuracy and reduce the presence of
+    // outliers in embeddings
+    T max_abs = T(n_edges) * T(4.0) * std::abs(alpha);
+    rounding  = create_rounding_factor(max_abs, n_edges);
+
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
                                                 tail_embedding,
@@ -286,7 +300,7 @@ void optimize_layout(T* head_embedding,
                                         stream_view);
     }
     RAFT_CUDA_TRY(cudaGetLastError());
-    optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
+    optimization_iteration_finalization(params, head_embedding, seed);
   }
 }
 
