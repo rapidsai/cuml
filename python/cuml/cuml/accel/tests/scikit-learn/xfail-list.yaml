@@ -23,7 +23,6 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),min_resources='smallest',param_grid={'ridge__alpha':[0.1,1.0]},random_state=0)]"
-  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6)
   marker: cuml_accel_bugs
   condition: "scikit-learn>=1.6"
@@ -1289,6 +1288,7 @@
   strict: false
   marker: cuml_accel_flaky
   tests:
+  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
   - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-2-65535]"
