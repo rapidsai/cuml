@@ -13,13 +13,4 @@
 # limitations under the License.
 #
 
-import warnings
-
-from cuml.internals.import_utils import has_dask
-
-if has_dask():
-    from cuml.dask.solvers.cd import CD  # NOQA
-else:
-    warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabled."
-    )
+from cuml.dask.solvers.cd import CD

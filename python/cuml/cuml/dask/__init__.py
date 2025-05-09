@@ -12,7 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from dask import config
+try:
+    import dask
+    import dask.distributed as _  # noqa
+    import dask_cudf as _  # noqa
+    import raft_dask as _  # noqa
+
+    del _
+
+except ImportError as exc:
+    msg = (
+        f"{exc!s}\n\n"
+        "Not all requirements for using `cuml.dask` are installed.\n\n"
+        "Please either conda or pip install as follows:\n\n"
+        "  conda install cuml-dask      # either conda install\n"
+        '  pip install -U "cuml[dask]"  # or pip install\n'
+    )
+    raise ImportError(msg) from exc
 
 from cuml.dask import (
     cluster,
@@ -31,7 +47,7 @@ from cuml.dask import (
 )
 
 # Avoid "p2p" shuffling in dask for now
-config.set({"dataframe.shuffle.method": "tasks"})
+dask.config.set({"dataframe.shuffle.method": "tasks"})
 
 __all__ = [
     "cluster",

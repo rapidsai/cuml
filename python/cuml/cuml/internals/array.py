@@ -21,8 +21,6 @@ from typing import Tuple
 
 import cudf
 import cupy as cp
-import dask.dataframe as dd
-import dask_cudf
 import numpy as np
 import pandas as pd
 from numba import cuda
@@ -1041,9 +1039,7 @@ class CumlArray:
             else:
                 return X
 
-        if isinstance(
-            X, (dask_cudf.Series, dask_cudf.DataFrame, dd.Series, dd.DataFrame)
-        ):
+        if hasattr(X, "__dask_graph__") and hasattr(X, "compute"):
             # TODO: Warn, but not when using dask_sql
             X = X.compute()
 

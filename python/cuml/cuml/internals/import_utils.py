@@ -13,17 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-def has_dask():
-    try:
-        import dask  # NOQA
-        import dask.dataframe  # NOQA
-        import dask.distributed  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def has_sklearn():
     try:
         import sklearn  # NOQA
