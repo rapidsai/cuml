@@ -22,3 +22,12 @@ def has_dask():
         return True
     except ImportError:
         return False
+
+
+def has_sklearn():
+    try:
+        import sklearn  # NOQA
+
+        return True
+    except ImportError:
+        return False
