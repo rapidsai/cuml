@@ -199,11 +199,14 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(X, client=self.client)
         combined_data = list(map(lambda x: x[1], data.gpu_futures))
 
-        func = (
-            _func_predict_partial
-            if op_type == "regression"
-            else _func_predict_proba_partial
-        )
+        if op_type == "classification":
+            func = _func_predict_proba_partial
+            shape = (X.shape[0], 1, self.num_classes)
+        else:
+            shape = (X.shape[0], 1)
+            func = _func_predict_partial
+
+        meta = cp.zeros((0,) * len(shape), dtype=cp.float32)
 
         partial_infs = list()
         for worker in self.active_workers:
@@ -217,14 +220,12 @@ class BaseRandomForestModel(object):
                     pure=False,
                 )
             )
-        shape = (X.shape[0], 1, self.num_classes)
+
         objs = [
-            dask.array.from_delayed(partial_inf, shape=shape, dtype=np.float32)
+            dask.array.from_delayed(partial_inf, shape=shape, meta=meta)
             for partial_inf in partial_infs
         ]
-        result = dask.array.concatenate(
-            objs, axis=1, allow_unknown_chunksizes=True
-        )
+        result = dask.array.concatenate(objs, axis=1)
         return result
 
     def _predict_using_fil(self, X, delayed, **kwargs):
