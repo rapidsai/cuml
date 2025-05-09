@@ -23,7 +23,6 @@ from cuml.common.timing_utils import timed
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.import_utils import has_dask
 from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_host_array,
@@ -48,7 +47,6 @@ __all__ = [
     "CumlArray",
     "SparseCumlArray",
     "device_of_gpu_matrix",
-    "has_dask",
     "input_to_cuml_array",
     "input_to_host_array",
     "input_to_host_array_with_sparse_support",

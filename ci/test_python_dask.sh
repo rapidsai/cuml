@@ -5,6 +5,7 @@
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 # Common setup steps shared by Python test jobs
+export DEPENDENCY_FILE_KEY=test_python_dask
 source ./ci/test_python_common.sh
 
 EXITCODE=0

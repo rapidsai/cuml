@@ -15,9 +15,6 @@
 #
 
 import pytest
-from dask.distributed import Client
-from dask_cuda import LocalCUDACluster, initialize
-from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 
 enable_tcp_over_ucx = True
 enable_nvlink = False
@@ -26,6 +23,8 @@ enable_infiniband = False
 
 @pytest.fixture(scope="module")
 def cluster():
+    from dask_cuda import LocalCUDACluster
+    from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 
     cluster = LocalCUDACluster(
         protocol="tcp",
@@ -38,6 +37,7 @@ def cluster():
 
 @pytest.fixture(scope="function")
 def client(cluster):
+    from dask.distributed import Client
 
     client = Client(cluster)
     yield client
@@ -46,6 +46,9 @@ def client(cluster):
 
 @pytest.fixture(scope="module")
 def ucx_cluster():
+    from dask_cuda import LocalCUDACluster, initialize
+    from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
+
     initialize.initialize(
         create_cuda_context=True,
         enable_tcp_over_ucx=enable_tcp_over_ucx,
@@ -65,6 +68,7 @@ def ucx_cluster():
 
 @pytest.fixture(scope="function")
 def ucx_client(ucx_cluster):
+    from dask.distributed import Client
 
     client = Client(ucx_cluster)
     yield client

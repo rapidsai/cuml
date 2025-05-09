@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
 from cuml.neighbors.kernel_density import (
     VALID_KERNELS,
     KernelDensity,

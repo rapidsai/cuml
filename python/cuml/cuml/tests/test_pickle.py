@@ -29,7 +29,7 @@ from cuml.testing.utils import (
     array_equal,
     compare_probabilistic_svm,
     compare_svm,
-    get_classes_from_package,
+    get_all_base_subclasses,
     stress_param,
     unit_param,
 )
@@ -105,7 +105,7 @@ unfit_clone_xfail = [
     "UMAP",
 ]
 
-all_models = get_classes_from_package(cuml, import_sub_packages=True)
+all_models = get_all_base_subclasses()
 all_models.update(
     {
         **regression_models,

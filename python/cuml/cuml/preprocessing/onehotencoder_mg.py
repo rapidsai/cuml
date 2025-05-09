@@ -15,10 +15,8 @@
 #
 
 import cupy as cp
-import dask
 from cudf import DataFrame
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.preprocessing.encoders import OneHotEncoder
 
 
@@ -36,6 +34,10 @@ class OneHotEncoderMG(OneHotEncoder):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function to check input of fit within the multi-gpu model"""
+        import dask.array
+
+        from cuml.dask.common.dask_arr_utils import to_dask_cudf
+
         if isinstance(X, (dask.array.core.Array, cp.ndarray)):
             self._set_input_type("array")
             if is_categories:
