@@ -68,6 +68,7 @@ files:
       - py_version
       - depends_on_cuml
       - depends_on_libcuml
+      - depends_on_cuml_dask
   test_cpp:
     output: none
     includes:
@@ -89,6 +90,7 @@ files:
       - cuda_version
       - depends_on_cuml
       - depends_on_libcuml
+      - depends_on_cuml_dask
       - py_version
       - test_python
       - test_python_dask
@@ -618,6 +620,11 @@ dependencies:
       - output_types: conda
         packages:
           - cuml==25.6.*,>=0.0.0a0
+  depends_on_cuml_dask:
+    common:
+      - output_types: conda
+        packages:
+          - cuml-dask==25.6.*,>=0.0.0a0
   depends_on_cupy:
     common:
       - output_types: conda
