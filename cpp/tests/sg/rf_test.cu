@@ -46,9 +46,9 @@
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
-#include <treelite/tree.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <treelite/tree.h>
 
 #include <cmath>
 #include <cstddef>
@@ -187,23 +187,24 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
 }
 
 template <typename DataT, typename LabelT>
-std::shared_ptr<thrust::device_vector<LabelT>>
-FilPredict(const raft::handle_t& handle,
-           RfTestParams params,
-           DataT* X_transpose,
-           RandomForestMetaData<DataT, LabelT>* forest)
+std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
+  const raft::handle_t& handle,
+  RfTestParams params,
+  DataT* X_transpose,
+  RandomForestMetaData<DataT, LabelT>* forest)
 {
-  auto pred = std::shared_ptr<thrust::device_vector<LabelT>>();
+  auto pred      = std::shared_ptr<thrust::device_vector<LabelT>>();
   auto workspace = std::shared_ptr<thrust::device_vector<DataT>>();  // Scratch space
   if constexpr (std::is_integral_v<LabelT>) {
     // For classifiers, allocate extra scratch space to store probabilities from FIL
     // We will perform argmax to convert probabilities into class outputs.
-    pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
+    pred      = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
     workspace = std::make_shared<thrust::device_vector<DataT>>(params.n_rows * params.n_labels);
   } else {
     // For regressors, no need to post-process predictions from FIL
-    static_assert(std::is_same_v<LabelT, DataT>, "LabelT and DataT must be identical for regression task");
-    pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
+    static_assert(std::is_same_v<LabelT, DataT>,
+                  "LabelT and DataT must be identical for regression task");
+    pred      = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
     workspace = pred;
   }
   TreeliteModelHandle model;
@@ -234,27 +235,35 @@ FilPredict(const raft::handle_t& handle,
 
   if constexpr (std::is_integral_v<LabelT>) {
     // Perform argmax to convert probabilities into class outputs
-    auto offsets_it = thrust::make_transform_iterator(
-      thrust::make_counting_iterator(0),
-      [=] __device__ (int x) -> int { return x * params.n_labels; });
+    auto offsets_it =
+      thrust::make_transform_iterator(thrust::make_counting_iterator(0),
+                                      [=] __device__(int x) -> int { return x * params.n_labels; });
     using kv_type = cub::KeyValuePair<int, DataT>;
 
     // Compute size of workspace for the segmented reduce operation
     std::size_t temp_storage_bytes = 0;
-    cub::DeviceSegmentedReduce::ArgMax(
-      nullptr, temp_storage_bytes, workspace->begin(),
-      thrust::device_pointer_cast<kv_type>(nullptr),
-      params.n_rows, offsets_it, offsets_it + 1);
+    cub::DeviceSegmentedReduce::ArgMax(nullptr,
+                                       temp_storage_bytes,
+                                       workspace->begin(),
+                                       thrust::device_pointer_cast<kv_type>(nullptr),
+                                       params.n_rows,
+                                       offsets_it,
+                                       offsets_it + 1);
 
     // Allocate workspace and perform segmented reduce
-    thrust::device_vector<kv_type> workspace2(
-      params.n_rows + temp_storage_bytes / sizeof(kv_type) + 1);
-    cub::DeviceSegmentedReduce::ArgMax(
-      thrust::raw_pointer_cast(workspace2.data() + params.n_rows), temp_storage_bytes,
-      workspace->begin(), workspace2.begin(),
-      params.n_rows, offsets_it, offsets_it + 1);
-    thrust::transform(workspace2.begin(), workspace2.begin() + params.n_rows, pred->begin(),
-      [] __device__ (kv_type x) -> int { return x.key; });
+    thrust::device_vector<kv_type> workspace2(params.n_rows + temp_storage_bytes / sizeof(kv_type) +
+                                              1);
+    cub::DeviceSegmentedReduce::ArgMax(thrust::raw_pointer_cast(workspace2.data() + params.n_rows),
+                                       temp_storage_bytes,
+                                       workspace->begin(),
+                                       workspace2.begin(),
+                                       params.n_rows,
+                                       offsets_it,
+                                       offsets_it + 1);
+    thrust::transform(workspace2.begin(),
+                      workspace2.begin() + params.n_rows,
+                      pred->begin(),
+                      [] __device__(kv_type x) -> int { return x.key; });
   }
 
   return pred;
@@ -651,12 +660,12 @@ TEST(RfTests, IntegerOverflow)
   build_treelite_forest(&model, forest_ptr, n);
 
   auto filex_model = ML::experimental::fil::import_from_treelite_handle(
-      model,
-      ML::experimental::fil::tree_layout::breadth_first,
-      128,
-      false,
-      raft_proto::device_type::gpu,
-      handle.get_device(),
+    model,
+    ML::experimental::fil::tree_layout::breadth_first,
+    128,
+    false,
+    raft_proto::device_type::gpu,
+    handle.get_device(),
     handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
