@@ -443,6 +443,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         model. For CPU execution, this value is currently ignored.
 
     """
+    _param_names = [
+        "treelite_model", "handle", "output_type", "verbose", "is_classifier",
+        "output_class", "layout", "default_chunk_size", "align_bytes",
+        "precision", "device_id",
+    ]
 
     def _reload_model(self):
         """Reload model on any device (CPU/GPU) where model has already been
@@ -1422,3 +1427,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         self.layout = optimal_layout
         self.default_chunk_size = optimal_chunk_size
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ForestInference._param_names
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        return self
