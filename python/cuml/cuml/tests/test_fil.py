@@ -40,6 +40,11 @@ from cuml.testing.utils import (
 )
 
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*output shape of ForestInference.*:FutureWarning"
+)
+
+
 def simulate_data(
     m,
     n,
@@ -482,7 +487,6 @@ def test_performance_hyperparameters(
 
 
 @pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32, 64, 128, 256])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_chunk_size(chunk_size, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -504,7 +508,6 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
 
 
 @pytest.mark.parametrize("output_class", [True, False])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(

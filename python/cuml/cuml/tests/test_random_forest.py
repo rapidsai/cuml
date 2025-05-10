@@ -52,9 +52,14 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore: For reproducible results(.*)" "::cuml[.*]"
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore: For reproducible results(.*)" "::cuml[.*]"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:.*output shape of ForestInference.*:FutureWarning"
+    ),
+]
 
 
 @pytest.fixture(
