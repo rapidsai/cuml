@@ -114,7 +114,10 @@ def count_categorical_split(tl_model):
     count = 0
     for tree in model_dump["trees"]:
         for node in tree["nodes"]:
-            if "node_type" in node and node["node_type"] == "categorical_test_node":
+            if (
+                "node_type" in node
+                and node["node_type"] == "categorical_test_node"
+            ):
                 count += 1
     return count
 
@@ -520,7 +523,9 @@ def test_xgb_classifier_with_categorical(n_classes):
     xgb_model = xgb.train(
         params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
     )
-    assert count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    )
 
     # Insert NaN randomly into X
     X_test = X.values.copy()
@@ -574,7 +579,9 @@ def test_xgb_regressor_with_categorical():
     xgb_model = xgb.train(
         params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
     )
-    assert count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    )
 
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X).get()
@@ -602,7 +609,9 @@ def test_lightgbm_regressor_with_categorical():
         random_state=2022,
     )
 
-    dtrain = lgb.Dataset(X, label=y, categorical_feature=list(range(n_categorical)))
+    dtrain = lgb.Dataset(
+        X, label=y, categorical_feature=list(range(n_categorical))
+    )
     params = {
         "num_leaves": 64,
         "seed": 0,
@@ -617,7 +626,9 @@ def test_lightgbm_regressor_with_categorical():
         valid_sets=[dtrain],
         valid_names=["train"],
     )
-    assert count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    )
 
     explainer = TreeExplainer(model=lgb_model)
     out = explainer.shap_values(X).get()
@@ -649,7 +660,9 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         random_state=2022,
     )
 
-    dtrain = lgb.Dataset(X, label=y, categorical_feature=list(range(n_categorical)))
+    dtrain = lgb.Dataset(
+        X, label=y, categorical_feature=list(range(n_categorical))
+    )
     params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}
     if n_classes == 2:
         params["objective"] = "binary"
@@ -665,7 +678,9 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         valid_sets=[dtrain],
         valid_names=["train"],
     )
-    assert count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    )
 
     # Insert NaN randomly into X
     X_test = X.values.copy()

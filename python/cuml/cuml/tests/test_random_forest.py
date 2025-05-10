@@ -311,9 +311,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(
-        X_test, predict_model="GPU", threshold=0.5
-    )
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU", threshold=0.5)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -372,9 +370,7 @@ def test_rf_classification_unorder(
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(
-        X_test, predict_model="GPU", threshold=0.5
-    )
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU", threshold=0.5)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -769,9 +765,7 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
     )
     fil_preds = np.reshape(fil_preds, np.shape(y_test))
     fil_acc = accuracy_score(y_test, fil_preds)
-    np.testing.assert_almost_equal(
-        fil_acc, cuml_model.score(X_test, y_test)
-    )
+    np.testing.assert_almost_equal(fil_acc, cuml_model.score(X_test, y_test))
 
     fil_model = cuml_model.convert_to_fil_model()
 

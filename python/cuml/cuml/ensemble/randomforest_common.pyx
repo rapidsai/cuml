@@ -25,13 +25,11 @@ from pylibraft.common.handle import Handle
 import cuml.accel
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
+from cuml.fil.fil import ForestInference
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.treelite import safe_treelite_call
-from cuml.fil.fil import ForestInference
-
-from cython.operator cimport dereference as deref
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.internals.treelite cimport *

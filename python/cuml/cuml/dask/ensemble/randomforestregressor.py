@@ -253,13 +253,13 @@ class RandomForestRegressor(
     def predict(
         self,
         X,
-        convert_dtype = True,
-        predict_model = "GPU",
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
-        delayed = True,
-        broadcast_data = False,
+        convert_dtype=True,
+        predict_model="GPU",
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+        delayed=True,
+        broadcast_data=False,
     ):
         """
         Predicts the regressor outputs for X.

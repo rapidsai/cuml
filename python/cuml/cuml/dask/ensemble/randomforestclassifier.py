@@ -274,14 +274,14 @@ class RandomForestClassifier(
     def predict(
         self,
         X,
-        threshold = 0.5,
-        convert_dtype = True,
-        predict_model = "GPU",
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
-        delayed = True,
-        broadcast_data = False,
+        threshold=0.5,
+        convert_dtype=True,
+        predict_model="GPU",
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+        delayed=True,
+        broadcast_data=False,
     ):
         """
         Predicts the labels for X.

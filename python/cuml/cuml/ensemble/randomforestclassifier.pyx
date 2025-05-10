@@ -17,13 +17,14 @@
 # distutils: language = c++
 
 import numpy as np
+import treelite
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-import treelite
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
+from cuml.fil.fil import ForestInference
 from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
@@ -33,7 +34,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
-from cuml.fil.fil import ForestInference
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool

@@ -32,14 +32,14 @@ from cuml.internals.logger cimport level_enum
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.internals.utils import check_random_seed
 from cuml.fil.fil import ForestInference
-
-from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+
+from cuml.ensemble.randomforest_shared cimport *
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:

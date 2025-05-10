@@ -33,12 +33,7 @@ from sklearn.model_selection import train_test_split
 
 from cuml import ForestInference
 from cuml.common.device_selection import using_device_type
-from cuml.testing.utils import (
-    quality_param,
-    stress_param,
-    unit_param,
-)
-
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:.*output shape of ForestInference.*:FutureWarning"
@@ -265,7 +260,9 @@ def test_fil_regression(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_rows", [1000])
 @pytest.mark.parametrize("n_columns", [30])
-@pytest.mark.parametrize("max_depth", [unit_param(2), quality_param(10), stress_param(20)])
+@pytest.mark.parametrize(
+    "max_depth", [unit_param(2), quality_param(10), stress_param(20)]
+)
 # When n_classes=25, fit a single estimator only to reduce test time
 @pytest.mark.parametrize(
     "n_classes,model_class,n_estimators,precision",
@@ -334,9 +331,7 @@ def test_fil_skl_classification(
         skl_proba = skl_model.predict_proba(X_validation)
 
         fm = ForestInference.load_from_sklearn(
-            skl_model,
-            precision=precision,
-            output_class=True
+            skl_model, precision=precision, output_class=True
         )
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
@@ -345,15 +340,21 @@ def test_fil_skl_classification(
         fm.optimize(data=np.expand_dims(X_validation, 0))
         fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
         fil_proba_opt = np.reshape(fil_proba_opt, skl_proba.shape)
-        np.testing.assert_allclose(fil_proba, skl_proba, atol=proba_atol[n_classes > 2])
-        np.testing.assert_allclose(fil_proba_opt, fil_proba, atol=proba_atol[n_classes > 2])
+        np.testing.assert_allclose(
+            fil_proba, skl_proba, atol=proba_atol[n_classes > 2]
+        )
+        np.testing.assert_allclose(
+            fil_proba_opt, fil_proba, atol=proba_atol[n_classes > 2]
+        )
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_rows", [1000])
 @pytest.mark.parametrize("n_columns", [20])
-@pytest.mark.parametrize("max_depth", [unit_param(2), quality_param(10), stress_param(20)])
+@pytest.mark.parametrize(
+    "max_depth", [unit_param(2), quality_param(10), stress_param(20)]
+)
 @pytest.mark.parametrize(
     "n_classes,model_class,n_estimators",
     [
@@ -480,7 +481,9 @@ def test_performance_hyperparameters(
         )
 
     with using_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))[:, 1]
+        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))[
+            :, 1
+        ]
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_proba, xgb_preds)
@@ -643,6 +646,7 @@ def test_lightgbm(
     with using_device_type(infer_device):
         fil_proba = fm.predict_proba(X_predict)
     np.testing.assert_almost_equal(gbm_proba, fil_proba)
+
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))

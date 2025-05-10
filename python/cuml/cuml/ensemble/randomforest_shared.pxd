@@ -30,8 +30,10 @@ from pylibraft.common.handle import Handle
 
 from cuml.internals.base import Base
 
-from cuml.internals.treelite cimport *
 from pylibraft.common.handle cimport handle_t
+
+from cuml.internals.treelite cimport *
+
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef enum CRITERION:

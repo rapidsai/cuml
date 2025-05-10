@@ -21,8 +21,8 @@ from collections.abc import Iterable
 import cupy as cp
 import dask
 import numpy as np
-from dask.distributed import Future
 import treelite
+from dask.distributed import Future
 
 from cuml import using_output_type
 from cuml.dask._compat import DASK_2025_4_0

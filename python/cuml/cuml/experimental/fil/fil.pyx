@@ -633,7 +633,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             elif isinstance(self.treelite_model, bytes):
                 treelite_model_bytes = self.treelite_model
             else:
-                raise ValueError(f"treelite_model should be either treelite.Model or bytes")
+                raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
                 self.handle,
                 treelite_model_bytes,
