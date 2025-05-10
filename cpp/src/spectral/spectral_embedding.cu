@@ -20,10 +20,10 @@ namespace ML::SpectralEmbedding {
 
 auto spectral_embedding_cuvs(raft::resources const& handle,
                              cuvs::preprocessing::spectral_embedding::params config,
-                             raft::device_matrix_view<float, int, raft::row_major> nums,
+                             raft::device_matrix_view<float, int, raft::row_major> dataset,
                              raft::device_matrix_view<float, int, raft::col_major> embedding) -> int
 {
-  return cuvs::preprocessing::spectral_embedding::transform(handle, config, nums, embedding);
+  return cuvs::preprocessing::spectral_embedding::transform(handle, config, dataset, embedding);
 }
 
 }  // namespace ML::SpectralEmbedding

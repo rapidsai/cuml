@@ -60,7 +60,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
     cdef int spectral_embedding_cuvs(
         const device_resources &handle,
         params config,
-        device_matrix_view[float, int, row_major] nums,
+        device_matrix_view[float, int, row_major] dataset,
         device_matrix_view[float, int, col_major] embedding) except +
 
 
