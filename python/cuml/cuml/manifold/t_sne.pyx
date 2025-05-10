@@ -276,6 +276,11 @@ class TSNE(UniversalBase,
     _hyperparam_interop_translator = {
         "n_components": {
             3 : "NotImplemented",
+        },
+        "method": {
+            "exact" : "exact",
+            "barnes_hut" : "fft",  # mitigation for #6617
+            "fft" : "fft",
         }
     }
 
@@ -567,7 +572,6 @@ class TSNE(UniversalBase,
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
-                        skip_parameters_heading=True,
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \

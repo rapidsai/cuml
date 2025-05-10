@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +13,14 @@
 # limitations under the License.
 #
 
-import cuml.decomposition
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
+import functools
 
-__all__ = ("PCA", "TruncatedSVD")
-
-
-class PCA(ProxyMixin, cuml.decomposition.PCA):
-    pass
+import dask
+import packaging.version
 
 
-class TruncatedSVD(ProxyMixin, cuml.decomposition.TruncatedSVD):
-    pass
+@functools.lru_cache
+def DASK_2025_4_0():
+    return packaging.version.parse(
+        dask.__version__
+    ) >= packaging.version.parse("2025.4.0")
