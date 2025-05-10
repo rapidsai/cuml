@@ -25,12 +25,11 @@ import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
-from sklearn.base import clone
-from sklearn.utils import Bunch
 
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
+from cuml.internals.import_utils import has_sklearn
 
 from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
@@ -40,6 +39,11 @@ from ..utils.skl_dependencies import (
     TransformerMixin,
 )
 from ..utils.validation import check_is_fitted
+
+if has_sklearn():
+    from sklearn.base import clone
+    from sklearn.utils import Bunch
+
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "
@@ -556,6 +560,9 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                  n_jobs=None,
                  transformer_weights=None,
                  verbose=False):
+        if not has_sklearn():
+            raise ImportError("Scikit-learn is needed to use the "
+                              "Column Transformer")
         if not transformers:
             warnings.warn('Transformers are required')
         self.transformers = transformers

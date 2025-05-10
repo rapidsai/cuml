@@ -15,7 +15,7 @@
 #
 
 import cuml.decomposition
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy_mixin import ProxyMixin
 
 __all__ = ("PCA", "TruncatedSVD")
 

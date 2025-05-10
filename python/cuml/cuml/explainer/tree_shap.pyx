@@ -18,6 +18,7 @@ from cuml.common import input_to_cuml_array
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.internals.array import CumlArray
+from cuml.internals.import_utils import has_sklearn
 from cuml.internals.input_utils import determine_array_type
 from cuml.legacy.fil.fil import TreeliteModel
 
@@ -27,9 +28,13 @@ import re
 
 import numpy as np
 import treelite
-from sklearn.ensemble import RandomForestClassifier as sklrfc
-from sklearn.ensemble import RandomForestRegressor as sklrfr
 
+if has_sklearn():
+    from sklearn.ensemble import RandomForestClassifier as sklrfc
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
+else:
+    sklrfr = object
+    sklrfc = object
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:
