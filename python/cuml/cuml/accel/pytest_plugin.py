@@ -129,9 +129,9 @@ def pytest_collection_modifyitems(config, items):
                 # Add the xfail marker
                 item.add_marker(
                     pytest.mark.xfail(
+                        config["condition"],
                         reason=config["reason"],
                         strict=config["strict"],
-                        condition=config["condition"],
                     )
                 )
                 # If there's a marker, add it as a proper pytest marker
