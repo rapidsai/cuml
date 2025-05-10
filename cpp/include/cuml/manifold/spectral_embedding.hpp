@@ -17,10 +17,14 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-#include <cuvs/preprocessing/spectral/spectral_embedding_types.hpp>
+#include <cuvs/preprocessing/spectral/spectral_embedding.hpp>
+
+namespace ML::SpectralEmbedding {
 
 auto spectral_embedding_cuvs(raft::resources const& handle,
+                             cuvs::preprocessing::spectral_embedding::params config,
                              raft::device_matrix_view<float, int, raft::row_major> nums,
-                             raft::device_matrix_view<float, int, raft::col_major> embedding,
-                             cuvs::preprocessing::spectral::spectral_embedding_config config)
+                             raft::device_matrix_view<float, int, raft::col_major> embedding)
   -> int;
+
+}  // namespace ML::SpectralEmbedding
