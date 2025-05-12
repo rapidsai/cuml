@@ -186,7 +186,7 @@ For Jupyter notebooks, use the following approach to turn on both:
 .. code-block::
 
    %load_ext cudf.pandas
-   from cuml.experimental.accel import install
+   from cuml.accel import install
    install()
 
 A single magic invocation is planned for a future release of cuML.
