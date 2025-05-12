@@ -8,7 +8,7 @@ The cuML Accelerator present in RAPIDS release 25.02.01 is a beta version, with 
 
 * Ingestion of lists of numbers by estimator functions is unsupported. Convert lists to structured formats (e.g., NumPy arrays or Pandas DataFrames) to ensure compatibility. This limitation will be removed in the next version of the cuML Accelerator.
 * Labels provided as arrays of strings are not supported. Pre-encode string labels into numerical or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to processing. This limitation will be removed in the next version of the cuML Accelerator.
-* The accelerator has been tested with scikit-learn 1.5.2. Compatibility with other versions is not guaranteed, so verify your environment before deployment. Supported version will be updated to 1.6.0 in the RAPIDS 25.04 release, and multiple version support is being explored.
+* The accelerator is compatible with scikit-learn version 1.5 or higher. This compatibility ensures that cuML's implementation of scikit-learn compatible APIs works as expected.
 * When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified memory) is not supported. This means that automatic memory management between host and device memory is not available. Users may need to be more careful about memory management and consider using the ``--disable-uvm`` flag if experiencing memory-related issues.
 
 For notes on each algorithm, please refer to its specific section on this file.
