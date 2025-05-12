@@ -140,7 +140,7 @@ test = [
     "pytest-xdist",
     "pytest==7.*",
     "pyyaml",
-    "scikit-learn==1.5.*",
+    "scikit-learn>=1.5",
     "seaborn",
     "statsmodels",
     "tenacity",
