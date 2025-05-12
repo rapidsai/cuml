@@ -21,19 +21,23 @@ from inspect import signature
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers import CD, QN
 
 
-class ElasticNet(UniversalBase,
+class ElasticNet(Base,
+                 InteropMixin,
                  LinearPredictMixin,
                  RegressorMixin,
                  FMajorInputTagMixin):
@@ -150,25 +154,75 @@ class ElasticNet(UniversalBase,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.ElasticNet'
     coef_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "positive": {
-            True: "NotImplemented",
-        },
-        "warm_start": {
-            True: "NotImplemented",
-        },
-        "tol": {
-            # tolerance controls tolerance of different solvers
-            # between sklearn and cuML, so at least the default
-            # value needs to be translated.
-            0.0001: 0.001
-        }
-    }
+    _cpu_class_path = "sklearn.linear_model.ElasticNet"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "solver",
+            "selection",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.positive:
+            raise UnsupportedOnGPU
+
+        if model.warm_start:
+            raise UnsupportedOnGPU
+
+        if model.precompute is not False:
+            raise UnsupportedOnGPU
+
+        # We use different algorithms than sklearn, adjust tolerance by a
+        # factor empirically determined to be ~equivalent.
+        tol = 10 * model.tol
+
+        return {
+            "alpha": model.alpha,
+            "l1_ratio": model.l1_ratio,
+            "fit_intercept": model.fit_intercept,
+            "tol": tol,
+            "max_iter": model.max_iter,
+            "selection": model.selection,
+        }
+
+    def _params_to_cpu(self):
+        # We use different algorithms than sklearn, adjust tolerance by a
+        # factor empirically determined to be ~equivalent.
+        tol = 0.1 * self.tol
+
+        return {
+            "alpha": self.alpha,
+            "l1_ratio": self.l1_ratio,
+            "fit_intercept": self.fit_intercept,
+            "tol": tol,
+            "max_iter": self.max_iter,
+            "selection": self.selection
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "intercept_": to_gpu(model.intercept_, order="F"),
+            "coef_": to_gpu(model.coef_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',
@@ -256,7 +310,7 @@ class ElasticNet(UniversalBase,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    @enable_device_interop
+    @warn_legacy_device_interop
     def fit(self, X, y, convert_dtype=True,
             sample_weight=None) -> "ElasticNet":
         """
@@ -300,19 +354,3 @@ class ElasticNet(UniversalBase,
             params['shuffle'] = self.selection == 'random'
         self.solver_model.set_params(**params)
         return self
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "alpha",
-            "l1_ratio",
-            "fit_intercept",
-            "normalize",
-            "max_iter",
-            "tol",
-            "solver",
-            "selection",
-        ]
-
-    def get_attr_names(self):
-        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
