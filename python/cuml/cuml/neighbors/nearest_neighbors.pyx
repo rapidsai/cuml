@@ -43,21 +43,11 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.handle cimport handle_t
-from pylibraft.common.mdspan cimport const_float, get_const_dmv_float
-
-from pylibraft.common.cai_wrapper import cai_wrapper
 
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.neighbors.ann cimport *
 
-
-cdef extern from "cuvs/neighbors/ball_cover.hpp" namespace "cuvs::neighbors::ball_cover" nogil:
-    cdef cppclass index[int64_t, float]:
-        index(const handle_t &handle,
-              device_matrix_view[const_float, int64_t, row_major] X,
-              DistanceType metric) except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     void brute_force_knn(
@@ -78,18 +68,26 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
 
     void rbc_build_index(
         const handle_t &handle,
-        index[int64_t, float] &index,
+        uintptr_t &rbc_index,
+        float *X,
+        int64_t n_rows,
+        int64_t n_cols,
+        DistanceType metric
     ) except +
 
     void rbc_knn_query(
         const handle_t &handle,
-        index[int64_t, float] &index,
+        const uintptr_t &rbc_index,
         uint32_t k,
         float *search_items,
         uint32_t n_search_items,
         int64_t dim,
         int64_t *out_inds,
         float *out_dists
+    ) except +
+
+    void rbc_free_index(
+        uintptr_t rbc_index
     ) except +
 
     void approx_knn_build_index(
@@ -381,8 +379,7 @@ class NearestNeighbors(UniversalBase,
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        X_cai = cai_wrapper(self._fit_X)
-        cdef device_matrix_view[const_float, int64_t, row_major] X_view = get_const_dmv_float(X_cai, False)
+        cdef uintptr_t rbc_index = 0
         if self._fit_method in ['ivfflat', 'ivfpq']:
             warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
                           "might be unstable in this version of cuML. "
@@ -419,11 +416,12 @@ class NearestNeighbors(UniversalBase,
         elif self._fit_method == "rbc":
             metric = self._build_metric_type(self.effective_metric_)
 
-            rbc_index = new index[int64_t, float](
-                handle_[0], X_view,
-                <DistanceType>metric)
             rbc_build_index(handle_[0],
-                            deref(rbc_index))
+                            rbc_index,
+                            <float*><uintptr_t>self._fit_X.ptr,
+                            self.n_samples_fit_,
+                            self.n_features_in_,
+                            <DistanceType>metric)
             self.knn_index = <uintptr_t>rbc_index
 
         self.n_indices = 1
@@ -720,8 +718,7 @@ class NearestNeighbors(UniversalBase,
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
         cdef knnIndex* knn_index = <knnIndex*> 0
-        cdef index[int64_t, float]* rbc_index = \
-            <index[int64_t, float]*> 0
+        cdef uintptr_t rbc_index = 0
 
         fallback_to_brute = self._fit_method == "rbc" and \
             n_neighbors > math.sqrt(self.n_samples_fit_)
@@ -753,9 +750,9 @@ class NearestNeighbors(UniversalBase,
                 <float>self.p
             )
         elif self._fit_method == "rbc":
-            rbc_index = <index[int64_t, float]*><uintptr_t>self.knn_index
+            rbc_index = <uintptr_t>self.knn_index
             rbc_knn_query(handle_[0],
-                          deref(rbc_index),
+                          rbc_index,
                           <uint32_t> n_neighbors,
                           <float*><uintptr_t>X_m.ptr,
                           <uint32_t> N,
@@ -931,7 +928,6 @@ class NearestNeighbors(UniversalBase,
 
     def __del__(self):
         cdef knnIndex* knn_index = <knnIndex*>0
-        cdef index[int64_t, float]* rbc_index = <index[int64_t, float]*>0
 
         kidx = self.__dict__['knn_index'] \
             if 'knn_index' in self.__dict__ else None
@@ -940,8 +936,7 @@ class NearestNeighbors(UniversalBase,
                 knn_index = <knnIndex*><uintptr_t>kidx
                 del knn_index
             else:
-                rbc_index = <index[int64_t, float]*><uintptr_t>kidx
-                del rbc_index
+                rbc_free_index(<uintptr_t>kidx)
 
 
 @cuml.internals.api_return_sparse_array()
