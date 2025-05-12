@@ -274,13 +274,13 @@ class UMAP(UniversalBase,
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
         Build algorithm argument. Default values are: {'n_clusters': 1, 'n_nearest_clusters':2, 'nn_descent': {'graph_degree': n_neigbors, 'max_iterations': 20}}.
-       "n_clusters": int (default=1). Number of clusters to split the data into when building the knn graph. Increasing this will use less device memory at the cost of accuracy. When using n_clusters > 1, put data on host (refer to data_on_host argument for fit_transform). The default value (n_clusters=1) will place the entire data on device memory.
-       "n_nearest_clusters": int (default=2). Number of clusters each data is assigned to. Only valid when n_clusters > 1.
+       "n_clusters": int (default=1). Number of clusters to split the data into when building the knn graph. Increasing this will use less device memory at the cost of accuracy. When using n_clusters > 1, is is required that the data is put on host (refer to data_on_host argument for fit_transform). The default value (n_clusters=1) will place the entire data on device memory.
+       "n_nearest_clusters": int (default=2). Number of clusters each data point is assigned to. Only valid when n_clusters > 1.
        "nn_descent": dict (default={"graph_degree": n_neighbors, "max_iterations": 20}). Arguments for when build_algo="nn_descent". graph_degree should be larger than or equal to n_neighbors. Increasing graph_degree and max_iterations may result in better accuracy.
         [Hint1]: the ratio of n_nearest_clusters / n_clusters determines device memory usage. Approximately (n_nearest_clusters / n_clusters) * num_rows_in_entire_data number of rows will be put on device memory at once.
         E.g. between (n_nearest_clusters / n_clusters) = 2/10 and 2/20, the latter will use less device memory.
         [Hint2]: larger n_nearest_clusters results in better accuracy of the final all-neighbors knn graph.
-        E.g. With the similar device memory usages, (n_nearest_clusters / n_clusters) = 4/20 will have better accuracy than 2/10 at the cost of performance.
+        E.g. While using similar amount of device memory, (n_nearest_clusters / n_clusters) = 4/20 will have better accuracy than 2/10 at the cost of performance.
         [Hint3]: for n_nearest_clusters, start with 2, and gradually increase (2->3->4 ...) for better accuracy
         [Hint4]: for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage. This is independent from n_nearest_clusters as long as n_nearest_clusters < n_clusters
 
@@ -436,7 +436,6 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
-        # for deprecation notice
         if self.build_kwds is not None and "nnd" in self.build_kwds.keys():
             raise Exception("build_kwds no longer supports nnd_* arguments. Please refer to docs for detailed configurations.")
 
@@ -488,7 +487,7 @@ class UMAP(UniversalBase,
 
         if self.build_algo == "brute_force_knn":
             umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-        else:   # build algo nn descent
+        elif self.build_algo == "nn_descent":
             build_kwds = self.build_kwds or {}
             umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("n_clusters", 1)
             umap_params.build_params.n_nearest_clusters = <uint64_t> build_kwds.get("n_nearest_clusters", 2)
@@ -502,6 +501,8 @@ class UMAP(UniversalBase,
             if umap_params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
                 logger.warn("to use nn descent as the build algo, graph_degree should be larger than or equal to n_neigbors. setting graph_degree to n_neighbors.")
                 umap_params.build_params.nn_descent_params.graph_degree = self.n_neighbors
+        else:
+            raise ValueError(f"Unsupported value for `build_algo`: {self.build_algo}")
 
         cdef uintptr_t callback_ptr = 0
         if self.callback:
