@@ -28,7 +28,6 @@ from pytest_cases import fixture, fixture_union
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.kernel_ridge import KernelRidge as skKernelRidge
@@ -43,7 +42,6 @@ import cuml
 from cuml.cluster import DBSCAN, KMeans
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.decomposition import TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
@@ -265,45 +263,6 @@ def umap_test_data(request):
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "n_components": [2, 8],
-        }
-    )
-)
-def tsvd_test_data(request):
-    kwargs = {
-        "n_components": request.param["n_components"],
-        "n_iter": 15,
-        "tol": 1e-07,
-    }
-
-    sk_model = skTruncatedSVD(**kwargs)
-    sk_model.fit(X_train_blob, y_train_blob)
-
-    input_type = request.param["input_type"]
-
-    if input_type == "dataframe":
-        modified_y_train = pd.Series(y_train_blob)
-    elif input_type == "cudf":
-        modified_y_train = cudf.Series(y_train_blob)
-    else:
-        modified_y_train = to_output_type(y_train_blob, input_type)
-
-    return {
-        "cuEstimator": TruncatedSVD,
-        "kwargs": kwargs,
-        "infer_func": "transform",
-        "assert_func": check_allclose_without_sign,
-        "X_train": to_output_type(X_train_blob, input_type),
-        "y_train": modified_y_train,
-        "X_test": to_output_type(X_test_blob, input_type),
-        "ref_y_test": sk_model.transform(X_test_blob),
-    }
-
-
-@fixture(
-    **fixture_generation_helper(
-        {
-            "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
             "metric": ["euclidean", "cosine"],
             "n_neighbors": [3, 8],
             "return_distance": [True],
@@ -338,7 +297,6 @@ fixture_union(
     "test_data",
     [
         "umap_test_data",
-        "tsvd_test_data",
         "nn_test_data",
     ],
 )
@@ -443,7 +401,6 @@ def test_pickle_interop(tmp_path, test_data):
     "estimator",
     [
         UMAP,
-        TruncatedSVD,
         NearestNeighbors,
     ],
 )
@@ -529,23 +486,6 @@ def test_tsne_methods(device):
 
     tol = 0.02
     assert trust >= ref_trust - tol
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_tsvd_methods(train_device, infer_device):
-    n, p = 500, 5
-    rng = np.random.RandomState(0)
-    X = rng.randn(n, p) * 0.1 + np.array([3, 4, 2, 3, 5])
-
-    model = TruncatedSVD(n_components=3)
-    with using_device_type(train_device):
-        transformation = model.fit_transform(X)
-    with using_device_type(infer_device):
-        output = model.inverse_transform(transformation)
-
-    output = to_output_type(output, "numpy")
-    np.testing.assert_allclose(X, output, rtol=0.15)
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
@@ -800,6 +740,7 @@ def test_svr_methods(train_device, infer_device):
         "Lasso",
         "Ridge",
         "PCA",
+        "TruncatedSVD",
     ],
 )
 def test_legacy_device_selection_warns(cls):

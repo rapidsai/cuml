@@ -177,7 +177,7 @@ def test_pca(random_state):
 
 def test_truncated_svd(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = TruncatedSVD(n_components=2, random_state=random_state)
+    original = TruncatedSVD(n_components=2)
     assert_estimator_roundtrip(original, SkTruncatedSVD, X, transform=True)
 
 
