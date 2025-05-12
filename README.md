@@ -127,6 +127,10 @@ via Conda or Docker.
 ## Build/Install from Source
 See the build [guide](BUILD.md).
 
+## Scikit-learn Compatibility
+
+cuML is compatible with scikit-learn version 1.5 or higher.
+
 ## Contributing
 
 Please see our [guide for contributing to cuML](CONTRIBUTING.md).
