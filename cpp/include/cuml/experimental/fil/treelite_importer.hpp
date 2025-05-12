@@ -350,11 +350,13 @@ struct treelite_importer {
           using tree_t =
             treelite::Tree<typename model_t::threshold_type, typename model_t::leaf_output_type>;
           auto modified_trees = std::vector<tree_t>{};
+          const auto root_id  = experimental::forest::TREELITE_NODE_ID_T{};
           for (tree_t& tree : concrete_tl_model.trees) {
-            if (tree.IsLeaf(experimental::forest::TREELITE_NODE_ID_T{})) {
-              const auto leaf_value = tree.LeafValue(experimental::forest::TREELITE_NODE_ID_T{});
-              const auto inst_cnt   = tree.DataCount(experimental::forest::TREELITE_NODE_ID_T{});
-              auto new_tree         = tree_t{};
+            if (tree.IsLeaf(root_id)) {
+              const auto leaf_value = tree.LeafValue(root_id);
+              const auto inst_cnt =
+                tree.HasDataCount(root_id) ? tree.DataCount(root_id) : std::uint64_t{};
+              auto new_tree = tree_t{};
               new_tree.Init();
               const auto root_id   = new_tree.AllocNode();
               const auto cleft_id  = new_tree.AllocNode();
