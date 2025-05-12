@@ -1,0 +1,3 @@
+# Configuration for scikit-learn tests
+threshold:
+  fail_below: 85  # Minimum pass rate threshold [0-100]
