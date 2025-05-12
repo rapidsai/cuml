@@ -202,6 +202,29 @@ class ProxyBase(BaseEstimator):
             self._gpu = None
         return self
 
+    def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        """Call a method on the wrapped GPU estimator."""
+        from cuml.common.sparse_utils import is_sparse
+
+        if (
+            args
+            and is_sparse(args[0])
+            and "sparse" not in self._gpu._get_tags()["X_types_gpu"]
+        ):
+            # Sparse inputs not supported
+            raise UnsupportedOnGPU
+
+        # Determine the function to call. Check for an override on the proxy class,
+        # falling back to the GPU class method if one exists.
+        gpu_func = getattr(self, f"_gpu_{method}", None)
+        if gpu_func is None:
+            if (gpu_func := getattr(self._gpu, method, None)) is None:
+                # Method is not implemented in cuml
+                raise UnsupportedOnGPU
+
+        out = gpu_func(*args, **kwargs)
+        return self if out is self._gpu else out
+
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
 
@@ -225,22 +248,14 @@ class ProxyBase(BaseEstimator):
                 self._synced = False
 
         if self._gpu is not None:
-            # The hyperparameters are supported, now check for a GPU method to run.
-            gpu_func = getattr(self, f"_gpu_{method}", None)
-            if gpu_func is None:
-                gpu_func = getattr(self._gpu, method, None)
-
-            if gpu_func is not None:
-                try:
-                    out = gpu_func(*args, **kwargs)
-                except UnsupportedOnGPU:
-                    # Unsupported. If it's a `fit` we need to clear
-                    # the GPU state before falling back to CPU.
-                    if is_fit:
-                        self._gpu = None
-                else:
-                    # Ran successfully on GPU. Prep the results and return.
-                    return self if out is self._gpu else out
+            # The hyperparameters are supported, try calling the method
+            try:
+                return self._call_gpu_method(method, *args, **kwargs)
+            except UnsupportedOnGPU:
+                # Unsupported. If it's a `fit` we need to clear
+                # the GPU state before falling back to CPU.
+                if is_fit:
+                    self._gpu = None
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
