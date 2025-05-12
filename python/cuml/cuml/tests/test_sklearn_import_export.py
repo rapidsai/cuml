@@ -171,7 +171,7 @@ def test_dbscan(random_state):
 
 def test_pca(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = PCA(n_components=2, random_state=random_state)
+    original = PCA(n_components=2)
     assert_estimator_roundtrip(original, SkPCA, X, transform=True)
 
 

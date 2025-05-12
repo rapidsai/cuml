@@ -15,13 +15,14 @@
 #
 
 import cuml.decomposition
+from cuml.accel.estimator_proxy import ProxyBase
 from cuml.accel.estimator_proxy_mixin import ProxyMixin
 
 __all__ = ("PCA", "TruncatedSVD")
 
 
-class PCA(ProxyMixin, cuml.decomposition.PCA):
-    pass
+class PCA(ProxyBase):
+    _gpu_class = cuml.decomposition.PCA
 
 
 class TruncatedSVD(ProxyMixin, cuml.decomposition.TruncatedSVD):
