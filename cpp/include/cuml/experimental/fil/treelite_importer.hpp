@@ -332,8 +332,8 @@ struct treelite_importer {
   }
 
   // This function returns a modified copy of a given Treelite model if it contains
-  // at least one degenerate tree. If the model contains no degenerate tree, then
-  // the function returns nullptr.
+  // at least one degenerate tree (a single root node with no child).
+  // If the model contains no degenerate tree, then the function returns nullptr.
   auto convert_degenerate_trees(treelite::Model const& tl_model)
   {
     bool contains_degenerate =
