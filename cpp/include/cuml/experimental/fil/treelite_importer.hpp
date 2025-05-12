@@ -353,7 +353,6 @@ struct treelite_importer {
           const auto root_id  = experimental::forest::TREELITE_NODE_ID_T{};
           for (tree_t& tree : concrete_tl_model.trees) {
             if (tree.IsLeaf(root_id)) {
-              const auto leaf_value = tree.LeafValue(root_id);
               const auto inst_cnt =
                 tree.HasDataCount(root_id) ? tree.DataCount(root_id) : std::uint64_t{};
               auto new_tree = tree_t{};
@@ -364,8 +363,15 @@ struct treelite_importer {
               new_tree.SetChildren(root_id, cleft_id, cright_id);
               new_tree.SetNumericalTest(
                 root_id, int{}, typename model_t::threshold_type{}, true, treelite::Operator::kLE);
-              new_tree.SetLeaf(cleft_id, leaf_value);
-              new_tree.SetLeaf(cright_id, leaf_value);
+              if (tree.HasLeafVector(root_id)) {
+                const auto leaf_vector = tree.LeafVector(root_id);
+                new_tree.SetLeafVector(cleft_id, leaf_vector);
+                new_tree.SetLeafVector(cright_id, leaf_vector);
+              } else {
+                const auto leaf_value = tree.LeafValue(root_id);
+                new_tree.SetLeaf(cleft_id, leaf_value);
+                new_tree.SetLeaf(cright_id, leaf_value);
+              }
               new_tree.SetDataCount(root_id, inst_cnt);
               new_tree.SetDataCount(cleft_id, inst_cnt);
               new_tree.SetDataCount(cright_id, std::uint64_t{});
