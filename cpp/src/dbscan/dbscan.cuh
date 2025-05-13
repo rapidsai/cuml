@@ -72,7 +72,7 @@ size_t compute_batch_size(size_t& estimated_memory,
     Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
     if (batch_size > static_cast<std::size_t>(MAX_LABEL / n_rows)) {
       Index_ new_batch_size = MAX_LABEL / n_rows;
-      CUML_LOG_WARN(
+      CUML_LOG_INFO(
         "Batch size limited by the chosen integer type (%d bytes). %d -> %d. "
         "Using the larger integer type might result in better performance",
         (int)sizeof(Index_),
@@ -81,10 +81,10 @@ size_t compute_batch_size(size_t& estimated_memory,
       batch_size = new_batch_size;
     }
 
-    // Warn when a smaller index type could be used
+    // Notify when a smaller index type could be used
     if ((sizeof(Index_) > sizeof(int)) &&
         (batch_size < std::numeric_limits<int>::max() / static_cast<std::size_t>(n_rows))) {
-      CUML_LOG_WARN(
+      CUML_LOG_INFO(
         "You are using an index type of size (%d bytes) but a smaller index "
         "type (%d bytes) would be sufficient. Using the smaller integer type "
         "might result in better performance.",
