@@ -27,12 +27,14 @@ from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Lasso as skLasso
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.model_selection import train_test_split
 
 from cuml import ElasticNet as cuElasticNet
+from cuml import Lasso as cuLasso
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
@@ -1185,3 +1187,26 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
+
+
+@pytest.mark.parametrize("cls", ["elasticnet", "lasso"])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("weighted", [False, True])
+def test_dual_gap(cls, fit_intercept, weighted):
+    X, y = make_regression(random_state=42)
+    if cls == "elasticnet":
+        model = cuElasticNet(fit_intercept=fit_intercept, tol=1e-4)
+        sk_model = skElasticNet(fit_intercept=fit_intercept)
+    else:
+        model = cuLasso(fit_intercept=fit_intercept, tol=1e-4)
+        sk_model = skLasso(fit_intercept=fit_intercept)
+
+    if weighted:
+        sample_weight = np.random.default_rng(42).uniform(size=len(y))
+    else:
+        sample_weight = None
+
+    model.fit(X, y, sample_weight=sample_weight)
+    sk_model.fit(X, y, sample_weight=sample_weight)
+
+    np.testing.assert_allclose(model.dual_gap_, sk_model.dual_gap_)

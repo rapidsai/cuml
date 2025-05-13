@@ -121,6 +121,8 @@ class Lasso(ElasticNet):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    dual_gap_ : float
+        Given param alpha, the dual gaps at the end of the optimization.
 
     Notes
     -----

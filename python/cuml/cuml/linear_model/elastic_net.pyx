@@ -18,6 +18,9 @@
 
 from inspect import signature
 
+import cupy as cp
+import numpy as np
+
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -147,6 +150,8 @@ class ElasticNet(Base,
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    dual_gap_ : float
+        Given param alpha, the dual gaps at the end of the optimization.
 
     Notes
     -----
@@ -213,6 +218,7 @@ class ElasticNet(Base,
         return {
             "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
+            "dual_gap_": model.dual_gap_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -220,6 +226,7 @@ class ElasticNet(Base,
         return {
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
+            "dual_gap_": self.dual_gap_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -309,6 +316,66 @@ class ElasticNet(Base,
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
+    def _compute_dual_gap(
+        self,
+        X_m: CumlArray,
+        y_m: CumlArray,
+        sample_weight_m: CumlArray | None = None,
+    ) -> float:
+        """Compute `dual_gap_` by its objective formulation"""
+        # TODO: this should all probably be migrated into the CD solver itself,
+        # much of this is repeated work. In addition, the stopping criteria
+        # used in cuML's CD solver doesn't take into account the dual gap
+        # (while sklearn's does). Either way, the formulation below matches
+        # what sklearn does to compute the gap, we just won't have the same
+        # coefficients found in cuml as are found in sklearn.
+        X = X_m.to_output("cupy")
+        y = y_m.to_output("cupy")
+        if sample_weight_m is not None:
+            sample_weight = sample_weight_m.to_output("cupy")
+        else:
+            sample_weight = None
+
+        w = self.coef_.to_output("cupy")
+
+        n_samples = len(y)
+
+        if self.fit_intercept:
+            X_mean = cp.average(X, axis=0, weights=sample_weight)
+            y_mean = cp.average(y, axis=0, weights=sample_weight)
+            X -= X_mean
+            y -= y_mean
+
+        if sample_weight is not None:
+            sample_weight = sample_weight * (n_samples / cp.sum(sample_weight))
+            sample_weight_sqrt = cp.sqrt(sample_weight)
+            X *= sample_weight_sqrt[:, None]
+            y *= sample_weight_sqrt
+
+        alpha = self.alpha * self.l1_ratio * n_samples
+        beta = self.alpha * (1.0 - self.l1_ratio) * n_samples
+
+        R = y - X @ w
+        XtA = cp.dot(X.T, R) - beta * w
+        dual_norm_XtA = cp.max(cp.abs(XtA))
+        R_norm2 = cp.dot(R, R)
+        w_norm2 = cp.dot(w, w)
+        if (dual_norm_XtA > alpha):
+            const = alpha / dual_norm_XtA
+            A_norm2 = R_norm2 * (const ** 2)
+            gap = 0.5 * (R_norm2 + A_norm2)
+        else:
+            const = 1.0
+            gap = R_norm2
+
+        l1_norm = cp.sum(cp.abs(w))
+
+        gap += (alpha * l1_norm
+                - const * cp.dot(R.T, y)
+                + 0.5 * beta * (1 + const ** 2) * (w_norm2))
+
+        return float(gap) / n_samples
+
     @generate_docstring()
     @warn_legacy_device_interop
     def fit(self, X, y, convert_dtype=True,
@@ -317,8 +384,28 @@ class ElasticNet(Base,
         Fit the model with X and y.
 
         """
-        X_m, _, self.n_features_in_, self.dtype = input_to_cuml_array(X)
-        y_m, _, _, _ = input_to_cuml_array(y)
+        X_m, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+        )
+        y_m, _, _, _ = input_to_cuml_array(
+            y,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_dtype=self.dtype,
+            check_rows=n_rows,
+        )
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = input_to_cuml_array(
+                sample_weight,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                check_rows=n_rows,
+                check_cols=1,
+            )
+        else:
+            sample_weight_m = None
+
         if hasattr(X_m, 'index'):
             self.feature_names_in_ = X_m.index
 
@@ -344,6 +431,8 @@ class ElasticNet(Base,
         else:
             self.coef_ = self.solver_model.coef_
             self.intercept_ = self.solver_model.intercept_
+
+        self.dual_gap_ = self._compute_dual_gap(X_m, y_m, sample_weight_m)
 
         return self
 
