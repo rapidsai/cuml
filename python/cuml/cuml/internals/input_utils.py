@@ -142,10 +142,10 @@ def get_supported_input_type(X):
         if not isinstance(X, np.generic) and not isinstance(X, type):
             return np.ndarray
 
-    if cupyx.scipy.sparse.isspmatrix(X):
+    if cupyx.scipy.sparse.issparse(X):
         return cupyx.scipy.sparse.spmatrix
 
-    if scipy_sparse.isspmatrix(X):
+    if scipy_sparse.issparse(X):
         return scipy_sparse.spmatrix
 
     # Return None if this type is not supported

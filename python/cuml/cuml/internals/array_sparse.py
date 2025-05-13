@@ -94,9 +94,9 @@ class SparseCumlArray:
         convert_format=True,
     ):
         if not isinstance(data, SparseCumlArrayInput):
-            if cpx_sparse.isspmatrix(data):
+            if cpx_sparse.issparse(data):
                 from_mem_type = MemoryType.device
-            elif scipy_sparse.isspmatrix(data):
+            elif scipy_sparse.issparse(data):
                 from_mem_type = MemoryType.host
             else:
                 raise ValueError(

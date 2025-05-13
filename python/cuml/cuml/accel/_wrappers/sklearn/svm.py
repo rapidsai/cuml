@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import cuml.cluster
-from cuml.accel.estimator_proxy import ProxyMixin
+import cuml.svm
+from cuml.accel.estimator_proxy_mixin import ProxyMixin
 
 __all__ = ("SVC", "SVR")
 
