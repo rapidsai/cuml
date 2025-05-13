@@ -1348,6 +1348,10 @@
   marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
+- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+  condition: "cuda-python >= 12.9"
+  tests:
+  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
 - reason: "test_estimators checks fail"
   marker: cuml_accel_test_estimators
   tests:
