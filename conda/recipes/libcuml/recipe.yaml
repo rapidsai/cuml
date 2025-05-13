@@ -108,6 +108,7 @@ outputs:
         - rapids-logger =0.1
         - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
+        - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
         - if: cuda_major == "11"
           then:
