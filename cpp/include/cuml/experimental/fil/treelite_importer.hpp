@@ -17,6 +17,7 @@
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
+#include <cuml/experimental/fil/detail/degenerate_trees.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
@@ -331,64 +332,6 @@ struct treelite_importer {
     return result;
   }
 
-  // This function returns a modified copy of a given Treelite model if it contains
-  // at least one degenerate tree (a single root node with no child).
-  // If the model contains no degenerate tree, then the function returns nullptr.
-  auto convert_degenerate_trees(treelite::Model const& tl_model)
-  {
-    bool contains_degenerate =
-      ML::experimental::forest::tree_accumulate(tl_model, false, [](auto&& contains, auto&& tree) {
-        return contains || tree.IsLeaf(ML::experimental::forest::TREELITE_NODE_ID_T{});
-      });
-
-    if (contains_degenerate) {
-      // Make a copy of the Treelite model, and then update the trees in-place
-      auto modified_model = treelite::ConcatenateModelObjects({&tl_model});
-      std::visit(
-        [](auto&& concrete_tl_model) {
-          using model_t = std::remove_const_t<std::remove_reference_t<decltype(concrete_tl_model)>>;
-          using tree_t =
-            treelite::Tree<typename model_t::threshold_type, typename model_t::leaf_output_type>;
-          auto modified_trees = std::vector<tree_t>{};
-          const auto root_id  = experimental::forest::TREELITE_NODE_ID_T{};
-          for (tree_t& tree : concrete_tl_model.trees) {
-            if (tree.IsLeaf(root_id)) {
-              const auto inst_cnt =
-                tree.HasDataCount(root_id) ? tree.DataCount(root_id) : std::uint64_t{};
-              auto new_tree = tree_t{};
-              new_tree.Init();
-              const auto root_id   = new_tree.AllocNode();
-              const auto cleft_id  = new_tree.AllocNode();
-              const auto cright_id = new_tree.AllocNode();
-              new_tree.SetChildren(root_id, cleft_id, cright_id);
-              new_tree.SetNumericalTest(
-                root_id, int{}, typename model_t::threshold_type{}, true, treelite::Operator::kLE);
-              if (tree.HasLeafVector(root_id)) {
-                const auto leaf_vector = tree.LeafVector(root_id);
-                new_tree.SetLeafVector(cleft_id, leaf_vector);
-                new_tree.SetLeafVector(cright_id, leaf_vector);
-              } else {
-                const auto leaf_value = tree.LeafValue(root_id);
-                new_tree.SetLeaf(cleft_id, leaf_value);
-                new_tree.SetLeaf(cright_id, leaf_value);
-              }
-              new_tree.SetDataCount(root_id, inst_cnt);
-              new_tree.SetDataCount(cleft_id, inst_cnt);
-              new_tree.SetDataCount(cright_id, std::uint64_t{});
-              modified_trees.push_back(std::move(new_tree));
-            } else {
-              modified_trees.push_back(std::move(tree));
-            }
-          }
-          concrete_tl_model.trees = std::move(modified_trees);
-        },
-        modified_model->variant_);
-      return modified_model;
-    } else {
-      return std::unique_ptr<treelite::Model>();
-    }
-  }
-
   /**
    * Import a treelite model to FIL
    *
@@ -419,7 +362,7 @@ struct treelite_importer {
                       raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
   {
     // Handle degenerate trees (a single root node with no child)
-    if (auto processed_tl_model = convert_degenerate_trees(tl_model); processed_tl_model) {
+    if (auto processed_tl_model = detail::convert_degenerate_trees(tl_model); processed_tl_model) {
       return import(
         *processed_tl_model.get(), align_bytes, use_double_precision, dev_type, device, stream);
     }
