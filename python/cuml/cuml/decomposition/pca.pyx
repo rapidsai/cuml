@@ -173,9 +173,6 @@ class PCA(UniversalBase,
         1 2.333...
         2 2.333...
         dtype: float32
-        >>> print(f'noise variance: {pca_float.noise_variance_}') # doctest: +SKIP
-        noise variance: 0   -7.377287e-08
-        dtype: float32
         >>> trans_gdf_float = pca_float.transform(gdf_float)
         >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
         Inverse: 0           1
@@ -276,7 +273,6 @@ class PCA(UniversalBase,
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
     mean_ = CumlArrayDescriptor(order='F')
-    noise_variance_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
     _hyperparam_interop_translator = {
@@ -369,7 +365,6 @@ class PCA(UniversalBase,
 
         self.singular_values_ = CumlArray.zeros(n_components,
                                                 dtype=self.dtype)
-        self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def _sparse_fit(self, X):
 
@@ -401,10 +396,11 @@ class PCA(UniversalBase,
             self.explained_variance_)
 
         if self.n_components_ < min(self.n_samples_, self.n_features_in_):
-            self.noise_variance_ = \
+            self.noise_variance_ = float(
                 self.explained_variance_[self.n_components_:].mean()
+            )
         else:
-            self.noise_variance_ = cp.array([0.0])
+            self.noise_variance_ = 0.0
 
         self.explained_variance_ = \
             self.explained_variance_[:self.n_components_]
@@ -481,8 +477,8 @@ class PCA(UniversalBase,
 
         cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-        cdef uintptr_t noise_vars_ptr = \
-            self.noise_variance_.ptr
+        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
+        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
@@ -509,6 +505,9 @@ class PCA(UniversalBase,
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
+
+        # Store noise_variance_ as a float
+        self.noise_variance_ = float(noise_variance.to_output("numpy"))
 
         return self
 
