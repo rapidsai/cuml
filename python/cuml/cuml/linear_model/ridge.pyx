@@ -318,7 +318,7 @@ class Ridge(Base,
 
     @generate_docstring()
     @warn_legacy_device_interop
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """

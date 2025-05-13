@@ -213,7 +213,7 @@ def test_base_children__get_param_names(child_class: str):
         }
     ],
 )
-def test_sklearn_methods_with_required_y_parameter(cls):
+def test_sklearn_methods_match_sklearn_interface(cls):
     optional_params = {
         inspect.Parameter.KEYWORD_ONLY,
         inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -229,13 +229,24 @@ def test_sklearn_methods_with_required_y_parameter(cls):
         if (method := getattr(cls, name, None)) is None:
             # Method not defined, skip
             continue
-        params = list(inspect.signature(method).parameters.values())
+        sig = inspect.signature(method)
+        params = list(sig.parameters.values())
         # Assert method has a 2nd parameter named y, which is required by sklearn
         assert (
             len(params) > 2 and params[2].name == "y"
         ), f"`{name}` requires a `y` parameter, even if it's ignored"
+
         # Check that all remaining parameters are optional
         for param in params[3:]:
             assert (
                 param.kind in optional_params
             ), f"`{name}` parameter `{param.name}` must be optional"
+
+        # Check common kwargs have an expected order
+        i = 3
+        for kw_name in ["classes", "sample_weight"]:
+            if kw_name in sig.parameters:
+                assert (
+                    params[i].name == kw_name
+                ), f"`{kw_name}` should be before {params[i].name} in `{name}`"
+                i += 1

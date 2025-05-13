@@ -311,8 +311,7 @@ class ElasticNet(Base,
 
     @generate_docstring()
     @warn_legacy_device_interop
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "ElasticNet":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "ElasticNet":
         """
         Fit the model with X and y.
 

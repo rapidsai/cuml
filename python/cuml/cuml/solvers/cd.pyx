@@ -216,7 +216,7 @@ class CD(Base,
         }[self.loss]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "CD":
         """
         Fit the model with X and y.
 

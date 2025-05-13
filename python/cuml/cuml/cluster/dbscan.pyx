@@ -434,22 +434,22 @@ class DBSCAN(UniversalBase,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
-    def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
+    def fit(self, X, y=None, sample_weight=None, out_dtype="int32",
             convert_dtype=True) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
         Parameters
         ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
-
         sample_weight: array-like of shape (n_samples,), default=None
             Weight of each sample, such that a sample with a weight of at
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
+
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
         """
         return self._fit(X, out_dtype, False, sample_weight)
 
@@ -459,21 +459,21 @@ class DBSCAN(UniversalBase,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, sample_weight=None, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
         Parameters
         ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
-
         sample_weight: array-like of shape (n_samples,), default=None
             Weight of each sample, such that a sample with a weight of at
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
+
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
         """
         self.fit(X, out_dtype=out_dtype, sample_weight=sample_weight)
         return self.labels_
