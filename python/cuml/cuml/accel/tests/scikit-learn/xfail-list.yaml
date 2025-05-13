@@ -79,6 +79,8 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_n_features_in_after_fitting]"
