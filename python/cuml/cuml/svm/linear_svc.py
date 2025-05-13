@@ -14,6 +14,7 @@
 #
 
 from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -40,7 +41,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         >>> clf.fit(X, y)
         LinearSVC()
         >>> print("Predicted labels:", clf.predict(X))
-        Predicted labels: [0. 0. 1. 0. 1. 1.]
+        Predicted labels: [0 0 1 0 1 1]
 
     Parameters
     ----------
@@ -207,3 +208,8 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             X.dtype,
         )
         return super(LinearSVC, self).fit(X, y, sample_weight, convert_dtype)
+
+    def predict(self, X, convert_dtype=True) -> CumlArray:
+        y_pred = super().predict(X, convert_dtype=convert_dtype)
+        # Cast to int64 to match expected classifier interface
+        return y_pred.to_output("cupy", output_dtype="int64")
