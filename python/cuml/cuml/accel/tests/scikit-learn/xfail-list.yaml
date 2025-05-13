@@ -327,10 +327,6 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_sparse[42-100-covariance_eigh-csr_matrix-2-0.01]"
   - "sklearn.decomposition.tests.test_pca::test_pca_sparse[42-100-covariance_eigh-csr_matrix-2-0.1]"
   - "sklearn.decomposition.tests.test_pca::test_pca_sparse[42-100-covariance_eigh-csr_matrix-2-0.3]"
-  - "sklearn.decomposition.tests.test_pca::test_pca_sparse_fit_transform[42-csc_array]"
-  - "sklearn.decomposition.tests.test_pca::test_pca_sparse_fit_transform[42-csc_matrix]"
-  - "sklearn.decomposition.tests.test_pca::test_pca_sparse_fit_transform[42-csr_array]"
-  - "sklearn.decomposition.tests.test_pca::test_pca_sparse_fit_transform[42-csr_matrix]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[10-50-5-full]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-50-50-covariance_eigh]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-0.5-full]"
@@ -1352,6 +1348,10 @@
   marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
+- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+  condition: "cuda-python >= 12.9"
+  tests:
+  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
 - reason: "test_estimators checks fail"
   marker: cuml_accel_test_estimators
   tests:
