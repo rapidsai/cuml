@@ -73,6 +73,21 @@ from the warning message::
 A deprecation requires a test which ensures that the warning is raised in relevant cases
 but not in other cases. The warning should be caught in all other tests (using e.g., ``@pytest.mark.filterwarnings``).
 
+### Public vs Private APIs
+The following rules determine whether an API is considered public and therefore subject to the deprecation policy:
+
+1. Any API prefixed with `_` is considered private and not subject to deprecation rules
+2. APIs within the following namespaces are private and not subject to deprecation rules:
+   - `internals`
+   - `utils`
+   - `common`
+3. APIs within the `experimental` namespace are not subject to deprecation rules
+4. For all other APIs, the determination of public vs private status is based on:
+   - Presence in public documentation
+   - Usage in public examples
+   - Explicit declaration as part of the public API
+
+When in doubt, treat an API as public to ensure proper deprecation cycles.
 
 ## Logging
 TBD
