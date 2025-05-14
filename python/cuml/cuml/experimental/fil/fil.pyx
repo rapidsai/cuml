@@ -23,7 +23,6 @@ import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
 from cuml.common.device_selection import using_device_type
-from cuml.internals import set_api_output_dtype
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
