@@ -273,8 +273,7 @@ void qn_predict(
 
   if (is_class) {
     if (C == 2) {
-      P.assign_unary(
-        Z, [] __device__(const T z) { return z > 0.0 ? T(1) : T(0); }, stream);
+      P.assign_unary(Z, [] __device__(const T z) { return z > 0.0 ? T(1) : T(0); }, stream);
     } else {
       raft::matrix::argmax(Z.data, C, X.m, preds, stream);
     }
