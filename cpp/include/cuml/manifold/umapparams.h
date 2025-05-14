@@ -27,8 +27,8 @@ namespace ML {
 namespace graph_build_params {
 
 /**
- * Arguments for using nn descent as the knn build algo.
- * graph_degree should be larger than or equal to n_neighbors.
+ * Arguments for using nn descent as the knn build algorithm.
+ * graph_degree must be larger than or equal to n_neighbors.
  * Increasing graph_degree and max_iterations may result in better accuracy.
  */
 struct nn_descent_params {
