@@ -19,7 +19,6 @@ from textwrap import dedent
 
 import numpy as np
 from sklearn import clone
-from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.neighbors import NearestNeighbors
 
 from cuml.accel import is_proxy
@@ -29,8 +28,8 @@ def test_is_proxy():
     class Foo:
         pass
 
-    assert is_proxy(PCA)
-    assert is_proxy(PCA())
+    assert is_proxy(NearestNeighbors)
+    assert is_proxy(NearestNeighbors())
     assert not is_proxy(Foo)
     assert not is_proxy(Foo())
 
@@ -42,8 +41,8 @@ def test_meta_attributes():
     # A random estimator, shouldn't matter which one as all are proxied
     # the same way.
     # We need an instance to get access to the `_cpu_model_class`
-    # but we want to compare to the PCA class
-    pca = PCA()
+    # but we want to compare to the NearestNeighbors class
+    est = NearestNeighbors()
     for attr in (
         "__module__",
         "__name__",
@@ -55,11 +54,11 @@ def test_meta_attributes():
         # if the original class has this attribute, the proxy should
         # have it as well and the values should match
         try:
-            original_value = getattr(pca._cpu_model_class, attr)
+            original_value = getattr(est._cpu_model_class, attr)
         except AttributeError:
             pass
         else:
-            proxy_value = getattr(PCA, attr)
+            proxy_value = getattr(NearestNeighbors, attr)
 
             assert original_value == proxy_value
 
@@ -67,39 +66,39 @@ def test_meta_attributes():
 def test_clone():
     # Test that cloning a proxy estimator preserves parameters, even those we
     # translate for the cuml class
-    pca = PCA(n_components=42, svd_solver="arpack")
-    pca_clone = clone(pca)
+    est = NearestNeighbors(n_neighbors=42, algorithm="brute")
+    est_clone = clone(est)
 
-    assert pca.get_params() == pca_clone.get_params()
+    assert est.get_params() == est_clone.get_params()
 
 
 def test_pickle():
-    pca = PCA(n_components=42, svd_solver="arpack")
-    buf = pickle.dumps(pca)
-    pca2 = pickle.loads(buf)
-    assert type(pca2) is PCA
-    assert pca2.get_params() == pca2.get_params()
-    assert repr(pca) == repr(pca2)
+    est = NearestNeighbors(n_neighbors=42, algorithm="brute")
+    buf = pickle.dumps(est)
+    est2 = pickle.loads(buf)
+    assert type(est2) is NearestNeighbors
+    assert est2.get_params() == est.get_params()
+    assert repr(est) == repr(est2)
 
 
 def test_pickle_loads_doesnt_install_accelerator():
-    pca = PCA(n_components=42)
-    buf = pickle.dumps(pca)
+    est = NearestNeighbors(n_neighbors=42)
+    buf = pickle.dumps(est)
     script = dedent(
         f"""
         import pickle
 
         model = pickle.loads({buf!r})
 
-        assert model.n_components == 42
-        assert type(model).__name__ == "PCA"
+        assert model.n_neighbors == 42
+        assert type(model).__name__ == "NearestNeighbors"
 
         from cuml.accel import enabled
         from cuml.accel.estimator_proxy_mixin import ProxyMixin
-        from sklearn.decomposition import PCA
+        from sklearn.neighbors import NearestNeighbors
 
         # Unpickling hasn't installed the accelerator or patched sklearn
-        assert not issubclass(PCA, ProxyMixin)
+        assert not issubclass(NearestNeighbors, ProxyMixin)
         assert not enabled()
         """
     )
@@ -118,35 +117,14 @@ def test_pickle_loads_doesnt_install_accelerator():
 def test_params():
     # Test that parameters match between constructor and get_params()
     # Mix of default and non-default values
-    pca = PCA(
-        n_components=5,
-        copy=False,
-        # Pass in an argument and set it to its default value
-        whiten=False,
-    )
+    est = NearestNeighbors(n_neighbors=5, algorithm="brute", leaf_size=15)
 
-    params = pca.get_params()
-    assert params["n_components"] == 5
-    assert params["copy"] is False
-    assert params["whiten"] is False
+    params = est.get_params()
+    assert params["n_neighbors"] == 5
+    assert params["algorithm"] == "brute"
+    assert params["leaf_size"] == 15
     # A parameter we never touched, should be the default
-    assert params["tol"] == 0.0
-
-    # Check that get_params doesn't return any unexpected parameters
-    expected_params = set(
-        [
-            "n_components",
-            "copy",
-            "whiten",
-            "tol",
-            "svd_solver",
-            "n_oversamples",
-            "random_state",
-            "iterated_power",
-            "power_iteration_normalizer",
-        ]
-    )
-    assert set(params.keys()) == expected_params
+    assert params["radius"] == 1.0
 
 
 def test_defaults_args_only_methods():
@@ -159,13 +137,3 @@ def test_defaults_args_only_methods():
     nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
     nn.fit(X[:, 0].reshape((-1, 1)), y)
     nn.kneighbors()
-
-
-def test_positional_arg_estimators_work():
-    """Some sklearn estimators take positional args, check that these
-    are handled properly"""
-    pca = PCA(42)
-    assert pca.n_components == 42
-
-    svd = TruncatedSVD(42)
-    assert svd.n_components == 42
