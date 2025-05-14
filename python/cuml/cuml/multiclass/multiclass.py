@@ -21,7 +21,6 @@ from cuml.common import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import ClassifierMixin
 
 
@@ -105,11 +104,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
         self.strategy = strategy
         self.estimator = estimator
 
-        if not has_sklearn():
-            raise ImportError(
-                "Scikit-learn is needed to use "
-                "MulticlassClassifier derived classes."
-            )
         import sklearn.multiclass
 
         if self.strategy == "ovr":

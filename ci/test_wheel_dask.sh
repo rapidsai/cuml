@@ -10,10 +10,15 @@ LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rap
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"
 
+# generate constraints, the constraints will limit the version of the
+# dependencies that can be installed later on when installing the wheel
+rapids-generate-pip-constraints test_python ./constraints.txt
+
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
-  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[test]"
+  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[test]" \
+  --constraint ./constraints.txt
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
