@@ -110,9 +110,9 @@ inline void launcher(const raft::handle_t& handle,
     all_neighbors_params.graph_build_params = nn_descent_params;
 
     auto indices_view =
-      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsA.n, n_neighbors);
+      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
     auto distances_view =
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsA.n, n_neighbors);
+      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
 
     if (data_on_device) {  // inputsA on device
       cuvs::neighbors::all_neighbors::build(

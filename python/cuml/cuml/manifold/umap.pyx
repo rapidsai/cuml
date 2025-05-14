@@ -436,7 +436,7 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
-        if self.build_kwds is not None and "nnd" in self.build_kwds.keys():
+        if self.build_kwds is not None and any(key.startswith("nnd_") for key in self.build_kwds):
             raise Exception("build_kwds no longer supports nnd_* arguments. Please refer to docs for detailed configurations.")
 
     def validate_hyperparams(self):
