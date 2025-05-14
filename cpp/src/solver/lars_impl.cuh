@@ -416,8 +416,7 @@ void calcA(const raft::handle_t& handle,
   auto multiply = [] __device__(math_t w, math_t s) { return w * s; };
   raft::linalg::mapThenSumReduce(A, n_active, multiply, stream, ws, sign);
   // Calc Aa = 1 / sqrt(sum(w))
-  raft::linalg::unaryOp(
-    A, A, 1, [] __device__(math_t a) { return 1 / sqrt(a); }, stream);
+  raft::linalg::unaryOp(A, A, 1, [] __device__(math_t a) { return 1 / sqrt(a); }, stream);
 }
 
 /**
@@ -507,8 +506,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
   calcA(handle, A, n_active, sign, ws, stream);
 
   // ws *= Aa
-  raft::linalg::unaryOp(
-    ws, ws, n_active, [A] __device__(math_t w) { return (*A) * w; }, stream);
+  raft::linalg::unaryOp(ws, ws, n_active, [A] __device__(math_t w) { return (*A) * w; }, stream);
 
   // Check for numeric error
   math_t ws_host;
@@ -613,8 +611,7 @@ void calcMaxStep(const raft::handle_t& handle,
   math_t Cmax = std::abs(cj);
   if (n_active == n_cols) {
     // Last iteration, the inactive set is empty we use equation (2.21)
-    raft::linalg::unaryOp(
-      gamma, A, 1, [Cmax] __device__(math_t A) { return Cmax / A; }, stream);
+    raft::linalg::unaryOp(gamma, A, 1, [Cmax] __device__(math_t A) { return Cmax / A; }, stream);
   } else {
     const int n_inactive = n_cols - n_active;
     if (G == nullptr) {

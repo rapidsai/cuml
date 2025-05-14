@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ struct FixConnectivitiesRedOp {
 
   DI FixConnectivitiesRedOp() : m(0) {}
 
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_) {};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const

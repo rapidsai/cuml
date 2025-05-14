@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,8 +147,8 @@ CUML_KERNEL void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) inf
       auto grove_index = (threadIdx.x / chunk_size) * (infer_type == infer_kind::default_kind);
 
       auto tree_output  = std::conditional_t<has_vector_leaves,
-                                            typename node_t::index_type,
-                                            typename node_t::threshold_type>{};
+                                             typename node_t::index_type,
+                                             typename node_t::threshold_type>{};
       auto leaf_node_id = index_type{};
       if (infer_type == infer_kind::leaf_id) {
         leaf_node_id =
