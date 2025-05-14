@@ -24,22 +24,18 @@ import pytest
 import treelite
 from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
+from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier as sklrfc
+from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 import cuml
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.internals.import_utils import has_sklearn
 from cuml.testing.utils import as_type
 
 shap = pytest.importorskip("shap")
-
-
-if has_sklearn():
-    from sklearn.datasets import make_classification, make_regression
-    from sklearn.ensemble import RandomForestClassifier as sklrfc
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 
 def make_classification_with_categorical(
@@ -130,7 +126,6 @@ def count_categorical_split(tl_model):
         "reg:pseudohubererror",
     ],
 )
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
 
@@ -204,7 +199,6 @@ def test_xgb_regressor(objective):
         "multi:softprob",
     ],
 )
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
 
@@ -286,7 +280,6 @@ def test_degenerate_cases():
 
 
 @pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
     X, y = make_regression(
@@ -335,7 +328,6 @@ def test_cuml_rf_regressor(input_type):
 
 @pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
 @pytest.mark.parametrize("n_classes", [2, 5])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
     X, y = make_classification(
@@ -385,7 +377,6 @@ def test_cuml_rf_classifier(n_classes, input_type):
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_regressor():
     n_samples = 100
     X, y = make_regression(
@@ -418,7 +409,6 @@ def test_sklearn_rf_regressor():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_classifier(n_classes):
     n_samples = 100
     X, y = make_classification(
@@ -488,7 +478,6 @@ def test_xgb_toy_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier_with_categorical(n_classes):
     xgb = pytest.importorskip("xgboost")
 
@@ -552,7 +541,6 @@ def test_xgb_classifier_with_categorical(n_classes):
     )
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -594,7 +582,6 @@ def test_xgb_regressor_with_categorical():
     )
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_regressor_with_categorical():
     lgb = pytest.importorskip("lightgbm")
 
@@ -642,7 +629,6 @@ def test_lightgbm_regressor_with_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_classifier_with_categorical(n_classes):
     lgb = pytest.importorskip("lightgbm")
 
@@ -770,7 +756,7 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
         else:
             raise ValueError(f"Unknown task: {task}")
         return model, pred
-    elif learner == "skl_rf":
+    elif learner == "skl_rf"
         if not has_sklearn():
             assume(False)
             return None, None

@@ -26,6 +26,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_classification, make_regression
+from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
     ElasticNet,
@@ -112,6 +113,21 @@ def test_BaseEstimator__get_param_names():
     names = LogisticRegression._get_param_names()
     sol = LogisticRegression._cpu_class._get_param_names()
     assert names == sol
+
+
+def test_init_positional_and_keyword():
+    model = PCA()
+    assert model.n_components is None
+
+    model = PCA(n_components=10)
+    assert model.n_components == 10
+
+    model = PCA(10)
+    assert model.n_components == 10
+
+    with pytest.raises(TypeError):
+        # Can't pass keyword-only parameters in as positional
+        PCA(10, False)
 
 
 def test_repr():
