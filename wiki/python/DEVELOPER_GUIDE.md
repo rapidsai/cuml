@@ -57,7 +57,7 @@ warnings.warn(
 )
 ```
 
-The warning message should always give both the version in which the deprecation happened
+The warning message should always give both the version in which the deprecation was introduced
 and the version in which the old behavior will be removed. The message should also include
 a brief explanation of the change and point users to an alternative.
 
