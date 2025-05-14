@@ -161,8 +161,8 @@ void infer_kernel_cpu(forest_t const& forest,
             }
           }
         }  // Trees
-      }    // Rows
-    }      // Tasks
+      }  // Rows
+    }  // Tasks
 
     // Sum over grove and postprocess
 #pragma omp for

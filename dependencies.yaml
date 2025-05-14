@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.8"]
+      cuda: ["11.8", "12.9"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -31,7 +31,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.8"]
+      cuda: ["11.8", "12.9"]
       arch: [x86_64]
     includes:
       - common_build
@@ -267,11 +267,12 @@ dependencies:
         packages:
           - dask-cuda==25.6.*,>=0.0.0a0
           - joblib>=0.11
-          - numba>=0.59.1,<0.61.0a0
+          - numba>=0.59.1,<0.62.0a0
           - numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.6.*,>=0.0.0a0
+          - &scikit_learn scikit-learn>=1.5
           - *treelite
       - output_types: requirements
         packages:
@@ -314,6 +315,10 @@ dependencies:
               cuda: "12.8"
             packages:
               - cuda-version=12.8
+          - matrix:
+              cuda: "12.9"
+            packages:
+              - cuda-version=12.9
   cuda:
     specific:
       - output_types: conda
@@ -432,17 +437,20 @@ dependencies:
           - ipykernel
           - nbsphinx
           - numpydoc
-          - matplotlib
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
-          - &scikit_learn scikit-learn==1.5.*
+          - *scikit_learn
           - sphinx<8.2.0
           - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda
         packages:
           - doxygen=1.9.1
+          - matplotlib-base
+      - output_types: requirements
+        packages:
+          - matplotlib
   py_version:
     specific:
       - output_types: conda
@@ -460,8 +468,12 @@ dependencies:
             packages:
               - python=3.12
           - matrix:
+              py: "3.13"
             packages:
-              - python>=3.10,<3.13
+              - python=3.13
+          - matrix:
+            packages:
+              - python>=3.10,<3.14
   test_libcuml:
     common:
       - output_types: conda
@@ -473,6 +485,15 @@ dependencies:
         packages:
           - *cmake_ver
   test_python:
+    specific:
+      - output_types: [conda, requirements]
+        matrices:
+          # Package versions to user for the "oldest-dep" CI run
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - scikit-learn==1.5.2
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -494,7 +515,7 @@ dependencies:
           - &xgboost xgboost>=2.1.0,<3.0.0
           - statsmodels
           - tenacity
-          - umap-learn==0.5.6
+          - umap-learn==0.5.7
           - pynndescent
   test_notebooks:
     common:
@@ -502,12 +523,17 @@ dependencies:
         packages:
           - dask-ml==2023.3.24
           - jupyter
-          - matplotlib
           - numpy
           - pandas
           - *scikit_learn
           - seaborn
           - *xgboost
+      - output_types: conda
+        packages:
+          - matplotlib-base
+      - output_types: requirements
+        packages:
+          - matplotlib
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]

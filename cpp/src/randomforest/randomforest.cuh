@@ -96,7 +96,7 @@ class RandomForest {
    * @param[in] cfg_rf_type: Task type: 0 for classification, 1 for regression
    */
   RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
-    : rf_params(cfg_rf_params), rf_type(cfg_rf_type){};
+    : rf_params(cfg_rf_params), rf_type(cfg_rf_type) {};
 
   /**
    * @brief Build (i.e., fit, train) random forest for input data.

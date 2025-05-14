@@ -712,12 +712,12 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         ("canberra", "brute_force_knn", True),
         ("l2", "nn_descent", True),
         ("euclidean", "nn_descent", True),
-        ("sqeuclidean", "nn_descent", False),
+        ("sqeuclidean", "nn_descent", True),
         ("l1", "nn_descent", False),
         ("manhattan", "nn_descent", False),
         ("minkowski", "nn_descent", False),
         ("chebyshev", "nn_descent", False),
-        ("cosine", "nn_descent", False),
+        ("cosine", "nn_descent", True),
         ("correlation", "nn_descent", False),
         ("jaccard", "nn_descent", False),
         ("hamming", "nn_descent", False),
@@ -829,8 +829,9 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("data_on_host", [True, False])
 @pytest.mark.parametrize("num_clusters", [0, 3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
+@pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 def test_umap_trustworthiness_on_batch_nnd(
-    data_on_host, num_clusters, fit_then_transform
+    data_on_host, num_clusters, fit_then_transform, metric
 ):
 
     digits = datasets.load_digits()
@@ -840,6 +841,7 @@ def test_umap_trustworthiness_on_batch_nnd(
         min_dist=0.01,
         build_algo="nn_descent",
         build_kwds={"nnd_n_clusters": num_clusters},
+        metric=metric,
     )
 
     if fit_then_transform:
@@ -852,7 +854,9 @@ def test_umap_trustworthiness_on_batch_nnd(
             digits.data, convert_dtype=True, data_on_host=data_on_host
         )
 
-    cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
+    cuml_trust = trustworthiness(
+        digits.data, cuml_embedding, n_neighbors=10, metric=metric
+    )
 
     assert cuml_trust > 0.9
 
