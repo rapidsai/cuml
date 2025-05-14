@@ -17,6 +17,7 @@
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
+#include <cuml/experimental/fil/detail/degenerate_trees.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
@@ -353,13 +354,19 @@ struct treelite_importer {
    * @param stream The CUDA stream to use for loading this model (can be
    * omitted for CPU).
    */
-  auto import(treelite::Model const& tl_model,
-              index_type align_bytes                   = index_type{},
-              std::optional<bool> use_double_precision = std::nullopt,
-              raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
-              int device                               = 0,
-              raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
+  forest_model import(treelite::Model const& tl_model,
+                      index_type align_bytes                   = index_type{},
+                      std::optional<bool> use_double_precision = std::nullopt,
+                      raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
+                      int device                               = 0,
+                      raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
   {
+    // Handle degenerate trees (a single root node with no child)
+    if (auto processed_tl_model = detail::convert_degenerate_trees(tl_model); processed_tl_model) {
+      return import(
+        *processed_tl_model.get(), align_bytes, use_double_precision, dev_type, device, stream);
+    }
+
     ASSERT(tl_model.num_target == 1, "FIL does not support multi-target model");
     // Check tree annotation (assignment)
     if (tl_model.task_type == treelite::TaskType::kMultiClf) {
