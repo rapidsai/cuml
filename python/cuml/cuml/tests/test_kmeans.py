@@ -123,7 +123,7 @@ def test_traditional_kmeans_plus_plus_init(
     cu_score = cuml_kmeans.score(X)
 
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=nclusters, n_init=1
+        random_state=random_state, n_clusters=nclusters, n_init=10
     )
     kmeans.fit(cp.asnumpy(X))
     sk_score = kmeans.score(cp.asnumpy(X))
@@ -165,7 +165,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     cu_score = cuml_kmeans.score(X)
 
     sk_kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=nclusters, n_init=1
+        random_state=random_state, n_clusters=nclusters, n_init=10
     )
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
