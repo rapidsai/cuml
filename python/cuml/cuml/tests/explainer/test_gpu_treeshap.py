@@ -756,10 +756,7 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
         else:
             raise ValueError(f"Unknown task: {task}")
         return model, pred
-    elif learner == "skl_rf"
-        if not has_sklearn():
-            assume(False)
-            return None, None
+    elif learner == "skl_rf":
         if task == "regression":
             model = sklrfr(n_estimators=n_estimators)
             model.fit(X, y)
