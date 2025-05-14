@@ -492,7 +492,9 @@ class UMAP(UniversalBase,
             umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("n_clusters", 1)
             umap_params.build_params.n_nearest_clusters = <uint64_t> build_kwds.get("n_nearest_clusters", 2)
             if umap_params.build_params.n_clusters > 1 and umap_params.build_params.n_nearest_clusters >= umap_params.build_params.n_clusters:
-                raise Exception("If n_clusters > 1, then n_nearest_clusters should be strictly smaller than n_clusters.")
+                raise ValueError("If n_clusters > 1, then n_nearest_clusters must be strictly smaller than n_clusters.")
+            if umap_params.build_params.n_clusters < 1:
+                raise ValueError("If n_clusters must be >= 1")
             umap_params.build_algo = graph_build_algo.NN_DESCENT
 
             nnd_build_kwds = build_kwds.get("nn_descent", {})
