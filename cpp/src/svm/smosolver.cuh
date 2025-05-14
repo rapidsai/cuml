@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -347,8 +347,7 @@ void SmoSolver<math_t>::InitPenalty(math_t* C_vec, const math_t* sample_weight, 
 template <typename math_t>
 void SmoSolver<math_t>::SvcInit(const math_t* y)
 {
-  raft::linalg::unaryOp(
-    f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
+  raft::linalg::unaryOp(f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
 }
 
 /**

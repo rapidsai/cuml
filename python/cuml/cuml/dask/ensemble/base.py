@@ -345,6 +345,13 @@ class BaseRandomForestModel(object):
 
         return internal_model
 
+    def _get_workers_weights(self) -> cp.ndarray:
+        workers_weights = np.array(self.n_active_estimators_per_worker)
+        workers_weights = workers_weights[workers_weights != 0]
+        workers_weights = workers_weights / workers_weights.sum()
+        workers_weights = cp.array(workers_weights)
+        return workers_weights
+
     def apply_reduction(self, reduce, partial_infs, datatype, delayed):
         """
         Reduces the partial inferences to obtain the final result. The workers
@@ -352,10 +359,7 @@ class BaseRandomForestModel(object):
         correct for this worker's predictions are weighted differently during
         reduction.
         """
-        workers_weights = np.array(self.n_active_estimators_per_worker)
-        workers_weights = workers_weights[workers_weights != 0]
-        workers_weights = workers_weights / workers_weights.sum()
-        workers_weights = cp.array(workers_weights)
+        workers_weights = self._get_workers_weights()
         unique_classes = (
             None
             if not hasattr(self, "unique_classes")
