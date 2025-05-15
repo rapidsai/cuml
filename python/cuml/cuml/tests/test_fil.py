@@ -40,11 +40,6 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:.*output shape of ForestInference.*:FutureWarning"
-)
-
-
 def simulate_data(
     m,
     n,
