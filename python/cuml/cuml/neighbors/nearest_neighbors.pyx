@@ -35,7 +35,7 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
@@ -327,6 +327,7 @@ class NearestNeighbors(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
