@@ -25,12 +25,15 @@ from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 
@@ -129,8 +132,9 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     )
 
 
-class LinearRegression(LinearPredictMixin,
-                       UniversalBase,
+class LinearRegression(Base,
+                       InteropMixin,
+                       LinearPredictMixin,
                        RegressorMixin,
                        FMajorInputTagMixin):
     """
@@ -263,17 +267,46 @@ class LinearRegression(LinearPredictMixin,
               necessary.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "positive": {
-            True: "NotImplemented",
-        },
-    }
+    _cpu_class_path = "sklearn.linear_model.LinearRegression"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.positive:
+            raise UnsupportedOnGPU
+
+        return {
+            "fit_intercept": model.fit_intercept,
+            "copy_X": model.copy_X,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "fit_intercept": self.fit_intercept,
+            "copy_X": self.copy_X,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "intercept_": to_gpu(model.intercept_, order="F"),
+            "coef_": to_gpu(model.coef_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
@@ -311,9 +344,8 @@ class LinearRegression(LinearPredictMixin,
         }[algorithm]
 
     @generate_docstring()
-    @enable_device_interop
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+    @warn_legacy_device_interop
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -483,14 +515,6 @@ class LinearRegression(LinearPredictMixin,
         # (MRO) Since UniversalBase and LinearPredictMixin now both have a
         # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
-
-    def get_attr_names(self):
-        return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
 
     @staticmethod
     def _more_static_tags():

@@ -19,13 +19,12 @@
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/neighbors/nn_descent_types.hpp>
-
 #include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/nn_descent.hpp>
 
 namespace ML {
 
-using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
+using nn_index_params = cuvs::neighbors::nn_descent::index_params;
 
 class UMAPParams {
  public:

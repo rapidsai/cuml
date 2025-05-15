@@ -571,27 +571,27 @@ class ARIMA(Base):
     @classmethod
     def _get_param_names(cls):
         """
-        .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `_get_param_names()`, `get_params` and
-            `set_params` will raise ``NotImplementedError``
+        ARIMA is unable to be cloned at this time.
+        The methods: `_get_param_names()`, `get_params` and
+        set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def get_params(self, deep=True):
         """
-        .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `_get_param_names()`, `get_params` and
-            `set_params` will raise ``NotImplementedError``
+        ARIMA is unable to be cloned at this time.
+        The methods: `_get_param_names()`, `get_params` and
+        `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def set_params(self, **params):
         """
-        .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `_get_param_names()`, `get_params` and
-            `set_params` will raise ``NotImplementedError``
+        ARIMA is unable to be cloned at this time.
+        The methods: `_get_param_names()`, `get_params` and
+        `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")

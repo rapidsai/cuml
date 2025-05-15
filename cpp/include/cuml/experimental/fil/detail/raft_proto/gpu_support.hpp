@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ namespace raft_proto {
 #ifdef CUML_ENABLE_GPU
 auto constexpr static const GPU_ENABLED = true;
 #else
-auto constexpr static const GPU_ENABLED     = false;
+auto constexpr static const GPU_ENABLED = false;
 #endif
 
 #ifdef __CUDACC__
@@ -39,7 +39,7 @@ auto constexpr static const GPU_COMPILATION = false;
 #ifndef DEBUG
 auto constexpr static const DEBUG_ENABLED = false;
 #elif DEBUG == 0
-auto constexpr static const DEBUG_ENABLED   = false;
+auto constexpr static const DEBUG_ENABLED = false;
 #else
 auto constexpr static const DEBUG_ENABLED = true;
 #endif

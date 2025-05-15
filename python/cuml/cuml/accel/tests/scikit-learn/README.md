@@ -78,23 +78,31 @@ Example with all options:
 ```
 
 ### Format
-The xfail list is a YAML file containing test IDs to mark as xfail. Each entry can include:
-- `id`: Test ID in format "module::test_name"
-- `reason`: Optional reason for xfail (default: "Test listed in xfail list")
+The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
+- `reason`: Description of why the tests in this group are expected to fail
 - `strict`: Whether to enforce xfail (default: true)
+- `tests`: List of test IDs in format "module::test_name"
 - `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
 
 Example:
 ```yaml
-- id: "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
-  reason: "Known issue with sparse inputs"
+- reason: "Known issues with sparse inputs"
   strict: true
-- id: "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+  tests:
+    - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
+    - "sklearn.linear_model.tests.test_ridge::test_ridge_sparse"
+
+- reason: "Unsupported hyperparameters for older scikit-learn version"
   condition: "scikit-learn<1.5.2"
-  reason: "Unsupported hyperparameter for older scikit-learn version."
-- id: "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
-  reason: "Flaky test due to random seed sensitivity"
+  tests:
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+
+- reason: "Flaky tests due to random seed sensitivity"
   strict: false
+  tests:
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_regressor"
 ```
 
 **Note on `strict: false`**:
@@ -107,3 +115,96 @@ Ideally, Each use of `strict: false` should include:
 - A clear explanation of why the test is non-deterministic
 - A plan to fix the underlying issue
 - Regular review to ensure the flag is still necessary
+
+
+## Recommended workflow for fixing parity issues
+
+### 1. Initial Triage
+Start by identifying and categorizing test failures:
+
+```bash
+# Get current commit hash
+alias gitsha='git rev-parse --short HEAD'
+
+# Run all untriaged tests with --runxfail to actually see all failures
+./run-tests.sh -m cuml_accel_bugs --runxfail --junitxml="report-bugs-$(gitsha).xml" | tee report-bugs-$(gitsha).log
+```
+
+### 2. Analyze and Group Failures
+Use the summarize-results script to analyze failures:
+```bash
+# Select the first 10 failures
+./summarize-results.py report-bugs-$(gitsha).xml --limit 10 --format=traceback
+```
+
+Group similar failures together based on:
+- Common error messages
+- Related functionality
+- Similar root causes
+
+### 3. Update Xfail List with Detailed Markers
+
+Add detailed markers and reasons for each failure group:
+
+```yaml
+# Example of a bug that needs fixing
+- reason: "Missing scikit-learn interface attributes (components_ and _parameter_constraints)"
+  marker: cuml_accel_dbscan_missing_interface
+  tests:
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
+    - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.dbscan-sklearn.cluster.DBSCAN]"
+
+# Example of a bug in sparse matrix handling
+- reason: "Incomplete sparse precomputed distances implementation in NearestNeighbors"
+  marker: cuml_accel_dbscan_sparse_precomputed
+  tests:
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[False]"
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[True]"
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed_different_eps"
+
+# Example of expected divergence (not a bug)
+- reason: "GPU-optimized implementation produces different but valid results"
+  marker: cuml_accel_dbscan_expected_divergence
+  strict: false
+  tests:
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_cluster_assignments[float32]"
+    - "sklearn.cluster.tests.test_dbscan::test_dbscan_cluster_assignments[float64]"
+```
+
+### 4. Debug and Fix Issues
+For each failure group:
+
+1. Run tests with the specific marker:
+```bash
+SELECT=cuml_accel_dbscan_missing_interface
+./run-tests.sh -m "${SELECT}" --runxfail --junitxml="report-${SELECT}-$(gitsha).xml" | tee "test-${SELECT}-$(gitsha).log"
+```
+
+2. Investigate the root cause.
+3. Implement fixes.
+
+### 5. Verify and Update Xfail List
+After fixing issues and committing them, run
+
+1. Run tests again to verify fixes:
+```bash
+./run-tests.sh -m "${SELECT}" --junitxml="report-${SELECT}-$(gitsha).xml"
+```
+
+2. Update the xfail list:
+   - Remove fixed tests from the list
+   - Move flaky tests to a separate group with `strict: false`
+   - Update reasons for remaining failures
+
+### 6. Document Changes
+For each fix:
+- Update relevant documentation
+- Add comments explaining the fix
+- Document any known limitations or trade-offs
+
+### Best Practices
+- Keep test groups small and focused
+- Use descriptive markers and reasons
+- Document root causes and fixes
+- Use `strict: false` only for genuinely non-deterministic (flaky) tests
