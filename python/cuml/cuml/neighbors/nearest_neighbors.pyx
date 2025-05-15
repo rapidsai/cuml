@@ -672,21 +672,39 @@ class NearestNeighbors(UniversalBase,
                 ).array
                 I_ndarr.index = index
 
+        if use_training_data:
+            I_ndarr = I_ndarr.to_output('cupy')
+            D_ndarr = D_ndarr.to_output('cupy')
+
+            # Create the result matrices
+            result1 = cp.zeros((I_ndarr.shape[0], I_ndarr.shape[1] - 1))
+            result2 = cp.zeros((D_ndarr.shape[0], D_ndarr.shape[1] - 1))
+
+            for i in range(len(I_ndarr)):
+                # Find indices where element equals row index
+                indices_to_remove = cp.where(I_ndarr[i] == i)[0]
+
+                if len(indices_to_remove) > 0:
+                    # Get the index to remove (first occurrence if multiple exist)
+                    idx_to_remove = indices_to_remove[0]
+
+                    # Create a copy of the row without the specified index
+                    row1 = cp.delete(I_ndarr[i], idx_to_remove)
+                    row2 = cp.delete(D_ndarr[i], idx_to_remove)
+                else:
+                    # If no element equals its row index, remove the first element as default
+                    row1 = I_ndarr[i, 1:]
+                    row2 = D_ndarr[i, 1:]
+
+                # Assign to result
+                result1[i] = row1
+                result2[i] = row2
+
+            I_ndarr = CumlArray.from_input(result1, force_contiguous=True)
+            D_ndarr = CumlArray.from_input(result2, force_contiguous=True)
+
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
-
-        # drop first column if using training data as X
-        # this will need to be moved to the C++ layer (cuml issue #2562)
-        if use_training_data:
-            if out_type in {'cupy', 'numpy', 'numba'}:
-                I_ndarr = I_ndarr[:, 1:]
-                D_ndarr = D_ndarr[:, 1:]
-            elif out_type == "cuml":
-                I_ndarr = CumlArray.from_input(I_ndarr[:, 1:], force_contiguous=True)
-                D_ndarr = CumlArray.from_input(D_ndarr[:, 1:], force_contiguous=True)
-            else:
-                I_ndarr.drop(I_ndarr.columns[0], axis=1)
-                D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 

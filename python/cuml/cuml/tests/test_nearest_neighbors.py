@@ -455,6 +455,56 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
         knn_cu.fit(X, convert_dtype=False)
 
 
+def check_knn_graph(
+    X, k, mode, metric, p, input_type, output_type, as_instance, include_self
+):
+    if as_instance:
+        sparse_sk = sklearn.neighbors.kneighbors_graph(
+            X.get(),
+            k,
+            mode=mode,
+            metric=metric,
+            p=p,
+            include_self=include_self,
+        )
+        # print(sparse_sk.toarray())
+    else:
+        knn_sk = skKNN(metric=metric, p=p)
+        knn_sk.fit(X.get())
+        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
+
+    if input_type == "dataframe":
+        X = cudf.DataFrame(X)
+
+    with cuml.using_output_type(output_type):
+        if as_instance:
+            sparse_cu = cuml.neighbors.kneighbors_graph(
+                X, k, mode=mode, metric=metric, p=p, include_self=include_self
+            )
+            # print(sparse_cu.toarray())
+        else:
+            knn_cu = cuKNN(metric=metric, p=p)
+            knn_cu.fit(X)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
+
+    assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
+    assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
+    assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
+    assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
+
+    if output_type == "cupy":
+        assert np.allclose(
+            sparse_sk.toarray(),
+            np.asarray(sparse_cu.toarray().get()),
+            atol=1e-4,
+        )
+
+    if output_type == "cupy" or output_type is None:
+        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
+    else:
+        assert isspmatrix_csr(sparse_cu)
+
+
 @pytest.mark.parametrize(
     "input_type,mode,output_type,as_instance",
     [
@@ -477,37 +527,17 @@ def test_knn_graph(
 ):
     X, _ = make_blobs(n_samples=nrows, n_features=n_feats, random_state=0)
 
-    if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(
-            X.get(), k, mode=mode, metric=metric, p=p, include_self="auto"
-        )
-    else:
-        knn_sk = skKNN(metric=metric, p=p)
-        knn_sk.fit(X.get())
-        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
+    check_knn_graph(
+        X, k, mode, metric, p, input_type, output_type, as_instance, "auto"
+    )
 
-    if input_type == "dataframe":
-        X = cudf.DataFrame(X)
 
-    with cuml.using_output_type(output_type):
-        if as_instance:
-            sparse_cu = cuml.neighbors.kneighbors_graph(
-                X, k, mode=mode, metric=metric, p=p, include_self="auto"
-            )
-        else:
-            knn_cu = cuKNN(metric=metric, p=p)
-            knn_cu.fit(X)
-            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
+def test_knn_graph_duplicate_point():
+    X = cp.array([[1, 5], [1, 5], [7, 3], [9, 6], [10, 1]])
 
-    assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
-    assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
-    assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
-    assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
-
-    if output_type == "cupy" or output_type is None:
-        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
-    else:
-        assert isspmatrix_csr(sparse_cu)
+    check_knn_graph(
+        X, 2, "connectivity", "euclidean", 2, "ndarray", "cupy", True, False
+    )
 
 
 @pytest.mark.parametrize(
