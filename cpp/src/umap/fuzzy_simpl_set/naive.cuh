@@ -282,7 +282,8 @@ void smooth_knn_dist(nnz_t n,
 
   has_found_an_error = error_status.value(stream);
   if (has_found_an_error) {
-    throw std::runtime_error("At least one row does not have any neighbor with non-zero distance.");
+    RAFT_EXPECTS(!has_found_an_error,
+                 "At least one row does not have any neighbor with non-zero distance.");
   }
 }
 
