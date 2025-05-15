@@ -596,6 +596,7 @@ def test_dbscan_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+@pytest.mark.filterwarnings("ignore:.*output shape of ForestInference.*:FutureWarning")
 def test_random_forest_regressor(train_device, infer_device):
     ref_model = skRFR(
         n_estimators=40,

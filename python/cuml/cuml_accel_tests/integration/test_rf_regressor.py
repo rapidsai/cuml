@@ -20,6 +20,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*output shape of ForestInference.*:FutureWarning"
+)
+
+
 @pytest.fixture(scope="module")
 def regression_data():
     # Create a synthetic regression dataset.

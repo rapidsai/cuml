@@ -130,4 +130,10 @@ def test_docstring(docstring):
             in doctest_stdout.getvalue()
         ):
             pytest.skip("Doctest requires MG support.")
+        if (
+            "FutureWarning: In RAPIDS 25.06, "
+            "the output shape of ForestInference"
+            in doctest_stdout.getvalue()
+        ):
+            pytest.skip("New FIL emits a FutureWarning about output shape")
         raise
