@@ -177,7 +177,7 @@ offers zero code change acceleration for Pandas.
 Using them together is supported as an experimental feature. To do this from the
 CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
 
-.. code-block::
+.. code-block:: console
 
    python -m cuml.accel --cudf-pandas
 
@@ -186,10 +186,7 @@ For Jupyter notebooks, use the following approach to turn on both:
 .. code-block::
 
    %load_ext cudf.pandas
-   from cuml.experimental.accel import install
-   install()
-
-A single magic invocation will be available in the next version of cuML.
+   %load_ext cuml.accel
 
 
 8. What happens if something in my script is not implemented in cuML?
