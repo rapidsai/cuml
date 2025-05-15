@@ -380,7 +380,7 @@ class BaseRandomForestModel(object):
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])
     y = concatenate([item[1] for item in input_data])
-    return model.fit(X, y, convert_dtype)
+    return model.fit(X, y, convert_dtype=convert_dtype)
 
 
 def _func_predict_partial(model, input_data, **kwargs):

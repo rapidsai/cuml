@@ -26,7 +26,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -434,6 +434,7 @@ class DBSCAN(UniversalBase,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("out_dtype", "convert_dtype")
     def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
             convert_dtype=True) -> "DBSCAN":
         """
@@ -459,6 +460,7 @@ class DBSCAN(UniversalBase,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("out_dtype")
     def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

@@ -27,6 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -154,6 +155,7 @@ class KNeighborsClassifier(ClassifierMixin,
     @generate_docstring(convert_dtype_cast='np.float32')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -179,6 +181,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
@@ -237,6 +240,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict_proba(
             self,
             X,
