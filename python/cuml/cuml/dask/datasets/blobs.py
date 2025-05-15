@@ -21,6 +21,7 @@ import dask.array as da
 
 import cuml.internals.logger as logger
 from cuml.common import with_cupy_rmm
+from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common.utils import get_client
 from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
 from cuml.datasets.blobs import _get_centers
@@ -145,7 +146,8 @@ def make_blobs(
     generator = _create_rs_generator(random_state=random_state)
 
     if workers is None:
-        workers = list(client.scheduler_info()["workers"].keys())
+        kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+        workers = list(client.scheduler_info(**kwargs)["workers"].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]

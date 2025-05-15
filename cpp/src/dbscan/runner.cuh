@@ -137,6 +137,15 @@ std::size_t run(const raft::handle_t& handle,
   // switch compute mode based on feature dimension
   bool sparse_rbc_mode = eps_nn_method == EpsNnMethod::RBC;
 
+  if constexpr (std::is_same_v<Type_f, double> || std::is_same_v<Index_, int32_t>) {
+    if (sparse_rbc_mode) {
+      sparse_rbc_mode = false;
+      CUML_LOG_WARN(
+        "RBC does not support double precision or int32 labels. Falling back to BRUTE_FORCE "
+        "strategy.");
+    }
+  }
+
   if (sparse_rbc_mode && metric != cuvs::distance::DistanceType::L2SqrtExpanded &&
       metric != cuvs::distance::DistanceType::L2SqrtUnexpanded) {
     CUML_LOG_WARN("Metric not supported by RBC yet. Falling back to BRUTE_FORCE strategy.");
@@ -218,18 +227,15 @@ std::size_t run(const raft::handle_t& handle,
   rmm::device_uvector<Index_> adj_graph(0, stream);
 
   // build index for rbc
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index_ptr =
-    nullptr;
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_> rbc_index(
-    handle,
-    x,
-    sparse_rbc_mode ? N : 0,
-    sparse_rbc_mode ? D : 0,
-    static_cast<raft::distance::DistanceType>(metric));
-
+  void* rbc_index_ptr = nullptr;
   if (sparse_rbc_mode) {
-    raft::neighbors::ball_cover::build_index(handle, rbc_index);
-    rbc_index_ptr = &rbc_index;
+    if constexpr (std::is_same_v<Type_f, float> && std::is_same_v<Index_, int64_t>) {
+      auto x_view = raft::make_device_matrix_view<const float, int64_t, raft::row_major>(x, N, D);
+      auto rbc_index =
+        new cuvs::neighbors::ball_cover::index<Index_, Type_f>(handle, x_view, metric);
+      cuvs::neighbors::ball_cover::build(handle, *rbc_index);
+      rbc_index_ptr = rbc_index;
+    }
   }
 
   // Compute the mask

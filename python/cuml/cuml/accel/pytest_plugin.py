@@ -63,7 +63,7 @@ def create_version_condition(condition_str: str) -> bool:
     try:
         req = Requirement(condition_str)
         installed_version = version(req.name)
-        return req.specifier.contains(installed_version)
+        return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
 
@@ -85,33 +85,48 @@ def pytest_collection_modifyitems(config, items):
     xfail_list = yaml.safe_load(xfail_list_path.read_text())
 
     if not isinstance(xfail_list, list):
-        raise ValueError("Xfail list must be a list of test entries")
+        raise ValueError("Xfail list must be a list of test groups")
 
-    # Convert list of dicts into dict mapping test IDs to lists of xfail configs
+    # Create markers for all unique markers in the xfail list
+    markers = {
+        marker: pytest.mark.__getattr__(marker)
+        for group in xfail_list
+        if (marker := group.get("marker"))
+    }
+    # Convert list of groups into dict mapping test IDs to lists of xfail
+    # configs
     xfail_configs = defaultdict(list)
-    for entry in xfail_list:
-        if not isinstance(entry, dict):
+    for group in xfail_list:
+        if not isinstance(group, dict):
             raise ValueError("Xfail list entry must be a dictionary")
-        if "id" not in entry:
-            raise ValueError("Xfail list entry must contain an 'id' field")
+        if "reason" not in group:
+            raise ValueError("Xfail list entry must contain a 'reason' field")
+        if "tests" not in group:
+            raise ValueError("Xfail list entry must contain a 'tests' field")
 
-        test_id = entry["id"]
+        reason = group["reason"]
+        strict = group.get("strict", True)
+        tests = group["tests"]
         condition = True
-        if "condition" in entry:
-            condition = create_version_condition(entry["condition"])
+        if "condition" in group:
+            condition = create_version_condition(group["condition"])
+        marker = markers.get(group.get("marker", None), None)
 
         config = {
-            "reason": entry.get("reason", "Test listed in xfail list"),
-            "strict": entry.get("strict", True),
+            "reason": reason,
+            "strict": strict,
             "condition": condition,
+            "extra_marker": marker,
         }
 
-        xfail_configs[test_id].append(config)
+        for test_id in tests:
+            xfail_configs[test_id].append(config)
 
     for item in items:
         test_id = f"{item.module.__name__}::{item.name}"
         if test_id in xfail_configs:
             for config in xfail_configs[test_id]:
+                # Add the xfail marker
                 item.add_marker(
                     pytest.mark.xfail(
                         reason=config["reason"],
@@ -119,3 +134,6 @@ def pytest_collection_modifyitems(config, items):
                         condition=config["condition"],
                     )
                 )
+                # If there's a marker, add it as a proper pytest marker
+                if extra_marker := config["extra_marker"]:
+                    item.add_marker(extra_marker)

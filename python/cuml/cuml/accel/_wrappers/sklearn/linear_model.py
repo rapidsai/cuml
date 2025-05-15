@@ -15,7 +15,9 @@
 #
 
 import cuml.linear_model
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = (
     "LinearRegression",
@@ -26,21 +28,27 @@ __all__ = (
 )
 
 
-class LinearRegression(ProxyMixin, cuml.linear_model.LinearRegression):
-    pass
+class LinearRegression(ProxyBase):
+    _gpu_class = cuml.linear_model.LinearRegression
 
 
-class LogisticRegression(ProxyMixin, cuml.linear_model.LogisticRegression):
-    pass
+class LogisticRegression(ProxyBase):
+    _gpu_class = cuml.linear_model.LogisticRegression
 
 
-class ElasticNet(ProxyMixin, cuml.linear_model.ElasticNet):
-    pass
+class ElasticNet(ProxyBase):
+    _gpu_class = cuml.linear_model.ElasticNet
 
 
-class Ridge(ProxyMixin, cuml.linear_model.Ridge):
-    pass
+class Ridge(ProxyBase):
+    _gpu_class = cuml.linear_model.Ridge
+
+    def _gpu_fit(self, X, y, sample_weight=None):
+        y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
+        if len(y.shape) > 1:
+            raise UnsupportedOnGPU
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
-class Lasso(ProxyMixin, cuml.linear_model.Lasso):
-    pass
+class Lasso(ProxyBase):
+    _gpu_class = cuml.linear_model.Lasso
