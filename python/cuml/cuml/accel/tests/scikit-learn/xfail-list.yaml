@@ -707,7 +707,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_bad_precomputed_distances[D1-.* positive.*-barnes_hut-csr_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_bad_precomputed_distances[D1-.* positive.*-exact-asarray]"
   - "sklearn.manifold.tests.test_t_sne::test_bh_match_exact"
-  - "sklearn.manifold.tests.test_t_sne::test_binary_perplexity_stability"
   - "sklearn.manifold.tests.test_t_sne::test_exact_no_precomputed_sparse[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_exact_no_precomputed_sparse[csr_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-barnes_hut]"
