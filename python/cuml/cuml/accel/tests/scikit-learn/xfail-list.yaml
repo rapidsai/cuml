@@ -1363,9 +1363,6 @@
 - reason: "Precomputed kernel not implemented in cuml.accel"
   marker: cuml_accel_precomputed_kernel_not_implemented
   tests:
-  - "sklearn.model_selection.tests.test_search.py::test_grid_search_precomputed_kernel"
-  - "sklearn.model_selection.tests.test_search.py::test_grid_search_precomputed_kernel_error_nonsquare"
-  - "sklearn.model_selection.tests.test_validation.py::test_cross_val_score_precomputed"
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
   - "sklearn.svm.tests.test_svm::test_precomputed"
@@ -1386,7 +1383,6 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
 - reason: "SVR does not expose n_iter_"
   marker: cuml_accel_svr_does_not_expose_n_iter_
   tests:
@@ -1428,8 +1424,6 @@
   - "sklearn.svm.tests.test_sparse::test_svc_iris[rbf-csr_matrix]"
   - "sklearn.svm.tests.test_sparse::test_svc[lil_array-linear-X_train2-y_train2-X_test2]"
   - "sklearn.svm.tests.test_sparse::test_svc_iris[rbf-csr_array]"
-  - "sklearn.svm.tests.test_sparse::test_sparse_decision_function[csr_matrix]"
-  - "sklearn.svm.tests.test_sparse::test_sparse_decision_function[csr_array]"
   - "sklearn.svm.tests.test_sparse::test_svc[lil_array-linear-X_train3-y_train3-X_test3]"
   - "sklearn.svm.tests.test_sparse::test_svc[csr_matrix-poly-X_train2-y_train2-X_test2]"
   - "sklearn.svm.tests.test_sparse::test_svc[lil_matrix-poly-X_train2-y_train2-X_test2]"
@@ -1460,7 +1454,6 @@
   - "sklearn.metrics.tests.test_ranking::test_precision_recall_curve[False]"
   - "sklearn.metrics.tests.test_ranking::test_roc_curve_confidence"
   - "sklearn.metrics.tests.test_ranking::test_roc_curve_hard"
-  - "sklearn.svm.tests.test_svm.py::test_tweak_params"
 - reason: "SVC predict_proba method can only be called when the estimator has been fitted with probability=True"
   marker: cuml_accel_svc_predict_proba_issue_
   tests:
@@ -1558,8 +1551,6 @@
   - "sklearn.svm.tests.test_svm::test_decision_function_shape[SVC]"
   - "sklearn.svm.tests.test_svm::test_decision_function_shape[NuSVC]"
   - "sklearn.semi_supervised.tests.test_self_training::test_sanity_classification"
-  - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y0-base_estimator1]"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_score_with_score_func_classification"
   - "sklearn.semi_supervised.tests.test_self_training::test_k_best_selects_best"
   - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
   - "sklearn.model_selection.tests.test_search::test_search_cv_results_rank_tie_breaking"
