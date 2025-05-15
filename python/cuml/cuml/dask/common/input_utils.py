@@ -153,6 +153,8 @@ class DistributedDataHandler:
             sizes, total = sizes_parts
             self.parts_to_sizes[self.worker_info[w]["rank"]] = sizes
 
+            self.total_rows += total
+
 
 def _get_datatype_from_inputs(data):
     """
