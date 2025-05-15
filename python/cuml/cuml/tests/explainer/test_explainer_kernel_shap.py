@@ -206,7 +206,9 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
     assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01)
 
 
-@pytest.mark.filterwarnings("ignore:.*output shape of ForestInference.*:FutureWarning")
+@pytest.mark.filterwarnings(
+    "ignore:.*output shape of ForestInference.*:FutureWarning"
+)
 def test_kernel_housing_dataset(housing_dataset):
     X, y, _ = housing_dataset
 
