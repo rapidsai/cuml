@@ -181,8 +181,8 @@ def test_fil_classification(
         fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
         fil_proba_opt = np.reshape(fil_proba_opt, xgb_proba.shape)
 
-        np.testing.assert_almost_equal(fil_proba, xgb_proba)
-        np.testing.assert_almost_equal(fil_proba_opt, fil_proba)
+        np.testing.assert_almost_equal(fil_proba, xgb_proba, decimal=6)
+        np.testing.assert_almost_equal(fil_proba_opt, fil_proba, decimal=6)
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))

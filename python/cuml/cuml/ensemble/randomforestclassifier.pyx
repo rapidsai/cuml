@@ -333,12 +333,12 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     def _reset_forest_data(self):
         """Free memory allocated by this instance and clear instance vars."""
-        if self.rf_forest:
+        if hasattr(self, "rf_forest") and self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>
                 self.rf_forest)
             self.rf_forest = 0
-        if self.rf_forest64:
+        if hasattr(self, "rf_forest64") and self.rf_forest64:
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
