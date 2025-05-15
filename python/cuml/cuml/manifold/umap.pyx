@@ -436,8 +436,35 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
+        # deprecation notice
         if self.build_kwds is not None and any(key.startswith("nnd_") for key in self.build_kwds):
-            raise Exception("build_kwds no longer supports nnd_* arguments. Please refer to docs for detailed configurations.")
+            logger.warn("nnd_* arguments in build_kwds will be deprecated in a future release. Please refer to the documentation for updated configuration guidance.")
+
+            # translating old nnd_ params in build kwds
+            # from 25.06 we just expose graph_degree and max_iterations for nn descent related params.
+            graph_degree = self.build_kwds.pop("nnd_graph_degree", None)
+            max_iterations = self.build_kwds.pop("nnd_max_iterations", None)
+            n_clusters = self.build_kwds.pop("nnd_n_clusters", None)
+
+            nn_descent_config = {}
+            if graph_degree is not None:
+                nn_descent_config["graph_degree"] = graph_degree
+            if max_iterations is not None:
+                nn_descent_config["max_iterations"] = max_iterations
+
+            if nn_descent_config:
+                self.build_kwds["nn_descent"] = nn_descent_config
+            if n_clusters is not None:
+                self.build_kwds["n_clusters"] = n_clusters
+
+            # Warning for other unused nnd_* keys
+            unused_nnd_keys = [key for key in self.build_kwds if key.startswith("nnd_")]
+            if unused_nnd_keys:
+                logger.warn(
+                    f"The following nnd_* keys in build_kwds will be ignored and are deprecated: {unused_nnd_keys}"
+                )
+                for unused_key in unused_nnd_keys:
+                    self.build_kwds.pop(unused_key, None)
 
     def validate_hyperparams(self):
 
