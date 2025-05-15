@@ -64,7 +64,6 @@ dependencies:
 - recommonmark
 - rmm==25.6.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
-- scikit-learn>=1.5
 - scipy>=1.8.0
 - seaborn
 - sphinx-copybutton
@@ -76,4 +75,7 @@ dependencies:
 - treelite==4.4.1
 - umap-learn==0.5.7
 - xgboost>=2.1.0,<3.0.0
+- pip
+- pip:
+  - scikit-learn==1.7.0rc0
 name: all_cuda-129_arch-x86_64
