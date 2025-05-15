@@ -63,7 +63,7 @@ def create_version_condition(condition_str: str) -> bool:
     try:
         req = Requirement(condition_str)
         installed_version = version(req.name)
-        return req.specifier.contains(installed_version)
+        return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
 

@@ -30,6 +30,7 @@ from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
+from cuml.internals.array import CumlArray
 
 from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *
@@ -103,7 +104,10 @@ class PCAMG(BaseDecompositionMG, PCA):
             self.explained_variance_ratio_.ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
-        cdef uintptr_t noise_vars_ptr = self.noise_variance_.ptr
+
+        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
+        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
@@ -136,3 +140,6 @@ class PCAMG(BaseDecompositionMG, PCA):
                 False)
 
         self.handle.sync()
+
+        # Store noise_variance_ as a float
+        self.noise_variance_ = float(noise_variance.to_output("numpy"))

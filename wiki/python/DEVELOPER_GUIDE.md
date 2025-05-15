@@ -38,6 +38,57 @@ except CudaRuntimeError as cre:
     print("Cuda Error! '%s'" % str(cre))
 ```
 
+## Deprecation Policy
+
+cuML follows the policy of deprecating code for one release prior to removal. This applies
+to publicly accessible functions, classes, methods, attributes and parameters. During the
+deprecation cycle the old name or value is still supported, but will raise a deprecation
+warning when it is used.
+
+Code in cuML should not use deprecated cuML APIs.
+
+```python
+warnings.warn(
+    (
+        "Attribute `foo` was deprecated in version 25.06 and will be"
+        " removed in 25.08. Use `metric` instead."
+    ),
+    FutureWarning,
+)
+```
+
+The warning message should always give both the version in which the deprecation was introduced
+and the version in which the old behavior will be removed. The message should also include
+a brief explanation of the change and point users to an alternative.
+
+In addition, a deprecation note should be added in the docstring, repeating the information
+from the warning message::
+
+```
+.. deprecated:: 25.06
+    Attribute `foo` was deprecated in version 25.06 and will be removed
+    in 25.08. Use `metric` instead.
+```
+
+A deprecation requires a test which ensures that the warning is raised in relevant cases
+but not in other cases. The warning should be caught in all other tests (using e.g., ``@pytest.mark.filterwarnings``).
+
+### Public vs Private APIs
+The following rules determine whether an API is considered public and therefore subject to the deprecation policy:
+
+1. Any API prefixed with `_` is considered private and not subject to deprecation rules
+2. APIs within the following namespaces are private and not subject to deprecation rules:
+   - `internals`
+   - `utils`
+   - `common`
+3. APIs within the `experimental` namespace are not subject to deprecation rules
+4. For all other APIs, the determination of public vs private status is based on:
+   - Presence in public documentation
+   - Usage in public examples
+   - Explicit declaration as part of the public API
+
+When in doubt, treat an API as public to ensure proper deprecation cycles.
+
 ## Logging
 TBD
 
