@@ -467,7 +467,6 @@ def check_knn_graph(
             p=p,
             include_self=include_self,
         )
-        # print(sparse_sk.toarray())
     else:
         knn_sk = skKNN(metric=metric, p=p)
         knn_sk.fit(X.get())
@@ -481,7 +480,6 @@ def check_knn_graph(
             sparse_cu = cuml.neighbors.kneighbors_graph(
                 X, k, mode=mode, metric=metric, p=p, include_self=include_self
             )
-            # print(sparse_cu.toarray())
         else:
             knn_cu = cuKNN(metric=metric, p=p)
             knn_cu.fit(X)
