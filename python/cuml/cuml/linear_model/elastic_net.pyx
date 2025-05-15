@@ -330,7 +330,13 @@ class ElasticNet(Base,
         # what sklearn does to compute the gap, we just won't have the same
         # coefficients found in cuml as are found in sklearn.
         X = X_m.to_output("cupy")
+        if X.ndim == 1:
+            X = X[:, None]
+
         y = y_m.to_output("cupy")
+        if y.ndim == 2:
+            y = y.ravel()
+
         if sample_weight_m is not None:
             sample_weight = sample_weight_m.to_output("cupy")
         else:
