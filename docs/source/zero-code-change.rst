@@ -186,10 +186,7 @@ For Jupyter notebooks, use the following approach to turn on both:
 .. code-block::
 
    %load_ext cudf.pandas
-   from cuml.accel import install
-   install()
-
-A single magic invocation is planned for a future release of cuML.
+   %load_ext cuml.accel
 
 
 8. What happens if something in my script is not implemented in cuML?
