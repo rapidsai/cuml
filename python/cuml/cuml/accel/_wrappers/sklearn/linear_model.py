@@ -39,6 +39,10 @@ class LogisticRegression(ProxyBase):
 class ElasticNet(ProxyBase):
     _gpu_class = cuml.linear_model.ElasticNet
 
+    def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
+        # Fixes signature mismatch with cuml.ElasticNet. check_input can be ignored.
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
+
 
 class Ridge(ProxyBase):
     _gpu_class = cuml.linear_model.Ridge
@@ -52,3 +56,7 @@ class Ridge(ProxyBase):
 
 class Lasso(ProxyBase):
     _gpu_class = cuml.linear_model.Lasso
+
+    def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
+        # Fixes signature mismatch with cuml.Lasso. check_input can be ignored.
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
