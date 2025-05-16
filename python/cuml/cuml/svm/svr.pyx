@@ -26,6 +26,7 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
 
@@ -260,6 +261,7 @@ class SVR(SVMBase, RegressorMixin):
 
     @generate_docstring()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
@@ -352,6 +354,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
