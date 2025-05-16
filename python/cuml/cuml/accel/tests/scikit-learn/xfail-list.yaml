@@ -23,10 +23,14 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),min_resources='smallest',param_grid={'ridge__alpha':[0.1,1.0]},random_state=0)]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6)
   marker: cuml_accel_bugs
+  condition: "scikit-learn==1.6.*"
+  tests:
+  - "sklearn.feature_selection.tests.test_from_model::test_transform_accepts_nan_inf"
+- reason: Test should fail with cuml.accel (scikit-learn 1.6+)
+  marker: cuml_accel_bugs
   condition: "scikit-learn>=1.6"
   tests:
   - "sklearn.decomposition.tests.test_incremental_pca::test_incremental_pca_partial_fit_small_batch"
-  - "sklearn.feature_selection.tests.test_from_model::test_transform_accepts_nan_inf"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape0]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape1]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape2]"
@@ -90,6 +94,11 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
   - "sklearn.utils.tests.test_validation::test_cross_val_predict[coo_matrix]"
+- reason: Test should fail with cuml.accel (scikit-learn 1.7)
+  condition: scikit-learn == 1.7.*
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   tests:
