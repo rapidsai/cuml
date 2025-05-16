@@ -273,7 +273,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.6.*,>=0.0.0a0
-          - &scikit_learn scikit-learn>=1.5
+          - &scikit_learn scikit-learn==1.7.0rc1
           - *treelite
       - output_types: requirements
         packages:
