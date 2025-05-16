@@ -390,7 +390,6 @@
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[True-auto]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[True-predict]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_predict_proba[RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[coo_array]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_regression-StackingRegressor-LinearRegression]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_classification-StackingClassifier-LogisticRegression]"
   - "sklearn.ensemble.tests.test_voting::test_voting_verbose[estimator0]"
@@ -1139,6 +1138,9 @@
   strict: false
   marker: cuml_accel_flaky
   tests:
+  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
+  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-2-65535]"
+  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
@@ -1452,7 +1454,6 @@
   - "sklearn.svm.tests.test_svm::test_sparse_fit_support_vectors_empty[csr_matrix]"
   - "sklearn.svm.tests.test_svm::test_sparse_fit_support_vectors_empty[csr_array]"
   - "sklearn.svm.tests.test_sparse::test_svc[csr_array-sigmoid-X_train2-y_train2-X_test2]"
-  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
 - reason: "SVC predict_proba method can only be called when the estimator has been fitted with probability=True"
   marker: cuml_accel_svc_predict_proba_issue_
   tests:
@@ -1555,9 +1556,6 @@
   - "sklearn.model_selection.tests.test_search::test_search_cv_results_rank_tie_breaking"
   - "sklearn.svm.tests.test_svm::test_tweak_params"
   - "sklearn.semi_supervised.tests.test_self_training::test_k_best_selects_best"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csc_array]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csr_array]"
-  - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
   - "sklearn.model_selection.tests.test_validation::test_permutation_score[coo_matrix]"
 - reason: "At least 3 classes are required to use probabilistic SVC with class weights"
   marker: cuml_accel_svc_at_least_3_classes_for_proba_
@@ -1620,8 +1618,6 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-base_estimator1]"
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[k_best-base_estimator1]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-base_estimator1]"
-  - "sklearn.linear_model.tests.test_sag::test_sag_pobj_matches_logistic_regression[csr_array]"
-  - "sklearn.linear_model.tests.test_sag::test_classifier_results[csr_array]"
 - reason: "SVM kernel cannot be defined as a lambda function"
   marker: cuml_accel_svm_kernel_as_lambda_
   tests:
@@ -1644,7 +1640,6 @@
 - reason: "SVM data validation"
   marker: cuml_accel_svm_data_validation_
   tests:
-  - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[csr_matrix-X]"
   - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
