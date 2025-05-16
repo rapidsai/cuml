@@ -44,6 +44,11 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nog
         size_t graph_degree
         size_t max_iterations
 
+        # TODO: remove deprecation handling logic in 25.08
+        # related issue: https://github.com/rapidsai/cuml/issues/6742
+        size_t intermediate_graph_degree
+        float termination_threshold
+
     cdef cppclass graph_build_params:
         size_t n_nearest_clusters
         size_t n_clusters

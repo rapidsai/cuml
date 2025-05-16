@@ -103,10 +103,18 @@ inline void launcher(const raft::handle_t& handle,
 
     auto nn_descent_params =
       cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
-    nn_descent_params.graph_degree = params->build_params.nn_descent_params.graph_degree;
-    nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 1.5;
-    nn_descent_params.max_iterations        = params->build_params.nn_descent_params.max_iterations;
-    nn_descent_params.metric                = params->metric;
+    nn_descent_params.graph_degree   = params->build_params.nn_descent_params.graph_degree;
+    nn_descent_params.max_iterations = params->build_params.nn_descent_params.max_iterations;
+    nn_descent_params.metric         = params->metric;
+
+    // nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 1.5;
+    // TODO: These are deprecated in version 25.06 and will no longer be exposed starting 25.08
+    // related issue: github.com/rapidsai/cuml/issues/6742
+    nn_descent_params.intermediate_graph_degree =
+      params->build_params.nn_descent_params.intermediate_graph_degree;
+    nn_descent_params.termination_threshold =
+      params->build_params.nn_descent_params.termination_threshold;
+
     all_neighbors_params.graph_build_params = nn_descent_params;
 
     auto indices_view =

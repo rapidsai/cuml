@@ -36,6 +36,11 @@ struct nn_descent_params {
   // Descent parameters
   size_t graph_degree   = 64;
   size_t max_iterations = 20;
+
+  // These are deprecated in version 25.06 and will no longer be exposed starting 25.08
+  // related issue: github.com/rapidsai/cuml/issues/6742
+  size_t intermediate_graph_degree = 128;
+  float termination_threshold      = 0.0001;
 };
 
 /**

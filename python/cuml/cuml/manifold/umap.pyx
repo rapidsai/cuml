@@ -284,6 +284,10 @@ class UMAP(UniversalBase,
         [Hint3]: for n_nearest_clusters, start with 2, and gradually increase (2->3->4 ...) for better accuracy
         [Hint4]: for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage. This is independent from n_nearest_clusters as long as n_nearest_clusters < n_clusters
 
+        .. deprecated:: 25.06
+            nnd_* arguments in build_kwds was deprecated in version 25.06 and will be
+            removed in 25.08. Please refer to the documentation for updated configuration guidance.
+
     Notes
     -----
     This module is heavily based on Leland McInnes' reference UMAP package.
@@ -436,16 +440,28 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
-        # deprecation notice
+        self._handle_deprecated_build_kwds()
+
+    # TODO: remove deprecation handling logic in 25.08
+    # related issue: https://github.com/rapidsai/cuml/issues/6742
+    def _handle_deprecated_build_kwds(self):
         if self.build_kwds is not None and any(key.startswith("nnd_") for key in self.build_kwds):
-            logger.warn("nnd_* arguments in build_kwds will be deprecated in a future release. Please refer to the documentation for updated configuration guidance.")
+            warnings.warn(
+                ("nnd_* arguments in build_kwds was deprecated in version 25.06 and will be removed in 25.08. Please refer to the documentation for updated configuration guidance."),
+                FutureWarning,
+            )
+
+            nnd_kwds = self.build_kwds.get("nn_descent", None)
+            if nnd_kwds is not None:
+                # user passed deprecated nnd_* params and the new "nn_descent" dict params together
+                raise Exception("Please remove nnd_* arguments in build_kwds and use the nn_descent dict parameters.")
 
             # translating old nnd_ params in build kwds
-            # from 25.06 we just expose graph_degree and max_iterations for nn descent related params.
             graph_degree = self.build_kwds.pop("nnd_graph_degree", None)
             max_iterations = self.build_kwds.pop("nnd_max_iterations", None)
             n_clusters = self.build_kwds.pop("nnd_n_clusters", None)
 
+            # nnd related params
             nn_descent_config = {}
             if graph_degree is not None:
                 nn_descent_config["graph_degree"] = graph_degree
@@ -457,14 +473,8 @@ class UMAP(UniversalBase,
             if n_clusters is not None:
                 self.build_kwds["n_clusters"] = n_clusters
 
-            # Warning for other unused nnd_* keys
-            unused_nnd_keys = [key for key in self.build_kwds if key.startswith("nnd_")]
-            if unused_nnd_keys:
-                logger.warn(
-                    f"The following nnd_* keys in build_kwds will be ignored and are deprecated: {unused_nnd_keys}"
-                )
-                for unused_key in unused_nnd_keys:
-                    self.build_kwds.pop(unused_key, None)
+            # removing nnd_return_distances from self.build_kwds. This has to be True for NN Descent to work with UMAP and should have never been exposed
+            self.build_kwds.pop("nnd_return_distances", None)
 
     def validate_hyperparams(self):
 
@@ -530,6 +540,11 @@ class UMAP(UniversalBase,
             if umap_params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
                 logger.warn("to use nn descent as the build algo, graph_degree should be larger than or equal to n_neigbors. setting graph_degree to n_neighbors.")
                 umap_params.build_params.nn_descent_params.graph_degree = self.n_neighbors
+
+            # TODO: remove deprecation handling logic in 25.08
+            # related issue: https://github.com/rapidsai/cuml/issues/6742
+            umap_params.build_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
+            umap_params.build_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
         else:
             raise ValueError(f"Unsupported value for `build_algo`: {self.build_algo}")
 
