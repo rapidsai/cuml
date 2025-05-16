@@ -454,7 +454,7 @@ class UMAP(UniversalBase,
             nnd_kwds = self.build_kwds.get("nn_descent", None)
             if nnd_kwds is not None:
                 # user passed deprecated nnd_* params and the new "nn_descent" dict params together
-                raise Exception("Please remove nnd_* arguments in build_kwds and use the nn_descent dict parameters.")
+                raise ValueError("Please remove nnd_* arguments in build_kwds and use the nn_descent dict parameters.")
 
             # translating old nnd_ params in build kwds
             graph_degree = self.build_kwds.pop("nnd_graph_degree", None)
@@ -531,7 +531,7 @@ class UMAP(UniversalBase,
             if umap_params.build_params.n_clusters > 1 and umap_params.build_params.n_nearest_clusters >= umap_params.build_params.n_clusters:
                 raise ValueError("If n_clusters > 1, then n_nearest_clusters must be strictly smaller than n_clusters.")
             if umap_params.build_params.n_clusters < 1:
-                raise ValueError("If n_clusters must be >= 1")
+                raise ValueError("n_clusters must be >= 1")
             umap_params.build_algo = graph_build_algo.NN_DESCENT
 
             nnd_build_kwds = build_kwds.get("nn_descent", {})
