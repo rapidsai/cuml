@@ -40,7 +40,7 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
     cdef cppclass GraphBasedDimRedCallback
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nogil:
-    cdef cppclass nn_descent_params:
+    cdef cppclass nn_descent_params_umap:
         size_t graph_degree
         size_t max_iterations
 
@@ -52,7 +52,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nog
     cdef cppclass graph_build_params:
         size_t n_nearest_clusters
         size_t n_clusters
-        nn_descent_params nn_descent_params
+        nn_descent_params_umap nn_descent_params
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
 

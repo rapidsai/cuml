@@ -31,7 +31,7 @@ namespace graph_build_params {
  * graph_degree must be larger than or equal to n_neighbors.
  * Increasing graph_degree and max_iterations may result in better accuracy.
  */
-struct nn_descent_params {
+struct nn_descent_params_umap {
   // not directly using cuvs::neighbors::nn_descent::index_params to distinguish UMAP-exposed NN
   // Descent parameters
   size_t graph_degree   = 64;
@@ -71,7 +71,7 @@ struct graph_build_params {
    * (n_clusters=1) will place the entire data on device memory.
    */
   size_t n_clusters = 1;
-  nn_descent_params nn_descent_params;
+  nn_descent_params_umap nn_descent_params;
 };
 }  // namespace graph_build_params
 
