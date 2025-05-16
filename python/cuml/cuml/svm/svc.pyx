@@ -28,6 +28,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 
@@ -585,6 +586,7 @@ class SVC(SVMBase,
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -708,6 +710,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
@@ -736,6 +739,7 @@ class SVC(SVMBase,
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("log")
     def predict_proba(self, X, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
