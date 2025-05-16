@@ -25,12 +25,14 @@ from enum import IntEnum
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import (
+    InteropMixin,
+    to_cpu,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.mixins import FMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
@@ -101,7 +103,8 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(UniversalBase,
+class TruncatedSVD(Base,
+                   InteropMixin,
                    FMajorInputTagMixin):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
@@ -235,32 +238,69 @@ class TruncatedSVD(UniversalBase,
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.decomposition.TruncatedSVD'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "algorithm": {
-            "randomized": "full",
-            "arpack": "full",
-        },
-        "tol": {
-            # tolerance controls tolerance of different solvers
-            # between sklearn and cuML, so at least the default
-            # value needs to be translated.
-            0.0: 1e-7
-        },
-        "n_iter": {
-            # Translating the default n_iter from sklearn to the
-            # default of 15 of cuML to keep behavior consistent,
-            # and results performing closer.
-            5: 15
-        }
-    }
+    _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        # Since the solvers are different, we want to adjust tol & n_iter.
+        # TODO: here we only adjust the default values, there's likely a better
+        # conversion equation we should apply.
+        if (tol := model.tol) == 0.0:
+            tol = 1e-7
+        if (n_iter := model.n_iter) == 5:
+            n_iter = 15
+
+        return {
+            "n_components": model.n_components,
+            "algorithm": "full",
+            "n_iter": n_iter,
+            "tol": tol,
+        }
+
+    def _params_to_cpu(self):
+        # Since the solvers are different, we want to adjust tol & n_iter.
+        # TODO: here we only adjust the default values, there's likely a better
+        # conversion equation we should apply.
+        if (tol := self.tol) == 1e-7:
+            tol = 0.0
+        if (n_iter := self.n_iter) == 15:
+            n_iter = 5
+
+        return {
+            "n_components": self.n_components,
+            "algorithm": "randomized",
+            "n_iter": n_iter,
+            "tol": tol,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(model.explained_variance_, order="F"),
+            "explained_variance_ratio_": to_gpu(model.explained_variance_ratio_, order="F"),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(self.explained_variance_ratio_),
+            "singular_values_": to_cpu(self.singular_values_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
@@ -318,7 +358,7 @@ class TruncatedSVD(UniversalBase,
                                                 dtype=self.dtype)
 
     @generate_docstring()
-    @enable_device_interop
+    @warn_legacy_device_interop
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
@@ -333,7 +373,8 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
@@ -400,7 +441,7 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
@@ -449,7 +490,8 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
@@ -496,13 +538,3 @@ class TruncatedSVD(UniversalBase,
         self.handle.sync()
 
         return t_input_data
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ["algorithm", "n_components", "n_iter", "random_state", "tol"]
-
-    def get_attr_names(self):
-        return ['components_', 'explained_variance_',
-                'explained_variance_ratio_', 'singular_values_',
-                'n_features_in_', 'feature_names_in_']

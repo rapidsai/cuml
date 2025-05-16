@@ -16,7 +16,6 @@
 
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import UnsupportedOnGPU
 
@@ -32,11 +31,6 @@ __all__ = (
 class LinearRegression(ProxyBase):
     _gpu_class = cuml.linear_model.LinearRegression
 
-    def _gpu_fit(self, X, y, sample_weight=None):
-        if is_sparse(X):
-            raise UnsupportedOnGPU
-        return self._gpu.fit(X, y, sample_weight=sample_weight)
-
 
 class LogisticRegression(ProxyBase):
     _gpu_class = cuml.linear_model.LogisticRegression
@@ -45,9 +39,8 @@ class LogisticRegression(ProxyBase):
 class ElasticNet(ProxyBase):
     _gpu_class = cuml.linear_model.ElasticNet
 
-    def _gpu_fit(self, X, y, sample_weight=None):
-        if is_sparse(X):
-            raise UnsupportedOnGPU
+    def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
+        # Fixes signature mismatch with cuml.ElasticNet. check_input can be ignored.
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
@@ -58,15 +51,12 @@ class Ridge(ProxyBase):
         y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         if len(y.shape) > 1:
             raise UnsupportedOnGPU
-        if is_sparse(X):
-            raise UnsupportedOnGPU
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
 class Lasso(ProxyBase):
     _gpu_class = cuml.linear_model.Lasso
 
-    def _gpu_fit(self, X, y, sample_weight=None):
-        if is_sparse(X):
-            raise UnsupportedOnGPU
+    def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
+        # Fixes signature mismatch with cuml.Lasso. check_input can be ignored.
         return self._gpu.fit(X, y, sample_weight=sample_weight)

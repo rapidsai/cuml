@@ -79,6 +79,8 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_n_features_in_after_fitting]"
@@ -97,7 +99,6 @@
   - "sklearn.decomposition.tests.test_pca::test_infer_dim_by_explained_variance[X0-0.95-2]"
   - "sklearn.decomposition.tests.test_pca::test_infer_dim_by_explained_variance[X1-0.01-1]"
   - "sklearn.decomposition.tests.test_pca::test_infer_dim_by_explained_variance[X2-0.5-2]"
-  - "sklearn.decomposition.tests.test_pca::test_mle_simple_case"
   - "sklearn.decomposition.tests.test_pca::test_n_components_none[data0-arpack-3]"
   - "sklearn.decomposition.tests.test_pca::test_n_components_none[data1-arpack-3]"
   - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[42-arpack]"
@@ -521,14 +522,10 @@
   - "sklearn.linear_model.tests.test_coordinate_descent::test_check_input_false"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_coordinate_descent[Lasso-1-kwargs1]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_copy_X_False_check_input_False"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_copy_X_True[False]"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_copy_X_True[True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_multitarget"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_nonfinite_params"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-None-False-0.01-False]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-None-False-0.01-True]"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_does_not_overwrite_sample_weight[False]"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_does_not_overwrite_sample_weight[True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_toy"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_lassoCV_does_not_set_precompute[False-False]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_lassoCV_does_not_set_precompute[auto-False]"
@@ -1348,6 +1345,10 @@
   marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
+- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+  condition: "cuda-python >= 12.9"
+  tests:
+  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
 - reason: "test_estimators checks fail"
   marker: cuml_accel_test_estimators
   tests:
@@ -1416,6 +1417,24 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_transformer_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1sample]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1feature]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1feature]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
 - reason: "cuml doesn't set `feature_names_in_` properly"
   marker: cuml_accel_feature_names_in
   tests:
@@ -1424,6 +1443,8 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[PCA()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
 - reason: "cuml raises a different error if X doesn't have expected n features"
   marker: cuml_accel_check_n_features_in
   tests:
@@ -1432,6 +1453,8 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Ridge()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[PCA()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: "cuml missing certain fit attributes"
   marker: cuml_accel_missing_fit_attributes
   tests:

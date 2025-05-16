@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -29,6 +28,7 @@
 
 #include <cuda_runtime.h>
 
+#include <cuvs/neighbors/ball_cover.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
@@ -155,23 +155,44 @@ void brute_force_knn(const raft::handle_t& handle,
 }
 
 void rbc_build_index(const raft::handle_t& handle,
-                     raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index)
+                     std::uintptr_t& rbc_index,
+                     float* X,
+                     int64_t n_rows,
+                     int64_t n_cols,
+                     cuvs::distance::DistanceType metric)
 {
-  raft::spatial::knn::rbc_build_index(handle, index);
+  auto X_view = raft::make_device_matrix_view<const float, int64_t>(X, n_rows, n_cols);
+  auto rbc_index_ptr =
+    new cuvs::neighbors::ball_cover::index<int64_t, float>(handle, X_view, metric);
+  cuvs::neighbors::ball_cover::build(handle, *rbc_index_ptr);
+  rbc_index = reinterpret_cast<std::uintptr_t>(rbc_index_ptr);
 }
 
 void rbc_knn_query(const raft::handle_t& handle,
-                   raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index,
+                   const std::uintptr_t& rbc_index,
                    uint32_t k,
                    const float* search_items,
                    uint32_t n_search_items,
+                   int64_t dim,
                    int64_t* out_inds,
                    float* out_dists)
 {
-  // TODO: we're using this from raft in header only mode, decide if we should split out to a
-  // separate instantiation here
-  raft::spatial::knn::rbc_knn_query(
-    handle, index, k, search_items, n_search_items, out_inds, out_dists);
+  auto rbc_index_ptr =
+    reinterpret_cast<cuvs::neighbors::ball_cover::index<int64_t, float>*>(rbc_index);
+  auto query_view =
+    raft::make_device_matrix_view<const float, int64_t>(search_items, n_search_items, dim);
+  auto indices_view = raft::make_device_matrix_view<int64_t, int64_t>(out_inds, n_search_items, k);
+  auto distances_view = raft::make_device_matrix_view<float, int64_t>(out_dists, n_search_items, k);
+  cuvs::neighbors::ball_cover::knn_query(
+    handle, *rbc_index_ptr, query_view, indices_view, distances_view, k);
+}
+
+void rbc_free_index(std::uintptr_t rbc_index)
+{
+  // Cast back to the original type and delete
+  auto rbc_index_ptr =
+    reinterpret_cast<cuvs::neighbors::ball_cover::index<int64_t, float>*>(rbc_index);
+  delete rbc_index_ptr;
 }
 
 void approx_knn_build_index(raft::handle_t& handle,

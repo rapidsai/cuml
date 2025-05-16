@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/processing.hpp>  // MetricProcessor
 
 #include <cuvs/distance/distance.hpp>
@@ -68,15 +67,27 @@ void brute_force_knn(const raft::handle_t& handle,
                      std::vector<int64_t>* translations  = nullptr);
 
 void rbc_build_index(const raft::handle_t& handle,
-                     raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index);
+                     std::uintptr_t& rbc_index,
+                     float* X,
+                     int64_t n_rows,
+                     int64_t n_cols,
+                     cuvs::distance::DistanceType metric);
 
 void rbc_knn_query(const raft::handle_t& handle,
-                   raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index,
+                   const std::uintptr_t& rbc_index,
                    uint32_t k,
                    const float* search_items,
                    uint32_t n_search_items,
+                   int64_t dim,
                    int64_t* out_inds,
                    float* out_dists);
+
+/**
+ * @brief Free the RBC index
+ *
+ * @param[in] rbc_index pointer to the index to free
+ */
+void rbc_free_index(std::uintptr_t rbc_index);
 
 struct knnIndex {
   cuvs::distance::DistanceType metric;
