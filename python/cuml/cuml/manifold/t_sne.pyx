@@ -25,7 +25,7 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 
 from pylibraft.common.handle cimport handle_t
 
@@ -416,6 +416,7 @@ class TSNE(UniversalBase,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -580,6 +581,7 @@ class TSNE(UniversalBase,
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """

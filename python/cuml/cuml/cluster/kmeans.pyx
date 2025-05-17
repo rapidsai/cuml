@@ -45,7 +45,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 try:
@@ -299,6 +299,7 @@ class KMeans(UniversalBase,
 
     @generate_docstring()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
@@ -581,6 +582,7 @@ class KMeans(UniversalBase,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "normalize_weights")
     def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
         """
@@ -600,6 +602,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
@@ -688,6 +691,7 @@ class KMeans(UniversalBase,
                                                         of X on the K-means \
                                                         objective.'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
@@ -703,6 +707,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=False,
                       sample_weight=None) -> CumlArray:
         """

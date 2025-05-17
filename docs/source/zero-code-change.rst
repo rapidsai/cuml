@@ -74,9 +74,12 @@ that will always be run with NVIDIA GPUs available, it may be worthwhile to
 write your code directly with cuML.
 
 Additionally, running code directly with cuML offers finer control over GPU
-memory usage. ``cuml.accel`` will automatically use `unified or managed memory <https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_
-for allocations in order to reduce the risk of CUDA OOM errors. In
-contrast, cuML defaults to ordinary device memory, which can offer improved
+memory usage. ``cuml.accel`` will enable `unified or managed memory
+<https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_ (provided
+the platform supports it and `rmm
+<https://docs.rapids.ai/api/rmm/stable/guide/>`_ hasn't already been configured).
+Using managed memory can help reduce the risk of CUDA out-of-memory errors.
+In contrast, cuML defaults to ordinary device memory, which can offer improved
 performance but requires slightly more care to avoid exhausting the GPU VRAM.
 If you experience unexpectedly slow performance with ``cuml.accel``, you can
 try disabling the use of unified memory with the ``--disable-uvm`` flag.
@@ -163,10 +166,31 @@ data before measuring runtime on a full-scale dataset.
 
 6. Will I run out of GPU memory if I use ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-``cuml.accel`` will use CUDA `managed memory <https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_ for allocations on NVIDIA GPUs. This means that host memory can be used to augment GPU memory, and data will be migrated automatically as necessary. This does not mean that ``cuml.accel`` is entirely impervious to OOM errors, however. Very large datasets can exhaust the entirety of both host and device memory. Additionally, if device memory is heavily oversubscribed, it can lead to slow execution. ``cuml.accel`` is designed to minimize both possibilities, but if you observe OOM errors or slow execution on data that should fit in combined host plus device memory for your system, please `report it <https://github.com/rapidsai/cuml/issues/new?template=bug_report.md>`_, and the RAPIDS team will investigate.
+
+When possible, ``cuml.accel`` will enable `managed memory
+<https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_ for
+allocations on NVIDIA GPUs. This means that host memory can be used to augment
+GPU memory, and data will be migrated automatically as necessary. This does not
+mean that ``cuml.accel`` is entirely impervious to OOM errors, however. Very
+large datasets can exhaust the entirety of both host and device memory.
+Additionally, if device memory is heavily oversubscribed, it can lead to slow
+execution. ``cuml.accel`` is designed to minimize both possibilities, but if
+you observe OOM errors or slow execution on data that should fit in combined
+host plus device memory for your system, please `report it
+<https://github.com/rapidsai/cuml/issues/new?template=bug_report.md>`_, and the
+RAPIDS team will investigate.
 
 .. note::
-   When running in Windows Subsystem for Linux 2 (WSL2), managed memory is not supported. Users may need to be more careful about memory management and consider using the ``--disable-uvm`` flag if experiencing memory-related issues.
+
+   Managed memory will not be enabled:
+
+   - When running in Windows Subsystem for Linux 2 (WSL2), where it's not
+     supported.
+   - When `rmm <https://docs.rapids.ai/api/rmm/stable/guide/>`_ is already
+     configured externally to `cuml.accel`.
+
+   Users in these situations may need to be more cognizant about their GPU
+   memory usage to ensure they don't exceed the memory capacity of their GPU.
 
 7. What is the relationship between ``cuml.accel`` and ``cudf.pandas``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -177,7 +201,7 @@ offers zero code change acceleration for Pandas.
 Using them together is supported as an experimental feature. To do this from the
 CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
 
-.. code-block::
+.. code-block:: console
 
    python -m cuml.accel --cudf-pandas
 
@@ -186,10 +210,7 @@ For Jupyter notebooks, use the following approach to turn on both:
 .. code-block::
 
    %load_ext cudf.pandas
-   from cuml.experimental.accel import install
-   install()
-
-A single magic invocation will be available in the next version of cuML.
+   %load_ext cuml.accel
 
 
 8. What happens if something in my script is not implemented in cuML?
