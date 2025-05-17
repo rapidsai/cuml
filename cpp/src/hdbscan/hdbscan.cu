@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include "detail/condense.cuh"
+#include "detail/kernels/create_kernel_database.hpp"
 #include "detail/predict.cuh"
 #include "runner.h"
 
@@ -46,6 +47,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                int n_leaves,
                                HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree)
 {
+  create_kernel_database();
   HDBSCAN::detail::Condense::build_condensed_hierarchy(
     handle, children, delta, sizes, min_cluster_size, n_leaves, condensed_tree);
 }
