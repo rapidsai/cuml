@@ -23,6 +23,7 @@ import cuml.internals
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.api_decorators import api_base_return_array, enable_device_interop
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from cuml.internals.base import Base
@@ -710,6 +711,8 @@ class SVMBase(Base,
                 dtype=self.dtype,
                 order='F')
 
+    @api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
     def predict(self, X, predict_class, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X, where y is either the decision function value
@@ -731,7 +734,6 @@ class SVMBase(Base,
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        out_dtype = self._get_target_dtype() if predict_class else self.dtype
 
         self._check_is_fitted('_model')
 
@@ -794,8 +796,6 @@ class SVMBase(Base,
 
         del X_m
 
-        if preds.dtype != out_dtype:
-            preds = preds.astype(out_dtype)
         return preds
 
     def __getstate__(self):
