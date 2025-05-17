@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include <cuvs/distance/distance.hpp>
 
+#include <"../common/lto/kernel_lookup.hpp">
 #include <cstddef>
 
 namespace ML {
@@ -529,3 +530,5 @@ void compute_inverse_label_map(const raft::handle_t& handle,
 
 }  // namespace HDBSCAN::HELPER
 }  // END namespace ML
+
+static KernelDatabase hdbscan_lto_kernels;
