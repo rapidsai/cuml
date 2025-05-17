@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/common/utils.hpp>
+// #include <cuml/common/utils.hpp>
 
 namespace ML {
 namespace HDBSCAN {
@@ -84,19 +84,19 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points, const
  * @param out_count children cluster sizes of output dendrogram.
  */
 template <typename value_idx, typename value_t>
-CUML_KERNEL void condense_hierarchy_kernel(bool* frontier,
-                                           bool* next_frontier,
-                                           value_t* ignore,
-                                           value_idx* relabel,
-                                           const value_idx* children,
-                                           const value_t* deltas,
-                                           const value_idx* sizes,
-                                           int n_leaves,
-                                           int min_cluster_size,
-                                           value_idx* out_parent,
-                                           value_idx* out_child,
-                                           value_t* out_lambda,
-                                           value_idx* out_count)
+__global__ void condense_hierarchy_kernel(bool* frontier,
+                                          bool* next_frontier,
+                                          value_t* ignore,
+                                          value_idx* relabel,
+                                          const value_idx* children,
+                                          const value_t* deltas,
+                                          const value_idx* sizes,
+                                          int n_leaves,
+                                          int min_cluster_size,
+                                          value_idx* out_parent,
+                                          value_idx* out_child,
+                                          value_t* out_lambda,
+                                          value_idx* out_count)
 {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -177,6 +177,20 @@ CUML_KERNEL void condense_hierarchy_kernel(bool* frontier,
     }
   }
 }
+
+template __global__ void condense_hierarchy_kernel<int, float>(bool* frontier,
+                                                               bool* next_frontier,
+                                                               float* ignore,
+                                                               int* relabel,
+                                                               const int* children,
+                                                               const float* deltas,
+                                                               const int* sizes,
+                                                               int n_leaves,
+                                                               int min_cluster_size,
+                                                               int* out_parent,
+                                                               int* out_child,
+                                                               float* out_lambda,
+                                                               int* out_count);
 
 };  // end namespace Condense
 };  // end namespace detail
