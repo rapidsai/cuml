@@ -512,7 +512,7 @@ dependencies:
           - pytest-xdist
           - seaborn
           - *scikit_learn
-          - &xgboost xgboost>=2.1.0,<3.0.0
+          - &xgboost xgboost>=2.1.0
           - statsmodels
           - tenacity
           - umap-learn==0.5.7
