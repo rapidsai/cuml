@@ -32,6 +32,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.legacy.fil.fil import TreeliteModel
@@ -438,6 +439,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -576,6 +578,13 @@ class RandomForestClassifier(BaseRandomForestModel,
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only(
+        "predict_model",
+        "threshold",
+        "algo",
+        "convert_dtype",
+        "fil_sparse_format",
+    )
     def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -642,6 +651,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @deprecate_non_keyword_only("algo", "convert_dtype", "fil_sparse_format")
     def predict_proba(self, X, algo='auto',
                       convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
@@ -698,6 +708,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
+    @deprecate_non_keyword_only(
+        "threshold", "algo", "predict_model", "convert_dtype", "fil_sparse_format",
+    )
     def score(self, X, y, threshold=0.5,
               algo='auto', predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):

@@ -22,12 +22,11 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-import warnings
-
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 
@@ -334,9 +333,6 @@ class SVC(SVMBase,
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
-
-        .. versionadded:: 25.02
-          The parameter `multiclass_strategy` was renamed to `decision_function_shape`.
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -356,14 +352,6 @@ class SVC(SVMBase,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    multiclass_strategy
-        Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
-        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
-        while ``'ovr'`` selects `OneVsRestClassifier
-        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
-
-        .. versionchanged:: 25.02
-            Renamed to `decision_function_shape`. Will be removed in later versions.
 
     Attributes
     ----------
@@ -420,8 +408,7 @@ class SVC(SVMBase,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
-                 class_weight=None, decision_function_shape='ovo',
-                 multiclass_strategy="warn"):
+                 class_weight=None, decision_function_shape='ovo'):
         super().__init__(
             handle=handle,
             C=C,
@@ -444,7 +431,6 @@ class SVC(SVMBase,
         self.svmType = C_SVC
 
         self.decision_function_shape = decision_function_shape
-        self.multiclass_strategy = multiclass_strategy
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -585,19 +571,12 @@ class SVC(SVMBase,
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
-        if self.multiclass_strategy != "warn":
-            self.decision_function_shape = self.multiclass_strategy
-            warnings.warn(
-                "`multiclass_strategy` was deprecated in 25.04 and will be "
-                "removed in 25.06. Please use `decision_function_shape` instead",
-                FutureWarning
-            )
-
         self.n_classes_ = self._get_num_classes(y)
 
         # we need to check whether input X is sparse
@@ -708,6 +687,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
@@ -736,6 +716,7 @@ class SVC(SVMBase,
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("log")
     def predict_proba(self, X, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -819,7 +800,7 @@ class SVC(SVMBase,
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names() + \
-            ["probability", "random_state", "class_weight", "decision_function_shape", "multiclass_strategy"]
+            ["probability", "random_state", "class_weight", "decision_function_shape"]
 
         # Ignore "epsilon" since its not used in the constructor
         if ("epsilon" in params):
