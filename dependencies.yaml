@@ -179,7 +179,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - "conda-forge/label/scikit-learn_rc"
   - nvidia
 dependencies:
   rapids_build_backend:
