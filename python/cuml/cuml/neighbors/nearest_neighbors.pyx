@@ -687,11 +687,10 @@ class NearestNeighbors(UniversalBase,
                 if (row >= n_rows) return;
 
                 int base_idx = row * n_cols;
-                int row_val = row;
 
                 for (int j = 1; j < n_cols; ++j) {
                     int idx = base_idx + j;
-                    if (I[idx] == row_val) {
+                    if (I[idx] == row) {
                         // Swap I
                         int tmp_I = I[base_idx];
                         I[base_idx] = I[idx];
@@ -702,7 +701,7 @@ class NearestNeighbors(UniversalBase,
                         D[base_idx] = D[idx];
                         D[idx] = tmp_D;
 
-                        break; // only the first match
+                        break; // found self index
                     }
                 }
             }
