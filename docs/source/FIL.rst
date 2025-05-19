@@ -84,4 +84,4 @@ To use these new behaviors immediately, the ``ForestInference`` estimator can be
 
 .. code-block:: python
 
-    from cuml.experimental.fil import ForestInference 
+    from cuml.experimental.fil import ForestInference
