@@ -22,7 +22,7 @@
 
 #include <cuvs/distance/distance.hpp>
 
-#include <"../common/lto/kernel_lookup.hpp">
+#include "../common/lto/kernel_lookup.hpp"
 #include <cstddef>
 
 namespace ML {
@@ -530,5 +530,3 @@ void compute_inverse_label_map(const raft::handle_t& handle,
 
 }  // namespace HDBSCAN::HELPER
 }  // END namespace ML
-
-static KernelDatabase hdbscan_lto_kernels;

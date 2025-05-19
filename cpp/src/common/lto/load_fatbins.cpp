@@ -81,6 +81,7 @@ CUlibrary load_fatbins(std::vector<std::string> fatbin_names)
   // load any fatbin files
   for (auto name : fatbin_names) {
     // need to compute the path to `name`
+    std::cout << "attempting to add " << name << " to the nvJITLink module \n";
     result = nvJitLinkAddFile(handle, NVJITLINK_INPUT_FATBIN, name.c_str());
     check_nvjitlink_result(handle, result);
     std::cout << "\t\tadding " << name << " to the nvJITLink module \n";

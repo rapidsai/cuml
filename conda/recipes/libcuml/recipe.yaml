@@ -82,6 +82,7 @@ cache:
           - libcurand-dev
           - libcusolver-dev
           - libcusparse-dev
+          - libnvjitlink-dev
 
 outputs:
   - package:
@@ -125,6 +126,7 @@ outputs:
             - libcurand
             - libcusolver
             - libcusparse
+            - libnvjitlink-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - if: cuda_major == "11"
@@ -142,6 +144,7 @@ outputs:
             - libcurand
             - libcusolver
             - libcusparse
+            - libnvjitlink
         - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
@@ -158,6 +161,7 @@ outputs:
           - libcufft
           - libcublas
           - libcusolver
+          - libnvjitlink
           - if: cuda_major == "11"
             then:
               - cudatoolkit
@@ -201,6 +205,7 @@ outputs:
           - libcusolver
           - libcusparse
           - librmm
+          - libnvjitlink
           - if: cuda_major == "11"
             then: cudatoolkit
     about:

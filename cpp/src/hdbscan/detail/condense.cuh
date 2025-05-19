@@ -18,7 +18,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/lto/kernel_lookup.hpp>
-
+#include "kernels/create_kernel_database.hpp"
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -72,6 +72,8 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                int n_leaves,
                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
 {
+  KernelDatabase hdbscan_lto_kernels;
+  create_kernel_database(hdbscan_lto_kernels);
   cudaStream_t stream = handle.get_stream();
   auto exec_policy    = handle.get_thrust_policy();
 

@@ -15,7 +15,6 @@
  */
 
 #include "detail/condense.cuh"
-#include "detail/kernels/create_kernel_database.hpp"
 #include "detail/predict.cuh"
 #include "runner.h"
 
@@ -47,7 +46,6 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                int n_leaves,
                                HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree)
 {
-  create_kernel_database();
   HDBSCAN::detail::Condense::build_condensed_hierarchy(
     handle, children, delta, sizes, min_cluster_size, n_leaves, condensed_tree);
 }

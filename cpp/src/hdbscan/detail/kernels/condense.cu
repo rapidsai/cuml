@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
-// #include <cuml/common/utils.hpp>
-
 namespace ML {
 namespace HDBSCAN {
 namespace detail {

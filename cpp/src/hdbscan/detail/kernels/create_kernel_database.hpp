@@ -16,10 +16,10 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-void create_kernel_database()
+void create_kernel_database(KernelDatabase& hdbscan_lto_kernels)
 {
   hdbscan_lto_kernels.insert(
     KernelEntry{"condense_hierarchy_kernel",
-                "/home/coder/cuml/cpp/build/conda/cuda-12.9/release/CMakeFiles/"
+                "/home/coder/cuml/cpp/build/conda/cuda-12.8/release/CMakeFiles/"
                 "hdbscan_kernels_lto.dir/src/hdbscan/detail/kernels/condense.fatbin"});
 }

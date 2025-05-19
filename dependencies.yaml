@@ -328,6 +328,7 @@ dependencies:
               - libcurand-dev
               - libcusolver-dev
               - libcusparse-dev
+              - libnvjitlink-dev
           - matrix:
               cuda: "11.8"
             packages:
@@ -399,6 +400,7 @@ dependencies:
               - nvidia-curand-cu12
               - nvidia-cusparse-cu12
               - nvidia-cusolver-cu12
+              - nvidia-nvjitlink-cu12
           # CUDA 11 does not provide wheels, so use the system libraries instead
           - matrix:
               cuda: "11.*"
@@ -423,6 +425,7 @@ dependencies:
               - nvidia-curand
               - nvidia-cusparse
               - nvidia-cusolver
+              - nvidia-nvjitlink
   docs:
     common:
       - output_types: [conda, requirements]
