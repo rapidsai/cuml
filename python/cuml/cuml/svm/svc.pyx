@@ -28,6 +28,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 
@@ -50,75 +51,73 @@ from cuml.preprocessing import LabelEncoder
 
 from libcpp cimport nullptr
 
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.svm import SVC as skSVC
+
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
 )
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mem_type import MemoryType
+from cuml.multiclass import MulticlassClassifier
 from cuml.svm.svm_base import SVMBase
 
-if has_sklearn():
-    from sklearn.calibration import CalibratedClassifierCV
-    from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
-    from sklearn.preprocessing import LabelBinarizer
-    from sklearn.svm import SVC as skSVC
 
-    from cuml.multiclass import MulticlassClassifier
+# TODO: this is a hack to support the current cuml.accel design - we should
+# refactor so normal sklearn.svm classes may be used instead.
+class _CPUModelSVC(skSVC):
+    def fit(self, X, y, sample_weight=None):
+        self.classes_ = np.unique(y)
+        self.n_classes_ = len(self.classes_)
 
-    # TODO: this is a hack to support the current cuml.accel design - we should
-    # refactor so normal sklearn.svm classes may be used instead.
-    class _CPUModelSVC(skSVC):
-        def fit(self, X, y, sample_weight=None):
-            self.classes_ = np.unique(y)
-            self.n_classes_ = len(self.classes_)
+        if self.probability:
+            params = self.get_params()
+            params["probability"] = False
 
-            if self.probability:
-                params = self.get_params()
-                params["probability"] = False
-
-                if self.n_classes_ == 2:
-                    estimator = skSVC(**params)
-                else:
-                    if self.decision_function_shape == 'ovr':
-                        estimator = OneVsRestClassifier(skSVC(**params))
-                    elif self.decision_function_shape == 'ovo':
-                        estimator = OneVsOneClassifier(skSVC(**params))
-                    else:
-                        raise ValueError
-
-                self.prob_svc = CalibratedClassifierCV(
-                    estimator, cv=5, method='sigmoid'
-                )
-                self.prob_svc.fit(X, y)
-            elif self.n_classes_ == 2:
-                super().fit(X, y, sample_weight)
+            if self.n_classes_ == 2:
+                estimator = skSVC(**params)
             else:
-                params = self.get_params()
                 if self.decision_function_shape == 'ovr':
-                    self.multi_class_model = OneVsRestClassifier(skSVC(**params))
+                    estimator = OneVsRestClassifier(skSVC(**params))
                 elif self.decision_function_shape == 'ovo':
-                    self.multi_class_model = OneVsOneClassifier(skSVC(**params))
+                    estimator = OneVsOneClassifier(skSVC(**params))
                 else:
                     raise ValueError
-                self.multi_class_model.fit(X, y)
 
-        def predict(self, X):
-            if self.probability:
-                return self.prob_svc.predict(X)
-            elif self.n_classes_ == 2:
-                return super().predict(X)
+            self.prob_svc = CalibratedClassifierCV(
+                estimator, cv=5, method='sigmoid'
+            )
+            self.prob_svc.fit(X, y)
+        elif self.n_classes_ == 2:
+            super().fit(X, y, sample_weight)
+        else:
+            params = self.get_params()
+            if self.decision_function_shape == 'ovr':
+                self.multi_class_model = OneVsRestClassifier(skSVC(**params))
+            elif self.decision_function_shape == 'ovo':
+                self.multi_class_model = OneVsOneClassifier(skSVC(**params))
             else:
-                return self.multi_class_model.predict(X)
+                raise ValueError
+            self.multi_class_model.fit(X, y)
 
-        def predict_proba(self, X):
-            if self.probability:
-                return self.prob_svc.predict_proba(X)
-            elif self.n_classes_ == 2:
-                return super().predict_proba(X)
-            else:
-                return self.multi_class_model.predict_proba(X)
+    def predict(self, X):
+        if self.probability:
+            return self.prob_svc.predict(X)
+        elif self.n_classes_ == 2:
+            return super().predict(X)
+        else:
+            return self.multi_class_model.predict(X)
+
+    def predict_proba(self, X):
+        if self.probability:
+            return self.prob_svc.predict_proba(X)
+        elif self.n_classes_ == 2:
+            return super().predict_proba(X)
+        else:
+            return self.multi_class_model.predict_proba(X)
 
 
 cdef extern from "cuvs/distance/distance.hpp"  namespace "cuvs::distance::kernels" nogil:
@@ -506,8 +505,6 @@ class SVC(SVMBase,
         if sample_weight is not None:
             warn("Sample weights are currently ignored for multi class "
                  "classification")
-        if not has_sklearn():
-            raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
 
         params = self.get_params()
         strategy = params.pop('decision_function_shape', 'ovo')
@@ -551,10 +548,6 @@ class SVC(SVMBase,
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
 
-        if not has_sklearn():
-            raise RuntimeError(
-                "Scikit-learn is needed to use SVM probabilities")
-
         if self.n_classes_ == 2:
             estimator = SVC(**params)
         else:
@@ -593,6 +586,7 @@ class SVC(SVMBase,
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -716,6 +710,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
@@ -744,6 +739,7 @@ class SVC(SVMBase,
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("log")
     def predict_proba(self, X, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.

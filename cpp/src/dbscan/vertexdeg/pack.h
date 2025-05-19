@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/neighbors/ball_cover.cuh>
+#include <cuvs/neighbors/ball_cover.hpp>
 
 namespace ML {
 namespace Dbscan {
@@ -25,7 +25,7 @@ namespace VertexDeg {
 template <typename Type, typename Index_>
 struct Pack {
   /** optional rbc index */
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_, Index_>* rbc_index;
+  void* rbc_index;
   /**
    * vertex degree array
    * Last position is the sum of all elements in this array (excluding it)

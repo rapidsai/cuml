@@ -36,7 +36,7 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
@@ -511,6 +511,7 @@ class UMAP(UniversalBase,
                         X='dense_sparse',
                         skip_parameters_heading=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None, data_on_host=False) -> "UMAP":
         """
@@ -672,6 +673,7 @@ class UMAP(UniversalBase,
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None, data_on_host=False) -> CumlArray:
         """
@@ -718,6 +720,7 @@ class UMAP(UniversalBase,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
