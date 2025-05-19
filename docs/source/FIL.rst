@@ -13,11 +13,11 @@ The Forest Inference Library is a subset of cuML designed to accelerate inferenc
 FIL typically offers speedups of 80x or more relative to native inference with e.g. a Scikit-Learn ``RandomForest`` model on CPU.
 
 Optional CPU Execution
----------------------
+----------------------
 While FIL offers the most benefit for large models and batch sizes by taking advantage of the speed and parallelism of NVIDIA GPUs, it can also be used to speed up inference on CPUs. This can be convenient for testing in environments without access to GPUs. It can also be useful for deployments which experience dramatic shifts in traffic. When the number of incoming inference requests is low, CPU execution can be used. When traffic spikes, the deployment can seamlessly scale up onto GPUs in order to handle the additional load as cheaply as possible without significantly increasing latency.
 
 Optimizing Hyperparameters
--------------------------
+--------------------------
 FIL has a number of performance hyperparameters which can be used to get the maximum performance for a specific model and batch size. These can be tuned manually, but the built-in ``.optimize`` method makes it easy to quickly set those hyperparameters to the optimal value for a specific use case:
 
 .. code-block:: python
@@ -55,7 +55,7 @@ As of RAPIDS 25.04, all prediction methods accept a ``chunk_size`` parameter, wh
 Additionally, ``threshold`` has been converted from a ``.load`` parameter to a ``.predict`` parameter.
 
 Extra Prediction Modes
---------------------
+----------------------
 To gain additional insight on how models arrive at their inference decision, FIL now includes the ``.predict_per_tree`` and ``.apply`` methods. The first returns the output for every single tree in the ensemble individually. The second returns the ID of the leaf node obtained for every tree in the ensemble.
 
 Upcoming Changes
