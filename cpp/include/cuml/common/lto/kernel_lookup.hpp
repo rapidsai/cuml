@@ -62,22 +62,6 @@ struct std::hash<KernelEntry> {
 
 using KernelDatabase = std::unordered_set<KernelEntry>;
 
-inline KernelEntry find_entry(KernelDatabase const& db, std::string const& kernel_name)
-{
-  KernelEntry temp{kernel_name};
+KernelEntry find_entry(KernelDatabase const& db, std::string const& kernel_name);
 
-  auto result = db.find(temp);
-  if (result != db.end()) { return *result; }
-  return temp;
-}
-
-inline CUkernel get_kernel(KernelDatabase const& db, std::string const& kernel_name)
-{
-  std::vector<std::string> fatbins;
-
-  auto entry_point = find_entry(db, kernel_name);
-  fatbins.push_back(entry_point.file);
-
-  auto lib = load_fatbins(fatbins);
-  return entry_point.get_kernel(lib);
-}
+CUkernel get_kernel(KernelDatabase const& db, std::string const& kernel_name);
