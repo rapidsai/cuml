@@ -21,11 +21,6 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),min_resources='smallest',param_grid={'ridge__alpha':[0.1,1.0]},random_state=0)]"
-- reason: Test should fail with cuml.accel (scikit-learn 1.6)
-  marker: cuml_accel_bugs
-  condition: "scikit-learn==1.6.*"
-  tests:
-  - "sklearn.feature_selection.tests.test_from_model::test_transform_accepts_nan_inf"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
   marker: cuml_accel_bugs
   condition: "scikit-learn>=1.6"
@@ -1354,10 +1349,6 @@
   marker: cuml-accel_kmeans_fails_with_attribute_error_memmap_ptr
   tests:
   - "sklearn.cluster.tests.test_k_means::test_predict_does_not_change_cluster_centers[None]"
-- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
-  condition: "cuda-python >= 12.9"
-  tests:
-  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
 - reason: "test_estimators checks fail"
   marker: cuml_accel_test_estimators
   tests:
