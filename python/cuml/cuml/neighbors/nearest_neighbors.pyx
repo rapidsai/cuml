@@ -678,32 +678,49 @@ class NearestNeighbors(UniversalBase,
             I_ndarr = I_ndarr.to_output('cupy')
             D_ndarr = D_ndarr.to_output('cupy')
 
-            # Create the result matrices
-            result1 = cp.zeros((I_ndarr.shape[0], I_ndarr.shape[1] - 1))
-            result2 = cp.zeros((D_ndarr.shape[0], D_ndarr.shape[1] - 1))
+            rows, cols = I_ndarr.shape
 
-            for i in range(len(I_ndarr)):
-                # Find indices where element equals row index
-                indices_to_remove = cp.where(I_ndarr[i] == i)[0]
+            kernel = cp.RawKernel(r'''
+            extern "C" __global__
+            void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
+                int row = blockDim.x * blockIdx.x + threadIdx.x;
+                if (row >= n_rows) return;
 
-                if len(indices_to_remove) > 0:
-                    # Get the index to remove (first occurrence if multiple exist)
-                    idx_to_remove = indices_to_remove[0]
+                int base_idx = row * n_cols;
+                int row_val = row;
 
-                    # Create a copy of the row without the specified index
-                    row1 = cp.delete(I_ndarr[i], idx_to_remove)
-                    row2 = cp.delete(D_ndarr[i], idx_to_remove)
-                else:
-                    # If no element equals its row index, remove the first element as default
-                    row1 = I_ndarr[i, 1:]
-                    row2 = D_ndarr[i, 1:]
+                for (int j = 1; j < n_cols; ++j) {
+                    int idx = base_idx + j;
+                    if (I[idx] == row_val) {
+                        // Swap I
+                        int tmp_I = I[base_idx];
+                        I[base_idx] = I[idx];
+                        I[idx] = tmp_I;
 
-                # Assign to result
-                result1[i] = row1
-                result2[i] = row2
+                        // Swap D
+                        float tmp_D = D[base_idx];
+                        D[base_idx] = D[idx];
+                        D[idx] = tmp_D;
 
-            I_ndarr = CumlArray.from_input(result1, force_contiguous=True)
-            D_ndarr = CumlArray.from_input(result2, force_contiguous=True)
+                        break; // only the first match
+                    }
+                }
+            }
+            ''', 'swap_kernel')
+
+            threads_per_block = 32
+            blocks = (rows + threads_per_block - 1) // threads_per_block
+
+            # only run kernel if there are multiple zero distances
+            if (cp.any(D_ndarr[:, 1] == 0)):
+                kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+
+            # slicing does not copy
+            I_ndarr = I_ndarr[:, 1:]
+            D_ndarr = D_ndarr[:, 1:]
+
+            I_ndarr = CumlArray.from_input(I_ndarr, force_contiguous=True)
+            D_ndarr = CumlArray.from_input(D_ndarr, force_contiguous=True)
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
