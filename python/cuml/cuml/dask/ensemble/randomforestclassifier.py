@@ -15,7 +15,7 @@
 #
 
 import cupy as cp
-import dask
+import dask.array
 import numpy as np
 from dask.distributed import default_client
 
@@ -394,21 +394,21 @@ class RandomForestClassifier(
         partial_infs = self._partial_inference(
             X=X, op_type="classification", delayed=delayed, **kwargs
         )
-
-        def reduce(partial_infs, workers_weights, unique_classes):
-            votes = dask.array.average(
-                partial_infs, axis=1, weights=workers_weights
-            )
-            merged_votes = votes.compute()
-            pred_class_indices = merged_votes.argmax(axis=1)
-            pred_class = unique_classes[pred_class_indices]
-            return pred_class
-
-        datatype = (
-            "daskArray" if isinstance(X, dask.array.Array) else "daskDataframe"
+        worker_weights = self._get_workers_weights()
+        merged_votes = dask.array.average(
+            partial_infs, axis=1, weights=worker_weights
         )
+        pred_class_indices = merged_votes.argmax(axis=1)
+        unique_classes = self.unique_classes
 
-        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
+        pred_class = pred_class_indices.map_blocks(
+            lambda x: unique_classes[x],
+            meta=unique_classes[:0],
+        )
+        if delayed:
+            return pred_class
+        else:
+            return pred_class.persist()
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:

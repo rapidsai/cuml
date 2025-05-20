@@ -19,7 +19,7 @@
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.solvers import SGD
 
@@ -182,6 +182,7 @@ class MBSGDClassifier(Base,
         self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
@@ -196,6 +197,7 @@ class MBSGDClassifier(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.

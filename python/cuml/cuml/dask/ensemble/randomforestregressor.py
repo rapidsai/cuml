@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import dask
+import dask.array
 
 from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
 from cuml.dask.ensemble.base import BaseRandomForestModel
@@ -367,19 +367,15 @@ class RandomForestRegressor(
         partial_infs = self._partial_inference(
             X=X, op_type="regression", delayed=delayed, **kwargs
         )
-
-        def reduce(partial_infs, workers_weights, unique_classes=None):
-            regressions = dask.array.average(
-                partial_infs, axis=1, weights=workers_weights
-            )
-            merged_regressions = regressions.compute()
-            return merged_regressions
-
-        datatype = (
-            "daskArray" if isinstance(X, dask.array.Array) else "daskDataframe"
+        workers_weights = self._get_workers_weights()
+        merged_regressions = dask.array.average(
+            partial_infs, axis=1, weights=workers_weights
         )
 
-        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
+        if delayed:
+            return merged_regressions
+        else:
+            return merged_regressions.persist()
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:

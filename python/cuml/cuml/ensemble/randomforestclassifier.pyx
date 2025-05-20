@@ -31,6 +31,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
@@ -435,6 +436,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -577,6 +579,14 @@ class RandomForestClassifier(BaseRandomForestModel,
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only(
+        "threshold",
+        "convert_dtype",
+        "predict_model",
+        "layout",
+        "default_chunk_size",
+        "align_bytes",
+    )
     def predict(
         self,
         X,
@@ -650,6 +660,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @deprecate_non_keyword_only("layout", "default_chunk_size", "align_bytes")
     def predict_proba(
         self,
         X,
@@ -710,6 +721,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
+    @deprecate_non_keyword_only(
+        "threshold", "layout", "default_chunk_size", "align_bytes",
+    )
     def score(
         self,
         X,
