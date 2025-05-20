@@ -24,7 +24,8 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin
 
 from pylibraft.common.handle cimport handle_t
 
@@ -109,7 +110,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
                                      SvmModel[math_t] &m) except +
 
 
-class SVMBase(UniversalBase,
+class SVMBase(Base,
+              InteropMixin,
               FMajorInputTagMixin,
               SparseInputTagMixin):
     """
@@ -704,9 +706,7 @@ class SVMBase(UniversalBase,
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
 
-    def gpu_to_cpu(self):
-        super().gpu_to_cpu()
-
+    def _attrs_to_cpu(self, model):
         intercept_ = self._intercept_.to_output('numpy')
         dual_coef_ = self.dual_coef_.to_output('numpy')
         support_= self.support_.to_output('numpy')
@@ -716,51 +716,77 @@ class SVMBase(UniversalBase,
             intercept_ = -1.0 * intercept_
             dual_coef_ = -1.0 * dual_coef_
 
-        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
-        self._cpu_model._intercept_ = np.ascontiguousarray(intercept_, dtype=np.float64)
-        self._cpu_model._dual_coef_ = np.ascontiguousarray(dual_coef_, dtype=np.float64)
-        self._cpu_model.support_ = np.ascontiguousarray(support_, dtype=np.int32)
-        self._cpu_model.support_vectors_ = np.ascontiguousarray(support_vectors_, dtype=np.float64)
+        _n_support = np.array([self.n_support_, 0], dtype=np.int32)
+        _intercept_ = np.ascontiguousarray(intercept_, dtype=np.float64)
+        _dual_coef_ = np.ascontiguousarray(dual_coef_, dtype=np.float64)
+        support_ = np.ascontiguousarray(support_, dtype=np.int32)
+        support_vectors_ = np.ascontiguousarray(support_vectors_, dtype=np.float64)
 
-        self._cpu_model._probA = np.empty(0, dtype=np.float64)
-        self._cpu_model._probB = np.empty(0, dtype=np.float64)
-        self._cpu_model._gamma = self._gamma
+        _probA = np.empty(0, dtype=np.float64)
+        _probB = np.empty(0, dtype=np.float64)
 
-    def cpu_to_gpu(self):
-        super().cpu_to_gpu()
+        return {
+            "n_support": _n_support,
+            "intercept_": _intercept_,
+            "_dual_coef_": _dual_coef_,
+            "dual_coef_": _dual_coef_,
+            "support_": support_,
+            "support_vectors_": support_vectors_,
+            "_probA": _probA,
+            "_probB": _probB,
+            "_gamma": self._gamma,
+            "fit_status_": self.fit_status_,
+            "_sparse": self._sparse,
+            "n_features_in_": self.n_features_in_,
+            **super()._attrs_to_cpu(model)
+        }
 
-        self.n_support_ = self._cpu_model.n_support_
-
-        intercept_ = self._cpu_model._intercept_
-        dual_coef_ = self._cpu_model._dual_coef_
+    def _attrs_from_cpu(self, model):
+        intercept_ = model.intercept_
+        dual_coef_ = model.dual_coef_
 
         if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
             intercept_ = -1.0 * intercept_
             dual_coef_ = -1.0 * dual_coef_
 
-        self._intercept_ = input_to_cuml_array(
+        _intercept_ = input_to_cuml_array(
             intercept_,
             convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
-        self.dual_coef_ = input_to_cuml_array(
+        dual_coef_ = input_to_cuml_array(
             dual_coef_,
             convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
-        self.support_ = input_to_cuml_array(
-            self._cpu_model.support_,
+        support_ = input_to_cuml_array(
+            model.support_,
             convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.int32,
             order='F')[0]
-        self.support_vectors_ = input_to_cuml_array(
-            self._cpu_model.support_vectors_,
+        support_vectors_ = input_to_cuml_array(
+            model.support_vectors_,
             convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
 
-        self._probA = np.empty(0, dtype=np.float64)
-        self._probB = np.empty(0, dtype=np.float64)
-        self._gamma = self._cpu_model._gamma
+        _probA = np.empty(0, dtype=np.float64)
+        _probB = np.empty(0, dtype=np.float64)
 
-        self._model = self._get_svm_model()
+        _model = self._get_svm_model()
+
+        return {
+            "n_support_": model.n_support,
+            "_intercept_": _intercept_,
+            "dual_coef_": dual_coef_,
+            "support_": support_,
+            "support_vectors_": support_vectors_,
+            "_probA": _probA,
+            "_probB": _probB,
+            "_gamma": model._gamma,
+            "_model": _model,
+            "fit_status_": model.fit_status_,
+            "_sparse": model._sparse,
+            "n_features_in_": model.n_features_in_,
+            **super()._attrs_from_cpu(model)
+        }

@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 import cuml.svm
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("SVC", "SVR")
 
 
-class SVC(ProxyMixin, cuml.svm.SVC):
-    pass
+class SVC(ProxyBase):
+    _gpu_class = cuml.svm.SVC
 
 
-class SVR(ProxyMixin, cuml.svm.SVR):
-    pass
+class SVR(ProxyBase):
+    _gpu_class = cuml.svm.SVR
