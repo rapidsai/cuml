@@ -710,10 +710,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_matrix]"
-  - "sklearn.manifold.tests.test_t_sne::test_init_ndarray"
-  - "sklearn.manifold.tests.test_t_sne::test_init_ndarray_precomputed"
   - "sklearn.manifold.tests.test_t_sne::test_max_iter_used"
-  - "sklearn.manifold.tests.test_t_sne::test_n_components_range"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
   - "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
@@ -724,7 +721,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately_with_precomputed_distances"
-  - "sklearn.manifold.tests.test_t_sne::test_reduction_to_one_component"
   - "sklearn.manifold.tests.test_t_sne::test_sparse_precomputed_distance[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_sparse_precomputed_distance[csr_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_sparse_precomputed_distance[lil_array]"
@@ -739,9 +735,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_tsne_with_different_distance_metrics[barnes_hut-manhattan-manhattan_distances]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_with_different_distance_metrics[exact-cosine-cosine_distances]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_with_different_distance_metrics[exact-manhattan-manhattan_distances]"
-  - "sklearn.manifold.tests.test_t_sne::test_tsne_with_mahalanobis_distance"
-  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hut]"
-  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[exact]"
   - "sklearn.manifold.tests.test_t_sne::test_verbose"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1-float64-1e-08-0.99]"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1000000-float64-1e-08-0.99]"
@@ -1435,6 +1428,11 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
 - reason: "cuml doesn't set `feature_names_in_` properly"
   marker: cuml_accel_feature_names_in
   tests:
@@ -1445,6 +1443,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[PCA()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
 - reason: "cuml raises a different error if X doesn't have expected n features"
   marker: cuml_accel_check_n_features_in
   tests:
@@ -1460,6 +1459,7 @@
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: "metadata routing not yet supported"
   marker: cuml_accel_metadata_routing
   tests:
@@ -1468,3 +1468,17 @@
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_refit[42-True]"
   - "sklearn.metrics.tests.test_score_objects::test_PassthroughScorer_set_score_request"
   - "sklearn.tests.test_metadata_routing::test_metaestimator_warnings"
+- reason: "TSNE isn't deterministic, even with random_state"
+  marker: cuml_accel_tsne_nondeterministic
+  condition: "scikit-learn<1.6"
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
+- reason: "TSNE does validation on __init__, which causes these tests to fail only on certain sklearn versions"
+  marker: cuml_accel_tsne_validation_on_init
+  condition: "scikit-learn>=1.6"
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
