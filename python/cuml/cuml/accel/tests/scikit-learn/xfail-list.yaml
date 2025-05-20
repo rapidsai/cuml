@@ -1428,16 +1428,11 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
 - reason: "cuml doesn't set `feature_names_in_` properly"
   marker: cuml_accel_feature_names_in
   tests:
@@ -1464,6 +1459,7 @@
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: "metadata routing not yet supported"
   marker: cuml_accel_metadata_routing
   tests:
@@ -1472,3 +1468,17 @@
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_refit[42-True]"
   - "sklearn.metrics.tests.test_score_objects::test_PassthroughScorer_set_score_request"
   - "sklearn.tests.test_metadata_routing::test_metaestimator_warnings"
+- reason: "TSNE isn't deterministic, even with random_state"
+  marker: cuml_accel_tsne_nondeterministic
+  condition: "scikit-learn<1.6"
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
+- reason: "TSNE does validation on __init__, which causes these tests to fail only on certain sklearn versions"
+  marker: cuml_accel_tsne_validation_on_init
+  condition: "scikit-learn>=1.6"
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
