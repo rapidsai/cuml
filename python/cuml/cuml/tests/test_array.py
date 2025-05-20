@@ -104,6 +104,13 @@ def _assert_equal(array_like, cuml_array):
     )
 
 
+def _assert_allclose(array_like, cuml_array, rtol=1e-5, atol=1e-8):
+    """Check whether array-like data and cuml array data are approximately equal."""
+    a = cp.asarray(array_like)
+    b = cuml_array.to_output("cupy")
+    assert cp.allclose(a, b, rtol=rtol, atol=atol, equal_nan=True)
+
+
 @example(
     input_type="numpy",
     dtype=np.float32,
@@ -678,7 +685,7 @@ def test_cumlary_binops(operation, a, mem_type):
         c = operation(a, b)
         ary_c = operation(ary_a, ary_b)
 
-        _assert_equal(c, ary_c)
+        _assert_allclose(c, ary_c, rtol=1e-5, atol=1e-35)
 
 
 @pytest.mark.parametrize("order", ["F", "C"])

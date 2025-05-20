@@ -135,6 +135,15 @@ def assert_estimator_roundtrip(
                 "No known method to compare outputs of this model."
             )
 
+    # Check that the scikit-learn estimator can be fitted again which checks
+    # that the hyper-parameter translation from cuml to scikit-learn works
+    # Has to happen after comparing predictions/transforms as refitting might
+    # change cluster IDs and the like
+    if y is not None:
+        sklearn_model.fit(X, y)
+    else:
+        sklearn_model.fit(X)
+
 
 ###############################################################################
 #                                     Tests                                   #

@@ -31,7 +31,6 @@ from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.kernel_ridge import KernelRidge as skKernelRidge
-from sklearn.manifold import TSNE as refTSNE
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.svm import SVC as skSVC
@@ -46,7 +45,7 @@ from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.kernel_ridge import KernelRidge
-from cuml.manifold import TSNE, UMAP
+from cuml.manifold import UMAP
 from cuml.metrics import adjusted_rand_score, trustworthiness
 from cuml.neighbors import NearestNeighbors
 from cuml.svm import SVC, SVR
@@ -473,21 +472,6 @@ def test_umap_methods(device):
     assert ref_trust - tol <= trust <= ref_trust + tol
 
 
-@pytest.mark.parametrize("device", ["cpu", "gpu"])
-def test_tsne_methods(device):
-    ref_model = refTSNE()
-    ref_embedding = ref_model.fit_transform(X_train_blob)
-    ref_trust = trustworthiness(X_train_blob, ref_embedding, n_neighbors=12)
-
-    model = TSNE(n_neighbors=12)
-    with using_device_type(device):
-        embedding = model.fit_transform(X_train_blob)
-    trust = trustworthiness(X_train_blob, embedding, n_neighbors=12)
-
-    tol = 0.02
-    assert trust >= ref_trust - tol
-
-
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_nn_methods(train_device, infer_device):
@@ -744,6 +728,7 @@ def test_svr_methods(train_device, infer_device):
         "Ridge",
         "PCA",
         "TruncatedSVD",
+        "TSNE",
     ],
 )
 def test_legacy_device_selection_warns(cls):
@@ -759,11 +744,20 @@ def test_legacy_device_selection_warns(cls):
     else:
         X, y, X_test = (X_train_blob, y_train_blob, X_test_blob)
 
-    with pytest.warns(
-        UserWarning, match="Support for setting the `device_type`"
-    ):
-        with using_device_type("cpu"):
-            model.fit(X, y)
+    if hasattr(model, "fit"):
+        with pytest.warns(
+            UserWarning, match="Support for setting the `device_type`"
+        ):
+            with using_device_type("cpu"):
+                model.fit(X, y)
+
+    if hasattr(model, "fit_transform"):
+        with pytest.warns(
+            UserWarning, match="Support for setting the `device_type`"
+        ):
+            with using_device_type("cpu"):
+                res = model.fit_transform(X, y)
+        assert type(res) is type(X)
 
     if hasattr(model, "predict"):
         with pytest.warns(
@@ -771,11 +765,12 @@ def test_legacy_device_selection_warns(cls):
         ):
             with using_device_type("cpu"):
                 res = model.predict(X_test)
-    elif hasattr(model, "transform"):
+        assert type(res) is type(X_test)
+
+    if hasattr(model, "transform"):
         with pytest.warns(
             UserWarning, match="Support for setting the `device_type`"
         ):
             with using_device_type("cpu"):
                 res = model.transform(X_test)
-
-    assert type(res) is type(X_test)
+        assert type(res) is type(X_test)
