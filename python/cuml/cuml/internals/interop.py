@@ -78,11 +78,16 @@ def to_gpu(x, order="K"):
     )[0]
 
 
-def to_cpu(x):
+def to_cpu(x, order="K"):
     """Coerce `x` to the equivalent cpu type."""
     if np.isscalar(x):
         return x
-    return x.to_output("numpy")
+    out = x.to_output("numpy")
+    if order == "C":
+        out = np.ascontiguousarray(out)
+    elif order == "F":
+        out = np.asfortranarray(out)
+    return out
 
 
 class UnsupportedOnGPU(ValueError):
