@@ -237,6 +237,7 @@ class SVMBase(Base,
             "cache_size",
             "max_iter",
             "nochange_steps",
+            "epsilon",
         ]
 
     @classmethod
@@ -258,6 +259,7 @@ class SVMBase(Base,
             "C": model.C,
             "cache_size": cache_size,
             "max_iter": model.max_iter,
+            "epsilon": model.epsilon,
         }
 
     def _params_to_cpu(self):
@@ -275,6 +277,7 @@ class SVMBase(Base,
             "C": self.C,
             "cache_size": cache_size,
             "max_iter": self.max_iter,
+            "epsilon": self.epsilon,
         }
 
     def _attrs_from_cpu(self, model):

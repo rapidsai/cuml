@@ -233,23 +233,6 @@ class SVR(SVMBase, RegressorMixin):
 
     _cpu_class_path = "sklearn.svm.SVR"
 
-    @classmethod
-    def _get_param_names(cls):
-        return [*super()._get_param_names(), "epsilon"]
-
-    @classmethod
-    def _params_from_cpu(cls, model):
-        return {
-            "epsilon": model.epsilon,
-            **super()._params_from_cpu(model),
-        }
-
-    def _params_to_cpu(self):
-        return {
-            "epsilon": self.epsilon,
-            **super()._params_to_cpu(),
-        }
-
     def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,

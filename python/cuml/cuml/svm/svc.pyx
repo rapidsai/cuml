@@ -340,13 +340,17 @@ class SVC(SVMBase,
 
     @classmethod
     def _get_param_names(cls):
-        return [
-            *super()._get_param_names(),
-            "probability",
-            "random_state",
-            "class_weight",
-            "decision_function_shape",
-        ]
+        params = super()._get_param_names()
+        params.remove("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.extend(
+            [
+                "probability",
+                "random_state",
+                "class_weight",
+                "decision_function_shape",
+            ]
+        )
+        return params
 
     @classmethod
     def _params_from_cpu(cls, model):
@@ -354,14 +358,17 @@ class SVC(SVMBase,
             raise UnsupportedOnGPU(
                 "SVC with probability=True is not currently supported"
             )
-
-        return {
-            "probability": model.probability,
-            "random_state": model.random_state,
-            "class_weight": model.class_weight,
-            "decision_function_shape": model.decision_function_shape,
-            **super()._params_from_cpu(model)
-        }
+        params = super()._params_from_cpu(model)
+        params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.update(
+            {
+                "probability": model.probability,
+                "random_state": model.random_state,
+                "class_weight": model.class_weight,
+                "decision_function_shape": model.decision_function_shape,
+            }
+        )
+        return params
 
     def _params_to_cpu(self):
         if self.probability:
@@ -369,13 +376,17 @@ class SVC(SVMBase,
                 "SVC with probability=True is not currently supported"
             )
 
-        return {
-            "probability": self.probability,
-            "random_state": self.random_state,
-            "class_weight": self.class_weight,
-            "decision_function_shape": self.decision_function_shape,
-            **super()._params_to_cpu()
-        }
+        params = super()._params_to_cpu()
+        params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.update(
+            {
+                "probability": self.probability,
+                "random_state": self.random_state,
+                "class_weight": self.class_weight,
+                "decision_function_shape": self.decision_function_shape,
+            }
+        )
+        return params
 
     def _attrs_from_cpu(self, model):
         n_classes = len(model.classes_)

@@ -92,6 +92,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
     """
     klass = all_base_children[child_class]
 
+    breakpoint()
     if issubclass(klass, sklBaseEstimator):
         pytest.skip(
             "Preprocessing models do not have "
