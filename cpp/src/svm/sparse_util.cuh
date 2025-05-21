@@ -427,13 +427,21 @@ void matrixRowNorm(const raft::handle_t& handle,
   bool is_col_major_contiguous = matrix.stride(0) == 1 && matrix.stride(1) == matrix.extent(0);
   ASSERT(is_row_major_contiguous || is_col_major_contiguous,
          "Dense matrix rowNorm only support contiguous data");
-  raft::linalg::rowNorm(target,
-                        matrix.data_handle(),
-                        matrix.extent(1),  //! cols first arg!
-                        matrix.extent(0),
-                        norm,
-                        is_row_major_contiguous,
-                        handle.get_stream());
+  if (is_row_major_contiguous) {
+    raft::linalg::rowNorm<true>(target,
+                                matrix.data_handle(),
+                                matrix.extent(1),  //! cols first arg!
+                                matrix.extent(0),
+                                norm,
+                                handle.get_stream());
+  } else {
+    raft::linalg::rowNorm<false>(target,
+                                 matrix.data_handle(),
+                                 matrix.extent(1),  //! cols first arg!
+                                 matrix.extent(0),
+                                 norm,
+                                 handle.get_stream());
+  }
 }
 
 /**

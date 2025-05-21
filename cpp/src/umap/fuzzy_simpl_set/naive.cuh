@@ -254,8 +254,8 @@ void smooth_knn_dist(nnz_t n,
 
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
-  raft::stats::mean(
-    dist_means_dev.data(), knn_dists, nnz_t{1}, n * n_neighbors, false, false, stream);
+  raft::stats::mean<false>(
+    dist_means_dev.data(), knn_dists, nnz_t{1}, n * n_neighbors, false, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;

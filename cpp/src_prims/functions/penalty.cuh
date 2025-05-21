@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ enum penalty {
 template <typename math_t>
 void lasso(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
 {
-  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L1Norm, true, stream);
+  raft::linalg::rowNorm<true>(out, coef, len, 1, raft::linalg::NormType::L1Norm, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
@@ -55,7 +55,7 @@ void lassoGrad(
 template <typename math_t>
 void ridge(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
 {
-  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L2Norm, true, stream);
+  raft::linalg::rowNorm<true>(out, coef, len, 1, raft::linalg::NormType::L2Norm, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 

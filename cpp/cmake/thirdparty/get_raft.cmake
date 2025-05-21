@@ -41,6 +41,7 @@ function(find_and_configure_raft)
     set(RAFT_NVTX ${PKG_NVTX})
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
+    # set(CPM_raft_SOURCE /raid/dgala/raft)
 
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
@@ -72,14 +73,13 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-      FORK             rapidsai
-      PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+      FORK             divyegala
+      PINNED_TAG       reduction-kernels
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local raft clone in build directory
       # even if it's already installed.
       CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
-      COMPILE_LIBRARY  ${CUML_RAFT_COMPILED}
       USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
       NVTX             ${NVTX}
       )
