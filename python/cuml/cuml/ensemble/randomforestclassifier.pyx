@@ -401,12 +401,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             `default_chunk_size`, and `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = {
-            'output_class': None,
-            'threshold': None,
-            'algo': None,
-            'fil_sparse_format': None
-        }
+        deprecated_params = ('output_class', 'threshold', 'algo', 'fil_sparse_format')
 
         for param in deprecated_params:
             if param in kwargs:
@@ -638,10 +633,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = {
-            'algo': None,
-            'fil_sparse_format': None
-        }
+        deprecated_params = ('algo', 'fil_sparse_format')
 
         for param in deprecated_params:
             if param in kwargs:
@@ -719,11 +711,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             `default_chunk_size`, and `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = {
-            'algo': None,
-            'convert_dtype': None,
-            'fil_sparse_format': None
-        }
+        deprecated_params = ('algo', 'convert_dtype', 'fil_sparse_format')
 
         for param in deprecated_params:
             if param in kwargs:
@@ -794,17 +782,12 @@ class RandomForestClassifier(BaseRandomForestModel,
            Accuracy of the model [0.0 - 1.0]
 
         .. deprecated:: 25.06
-            Parameters `algo`, `predict_model`, `convert_dtype`, and `fil_sparse_format`
-            were deprecated in version 25.06 and will be removed in 25.08. Use
-            `layout`, `default_chunk_size`, and `align_bytes` instead.
+            Parameters `algo`, `predict_model`, and `fil_sparse_format` were deprecated
+            in version 25.06 and will be removed in 25.08. Use `layout`,
+            `default_chunk_size`, and `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = {
-            'algo': None,
-            'predict_model': None,
-            'convert_dtype': None,
-            'fil_sparse_format': None
-        }
+        deprecated_params = ('algo', 'predict_model', 'fil_sparse_format')
 
         for param in deprecated_params:
             if param in kwargs:
