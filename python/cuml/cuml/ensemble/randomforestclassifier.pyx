@@ -16,6 +16,8 @@
 #
 # distutils: language = c++
 
+import warnings
+
 import numpy as np
 import treelite
 
@@ -366,6 +368,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -391,7 +394,33 @@ class RandomForestClassifier(BaseRandomForestModel,
         fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
+        .. deprecated:: 25.06
+            Parameters `output_class`, `threshold`, `algo`, and `fil_sparse_format` were
+            deprecated in version 25.06 and will be removed in 25.08. Use `layout`,
+            `default_chunk_size`, and `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = {
+            'output_class': None,
+            'threshold': None,
+            'algo': None,
+            'fil_sparse_format': None
+        }
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
@@ -572,6 +601,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs
     ) -> CumlArray:
         """
         Predicts the labels for X.
@@ -601,7 +631,31 @@ class RandomForestClassifier(BaseRandomForestModel,
         Returns
         -------
         y : {}
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
+            `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = {
+            'algo': None,
+            'fil_sparse_format': None
+        }
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(
                 X=X,
@@ -633,6 +687,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs
     ) -> CumlArray:
         """
         Predicts class probabilities for X. This function uses the GPU
@@ -657,7 +712,32 @@ class RandomForestClassifier(BaseRandomForestModel,
         Returns
         -------
         y : {}
+
+        .. deprecated:: 25.06
+            Parameters `algo`, `convert_dtype`, and `fil_sparse_format` were deprecated
+            in version 25.06 and will be removed in 25.08. Use `layout`,
+            `default_chunk_size`, and `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = {
+            'algo': None,
+            'convert_dtype': None,
+            'fil_sparse_format': None
+        }
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         return self._predict_model_on_gpu(
             X=X,
             is_classifier=True,
@@ -684,6 +764,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -711,7 +792,32 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
+
+        .. deprecated:: 25.06
+            Parameters `algo`, `predict_model`, `convert_dtype`, and `fil_sparse_format`
+            were deprecated in version 25.06 and will be removed in 25.08. Use
+            `layout`, `default_chunk_size`, and `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = {
+            'algo': None,
+            'predict_model': None,
+            'convert_dtype': None,
+            'fil_sparse_format': None
+        }
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
 
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
