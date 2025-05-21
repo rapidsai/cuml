@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
+
 import numpy as np
+import sklearn.svm
+from sklearn.utils.metaestimators import available_if
 
 import cuml.svm
 from cuml.accel.estimator_proxy import ProxyBase
@@ -22,6 +26,13 @@ __all__ = (
     "SVC",
     "SVR",
 )
+
+
+def _has_probability(model):
+    if not model.probability:
+        raise AttributeError(
+            "predict_proba is not available when probability=False"
+        )
 
 
 class SVC(ProxyBase):
@@ -35,6 +46,19 @@ class SVC(ProxyBase):
         if n_classes > 2:
             raise UnsupportedOnGPU("SVC.fit doesn't support multiclass")
         return self._gpu.fit(X, y, sample_weight=sample_weight)
+
+    # XXX: sklearn wants these methods to only exist if probability=True.
+    # ProxyBase lacks a builtin mechanism to do that, since this is the only
+    # use case so far we manually define them for now.
+    @available_if(_has_probability)
+    @functools.wraps(sklearn.svm.SVC.predict_proba)
+    def predict_proba(self, X):
+        return self._call_method("predict_proba", X)
+
+    @available_if(_has_probability)
+    @functools.wraps(sklearn.svm.SVC.predict_log_proba)
+    def predict_log_proba(self, X):
+        return self._call_method("predict_log_proba", X)
 
 
 class SVR(ProxyBase):

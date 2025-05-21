@@ -1564,7 +1564,3 @@
   - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVR]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
-- reason: "Haven't implemented support for methods that conditionally exist"
-  marker: cuml_accel_conditional_methods
-  tests:
-  - "sklearn.svm.tests.test_svm::test_hasattr_predict_proba"

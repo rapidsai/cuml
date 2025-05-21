@@ -59,3 +59,13 @@ def test_svc_multiclass(multiclass):
     X, y = multiclass
     svr = SVC().fit(X, y)
     assert svr.score(X, y) > 0.5
+
+
+def test_conditional_methods():
+    svc = SVC()
+    assert not hasattr(svc, "predict_proba")
+    assert not hasattr(svc, "predict_log_proba")
+
+    svc.probability = True
+    assert hasattr(svc, "predict_proba")
+    assert hasattr(svc, "predict_log_proba")
