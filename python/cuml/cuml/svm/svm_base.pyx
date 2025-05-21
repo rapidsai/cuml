@@ -17,6 +17,7 @@
 
 import cupy
 import numpy as np
+import scipy.sparse
 
 import cuml.internals
 from cuml.common import input_to_cuml_array, using_output_type
@@ -277,15 +278,22 @@ class SVMBase(Base,
         }
 
     def _attrs_from_cpu(self, model):
-        dual_coef_ = to_gpu(model.dual_coef_, order="F")
-        intercept_ = to_gpu(model.intercept_, order="F")
+        if model._sparse:
+            # sklearn stores dual_coef_ and support_vectors_ as sparse
+            # csr_matrix objects when fit on sparse data. cuml always
+            # stores them as dense.
+            dual_coef_ = model.dual_coef_.toarray()
+            support_vectors_ = model.support_vectors_.toarray()
+        else:
+            dual_coef_ = model.dual_coef_
+            support_vectors_ = model.support_vectors_
+
         return {
-            "dual_coef_": dual_coef_,
-            "intercept_": intercept_,
+            "dual_coef_": to_gpu(dual_coef_, order="F"),
+            "intercept_": to_gpu(model.intercept_, order="F"),
             "n_support_": int(model.n_support_.sum()),
             "support_": to_gpu(model.support_, order="F"),
-            "support_vectors_": to_gpu(model.support_vectors_, order="F"),
-            # XXX: cuml internals
+            "support_vectors_": to_gpu(support_vectors_, order="F"),
             "_gamma": float(model._gamma),
             "_sparse": model._sparse,
             "dtype": np.float64,
@@ -298,17 +306,32 @@ class SVMBase(Base,
         super()._sync_attrs_from_cpu(model)
         # Clear cached coef_
         self._internal_coef_ = None
+        # Release existing _model (if any)
         self._dealloc()
+        # Rebuild _model from new attributes
         self._model = self._get_svm_model()
 
     def _attrs_to_cpu(self, model):
-        _dual_coef_ = dual_coef_ = to_cpu(self.dual_coef_, order="C")
-        _intercept_ = intercept_ = to_cpu(self.intercept_, order="C")
+        dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
+        support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
+        intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+
+        if self._sparse:
+            # sklearn stores dual_coef_ and support_vectors_ as sparse
+            # csr_matrix objects when fit on sparse data. cuml always
+            # stores them as dense.
+            dual_coef_ = scipy.sparse.csr_matrix(dual_coef_)
+            support_vectors_ = scipy.sparse.csr_matrix(support_vectors_)
+
         if hasattr(self, "classes_"):
             # sklearn's binary classification expects inverted
             # _dual_coef_ and _intercept_.
-            _dual_coef_ = -_dual_coef_
-            _intercept_ = -_intercept_
+            _dual_coef_ = -dual_coef_
+            _intercept_ = -intercept_
+        else:
+            _dual_coef_ = dual_coef_
+            _intercept_ = intercept_
+
         return {
             "dual_coef_": dual_coef_,
             "_dual_coef_": _dual_coef_,
@@ -317,9 +340,8 @@ class SVMBase(Base,
             "_intercept_": _intercept_,
             "shape_fit_": (self.n_rows, self.n_features_in_),
             "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
-            "support_": to_cpu(self.support_, order="C"),
-            "support_vectors_": to_cpu(self.support_vectors_, order="C"),
-            # XXX: sklearn relies on a few internal attributes
+            "support_": to_cpu(self.support_, order="C", dtype=np.int32),
+            "support_vectors_": support_vectors_,
             "_gamma": self._gamma,
             "_probA": np.empty(0),
             "_probB": np.empty(0),

@@ -597,7 +597,12 @@ class SVC(SVMBase,
             self.dtype = X_m.dtype
         else:
             X_m, self.n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(X, order='F')
+                input_to_cuml_array(
+                    X,
+                    convert_to_dtype=(np.float32 if convert_dtype else None),
+                    check_dtype=[np.float32, np.float64],
+                    order="F"
+                )
 
         # Fit binary classifier
         convert_to_dtype = self.dtype if convert_dtype else None

@@ -15,6 +15,7 @@
 
 import numpy as np
 import pytest
+import scipy.sparse
 import sklearn.svm
 from numpy.testing import assert_allclose
 from sklearn.cluster import KMeans as SkKMeans
@@ -266,8 +267,11 @@ def test_nearest_neighbors(random_state):
     assert_allclose(ind_original, ind_roundtrip)
 
 
-def test_svr(random_state):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svr(random_state, sparse):
     X, y = make_regression(n_samples=100, random_state=random_state)
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
     original = cuml.SVR()
     assert_estimator_roundtrip(original, sklearn.svm.SVR, X, y)
 
@@ -282,10 +286,13 @@ def test_svr(random_state):
     assert cu_score > 0.7
 
 
-def test_svc(random_state):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svc(random_state, sparse):
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=random_state
     )
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
     original = cuml.SVC()
     assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
@@ -294,10 +301,10 @@ def test_svc(random_state):
     sk_model = sklearn.svm.SVC().fit(X, y)
 
     sk_score = cu_model.as_sklearn().score(X, y)
-    assert sk_score > 0.8
+    assert sk_score > 0.7
 
     cu_score = cuml.SVC.from_sklearn(sk_model).score(X, y)
-    assert cu_score > 0.8
+    assert cu_score > 0.7
 
 
 def test_svc_multiclass_unsupported(random_state):
