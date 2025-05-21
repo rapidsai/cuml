@@ -20,6 +20,16 @@ import cupy as cp
 import numpy as np
 
 
+class classproperty:
+    """Like ``property``, but on a class rather than an instance."""
+
+    def __init__(self, fget):
+        self.fget = fget
+
+    def __get__(self, obj, owner):
+        return self.fget(owner)
+
+
 def check_random_seed(seed):
     """Turn a np.random.RandomState instance into a seed.
 
