@@ -689,7 +689,6 @@
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-True-Lasso]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_lasso_not_as_toy_dataset[csc_array]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_lasso_not_as_toy_dataset[csc_matrix]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
   - "sklearn.manifold.tests.test_t_sne::test_accessible_kl_divergence"
   - "sklearn.manifold.tests.test_t_sne::test_bad_precomputed_distances[D0-.* square distance matrix-barnes_hut-asarray]"
   - "sklearn.manifold.tests.test_t_sne::test_bad_precomputed_distances[D0-.* square distance matrix-barnes_hut-csr_array]"
