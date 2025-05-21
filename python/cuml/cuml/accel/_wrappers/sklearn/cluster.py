@@ -25,7 +25,7 @@ class KMeans(ProxyBase):
     _gpu_class = cuml.cluster.KMeans
 
     def _gpu_fit_transform(self, X, y=None, sample_weight=None):
-        # Fixes signature mismatch with cuml.KMeans.
+        # Fixes signature mismatch with cuml.KMeans. Can be removed after #6741.
         return self._gpu.fit_transform(X, y=y, sample_weight=sample_weight)
 
     def _init_centroids(self, *args, **kwargs):

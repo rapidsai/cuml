@@ -232,11 +232,18 @@ class KMeans(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        init = model.init
-        if callable(init):
+        if callable(model.init):
             raise UnsupportedOnGPU
-        elif isinstance(init, str) and init == "k-means++":
-            init = "scalable-k-means++"
+        elif isinstance(model.init, str):
+            if model.init == "k-means++":
+                init = "scalable-k-means++"
+            elif model.init == "random":
+                init = "random"
+            else:
+                # Should be unreachable, here in case sklearn adds more init values
+                raise UnsupportedOnGPU
+        else:
+            init = model.init  # array-like
 
         return {
             "n_clusters": model.n_clusters,
@@ -250,7 +257,7 @@ class KMeans(Base,
     def _params_to_cpu(self):
         init = self.init
         if not isinstance(init, str):
-            init = to_cpu(init)
+            init = to_cpu(init)  # array-like
         elif init == "scalable-k-means++":
             init = "k-means++"
         return {

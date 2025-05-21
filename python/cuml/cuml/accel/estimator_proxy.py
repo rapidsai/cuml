@@ -362,8 +362,8 @@ class ProxyBase(BaseEstimator):
     ############################################################
 
     @property
-    def _estimator_type(cls):
-        return cls._cpu._estimator_type
+    def _estimator_type(self):
+        return self._cpu._estimator_type
 
     @property
     def _parameter_constraints(self):
