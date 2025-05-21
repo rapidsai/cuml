@@ -26,10 +26,9 @@ from numba import cuda
 
 import cuml
 from cuml.benchmark import datagen
-from cuml.common.device_selection import using_device_type
+from cuml.experimental.fil import get_fil_device_type, set_fil_device_type
 from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import GlobalSettings
 from cuml.manifold import UMAP
 
 
@@ -179,7 +178,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     parameters"""
     import xgboost as xgb
 
-    with using_device_type("gpu"):
+    with set_fil_device_type("gpu"):
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -204,7 +203,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         bst.save_model(model_path)
 
     allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
-    if GlobalSettings().device_type is DeviceType.host:
+    if get_fil_device_type() is DeviceType.host:
         allowed_chunk_sizes.extend((64, 128, 256))
 
     fil_kwargs = {
