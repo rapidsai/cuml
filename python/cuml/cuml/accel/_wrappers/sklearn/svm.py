@@ -47,6 +47,10 @@ class SVC(ProxyBase):
             raise UnsupportedOnGPU("SVC.fit doesn't support multiclass")
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
+    def _gpu_decision_function(self, X):
+        # Fixup returned dtype
+        return self._gpu.decision_function(X).astype("float64", copy=False)
+
     # XXX: sklearn wants these methods to only exist if probability=True.
     # ProxyBase lacks a builtin mechanism to do that, since this is the only
     # use case so far we manually define them for now.
