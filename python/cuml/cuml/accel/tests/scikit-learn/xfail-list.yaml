@@ -1224,6 +1224,8 @@
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hit]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
 - reason: "cuml.accel bug: Missing components_ attribute"
   tests:
   - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
@@ -1513,7 +1515,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
-  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
 - reason: "SVC input handling and validation"
   marker: cuml_accel_svc_estimator_checks
   tests:
@@ -1535,7 +1536,6 @@
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
   - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
-  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
 - reason: "SVM missing certain fit attributes"
   marker: cuml_accel_svm_missing_fit_attributes
   tests:
