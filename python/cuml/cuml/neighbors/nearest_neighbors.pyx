@@ -690,8 +690,8 @@ class NearestNeighbors(UniversalBase,
                 int index = row * n_cols + 1;
 
                 // Check if the second column has a zero
-                if (D[index] == 0.0f) {  // Check if second column is zero
-                    atomicExch(zero_found, 1);  // Set the flag to True if a zero is found
+                if (D[index] == 0.0f) {
+                    *zero_found = 1;
                 }
             }
             ''', 'check_zero_kernel')
