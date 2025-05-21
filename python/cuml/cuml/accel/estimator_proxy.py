@@ -21,7 +21,6 @@ import sklearn
 from sklearn.base import BaseEstimator
 
 from cuml.internals.interop import UnsupportedOnGPU
-from cuml.internals.utils import classproperty
 
 
 class _ReconstructProxy:
@@ -135,6 +134,11 @@ class ProxyBase(BaseEstimator):
         # the original full module path so that the class (not an instance) can
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
+        # Forward _estimator_type as a class attribute if available
+        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
+        if isinstance(_estimator_type, str):
+            cls._estimator_type = _estimator_type
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -357,9 +361,9 @@ class ProxyBase(BaseEstimator):
     # Methods on BaseEstimator used internally by sklearn      #
     ############################################################
 
-    @classproperty
+    @property
     def _estimator_type(cls):
-        return cls._cpu_class._estimator_type
+        return cls._cpu._estimator_type
 
     @property
     def _parameter_constraints(self):
