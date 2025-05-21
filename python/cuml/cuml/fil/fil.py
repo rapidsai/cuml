@@ -19,6 +19,8 @@ import warnings
 from cuml.experimental.fil.fil import (
     ForestInference as ExperimentalForestInference,
 )
+from cuml.experimental.fil.fil import get_fil_device_type  # noqa
+from cuml.experimental.fil.fil import set_fil_device_type  # noqa
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 
@@ -71,7 +73,7 @@ class ForestInference(ExperimentalForestInference):
         results = super().predict_proba(X, preds=preds, chunk_size=chunk_size)
         if len(results.shape) == 2 and results.shape[-1] == 1:
             results = results.to_output("array").flatten()
-            results = GlobalSettings().xpy.stack(
+            results = GlobalSettings().fil_xpy.stack(
                 [1 - results, results], axis=1
             )
         return results

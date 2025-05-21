@@ -31,12 +31,7 @@ from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.interop import (
-    InteropMixin,
-    to_cpu,
-    to_gpu,
-    warn_legacy_device_interop,
-)
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import (
     ClassifierMixin,
     FMajorInputTagMixin,
@@ -339,7 +334,6 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any()
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
@@ -463,7 +457,6 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
@@ -481,7 +474,6 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_any()
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
@@ -546,7 +538,6 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
@@ -564,7 +555,6 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """

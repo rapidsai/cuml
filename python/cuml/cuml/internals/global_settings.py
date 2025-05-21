@@ -29,7 +29,8 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
         self.shared_state = {
             "root_cm": None,
             "_output_type": None,
-            "_device_type": DeviceType.device,
+            "_fil_device_type": DeviceType.device,
+            "_fil_memory_type": MemoryType.device,
             "_memory_type": MemoryType.device,
         }
 
@@ -67,15 +68,7 @@ class GlobalSettings:
 
     @property
     def device_type(self):
-        return self._device_type
-
-    @device_type.setter
-    def device_type(self, value):
-        self._device_type = value
-        # Only change the memory type if current value is incompatible with new
-        # device
-        if not self._device_type.is_compatible(self.memory_type):
-            self.memory_type = self._device_type.default_memory_type
+        return DeviceType.device
 
     @property
     def memory_type(self):
@@ -97,3 +90,29 @@ class GlobalSettings:
     @property
     def xpy(self):
         return self.memory_type.xpy
+
+    @property
+    def fil_device_type(self):
+        """The device type used for FIL"""
+        return self._fil_device_type
+
+    @fil_device_type.setter
+    def fil_device_type(self, value):
+        self._fil_device_type = value
+        # Only change the memory type if current value is incompatible with new
+        # device
+        if not self._fil_device_type.is_compatible(self.fil_memory_type):
+            self.fil_memory_type = self._fil_device_type.default_memory_type
+
+    @property
+    def fil_memory_type(self):
+        """The memory type used for FIL"""
+        return self._fil_memory_type
+
+    @fil_memory_type.setter
+    def fil_memory_type(self, value):
+        self._fil_memory_type = value
+
+    @property
+    def fil_xpy(self):
+        return self.fil_memory_type.xpy

@@ -32,6 +32,9 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
 from cuml import ForestInference
+from cuml.fil import get_fil_device_type, set_fil_device_type
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.testing.utils import (
     array_equal,
     quality_param,
@@ -111,6 +114,28 @@ def _build_and_save_xgboost(
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return bst
+
+
+@pytest.fixture
+def reset_fil_device_type():
+    """Ensures fil_device_type is reset after a test changing it"""
+    orig = GlobalSettings().fil_device_type
+    yield
+    GlobalSettings().fil_device_type = orig
+
+
+@pytest.mark.parametrize("device_type", ["gpu", "cpu"])
+def test_set_fil_device_type(device_type, reset_fil_device_type):
+    set_fil_device_type(device_type)
+    assert get_fil_device_type() is DeviceType.from_str(device_type)
+
+
+@pytest.mark.parametrize("device_type", ["gpu", "cpu"])
+def test_set_fil_device_type_context(device_type, reset_fil_device_type):
+    orig = get_fil_device_type()
+    with set_fil_device_type(device_type):
+        assert get_fil_device_type() is DeviceType.from_str(device_type)
+    assert get_fil_device_type() is orig
 
 
 @pytest.mark.parametrize(
