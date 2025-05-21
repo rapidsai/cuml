@@ -23,6 +23,7 @@ cuML is only supported on Linux operating systems.
    api.rst
    user_guide.rst
    zero-code-change.rst
+   FIL.rst
    cuml_blogs.rst
 
 
