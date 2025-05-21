@@ -19,6 +19,7 @@ repos:
           - id: isort
             files: python/.*
             args: ["--settings-path", "python/cuml/pyproject.toml"]
+            exclude: ^python/.*/_thirdparty/
     - repo: https://github.com/PyCQA/flake8
       rev: 7.1.1
       hooks:

@@ -25,7 +25,7 @@ select = [
 ]
 
 # detect when package size grows significantly
-max_allowed_size_compressed = '1.5G'
+max_allowed_size_compressed = '75MB'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native"
