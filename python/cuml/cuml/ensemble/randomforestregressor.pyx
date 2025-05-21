@@ -606,12 +606,13 @@ class RandomForestRegressor(BaseRandomForestModel,
                                        ('dense', '(n_samples, 1)')])
     @enable_device_interop
     @deprecate_non_keyword_only(
-        "layout", "default_chunk_size", "align_bytes"
+        "convert_dtype", "layout", "default_chunk_size", "align_bytes"
     )
     def score(
         self,
         X,
         y,
+        convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
@@ -649,10 +650,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
-                                convert_to_dtype=None)
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None))
         y_m, n_rows, _, _ = \
             input_to_cuml_array(y,
-                                convert_to_dtype=None)
+                                convert_to_dtype=(dtype if convert_dtype
+                                                  else False))
         y_ptr = y_m.ptr
         preds = self.predict(
             X,

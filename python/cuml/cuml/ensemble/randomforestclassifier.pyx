@@ -673,13 +673,14 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
     @deprecate_non_keyword_only(
-        "threshold", "layout", "default_chunk_size", "align_bytes",
+        "threshold", "convert_dtype", "layout", "default_chunk_size", "align_bytes",
     )
     def score(
         self,
         X,
         y,
         threshold = 0.5,
+        convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
@@ -715,11 +716,13 @@ class RandomForestClassifier(BaseRandomForestModel,
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=None,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
                                 check_cols=self.n_cols)
         y_m, n_rows, _, _ = \
             input_to_cuml_array(y, check_dtype=np.int32,
-                                convert_to_dtype=None)
+                                convert_to_dtype=(np.int32 if convert_dtype
+                                                  else False))
         y_ptr = y_m.ptr
         preds = self.predict(
             X,
