@@ -77,6 +77,8 @@ def test_method_metadata():
 
 
 def test_sklearn_introspect_estimator_type():
+    assert LogisticRegression._estimator_type == "classifier"
+    assert LogisticRegression()._estimator_type == "classifier"
     assert is_classifier(LogisticRegression())
     assert is_regressor(LinearRegression())
 

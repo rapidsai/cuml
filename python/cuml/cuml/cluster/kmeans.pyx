@@ -20,10 +20,23 @@ import typing
 
 import numpy as np
 
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+    warn_legacy_device_interop,
+)
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libc.stdlib cimport calloc, free
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
@@ -36,26 +49,9 @@ from cuml.cluster.kmeans_utils cimport params as KMeansParams
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
-from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
-from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
-try:
-    from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
-except ImportError:
-    def _openmp_effective_n_threads():
-        return 1
-
-
-class KMeans(UniversalBase,
+class KMeans(Base,
+             InteropMixin,
              ClusterMixin,
              CMajorInputTagMixin):
 
@@ -132,7 +128,7 @@ class KMeans(UniversalBase,
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    init : {'scalable-kmeans++', 'k-means||', 'random'} or an \
+    init : {'scalable-k-means++', 'k-means||', 'random'} or an \
             ndarray (default = 'scalable-k-means++')
 
          - ``'scalable-k-means++'`` or ``'k-means||'``: Uses fast and stable
@@ -205,6 +201,10 @@ class KMeans(UniversalBase,
     For additional docs, see `scikitlearn's Kmeans
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
+    labels_ = CumlArrayDescriptor(order='C')
+    cluster_centers_ = CumlArrayDescriptor(order='C')
+
+    _cpu_class_path = "sklearn.cluster.KMeans"
 
     _hyperparam_interop_translator = {
         "init": {
@@ -215,9 +215,89 @@ class KMeans(UniversalBase,
         },
     }
 
-    _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
-    labels_ = CumlArrayDescriptor(order='C')
-    cluster_centers_ = CumlArrayDescriptor(order='C')
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_init",
+            "oversampling_factor",
+            "max_samples_per_batch",
+            "init",
+            "max_iter",
+            "n_clusters",
+            "random_state",
+            "tol",
+            "convert_dtype"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if callable(model.init):
+            raise UnsupportedOnGPU
+        elif isinstance(model.init, str):
+            if model.init == "k-means++":
+                init = "scalable-k-means++"
+            elif model.init == "random":
+                init = "random"
+            else:
+                # Should be unreachable, here in case sklearn adds more init values
+                raise UnsupportedOnGPU
+        else:
+            init = model.init  # array-like
+
+        return {
+            "n_clusters": model.n_clusters,
+            "init": init,
+            "n_init": model.n_init,
+            "max_iter": model.max_iter,
+            "tol": model.tol,
+            "random_state": model.random_state,
+        }
+
+    def _params_to_cpu(self):
+        init = self.init
+        if not isinstance(init, str):
+            init = to_cpu(init)  # array-like
+        elif init == "scalable-k-means++":
+            init = "k-means++"
+        return {
+            "n_clusters": self.n_clusters,
+            "init": init,
+            "n_init": self.n_init,
+            "max_iter": self.max_iter,
+            "tol": self.tol,
+            "random_state": self.random_state,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "cluster_centers_": to_gpu(model.cluster_centers_, order="C"),
+            "labels_": to_gpu(model.labels_, order="C"),
+            "inertia_": to_gpu(model.inertia_),
+            "n_iter_": model.n_iter_,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        try:
+            from sklearn.utils._openmp_helpers import (
+                _openmp_effective_n_threads,
+            )
+        except ImportError:
+            n_threads = 1
+        else:
+            n_threads = _openmp_effective_n_threads()
+
+        return {
+            "cluster_centers_": to_cpu(self.cluster_centers_),
+            "labels_": to_cpu(self.labels_),
+            "inertia_": to_cpu(self.inertia_),
+            "n_iter_": self.n_iter_,
+            # sklearn's KMeans relies on a few private attributes to work
+            "_n_features_out": self.n_clusters,
+            "_n_threads": n_threads,
+            **super()._attrs_to_cpu(model),
+        }
 
     def _get_kmeans_params(self):
         cdef KMeansParams* params = \
@@ -229,7 +309,7 @@ class KMeans(UniversalBase,
         # After transferring from one device to another `_seed` might not be set
         # so we need to pass a dummy value here. Its value does not matter as the
         # seed is only used during fitting
-        params.rng_state.seed = <int>getattr(self, "_seed", 0)
+        params.rng_state.seed = <uint64_t>getattr(self, "_seed", 0)
         params.verbosity = <level_enum>(<int>self.verbose)
         params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples = <int>self.max_samples_per_batch
@@ -244,7 +324,6 @@ class KMeans(UniversalBase,
             params.n_init = <int>self.n_init
         return <size_t>params
 
-    @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init="auto", oversampling_factor=2.0,
@@ -266,9 +345,6 @@ class KMeans(UniversalBase,
         # internal array attributes
         self.labels_ = None
         self.cluster_centers_ = None
-
-        # For sklearn interoperability
-        self._n_threads = _openmp_effective_n_threads()
 
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None
@@ -298,14 +374,13 @@ class KMeans(UniversalBase,
                 )
 
     @generate_docstring()
-    @enable_device_interop
+    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
 
         """
-        self._n_features_out = self.n_clusters
         if self.init == 'preset':
             check_cols = self.n_features_in_
             check_dtype = self.dtype
@@ -315,7 +390,7 @@ class KMeans(UniversalBase,
             check_dtype = [np.float32, np.float64]
             target_dtype = np.float32
 
-        _X_m, _n_rows, self.n_features_in_, self.dtype = \
+        X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X,
                                 order='C',
                                 check_cols=check_cols,
@@ -323,26 +398,35 @@ class KMeans(UniversalBase,
                                                   else None),
                                 check_dtype=check_dtype)
 
-        self._seed = check_random_seed(self.random_state)
-        self.feature_names_in_ = _X_m.index
+        # KMeans requires at least 1 row and 1 column. Error message for sklearn compat.
+        for kind, n in [("sample", n_rows), ("feature", n_cols)]:
+            if n == 0:
+                raise ValueError(
+                    f"Found array with 0 {kind}(s) (shape=({n_rows}, {n_cols})) "
+                    "while a minimum of 1 is required by KMeans."
+                )
 
-        cdef uintptr_t input_ptr = _X_m.ptr
+        self._seed = check_random_seed(self.random_state)
+        self.n_features_in_ = n_cols
+        self.feature_names_in_ = X_m.index
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if sample_weight is None:
-            sample_weight_m = CumlArray.ones(shape=_n_rows, dtype=self.dtype)
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
         else:
             sample_weight_m, _, _, _ = \
                 input_to_cuml_array(sample_weight, order='C',
                                     convert_to_dtype=self.dtype,
-                                    check_rows=_n_rows)
+                                    check_rows=n_rows)
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        int_dtype = np.int32 if np.int64(_n_rows) * np.int64(self.n_features_in_) < 2**31-1 else np.int64
+        int_dtype = np.int32 if np.int64(n_rows) * np.int64(self.n_features_in_) < 2**31-1 else np.int64
 
-        self.labels_ = CumlArray.zeros(shape=_n_rows, dtype=int_dtype)
+        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
@@ -367,7 +451,7 @@ class KMeans(UniversalBase,
                     handle_[0],
                     <KMeansParams> deref(params),
                     <const float*> input_ptr,
-                    <int> _n_rows,
+                    <int> n_rows,
                     <int> self.n_features_in_,
                     <const float *>sample_weight_ptr,
                     <float*> cluster_centers_ptr,
@@ -380,7 +464,7 @@ class KMeans(UniversalBase,
                     handle_[0],
                     <KMeansParams> deref(params),
                     <const float*> input_ptr,
-                    <int64_t> _n_rows,
+                    <int64_t> n_rows,
                     <int64_t> self.n_features_in_,
                     <const float *>sample_weight_ptr,
                     <float*> cluster_centers_ptr,
@@ -397,7 +481,7 @@ class KMeans(UniversalBase,
                     handle_[0],
                     <KMeansParams> deref(params),
                     <const double*> input_ptr,
-                    <int> _n_rows,
+                    <int> n_rows,
                     <int> self.n_features_in_,
                     <const double *>sample_weight_ptr,
                     <double*> cluster_centers_ptr,
@@ -411,7 +495,7 @@ class KMeans(UniversalBase,
                      handle_[0],
                      <KMeansParams> deref(params),
                      <const double*> input_ptr,
-                     <int64_t> _n_rows,
+                     <int64_t> n_rows,
                      <int64_t> self.n_features_in_,
                      <const double *>sample_weight_ptr,
                      <double*> cluster_centers_ptr,
@@ -427,7 +511,7 @@ class KMeans(UniversalBase,
                             ' passed.')
 
         self.handle.sync()
-        del _X_m
+        del X_m
         del sample_weight_m
         free(params)
         return self
@@ -436,7 +520,7 @@ class KMeans(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
@@ -581,7 +665,7 @@ class KMeans(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype", "normalize_weights")
     def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
@@ -601,7 +685,7 @@ class KMeans(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
@@ -690,7 +774,7 @@ class KMeans(UniversalBase,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
@@ -706,7 +790,7 @@ class KMeans(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=False,
                       sample_weight=None) -> CumlArray:
@@ -716,24 +800,3 @@ class KMeans(UniversalBase,
         """
         self.fit(X, sample_weight=sample_weight)
         return self.transform(X, convert_dtype=convert_dtype)
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['n_init', 'oversampling_factor', 'max_samples_per_batch',
-                'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol', "convert_dtype"]
-
-    def get_attr_names(self):
-        return ['cluster_centers_', 'labels_', 'inertia_',
-                'n_iter_', 'n_features_in_', '_n_threads',
-                "feature_names_in_", "_n_features_out"]
-
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        """
-        Dispatch to CPU implementation when sparse arrays are detected in the input
-        """
-        if func_name == "fit" and len(args) > 0:
-            X = args[0]
-            return is_sparse(X)
-        return False
