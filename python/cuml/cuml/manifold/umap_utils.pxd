@@ -42,11 +42,8 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nogil:
     cdef cppclass nn_descent_params_umap:
         size_t graph_degree
-        size_t max_iterations
-
-        # TODO: remove deprecation handling logic in 25.08
-        # related issue: https://github.com/rapidsai/cuml/issues/6742
         size_t intermediate_graph_degree
+        size_t max_iterations
         float termination_threshold
 
     cdef cppclass graph_build_params:
