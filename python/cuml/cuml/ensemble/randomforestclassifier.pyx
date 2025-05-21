@@ -672,10 +672,16 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @deprecate_non_keyword_only("layout", "default_chunk_size", "align_bytes")
+    @deprecate_non_keyword_only(
+        "convert_dtype",
+        "layout",
+        "default_chunk_size",
+        "align_bytes"
+    )
     def predict_proba(
         self,
         X,
+        convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
@@ -688,6 +694,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -711,7 +720,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             `default_chunk_size`, and `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = ('algo', 'convert_dtype', 'fil_sparse_format')
+        deprecated_params = ('algo', 'fil_sparse_format')
 
         for param in deprecated_params:
             if param in kwargs:
@@ -730,6 +739,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             X=X,
             is_classifier=True,
             predict_proba=True,
+            convert_dtype=convert_dtype,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
