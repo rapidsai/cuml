@@ -26,7 +26,6 @@ import pytest
 from hdbscan import HDBSCAN as refHDBSCAN
 from pytest_cases import fixture, fixture_union
 from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.cluster import KMeans as skKMeans
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
@@ -38,7 +37,7 @@ from sklearn.svm import SVR as skSVR
 from umap import UMAP as refUMAP
 
 import cuml
-from cuml.cluster import DBSCAN, KMeans
+from cuml.cluster import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -539,24 +538,6 @@ def test_hdbscan_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_kmeans_methods(train_device, infer_device):
-    n_clusters = 20
-    ref_model = skKMeans(n_clusters=n_clusters, random_state=42)
-    ref_model.fit(X_train_blob)
-    ref_output = ref_model.predict(X_test_blob)
-
-    model = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
-
-    with using_device_type(train_device):
-        model.fit(X_train_blob)
-    with using_device_type(infer_device):
-        output = model.predict(X_test_blob)
-
-    assert adjusted_rand_score(ref_output, output) >= 0.9
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_dbscan_methods(train_device, infer_device):
     eps = 8.0
     ref_model = skDBSCAN(eps=eps)
@@ -726,6 +707,7 @@ def test_svr_methods(train_device, infer_device):
         "PCA",
         "TruncatedSVD",
         "TSNE",
+        "KMeans",
     ],
 )
 def test_legacy_device_selection_warns(cls):

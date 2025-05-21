@@ -135,6 +135,11 @@ class ProxyBase(BaseEstimator):
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
 
+        # Forward _estimator_type as a class attribute if available
+        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
+        if isinstance(_estimator_type, str):
+            cls._estimator_type = _estimator_type
+
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
         methods = [
