@@ -1218,6 +1218,8 @@
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
+  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hit]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
 - reason: "cuml.accel bug: Missing components_ attribute"
   tests:
   - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
