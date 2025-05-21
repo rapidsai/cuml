@@ -264,17 +264,17 @@ class RandomForestRegressor(
         """
         Predicts the regressor outputs for X.
 
-
         GPU-based prediction in a multi-node, multi-GPU context works
         by sending the sub-forest from each worker to the client,
         concatenating these into one forest with the full
         `n_estimators` set of trees, and sending this combined forest to
         the workers, which will each infer on their local set of data.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
         This allows inference to scale to large datasets, but the forest
         transmission incurs overheads for very large trees. For inference
         on small datasets, this overhead may dominate prediction time.
-        Within the worker, this uses the cuML Forest Inference Library
-        (cuml.fil) for high-throughput prediction.
 
         The 'CPU' fallback method works with sub-forests in-place,
         broadcasting the datasets to all workers and combining predictions
@@ -282,27 +282,11 @@ class RandomForestRegressor(
         on a per-row basis but may be faster for problems with many trees
         and few rows.
 
-        In the 0.15 cuML release, inference will be updated with much
-        faster tree transfer.
-
         Parameters
         ----------
         X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. (Default)
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -311,28 +295,28 @@ class RandomForestRegressor(
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
-
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
         broadcast_data : bool (default = False)
-            If broadcast_data=False, the trees are merged in a single model
-            before the workers perform inference on their share of the
-            prediction workload. When broadcast_data=True, trees aren't merged.
-            Instead each of the workers infer the whole prediction work
-            from trees at disposal. The results are reduced on the client.
-            May be advantageous when the model is larger than the data used
-            for inference.
+            If False, the trees are merged in a single model before the workers
+            perform inference on their share of the prediction workload.
+            When True, trees aren't merged. Instead each worker infers on the
+            whole prediction workload using its available trees. The results are
+            reduced on the client. May be advantageous when the model is larger
+            than the data used for inference.
 
         Returns
         -------

@@ -151,7 +151,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         only ``0``/``'gini'`` and ``1``/``'entropy'`` valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
-            * If ``True``, eachtree in the forest is built on a bootstrapped
+            * If ``True``, each tree in the forest is built on a bootstrapped
               sample with replacement.
             * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
@@ -373,48 +373,24 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         Parameters
         ----------
-
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
-
-        fil_model
+        fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
-
         """
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
@@ -603,34 +579,24 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise.
-        algo : string (default = ``'auto'``)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
         threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-        fil_sparse_format : boolean or string (default = ``'auto'``)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+            Threshold used for classification. Only used when predict_model='GPU'.
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        predict_model : string (default = 'GPU')
+            Device to use for prediction: 'GPU' or 'CPU'.
+        layout : string (default = 'depth_first')
+            Forest layout for GPU inference. Options: 'depth_first', 'layered',
+            'breadth_first'. Only used when predict_model='GPU'.
+        default_chunk_size : int, optional (default = None)
+            Controls batch subdivision for parallel processing. Optimal value depends
+            on hardware, model and batch size. If None, determined automatically.
+            Only used when predict_model='GPU'.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded to this byte alignment, which can
+            improve performance. Typical values are 0 or 128 on GPU, 0 or 64 on CPU.
+            Only used when predict_model='GPU'.
 
         Returns
         -------
@@ -675,33 +641,18 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
@@ -740,41 +691,20 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         X : {}
         y : {}
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        threshold : float
-            threshold is used to for classification
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-        convert_dtype : boolean, default=True
-            whether to convert input data to correct dtype automatically
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        threshold : float (default = 0.5)
+            Threshold used for classification predictions
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
