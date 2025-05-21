@@ -680,6 +680,32 @@ class NearestNeighbors(UniversalBase,
 
             rows, cols = I_ndarr.shape
 
+            # Kernel to check for zeros in the second column of D_ndarr
+            check_zero_kernel = cp.RawKernel(r'''
+            extern "C" __global__
+            void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
+                int row = blockDim.x * blockIdx.x + threadIdx.x;
+                if (row >= n_rows) return;
+
+                int index = row * n_cols + 1;
+
+                // Check if the second column has a zero
+                if (D[index] == 0.0f) {  // Check if second column is zero
+                    atomicExch(zero_found, 1);  // Set the flag to True if a zero is found
+                }
+            }
+            ''', 'check_zero_kernel')
+
+            # Launch config
+            threads_per_block = 32
+            blocks = (rows + threads_per_block - 1) // threads_per_block
+
+            # Allocate memory for the flag
+            zero_found = cp.zeros(1, dtype=cp.int32)
+
+            # Run the kernel to check for zeros
+            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
+
             kernel = cp.RawKernel(r'''
             extern "C" __global__
             void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
@@ -711,7 +737,7 @@ class NearestNeighbors(UniversalBase,
             blocks = (rows + threads_per_block - 1) // threads_per_block
 
             # only run kernel if there are multiple zero distances
-            if (cp.any(D_ndarr[:, 1] == 0)):
+            if zero_found:
                 kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
 
             # slicing does not copy
