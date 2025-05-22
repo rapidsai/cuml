@@ -442,6 +442,7 @@ class TruncatedSVD(Base,
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
     @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
