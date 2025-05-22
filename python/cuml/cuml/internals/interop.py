@@ -24,6 +24,7 @@ from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_output_type
+from cuml.internals.utils import classproperty
 
 __all__ = (
     "UnsupportedOnGPU",
@@ -77,11 +78,11 @@ def to_gpu(x, order="K"):
     )[0]
 
 
-def to_cpu(x):
+def to_cpu(x, order="K", dtype=None):
     """Coerce `x` to the equivalent cpu type."""
     if np.isscalar(x):
         return x
-    return x.to_output("numpy")
+    return np.asarray(x.to_output("numpy"), order=order, dtype=dtype)
 
 
 class UnsupportedOnGPU(ValueError):
@@ -90,16 +91,6 @@ class UnsupportedOnGPU(ValueError):
 
 class UnsupportedOnCPU(ValueError):
     """An exception raised when a conversion of a GPU to a CPU estimator isn't supported"""
-
-
-class classproperty:
-    """Like ``property``, but on a class rather than an instance."""
-
-    def __init__(self, fget):
-        self.fget = fget
-
-    def __get__(self, obj, owner):
-        return self.fget(owner)
 
 
 class InteropMixin:
