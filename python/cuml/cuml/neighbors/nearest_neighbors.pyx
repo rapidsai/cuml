@@ -479,6 +479,7 @@ class NearestNeighbors(UniversalBase,
                                           ('dense',
                                            '(n_samples, n_features)')])
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "two_pass_precision")
     def kneighbors(
         self,
         X=None,
