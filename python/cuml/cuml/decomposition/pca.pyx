@@ -623,6 +623,7 @@ class PCA(Base,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
     @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "return_sparse", "sparse_tol")
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
