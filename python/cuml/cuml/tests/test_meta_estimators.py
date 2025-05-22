@@ -75,9 +75,6 @@ models = models_config.get_models()
     ],
 )
 @pytest.mark.parametrize("instantiation", ["Pipeline", "make_pipeline"])
-@pytest.mark.filterwarnings(
-    "ignore:.*output shape of ForestInference.*:FutureWarning"
-)
 def test_pipeline_with_regression(
     regression_dataset, model_key, instantiation
 ):

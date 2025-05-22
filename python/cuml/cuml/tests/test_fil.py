@@ -39,10 +39,6 @@ from cuml import ForestInference
 from cuml.common.device_selection import using_device_type
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:.*output shape of ForestInference.*:FutureWarning"
-)
-
 
 def simulate_data(
     m,

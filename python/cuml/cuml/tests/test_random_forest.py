@@ -56,9 +56,6 @@ pytestmark = [
     pytest.mark.filterwarnings(
         "ignore: For reproducible results(.*)" "::cuml[.*]"
     ),
-    pytest.mark.filterwarnings(
-        "ignore:.*output shape of ForestInference.*:FutureWarning"
-    ),
 ]
 
 

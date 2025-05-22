@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import warnings
-
 from cuml.experimental.fil.fil import (
     ForestInference as ExperimentalForestInference,
 )
@@ -52,20 +50,6 @@ class ForestInference(ExperimentalForestInference):
             precision=precision,
             device_id=device_id,
         )
-        if treelite_model is not None and self.num_outputs() == 1:
-            warning_msg = (
-                "In RAPIDS 25.06, the output shape of ForestInference predict"
-                " will include an extra dimension to accommodate multi-target"
-                " regressors and classifiers."
-            )
-            if self.is_classifier:
-                warning_msg = (
-                    f"{warning_msg} For performance and memory reasons,"
-                    " predict_proba will also return solely the positive class"
-                    " probability for binary classifiers, consistent with "
-                    " XGBoost."
-                )
-            warnings.warn(warning_msg, FutureWarning)
 
     def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
         results = super().predict_proba(X, preds=preds, chunk_size=chunk_size)
