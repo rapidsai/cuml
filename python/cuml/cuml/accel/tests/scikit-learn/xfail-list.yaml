@@ -1431,6 +1431,12 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_fit1d]"
 - reason: "cuml doesn't set `feature_names_in_` properly"
   marker: cuml_accel_feature_names_in
   tests:
@@ -1445,6 +1451,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
 - reason: "cuml raises a different error if X doesn't have expected n features"
   marker: cuml_accel_check_n_features_in
   tests:
@@ -1476,6 +1483,7 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
 - reason: "metadata routing not yet supported"
   marker: cuml_accel_metadata_routing
   tests:

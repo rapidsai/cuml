@@ -16,7 +16,6 @@
 
 import cuml.cluster
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
 
 __all__ = ("KMeans", "DBSCAN")
 
@@ -33,5 +32,13 @@ class KMeans(ProxyBase):
         return self._cpu._init_centroids(*args, **kwargs)
 
 
-class DBSCAN(ProxyMixin, cuml.cluster.DBSCAN):
-    pass
+class DBSCAN(ProxyBase):
+    _gpu_class = cuml.cluster.DBSCAN
+
+    def _gpu_fit(self, X, y=None, sample_weight=None):
+        # Fixes signature mismatch with cuml.DBSCAN. Can be removed after #6741.
+        return self._gpu.fit(X, y=y, sample_weight=sample_weight)
+
+    def _gpu_fit_predict(self, X, y=None, sample_weight=None):
+        # Fixes signature mismatch with cuml.DBSCAN. Can be removed after #6741.
+        return self._gpu.fit_predict(X, y=y, sample_weight=sample_weight)
