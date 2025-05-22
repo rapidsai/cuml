@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import gc
 import inspect
 import itertools as it
 import pickle
@@ -32,8 +31,6 @@ from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
-from sklearn.svm import SVC as skSVC
-from sklearn.svm import SVR as skSVR
 from umap import UMAP as refUMAP
 
 import cuml
@@ -47,7 +44,6 @@ from cuml.kernel_ridge import KernelRidge
 from cuml.manifold import UMAP
 from cuml.metrics import adjusted_rand_score, trustworthiness
 from cuml.neighbors import NearestNeighbors
-from cuml.svm import SVC, SVR
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.testing.utils import array_equal, assert_dbscan_equal
 
@@ -626,79 +622,6 @@ def test_random_forest_classifier(train_device, infer_device):
     assert cuml_acc == ref_acc
 
 
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
-@pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
-@pytest.mark.parametrize("probability", [True, False])
-def test_svc_methods(
-    train_device,
-    infer_device,
-    decision_function_shape,
-    class_type,
-    probability,
-):
-    gc.collect()  # mitigation for https://github.com/rapidsai/cuml/issues/6480
-
-    if class_type == "single_class":
-        X_train = X_train_class
-        y_train = y_train_class
-        X_test = X_test_class
-    elif class_type == "multi_class":
-        X_train = X_train_multiclass
-        y_train = y_train_multiclass
-        X_test = X_test_multiclass
-
-    ref_model = skSVC(
-        probability=probability,
-        decision_function_shape=decision_function_shape,
-    )
-    ref_model.fit(X_train, y_train)
-    if probability:
-        ref_output = ref_model.predict_proba(X_test)
-    else:
-        ref_output = ref_model.predict(X_test)
-
-    model = SVC(
-        probability=probability,
-        decision_function_shape=decision_function_shape,
-    )
-    with using_device_type(train_device):
-        model.fit(X_train, y_train)
-    with using_device_type(infer_device):
-        if probability:
-            output = model.predict_proba(X_test)
-        else:
-            output = model.predict(X_test)
-
-    if probability:
-        eps = 0.25
-        mismatches = (
-            (output <= ref_output - eps) | (output >= ref_output + eps)
-        ).sum()
-        outlier_percentage = mismatches / ref_output.size
-        assert outlier_percentage < 0.03
-    else:
-        correct_percentage = (ref_output == output).sum() / ref_output.size
-        assert correct_percentage > 0.9
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_svr_methods(train_device, infer_device):
-    ref_model = skSVR()
-    ref_model.fit(X_train_reg, y_train_reg)
-    ref_output = ref_model.predict(X_test_reg)
-
-    model = SVR()
-    with using_device_type(train_device):
-        model.fit(X_train_reg, y_train_reg)
-    with using_device_type(infer_device):
-        output = model.predict(X_test_reg)
-
-    np.testing.assert_allclose(ref_output, output, rtol=0.15)
-
-
 @pytest.mark.parametrize(
     "cls",
     [
@@ -711,6 +634,8 @@ def test_svr_methods(train_device, infer_device):
         "TruncatedSVD",
         "TSNE",
         "KMeans",
+        "SVC",
+        "SVR",
     ],
 )
 def test_legacy_device_selection_warns(cls):
@@ -719,9 +644,9 @@ def test_legacy_device_selection_warns(cls):
     this manner."""
     model = getattr(cuml, cls)()
     estimator_type = getattr(model, "_estimator_type", None)
-    if estimator_type == "classifier":
+    if estimator_type == "regressor":
         X, y, X_test = (X_train_reg, y_train_reg, X_test_reg)
-    elif estimator_type == "regressor":
+    elif estimator_type == "classifier":
         X, y, X_test = (X_train_class, y_train_class, X_test_class)
     else:
         X, y, X_test = (X_train_blob, y_train_blob, X_test_blob)

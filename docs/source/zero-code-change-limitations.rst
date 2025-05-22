@@ -394,3 +394,29 @@ You can obtain it by doing the following :
     * Only the "uniform" weighting strategy is supported for prediction averaging.
     * Distance-based prediction weights ("distance" option) will trigger CPU fallback.
     * Custom weight functions are not supported on GPU.
+
+``sklearn.svm.SVC``
+^^^^^^^^^^^^^^^^^^^
+
+The ``SVC`` implementation in ``cuml.accel`` uses a different solver than that
+in scikit-learn. As such, you shouldn't expect equivalent support vectors or
+coefficients. To compare results you should compare the performance of the
+model using ``model.score`` or ``sklearn.metrics.accuracy_score``.
+
+* Algorithm Limitations:
+  * ``probability=True`` will fallback to scikit-learn
+  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+  * Multiclass classification will fallback to scikit-learn
+  * Sparse inputs will fallback to scikit-learn
+
+``sklearn.svm.SVR``
+^^^^^^^^^^^^^^^^^^^
+
+The ``SVR`` implementation in ``cuml.accel`` uses a different solver than that
+in scikit-learn. As such, you shouldn't expect equivalent support vectors or
+coefficients. To compare results you should compare the performance of the
+model using ``model.score`` or ``sklearn.metrics.r2_score``.
+
+* Algorithm Limitations:
+  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+  * Sparse inputs will fallback to scikit-learn

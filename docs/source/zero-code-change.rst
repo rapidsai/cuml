@@ -113,6 +113,8 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.neighbors.NearestNeighbors``
     * ``sklearn.neighbors.KNeighborsClassifier``
     * ``sklearn.neighbors.KNeighborsRegressor``
+    * ``sklearn.svm.SVC``
+    * ``sklearn.svm.SVR``
 
 This list will continue to expand as ``cuml.accel`` development
 continues to cover all algorithms present in cuML.
