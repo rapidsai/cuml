@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 import cupy as cp
 import dask.array
 import numpy as np
@@ -282,6 +284,7 @@ class RandomForestClassifier(
         align_bytes=None,
         delayed=True,
         broadcast_data=False,
+        **kwargs,
     ):
         """
         Predicts the labels for X.
@@ -348,7 +351,30 @@ class RandomForestClassifier(
         -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             The predicted class labels.
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06 and
+            will be removed in 25.08. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = ("algo", "fil_sparse_format")
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning,
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(
+                f"Unexpected keyword arguments: {list(kwargs.keys())}"
+            )
+
         if predict_model == "CPU":
             preds = self.predict_model_on_cpu(X=X, convert_dtype=convert_dtype)
         else:
