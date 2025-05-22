@@ -63,7 +63,7 @@ inline void linearBwdMG(const raft::handle_t& handle,
     // TODO can this be fused somehow?
     Gweights.assign_gemm(handle, 1.0 / n_samples, dZ, false, X, false, beta / n_ranks, stream);
 
-    raft::stats::mean<false>(Gbias.data, dZ.data, dZ.m, dZ.n, true, stream);
+    raft::stats::mean<true>(Gbias.data, dZ.data, dZ.m, dZ.n, false, stream);
     T bias_factor = 1.0 * dZ.n / n_samples;
     raft::linalg::multiplyScalar(Gbias.data, Gbias.data, bias_factor, dZ.m, stream);
 
