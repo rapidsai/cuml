@@ -654,6 +654,10 @@ def test_lightgbm(
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
+    # Intentionally lazy-import Treelite
+    # See https://github.com/rapidsai/cuml/pull/6728/files#r2101592188
+    import treelite
+
     xgb = pytest.importorskip("xgboost")
 
     n_rows = 1000
@@ -681,11 +685,6 @@ def test_predict_per_tree(
             xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
-
-        # Intentionally lazy-import Treelite
-        # See https://github.com/rapidsai/cuml/pull/6728/files#r2101592188
-        import treelite
-
         tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
