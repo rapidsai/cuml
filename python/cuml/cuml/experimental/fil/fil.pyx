@@ -15,6 +15,7 @@
 #
 import itertools
 import pathlib
+import warnings
 from time import perf_counter
 
 import numpy as np
@@ -30,7 +31,6 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
-
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -50,6 +50,7 @@ from cuml.experimental.fil.infer_kind cimport infer_kind
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
+
 from cuml.internals.treelite import safe_treelite_call
 
 
@@ -607,6 +608,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
+
+        if output_class is not None:
+            warnings.warn(
+                "Parameter `output_class` was deprecated in version 25.06 and will be "
+                "removed in 25.08. Use `is_classifier` instead.",
+                FutureWarning
+            )
 
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
