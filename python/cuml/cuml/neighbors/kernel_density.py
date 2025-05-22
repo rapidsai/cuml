@@ -276,6 +276,7 @@ class KernelDensity(Base):
 
         return self
 
+    @deprecate_non_keyword_only("convert_dtype")
     def score_samples(self, X, convert_dtype=True):
         """Compute the log-likelihood of each sample under the model.
 
