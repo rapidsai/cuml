@@ -24,7 +24,6 @@ import pandas as pd
 import pytest
 from hdbscan import HDBSCAN as refHDBSCAN
 from pytest_cases import fixture, fixture_union
-from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
@@ -34,7 +33,6 @@ from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from umap import UMAP as refUMAP
 
 import cuml
-from cuml.cluster import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -45,7 +43,7 @@ from cuml.manifold import UMAP
 from cuml.metrics import adjusted_rand_score, trustworthiness
 from cuml.neighbors import NearestNeighbors
 from cuml.testing.test_preproc_utils import to_output_type
-from cuml.testing.utils import array_equal, assert_dbscan_equal
+from cuml.testing.utils import array_equal
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -534,29 +532,6 @@ def test_hdbscan_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_dbscan_methods(train_device, infer_device):
-    eps = 8.0
-    ref_model = skDBSCAN(eps=eps)
-    ref_model.fit(X_train_blob)
-    ref_output = ref_model.fit_predict(X_train_blob)
-
-    model = DBSCAN(eps=eps)
-    with using_device_type(train_device):
-        model.fit(X_train_blob)
-    with using_device_type(infer_device):
-        output = model.fit_predict(X_train_blob)
-
-    assert array_equal(
-        ref_model.core_sample_indices_, ref_model.core_sample_indices_
-    )
-    assert adjusted_rand_score(ref_output, output) >= 0.95
-    assert_dbscan_equal(
-        ref_output, output, X_train_blob, model.core_sample_indices_, eps
-    )
-
-
-@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 @pytest.mark.filterwarnings(
     "ignore:.*output shape of ForestInference.*:FutureWarning"
 )
@@ -634,6 +609,7 @@ def test_random_forest_classifier(train_device, infer_device):
         "TruncatedSVD",
         "TSNE",
         "KMeans",
+        "DBSCAN",
         "SVC",
         "SVR",
     ],
