@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# flake8: noqa
 
 import os
 from math import ceil
@@ -20,6 +21,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import treelite
+
+xgb = pytest.importorskip("xgboost")
+
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
     ExtraTreesClassifier,
@@ -90,7 +94,6 @@ def _build_and_save_xgboost(
     xgboost_params=None,
 ):
     """Trains a small xgboost classifier and saves it to model_path"""
-    xgb = pytest.importorskip("xgboost")
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
@@ -136,8 +139,6 @@ def test_fil_classification(
     n_classes,
     tmp_path,
 ):
-    xgb = pytest.importorskip("xgboost")
-
     with using_device_type(train_device):
         classification = True  # change this to false to use regression
         random_state = np.random.RandomState(43210)
@@ -208,8 +209,6 @@ def test_fil_regression(
     tmp_path,
     max_depth,
 ):
-    xgb = pytest.importorskip("xgboost")
-
     with using_device_type(train_device):
         classification = False
         random_state = np.random.RandomState(43210)
@@ -428,8 +427,6 @@ def test_fil_skl_regression(
 
 @pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
-    xgb = pytest.importorskip("xgboost")
-
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
     ext = "json" if request.param == "json" else "ubj"
@@ -655,8 +652,6 @@ def test_lightgbm(
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
-    xgb = pytest.importorskip("xgboost")
-
     n_rows = 1000
     n_columns = 30
 
@@ -760,8 +755,6 @@ def test_predict_per_tree_with_vector_leaf(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 def test_apply(train_device, infer_device, n_classes, tmp_path):
-    xgb = pytest.importorskip("xgboost")
-
     n_rows = 1000
     n_columns = 30
     num_boost_round = 10
