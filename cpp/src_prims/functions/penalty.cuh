@@ -41,7 +41,7 @@ enum penalty {
 template <typename math_t>
 void lasso(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
 {
-  raft::linalg::rowNorm<true>(out, coef, len, 1, raft::linalg::NormType::L1Norm, stream);
+  raft::linalg::rowNorm<raft::linalg::NormType::L1Norm, true>(out, coef, len, 1, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
@@ -55,7 +55,7 @@ void lassoGrad(
 template <typename math_t>
 void ridge(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
 {
-  raft::linalg::rowNorm<true>(out, coef, len, 1, raft::linalg::NormType::L2Norm, stream);
+  raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, true>(out, coef, len, 1, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 

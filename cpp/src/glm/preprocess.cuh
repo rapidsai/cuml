@@ -100,13 +100,10 @@ void preProcessData(const raft::handle_t& handle,
       }
       raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
       if (normalize) {
-        raft::linalg::colNorm<false>(norm2_input,
-                                     input,
-                                     n_cols,
-                                     n_rows,
-                                     raft::linalg::L2Norm,
-                                     stream,
-                                     [] __device__(math_t v) { return raft::sqrt(v); });
+        raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
+          norm2_input, input, n_cols, n_rows, stream, [] __device__(math_t v) {
+            return raft::sqrt(v);
+          });
         raft::matrix::matrixVectorBinaryDivSkipZero(
           input, norm2_input, n_rows, n_cols, false, true, stream, true);
       }

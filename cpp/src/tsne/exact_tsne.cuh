@@ -102,7 +102,7 @@ value_t Exact_TSNE(value_t* VAL,
     }
 
     // Get row norm of Y
-    raft::linalg::rowNorm<false>(norm.data(), Y, dim, n, raft::linalg::L2Norm, stream);
+    raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, false>(norm.data(), Y, dim, n, stream);
 
     bool last_iter = iter == params.max_iter - 1;
 

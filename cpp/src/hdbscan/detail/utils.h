@@ -190,8 +190,8 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
   rmm::device_uvector<value_t> sums(m, stream);
 
   // Compute row sums
-  raft::linalg::rowNorm<true, value_t, size_t>(
-    sums.data(), data, (size_t)n, m, raft::linalg::L1Norm, stream);
+  raft::linalg::rowNorm<raft::linalg::NormType::L1Norm, true, value_t, size_t>(
+    sums.data(), data, (size_t)n, m, stream);
 
   // Divide vector by row sums (modify in place)
   raft::linalg::matrixVectorOp(
@@ -229,8 +229,8 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
     raft::make_device_vector_view<const value_t, value_idx>(linf_norm.data(), (int)m);
   auto linf_norm_view = raft::make_device_vector_view<value_t, value_idx>(linf_norm.data(), (int)m);
 
-  raft::linalg::norm<raft::Apply::ALONG_ROWS>(
-    handle, data_const_view, linf_norm_view, raft::linalg::LinfNorm);
+  raft::linalg::norm<raft::linalg::NormType::LinfNorm, raft::Apply::ALONG_ROWS>(
+    handle, data_const_view, linf_norm_view);
 
   raft::linalg::matrix_vector_op(
     handle,
