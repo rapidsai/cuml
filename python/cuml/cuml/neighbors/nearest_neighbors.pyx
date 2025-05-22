@@ -133,6 +133,50 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
                          DistanceType metric,
                          float metricArg) except +
 
+# Kernel to check for zeros in the second column of D_ndarr
+check_zero_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if (row >= n_rows) return;
+
+    int index = row * n_cols + 1;
+
+    // Check if the second column has a zero
+    if (D[index] == 0.0f) {
+        *zero_found = 1;
+    }
+}
+''', 'check_zero_kernel')
+
+# kernel to swap self index to the first column
+swap_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if (row >= n_rows) return;
+
+    int base_idx = row * n_cols;
+
+    for (int j = 1; j < n_cols; ++j) {
+        int idx = base_idx + j;
+        if (I[idx] == row) {
+            // Swap I
+            int tmp_I = I[base_idx];
+            I[base_idx] = I[idx];
+            I[idx] = tmp_I;
+
+            // Swap D
+            float tmp_D = D[base_idx];
+            D[base_idx] = D[idx];
+            D[idx] = tmp_D;
+
+            break; // found self index
+        }
+    }
+}
+''', 'swap_kernel')
+
 
 class NearestNeighbors(UniversalBase,
                        CMajorInputTagMixin,
@@ -680,22 +724,6 @@ class NearestNeighbors(UniversalBase,
 
             rows, cols = I_ndarr.shape
 
-            # Kernel to check for zeros in the second column of D_ndarr
-            check_zero_kernel = cp.RawKernel(r'''
-            extern "C" __global__
-            void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
-                int row = blockDim.x * blockIdx.x + threadIdx.x;
-                if (row >= n_rows) return;
-
-                int index = row * n_cols + 1;
-
-                // Check if the second column has a zero
-                if (D[index] == 0.0f) {
-                    *zero_found = 1;
-                }
-            }
-            ''', 'check_zero_kernel')
-
             # Launch config
             threads_per_block = 32
             blocks = (rows + threads_per_block - 1) // threads_per_block
@@ -706,39 +734,12 @@ class NearestNeighbors(UniversalBase,
             # Run the kernel to check for zeros
             check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
 
-            kernel = cp.RawKernel(r'''
-            extern "C" __global__
-            void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
-                int row = blockDim.x * blockIdx.x + threadIdx.x;
-                if (row >= n_rows) return;
-
-                int base_idx = row * n_cols;
-
-                for (int j = 1; j < n_cols; ++j) {
-                    int idx = base_idx + j;
-                    if (I[idx] == row) {
-                        // Swap I
-                        int tmp_I = I[base_idx];
-                        I[base_idx] = I[idx];
-                        I[idx] = tmp_I;
-
-                        // Swap D
-                        float tmp_D = D[base_idx];
-                        D[base_idx] = D[idx];
-                        D[idx] = tmp_D;
-
-                        break; // found self index
-                    }
-                }
-            }
-            ''', 'swap_kernel')
-
             threads_per_block = 32
             blocks = (rows + threads_per_block - 1) // threads_per_block
 
             # only run kernel if there are multiple zero distances
             if zero_found:
-                kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
 
             # slicing does not copy
             I_ndarr = I_ndarr[:, 1:]
