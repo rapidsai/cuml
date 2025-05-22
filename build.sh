@@ -358,7 +358,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
     SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps ${VERBOSE_FLAG} --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
