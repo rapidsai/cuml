@@ -19,6 +19,7 @@ from math import ceil
 import numpy as np
 import pandas as pd
 import pytest
+import treelite
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
     ExtraTreesClassifier,
@@ -654,10 +655,6 @@ def test_lightgbm(
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
-    # Intentionally lazy-import Treelite
-    # See https://github.com/rapidsai/cuml/pull/6728/files#r2101592188
-    import treelite
-
     xgb = pytest.importorskip("xgboost")
 
     n_rows = 1000
@@ -720,10 +717,6 @@ def test_predict_per_tree(
 def test_predict_per_tree_with_vector_leaf(
     train_device, infer_device, n_classes, tmp_path
 ):
-    # Intentionally lazy-import Treelite
-    # See https://github.com/rapidsai/cuml/pull/6728/files#r2101592188
-    import treelite
-
     n_rows = 1000
     n_columns = 30
     n_estimators = 10
@@ -811,10 +804,6 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
 
 
 def test_missing_categorical():
-    # Intentionally lazy-import Treelite
-    # See https://github.com/rapidsai/cuml/pull/6728/files#r2101592188
-    import treelite
-
     builder = treelite.model_builder.ModelBuilder(
         threshold_type="float32",
         leaf_output_type="float32",
