@@ -149,7 +149,7 @@ void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
 }
 ''', 'check_zero_kernel')
 
-# kernel to swap self index to the first column
+# Kernel to swap self index to the first column
 swap_kernel = cp.RawKernel(r'''
 extern "C" __global__
 void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
