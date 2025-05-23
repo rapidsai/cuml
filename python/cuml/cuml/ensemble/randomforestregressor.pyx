@@ -404,6 +404,26 @@ class RandomForestRegressor(BaseRandomForestModel,
             deprecated in version 25.06 and will be removed in 25.08. Use `layout`,
             `default_chunk_size`, and `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = ('output_class', 'algo', 'fil_sparse_format')
+
+        # Validate deprecated parameters if they were provided
+        if 'fil_sparse_format' in kwargs or 'algo' in kwargs:
+            self._validate_fil_sparse_format(kwargs.get('fil_sparse_format', "auto"), kwargs.get('algo', "auto"))
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
@@ -543,6 +563,35 @@ class RandomForestRegressor(BaseRandomForestModel,
         del X_m
         return preds
 
+    def _validate_fil_sparse_format(self, fil_sparse_format, algo):
+        """Validate the deprecated fil_sparse_format parameter.
+
+        This function is used to maintain backward compatibility while
+        transitioning to the new FIL interface. It raises ValueError for
+        invalid combinations of fil_sparse_format and algo parameters.
+
+        Parameters
+        ----------
+        fil_sparse_format : str or bool
+            The deprecated fil_sparse_format parameter
+        algo : str
+            The deprecated algo parameter
+
+        Raises
+        ------
+        ValueError
+            If fil_sparse_format is "not_supported" or if fil_sparse_format is
+            False and algo is "tree_reorg" or "batch_tree_reorg"
+        """
+        if fil_sparse_format == "not_supported":
+            raise ValueError(
+                "fil_sparse_format='not_supported' is not supported"
+            )
+        if not fil_sparse_format or algo in ["tree_reorg", "batch_tree_reorg"]:
+            raise ValueError(
+                f"fil_sparse_format=False is not supported with algo={algo}"
+            )
+
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
@@ -601,7 +650,12 @@ class RandomForestRegressor(BaseRandomForestModel,
             `align_bytes` instead.
         """
         # Handle deprecated parameters
-        deprecated_params = ("algo", "fil_sparse_format")
+        deprecated_params = ('algo', 'fil_sparse_format')
+
+        # Validate deprecated parameters if they were provided
+        if 'fil_sparse_format' in kwargs or 'algo' in kwargs:
+            self._validate_fil_sparse_format(kwargs.get('fil_sparse_format', "auto"), kwargs.get('algo', "auto"))
+
         for param in deprecated_params:
             if param in kwargs:
                 warnings.warn(
@@ -611,6 +665,9 @@ class RandomForestRegressor(BaseRandomForestModel,
                     FutureWarning
                 )
                 kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
 
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(

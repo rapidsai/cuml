@@ -52,9 +52,17 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore: For reproducible results(.*)" "::cuml[.*]"
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore: For reproducible results(.*)" "::cuml[.*]"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore: Parameter .* was deprecated in version 25.06.*:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore: Property .* was deprecated in version 25.06.*:FutureWarning"
+    ),
+]
 
 
 @pytest.fixture(

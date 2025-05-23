@@ -263,6 +263,35 @@ class RandomForestClassifier(BaseRandomForestModel,
         },
     }
 
+    def _validate_fil_sparse_format(self, fil_sparse_format, algo):
+        """Validate the deprecated fil_sparse_format parameter.
+
+        This function is used to maintain backward compatibility while
+        transitioning to the new FIL interface. It raises ValueError for
+        invalid combinations of fil_sparse_format and algo parameters.
+
+        Parameters
+        ----------
+        fil_sparse_format : str or bool
+            The deprecated fil_sparse_format parameter
+        algo : str
+            The deprecated algo parameter
+
+        Raises
+        ------
+        ValueError
+            If fil_sparse_format is "not_supported" or if fil_sparse_format is
+            False and algo is "tree_reorg" or "batch_tree_reorg"
+        """
+        if fil_sparse_format == "not_supported":
+            raise ValueError(
+                "fil_sparse_format='not_supported' is not supported"
+            )
+        if not fil_sparse_format or algo in ["tree_reorg", "batch_tree_reorg"]:
+            raise ValueError(
+                f"fil_sparse_format=False is not supported with algo={algo}"
+            )
+
     @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
@@ -636,6 +665,10 @@ class RandomForestClassifier(BaseRandomForestModel,
         """
         # Handle deprecated parameters
         deprecated_params = ('algo', 'fil_sparse_format')
+
+        # Validate deprecated parameters if they were provided
+        if 'fil_sparse_format' in kwargs or 'algo' in kwargs:
+            self._validate_fil_sparse_format(kwargs.get('fil_sparse_format', "auto"), kwargs.get('algo', "auto"))
 
         for param in deprecated_params:
             if param in kwargs:
