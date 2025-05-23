@@ -229,6 +229,8 @@ def test_tweedie_convergence(max_depth, split_criterion):
         *tweedie[split_criterion]["args"], size=n_datapoints
     ).astype(np.float32)
 
+    # Breaking change for the adoption of new FIL
+    # - predictions now return 2D arrays (1D output shape was deprecated in #6464)
     tweedie_preds = (
         curfr(
             split_criterion=split_criterion,
@@ -240,7 +242,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    )
+    ).squeeze()  # 1D output shape was deprecated in #6464
     mse_preds = (
         curfr(
             split_criterion=2,
@@ -252,7 +254,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    )
+    ).squeeze()  # 1D output shape was deprecated in #6464
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
     mse_tweedie_deviance = mean_tweedie_deviance(
@@ -1187,10 +1189,14 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         pred = []
         for idx, row in enumerate(X):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
-        pred = np.array(pred, dtype=np.float32)
-        print(json_obj)
-        for i in range(len(pred)):
-            assert np.isclose(pred[i], expected_pred[i]), X[i, 19]
+        # Note: Breaking change in 25.06 - RandomForest predictions now return
+        # 2D arrays with shape (n_samples, 1) instead of 1D arrays with shape
+        # (n_samples,).  This change affects both regression and classification
+        # models.  The test has been updated to handle this new behavior by
+        # ensuring predictions maintain their 2D shape for comparison.
+        # 1D output shape was deprecated in #6464
+        pred = np.array(pred, dtype=np.float32).reshape(-1, 1)
+        expected_pred = expected_pred.reshape(-1, 1)
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
