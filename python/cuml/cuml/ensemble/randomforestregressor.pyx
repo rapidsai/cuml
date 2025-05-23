@@ -593,6 +593,12 @@ class RandomForestRegressor(BaseRandomForestModel,
                 f"fil_sparse_format=False is not supported with algo={algo}"
             )
 
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        if func_name in ("fit", "score"):
+            if kwargs.get("sample_weight", None) is not None:
+                return True
+        return False
+
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
