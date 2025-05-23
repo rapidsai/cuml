@@ -34,7 +34,6 @@ class TreeliteModelCompat(TreeliteModel):
 
     def __del__(self):
         del self._trelite_model
-        # super().__del__()
 
     @classmethod
     def deserialize_bytes(cls, treelite_bytes):
