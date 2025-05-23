@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# flake8: noqa
 
 import os
 from math import ceil
@@ -24,8 +23,8 @@ import treelite
 
 xgb = pytest.importorskip("xgboost")
 
-from sklearn.datasets import make_classification, make_regression
-from sklearn.ensemble import (
+from sklearn.datasets import make_classification, make_regression  # noqa: E402
+from sklearn.ensemble import (  # noqa: E402
     ExtraTreesClassifier,
     ExtraTreesRegressor,
     GradientBoostingClassifier,
@@ -33,11 +32,15 @@ from sklearn.ensemble import (
     RandomForestClassifier,
     RandomForestRegressor,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split  # noqa: E402
 
-from cuml import ForestInference
-from cuml.common.device_selection import using_device_type
-from cuml.testing.utils import quality_param, stress_param, unit_param
+from cuml import ForestInference  # noqa: E402
+from cuml.common.device_selection import using_device_type  # noqa: E402
+from cuml.testing.utils import (  # noqa: E402
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 
 def simulate_data(
