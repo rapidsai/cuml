@@ -15,5 +15,6 @@
 #
 
 
+from cuml.ensemble.compat import TreeliteModelCompat
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor

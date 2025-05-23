@@ -18,10 +18,10 @@
 import warnings
 
 import numpy as np
-import treelite
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
+from cuml.ensemble.compat import TreeliteModelCompat
 from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
@@ -361,10 +361,11 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         Returns
         -------
-        tl_to_fil_model : Treelite version of this model
+        tl_to_fil_model : TreeliteModelCompat
+            A compatibility wrapper around the Treelite version of this model
         """
         treelite_bytes = self._serialize_treelite_bytes()
-        return treelite.Model.deserialize_bytes(treelite_bytes)
+        return TreeliteModelCompat.deserialize_bytes(treelite_bytes)
 
     def convert_to_fil_model(
         self,

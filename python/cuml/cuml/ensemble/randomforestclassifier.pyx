@@ -19,12 +19,12 @@
 import warnings
 
 import numpy as np
-import treelite
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.compat import TreeliteModelCompat
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
 from cuml.internals import logger
@@ -381,16 +381,17 @@ class RandomForestClassifier(BaseRandomForestModel,
     def get_attr_names(self):
         return []
 
-    def convert_to_treelite_model(self) -> treelite.Model:
+    def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
 
         Returns
         -------
-        tl_to_fil_model : Treelite version of this model
+        tl_to_fil_model : TreeliteModelCompat
+            A compatibility wrapper around the Treelite version of this model
         """
         treelite_bytes = self._serialize_treelite_bytes()
-        return treelite.Model.deserialize_bytes(treelite_bytes)
+        return TreeliteModelCompat.deserialize_bytes(treelite_bytes)
 
     def convert_to_fil_model(
         self,
