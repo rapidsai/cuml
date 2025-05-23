@@ -238,7 +238,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
     ).astype(np.float32)
 
     # Breaking change for the adoption of new FIL
-    # - predictions now return 2D arrays (1D output shape was deprecated in #6464)
+    # - predictions now return 2D arrays (1D output shape was changed in 25.06)
     tweedie_preds = (
         curfr(
             split_criterion=split_criterion,
@@ -250,7 +250,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    ).squeeze()  # 1D output shape was deprecated in #6464
+    ).squeeze()  # 1D output shape was changed in 25.06
     mse_preds = (
         curfr(
             split_criterion=2,
@@ -262,7 +262,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    ).squeeze()  # 1D output shape was deprecated in #6464
+    ).squeeze()  # 1D output shape was changed in 25.06
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
     mse_tweedie_deviance = mean_tweedie_deviance(
@@ -1224,7 +1224,6 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         # (n_samples,).  This change affects both regression and classification
         # models.  The test has been updated to handle this new behavior by
         # ensuring predictions maintain their 2D shape for comparison.
-        # 1D output shape was deprecated in #6464
         expected_pred = cuml_model.predict(X).astype(np.float32).squeeze()
         pred = []
         for idx, row in enumerate(X):
