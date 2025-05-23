@@ -119,21 +119,30 @@ def assert_estimator_roundtrip(
     if transform:
         original_output = cuml_model.transform(X)
         roundtrip_output = roundtrip_model.transform(X)
-        array_equal(original_output, roundtrip_output)
+        assert array_equal(original_output, roundtrip_output)
     else:
         # For predict methods
         if hasattr(cuml_model, "predict"):
             original_pred = cuml_model.predict(X)
             roundtrip_pred = roundtrip_model.predict(X)
-            array_equal(original_pred, roundtrip_pred)
+            assert array_equal(original_pred, roundtrip_pred)
         # For models that only produce labels_ or similar attributes (e.g., clustering)
         elif hasattr(cuml_model, "labels_"):
-            array_equal(cuml_model.labels_, roundtrip_model.labels_)
+            assert array_equal(cuml_model.labels_, roundtrip_model.labels_)
         else:
             # If we get here, need a custom handling for that type
             raise NotImplementedError(
                 "No known method to compare outputs of this model."
             )
+
+    # Check that the scikit-learn estimator can be fitted again which checks
+    # that the hyper-parameter translation from cuml to scikit-learn works
+    # Has to happen after comparing predictions/transforms as refitting might
+    # change cluster IDs and the like
+    if y is not None:
+        sklearn_model.fit(X, y)
+    else:
+        sklearn_model.fit(X)
 
 
 ###############################################################################
@@ -166,18 +175,18 @@ def test_dbscan(random_state):
     original.fit(X)
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
-    array_equal(original.labels_, roundtrip_model.labels_)
+    assert array_equal(original.labels_, roundtrip_model.labels_)
 
 
 def test_pca(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = PCA(n_components=2, random_state=random_state)
+    original = PCA(n_components=2)
     assert_estimator_roundtrip(original, SkPCA, X, transform=True)
 
 
 def test_truncated_svd(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = TruncatedSVD(n_components=2, random_state=random_state)
+    original = TruncatedSVD(n_components=2)
     assert_estimator_roundtrip(original, SkTruncatedSVD, X, transform=True)
 
 
@@ -193,7 +202,7 @@ def test_logistic_regression(random_state):
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
     )
-    original = LogisticRegression(random_state=random_state, max_iter=500)
+    original = LogisticRegression(C=5.0, max_iter=500)
     assert_estimator_roundtrip(original, SkLogisticRegression, X, y)
 
 
@@ -201,7 +210,7 @@ def test_elasticnet(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = ElasticNet(random_state=random_state)
+    original = ElasticNet(alpha=0.1)
     assert_estimator_roundtrip(original, SkElasticNet, X, y)
 
 
@@ -209,7 +218,7 @@ def test_ridge(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Ridge(alpha=1.0, random_state=random_state)
+    original = Ridge(alpha=1.0)
     assert_estimator_roundtrip(original, SkRidge, X, y)
 
 
@@ -217,7 +226,7 @@ def test_lasso(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Lasso(alpha=0.1, random_state=random_state)
+    original = Lasso(alpha=0.1)
     assert_estimator_roundtrip(original, SkLasso, X, y)
 
 
@@ -237,8 +246,8 @@ def test_tsne(random_state):
     sklearn_embedding = sklearn_model.embedding_
     roundtrip_embedding = roundtrip_model.embedding_
 
-    array_equal(original_embedding, sklearn_embedding)
-    array_equal(original_embedding, roundtrip_embedding)
+    assert array_equal(original_embedding, sklearn_embedding)
+    assert array_equal(original_embedding, roundtrip_embedding)
 
 
 def test_nearest_neighbors(random_state):

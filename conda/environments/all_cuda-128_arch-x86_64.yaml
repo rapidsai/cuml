@@ -39,7 +39,7 @@ dependencies:
 - libcuvs==25.6.*,>=0.0.0a0
 - libraft==25.6.*,>=0.0.0a0
 - librmm==25.6.*,>=0.0.0a0
-- matplotlib
+- matplotlib-base
 - nbsphinx
 - ninja
 - nltk
@@ -64,7 +64,7 @@ dependencies:
 - recommonmark
 - rmm==25.6.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
-- scikit-learn==1.5.*
+- scikit-learn>=1.5
 - scipy>=1.8.0
 - seaborn
 - sphinx-copybutton
@@ -75,5 +75,5 @@ dependencies:
 - tenacity
 - treelite==4.4.1
 - umap-learn==0.5.7
-- xgboost>=2.1.0,<3.0.0
+- xgboost>=2.1.0
 name: all_cuda-128_arch-x86_64

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -333,7 +333,7 @@ CUML_KERNEL void warpTopKkernel(
       if (outV != nullptr && col < k) outV[rowId * k + col] = topk.arr[i].val;
       if (outK != nullptr && col < k) outK[rowId * k + col] = topk.arr[i].key;
     }  // end for outV and outK
-  }    // end for Sort = false
+  }  // end for Sort = false
   else {
   }
 }

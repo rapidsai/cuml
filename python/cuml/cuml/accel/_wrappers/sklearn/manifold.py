@@ -15,10 +15,10 @@
 #
 
 import cuml.manifold
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("TSNE",)
 
 
-class TSNE(ProxyMixin, cuml.manifold.TSNE):
-    pass
+class TSNE(ProxyBase):
+    _gpu_class = cuml.manifold.TSNE

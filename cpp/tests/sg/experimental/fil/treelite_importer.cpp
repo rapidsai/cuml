@@ -25,6 +25,7 @@
 #include <treelite/enum/typeinfo.h>
 #include <treelite/model_builder.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -298,6 +299,91 @@ TEST(TreeliteImporter, layered_children_together)
   ASSERT_EQ(fil_model.memory_type(), raft_proto::device_type::cpu);
   ASSERT_EQ(fil_model.device_index(), 0);
   ASSERT_FALSE(fil_model.is_double_precision());
+}
+
+template <bool use_leaf_vector, typename leaf_t>
+auto make_degenerate_tree(const leaf_t& leaf)
+{
+  auto task_type        = treelite::TaskType{};
+  auto num_class        = std::int32_t{};
+  auto class_annotation = std::vector<std::int32_t>{};
+  if constexpr (use_leaf_vector) {
+    task_type        = treelite::TaskType::kMultiClf;
+    num_class        = leaf.size();
+    class_annotation = {-1};
+  } else {
+    task_type        = treelite::TaskType::kBinaryClf;
+    num_class        = 1;
+    class_annotation = {0};
+  }
+  auto metadata = treelite::model_builder::Metadata{
+    1,
+    task_type,
+    false,
+    1,
+    {num_class},
+    {1, num_class},
+  };
+  auto tree_annotation = treelite::model_builder::TreeAnnotation{1, {0}, class_annotation};
+  auto model_builder   = treelite::model_builder::GetModelBuilder(
+    treelite::TypeInfo::kFloat64,
+    treelite::TypeInfo::kFloat64,
+    metadata,
+    tree_annotation,
+    treelite::model_builder::PostProcessorFunc{"identity_multiclass"},
+    std::vector<double>(num_class, 0.0));
+  model_builder->StartTree();
+  model_builder->StartNode(0);
+  if constexpr (use_leaf_vector) {
+    model_builder->LeafVector(leaf);
+  } else {
+    model_builder->LeafScalar(leaf);
+  }
+  model_builder->EndNode();
+  model_builder->EndTree();
+  return model_builder->CommitModel();
+}
+
+TEST(TreeliteImporter, DegenerateTree)
+{
+  auto tl_model  = make_degenerate_tree<false>(1.0);
+  auto fil_model = import_from_treelite_model(*tl_model, tree_layout::breadth_first);
+  ASSERT_FALSE(fil_model.has_vector_leaves());
+
+  auto handle         = raft::handle_t{};
+  auto X              = std::vector<double>{0.0};
+  auto preds          = std::vector<double>(1, 0.0);
+  auto expected_preds = std::vector<double>{1.0};
+  fil_model.predict(handle,
+                    preds.data(),
+                    X.data(),
+                    1,
+                    raft_proto::device_type::cpu,
+                    raft_proto::device_type::cpu,
+                    ML::experimental::fil::infer_kind::default_kind,
+                    1);
+  ASSERT_EQ(preds, expected_preds);
+}
+
+TEST(TreeliteImporter, DegenerateTreeWithVectorLeaf)
+{
+  auto tl_model  = make_degenerate_tree<true>(std::vector<double>{0.5, 0.5});
+  auto fil_model = import_from_treelite_model(*tl_model, tree_layout::breadth_first);
+  ASSERT_TRUE(fil_model.has_vector_leaves());
+
+  auto handle         = raft::handle_t{};
+  auto X              = std::vector<double>{0.0};
+  auto preds          = std::vector<double>(2, 0.0);
+  auto expected_preds = std::vector<double>{0.5, 0.5};
+  fil_model.predict(handle,
+                    preds.data(),
+                    X.data(),
+                    1,
+                    raft_proto::device_type::cpu,
+                    raft_proto::device_type::cpu,
+                    ML::experimental::fil::infer_kind::default_kind,
+                    1);
+  ASSERT_EQ(preds, expected_preds);
 }
 
 }  // namespace fil
