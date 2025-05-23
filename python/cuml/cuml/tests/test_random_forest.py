@@ -279,6 +279,9 @@ def test_tweedie_convergence(max_depth, split_criterion):
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
+@pytest.mark.filterwarnings(
+    "ignore:Parameter `algo` was deprecated in version 25.06.*:FutureWarning"
+)
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     use_handle = True
 
@@ -308,6 +311,8 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     )
     cuml_model.fit(X_train, y_train)
 
+    # Breaking change for the adoption of new FIL
+    # - algo parameter was deprecated in 25.06 and will be removed in 25.08
     fil_preds = cuml_model.predict(
         X_test, predict_model="GPU", threshold=0.5, algo="auto"
     )
@@ -336,6 +341,9 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.filterwarnings(
+    "ignore:Parameter `algo` was deprecated in version 25.06.*:FutureWarning"
+)
 def test_rf_classification_unorder(
     small_clf, datatype, max_samples, max_features=1, a=2, b=5
 ):
@@ -369,6 +377,8 @@ def test_rf_classification_unorder(
     )
     cuml_model.fit(X_train, y_train)
 
+    # Breaking change for the adoption of new FIL
+    # - algo parameter was deprecated in 25.06 and will be removed in 25.08
     fil_preds = cuml_model.predict(
         X_test, predict_model="GPU", threshold=0.5, algo="auto"
     )
@@ -733,6 +743,13 @@ def test_rf_classification_proba(
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
+@pytest.mark.filterwarnings(
+    "ignore:Parameter `algo` was deprecated in version 25.06.*:FutureWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Parameter `fil_sparse_format` was deprecated in version 25.06.*"
+    ":FutureWarning"
+)
 def test_rf_classification_sparse(
     small_clf, datatype, fil_sparse_format, algo
 ):
@@ -769,6 +786,11 @@ def test_rf_classification_sparse(
         or algo == "batch_tree_reorg"
     ) or fil_sparse_format == "not_supported":
         with pytest.raises(ValueError):
+            # Breaking change for the adoption of new FIL
+            # - fil_sparse_format parameter was deprecated in 25.06 and will be
+            #   removed in 25.08
+            # - algo parameter was deprecated in 25.06 and will be removed in
+            #   25.08
             fil_preds = cuml_model.predict(
                 X_test,
                 predict_model="GPU",
@@ -777,6 +799,10 @@ def test_rf_classification_sparse(
                 algo=algo,
             )
     else:
+        # Breaking change for the adoption of new FIL
+        # - fil_sparse_format parameter was deprecated in 25.06 and will be
+        #   removed in 25.08
+        # - algo parameter was deprecated in 25.06 and will be removed in 25.08
         fil_preds = cuml_model.predict(
             X_test,
             predict_model="GPU",
