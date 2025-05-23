@@ -1,3 +1,8 @@
+- reason: "Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel"
+  marker: cuml_accel_invalid_sklearn_tests
+  tests:
+  - "sklearn.svm.tests.test_svm::test_gamma_scale"
+  - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
   marker: cuml_accel_bugs
   condition: "scikit-learn<1.6"
@@ -32,8 +37,6 @@
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape0]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape1]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape2]"
-  - "sklearn.linear_model.tests.test_ridge::test_ridge_cv_custom_multioutput_scorer"
-  - "sklearn.linear_model.tests.test_ridge::test_ridge_cv_multioutput_sample_weight[42]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression[42-wide-False-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_hstacked_X[42-wide-False-svd]"
@@ -1190,6 +1193,7 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
   - "sklearn.utils.tests.test_validation::test_has_fit_parameter"
+  - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-False-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-cholesky]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-lsqr]"
@@ -1218,8 +1222,11 @@
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
-  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hit]"
+  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hut]"
+  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[exact]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
 - reason: "cuml.accel bug: Missing components_ attribute"
   tests:
   - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
@@ -1425,6 +1432,12 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_fit1d]"
 - reason: "cuml doesn't set `feature_names_in_` properly"
   marker: cuml_accel_feature_names_in
   tests:
@@ -1437,6 +1450,9 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
 - reason: "cuml raises a different error if X doesn't have expected n features"
   marker: cuml_accel_check_n_features_in
   tests:
@@ -1448,6 +1464,8 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[PCA()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Ridge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVC()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVR()]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
@@ -1456,12 +1474,17 @@
   - "sklearn.tests.test_common::test_estimators[PCA()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
 - reason: "cuml missing certain fit attributes"
   marker: cuml_accel_missing_fit_attributes
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
 - reason: "metadata routing not yet supported"
   marker: cuml_accel_metadata_routing
   tests:
@@ -1484,3 +1507,58 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
+- reason: "SVR input handling and validation"
+  marker: cuml_accel_svr_estimator_checks
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
+- reason: "SVC input handling and validation"
+  marker: cuml_accel_svc_estimator_checks
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
+  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
+  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
+  - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
+- reason: "SVM missing certain fit attributes"
+  marker: cuml_accel_svm_missing_fit_attributes
+  tests:
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
+- reason: "SVM doesn't handle sample_weight identically to sklearn"
+  marker: cuml_accel_svm_sample_weight
+  tests:
+  - "sklearn.svm.tests.test_svm::test_weight"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVR]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVR]"
+  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
