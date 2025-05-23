@@ -1219,18 +1219,19 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
             assert expected_pred[idx] == majority_vote
     elif estimator_type == "regression":
-        expected_pred = cuml_model.predict(X).astype(np.float32)
-        pred = []
-        for idx, row in enumerate(X):
-            pred.append(predict_with_json_rf_regressor(json_obj, row))
         # Note: Breaking change in 25.06 - RandomForest predictions now return
         # 2D arrays with shape (n_samples, 1) instead of 1D arrays with shape
         # (n_samples,).  This change affects both regression and classification
         # models.  The test has been updated to handle this new behavior by
         # ensuring predictions maintain their 2D shape for comparison.
         # 1D output shape was deprecated in #6464
-        pred = np.array(pred, dtype=np.float32).reshape(-1, 1)
-        expected_pred = expected_pred.reshape(-1, 1)
+        expected_pred = cuml_model.predict(X).astype(np.float32).squeeze()
+        pred = []
+        for idx, row in enumerate(X):
+            pred.append(predict_with_json_rf_regressor(json_obj, row))
+        pred = np.array(pred, dtype=np.float32)
+        for i in range(len(pred)):
+            assert np.isclose(pred[i], expected_pred[i]), X[i, 19]
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
@@ -1456,8 +1457,8 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
-    out_pred = treelite.gtil.predict(tl_model, X)
-    np.testing.assert_almost_equal(out_pred, expected_prob, decimal=5)
+    out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
+    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
 
 
 @pytest.mark.parametrize(
