@@ -34,6 +34,7 @@ jobs:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
+      script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
   conda-python-tests-singlegpu:
     secrets: inherit

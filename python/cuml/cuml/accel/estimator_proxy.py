@@ -118,6 +118,12 @@ class ProxyBase(BaseEstimator):
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
         cls._cpu_class = cls._gpu_class._cpu_class
 
+        # Store whether sparse inputs are supported, unless overridden
+        if not hasattr(cls, "_gpu_supports_sparse"):
+            cls._gpu_supports_sparse = (
+                "sparse" in cls._gpu_class._get_tags()["X_types_gpu"]
+            )
+
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
 
@@ -134,6 +140,11 @@ class ProxyBase(BaseEstimator):
         # the original full module path so that the class (not an instance) can
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
+        # Forward _estimator_type as a class attribute if available
+        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
+        if isinstance(_estimator_type, str):
+            cls._estimator_type = _estimator_type
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -206,11 +217,7 @@ class ProxyBase(BaseEstimator):
         """Call a method on the wrapped GPU estimator."""
         from cuml.common.sparse_utils import is_sparse
 
-        if (
-            args
-            and is_sparse(args[0])
-            and "sparse" not in self._gpu._get_tags()["X_types_gpu"]
-        ):
+        if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             # Sparse inputs not supported
             raise UnsupportedOnGPU
 
@@ -238,7 +245,9 @@ class ProxyBase(BaseEstimator):
 
             # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
-                self._gpu = self._gpu_class.from_sklearn(self._cpu)
+                self._gpu = self._gpu_class(
+                    **self._gpu_class._params_from_cpu(self._cpu)
+                )
             except UnsupportedOnGPU:
                 # Unsupported, fallback to CPU
                 self._gpu = None
