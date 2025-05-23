@@ -394,8 +394,6 @@ def _func_predict_proba_partial(model, input_data, **kwargs):
     than dataset.
     """
     X = concatenate(input_data)
-    if "convert_dtype" in kwargs:
-        del kwargs["convert_dtype"]
     with using_output_type("cupy"):
         prediction = model.predict_proba(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
