@@ -645,6 +645,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         -------
         y : {}
 
+        .. versionchanged:: 25.06
+            The output shape was changed from 1D to 2D (n_samples, 1).
+
         .. deprecated:: 25.06
             Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
             and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
