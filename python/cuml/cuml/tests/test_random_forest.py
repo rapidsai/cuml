@@ -1400,7 +1400,12 @@ def test_rf_regression_with_identical_labels(split_criterion):
     assert model_dump[0] == expected_dump
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
+)
 def test_rf_regressor_gtil_integration(tmpdir):
+    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
+    # This will be updated to use serialize() in version 25.08
     X, y = fetch_california_housing(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
@@ -1415,7 +1420,12 @@ def test_rf_regressor_gtil_integration(tmpdir):
     np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
+)
 def test_rf_binary_classifier_gtil_integration(tmpdir):
+    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
+    # This will be updated to use serialize() in version 25.08
     X, y = load_breast_cancer(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
@@ -1430,7 +1440,12 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
+)
 def test_rf_multiclass_classifier_gtil_integration(tmpdir):
+    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
+    # This will be updated to use serialize() in version 25.08
     X, y = load_iris(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
@@ -1441,8 +1456,8 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
-    out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
-    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+    out_pred = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_pred, expected_prob, decimal=5)
 
 
 @pytest.mark.parametrize(
