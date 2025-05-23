@@ -645,9 +645,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         -------
         y : {}
 
-        .. versionchanged:: 25.06
-            The output shape was changed from 1D to 2D (n_samples, 1).
-
         .. deprecated:: 25.06
             Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
             and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
@@ -688,6 +685,12 @@ class RandomForestRegressor(BaseRandomForestModel,
                 default_chunk_size=default_chunk_size,
                 align_bytes=align_bytes,
             )
+
+        # Reshape to 1D array if the output would be (n, 1) to match
+        # the output shape behavior of scikit-learn.
+        if len(preds.shape) == 2 and preds.shape[1] == 1:
+            preds = CumlArray(preds.to_output('array').reshape(-1))
+
         return preds
 
     @nvtx.annotate(
