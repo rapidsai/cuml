@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from dask import config
+import dask
 
 from cuml.dask import (
     cluster,
@@ -31,7 +31,7 @@ from cuml.dask import (
 )
 
 # Avoid "p2p" shuffling in dask for now
-config.set({"dataframe.shuffle.method": "tasks"})
+dask.config.set({"dataframe.shuffle.method": "tasks"})
 
 __all__ = [
     "cluster",
