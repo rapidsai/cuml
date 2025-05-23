@@ -19,7 +19,7 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 
 namespace UMAPAlgo {
 
@@ -39,19 +39,19 @@ using namespace ML;
  * @param algorithm algo type to choose
  */
 template <typename T, typename value_idx, typename nnz_t, int TPB_X>
-void run(int n,
+void run(const raft::handle_t& handle,
+         int n,
          const value_idx* knn_indices,
          const T* knn_dists,
          int n_neighbors,
-         raft::sparse::COO<T>* coo,
+         raft::device_coo_matrix_view<T, int, int, uint64_t>& coo,
          UMAPParams* params,
-         cudaStream_t stream,
          int algorithm = 0)
 {
   switch (algorithm) {
     case 0:
       Naive::launcher<T, value_idx, nnz_t, TPB_X>(
-        n, knn_indices, knn_dists, n_neighbors, coo, params, stream);
+        handle, n, knn_indices, knn_dists, n_neighbors, coo, params);
       break;
   }
 }

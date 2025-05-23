@@ -21,7 +21,7 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 
 namespace UMAPAlgo {
 
@@ -33,7 +33,7 @@ template <typename T, typename nnz_t>
 void run(const raft::handle_t& handle,
          int n,
          int d,
-         raft::sparse::COO<float>* coo,
+         raft::device_coo_matrix_view<float, int, int, uint64_t>& coo,
          UMAPParams* params,
          T* embedding,
          cudaStream_t stream,

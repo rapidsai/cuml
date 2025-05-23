@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph =
+      raft::make_device_coo_matrix<float, int, int, uint64_t>(*handle, params.nrows, params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               yFloat,
@@ -140,7 +141,8 @@ class UmapUnsupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph =
+      raft::make_device_coo_matrix<float, int, int, uint64_t>(*handle, params.nrows, params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               nullptr,
@@ -178,7 +180,8 @@ class UmapTransform : public UmapBase {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph =
+      raft::make_device_coo_matrix<float, int, int, uint64_t>(handle, params.nrows, params.nrows);
     UMAP::fit(handle,
               this->data.X.data(),
               yFloat,

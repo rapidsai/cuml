@@ -19,11 +19,11 @@
 #include <cuml/cluster/spectral.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/coo.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -48,7 +48,7 @@ template <typename T, typename nnz_t>
 void launcher(const raft::handle_t& handle,
               nnz_t n,
               int d,
-              raft::sparse::COO<float>* coo,
+              raft::device_coo_matrix_view<float, int, int, uint64_t>& coo,
               UMAPParams* params,
               T* embedding)
 {
@@ -62,10 +62,10 @@ void launcher(const raft::handle_t& handle,
   uint64_t seed = params->random_state;
 
   Spectral::fit_embedding(handle,
-                          coo->rows(),
-                          coo->cols(),
-                          coo->vals(),
-                          coo->nnz,
+                          coo.structure_view().get_rows().data(),
+                          coo.structure_view().get_cols().data(),
+                          coo.get_elements().data(),
+                          coo.structure_view().get_nnz(),
                           n,
                           params->n_components,
                           tmp_storage.data(),

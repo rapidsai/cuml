@@ -25,7 +25,7 @@ void find_ab(const raft::handle_t& handle, UMAPParams* params)
   UMAPAlgo::find_ab(params, stream);
 }
 
-std::unique_ptr<raft::sparse::COO<float, int>> get_graph(
+std::unique_ptr<raft::device_coo_matrix<float, int, int, uint64_t>> get_graph(
   const raft::handle_t& handle,
   float* X,  // input matrix
   float* y,  // labels
@@ -45,7 +45,7 @@ void refine(const raft::handle_t& handle,
             float* X,
             int n,
             int d,
-            raft::sparse::COO<float>* graph,
+            raft::device_coo_matrix<float, int, int, uint64_t>* graph,
             UMAPParams* params,
             float* embeddings)
 {
@@ -59,7 +59,7 @@ void init_and_refine(const raft::handle_t& handle,
                      float* X,
                      int n,
                      int d,
-                     raft::sparse::COO<float>* graph,
+                     raft::device_coo_matrix<float, int, int, uint64_t>* graph,
                      UMAPParams* params,
                      float* embeddings)
 {
@@ -78,7 +78,7 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
-         raft::sparse::COO<float, int>* graph)
+         raft::device_coo_matrix<float, int, int, uint64_t>* graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _fit<uint64_t>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph);
@@ -98,7 +98,7 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
-                raft::sparse::COO<float, int>* graph)
+                raft::device_coo_matrix<float, int, int, uint64_t>* graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _fit_sparse<uint64_t>(handle,

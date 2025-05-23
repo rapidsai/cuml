@@ -21,8 +21,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -296,15 +296,19 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <typename T, typename nnz_t, int TPB_X>
-void launcher(
-  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(int m,
+              int n,
+              raft::device_coo_matrix_view<T, int, int, uint64_t>& in,
+              UMAPParams* params,
+              T* embedding,
+              cudaStream_t stream)
 {
-  nnz_t nnz = in->nnz;
+  nnz_t nnz = in.structure_view().get_nnz();
 
   /**
    * Find vals.max()
    */
-  thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals());
+  thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in.get_elements().data());
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
@@ -320,8 +324,8 @@ void launcher(
    * vals.max() / params->n_epochs to 0.0
    */
   raft::linalg::unaryOp<T>(
-    in->vals(),
-    in->vals(),
+    in.get_elements().data(),
+    in.get_elements().data(),
     nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))
@@ -331,19 +335,24 @@ void launcher(
     },
     stream);
 
-  raft::sparse::COO<T> out(stream);
+  raft::device_coo_matrix_view<T, int, int, uint64_t> out(stream);
   raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
 
-  rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
+  rmm::device_uvector<T> epochs_per_sample(out.structure_view().get_nnz(), stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(
+    epochs_per_sample.data(), 0, out.structure_view().get_nnz() * sizeof(T), stream));
 
-  make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
+  make_epochs_per_sample(out.get_elements().data(),
+                         out.structure_view().get_nnz(),
+                         n_epochs,
+                         epochs_per_sample.data(),
+                         stream);
 
   /*
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     std::stringstream ss;
-    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
-    CUML_LOG_TRACE(ss.str().c_str());
+    ss << raft::arr2Str(epochs_per_sample.data(), out.structure_view().get_nnz(),
+  "epochs_per_sample", stream); CUML_LOG_TRACE(ss.str().c_str());
   }
   */
 
@@ -351,9 +360,9 @@ void launcher(
                                    m,
                                    embedding,
                                    m,
-                                   out.rows(),
-                                   out.cols(),
-                                   out.nnz,
+                                   out.structure_view().get_rows().data(),
+                                   out.structure_view().get_cols().data(),
+                                   out.structure_view().get_nnz(),
                                    epochs_per_sample.data(),
                                    params->repulsion_strength,
                                    params,

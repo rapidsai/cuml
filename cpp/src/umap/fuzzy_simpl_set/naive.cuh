@@ -21,7 +21,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/sparse/coo.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/stats/mean.cuh>
@@ -275,7 +275,7 @@ void compute_membership_strength(nnz_t n,
                                  const value_idx* knn_indices,
                                  const value_t* knn_dists,
                                  int n_neighbors,
-                                 raft::sparse::COO<value_t>& out,
+                                 raft::device_coo_matrix_view<float, int, int, uint64_t>& out,
                                  UMAPParams* params,
                                  cudaStream_t stream)
 {
@@ -302,7 +302,7 @@ void compute_membership_strength(nnz_t n,
   /**
    * Compute graph of membership strengths
    */
-  nnz_t to_process = static_cast<nnz_t>(out.n_rows) * n_neighbors;
+  nnz_t to_process = static_cast<nnz_t>(out.structure_view().get_n_rows()) * n_neighbors;
   dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
@@ -311,17 +311,17 @@ void compute_membership_strength(nnz_t n,
                                        knn_dists,
                                        sigmas.data(),
                                        rhos.data(),
-                                       out.vals(),
-                                       out.rows(),
-                                       out.cols(),
+                                       out.get_elements().data(),
+                                       out.structure_view().get_rows().data(),
+                                       out.structure_view().get_cols().data(),
                                        n_neighbors,
                                        to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename value_t>
-void symmetrize(raft::sparse::COO<value_t>& in,
-                raft::sparse::COO<value_t>& out,
+template <typename value_t, typename nnz_t>
+void symmetrize(raft::device_coo_matrix_view<float, int, int, uint64_t>& in,
+                raft::device_coo_matrix_view<float, int, int, uint64_t>& out,
                 float set_op_mix_ratio,
                 cudaStream_t stream)
 {
@@ -358,23 +358,26 @@ void symmetrize(raft::sparse::COO<value_t>& in,
  * @param stream cuda stream to use for device operations
  */
 template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
-void launcher(nnz_t n,
+void launcher(const raft::handle_t& handle,
+              nnz_t n,
               const value_idx* knn_indices,
               const value_t* knn_dists,
               int n_neighbors,
-              raft::sparse::COO<value_t>* out,
-              UMAPParams* params,
-              cudaStream_t stream)
+              raft::device_coo_matrix_view<float, int, int, uint64_t>& out,
+              UMAPParams* params)
 {
+  cudaStream_t stream = handle.get_stream();
+
   /* Nested scope so `strengths` is dropped before the `coo_sort` call to
    * reduce device memory usage. */
   {
-    raft::sparse::COO<value_t> strengths(stream, n * n_neighbors, n, n);
+    auto strengths = raft::make_device_coo_matrix<float, int, int, uint64_t>(handle, n, n);
+    strengths.initialize_sparsity(n * n_neighbors);
 
     compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
       n, knn_indices, knn_dists, n_neighbors, strengths, params, stream);
 
-    symmetrize<value_t>(strengths, *out, params->set_op_mix_ratio, stream);
+    symmetrize<value_t, nnz_t>(strengths, out, params->set_op_mix_ratio, stream);
   }  // end strengths scope
 
   raft::sparse::op::coo_sort<value_t>(out, stream);
