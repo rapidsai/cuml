@@ -16,15 +16,16 @@
 #
 # distutils: language = c++
 
-import warnings
-
 import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.ensemble.compat import TreeliteModelCompat
+from cuml.ensemble.compat import (
+    TreeliteModelCompat,
+    _handle_deprecated_rf_args,
+)
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
 from cuml.internals import logger
@@ -393,6 +394,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         treelite_bytes = self._serialize_treelite_bytes()
         return TreeliteModelCompat.deserialize_bytes(treelite_bytes)
 
+    @_handle_deprecated_rf_args('output_class', 'threshold', 'algo', 'fil_sparse_format')
     def convert_to_fil_model(
         self,
         *,
@@ -428,30 +430,15 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         .. deprecated:: 25.06
             Parameters `output_class`, `threshold`, `algo`, and `fil_sparse_format` were
-            deprecated in version 25.06 and will be removed in 25.08. Use `layout`,
+            deprecated in version 25.06 and will be removed in 25.08. Parameters `threshold`,
+            `algo`, and `fil_sparse_format` are ignored as of 25.06. Use `layout`,
             `default_chunk_size`, and `align_bytes` instead.
         """
-        # Handle deprecated parameters
-        deprecated_params = ('output_class', 'threshold', 'algo', 'fil_sparse_format')
-
-        for param in deprecated_params:
-            if param in kwargs:
-                warnings.warn(
-                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
-                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
-                    "`align_bytes` instead.",
-                    FutureWarning
-                )
-                kwargs.pop(param)
-
-        if kwargs:
-            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
             output_type="input",
-            is_classifier=True,
+            is_classifier=kwargs.get('is_classifier', True),
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -618,6 +605,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         "default_chunk_size",
         "align_bytes",
     )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict(
         self,
         X,
@@ -661,29 +649,10 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         .. deprecated:: 25.06
             Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
-            `align_bytes` instead.
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
-        # Handle deprecated parameters
-        deprecated_params = ('algo', 'fil_sparse_format')
-
-        # Validate deprecated parameters if they were provided
-        if 'fil_sparse_format' in kwargs or 'algo' in kwargs:
-            self._validate_fil_sparse_format(kwargs.get('fil_sparse_format', "auto"), kwargs.get('algo', "auto"))
-
-        for param in deprecated_params:
-            if param in kwargs:
-                warnings.warn(
-                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
-                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
-                    "`align_bytes` instead.",
-                    FutureWarning
-                )
-                kwargs.pop(param)
-
-        if kwargs:
-            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(
                 X=X,
@@ -714,6 +683,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         "default_chunk_size",
         "align_bytes"
     )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict_proba(
         self,
         X,
@@ -752,26 +722,11 @@ class RandomForestClassifier(BaseRandomForestModel,
         y : {}
 
         .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated
-            in version 25.06 and will be removed in 25.08. Use `layout`,
-            `default_chunk_size`, and `align_bytes` instead.
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
-        # Handle deprecated parameters
-        deprecated_params = ('algo', 'fil_sparse_format')
-
-        for param in deprecated_params:
-            if param in kwargs:
-                warnings.warn(
-                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
-                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
-                    "`align_bytes` instead.",
-                    FutureWarning
-                )
-                kwargs.pop(param)
-
-        if kwargs:
-            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-
         return self._predict_model_on_gpu(
             X=X,
             is_classifier=True,
@@ -790,6 +745,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @deprecate_non_keyword_only(
         "threshold", "convert_dtype", "layout", "default_chunk_size", "align_bytes",
     )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def score(
         self,
         X,
@@ -836,9 +792,10 @@ class RandomForestClassifier(BaseRandomForestModel,
            Accuracy of the model [0.0 - 1.0]
 
         .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated
-            in version 25.06 and will be removed in 25.08. Use `layout`,
-            `default_chunk_size`, and `align_bytes` instead.
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
