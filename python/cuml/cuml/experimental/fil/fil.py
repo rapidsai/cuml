@@ -13,14 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.experimental.fil.fil import (
-    ForestInference as ExperimentalForestInference,
-)
+from cuml.fil.fil import ForestInference as NewForestInference
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 
 
-class ForestInference(ExperimentalForestInference):
+class ForestInference(NewForestInference):
     def __init__(
         self,
         *,
@@ -37,8 +34,8 @@ class ForestInference(ExperimentalForestInference):
         device_id=0,
     ):
         """
-        ForestInference provides accelerated inference for forest models on both
-        CPU and GPU.
+        A compatibility wrapper for cuml.fil.ForestInference.
+        New code should use cuml.fil.ForestInference directly.
 
         Parameters
         ----------
@@ -151,13 +148,7 @@ class ForestInference(ExperimentalForestInference):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
-        results = super().predict_proba(X, preds=preds, chunk_size=chunk_size)
-        if len(results.shape) == 2 and results.shape[-1] == 1:
-            results = results.to_output("array").flatten()
-            results = GlobalSettings().xpy.stack(
-                [1 - results, results], axis=1
-            )
-        return results
+        return super().predict_proba(X, preds=preds, chunk_size=chunk_size)
 
     def predict(
         self,
@@ -213,13 +204,6 @@ class ForestInference(ExperimentalForestInference):
             classifiers, the highest probability class is chosen regardless
             of threshold.
         """
-        results = super().predict(
+        return super().predict(
             X, preds=preds, chunk_size=chunk_size, threshold=threshold
         )
-        if (
-            self.is_classifier
-            and len(results.shape) == 2
-            and results.shape[-1] == 1
-        ):
-            results = results.to_output("array").flatten()
-        return results

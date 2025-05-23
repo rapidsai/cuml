@@ -36,19 +36,17 @@ from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+from cuml.fil.detail.raft_proto.cuda_stream cimport (
     cuda_stream as raft_proto_stream_t,
 )
-from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+from cuml.fil.detail.raft_proto.device_type cimport (
     device_type as raft_proto_device_t,
 )
-from cuml.experimental.fil.detail.raft_proto.handle cimport (
-    handle_t as raft_proto_handle_t,
-)
-from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
-from cuml.experimental.fil.infer_kind cimport infer_kind
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
-from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+from cuml.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
+from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
+from cuml.fil.infer_kind cimport infer_kind
+from cuml.fil.postprocessing cimport element_op, row_op
+from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
 
 from cuml.internals.treelite import safe_treelite_call
@@ -337,16 +335,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
 
-    This experimental implementation
-    (`cuml.experimental.ForestInference`) of ForestInference is similar to the
-    original (`cuml.ForestInference`) FIL, but it also offers CPU
-    execution and in most cases superior performance for GPU execution.
-
-    Note: This is an experimental feature. Although it has been
-    extensively reviewed and tested, it has not been as thoroughly evaluated
-    as the original FIL. For maximum stability, we recommend using the
-    original FIL until this implementation moves out of experimental.
-
     **Performance Tuning**
     FIL offers a number of hyperparameters that can be tuned to obtain optimal
     performance for a given model, hardware, and batch size. The easiest way to
@@ -377,7 +365,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     also described below. Testing available layouts is recommended to optimize
     performance, but the impact is likely to be substantially less than
     optimizing `chunk_size`. There is no universal rule for predicting which
-    layout will produce best performance. On both GPU and CPU, the
+    layout will produce the best performance. On both GPU and CPU, the
     `depth_first` layout can improve performance by increasing cache hits
     during tree traversal. This tends to be the strongest effect for most use
     cases, so `depth_first` is used as the default value.
@@ -1099,7 +1087,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
-    def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
+    def predict_proba(
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+        safe_dtype_conversion=None,
+    ) -> CumlArray:
         """
         Predict the class probabilities for each row in X.
 
@@ -1135,15 +1130,31 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             values are powers of 2 from 1 to 32. On CPU, valid values are
             any power of 2, but little benefit is expected above a chunk size
             of 512.
+        safe_dtype_conversion: boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with previous versions of FIL. It will be removed
+            in 25.08.
         """
+        if safe_dtype_conversion is not None:
+            warnings.warn(
+                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
+                "removed in 25.08. Do not use it.",
+                FutureWarning,
+            )
         if not self.is_classifier:
             raise RuntimeError(
                 "predict_proba is not available for regression models. Load"
                 " with is_classifer=True if this is a classifier."
             )
-        return self.forest.predict(
+        results = self.forest.predict(
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
+        if len(results.shape) == 2 and results.shape[-1] == 1:
+            results = results.to_output("array").flatten()
+            results = GlobalSettings().xpy.stack(
+                [1 - results, results], axis=1
+            )
+        return results
 
     @nvtx.annotate(
         message='ForestInference.predict',
@@ -1155,7 +1166,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         *,
         preds=None,
         chunk_size=None,
-        threshold=None
+        threshold=None,
+        safe_dtype_conversion=None,
     ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
@@ -1202,7 +1214,17 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             of 0.5 will be used for binary classifiers. For multiclass
             classifiers, the highest probability class is chosen regardless
             of threshold.
+        safe_dtype_conversion: boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with older versions of FIL. It will be removed in
+            25.08.
         """
+        if safe_dtype_conversion is not None:
+            warnings.warn(
+                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
+                "removed in 25.08. Do not use it.",
+                FutureWarning,
+            )
         chunk_size = (chunk_size or self.default_chunk_size)
         if self.forest.row_postprocessing() == 'max_index':
             raw_out = self.forest.predict(X, chunk_size=chunk_size)
