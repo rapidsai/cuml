@@ -434,3 +434,18 @@ def test_fit_transform_weighted_kmeans(
         assert diff / avg_score <= relative_tolerance
 
     assert sk_transf.shape == cuml_transf.shape
+
+
+def test_kmeans_empty_x():
+    """Check that a nice error happens if X is empty, rather than a segfault"""
+    model = cuml.KMeans()
+
+    X = np.empty(shape=(0, 10))
+    y = np.ones(shape=0)
+    with pytest.raises(ValueError, match=r"Found array with 0 sample\(s\)"):
+        model.fit(X, y)
+
+    X = np.empty(shape=(10, 0))
+    y = np.ones(shape=10)
+    with pytest.raises(ValueError, match=r"Found array with 0 feature\(s\)"):
+        model.fit(X, y)

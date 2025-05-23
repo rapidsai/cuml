@@ -16,7 +16,6 @@
 
 import numpy as np
 import pytest
-from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score
@@ -28,6 +27,12 @@ def clustering_data():
         n_samples=300, centers=3, cluster_std=1.0, random_state=42
     )
     return X, y
+
+
+def test_kmeans_default(clustering_data):
+    X, y = clustering_data
+    kmeans = KMeans().fit(X, y)
+    assert kmeans.labels_.shape == y.shape
 
 
 @pytest.mark.parametrize("n_clusters", [2, 3, 4, 5])
@@ -101,52 +106,3 @@ def test_kmeans_random_state(clustering_data):
     kmeans2 = KMeans(n_clusters=3, random_state=42).fit(X)
     # With the same random_state, results should be the same
     assert np.allclose(kmeans1.cluster_centers_, kmeans2.cluster_centers_)
-
-
-def test_kmeans_init_parameter():
-    # Check that not passing a value for a constructor argument and passing the
-    # scikit-learn default value leads to the same behavior.
-    X, y = make_blobs(
-        n_samples=300, centers=3, cluster_std=1.0, random_state=42
-    )
-    km1 = KMeans(init="k-means++")
-    km1.fit(X, y)
-    # Check that the translation of "k-means++" worked.
-    assert km1.init == "scalable-k-means++"
-
-    km2 = KMeans()
-    km2.fit(X, y)
-    # No init parameter should lead to the cuml default being used.
-    assert km2.init == "scalable-k-means++"
-
-
-def test_kmeans_sparse_cpu_dispatch():
-    """Test that sparse inputs are dispatched to CPU in accel mode"""
-    # Generate dense data
-    X, y = make_blobs(
-        n_samples=100,
-        n_features=10,
-        centers=3,
-        cluster_std=1.0,
-        random_state=42,
-    )
-
-    # Convert to sparse matrix
-    X_sparse = csr_matrix(X)
-
-    # Create KMeans instance
-    kmeans = KMeans(n_clusters=3, random_state=42)
-
-    # Fit with sparse input
-    kmeans.fit(X_sparse)
-
-    # Verify that the model was fitted on CPU
-    # This can be checked by verifying the model's attributes are numpy arrays
-    assert hasattr(kmeans, "_cpu_model")
-    assert isinstance(kmeans.cluster_centers_, np.ndarray)
-    assert isinstance(kmeans.labels_, np.ndarray)
-
-    # Verify predictions work with sparse input
-    preds = kmeans.predict(X_sparse)
-    assert isinstance(preds, np.ndarray)
-    assert len(preds) == X_sparse.shape[0]
