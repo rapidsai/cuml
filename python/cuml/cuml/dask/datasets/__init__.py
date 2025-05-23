@@ -17,9 +17,3 @@
 from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.datasets.classification import make_classification
 from cuml.dask.datasets.regression import make_regression
-
-__all__ = [
-    "make_blobs",
-    "make_regression",
-    "make_classification",
-]
