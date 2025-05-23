@@ -1375,8 +1375,13 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
     X, y = make_data(random_state=0)
     clf = estimator(min_samples_split=0.0001, random_state=0, n_estimators=2)
 
-    # Does not error
-    clf.fit(X, y)
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
 
 
 # TODO: Remove in v24.08
@@ -1401,7 +1406,15 @@ def test_random_forest_max_features_deprecation(Estimator):
 def test_rf_predict_returns_int():
 
     X, y = make_classification()
-    clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+
     pred = clf.predict(X)
     assert pred.dtype == np.int64
 
@@ -1409,5 +1422,13 @@ def test_rf_predict_returns_int():
 def test_ensemble_estimator_length():
     X, y = make_classification()
     clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
-    clf.fit(X, y)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
+
     assert len(clf) == 3
