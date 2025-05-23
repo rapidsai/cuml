@@ -297,13 +297,14 @@ cdef class ForestInference_impl():
         return preds
 
     def predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
+        self,
+        X,
+        *,
+        predict_type="default",
+        preds=None,
+        chunk_size=None,
+        output_dtype=None,
+    ):
         return self._predict(
             X,
             predict_type=predict_type,
@@ -592,19 +593,20 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self._reload_model()
 
     def __init__(
-            self,
-            *,
-            treelite_model=None,
-            handle=None,
-            output_type=None,
-            verbose=False,
-            is_classifier=False,
-            output_class=None,
-            layout='depth_first',
-            default_chunk_size=None,
-            align_bytes=None,
-            precision='single',
-            device_id=0):
+        self,
+        *,
+        treelite_model=None,
+        handle=None,
+        output_type=None,
+        verbose=False,
+        is_classifier=False,
+        output_class=None,
+        layout='depth_first',
+        default_chunk_size=None,
+        align_bytes=None,
+        precision='single',
+        device_id=0,
+    ):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
@@ -697,27 +699,28 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @classmethod
     def load(
-            cls,
-            path,
-            *,
-            is_classifier=False,
-            output_class=None,
-            threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
-            precision='single',
-            model_type=None,
-            output_type=None,
-            verbose=False,
-            default_chunk_size=None,
-            align_bytes=None,
-            layout='depth_first',
-            device_id=0,
-            handle=None):
+        cls,
+        path,
+        *,
+        is_classifier=False,
+        output_class=None,
+        threshold=None,
+        algo=None,
+        storage_type=None,
+        blocks_per_sm=None,
+        threads_per_tree=None,
+        n_items=None,
+        compute_shape_str=None,
+        precision='single',
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout='depth_first',
+        device_id=0,
+        handle=None
+    ):
         """Load a model into FIL from a serialized model file.
 
         Parameters

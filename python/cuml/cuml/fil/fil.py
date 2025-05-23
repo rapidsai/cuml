@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import warnings
 
 from cuml.experimental.fil.fil import (
     ForestInference as ExperimentalForestInference,
@@ -111,6 +112,7 @@ class ForestInference(ExperimentalForestInference):
         *,
         preds=None,
         chunk_size=None,
+        safe_dtype_conversion=None,
     ) -> CumlArray:
         """
         Predict the class probabilities for each row in X.
@@ -147,7 +149,17 @@ class ForestInference(ExperimentalForestInference):
             values are powers of 2 from 1 to 32. On CPU, valid values are
             any power of 2, but little benefit is expected above a chunk size
             of 512.
+        safe_dtype_conversion: boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. It will be removed in a future
+            version.
         """
+        if safe_dtype_conversion is not None:
+            warnings.warn(
+                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
+                "removed in 25.08. Do not use it.",
+                FutureWarning,
+            )
         results = super().predict_proba(X, preds=preds, chunk_size=chunk_size)
         if len(results.shape) == 2 and results.shape[-1] == 1:
             results = results.to_output("array").flatten()
@@ -163,6 +175,7 @@ class ForestInference(ExperimentalForestInference):
         preds=None,
         chunk_size=None,
         threshold=None,
+        safe_dtype_conversion=None,
     ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
@@ -209,7 +222,17 @@ class ForestInference(ExperimentalForestInference):
             of 0.5 will be used for binary classifiers. For multiclass
             classifiers, the highest probability class is chosen regardless
             of threshold.
+        safe_dtype_conversion: boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. It will be removed in a future
+            version.
         """
+        if safe_dtype_conversion is not None:
+            warnings.warn(
+                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
+                "removed in 25.08. Do not use it.",
+                FutureWarning,
+            )
         results = super().predict(
             X, preds=preds, chunk_size=chunk_size, threshold=threshold
         )

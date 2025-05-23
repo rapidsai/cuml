@@ -365,10 +365,11 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     def convert_to_fil_model(
         self,
+        *,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -590,6 +591,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     def predict(
         self,
         X,
+        *,
         threshold = 0.5,
         convert_dtype = True,
         predict_model = "GPU",
@@ -681,6 +683,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     def predict_proba(
         self,
         X,
+        *,
         convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
@@ -757,6 +760,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         self,
         X,
         y,
+        *,
         threshold = 0.5,
         convert_dtype = True,
         layout = "depth_first",
@@ -773,6 +777,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         y : {}
         threshold : float (default = 0.5)
             Threshold used for classification predictions
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.

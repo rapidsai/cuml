@@ -365,9 +365,11 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     def convert_to_fil_model(
         self,
+        *,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -393,6 +395,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
+        .. deprecated:: 25.06
+            Parameters `output_class`, `algo`, and `fil_sparse_format` were
+            deprecated in version 25.06 and will be removed in 25.08. Use `layout`,
+            `default_chunk_size`, and `align_bytes` instead.
         """
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
@@ -402,6 +409,7 @@ class RandomForestRegressor(BaseRandomForestModel,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
+            **kwargs,
         )
 
     @nvtx.annotate(
@@ -544,6 +552,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     def predict(
         self,
         X,
+        *,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
@@ -612,6 +621,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         self,
         X,
         y,
+        *,
         convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
@@ -626,6 +636,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         ----------
         X : {}
         y : {}
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
