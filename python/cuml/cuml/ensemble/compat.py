@@ -54,7 +54,7 @@ class TreeliteModelCompat(TreeliteModel):
             "Property 'num_trees' was deprecated in version 25.06 and will be removed in 25.08. "
             "Please use 'num_tree' instead.",
             FutureWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         return self.num_tree
 
@@ -113,38 +113,46 @@ def _handle_deprecated_rf_args(*deprecated_params):
         If fil_sparse_format is "not_supported" or if fil_sparse_format is False
         and algo is "tree_reorg" or "batch_tree_reorg"
     """
+
     def decorator(func):
         # Get the function's signature to check for valid parameters
         sig = inspect.signature(func)
         valid_params = {
-            name for name, param in sig.parameters.items()
-            if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                              inspect.Parameter.KEYWORD_ONLY)
+            name
+            for name, param in sig.parameters.items()
+            if param.kind
+            in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            )
         }
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Validate deprecated parameters if they were provided
-            if 'fil_sparse_format' in kwargs or 'algo' in kwargs:
-                fil_sparse_format = kwargs.get('fil_sparse_format', "auto")
-                algo = kwargs.get('algo', "auto")
+            if "fil_sparse_format" in kwargs or "algo" in kwargs:
+                fil_sparse_format = kwargs.get("fil_sparse_format", "auto")
+                algo = kwargs.get("algo", "auto")
 
                 if fil_sparse_format == "not_supported":
                     raise ValueError(
                         "fil_sparse_format='not_supported' is not supported"
                     )
-                if not fil_sparse_format or algo in ["tree_reorg", "batch_tree_reorg"]:
+                if not fil_sparse_format or algo in [
+                    "tree_reorg",
+                    "batch_tree_reorg",
+                ]:
                     raise ValueError(
                         f"fil_sparse_format=False is not supported with algo={algo}"
                     )
 
-            if 'output_class' in kwargs:
+            if "output_class" in kwargs:
                 warnings.warn(
                     "Parameter `output_class` was deprecated in version 25.06 and will be "
                     "removed in 25.08. Use `is_classifier` instead.",
-                    FutureWarning
+                    FutureWarning,
                 )
-                kwargs['is_classifier'] = kwargs.pop('output_class')
+                kwargs["is_classifier"] = kwargs.pop("output_class")
 
             for param in deprecated_params:
                 if param in kwargs:
@@ -152,15 +160,19 @@ def _handle_deprecated_rf_args(*deprecated_params):
                         f"Parameter `{param}` was deprecated in version 25.06 and will be "
                         "removed in 25.08. Use `layout`, `default_chunk_size`, and "
                         "`align_bytes` instead.",
-                        FutureWarning
+                        FutureWarning,
                     )
                     kwargs.pop(param)
 
             # Check for unexpected keyword arguments that aren't in the function signature
             unexpected_kwargs = set(kwargs.keys()) - valid_params
             if unexpected_kwargs:
-                raise ValueError(f"Unexpected keyword arguments: {list(unexpected_kwargs)}")
+                raise ValueError(
+                    f"Unexpected keyword arguments: {list(unexpected_kwargs)}"
+                )
 
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
