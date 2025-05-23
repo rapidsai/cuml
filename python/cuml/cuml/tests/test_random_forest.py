@@ -52,9 +52,13 @@ from cuml.testing.utils import (
     unit_param,
 )
 
+# TODO(hcho3): Remove deprecated parameters and address FutureWarning
 pytestmark = [
     pytest.mark.filterwarnings(
         "ignore: For reproducible results(.*)" "::cuml[.*]"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore: Parameter .* was deprecated in version 25.06.*:FutureWarning"
     ),
 ]
 
@@ -308,7 +312,9 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU", threshold=0.5)
+    fil_preds = cuml_model.predict(
+        X_test, predict_model="GPU", threshold=0.5, algo="auto"
+    )
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -367,7 +373,9 @@ def test_rf_classification_unorder(
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU", threshold=0.5)
+    fil_preds = cuml_model.predict(
+        X_test, predict_model="GPU", threshold=0.5, algo="auto"
+    )
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -759,6 +767,8 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
         predict_model="GPU",
         threshold=0.5,
         layout=fil_layout,
+        fil_sparse_format="auto",
+        algo="naive",
     )
     fil_preds = np.reshape(fil_preds, np.shape(y_test))
     fil_acc = accuracy_score(y_test, fil_preds)
@@ -831,6 +841,8 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         X_test,
         predict_model="GPU",
         layout=fil_layout,
+        fil_sparse_format="auto",
+        algo="naive",
     )
     fil_preds = np.reshape(fil_preds, np.shape(y_test))
     fil_r2 = r2_score(y_test, fil_preds)
@@ -904,6 +916,7 @@ def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
                 X_test,
                 predict_model="GPU",
                 fil_layout=fil_layout,
+                fil_sparse_format="auto",
             )
             handle.sync()  # just to be sure
             # Calculate the memory free after predicting the cuML model

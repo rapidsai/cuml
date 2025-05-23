@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 # distutils: language = c++
+
+import warnings
+
 import numpy as np
 import treelite
 
@@ -558,6 +561,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs,
     ) -> CumlArray:
         """
         Predicts the values for X.
@@ -590,7 +594,24 @@ class RandomForestRegressor(BaseRandomForestModel,
         Returns
         -------
         y : {}
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
+            `align_bytes` instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = ("algo", "fil_sparse_format")
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning
+                )
+                kwargs.pop(param)
+
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(
                 X=X,
@@ -623,9 +644,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         y,
         *,
         convert_dtype = True,
+        predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
+        **kwargs,
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -639,6 +662,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         convert_dtype : bool (default = True)
             When True, automatically convert the input to the data type used
             to train the model. This may increase memory usage.
+        predict_model : string (default = 'GPU')
+            Device to use for prediction: 'GPU' or 'CPU'.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -657,6 +682,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Use `layout`, `default_chunk_size`, and
+            `align_bytes` instead.
         """
         from cuml.metrics.regression import r2_score
 
@@ -672,9 +702,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         y_ptr = y_m.ptr
         preds = self.predict(
             X,
+            convert_dtype=convert_dtype,
+            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
+            **kwargs,
         )
 
         cdef uintptr_t preds_ptr

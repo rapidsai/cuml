@@ -598,7 +598,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs
+        **kwargs,
     ) -> CumlArray:
         """
         Predicts the labels for X.
@@ -688,7 +688,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs
+        **kwargs,
     ) -> CumlArray:
         """
         Predicts class probabilities for X. This function uses the GPU
@@ -718,7 +718,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         y : {}
 
         .. deprecated:: 25.06
-            Parameters `algo`, `convert_dtype`, and `fil_sparse_format` were deprecated
+            Parameters `algo` and `fil_sparse_format` were deprecated
             in version 25.06 and will be removed in 25.08. Use `layout`,
             `default_chunk_size`, and `align_bytes` instead.
         """
@@ -763,10 +763,11 @@ class RandomForestClassifier(BaseRandomForestModel,
         *,
         threshold = 0.5,
         convert_dtype = True,
+        predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -780,6 +781,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         convert_dtype : bool (default = True)
             When True, automatically convert the input to the data type used
             to train the model. This may increase memory usage.
+        predict_model : string (default = 'GPU')
+            Device to use for prediction: 'GPU' or 'CPU'.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -799,26 +802,10 @@ class RandomForestClassifier(BaseRandomForestModel,
            Accuracy of the model [0.0 - 1.0]
 
         .. deprecated:: 25.06
-            Parameters `algo`, `predict_model`, and `fil_sparse_format` were deprecated
+            Parameters `algo` and `fil_sparse_format` were deprecated
             in version 25.06 and will be removed in 25.08. Use `layout`,
             `default_chunk_size`, and `align_bytes` instead.
         """
-        # Handle deprecated parameters
-        deprecated_params = ('algo', 'predict_model', 'fil_sparse_format')
-
-        for param in deprecated_params:
-            if param in kwargs:
-                warnings.warn(
-                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
-                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
-                    "`align_bytes` instead.",
-                    FutureWarning
-                )
-                kwargs.pop(param)
-
-        if kwargs:
-            raise ValueError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -833,9 +820,12 @@ class RandomForestClassifier(BaseRandomForestModel,
         preds = self.predict(
             X,
             threshold=threshold,
+            convert_dtype=convert_dtype,
+            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
+            **kwargs,
         )
 
         cdef uintptr_t preds_ptr
