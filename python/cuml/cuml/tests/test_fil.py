@@ -170,7 +170,7 @@ def test_fil_classification(
         else:
             xgb_proba = bst.predict(dvalidation)
 
-        fm = ForestInference.load(model_path, output_class=True)
+        fm = ForestInference.load(model_path, is_classifier=True)
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
         fil_proba = np.reshape(fil_proba, xgb_proba.shape)
@@ -236,9 +236,7 @@ def test_fil_regression(
         xgb_preds = bst.predict(dvalidation)
 
         fm = ForestInference.load(
-            path=model_path,
-            output_class=False,
-            precision="single",
+            path=model_path, is_classifier=False, precision="single"
         )
     with using_device_type(infer_device):
         fil_preds = np.asarray(fm.predict(X_validation))
@@ -326,7 +324,7 @@ def test_fil_skl_classification(
         skl_proba = skl_model.predict_proba(X_validation)
 
         fm = ForestInference.load_from_sklearn(
-            skl_model, precision=precision, output_class=True
+            skl_model, precision=precision, is_classifier=True
         )
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
@@ -407,7 +405,7 @@ def test_fil_skl_regression(
 
         fm = ForestInference.load_from_sklearn(
             skl_model=skl_model,
-            output_class=False,
+            is_classifier=False,
             precision="double",
         )
     with using_device_type(infer_device):
@@ -449,7 +447,7 @@ def test_precision_xgboost(
         fm = ForestInference.load(
             model_path,
             model_type=model_type,
-            output_class=True,
+            is_classifier=True,
             precision=precision,
         )
 
@@ -470,7 +468,10 @@ def test_performance_hyperparameters(
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
-            model_path, layout=layout, output_class=True, model_type=model_type
+            model_path,
+            layout=layout,
+            is_classifier=True,
+            model_type=model_type,
         )
 
     with using_device_type(infer_device):
@@ -488,7 +489,7 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
     fm = ForestInference.load(
         model_path,
         model_type=model_type,
-        output_class=True,
+        is_classifier=True,
         threshold=0.50,
     )
 
@@ -503,17 +504,17 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
     np.testing.assert_array_equal(fil_preds, xgb_preds_int)
 
 
-@pytest.mark.parametrize("output_class", [True, False])
-def test_thresholding(output_class, small_classifier_and_preds):
+@pytest.mark.parametrize("is_classifier", [True, False])
+def test_thresholding(is_classifier, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
         model_path,
         model_type=model_type,
-        output_class=output_class,
+        is_classifier=is_classifier,
         threshold=0.50,
     )
     fil_preds = np.asarray(fm.predict(X))
-    if output_class:
+    if is_classifier:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() == 0
     else:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
@@ -525,7 +526,7 @@ def test_output_args(train_device, infer_device, small_classifier_and_preds):
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
-            model_path, output_class=True, model_type=model_type
+            model_path, is_classifier=True, model_type=model_type
         )
     with using_device_type(infer_device):
         X = np.asarray(X)
@@ -633,7 +634,7 @@ def test_lightgbm(
     lgm.booster_.save_model(model_path)
     with using_device_type(train_device):
         fm = ForestInference.load(
-            model_path, output_class=True, model_type="lightgbm"
+            model_path, is_classifier=True, model_type="lightgbm"
         )
     gbm_proba = lgm.predict_proba(X_predict)
     with using_device_type(infer_device):
@@ -672,7 +673,7 @@ def test_predict_per_tree(
             n_classes=n_classes,
             xgboost_params=xgboost_params,
         )
-        fm = ForestInference.load(model_path, output_class=True)
+        fm = ForestInference.load(model_path, is_classifier=True)
         tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
@@ -728,7 +729,7 @@ def test_predict_per_tree_with_vector_leaf(
         tl_model = treelite.sklearn.import_model(skl_model)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
         fm = ForestInference.load_from_sklearn(
-            skl_model, precision="native", output_class=True
+            skl_model, precision="native", is_classifier=True
         )
 
     with using_device_type(infer_device):
@@ -778,7 +779,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         )
 
         fm = ForestInference.load(
-            model_path, output_class=True, model_type="xgboost_ubj"
+            model_path, is_classifier=True, model_type="xgboost_ubj"
         )
 
     with using_device_type(infer_device):
