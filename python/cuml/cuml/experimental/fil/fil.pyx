@@ -612,16 +612,18 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if output_class is not None:
             warnings.warn(
                 "Parameter `output_class` was deprecated in version 25.06 and will be "
-                "removed in 25.08. Use `is_classifier` instead.",
+                "replaced with `is_classifier` in 25.08. Please use `is_classifier` in the future. "
+                "For now, `output_class` parameter has been automatically converted to `is_classifier`.",
                 FutureWarning
             )
+            self.is_classifier = output_class
+        else:
+            self.is_classifier = is_classifier
 
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
         self.layout = layout
         self.precision = precision
-        self.is_classifier = is_classifier
-        self.is_classifier = output_class
         self.device_id = device_id
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
@@ -698,7 +700,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             path,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
             algo=None,
             storage_type=None,
@@ -724,8 +727,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             binary or JSON file, a LightGBM text file, or a Treelite checkpoint
             file. If the model_type parameter is not passed, an attempt will be
             made to load the file based on its extension.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please use `is_classifier` instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -820,6 +826,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -833,7 +840,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             skl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
             algo=None,
             storage_type=None,
@@ -856,8 +864,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         ----------
         skl_model
             The Scikit-Learn forest model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please use `is_classifier` instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -940,6 +951,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -954,7 +966,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             tl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
             algo=None,
             storage_type=None,
@@ -977,8 +990,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         ----------
         tl_model : treelite.Model
             The Treelite model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please use `is_classifier` instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -1060,6 +1076,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
