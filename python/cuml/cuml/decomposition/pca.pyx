@@ -33,7 +33,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_cupy_array,
@@ -477,6 +477,7 @@ class PCA(Base,
 
     @generate_docstring(X='dense_sparse')
     @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -622,6 +623,7 @@ class PCA(Base,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
     @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "return_sparse", "sparse_tol")
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
@@ -725,6 +727,7 @@ class PCA(Base,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @warn_legacy_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.

@@ -35,7 +35,7 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
@@ -132,6 +132,50 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
                          size_t batch_size_query,
                          DistanceType metric,
                          float metricArg) except +
+
+# Kernel to check for zeros in the second column of D_ndarr
+check_zero_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if (row >= n_rows) return;
+
+    int index = row * n_cols + 1;
+
+    // Check if the second column has a zero
+    if (D[index] == 0.0f) {
+        *zero_found = 1;
+    }
+}
+''', 'check_zero_kernel')
+
+# Kernel to swap self index to the first column
+swap_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if (row >= n_rows) return;
+
+    int base_idx = row * n_cols;
+
+    for (int j = 1; j < n_cols; ++j) {
+        int idx = base_idx + j;
+        if (I[idx] == row) {
+            // Swap I
+            int tmp_I = I[base_idx];
+            I[base_idx] = I[idx];
+            I[idx] = tmp_I;
+
+            // Swap D
+            float tmp_D = D[base_idx];
+            D[base_idx] = D[idx];
+            D[idx] = tmp_D;
+
+            break; // found self index
+        }
+    }
+}
+''', 'swap_kernel')
 
 
 class NearestNeighbors(UniversalBase,
@@ -327,6 +371,7 @@ class NearestNeighbors(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -478,6 +523,7 @@ class NearestNeighbors(UniversalBase,
                                           ('dense',
                                            '(n_samples, n_features)')])
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "two_pass_precision")
     def kneighbors(
         self,
         X=None,
@@ -673,21 +719,38 @@ class NearestNeighbors(UniversalBase,
                 ).array
                 I_ndarr.index = index
 
+        if use_training_data:
+            I_ndarr = I_ndarr.to_output('cupy')
+            D_ndarr = D_ndarr.to_output('cupy')
+
+            rows, cols = I_ndarr.shape
+
+            # Launch config
+            threads_per_block = 32
+            blocks = (rows + threads_per_block - 1) // threads_per_block
+
+            # Allocate memory for the flag
+            zero_found = cp.zeros(1, dtype=cp.int32)
+
+            # Run the kernel to check for zeros
+            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
+
+            threads_per_block = 32
+            blocks = (rows + threads_per_block - 1) // threads_per_block
+
+            # only run kernel if there are multiple zero distances
+            if zero_found:
+                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+
+            # slicing does not copy
+            I_ndarr = I_ndarr[:, 1:]
+            D_ndarr = D_ndarr[:, 1:]
+
+            I_ndarr = CumlArray.from_input(I_ndarr, force_contiguous=True)
+            D_ndarr = CumlArray.from_input(D_ndarr, force_contiguous=True)
+
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
-
-        # drop first column if using training data as X
-        # this will need to be moved to the C++ layer (cuml issue #2562)
-        if use_training_data:
-            if out_type in {'cupy', 'numpy', 'numba'}:
-                I_ndarr = I_ndarr[:, 1:]
-                D_ndarr = D_ndarr[:, 1:]
-            elif out_type == "cuml":
-                I_ndarr = CumlArray.from_input(I_ndarr[:, 1:], force_contiguous=True)
-                D_ndarr = CumlArray.from_input(D_ndarr[:, 1:], force_contiguous=True)
-            else:
-                I_ndarr.drop(I_ndarr.columns[0], axis=1)
-                D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 

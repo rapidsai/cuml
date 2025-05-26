@@ -15,6 +15,8 @@
 
 import numpy as np
 import pytest
+import scipy.sparse
+import sklearn.svm
 from numpy.testing import assert_allclose
 from sklearn.cluster import KMeans as SkKMeans
 from sklearn.datasets import make_blobs, make_classification, make_regression
@@ -27,8 +29,10 @@ from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
 from sklearn.utils.validation import check_is_fitted
 
+import cuml
 from cuml.cluster import DBSCAN, KMeans
 from cuml.decomposition import PCA, TruncatedSVD
+from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -134,6 +138,15 @@ def assert_estimator_roundtrip(
             raise NotImplementedError(
                 "No known method to compare outputs of this model."
             )
+
+    # Check that the scikit-learn estimator can be fitted again which checks
+    # that the hyper-parameter translation from cuml to scikit-learn works
+    # Has to happen after comparing predictions/transforms as refitting might
+    # change cluster IDs and the like
+    if y is not None:
+        sklearn_model.fit(X, y)
+    else:
+        sklearn_model.fit(X)
 
 
 ###############################################################################
@@ -252,3 +265,74 @@ def test_nearest_neighbors(random_state):
     dist_roundtrip, ind_roundtrip = roundtrip_model.kneighbors(X)
     assert_allclose(dist_original, dist_roundtrip)
     assert_allclose(ind_original, ind_roundtrip)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svr(random_state, sparse):
+    X, y = make_regression(n_samples=100, random_state=random_state)
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVR()
+    assert_estimator_roundtrip(original, sklearn.svm.SVR, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.SVR(kernel="linear").fit(X, y)
+    sk_model = sklearn.svm.SVR(kernel="linear").fit(X, y)
+
+    sk_score = cu_model.as_sklearn().score(X, y)
+    assert sk_score > 0.7
+
+    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    assert cu_score > 0.7
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svc(random_state, sparse):
+    X, y = make_classification(
+        n_samples=100, n_features=5, n_informative=3, random_state=random_state
+    )
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVC()
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model = sklearn.svm.SVC().fit(X, y)
+
+    sk_score = cu_model.as_sklearn().score(X, y)
+    assert sk_score > 0.7
+
+    cu_score = cuml.SVC.from_sklearn(sk_model).score(X, y)
+    assert cu_score > 0.7
+
+
+def test_svc_multiclass_unsupported(random_state):
+    X, y = make_classification(
+        n_samples=50,
+        n_features=10,
+        n_classes=3,
+        n_informative=5,
+        random_state=random_state,
+    )
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model = sklearn.svm.SVC().fit(X, y)
+
+    with pytest.raises(UnsupportedOnGPU):
+        cuml.SVC.from_sklearn(sk_model)
+
+    with pytest.raises(UnsupportedOnCPU):
+        cu_model.as_sklearn()
+
+
+def test_svc_probability_true_unsupported(random_state):
+    X, y = make_classification(n_samples=50, random_state=random_state)
+
+    cu_model = cuml.SVC(probability=True).fit(X, y)
+    sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+
+    with pytest.raises(UnsupportedOnGPU):
+        cuml.SVC.from_sklearn(sk_model)
+
+    with pytest.raises(UnsupportedOnCPU):
+        cu_model.as_sklearn()

@@ -19,14 +19,18 @@
 import cupy as cp
 import numpy as np
 
+from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+    warn_legacy_device_interop,
+)
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -35,8 +39,6 @@ from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.common import input_to_cuml_array, using_output_type
 
 
 cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML::Dbscan" nogil:
@@ -106,7 +108,16 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML::Dbscan" nogil:
                   bool opg) except +
 
 
-class DBSCAN(UniversalBase,
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "cosine": DistanceType.CosineExpanded,
+    "precomputed": DistanceType.Precomputed
+}
+
+
+class DBSCAN(Base,
+             InteropMixin,
              ClusterMixin,
              CMajorInputTagMixin):
     """
@@ -221,24 +232,62 @@ class DBSCAN(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.cluster.DBSCAN'
     core_sample_indices_ = CumlArrayDescriptor(order="C")
     labels_ = CumlArrayDescriptor(order="C")
 
-    _hyperparam_interop_translator = {
-        "metric": {
-            "manhattan": "NotImplemented",
-            "chebyshev": "NotImplemented",
-            "minkowski": "NotImplemented",
-        },
-        "algorithm": {
-            "auto": "brute",
-            "ball_tree": "NotImplemented",
-            "kd_tree": "NotImplemented",
-        },
-    }
+    _cpu_class_path = "sklearn.cluster.DBSCAN"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "eps",
+            "min_samples",
+            "max_mbytes_per_batch",
+            "calc_core_sample_indices",
+            "metric",
+            "algorithm",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if callable(model.metric):
+            raise UnsupportedOnGPU
+        elif model.metric not in _SUPPORTED_METRICS:
+            raise UnsupportedOnGPU
+
+        if model.algorithm not in ("auto", "brute"):
+            raise UnsupportedOnGPU
+
+        return {
+            "eps": model.eps,
+            "min_samples": model.min_samples,
+            "metric": model.metric,
+            "algorithm": "brute",
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "eps": self.eps,
+            "min_samples": self.min_samples,
+            "metric": self.metric,
+            "algorithm": "brute",
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "core_sample_indices_": to_gpu(model.core_sample_indices_, order="C"),
+            "labels_": to_gpu(model.labels_, order="C"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "core_sample_indices_": to_cpu(self.core_sample_indices_, order="C"),
+            "labels_": to_cpu(self.labels_, order="C"),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *,
                  eps=0.5,
                  handle=None,
@@ -316,17 +365,8 @@ class DBSCAN(UniversalBase,
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
         # metric
-        metric_parsing = {
-            "L2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "cosine": DistanceType.CosineExpanded,
-            "precomputed": DistanceType.Precomputed
-        }
-        if self.metric in metric_parsing:
-            metric = metric_parsing[self.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
+        if (metric := _SUPPORTED_METRICS.get(self.metric.lower())) is None:
+            raise ValueError(f"Invalid value for metric: {self.metric}")
 
         # algo
         algo_parsing = {
@@ -433,7 +473,8 @@ class DBSCAN(UniversalBase,
         return self
 
     @generate_docstring(skip_parameters_heading=True)
-    @enable_device_interop
+    @warn_legacy_device_interop
+    @deprecate_non_keyword_only("out_dtype", "convert_dtype")
     def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
             convert_dtype=True) -> "DBSCAN":
         """
@@ -458,7 +499,8 @@ class DBSCAN(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    @enable_device_interop
+    @warn_legacy_device_interop
+    @deprecate_non_keyword_only("out_dtype")
     def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
@@ -477,17 +519,3 @@ class DBSCAN(UniversalBase,
         """
         self.fit(X, out_dtype=out_dtype, sample_weight=sample_weight)
         return self.labels_
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "eps",
-            "min_samples",
-            "max_mbytes_per_batch",
-            "calc_core_sample_indices",
-            "metric",
-            "algorithm",
-        ]
-
-    def get_attr_names(self):
-        return ["core_sample_indices_", "labels_", "n_features_in_"]

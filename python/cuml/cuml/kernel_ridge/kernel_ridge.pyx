@@ -32,7 +32,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.mixins import RegressorMixin
 from cuml.metrics import pairwise_kernels
 
@@ -256,6 +256,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
 
     @generate_docstring()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "KernelRidge":
 

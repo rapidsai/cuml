@@ -19,7 +19,6 @@ from collections import namedtuple
 import cudf
 import cupy as cp
 import cupyx
-import dask_cudf
 import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
@@ -500,7 +499,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
     if the conversion would lose information.
     """
 
-    if isinstance(X, (dask_cudf.Series, dask_cudf.DataFrame)):
+    if hasattr(X, "__dask_graph__") and hasattr(X, "compute"):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 

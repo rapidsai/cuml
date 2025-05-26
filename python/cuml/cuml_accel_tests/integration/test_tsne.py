@@ -81,17 +81,6 @@ def test_tsne_learning_rate(synthetic_data, learning_rate):
     ), "Number of samples should remain the same"
 
 
-@pytest.mark.parametrize("n_iter", [250])
-def test_tsne_n_iter(synthetic_data, n_iter):
-    X, _ = synthetic_data
-    model = TSNE(n_iter=n_iter, random_state=42)
-    model.fit_transform(X)
-    # Since TSNE may perform additional iterations, check if n_iter_ is at least n_iter
-    assert (
-        model.n_iter_ >= n_iter
-    ), f"Number of iterations should be at least {n_iter}"
-
-
 @pytest.mark.parametrize("metric", ["euclidean", "manhattan", "cosine"])
 def test_tsne_metric(synthetic_data, metric):
     X, _ = synthetic_data
@@ -112,6 +101,13 @@ def test_tsne_init(synthetic_data, init):
     assert (
         X_embedded.shape[0] == X.shape[0]
     ), f"Embedding should have same number of samples with init={init}"
+
+
+def test_tsne_init_array(synthetic_data):
+    X, _ = synthetic_data
+    model = TSNE(init=np.zeros((100, 2)), random_state=42)
+    X_embedded = model.fit_transform(X)
+    assert X_embedded.shape[0] == X.shape[0]
 
 
 @pytest.mark.parametrize("method", ["barnes_hut", "exact"])
