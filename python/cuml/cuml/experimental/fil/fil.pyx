@@ -707,16 +707,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     def num_trees(self):
         return self.forest.num_trees()
 
-    @property
-    def num_tree(self):
-        warnings.warn(
-            "Property 'num_tree' was deprecated in version 25.06 and will be removed in 25.08. "
-            "Please use 'num_trees' instead.",
-            FutureWarning,
-            stacklevel=2
-        )
-        return self.num_trees()
-
     @classmethod
     def load(
         cls,
