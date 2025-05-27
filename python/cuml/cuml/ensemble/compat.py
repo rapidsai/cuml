@@ -14,12 +14,14 @@
 # limitations under the License.
 #
 
+import ctypes
 import functools
 import inspect
 import warnings
-from typing import Any, Optional
 
 from treelite import Model as TreeliteModel
+from treelite.core import _LIB as treelite_LIB
+from treelite.core import _check_call
 
 
 class TreeliteModelCompat(TreeliteModel):
@@ -29,18 +31,22 @@ class TreeliteModelCompat(TreeliteModel):
     certain properties to be available on treelite.Model instances.
     """
 
-    def __init__(self, *, handle: Optional[Any] = None):
-        self._handle = handle
-
-    def __del__(self):
-        del self._trelite_model
-
     @classmethod
-    def deserialize_bytes(cls, treelite_bytes):
-        model = TreeliteModel.deserialize_bytes(treelite_bytes)
-        ret = cls(handle=model._handle)
-        ret._trelite_model = model
-        return ret
+    def deserialize_bytes(cls, model_bytes: bytes) -> "TreeliteModelCompat":
+        # Adapted from treelite/model.py
+        handle = ctypes.c_void_p()
+        bytes_len = len(model_bytes)
+        bytes_buffer = ctypes.create_string_buffer(model_bytes, bytes_len)
+
+        _check_call(
+            treelite_LIB.TreeliteDeserializeModelFromBytes(
+                ctypes.pointer(bytes_buffer),
+                ctypes.c_size_t(bytes_len),
+                ctypes.byref(handle),
+            )
+        )
+
+        return TreeliteModelCompat(handle=handle)
 
     @property
     def num_trees(self):
