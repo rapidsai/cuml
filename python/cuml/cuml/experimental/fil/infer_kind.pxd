@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
 
 cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
