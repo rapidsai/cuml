@@ -37,6 +37,7 @@ import dask_cudf
 import numpy as np
 import pandas as pd
 import pytest
+import treelite
 from dask.array import from_array
 from dask.distributed import Client
 from sklearn.datasets import make_classification, make_regression
@@ -143,9 +144,6 @@ def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=n_workers * 100, random_state=123
     )
-
-    if dtype == np.float64:
-        pytest.xfail(reason=" Dask RF does not support np.float64 data")
 
     cu_rf_params = {
         "n_estimators": 50,
@@ -323,8 +321,6 @@ def test_rf_classification_dask_fil_predict_proba(
 def test_rf_concatenation_dask(client, model_type):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
 
-    from cuml.legacy.fil.fil import TreeliteModel
-
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=30, random_state=123, n_classes=2
     )
@@ -348,12 +344,9 @@ def test_rf_concatenation_dask(client, model_type):
     res1 = cu_rf_mg.predict(X_df)
     res1.compute()
     if cu_rf_mg.internal_model:
-        local_tl = TreeliteModel.from_treelite_model_handle(
-            cu_rf_mg.internal_model._obtain_treelite_handle(),
-            take_handle_ownership=False,
-        )
-
-        assert local_tl.num_trees == n_estimators
+        treelite_bytes = cu_rf_mg.internal_model._serialize_treelite_bytes()
+        local_tl = treelite.Model.deserialize_bytes(treelite_bytes)
+        assert local_tl.num_tree == n_estimators
 
 
 @pytest.mark.parametrize("ignore_empty_partitions", [True, False])

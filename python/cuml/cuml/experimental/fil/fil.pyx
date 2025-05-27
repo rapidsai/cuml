@@ -15,6 +15,7 @@
 #
 import itertools
 import pathlib
+import warnings
 from time import perf_counter
 
 import numpy as np
@@ -48,14 +49,9 @@ from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.experimental.fil.infer_kind cimport infer_kind
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+from cuml.internals.treelite cimport *
 
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
-                                               TreeliteModelHandle* out) except +
-    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
-    cdef const char* TreeliteGetLastError()
+from cuml.internals.treelite import safe_treelite_call
 
 
 cdef raft_proto_device_t get_device_type(arr):
@@ -110,15 +106,16 @@ cdef class ForestInference_impl():
     cdef object raft_handle
 
     def __cinit__(
-            self,
-            raft_handle,
-            tl_model,
-            *,
-            layout='depth_first',
-            align_bytes=0,
-            use_double_precision=None,
-            mem_type=None,
-            device_id=0):
+        self,
+        raft_handle,
+        tl_model_bytes,
+        *,
+        layout='depth_first',
+        align_bytes=0,
+        use_double_precision=None,
+        mem_type=None,
+        device_id=0
+    ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
         self.raft_handle = raft_handle
@@ -138,19 +135,12 @@ cdef class ForestInference_impl():
             use_double_precision_bool = use_double_precision
             use_double_precision_c = use_double_precision_bool
 
-        if not isinstance(tl_model, treelite.Model):
-            raise ValueError("tl_model must be a treelite.Model object")
-        # Serialize Treelite model object and de-serialize again,
-        # to get around C++ ABI incompatibilities (due to different compilers
-        # being used to build cuML pip wheel vs. Treelite pip wheel)
-        bytes_seq = tl_model.serialize_bytes()
-        cdef TreeliteModelHandle model_handle = NULL
-        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq),
-                                                         &model_handle)
-        cdef str err_msg
-        if res < 0:
-            err_msg = TreeliteGetLastError().decode("UTF-8")
-            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
+        cdef TreeliteModelHandle tl_handle = NULL
+        safe_treelite_call(
+            TreeliteDeserializeModelFromBytes(
+                tl_model_bytes, len(tl_model_bytes), &tl_handle),
+            "Failed to load Treelite model from bytes:"
+        )
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
@@ -158,17 +148,17 @@ cdef class ForestInference_impl():
         else:
             dev_type = raft_proto_device_t.cpu
         cdef fil_tree_layout tree_layout
-        if layout.lower() == 'depth_first':
+        if layout.lower() == "depth_first":
             tree_layout = fil_tree_layout.depth_first
-        elif layout.lower() == 'breadth_first':
+        elif layout.lower() == "breadth_first":
             tree_layout = fil_tree_layout.breadth_first
-        elif layout.lower() == 'layered':
+        elif layout.lower() == "layered":
             tree_layout = fil_tree_layout.layered_children_together
         else:
-            raise RuntimeError(f'Unrecognized tree layout {layout}')
+            raise RuntimeError(f"Unrecognized tree layout {layout}")
 
         self.model = import_from_treelite_handle(
-            <TreeliteModelHandle><uintptr_t>model_handle,
+            tl_handle,
             tree_layout,
             align_bytes,
             use_double_precision_c,
@@ -177,7 +167,10 @@ cdef class ForestInference_impl():
             self.raft_proto_handle.get_next_usable_stream()
         )
 
-        TreeliteFreeModel(model_handle)
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle),
+            "Failed to free Treelite model:"
+        )
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
@@ -304,13 +297,14 @@ cdef class ForestInference_impl():
         return preds
 
     def predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
+        self,
+        X,
+        *,
+        predict_type="default",
+        preds=None,
+        chunk_size=None,
+        output_dtype=None,
+    ):
         return self._predict(
             X,
             predict_type=predict_type,
@@ -428,7 +422,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_class : boolean
-        True for classifier models, false for regressors.
+        Deprecated parameter. Please use is_classifier instead.
     layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
@@ -450,7 +444,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. For CPU execution, this value is currently ignored.
 
+    .. deprecated:: 25.06
+        Parameter `output_class` was deprecated in version 25.06 and will be removed
+        in 25.08. Please use `is_classifier` instead.
     """
+    _param_names = [
+        "treelite_model", "handle", "output_type", "verbose", "is_classifier",
+        "output_class", "layout", "default_chunk_size", "align_bytes",
+        "precision", "device_id",
+    ]
 
     def _reload_model(self):
         """Reload model on any device (CPU/GPU) where model has already been
@@ -594,29 +596,46 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self._reload_model()
 
     def __init__(
-            self,
-            *,
-            treelite_model=None,
-            handle=None,
-            output_type=None,
-            verbose=False,
-            is_classifier=False,
-            output_class=None,
-            layout='depth_first',
-            default_chunk_size=None,
-            align_bytes=None,
-            precision='single',
-            device_id=0):
+        self,
+        *,
+        treelite_model=None,
+        handle=None,
+        output_type=None,
+        verbose=False,
+        is_classifier=False,
+        output_class=None,
+        layout='depth_first',
+        default_chunk_size=None,
+        align_bytes=None,
+        precision='single',
+        device_id=0,
+    ):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
+
+        # Handle deprecated `output_class` parameter (remove in 25.08)
+        if output_class is not None:
+            if is_classifier is True:  # both were explicitly set
+                raise ValueError(
+                    "Both `output_class` and `is_classifier` were explicitly set. "
+                    "The output_class parameter is deprecated. Please only use is_classifier."
+                )
+
+            warnings.warn(
+                "Parameter `output_class` was deprecated in version 25.06 and will be "
+                "replaced with `is_classifier` in 25.08. Please use `is_classifier` in the future. "
+                "For now, `output_class` parameter has been automatically converted to `is_classifier`.",
+                FutureWarning
+            )
+            self.is_classifier = output_class
+        else:
+            self.is_classifier = is_classifier
 
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
         self.layout = layout
         self.precision = precision
-        self.is_classifier = is_classifier
-        self.is_classifier = output_class
         self.device_id = device_id
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
@@ -631,9 +650,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self.device_id = device_id
 
         if self.treelite_model is not None:
+            if isinstance(self.treelite_model, treelite.Model):
+                treelite_model_bytes = self.treelite_model.serialize_bytes()
+            elif isinstance(self.treelite_model, bytes):
+                treelite_model_bytes = self.treelite_model
+            else:
+                raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
                 self.handle,
-                self.treelite_model,
+                treelite_model_bytes,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
                 use_double_precision=self._use_double_precision_,
@@ -684,26 +709,28 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @classmethod
     def load(
-            cls,
-            path,
-            *,
-            output_class=False,
-            threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
-            precision='single',
-            model_type=None,
-            output_type=None,
-            verbose=False,
-            default_chunk_size=None,
-            align_bytes=None,
-            layout='depth_first',
-            device_id=0,
-            handle=None):
+        cls,
+        path,
+        *,
+        is_classifier=False,
+        output_class=None,
+        threshold=None,
+        algo=None,
+        storage_type=None,
+        blocks_per_sm=None,
+        threads_per_tree=None,
+        n_items=None,
+        compute_shape_str=None,
+        precision='single',
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout='depth_first',
+        device_id=0,
+        handle=None
+    ):
         """Load a model into FIL from a serialized model file.
 
         Parameters
@@ -713,8 +740,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             binary or JSON file, a LightGBM text file, or a Treelite checkpoint
             file. If the model_type parameter is not passed, an attempt will be
             made to load the file based on its extension.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -809,6 +838,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -822,7 +852,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             skl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
             algo=None,
             storage_type=None,
@@ -845,8 +876,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         ----------
         skl_model
             The Scikit-Learn forest model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -929,6 +962,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -943,7 +977,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             tl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
             algo=None,
             storage_type=None,
@@ -964,10 +999,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         Parameters
         ----------
-        tl_model : treelite.model
+        tl_model : treelite.Model
             The Treelite model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -1049,6 +1086,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -1112,12 +1150,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         domain='cuml_python'
     )
     def predict(
-            self,
-            X,
-            *,
-            preds=None,
-            chunk_size=None,
-            threshold=None) -> CumlArray:
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+        threshold=None
+    ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
         regression models, predict the output for each row.
@@ -1423,3 +1462,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         self.layout = optimal_layout
         self.default_chunk_size = optimal_chunk_size
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ForestInference._param_names
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        return self
