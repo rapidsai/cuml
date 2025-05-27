@@ -830,8 +830,8 @@ def test_rf_classification_sparse(
             assert fil_acc == fil_model_acc
 
         tl_model = cuml_model.convert_to_treelite_model()
-        assert num_treees == tl_model.num_trees
-        assert X.shape[1] == tl_model.num_features
+        assert num_treees == tl_model.num_tree  # breaking change in 25.06
+        assert X.shape[1] == tl_model.num_feature  # breaking change in 25.06
 
         if X.shape[0] < 500000:
             sk_model = skrfc(
@@ -919,8 +919,8 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
-        assert num_treees == tl_model.num_trees
-        assert X.shape[1] == tl_model.num_features
+        assert num_treees == tl_model.num_tree  # breaking change in 25.06
+        assert X.shape[1] == tl_model.num_feature  # breaking change in 25.06
 
         # Initialize, fit and predict using
         # sklearn's random forest regression model
@@ -1393,12 +1393,7 @@ def test_rf_regression_with_identical_labels(split_criterion):
     assert model_dump[0] == expected_dump
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
-)
 def test_rf_regressor_gtil_integration(tmpdir):
-    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
-    # This will be updated to use serialize() in version 25.08
     X, y = fetch_california_housing(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
@@ -1406,19 +1401,15 @@ def test_rf_regressor_gtil_integration(tmpdir):
     expected_pred = clf.predict(X).reshape((-1, 1, 1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    # breaking change in 25.06: use serialize() instead of to_treelite_checkpoint()
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
     np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
-)
 def test_rf_binary_classifier_gtil_integration(tmpdir):
-    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
-    # This will be updated to use serialize() in version 25.08
     X, y = load_breast_cancer(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
@@ -1426,19 +1417,15 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     expected_pred = clf.predict_proba(X).reshape((-1, 1, 2))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    # breaking change in 25.06: use serialize() instead of to_treelite_checkpoint()
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
     np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Method 'to_treelite_checkpoint\\(\\)' was deprecated in version 25.06.*:FutureWarning"
-)
 def test_rf_multiclass_classifier_gtil_integration(tmpdir):
-    # Using to_treelite_checkpoint() for backward compatibility with GTIL integration tests
-    # This will be updated to use serialize() in version 25.08
     X, y = load_iris(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
@@ -1446,7 +1433,8 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     expected_prob = clf.predict_proba(X).reshape((X.shape[0], 1, -1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    # breaking change in 25.06: use serialize() instead of to_treelite_checkpoint()
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)

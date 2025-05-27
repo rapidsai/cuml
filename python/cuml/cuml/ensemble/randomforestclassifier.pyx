@@ -17,15 +17,13 @@
 # distutils: language = c++
 
 import numpy as np
+from treelite import Model as TreeliteModel
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.ensemble.compat import (
-    TreeliteModelCompat,
-    _handle_deprecated_rf_args,
-)
+from cuml.ensemble.compat import _handle_deprecated_rf_args
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
 from cuml.internals import logger
@@ -388,11 +386,10 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         Returns
         -------
-        tl_to_fil_model : TreeliteModelCompat
-            A compatibility wrapper around the Treelite version of this model
+        tl_to_fil_model : treelite.Model
         """
         treelite_bytes = self._serialize_treelite_bytes()
-        return TreeliteModelCompat.deserialize_bytes(treelite_bytes)
+        return TreeliteModel.deserialize_bytes(treelite_bytes)
 
     @_handle_deprecated_rf_args('output_class', 'threshold', 'algo', 'fil_sparse_format')
     def convert_to_fil_model(

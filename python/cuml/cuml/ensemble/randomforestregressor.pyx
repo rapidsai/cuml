@@ -16,13 +16,11 @@
 # distutils: language = c++
 
 import numpy as np
+from treelite import Model as TreeliteModel
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.ensemble.compat import (
-    TreeliteModelCompat,
-    _handle_deprecated_rf_args,
-)
+from cuml.ensemble.compat import _handle_deprecated_rf_args
 from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
@@ -362,11 +360,10 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         Returns
         -------
-        tl_to_fil_model : TreeliteModelCompat
-            A compatibility wrapper around the Treelite version of this model
+        tl_to_fil_model : treelite.Model
         """
         treelite_bytes = self._serialize_treelite_bytes()
-        return TreeliteModelCompat.deserialize_bytes(treelite_bytes)
+        return TreeliteModel.deserialize_bytes(treelite_bytes)
 
     @_handle_deprecated_rf_args('output_class', 'algo', 'fil_sparse_format')
     def convert_to_fil_model(
