@@ -89,6 +89,10 @@ class ForestInference(ExperimentalForestInference):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
+
+        .. deprecated:: 25.06
+            Parameter `output_class` was deprecated in version 25.06 and will be removed
+            in 25.08. Please use `is_classifier` instead.
         """
         super().__init__(
             treelite_model=treelite_model,

@@ -422,7 +422,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_class : boolean
-        True for classifier models, false for regressors.
+        Deprecated parameter. Please use is_classifier instead.
     layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
@@ -444,6 +444,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. For CPU execution, this value is currently ignored.
 
+    .. deprecated:: 25.06
+        Parameter `output_class` was deprecated in version 25.06 and will be removed
+        in 25.08. Please use `is_classifier` instead.
     """
     _param_names = [
         "treelite_model", "handle", "output_type", "verbose", "is_classifier",
@@ -611,7 +614,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle, verbose=verbose, output_type=output_type
         )
 
+        # Handle deprecated `output_class` parameter (remove in 25.08)
         if output_class is not None:
+            if is_classifier is True:  # both were explicitly set
+                raise ValueError(
+                    "Both `output_class` and `is_classifier` were explicitly set. "
+                    "The output_class parameter is deprecated. Please only use is_classifier."
+                )
+
             warnings.warn(
                 "Parameter `output_class` was deprecated in version 25.06 and will be "
                 "replaced with `is_classifier` in 25.08. Please use `is_classifier` in the future. "
@@ -743,8 +753,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         is_classifier : boolean, default=False
             True for classification models, False for regressors
         output_class : boolean
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please use `is_classifier` instead.
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -880,8 +889,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         is_classifier : boolean, default=False
             True for classification models, False for regressors
         output_class : boolean
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please use `is_classifier` instead.
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
@@ -1006,8 +1014,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         is_classifier : boolean, default=False
             True for classification models, False for regressors
         output_class : boolean
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please use `is_classifier` instead.
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
