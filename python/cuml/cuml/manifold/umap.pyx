@@ -273,30 +273,42 @@ class UMAP(UniversalBase,
         'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
-        Build algorithm argument. Default values are: {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_n_clusters': 1, 'nnd_n_nearest_clusters': 2}
+        Dictionary of parameters to configure the build algorithm. Default values:
 
-       "nnd_n_clusters": int (default=1). Number of clusters to split the data into when building the knn graph.
-                    Increasing this will use less device memory at the cost of accuracy.
-                    When using n_clusters > 1, is is required that the data is put on host (refer to data_on_host argument for fit_transform).
-                    The default value (n_clusters=1) will place the entire data on device memory.
-       "nnd_n_nearest_clusters": int (default=2). Number of clusters each data point is assigned to. Only valid when n_clusters > 1.
-       "nnd_graph_degree": int (default=64). Graph degree used for nn descent. Must be larger than or equal to n_neighbors.
-       "nnd_intermediate_graph_degree": int (default=128). Intermediate graph degree used for nn descent. Must be larger than nnd_graph_degree.
-       "nnd_max_iterations": int (default=20). Maximum number of iterations to run nn descent.
-       "nnd_termination_threshold": float (default=0.0001). Smaller termination threshold means stricter convergence criteria for nn descent
-                                and may take longer to converge.
+        - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent.
+          Must be ≥ `n_neighbors`.
 
-        [Hint1]: Increasing nnd_graph_degree and nnd_max_iterations may result in better accuracy.
-        [Hint2]: the ratio of nnd_n_nearest_clusters / nnd_n_clusters determines device memory usage.
-            Approximately (nnd_n_nearest_clusters /nnd_ n_clusters) * num_rows_in_entire_data number of rows will be put on device memory at once.
-            E.g. between (nnd_n_nearest_clusters /nnd_ n_clusters) = 2/10 and 2/20, the latter will use less device memory.
-        [Hint3]: larger nnd_n_nearest_clusters results in better accuracy of the final knn graph.
-            E.g. While using similar amount of device memory, (nnd_n_nearest_clusters /nnd_ n_clusters) = 4/20 will have better accuracy
-            than 2/10 at the cost of performance.
-        [Hint4]: for nnd_n_nearest_clusters, start with 2, and gradually increase (2->3->4 ...) for better accuracy
-        [Hint5]: for nnd_n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage.
-            This is independent from nnd_n_nearest_clusters as long as nnd_n_nearest_clusters < nnd_n_clusters
+        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for NN Descent.
+          Must be > `nnd_graph_degree`.
+
+        - `nnd_max_iterations` (int, default=20): Max NN Descent iterations.
+
+        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to better convergence
+          but longer runtime.
+
+        - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
+          Refer to data_on_host argument for fit_transform function.
+
+        - `nnd_n_nearest_clusters` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
+
+        Hints:
+
+        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
+
+        - The ratio `nnd_n_nearest_clusters / nnd_n_clusters` impacts memory usage.
+          Approximately `(nnd_n_nearest_clusters / nnd_n_clusters) * num_rows_in_entire_data` rows
+          will be loaded onto device memory at once.  E.g., 2/20 uses less device memory than 2/10.
+
+        - Larger `nnd_n_nearest_clusters` results in better accuracy of the final knn graph.
+          E.g. While using similar amount of device memory, `(nnd_n_nearest_clusters / nnd_n_clusters)` = 4/20 will have better accuracy
+          than 2/10 at the cost of performance.
+
+        - Start with `nnd_n_nearest_clusters = 2` and gradually increase (2->3->4 ...) for better accuracy.
+
+        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU memory usage.
+          This is independent from nnd_n_nearest_clusters as long as 'nnd_n_nearest_clusters' < 'nnd_n_clusters'.
 
     Notes
     -----
