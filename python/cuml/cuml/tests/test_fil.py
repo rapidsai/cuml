@@ -21,6 +21,8 @@ import pandas as pd
 import pytest
 import treelite
 
+# Import XGBoost before scikit-learn to work around a libgomp bug
+# See https://github.com/rapidsai/cuml/pull/6728#issuecomment-2899839082
 xgb = pytest.importorskip("xgboost")
 
 from sklearn.datasets import make_classification, make_regression  # noqa: E402
