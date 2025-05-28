@@ -23,10 +23,6 @@ import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
 from cuml.common.device_selection import using_device_type
-from cuml.internals.api_decorators import (
-    api_base_return_array,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
@@ -211,14 +207,7 @@ cdef class ForestInference_impl():
         elif enum_val == element_op.logarithm_one_plus_exp:
             return "logarithm_one_plus_exp"
 
-    def _predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
+    def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
@@ -297,8 +286,6 @@ cdef class ForestInference_impl():
             self.raft_proto_handle.synchronize()
         return preds
 
-    @api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
     def predict(
         self,
         X,
@@ -306,14 +293,12 @@ cdef class ForestInference_impl():
         predict_type="default",
         preds=None,
         chunk_size=None,
-        output_dtype=None,
     ):
         return self._predict(
             X,
             predict_type=predict_type,
             preds=preds,
             chunk_size=chunk_size,
-            output_dtype=output_dtype
         )
 
 
@@ -1098,8 +1083,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    @api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
     @nvtx.annotate(
         message='ForestInference.predict_proba',
         domain='cuml_python'
@@ -1150,8 +1133,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
 
-    @api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
     @nvtx.annotate(
         message='ForestInference.predict',
         domain='cuml_python'

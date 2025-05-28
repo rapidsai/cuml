@@ -703,6 +703,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @warn_legacy_device_interop
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """

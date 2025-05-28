@@ -23,7 +23,6 @@ import cuml.internals
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.api_decorators import api_base_return_array, enable_device_interop
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from cuml.internals.base import Base
@@ -711,8 +710,6 @@ class SVMBase(Base,
                 dtype=self.dtype,
                 order='F')
 
-    @api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
     def predict(self, X, predict_class, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X, where y is either the decision function value
