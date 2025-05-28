@@ -391,15 +391,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         LightGBM, cuML, Scikit-Learn, or any other forest model framework
         so long as it can be loaded into a treelite.Model object (See
         https://treelite.readthedocs.io/en/latest/treelite-api.html).
-    handle : pylibraft.common.handle or None
-        For GPU execution, the RAFT handle containing the stream or stream
-        pool to use during loading and inference. If input is provide to
-        this model in the wrong memory location (e.g. host memory input but
-        GPU execution), the input will be copied to the correct location
-        using as many streams as are available in the handle. It is therefore
-        recommended that a handle with a stream pool be used for models where
-        it is expected that large input arrays will be coming from the host but
-        evaluated on device.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
