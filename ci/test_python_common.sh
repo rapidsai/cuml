@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source ci/use_conda_packages_from_prs.sh
+
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"

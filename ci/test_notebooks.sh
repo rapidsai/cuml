@@ -2,6 +2,8 @@
 # Copyright (c) 2020-2025, NVIDIA CORPORATION.
 set -euo pipefail
 
+source ci/use_conda_packages_from_prs.sh
+
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
