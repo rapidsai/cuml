@@ -572,6 +572,9 @@ class UMAP(UniversalBase,
         and also allows the use of a custom distance function. This function
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
+
+        .. deprecated:: 25.06
+            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06 and will be removed in 25.08. Use `data_on_host=True` to use with `nnd_n_clusters>1`."
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -598,7 +601,15 @@ class UMAP(UniversalBase,
             if data_on_host:
                 convert_to_mem_type = MemoryType.host
             else:
-                convert_to_mem_type = MemoryType.device
+                build_kwds = self.build_kwds or {}
+                if build_kwds.get("nnd_n_clusters", 1) > 1:
+                    warnings.warn(
+                        ("Using nnd_n_clusters>1 with data on device is deprecated in version 25.06 and will be removed in 25.08. Use data_on_host=True to use with nnd_n_clusters>1."),
+                        FutureWarning,
+                    )
+                    convert_to_mem_type = MemoryType.host
+                else:
+                    convert_to_mem_type = MemoryType.device
 
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -751,6 +762,8 @@ class UMAP(UniversalBase,
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
+        .. deprecated:: 25.06
+            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06 and will be removed in 25.08. Use `data_on_host=True` to use with `nnd_n_clusters>1`."
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 
