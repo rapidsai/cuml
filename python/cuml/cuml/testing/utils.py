@@ -364,44 +364,22 @@ class ClassEnumerator:
         return models
 
 
-def get_classes_from_package(package, import_sub_packages=False):
+def get_all_base_subclasses() -> dict[str, type]:
     """
-    Gets all modules imported in the specified package and returns a dictionary
-    of any classes that derive from `cuml.Base`
-
-    Parameters
-    ----------
-    package : python module The python module to search import_sub_packages :
-        bool, default=False When set to True, will try to import sub packages
-        by searching the directory tree for __init__.py files and importing
-        them accordingly. By default this is set to False
-
-    Returns
-    -------
-    ClassEnumerator Class enumerator for the specified package
+    Returns all currently defined subclasses of `cuml.Base`,
+    excluding any with a leading `_` in their name.
     """
+    out = {}
 
-    if import_sub_packages:
-        import importlib
-        import os
+    def _collect(cls):
+        if not cls.__name__.startswith("_"):
+            out[cls.__name__] = cls
+        for c in cls.__subclasses__():
+            _collect(c)
 
-        # First, find all __init__.py files in subdirectories of this package
-        root_dir = os.path.dirname(package.__file__)
+    _collect(Base)
 
-        root_relative = os.path.dirname(root_dir)
-
-        # Now loop
-        for root, _, files in os.walk(root_dir):
-
-            if "__init__.py" in files:
-
-                module_name = os.path.relpath(root, root_relative).replace(
-                    os.sep, "."
-                )
-
-                importlib.import_module(module_name)
-
-    return ClassEnumerator(module=package, recursive=True).get_models()
+    return out
 
 
 def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):

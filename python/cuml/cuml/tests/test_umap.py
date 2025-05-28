@@ -783,8 +783,13 @@ def test_umap_distance_metrics_fit_transform_trust(
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
     metric, supported, umap_learn_supported
 ):
+    if metric == "jaccard":
+        n_features = 1000
+    else:
+        n_features = 64
+
     data, labels = make_blobs(
-        n_samples=1000, n_features=64, centers=5, random_state=42
+        n_samples=1000, n_features=n_features, centers=5, random_state=42
     )
 
     data_selection = np.random.RandomState(42).choice(

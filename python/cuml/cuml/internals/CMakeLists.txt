@@ -18,12 +18,18 @@ set(cython_sources
     base.pyx
     internals.pyx
     logger.pyx
+    treelite.pyx
+)
+
+set(linked_libraries
+  "${cuml_sg_libraries}"
+  "${CUML_PYTHON_TREELITE_TARGET}"
 )
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
+  LINKED_LIBRARIES "${linked_libraries}"
   MODULE_PREFIX internals_
 )
 

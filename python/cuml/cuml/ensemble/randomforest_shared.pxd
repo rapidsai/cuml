@@ -32,10 +32,8 @@ from cuml.internals.base import Base
 
 from pylibraft.common.handle cimport handle_t
 
+from cuml.internals.treelite cimport *
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-    cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef enum CRITERION:
@@ -110,6 +108,3 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                                  int) except +
 
     cdef vector[unsigned char] save_model(TreeliteModelHandle)
-
-    cdef TreeliteModelHandle concatenate_trees(
-        vector[TreeliteModelHandle] &treelite_handles) except +

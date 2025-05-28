@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-def has_dask():
-    try:
-        import dask  # NOQA
-        import dask.dataframe  # NOQA
-        import dask.distributed  # NOQA
-
-        return True
-    except ImportError:
-        return False
+cdef extern from "treelite/c_api.h":
+    ctypedef void* TreeliteModelHandle
+    cdef int TreeliteSerializeModelToBytes(TreeliteModelHandle handle,
+                                           const char** out_bytes, size_t* out_bytes_len)
+    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
+                                               TreeliteModelHandle* out)
+    cdef int TreeliteFreeModel(TreeliteModelHandle handle)
+    cdef const char* TreeliteGetLastError()

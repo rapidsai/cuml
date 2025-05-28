@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+cdef str _get_treelite_error():
+    cdef str err = TreeliteGetLastError().decode("UTF-8")
+    return err
 
-from cuml.legacy.fil import fil
-from cuml.legacy.fil.fil import ForestInference
+
+def safe_treelite_call(res: int, err_msg: str) -> None:
+    if res < 0:
+        raise RuntimeError(f"{err_msg}\n{_get_treelite_error()}")
