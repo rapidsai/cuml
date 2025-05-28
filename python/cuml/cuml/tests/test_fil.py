@@ -328,6 +328,11 @@ def test_fil_skl_classification(
         )
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
+        # Given a binary GradientBoostingClassifier,
+        # FIL produces the probability score only for the positive class,
+        # whereas scikit-learn produces the probability scores for both
+        # the positive and negative class. So we have to transform
+        # fil_proba to compare it with skl_proba.
         if n_classes == 2 and model_class == GradientBoostingClassifier:
             fil_proba = np.stack([1 - fil_proba, fil_proba], axis=1)
         fil_proba = np.reshape(fil_proba, skl_proba.shape)
