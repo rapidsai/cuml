@@ -183,13 +183,12 @@ uint32_t get_95p_n_edges(const int* head, nnz_t nnz, int n_samples, rmm::cuda_st
   // Sort the buffer
   thrust::sort(rmm::exec_policy(stream), buffer.data(), buffer.data() + n_samples);
 
-  // Calculate 70th percentile index
+  // Calculate 95th percentile index
   std::size_t idx = static_cast<std::size_t>(0.95 * n_samples);
   if (idx >= n_samples) idx = n_samples - 1;
 
   T result;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    &result, buffer.data() + idx, sizeof(T), cudaMemcpyDeviceToHost, stream.value()));
+  raft::copy(&result, buffer.data() + idx, 1, stream);
   stream.synchronize();
 
   return static_cast<uint32_t>(result);
