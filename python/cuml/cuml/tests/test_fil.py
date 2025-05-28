@@ -649,6 +649,13 @@ def test_lightgbm(
     gbm_proba = lgm.predict_proba(X_predict)
     with using_device_type(infer_device):
         fil_proba = fm.predict_proba(X_predict)
+    # Given a binary classifier, FIL produces the probability score
+    # only for the positive class,
+    # whereas LGBMClassifier produces the probability scores for both
+    # the positive and negative class. So we have to transform
+    # fil_proba to compare it with gbm_proba.
+    if num_classes == 2:
+        fil_proba = np.concatenate([1 - fil_proba, fil_proba], axis=1)
     np.testing.assert_almost_equal(gbm_proba, fil_proba)
 
 
