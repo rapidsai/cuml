@@ -463,7 +463,7 @@ def test_precision_xgboost(
         )
 
     with using_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict_proba(X))[:, 1]
+        fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_preds, xgb_preds)
@@ -486,9 +486,7 @@ def test_performance_hyperparameters(
         )
 
     with using_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))[
-            :, 1
-        ]
+        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_proba, xgb_preds)
@@ -505,10 +503,11 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
     )
 
     fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
-    fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
+    fil_proba = np.asarray(
+        fm.predict_proba(X, chunk_size=chunk_size)
+    ).squeeze()
 
-    xgb_proba = np.stack([1 - xgb_preds, xgb_preds], axis=1)
-    np.testing.assert_almost_equal(fil_proba, xgb_proba)
+    np.testing.assert_almost_equal(fil_proba, xgb_preds)
 
     xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
@@ -541,7 +540,7 @@ def test_output_args(train_device, infer_device, small_classifier_and_preds):
         )
     with using_device_type(infer_device):
         X = np.asarray(X)
-        fil_preds = np.asarray(fm.predict_proba(X))[:, 1]
+        fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
     np.testing.assert_almost_equal(fil_preds, xgb_preds)
