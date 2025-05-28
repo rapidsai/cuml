@@ -330,7 +330,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
         MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
         MSG="${MSG}<br/>parallel build time: $compile_total seconds"
         if [[ -f "${LIBCUML_BUILD_DIR}/libcuml++.so" ]]; then
-            LIBCUML_FS=$(ls -lh ${LIBCUML_BUILD_DIR}/libcuml++.so | awk '{print $5}')
+            LIBCUML_FS=$(stat -f %z ${LIBCUVS_BUILD_DIR}/libcuvs.so | awk '{printf "%.2f MB", $1/1024/1024}')
             MSG="${MSG}<br/>libcuml++.so size: $LIBCUML_FS"
         fi
         BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
