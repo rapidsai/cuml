@@ -44,25 +44,25 @@ struct nn_descent_params_umap {
 
 /**
  * Parameters for knn graph building in UMAP.
- * [Hint1]: the ratio of n_nearest_clusters / n_clusters determines device memory usage.
- * Approximately (n_nearest_clusters / n_clusters) * num_rows_in_entire_data number of rows will be
- * put on device memory at once. E.g. between (n_nearest_clusters / n_clusters) = 2/10 and 2/20, the
+ * [Hint1]: the ratio of overlap_factor / n_clusters determines device memory usage.
+ * Approximately (overlap_factor / n_clusters) * num_rows_in_entire_data number of rows will be
+ * put on device memory at once. E.g. between (overlap_factor / n_clusters) = 2/10 and 2/20, the
  * latter will use less device memory.
- * [Hint2]: larger n_nearest_clusters results in better accuracy
+ * [Hint2]: larger overlap_factor results in better accuracy
  * of the final all-neighbors knn graph. E.g. While using similar amount of device memory,
- * (n_nearest_clusters / n_clusters) = 4/20 will have better accuracy than 2/10 at the cost of
+ * (overlap_factor / n_clusters) = 4/20 will have better accuracy than 2/10 at the cost of
  * performance.
- * [Hint3]: for n_nearest_clusters, start with 2, and gradually increase (2->3->4 ...)
+ * [Hint3]: for overlap_factor, start with 2, and gradually increase (2->3->4 ...)
  * for better accuracy
  * [Hint4]: for n_clusters, start with 4, and gradually increase(4->8->16 ...)
- * for less GPU memory usage. This is independent from n_nearest_clusters as long as
- * n_nearest_clusters < n_clusters
+ * for less GPU memory usage. This is independent from overlap_factor as long as
+ * overlap_factor < n_clusters
  */
 struct graph_build_params {
   /**
    * Number of clusters each data point is assigned to. Only valid when n_clusters > 1.
    */
-  size_t n_nearest_clusters = 2;
+  size_t overlap_factor = 2;
   /**
    * Number of clusters to split the data into when building the knn graph. Increasing this will use
    * less device memory at the cost of accuracy. When using n_clusters > 1, is is required that the

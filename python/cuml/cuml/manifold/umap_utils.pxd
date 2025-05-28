@@ -47,7 +47,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nog
         float termination_threshold
 
     cdef cppclass graph_build_params:
-        size_t n_nearest_clusters
+        size_t overlap_factor
         size_t n_clusters
         nn_descent_params_umap nn_descent_params
 

@@ -290,25 +290,25 @@ class UMAP(UniversalBase,
           Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
           Refer to data_on_host argument for fit_transform function.
 
-        - `nnd_n_nearest_clusters` (int, default=2): Number of clusters each data point belongs to.
+        - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
           Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
 
         Hints:
 
         - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
 
-        - The ratio `nnd_n_nearest_clusters / nnd_n_clusters` impacts memory usage.
-          Approximately `(nnd_n_nearest_clusters / nnd_n_clusters) * num_rows_in_entire_data` rows
+        - The ratio `nnd_overlap_factor / nnd_n_clusters` impacts memory usage.
+          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data` rows
           will be loaded onto device memory at once.  E.g., 2/20 uses less device memory than 2/10.
 
-        - Larger `nnd_n_nearest_clusters` results in better accuracy of the final knn graph.
-          E.g. While using similar amount of device memory, `(nnd_n_nearest_clusters / nnd_n_clusters)` = 4/20 will have better accuracy
+        - Larger `nnd_overlap_factor` results in better accuracy of the final knn graph.
+          E.g. While using similar amount of device memory, `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
           than 2/10 at the cost of performance.
 
-        - Start with `nnd_n_nearest_clusters = 2` and gradually increase (2->3->4 ...) for better accuracy.
+        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...) for better accuracy.
 
         - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU memory usage.
-          This is independent from nnd_n_nearest_clusters as long as 'nnd_n_nearest_clusters' < 'nnd_n_clusters'.
+          This is independent from nnd_overlap_factor as long as 'nnd_overlap_factor' < 'nnd_n_clusters'.
 
     Notes
     -----
@@ -513,9 +513,9 @@ class UMAP(UniversalBase,
         elif self.build_algo == "nn_descent":
             build_kwds = self.build_kwds or {}
             umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
-            umap_params.build_params.n_nearest_clusters = <uint64_t> build_kwds.get("nnd_n_nearest_clusters", 2)
-            if umap_params.build_params.n_clusters > 1 and umap_params.build_params.n_nearest_clusters >= umap_params.build_params.n_clusters:
-                raise ValueError("If nnd_n_clusters > 1, then nnd_n_nearest_clusters must be strictly smaller than n_clusters.")
+            umap_params.build_params.overlap_factor = <uint64_t> build_kwds.get("nnd_overlap_factor", 2)
+            if umap_params.build_params.n_clusters > 1 and umap_params.build_params.overlap_factor >= umap_params.build_params.n_clusters:
+                raise ValueError("If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly smaller than n_clusters.")
             if umap_params.build_params.n_clusters < 1:
                 raise ValueError("nnd_n_clusters must be >= 1")
             umap_params.build_algo = graph_build_algo.NN_DESCENT

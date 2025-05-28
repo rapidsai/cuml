@@ -100,10 +100,10 @@ inline void launcher(const raft::handle_t& handle,
         params->build_params.nn_descent_params.intermediate_graph_degree,
       "graph_degree should be smaller than intermediate_graph_degree computed by nn descent");
 
-    auto all_neighbors_params = cuvs::neighbors::all_neighbors::all_neighbors_params{};
-    all_neighbors_params.n_nearest_clusters = params->build_params.n_nearest_clusters;
-    all_neighbors_params.n_clusters         = params->build_params.n_clusters;
-    all_neighbors_params.metric             = params->metric;
+    auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
+    all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
+    all_neighbors_params.n_clusters     = params->build_params.n_clusters;
+    all_neighbors_params.metric         = params->metric;
 
     auto nn_descent_params =
       cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
