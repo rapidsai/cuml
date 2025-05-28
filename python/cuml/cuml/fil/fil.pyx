@@ -701,12 +701,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         is_classifier=False,
         output_class=None,
         threshold=None,
-        algo=None,
-        storage_type=None,
-        blocks_per_sm=None,
-        threads_per_tree=None,
-        n_items=None,
-        compute_shape_str=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -733,26 +727,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see the `chunk_size`
-            parameter of the predict method for equivalent functionality.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -817,8 +791,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             tl_model = treelite.frontend.load_lightgbm_model(path)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -841,12 +813,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             is_classifier=False,
             output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -869,27 +835,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -941,8 +886,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             pool to use during loading and inference.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         result = cls(
             treelite_model=tl_model,
             handle=handle,
@@ -966,12 +909,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             is_classifier=False,
             output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -994,27 +931,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -1065,8 +981,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -1091,7 +1005,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         *,
         preds=None,
         chunk_size=None,
-        safe_dtype_conversion=None,
     ) -> CumlArray:
         """
         Predict the class probabilities for each row in X.
@@ -1128,17 +1041,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             values are powers of 2 from 1 to 32. On CPU, valid values are
             any power of 2, but little benefit is expected above a chunk size
             of 512.
-        safe_dtype_conversion: boolean
-            This parameter is deprecated. It is currently retained for
-            compatibility with previous versions of FIL. It will be removed
-            in 25.08.
         """
-        if safe_dtype_conversion is not None:
-            warnings.warn(
-                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
-                "removed in 25.08. Do not use it.",
-                FutureWarning,
-            )
         if not self.is_classifier:
             raise RuntimeError(
                 "predict_proba is not available for regression models. Load"
@@ -1165,7 +1068,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         preds=None,
         chunk_size=None,
         threshold=None,
-        safe_dtype_conversion=None,
     ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
@@ -1212,17 +1114,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             of 0.5 will be used for binary classifiers. For multiclass
             classifiers, the highest probability class is chosen regardless
             of threshold.
-        safe_dtype_conversion: boolean
-            This parameter is deprecated. It is currently retained for
-            compatibility with older versions of FIL. It will be removed in
-            25.08.
         """
-        if safe_dtype_conversion is not None:
-            warnings.warn(
-                "Parameter `safe_dtype_conversion` was deprecated in version 25.06 and will be "
-                "removed in 25.08. Do not use it.",
-                FutureWarning,
-            )
         chunk_size = (chunk_size or self.default_chunk_size)
         if self.forest.row_postprocessing() == 'max_index':
             raw_out = self.forest.predict(X, chunk_size=chunk_size)

@@ -50,6 +50,12 @@ from cuml.testing.utils import (  # noqa: E402
     unit_param,
 )
 
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore: Parameter `output_class` was deprecated in version 25.06:FutureWarning"
+    ),
+]
+
 
 def simulate_data(
     m,
@@ -134,7 +140,6 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_classification(
     n_rows, n_columns, num_rounds, n_classes, tmp_path
 ):
@@ -179,9 +184,7 @@ def test_fil_classification(
         xgb_preds_int = xgb_proba.argmax(axis=1)
     xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-    fm = ForestInference.load(
-        model_path, algo="auto", output_class=True, threshold=0.50
-    )
+    fm = ForestInference.load(model_path, output_class=True, threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
@@ -205,7 +208,6 @@ def test_fil_classification(
 @pytest.mark.parametrize(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     # settings
     classification = False  # change this to false to use regression
@@ -242,7 +244,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     xgb_preds = bst.predict(dvalidation)
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
-    fm = ForestInference.load(model_path, algo="auto", output_class=False)
+    fm = ForestInference.load(model_path, output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
     fil_mse = mean_squared_error(y_validation, fil_preds)
@@ -253,11 +255,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
 @pytest.mark.parametrize("n_rows", [1000])
 @pytest.mark.parametrize("n_columns", [30])
-# Skip depth 20 for dense tests
-@pytest.mark.parametrize(
-    "max_depth,storage_type",
-    [(2, False), (2, True), (10, False), (10, True), (20, True)],
-)
+@pytest.mark.parametrize("max_depth", [2, 10, 20])
 # When n_classes=25, fit a single estimator only to reduce test time
 @pytest.mark.parametrize(
     "n_classes,model_class,n_estimators,precision",
@@ -280,14 +278,12 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
         (5, RandomForestClassifier, 10, "float64"),
     ],
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_skl_classification(
     n_rows,
     n_columns,
     n_estimators,
     max_depth,
     n_classes,
-    storage_type,
     precision,
     model_class,
 ):
@@ -329,14 +325,10 @@ def test_fil_skl_classification(
 
     skl_acc = accuracy_score(y_validation, skl_preds_int)
 
-    algo = "NAIVE" if storage_type else "BATCH_TREE_REORG"
-
     fm = ForestInference.load_from_sklearn(
         skl_model,
-        algo=algo,
         output_class=True,
         threshold=0.50,
-        storage_type=storage_type,
         precision=precision,
     )
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -375,9 +367,7 @@ def test_fil_skl_classification(
     ],
 )
 @pytest.mark.parametrize("max_depth", [2, 10, 20])
-@pytest.mark.parametrize("storage_type", [False, True])
 @pytest.mark.skip("https://github.com/rapidsai/cuml/issues/5138")
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_skl_regression(
     n_rows,
     n_columns,
@@ -385,13 +375,7 @@ def test_fil_skl_regression(
     model_class,
     n_estimators,
     max_depth,
-    storage_type,
 ):
-
-    # skip depth 20 for dense tests
-    if max_depth == 20 and not storage_type:
-        return
-
     # settings
     random_state = np.random.RandomState(43210)
 
@@ -427,10 +411,9 @@ def test_fil_skl_regression(
 
     skl_mse = mean_squared_error(y_validation, skl_preds)
 
-    algo = "NAIVE" if storage_type else "BATCH_TREE_REORG"
-
     fm = ForestInference.load_from_sklearn(
-        skl_model, algo=algo, output_class=False, storage_type=storage_type
+        skl_model,
+        output_class=False,
     )
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
@@ -468,39 +451,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
     return (model_path, model_type, X, xgb_preds)
 
 
-@pytest.mark.parametrize(
-    "algo",
-    [
-        "AUTO",
-        "NAIVE",
-        "TREE_REORG",
-        "BATCH_TREE_REORG",
-        "auto",
-        "naive",
-        "tree_reorg",
-        "batch_tree_reorg",
-    ],
-)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_output_algos(algo, small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        algo=algo,
-        output_class=True,
-        threshold=0.50,
-    )
-
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.asarray(fm.predict(X))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
-
-
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_precision_xgboost(precision, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -518,83 +469,12 @@ def test_precision_xgboost(precision, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
-@pytest.mark.parametrize(
-    "storage_type", [False, True, "auto", "dense", "sparse", "sparse8"]
-)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_output_storage_type(storage_type, small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        output_class=True,
-        storage_type=storage_type,
-        threshold=0.50,
-    )
-
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.asarray(fm.predict(X))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
-
-
-@pytest.mark.parametrize("storage_type", ["dense", "sparse"])
-@pytest.mark.parametrize("blocks_per_sm", [1, 2, 3, 4])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_output_blocks_per_sm(
-    storage_type, blocks_per_sm, small_classifier_and_preds
-):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        output_class=True,
-        storage_type=storage_type,
-        threshold=0.50,
-        blocks_per_sm=blocks_per_sm,
-    )
-
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.asarray(fm.predict(X))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
-
-
-@pytest.mark.parametrize("threads_per_tree", [2, 4, 8, 16, 32, 64, 128, 256])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_threads_per_tree(threads_per_tree, small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        output_class=True,
-        storage_type="auto",
-        threshold=0.50,
-        threads_per_tree=threads_per_tree,
-        n_items=1,
-    )
-
-    fil_preds = np.asarray(fm.predict(X))
-    fil_proba = np.asarray(fm.predict_proba(X))
-
-    xgb_proba = np.stack([1 - xgb_preds, xgb_preds], axis=1)
-    np.testing.assert_allclose(fil_proba, xgb_proba, atol=proba_atol[False])
-
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
-
-
 @pytest.mark.parametrize("output_class", [True, False])
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
         model_path,
         model_type=model_type,
-        algo="TREE_REORG",
         output_class=output_class,
         threshold=0.50,
     )
@@ -605,13 +485,11 @@ def test_thresholding(output_class, small_classifier_and_preds):
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_args(small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
         model_path,
         model_type=model_type,
-        algo="TREE_REORG",
         output_class=False,
         threshold=0.50,
     )
@@ -676,7 +554,6 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
 @pytest.mark.skip(reason="Causing CI to hang.")
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
     lgb = pytest.importorskip("lightgbm")
 
@@ -721,7 +598,6 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         bst.save_model(model_path)
         fm = ForestInference.load(
             model_path,
-            algo="TREE_REORG",
             output_class=True,
             model_type="lightgbm",
         )
@@ -746,7 +622,6 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         lgm_preds = lgm.predict(X_predict).astype(int)
         fm = ForestInference.load(
             model_path,
-            algo="TREE_REORG",
             output_class=True,
             model_type="lightgbm",
         )
