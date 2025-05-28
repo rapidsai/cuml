@@ -176,17 +176,16 @@ def test_fil_classification(
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
 
     if n_classes == 2:
-        xgb_preds = bst.predict(dvalidation)
-        xgb_preds_int = np.around(xgb_preds)
-        xgb_proba = np.stack([1 - xgb_preds, xgb_preds], axis=1)
+        xgb_proba = bst.predict(dvalidation)
+        xgb_preds_int = np.around(xgb_proba)
     else:
         xgb_proba = bst.predict(dvalidation)
         xgb_preds_int = xgb_proba.argmax(axis=1)
     xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
     fm = ForestInference.load(model_path, output_class=True, threshold=0.50)
-    fil_preds = np.asarray(fm.predict(X_validation))
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
+    fil_preds = np.asarray(fm.predict(X_validation).squeeze())
+    fil_proba = np.asarray(fm.predict_proba(X_validation).squeeze())
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
@@ -344,6 +343,8 @@ def test_fil_skl_classification(
     if n_classes == 2:
         assert array_equal(fil_preds, skl_preds_int)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
+    if n_classes == 2 and model_class == GradientBoostingClassifier:
+        fil_proba = np.stack([1 - fil_proba, fil_proba], axis=1)
     fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
     np.testing.assert_allclose(
         fil_proba, skl_proba, atol=proba_atol[n_classes > 2]

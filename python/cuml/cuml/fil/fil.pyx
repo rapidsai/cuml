@@ -1047,15 +1047,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 "predict_proba is not available for regression models. Load"
                 " with is_classifer=True if this is a classifier."
             )
-        results = self.forest.predict(
+        return self.forest.predict(
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
-        if len(results.shape) == 2 and results.shape[-1] == 1:
-            results = results.to_output("array").flatten()
-            results = GlobalSettings().xpy.stack(
-                [1 - results, results], axis=1
-            )
-        return results
 
     @nvtx.annotate(
         message='ForestInference.predict',
@@ -1136,9 +1130,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 result = GlobalSettings().xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
-            if len(result.shape) == 2 and result.shape[-1] == 1:
-                result = result.flatten()
-
             if preds is None:
                 return result
             else:

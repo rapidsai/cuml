@@ -166,12 +166,7 @@ def test_fil_classification(
         )
 
         dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-
-        if n_classes == 2:
-            xgb_preds = bst.predict(dvalidation)
-            xgb_proba = np.column_stack((1 - xgb_preds, xgb_preds))
-        else:
-            xgb_proba = bst.predict(dvalidation)
+        xgb_proba = bst.predict(dvalidation)
 
         fm = ForestInference.load(model_path, is_classifier=True)
     with using_device_type(infer_device):
@@ -331,10 +326,16 @@ def test_fil_skl_classification(
         )
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
+        if n_classes == 2 and model_class == GradientBoostingClassifier:
+            fil_proba = np.stack([1 - fil_proba, fil_proba], axis=1)
         fil_proba = np.reshape(fil_proba, skl_proba.shape)
 
         fm.optimize(data=np.expand_dims(X_validation, 0))
         fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
+        if n_classes == 2 and model_class == GradientBoostingClassifier:
+            fil_proba_opt = np.stack(
+                [1 - fil_proba_opt, fil_proba_opt], axis=1
+            )
         fil_proba_opt = np.reshape(fil_proba_opt, skl_proba.shape)
         np.testing.assert_allclose(
             fil_proba, skl_proba, atol=proba_atol[n_classes > 2]
