@@ -16,7 +16,6 @@
 import warnings
 
 from cuml.fil.fil import ForestInference as NewForestInference
-from cuml.internals.array import CumlArray
 
 
 class ForestInference(NewForestInference):
@@ -108,107 +107,4 @@ class ForestInference(NewForestInference):
             align_bytes=align_bytes,
             precision=precision,
             device_id=device_id,
-        )
-
-    def predict_proba(
-        self,
-        X,
-        *,
-        preds=None,
-        chunk_size=None,
-    ) -> CumlArray:
-        """
-        Predict the class probabilities for each row in X.
-
-        Parameters
-        ----------
-        X
-            The input data of shape Rows X Features. This can be a numpy
-            array, cupy array, Pandas/cuDF Dataframe or any other array type
-            accepted by cuML. FIL is optimized for C-major arrays (e.g.
-            numpy/cupy arrays). Inputs whose datatype does not match the
-            precision of the loaded model (float/double) will be converted
-            to the correct datatype before inference. If this input is in a
-            memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
-            it will be copied to the correct location. This copy will be
-            distributed across as many CUDA streams as are available
-            in the stream pool of the model's RAFT handle.
-        preds
-            If non-None, outputs will be written in-place to this array.
-            Therefore, if given, this should be a C-major array of shape Rows x
-            Classes with a datatype (float/double) corresponding to the
-            precision of the model. If None, an output array of the correct
-            shape and type will be allocated and returned.
-        chunk_size : int
-            The number of rows to simultaneously process in one iteration
-            of the inference algorithm. Batches are further broken down into
-            "chunks" of this size when assigning available threads to tasks.
-            The choice of chunk size can have a substantial impact on
-            performance, but the optimal choice depends on model and
-            hardware and is difficult to predict a priori. In general,
-            larger batch sizes benefit from larger chunk sizes, and smaller
-            batch sizes benefit from small chunk sizes. On GPU, valid
-            values are powers of 2 from 1 to 32. On CPU, valid values are
-            any power of 2, but little benefit is expected above a chunk size
-            of 512.
-        """
-        return super().predict_proba(X, preds=preds, chunk_size=chunk_size)
-
-    def predict(
-        self,
-        X,
-        *,
-        preds=None,
-        chunk_size=None,
-        threshold=None,
-    ) -> CumlArray:
-        """
-        For classification models, predict the class for each row. For
-        regression models, predict the output for each row.
-
-        Parameters
-        ----------
-        X
-            The input data of shape Rows X Features. This can be a numpy
-            array, cupy array, Pandas/cuDF Dataframe or any other array type
-            accepted by cuML. FIL is optimized for C-major arrays (e.g.
-            numpy/cupy arrays). Inputs whose datatype does not match the
-            precision of the loaded model (float/double) will be converted
-            to the correct datatype before inference. If this input is in a
-            memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
-            it will be copied to the correct location. This copy will be
-            distributed across as many CUDA streams as are available
-            in the stream pool of the model's RAFT handle.
-        preds
-            If non-None, outputs will be written in-place to this array.
-            Therefore, if given, this should be a C-major array of shape Rows x
-            1 with a datatype (float/double) corresponding to the precision of
-            the model. If None, an output array of the correct shape and
-            type will be allocated and returned. For classifiers, in-place
-            prediction offers no performance or memory benefit. For regressors,
-            in-place prediction offers both a performance and memory
-            benefit.
-        chunk_size : int
-            The number of rows to simultaneously process in one iteration
-            of the inference algorithm. Batches are further broken down into
-            "chunks" of this size when assigning available threads to tasks.
-            The choice of chunk size can have a substantial impact on
-            performance, but the optimal choice depends on model and
-            hardware and is difficult to predict a priori. In general,
-            larger batch sizes benefit from larger chunk sizes, and smaller
-            batch sizes benefit from small chunk sizes. On GPU, valid
-            values are powers of 2 from 1 to 32. On CPU, valid values are
-            any power of 2, but little benefit is expected above a chunk size
-            of 512.
-        threshold : float
-            For binary classifiers, output probabilities above this threshold
-            will be considered positive detections. If None, a threshold
-            of 0.5 will be used for binary classifiers. For multiclass
-            classifiers, the highest probability class is chosen regardless
-            of threshold.
-        """
-        return super().predict(
-            X, preds=preds, chunk_size=chunk_size, threshold=threshold
         )
