@@ -1246,6 +1246,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 result = GlobalSettings().xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
+            if len(result.shape) == 2 and result.shape[-1] == 1:
+                result = result.flatten()
 
             if preds is None:
                 return result
