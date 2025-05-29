@@ -30,7 +30,6 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
-    warn_legacy_device_interop,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
@@ -374,7 +373,6 @@ class KMeans(Base,
                 )
 
     @generate_docstring()
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
@@ -520,7 +518,6 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @warn_legacy_device_interop
     def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
@@ -665,7 +662,6 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype", "normalize_weights")
     def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
@@ -685,7 +681,6 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
@@ -774,7 +769,6 @@ class KMeans(Base,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
@@ -790,7 +784,6 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=False,
                       sample_weight=None) -> CumlArray:

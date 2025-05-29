@@ -22,7 +22,6 @@ import numpy as np
 import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
-from cuml.common.device_selection import using_device_type
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
@@ -30,6 +29,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -48,22 +48,6 @@ from cuml.fil.postprocessing cimport element_op, row_op
 from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
 
-from cuml.internals.treelite import safe_treelite_call
-
-
-cdef raft_proto_device_t get_device_type(arr):
-    cdef raft_proto_device_t dev
-    if arr.is_device_accessible:
-        if (
-            GlobalSettings().device_type == DeviceType.host
-            and arr.is_host_accessible
-        ):
-            dev = raft_proto_device_t.cpu
-        else:
-            dev = raft_proto_device_t.gpu
-    else:
-        dev = raft_proto_device_t.cpu
-    return dev
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:
     cdef cppclass forest_model:
@@ -97,6 +81,65 @@ cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::ex
         raft_proto_stream_t
     ) except +
 
+
+class set_fil_device_type:
+    """Set the device type used by FIL.
+
+    May optionally be used as a context-manager to set the device type only
+    within a context.
+
+    Parameters
+    ----------
+    device_type : {'cpu', 'gpu'}
+        The device type to use.
+
+    Examples
+    --------
+    >>> from cuml.fil import set_fil_device_type  # doctest: +SKIP
+
+    Set the device type globally to use CPU.
+
+    >>> set_fil_device_type("cpu")  # doctest: +SKIP
+
+    Set the device type globally to use GPU.
+
+    >>> set_fil_device_type("gpu")  # doctest: +SKIP
+
+    Set the device type to use CPU within a context.
+
+    >>> with set_fil_device_type("cpu"):  # doctest: +SKIP
+    ...     ...
+    """
+    def __init__(self, device_type):
+        device_type = DeviceType.from_str(device_type)
+        self._previous = GlobalSettings().fil_device_type
+        GlobalSettings().fil_device_type = device_type
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        GlobalSettings().fil_device_type = self._previous
+
+
+def get_fil_device_type() -> DeviceType:
+    """Get the device type used by FIL."""
+    return GlobalSettings().fil_device_type
+
+
+cdef raft_proto_device_t get_fil_raft_proto_device_type(arr):
+    """Get the current FIL device type as a raft_proto_device_t"""
+    cdef raft_proto_device_t dev
+    if arr.is_device_accessible:
+        if arr.is_host_accessible and get_fil_device_type() is DeviceType.host:
+            dev = raft_proto_device_t.cpu
+        else:
+            dev = raft_proto_device_t.gpu
+    else:
+        dev = raft_proto_device_t.cpu
+    return dev
+
+
 cdef class ForestInference_impl():
     cdef forest_model model
     cdef raft_proto_handle_t raft_proto_handle
@@ -120,7 +163,7 @@ cdef class ForestInference_impl():
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
         if mem_type is None:
-            mem_type = GlobalSettings().memory_type
+            mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -213,10 +256,11 @@ cdef class ForestInference_impl():
             X,
             order='C',
             convert_to_dtype=model_dtype,
+            convert_to_mem_type=GlobalSettings().fil_memory_type,
             check_dtype=model_dtype
         )
         cdef raft_proto_device_t in_dev
-        in_dev = get_device_type(in_arr)
+        in_dev = get_fil_raft_proto_device_type(in_arr)
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
@@ -240,7 +284,8 @@ cdef class ForestInference_impl():
                 output_shape,
                 model_dtype,
                 order='C',
-                index=in_arr.index
+                index=in_arr.index,
+                mem_type=GlobalSettings().fil_memory_type,
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
@@ -248,7 +293,7 @@ cdef class ForestInference_impl():
                 raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
-        out_dev = get_device_type(preds)
+        out_dev = get_fil_raft_proto_device_type(preds)
         out_ptr = preds.ptr
 
         cdef optional[uint32_t] chunk_specification
@@ -280,7 +325,7 @@ cdef class ForestInference_impl():
                 chunk_specification
             )
 
-        if GlobalSettings().device_type == DeviceType.device:
+        if get_fil_device_type() is DeviceType.device:
             self.raft_proto_handle.synchronize()
         return preds
 
@@ -432,15 +477,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         """Reload model on any device (CPU/GPU) where model has already been
         loaded"""
         if hasattr(self, '_gpu_forest'):
-            with using_device_type('gpu'):
+            with set_fil_device_type('gpu'):
                 self._load_to_fil(device_id=self.device_id)
         if hasattr(self, '_cpu_forest'):
-            with using_device_type('cpu'):
+            with set_fil_device_type('cpu'):
                 self._load_to_fil(device_id=self.device_id)
 
     @staticmethod
     def _get_default_align_bytes():
-        if GlobalSettings().device_type == DeviceType.host:
+        if get_fil_device_type() is DeviceType.host:
             return 64
         else:
             return 0
@@ -616,7 +661,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     def _load_to_fil(self, mem_type=None, device_id=0):
         if mem_type is None:
-            mem_type = GlobalSettings().memory_type
+            mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -668,9 +713,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     def forest(self):
         """The underlying FIL forest model loaded in memory compatible with the
         current global device_type setting"""
-        if GlobalSettings().device_type == DeviceType.device:
+        device_type = get_fil_device_type()
+        if device_type is DeviceType.device:
             return self.gpu_forest
-        elif GlobalSettings().device_type == DeviceType.host:
+        elif device_type is DeviceType.host:
             return self.cpu_forest
         else:
             raise DeviceTypeError("Unsupported device type for FIL")
@@ -863,7 +909,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with an incompatible device (e.g. device memory and CPU execution),
             the model will be lazily loaded to the correct location at that
             time. In general, it should not be necessary to set this parameter
-            directly (rely instead on the `using_device_type` context manager),
+            directly (rely instead on the `set_fil_device_type` context manager),
             but it can be a useful convenience for some hyperoptimization
             pipelines.
         device_id : int, default=0
@@ -959,7 +1005,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with an incompatible device (e.g. device memory and CPU execution),
             the model will be lazily loaded to the correct location at that
             time. In general, it should not be necessary to set this parameter
-            directly (rely instead on the `using_device_type` context
+            directly (rely instead on the `set_fil_device_type` context
             manager), but it can be a useful convenience for some
             hyperoptimization pipelines.
         device_id : int, default=0
@@ -1007,7 +1053,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1065,7 +1111,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1115,7 +1161,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                     proba.to_output(output_type='array') > threshold
                 ).astype('int')
             else:
-                result = GlobalSettings().xpy.argmax(
+                result = GlobalSettings().fil_xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
             if preds is None:
@@ -1152,7 +1198,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1205,7 +1251,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1292,7 +1338,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             provided.
         """
         if data is None:
-            xpy = GlobalSettings().xpy
+            xpy = GlobalSettings().fil_xpy
             dtype = self.forest.get_dtype()
             data = xpy.random.uniform(
                 xpy.finfo(dtype).min / 2,
@@ -1303,6 +1349,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             data = CumlArray.from_input(
                 data,
                 order='K',
+                convert_to_mem_type=GlobalSettings().fil_memory_type,
             ).to_output('array')
         try:
             unique_batches, batch_size, features = data.shape
@@ -1313,7 +1360,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         if max_chunk_size is None:
             max_chunk_size = 512
-        if GlobalSettings().device_type is DeviceType.device:
+        if get_fil_device_type() is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
         max_chunk_size = min(max_chunk_size, batch_size)

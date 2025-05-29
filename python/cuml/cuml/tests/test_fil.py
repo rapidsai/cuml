@@ -37,7 +37,9 @@ from sklearn.ensemble import (  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 from cuml import ForestInference  # noqa: E402
-from cuml.common.device_selection import using_device_type  # noqa: E402
+from cuml.fil import get_fil_device_type, set_fil_device_type  # noqa: E402
+from cuml.internals.device_type import DeviceType  # noqa: E402
+from cuml.internals.global_settings import GlobalSettings  # noqa: E402
 from cuml.testing.utils import (  # noqa: E402
     quality_param,
     stress_param,
@@ -118,6 +120,38 @@ def _build_and_save_xgboost(
     return bst
 
 
+@pytest.fixture
+def reset_fil_device_type():
+    """Ensures fil_device_type is reset after a test changing it"""
+    orig = GlobalSettings().fil_device_type
+    yield
+    GlobalSettings().fil_device_type = orig
+
+
+@pytest.mark.parametrize("device_type", ["gpu", "cpu"])
+def test_set_fil_device_type(device_type, reset_fil_device_type):
+    set_fil_device_type(device_type)
+    assert get_fil_device_type() is DeviceType.from_str(device_type)
+
+
+@pytest.mark.parametrize("device_type", ["gpu", "cpu"])
+def test_set_fil_device_type_context(device_type, reset_fil_device_type):
+    orig = get_fil_device_type()
+    with set_fil_device_type(device_type):
+        assert get_fil_device_type() is DeviceType.from_str(device_type)
+    assert get_fil_device_type() is orig
+
+
+def test_set_fil_device_type_context_nested(reset_fil_device_type):
+    orig = get_fil_device_type()
+    with set_fil_device_type("gpu"):
+        assert get_fil_device_type() is DeviceType.device
+        with set_fil_device_type("cpu"):
+            assert get_fil_device_type() is DeviceType.host
+        assert get_fil_device_type() is DeviceType.device
+    assert get_fil_device_type() is orig
+
+
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize(
@@ -140,7 +174,7 @@ def test_fil_classification(
     n_classes,
     tmp_path,
 ):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         classification = True  # change this to false to use regression
         random_state = np.random.RandomState(43210)
 
@@ -171,7 +205,7 @@ def test_fil_classification(
         xgb_proba = bst.predict(dvalidation)
 
         fm = ForestInference.load(model_path, is_classifier=True)
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
         fil_proba = np.reshape(fil_proba, xgb_proba.shape)
         fm.optimize(batch_size=len(X_validation))
@@ -205,7 +239,7 @@ def test_fil_regression(
     tmp_path,
     max_depth,
 ):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         classification = False
         random_state = np.random.RandomState(43210)
 
@@ -238,7 +272,7 @@ def test_fil_regression(
         fm = ForestInference.load(
             path=model_path, is_classifier=False, precision="single"
         )
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_preds = np.asarray(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
         fm.optimize(data=X_validation)
@@ -289,7 +323,7 @@ def test_fil_skl_classification(
     precision,
     model_class,
 ):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         classification = True
         random_state = np.random.RandomState(43210)
 
@@ -326,7 +360,7 @@ def test_fil_skl_classification(
         fm = ForestInference.load_from_sklearn(
             skl_model, precision=precision, is_classifier=True
         )
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
         # Given a binary GradientBoostingClassifier,
         # FIL produces the probability score only for the positive class,
@@ -384,7 +418,7 @@ def test_fil_skl_regression(
     max_depth,
 ):
 
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         random_state = np.random.RandomState(43210)
 
         X, y = simulate_data(
@@ -419,7 +453,7 @@ def test_fil_skl_regression(
             is_classifier=False,
             precision="double",
         )
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_preds = np.asarray(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
         fm.optimize(batch_size=len(X_validation))
@@ -453,7 +487,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
 def test_precision_xgboost(
     train_device, infer_device, precision, small_classifier_and_preds
 ):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
             model_path,
@@ -462,7 +496,7 @@ def test_precision_xgboost(
             precision=precision,
         )
 
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, xgb_preds.shape)
 
@@ -476,7 +510,7 @@ def test_precision_xgboost(
 def test_performance_hyperparameters(
     train_device, infer_device, layout, chunk_size, small_classifier_and_preds
 ):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
             model_path,
@@ -485,7 +519,7 @@ def test_performance_hyperparameters(
             model_type=model_type,
         )
 
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
@@ -533,12 +567,12 @@ def test_thresholding(is_classifier, small_classifier_and_preds):
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 def test_output_args(train_device, infer_device, small_classifier_and_preds):
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
             model_path, is_classifier=True, model_type=model_type
         )
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         X = np.asarray(X)
         fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
@@ -642,12 +676,12 @@ def test_lightgbm(
     )
     lgm.fit(X_fit, y)
     lgm.booster_.save_model(model_path)
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         fm = ForestInference.load(
             model_path, is_classifier=True, model_type="lightgbm"
         )
     gbm_proba = lgm.predict_proba(X_predict)
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         fil_proba = fm.predict_proba(X_predict)
     # Given a binary classifier, FIL produces the probability score
     # only for the positive class,
@@ -669,7 +703,7 @@ def test_predict_per_tree(
     n_rows = 1000
     n_columns = 30
 
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         X, y = simulate_data(
             n_rows,
             n_columns,
@@ -694,7 +728,7 @@ def test_predict_per_tree(
         tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         pred_per_tree = fm.predict_per_tree(X)
         margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
         if n_classes == 2:
@@ -730,7 +764,7 @@ def test_predict_per_tree_with_vector_leaf(
     n_columns = 30
     n_estimators = 10
 
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         X, y = simulate_data(
             n_rows,
             n_columns,
@@ -749,7 +783,7 @@ def test_predict_per_tree_with_vector_leaf(
             skl_model, precision="native", is_classifier=True
         )
 
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         pred_per_tree = fm.predict_per_tree(X)
         fm.optimize(batch_size=len(X), predict_method="predict_per_tree")
         pred_per_tree_opt = fm.predict_per_tree(X)
@@ -773,7 +807,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
     n_columns = 30
     num_boost_round = 10
 
-    with using_device_type(train_device):
+    with set_fil_device_type(train_device):
         X, y = simulate_data(
             n_rows,
             n_columns,
@@ -799,7 +833,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
             model_path, is_classifier=True, model_type="xgboost_ubj"
         )
 
-    with using_device_type(infer_device):
+    with set_fil_device_type(infer_device):
         pred_leaf = fm.apply(X).astype(np.int32)
         expected_pred_leaf = bst.predict(xgb.DMatrix(X), pred_leaf=True)
         if n_classes == 2:
