@@ -24,7 +24,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.input_utils import determine_array_type_full
-from cuml.internals.interop import warn_legacy_device_interop
 from cuml.internals.mixins import RegressorMixin
 
 from pylibraft.common.handle cimport handle_t
@@ -256,7 +255,6 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
@@ -354,7 +352,6 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """

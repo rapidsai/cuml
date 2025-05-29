@@ -4,9 +4,6 @@
 set +x
 
 # download CI artifacts
-echo "--- getting commit ---"
-rapids-retry --quiet gh pr view "256" --repo "rapidsai/cumlprims_mg" --json headRefOid --jq '.headRefOid'
-
 echo "--- downloading artifacts ---"
 LIBCUMLPRIMS_MG_CHANNEL=$(rapids-get-pr-conda-artifact cumlprims_mg 256 cpp)
 echo "--- done downloading artifacts ---"

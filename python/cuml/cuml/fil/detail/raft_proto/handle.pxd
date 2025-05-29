@@ -22,7 +22,7 @@
 
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+from cuml.fil.detail.raft_proto.cuda_stream cimport (
     cuda_stream as raft_proto_stream_t,
 )
 

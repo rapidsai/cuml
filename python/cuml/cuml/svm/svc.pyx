@@ -39,7 +39,6 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
-    warn_legacy_device_interop,
 )
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
@@ -581,7 +580,6 @@ class SVC(SVMBase,
 
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
@@ -702,7 +700,7 @@ class SVC(SVMBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @warn_legacy_device_interop
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
@@ -731,7 +729,6 @@ class SVC(SVMBase,
                                        'description': 'Predicted \
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("log")
     def predict_proba(self, X, log=False) -> CumlArray:
         """
@@ -770,7 +767,6 @@ class SVC(SVMBase,
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @cuml.internals.api_base_return_array_skipall
-    @warn_legacy_device_interop
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -785,7 +781,6 @@ class SVC(SVMBase,
                                        'description': 'Decision function \
                                        values',
                                        'shape': '(n_samples, 1)'})
-    @warn_legacy_device_interop
     def decision_function(self, X) -> CumlArray:
         """
         Calculates the decision function values for X.
