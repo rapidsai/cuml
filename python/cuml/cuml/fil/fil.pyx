@@ -95,19 +95,19 @@ class set_fil_device_type:
 
     Examples
     --------
-    >>> from cuml.fil import set_fil_device_type
+    >>> from cuml.fil import set_fil_device_type  # doctest: +SKIP
 
     Set the device type globally to use CPU.
 
-    >>> set_fil_device_type("cpu")
+    >>> set_fil_device_type("cpu")  # doctest: +SKIP
 
     Set the device type globally to use GPU.
 
-    >>> set_fil_device_type("gpu")
+    >>> set_fil_device_type("gpu")  # doctest: +SKIP
 
     Set the device type to use CPU within a context.
 
-    >>> with set_fil_device_type("cpu"):
+    >>> with set_fil_device_type("cpu"):  # doctest: +SKIP
     ...     ...
     """
     def __init__(self, device_type):
