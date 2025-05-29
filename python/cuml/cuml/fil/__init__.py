@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.fil.fil import ForestInference
 
-__all__ = [ForestInference]
+from cuml.fil.fil import (
+    ForestInference,
+    get_fil_device_type,
+    set_fil_device_type,
+)

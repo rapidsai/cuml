@@ -38,7 +38,6 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
-    warn_legacy_device_interop,
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
@@ -504,7 +503,6 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
@@ -669,7 +667,6 @@ class TSNE(Base,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @warn_legacy_device_interop
     @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
