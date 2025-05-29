@@ -23,7 +23,6 @@ import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
 from cuml.common.device_selection import using_device_type
-from cuml.internals import set_api_output_dtype
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
@@ -206,15 +205,7 @@ cdef class ForestInference_impl():
         elif enum_val == element_op.logarithm_one_plus_exp:
             return "logarithm_one_plus_exp"
 
-    def _predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
-        set_api_output_dtype(output_dtype)
+    def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
@@ -291,7 +282,6 @@ cdef class ForestInference_impl():
 
         if GlobalSettings().device_type == DeviceType.device:
             self.raft_proto_handle.synchronize()
-
         return preds
 
     def predict(
@@ -301,14 +291,12 @@ cdef class ForestInference_impl():
         predict_type="default",
         preds=None,
         chunk_size=None,
-        output_dtype=None,
     ):
         return self._predict(
             X,
             predict_type=predict_type,
             preds=preds,
             chunk_size=chunk_size,
-            output_dtype=output_dtype
         )
 
 
