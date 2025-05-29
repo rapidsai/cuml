@@ -69,13 +69,8 @@ requirements:
     - rapids-logger =0.1
     - scikit-build-core >=0.10.0
     - treelite ${{ treelite_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart-dev
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart-dev
+    - cuda-python >=12.6.2,<13.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
@@ -93,19 +88,17 @@ requirements:
     - rapids-dask-dependency =${{ minor_version }}
     - rapids-logger =0.1
     - treelite ${{ treelite_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart
+    - cuda-python >=12.6.2,<13.0a0
   ignore_run_exports:
+    from_package:
+      - ${{ compiler("c") }}
+      - ${{ compiler("cxx") }}
+      - ${{ compiler("cuda") }}
+      - ${{ stdlib("c") }}
     by_name:
       - cuda-cudart
       - cuda-version
-      - if: cuda_major == "11"
-        then: cudatoolkit
 
 about:
   homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
