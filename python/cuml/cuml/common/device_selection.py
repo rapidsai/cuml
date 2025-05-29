@@ -35,7 +35,7 @@ def _warn_deprecated(method):
 
 
 def set_global_device_type(device_type):
-    from cuml.experimental.fil.fil import set_fil_device_type
+    from cuml.fil import set_fil_device_type
 
     _warn_deprecated("set_global_device_type")
     set_fil_device_type(device_type)
@@ -53,7 +53,7 @@ class using_device_type:
         self.prev_device_type = None
 
     def __enter__(self):
-        from cuml.experimental.fil.fil import set_fil_device_type
+        from cuml.fil import set_fil_device_type
 
         self.prev_device_type = GlobalSettings().fil_device_type
         set_fil_device_type(self.device_type)

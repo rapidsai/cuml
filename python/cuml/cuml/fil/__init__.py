@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,4 +20,4 @@ from cuml.fil.fil import (
     set_fil_device_type,
 )
 
-__all__ = [ForestInference]
+__all__ = [ForestInference, get_fil_device_type, set_fil_device_type]
