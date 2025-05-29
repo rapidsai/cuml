@@ -30,6 +30,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -47,8 +48,6 @@ from cuml.fil.infer_kind cimport infer_kind
 from cuml.fil.postprocessing cimport element_op, row_op
 from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
-
-from cuml.internals.treelite import safe_treelite_call
 
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:

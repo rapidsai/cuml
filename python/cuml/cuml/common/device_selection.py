@@ -22,12 +22,12 @@ from cuml.internals.global_settings import GlobalSettings
 def _warn_deprecated(method):
     warnings.warn(
         f"`{method}` is deprecated and will be removed in 25.08.\n\n"
-        "Execution of cuML models (excluding FIL) will always run on GPU now, please use the "
+        "Execution of cuML models (except FIL) will always run on GPU now, please use the "
         "corresponding CPU-based projects (sklearn, umap-learn, ...) for handling any CPU execution.\n\n"
         "If you're using FIL please use `cuml.fil.set_fil_device_type`/`cuml.fil.get_fil_device_type` "
         "instead.\n\n"
         "For all other users please use either:\n"
-        "- `model.as_sklearn()`/`model.from_sklearn()` to coerce cuML models to/from their CPU counterparts\n"
+        "- `model.as_sklearn()`/`model_class.from_sklearn()` to coerce cuML models to/from their CPU counterparts\n"
         "- `cuml.accel` for zero-code-change execution of the same code on CPU or GPU.",
         FutureWarning,
         stacklevel=3,

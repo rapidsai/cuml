@@ -19,5 +19,3 @@ from cuml.fil.fil import (
     get_fil_device_type,
     set_fil_device_type,
 )
-
-__all__ = [ForestInference, get_fil_device_type, set_fil_device_type]
