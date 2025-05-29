@@ -36,19 +36,17 @@ from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+from cuml.fil.detail.raft_proto.cuda_stream cimport (
     cuda_stream as raft_proto_stream_t,
 )
-from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+from cuml.fil.detail.raft_proto.device_type cimport (
     device_type as raft_proto_device_t,
 )
-from cuml.experimental.fil.detail.raft_proto.handle cimport (
-    handle_t as raft_proto_handle_t,
-)
-from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
-from cuml.experimental.fil.infer_kind cimport infer_kind
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
-from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+from cuml.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
+from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
+from cuml.fil.infer_kind cimport infer_kind
+from cuml.fil.postprocessing cimport element_op, row_op
+from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
 
 from cuml.internals.treelite import safe_treelite_call
@@ -337,16 +335,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
 
-    This experimental implementation
-    (`cuml.experimental.ForestInference`) of ForestInference is similar to the
-    original (`cuml.ForestInference`) FIL, but it also offers CPU
-    execution and in most cases superior performance for GPU execution.
-
-    Note: This is an experimental feature. Although it has been
-    extensively reviewed and tested, it has not been as thoroughly evaluated
-    as the original FIL. For maximum stability, we recommend using the
-    original FIL until this implementation moves out of experimental.
-
     **Performance Tuning**
     FIL offers a number of hyperparameters that can be tuned to obtain optimal
     performance for a given model, hardware, and batch size. The easiest way to
@@ -377,7 +365,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     also described below. Testing available layouts is recommended to optimize
     performance, but the impact is likely to be substantially less than
     optimizing `chunk_size`. There is no universal rule for predicting which
-    layout will produce best performance. On both GPU and CPU, the
+    layout will produce the best performance. On both GPU and CPU, the
     `depth_first` layout can improve performance by increasing cache hits
     during tree traversal. This tends to be the strongest effect for most use
     cases, so `depth_first` is used as the default value.
@@ -403,15 +391,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         LightGBM, cuML, Scikit-Learn, or any other forest model framework
         so long as it can be loaded into a treelite.Model object (See
         https://treelite.readthedocs.io/en/latest/treelite-api.html).
-    handle : pylibraft.common.handle or None
-        For GPU execution, the RAFT handle containing the stream or stream
-        pool to use during loading and inference. If input is provide to
-        this model in the wrong memory location (e.g. host memory input but
-        GPU execution), the input will be copied to the correct location
-        using as many streams as are available in the handle. It is therefore
-        recommended that a handle with a stream pool be used for models where
-        it is expected that large input arrays will be coming from the host but
-        evaluated on device.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -715,12 +701,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         is_classifier=False,
         output_class=None,
         threshold=None,
-        algo=None,
-        storage_type=None,
-        blocks_per_sm=None,
-        threads_per_tree=None,
-        n_items=None,
-        compute_shape_str=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -747,26 +727,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see the `chunk_size`
-            parameter of the predict method for equivalent functionality.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -831,8 +791,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             tl_model = treelite.frontend.load_lightgbm_model(path)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -855,12 +813,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             is_classifier=False,
             output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -883,27 +835,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -955,8 +886,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             pool to use during loading and inference.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         result = cls(
             treelite_model=tl_model,
             handle=handle,
@@ -980,12 +909,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             is_classifier=False,
             output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -1008,27 +931,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -1079,8 +981,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -1099,7 +999,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
-    def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
+    def predict_proba(
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+    ) -> CumlArray:
         """
         Predict the class probabilities for each row in X.
 
@@ -1155,7 +1061,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         *,
         preds=None,
         chunk_size=None,
-        threshold=None
+        threshold=None,
     ) -> CumlArray:
         """
         For classification models, predict the class for each row. For

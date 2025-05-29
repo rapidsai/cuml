@@ -21,6 +21,8 @@ import pandas as pd
 import pytest
 import treelite
 
+# Import XGBoost before scikit-learn to work around a libgomp bug
+# See https://github.com/dmlc/xgboost/issues/7110
 xgb = pytest.importorskip("xgboost")
 
 from sklearn.datasets import make_classification, make_regression  # noqa: E402
@@ -166,12 +168,7 @@ def test_fil_classification(
         )
 
         dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-
-        if n_classes == 2:
-            xgb_preds = bst.predict(dvalidation)
-            xgb_proba = np.column_stack((1 - xgb_preds, xgb_preds))
-        else:
-            xgb_proba = bst.predict(dvalidation)
+        xgb_proba = bst.predict(dvalidation)
 
         fm = ForestInference.load(model_path, is_classifier=True)
     with using_device_type(infer_device):
@@ -331,10 +328,21 @@ def test_fil_skl_classification(
         )
     with using_device_type(infer_device):
         fil_proba = np.asarray(fm.predict_proba(X_validation))
+        # Given a binary GradientBoostingClassifier,
+        # FIL produces the probability score only for the positive class,
+        # whereas scikit-learn produces the probability scores for both
+        # the positive and negative class. So we have to transform
+        # fil_proba to compare it with skl_proba.
+        if n_classes == 2 and model_class == GradientBoostingClassifier:
+            fil_proba = np.stack([1 - fil_proba, fil_proba], axis=1)
         fil_proba = np.reshape(fil_proba, skl_proba.shape)
 
         fm.optimize(data=np.expand_dims(X_validation, 0))
         fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
+        if n_classes == 2 and model_class == GradientBoostingClassifier:
+            fil_proba_opt = np.stack(
+                [1 - fil_proba_opt, fil_proba_opt], axis=1
+            )
         fil_proba_opt = np.reshape(fil_proba_opt, skl_proba.shape)
         np.testing.assert_allclose(
             fil_proba, skl_proba, atol=proba_atol[n_classes > 2]
@@ -455,7 +463,7 @@ def test_precision_xgboost(
         )
 
     with using_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict_proba(X))[:, 1]
+        fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_preds, xgb_preds)
@@ -478,9 +486,7 @@ def test_performance_hyperparameters(
         )
 
     with using_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))[
-            :, 1
-        ]
+        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_proba, xgb_preds)
@@ -497,10 +503,11 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
     )
 
     fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
-    fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
+    fil_proba = np.asarray(
+        fm.predict_proba(X, chunk_size=chunk_size)
+    ).squeeze()
 
-    xgb_proba = np.stack([1 - xgb_preds, xgb_preds], axis=1)
-    np.testing.assert_almost_equal(fil_proba, xgb_proba)
+    np.testing.assert_almost_equal(fil_proba, xgb_preds)
 
     xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
@@ -533,7 +540,7 @@ def test_output_args(train_device, infer_device, small_classifier_and_preds):
         )
     with using_device_type(infer_device):
         X = np.asarray(X)
-        fil_preds = np.asarray(fm.predict_proba(X))[:, 1]
+        fil_preds = np.asarray(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
     np.testing.assert_almost_equal(fil_preds, xgb_preds)
@@ -642,6 +649,13 @@ def test_lightgbm(
     gbm_proba = lgm.predict_proba(X_predict)
     with using_device_type(infer_device):
         fil_proba = fm.predict_proba(X_predict)
+    # Given a binary classifier, FIL produces the probability score
+    # only for the positive class,
+    # whereas LGBMClassifier produces the probability scores for both
+    # the positive and negative class. So we have to transform
+    # fil_proba to compare it with gbm_proba.
+    if num_classes == 2:
+        fil_proba = np.concatenate([1 - fil_proba, fil_proba], axis=1)
     np.testing.assert_almost_equal(gbm_proba, fil_proba)
 
 
