@@ -26,7 +26,7 @@ from numba import cuda
 
 import cuml
 from cuml.benchmark import datagen
-from cuml.experimental.fil import get_fil_device_type, set_fil_device_type
+from cuml.fil import get_fil_device_type, set_fil_device_type
 from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
 from cuml.manifold import UMAP
