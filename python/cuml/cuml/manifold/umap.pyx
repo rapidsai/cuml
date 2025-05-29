@@ -273,10 +273,42 @@ class UMAP(UniversalBase,
         'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
-        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
-        'nnd_n_clusters': 1}
-        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
+        Dictionary of parameters to configure the build algorithm. Default values:
+
+        - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent.
+          Must be ≥ `n_neighbors`.
+
+        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for NN Descent.
+          Must be > `nnd_graph_degree`.
+
+        - `nnd_max_iterations` (int, default=20): Max NN Descent iterations.
+
+        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to better convergence
+          but longer runtime.
+
+        - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
+          Refer to data_on_host argument for fit_transform function.
+
+        - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
+
+        Hints:
+
+        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
+
+        - The ratio `nnd_overlap_factor / nnd_n_clusters` impacts memory usage.
+          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data` rows
+          will be loaded onto device memory at once.  E.g., 2/20 uses less device memory than 2/10.
+
+        - Larger `nnd_overlap_factor` results in better accuracy of the final knn graph.
+          E.g. While using similar amount of device memory, `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
+          than 2/10 at the cost of performance.
+
+        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...) for better accuracy.
+
+        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU memory usage.
+          This is independent from nnd_overlap_factor as long as 'nnd_overlap_factor' < 'nnd_n_clusters'.
 
     Notes
     -----
@@ -478,18 +510,30 @@ class UMAP(UniversalBase,
 
         if self.build_algo == "brute_force_knn":
             umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-        else:
-            umap_params.build_algo = graph_build_algo.NN_DESCENT
+        elif self.build_algo == "nn_descent":
             build_kwds = self.build_kwds or {}
-            umap_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
-            umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
-            umap_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
-            umap_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
-            umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
-            umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
-            # Forward metric & metric_kwds to nn_descent
-            umap_params.nn_descent_params.metric = <DistanceType> umap_params.metric
-            umap_params.nn_descent_params.metric_arg = umap_params.p
+            umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
+            umap_params.build_params.overlap_factor = <uint64_t> build_kwds.get("nnd_overlap_factor", 2)
+            if umap_params.build_params.n_clusters > 1 and umap_params.build_params.overlap_factor >= umap_params.build_params.n_clusters:
+                raise ValueError("If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly smaller than n_clusters.")
+            if umap_params.build_params.n_clusters < 1:
+                raise ValueError("nnd_n_clusters must be >= 1")
+            umap_params.build_algo = graph_build_algo.NN_DESCENT
+
+            umap_params.build_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
+            umap_params.build_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
+            umap_params.build_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
+            umap_params.build_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
+
+            if umap_params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
+                logger.warn("to use nn descent as the build algo, nnd_graph_degree should be larger than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors.")
+                umap_params.build_params.nn_descent_params.graph_degree = self.n_neighbors
+            if umap_params.build_params.nn_descent_params.intermediate_graph_degree < umap_params.build_params.nn_descent_params.graph_degree:
+                logger.warn("to use nn descent as the build algo, nnd_intermediate_graph_degree should be larger than or equal to nnd_graph_degree. \
+                setting nnd_intermediate_graph_degree to nnd_graph_degree")
+                umap_params.build_params.nn_descent_params.intermediate_graph_degree = umap_params.build_params.nn_descent_params.graph_degree
+        else:
+            raise ValueError(f"Unsupported value for `build_algo`: {self.build_algo}")
 
         cdef uintptr_t callback_ptr = 0
         if self.callback:
@@ -528,6 +572,10 @@ class UMAP(UniversalBase,
         and also allows the use of a custom distance function. This function
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
+
+        .. deprecated:: 25.06
+            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
+            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -554,7 +602,16 @@ class UMAP(UniversalBase,
             if data_on_host:
                 convert_to_mem_type = MemoryType.host
             else:
-                convert_to_mem_type = MemoryType.device
+                build_kwds = self.build_kwds or {}
+                if build_kwds.get("nnd_n_clusters", 1) > 1:
+                    warnings.warn(
+                        ("Using nnd_n_clusters>1 with data on device is deprecated in version 25.06"
+                            " and will be removed in 25.08. Set data_on_host=True when nnd_n_clusters>1."),
+                        FutureWarning,
+                    )
+                    convert_to_mem_type = MemoryType.host
+                else:
+                    convert_to_mem_type = MemoryType.device
 
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -707,6 +764,9 @@ class UMAP(UniversalBase,
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
+        .. deprecated:: 25.06
+            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
+            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 
