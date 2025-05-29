@@ -39,17 +39,17 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
 
+cdef extern from "cuml/manifold/umapparams.h" namespace "graph_build_params" nogil:
+    cdef cppclass nn_descent_params_umap:
+        size_t graph_degree
+        size_t intermediate_graph_degree
+        size_t max_iterations
+        float termination_threshold
 
-cdef extern from "cuvs/neighbors/nn_descent.hpp" namespace "cuvs::neighbors::nn_descent" nogil:
-    cdef struct index_params:
-        uint64_t graph_degree,
-        uint64_t intermediate_graph_degree,
-        uint64_t max_iterations,
-        float termination_threshold,
-        bool return_distances,
-        uint64_t n_clusters,
-        DistanceType metric,
-        float metric_arg
+    cdef cppclass graph_build_params:
+        size_t overlap_factor
+        size_t n_clusters
+        nn_descent_params_umap nn_descent_params
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
 
@@ -71,6 +71,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         float initial_alpha,
         int init,
         graph_build_algo build_algo,
+        graph_build_params build_params,
         int target_n_neighbors,
         MetricType target_metric,
         float target_weight,
@@ -79,7 +80,6 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         DistanceType metric,
         float p,
         GraphBasedDimRedCallback * callback,
-        index_params nn_descent_params
 
 cdef extern from "raft/sparse/coo.hpp" nogil:
     cdef cppclass COO "raft::sparse::COO<float, int>":
