@@ -63,14 +63,14 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:cuda11.8.0-ubuntu22.04-py3.10"
       script: "ci/run_clang_tidy.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-cpp-build:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@gh-token-override
     with:
       build_type: pull-request
       script: ci/build_cpp.sh
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-cpp-tests:
     needs: [conda-cpp-build]
     secrets: inherit
@@ -78,7 +78,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
@@ -93,7 +93,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/build_python.sh
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-python-tests-singlegpu:
     needs: [conda-python-build]
     secrets: inherit
@@ -101,7 +101,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   optional-job-conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build]
     secrets: inherit
@@ -111,7 +111,7 @@ jobs:
       matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
       build_type: pull-request
       script: "ci/test_python_integration.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-python-tests-dask:
     needs: [conda-python-build]
     secrets: inherit
@@ -119,7 +119,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-python-scikit-learn-accel-tests:
     needs: [conda-python-build]
     secrets: inherit
@@ -129,7 +129,7 @@ jobs:
       script: "ci/test_python_scikit_learn_tests.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   conda-notebook-tests:
     needs: [conda-python-build]
     secrets: inherit
@@ -140,7 +140,7 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
       script: "ci/test_notebooks.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   docs-build:
     needs: conda-python-build
     secrets: inherit
@@ -151,7 +151,7 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
       script: "ci/build_docs.sh"
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   wheel-build-libcuml:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@gh-token-override
@@ -168,7 +168,7 @@ jobs:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libcuml
       package-type: cpp
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   wheel-build-cuml:
     needs: [wheel-build-libcuml]
     secrets: inherit
@@ -178,7 +178,7 @@ jobs:
       script: ci/build_wheel_cuml.sh
       package-name: cuml
       package-type: python
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   wheel-tests-cuml:
     needs: [wheel-build-cuml]
     secrets: inherit
@@ -186,7 +186,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml]
     secrets: inherit
@@ -194,7 +194,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
-      alternative-gh-token-secret-name: GH_TOKEN_CUMLPRIMS_MG
+      alternative-gh-token-secret-name: SOME_NONSENSE
 
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
