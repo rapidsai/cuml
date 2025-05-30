@@ -287,8 +287,11 @@ def _get_gpu_memory():
         if len(tokens) > 1:
             gpus_memory.append(int(tokens[0]))
     gpus_memory.sort()
-    max_gpu_memory = ceil(gpus_memory[-1] / 1024)
-    return max_gpu_memory
+    if len(gpus_memory) > 0:
+        max_gpu_memory = ceil(gpus_memory[-1] / 1024)
+        return max_gpu_memory
+    else:
+        return None
 
 
 # =============================================================================
