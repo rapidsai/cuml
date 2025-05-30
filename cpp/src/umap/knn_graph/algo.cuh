@@ -68,8 +68,7 @@ inline void launcher(const raft::handle_t& handle,
 {
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
-  float* ptr          = reinterpret_cast<float*>(attr.devicePointer);
-  bool data_on_device = ptr != nullptr;
+  bool data_on_device = attr.type == cudaMemoryTypeDevice;
 
   if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
     auto idx = [&]() {
