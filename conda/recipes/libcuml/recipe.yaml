@@ -116,8 +116,6 @@ outputs:
         - rapids-logger =0.1
         - treelite ${{ treelite_version }}
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("cuda") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -155,8 +153,6 @@ outputs:
         - ${{ pin_subpackage("libcuml", exact=True) }}
         - cuda-cudart
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("cuda") }}
         by_name:
           - cuda-cudart
           - cuda-version
