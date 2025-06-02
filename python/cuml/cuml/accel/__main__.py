@@ -93,19 +93,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--convert-to-sklearn",
-        help="Path to a pickled accelerated estimator to convert to a sklearn estimator.",
+        help="Path to a pickled accelerated estimator to convert to a scikit-learn estimator.",
     )
     parser.add_argument(
         "--format",
         choices=["pickle", "joblib"],
         type=str.lower,
         default="pickle",
-        help="Format to save the converted sklearn estimator.",
+        help="Format to save the converted scikit-learn estimator.",
     )
     parser.add_argument(
         "--output",
         default="converted_sklearn_model.pkl",
-        help="Output path for the converted sklearn estimator file.",
+        help="Output path for the converted scikit-learn estimator file.",
     )
     parser.add_argument(
         "--cudf-pandas",
@@ -156,13 +156,9 @@ def main(argv: list[str] | None = None):
     if ns.convert_to_sklearn:
         with open(ns.convert_to_sklearn, "rb") as f:
             if ns.format == "pickle":
-                import pickle
-
-                serializer = pickle
+                import pickle as serializer
             elif ns.format == "joblib":
-                import joblib
-
-                serializer = joblib
+                import joblib as serializer
             estimator = serializer.load(f)
 
         # Conversion is only necessary for estimators built on `ProxyMixin`,
