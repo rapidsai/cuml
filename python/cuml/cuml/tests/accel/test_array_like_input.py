@@ -22,6 +22,8 @@ from cuml.internals.global_settings import GlobalSettings
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import Ridge
 
+from cuml.testing.array_assertions import array_equal
+
 
 @pytest.mark.parametrize(
     "input_data,expected",
@@ -39,7 +41,7 @@ def test_cumlarray_list_tuple_input(input_data, expected):
 
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
-    np.testing.assert_array_equal(arr.to_output("numpy"), expected)
+    array_equal(arr.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize(
@@ -58,7 +60,7 @@ def test_cumlarray_construction_with_empty_lists(input_data, expected):
 
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
-    np.testing.assert_array_equal(arr.to_output("numpy"), expected)
+    array_equal(arr.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize(
@@ -75,7 +77,7 @@ def test_cumlarray_construction_with_mixed_types(input_data, expected):
 
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
-    np.testing.assert_array_equal(arr.to_output("numpy"), expected)
+    array_equal(arr.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize(
@@ -97,7 +99,7 @@ def test_cumlarray_from_input(input_data, expected):
 
     arr = CumlArray.from_input(input_data)
     assert isinstance(arr, CumlArray)
-    np.testing.assert_array_equal(arr.to_output("numpy"), expected)
+    array_equal(arr.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int32, np.int64])
@@ -108,9 +110,7 @@ def test_cumlarray_from_input_with_dtype(dtype):
 
     arr = CumlArray.from_input([1, 2, 3], convert_to_dtype=dtype)
     assert isinstance(arr, CumlArray)
-    np.testing.assert_array_equal(
-        arr.to_output("numpy"), np.array([1, 2, 3], dtype=dtype)
-    )
+    array_equal(arr.to_output("numpy"), np.array([1, 2, 3], dtype=dtype))
 
 
 @pytest.mark.parametrize(
@@ -129,7 +129,7 @@ def test_input_to_cuml_array_list_tuple_input(input_data, expected):
 
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
-    np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
+    array_equal(result.array.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,7 @@ def test_input_to_cuml_array_empty_lists(input_data, expected):
 
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
-    np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
+    array_equal(result.array.to_output("numpy"), expected)
 
 
 @pytest.mark.parametrize(
@@ -165,7 +165,7 @@ def test_input_to_cuml_array_mixed_types(input_data, expected):
 
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
-    np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
+    array_equal(result.array.to_output("numpy"), expected)
 
 
 def test_logistic_regression_list_input():

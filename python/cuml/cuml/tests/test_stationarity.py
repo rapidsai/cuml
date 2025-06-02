@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import warnings
 import pytest
 
 from cuml.internals.safe_imports import cpu_only_import
+
+from cuml.testing.array_assertions import array_equal
 
 np = cpu_only_import("numpy")
 
@@ -133,4 +135,4 @@ def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
     y_diff = prepare_data(y, d, D, s)
     test_ref = ref_tests[test_type](y_diff)
 
-    np.testing.assert_array_equal(test_cuml, test_ref)
+    array_equal(test_cuml, test_ref)

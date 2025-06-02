@@ -31,7 +31,6 @@ from cuml.testing.strategies import (
 )
 from cuml.testing.utils import (
     array_difference,
-    array_equal,
     quality_param,
     small_classification_dataset,
     small_regression_dataset,
@@ -58,6 +57,8 @@ from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
+
+from cuml.testing.array_assertions import array_equal
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
@@ -920,9 +921,7 @@ def test_logistic_regression_complex_classes(y_kind, output_type):
     cu_model.fit(X, y)
     sk_model.fit(X, y)
 
-    np.testing.assert_array_equal(
-        cu_model.classes_, sk_model.classes_, strict=True
-    )
+    array_equal(cu_model.classes_, sk_model.classes_, strict=True)
 
     res = cu_model.predict(X)
     sol = sk_model.predict(X)
@@ -956,7 +955,7 @@ def test_logistic_regression_categorical_y(y_kind):
 
     model = cuLog(output_type="numpy")
     model.fit(X, y)
-    np.testing.assert_array_equal(model.classes_, categories, strict=True)
+    array_equal(model.classes_, categories, strict=True)
     res = model.predict(X)
     assert isinstance(res, np.ndarray)
     assert res.dtype == "object"
