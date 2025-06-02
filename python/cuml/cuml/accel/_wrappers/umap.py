@@ -15,10 +15,10 @@
 #
 
 import cuml.manifold
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("UMAP",)
 
 
-class UMAP(ProxyMixin, cuml.manifold.UMAP):
-    pass
+class UMAP(ProxyBase):
+    _gpu_class = cuml.manifold.UMAP

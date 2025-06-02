@@ -58,6 +58,17 @@ class UnsupportedOnCPU(ValueError):
     """An exception raised when a conversion of a GPU to a CPU estimator isn't supported"""
 
 
+def is_fitted(model) -> bool:
+    """Check if a sklearn model is fitted."""
+    if hasattr(model, "__sklearn_is_fitted__"):
+        return model.__sklearn_is_fitted__()
+    if getattr(model, "n_features_in_", None) is not None:
+        return True
+    return any(
+        v for v in vars(model) if v.endswith("_") and not v.startswith("__")
+    )
+
+
 class InteropMixin:
     """A mixin for enabling conversion of a cuml estimator to/from its
     CPU-based counterpart.
@@ -199,7 +210,7 @@ class InteropMixin:
         model
             An instance of ``self._cpu_class``.
         """
-        if getattr(self, "n_features_in_", None) is None:
+        if not is_fitted(self):
             # GPU model not fitted, nothing to do
             return
 
@@ -220,7 +231,7 @@ class InteropMixin:
         model
             An instance of ``self._cpu_class``.
         """
-        if getattr(model, "n_features_in_", None) is None:
+        if not is_fitted(model):
             # CPU model not fitted, nothing to do
             return
 
