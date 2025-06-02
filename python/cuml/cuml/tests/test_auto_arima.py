@@ -14,11 +14,15 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
 
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.array_assertions import array_equal
 from cuml.tsa import auto_arima
+
+np = cpu_only_import("numpy")
+
 
 ###############################################################################
 #                       Helpers and reference functions                       #
@@ -88,9 +92,7 @@ def test_divide_by_mask(batch_size, n_obs, prop_true, dtype):
             np.testing.assert_allclose(
                 sub_data[i].to_output("numpy"), sub_data_ref[i]
             )
-            np.testing.assert_array_equal(
-                sub_id[i].to_output("numpy"), sub_id_ref[i]
-            )
+            array_equal(sub_id[i].to_output("numpy"), sub_id_ref[i])
 
 
 @pytest.mark.parametrize("batch_size", [10, 100])
@@ -141,9 +143,7 @@ def test_divide_by_min(batch_size, n_obs, n_sub, dtype):
             np.testing.assert_allclose(
                 sub_batches[i].to_output("numpy"), sub_batches_ref[i]
             )
-            np.testing.assert_array_equal(
-                sub_id[i].to_output("numpy"), sub_id_ref[i]
-            )
+            array_equal(sub_id[i].to_output("numpy"), sub_id_ref[i])
 
 
 @pytest.mark.parametrize("batch_size", [25, 103, 1001])
@@ -172,10 +172,8 @@ def test_build_division_map(batch_size, n_sub):
     )
 
     # Compare the results
-    np.testing.assert_array_equal(
-        id_to_model.to_output("numpy"), id_to_model_ref
-    )
-    np.testing.assert_array_equal(id_to_pos.to_output("numpy"), id_to_pos_ref)
+    array_equal(id_to_model.to_output("numpy"), id_to_model_ref)
+    array_equal(id_to_pos.to_output("numpy"), id_to_pos_ref)
 
 
 @pytest.mark.parametrize("batch_size", [10, 100])

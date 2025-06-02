@@ -18,6 +18,7 @@ import numpy as np
 
 from cuml.internals.api_decorators import _get_value
 from cuml.internals.input_utils import is_array_like
+from cuml.testing.array_assertions import array_equal
 
 
 def test_is_array_like_with_lists():
@@ -42,14 +43,14 @@ def test_get_value_with_lists():
         [], {"test": [1, 2, 3]}, "test", 0, None, accept_lists=True
     )
     assert isinstance(value, np.ndarray)
-    np.testing.assert_array_equal(value, np.array([1, 2, 3]))
+    array_equal(value, np.array([1, 2, 3]))
 
     # Test tuple input is converted to numpy array
     value = _get_value(
         [], {"test": (1, 2, 3)}, "test", 0, None, accept_lists=True
     )
     assert isinstance(value, np.ndarray)
-    np.testing.assert_array_equal(value, np.array([1, 2, 3]))
+    array_equal(value, np.array([1, 2, 3]))
 
     # Test non-list/tuple inputs are not converted
     value = _get_value(

@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
 import dask.array as da
-import dask_cudf
-import numpy as np
 import pytest
 from cudf import DataFrame, Series
-from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 from cuml.dask.preprocessing import OneHotEncoder
-from cuml.testing.utils import (
-    assert_inverse_equal,
-    from_df_to_numpy,
-    generate_inputs_from_categories,
-    stress_param,
+from cuml.internals.safe_imports import (cpu_only_import, cpu_only_import_from,
+                                         gpu_only_import)
+from cuml.testing.array_assertions import array_equal
+from cuml.testing.utils import (assert_inverse_equal, from_df_to_numpy,
+                                generate_inputs_from_categories, stress_param)
+
+dask_cudf = gpu_only_import("dask_cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+assert_frame_equal = cpu_only_import_from(
+    "pandas.testing", "assert_frame_equal"
 )
 
 
@@ -199,7 +201,7 @@ def test_onehot_drop_one_of_each(client):
             "Some categories [a-zA-Z, ]* were not found",
         ],
         [
-            DataFrame({"chars": ["b"], "int": [3]}),
+            DataFrame({"chars": "b", "int": 3}),
             "Wrong input for parameter `drop`.",
         ],
     ],
@@ -222,4 +224,4 @@ def test_onehot_get_categories(client):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
+        array_equal(ref[i], cats[i].to_numpy())

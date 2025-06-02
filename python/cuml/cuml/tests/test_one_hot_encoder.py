@@ -13,20 +13,20 @@
 # limitations under the License.
 import math
 
-import cupy as cp
-import numpy as np
-import pandas as pd
 import pytest
-from cudf import DataFrame
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
+from cuml.internals.safe_imports import (cpu_only_import, gpu_only_import,
+                                         gpu_only_import_from)
 from cuml.preprocessing import OneHotEncoder
-from cuml.testing.utils import (
-    assert_inverse_equal,
-    from_df_to_numpy,
-    generate_inputs_from_categories,
-    stress_param,
-)
+from cuml.testing.array_assertions import array_equal
+from cuml.testing.utils import (assert_inverse_equal, from_df_to_numpy,
+                                generate_inputs_from_categories, stress_param)
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
 def _from_df_to_cupy(df):
@@ -228,7 +228,7 @@ def test_onehot_drop_one_of_each(as_array):
             "Some categories [0-9a-zA-Z, ]* were not found",
         ],
         [
-            DataFrame({"chars": ["b"], "int": [3]}),
+            DataFrame({"chars": "b", "int": 3}),
             "Wrong input for parameter `drop`.",
         ],
     ],
@@ -256,7 +256,7 @@ def test_onehot_get_categories(as_array):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
+        array_equal(ref[i], cats[i].to_numpy())
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])

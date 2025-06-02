@@ -17,11 +17,15 @@
 
 import warnings
 
-import numpy as np
 import pytest
 from statsmodels.tsa import stattools
 
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.array_assertions import array_equal
 from cuml.tsa import stationarity
+
+np = cpu_only_import("numpy")
+
 
 ###############################################################################
 #                       Helpers and reference functions                       #
@@ -131,4 +135,4 @@ def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
     y_diff = prepare_data(y, d, D, s)
     test_ref = ref_tests[test_type](y_diff)
 
-    np.testing.assert_array_equal(test_cuml, test_ref)
+    array_equal(test_cuml, test_ref)
