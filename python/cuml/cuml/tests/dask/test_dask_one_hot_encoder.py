@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ from cuml.internals.safe_imports import cpu_only_import
 from cudf import DataFrame, Series
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.testing.array_assertions import array_equal
 
 dask_cudf = gpu_only_import("dask_cudf")
 cp = gpu_only_import("cupy")
@@ -227,4 +229,4 @@ def test_onehot_get_categories(client):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
+        array_equal(ref[i], cats[i].to_numpy())

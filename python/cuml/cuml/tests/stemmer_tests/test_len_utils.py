@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 
+from cuml.testing.array_assertions import array_equal
+
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 
@@ -29,11 +31,11 @@ def test_len_gt_n():
     word_str_ser = cudf.Series(["a", "abcd", "abc", "abcd"])
     got = len_gt_n(word_str_ser, 3).values.get()
     expect = np.asarray([False, True, False, True])
-    np.testing.assert_array_equal(got, expect)
+    array_equal(got, expect)
 
 
 def test_len_eq_n():
     word_str_ser = cudf.Series(["a", "abcd", "abc", "abcd"])
     got = len_eq_n(word_str_ser, 3).values.get()
     expect = np.asarray([False, False, True, False])
-    np.testing.assert_array_equal(got, expect)
+    array_equal(got, expect)
