@@ -116,7 +116,7 @@ class ProxyBase(BaseEstimator):
         super().__init_subclass__(**kwargs)
 
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
-        cls._cpu_class = cls._gpu_class._cpu_class
+        cls._cpu_class = cls._gpu_class._get_cpu_class()
 
         # Store whether sparse inputs are supported, unless overridden
         if not hasattr(cls, "_gpu_supports_sparse"):
