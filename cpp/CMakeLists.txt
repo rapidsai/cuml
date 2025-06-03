@@ -313,6 +313,11 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
   endif()
 
+  target_sources(${CUML_CPP_TARGET}
+    PRIVATE
+      src/common/lto/load_fatbins.cpp
+      src/common/lto/kernel_lookup.cpp)
+
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
@@ -448,6 +453,14 @@ if(BUILD_CUML_CPP_LIBRARY)
       PROPERTY COMPILE_FLAGS
       " -Xcompiler=-Wno-maybe-uninitialized"
     )
+    add_library(hdbscan_kernels_lto OBJECT src/hdbscan/detail/kernels/condense.cu)
+    target_compile_options(hdbscan_kernels_lto PRIVATE -Xfatbin=--compress-all --compress-mode=size)
+    set_target_properties(hdbscan_kernels_lto PROPERTIES
+      CUDA_ARCHITECTURES "60-real"
+      CUDA_SEPARABLE_COMPILATION ON
+      CUDA_FATBIN_COMPILATION ON
+      POSITION_INDEPENDENT_CODE ON
+      INTERPROCEDURAL_OPTIMIZATION ON)
   endif()
 
   if(all_algo OR holtwinters_algo)
@@ -654,6 +667,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${OpenMP_CXX_LIB_NAMES}
     $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
+    CUDA::nvJitLink
+    CUDA::cuda_driver
   )
 
   set(_cuml_cpp_libs_var_name "_cuml_cpp_public_libs")
@@ -676,6 +691,7 @@ if(BUILD_CUML_CPP_LIBRARY)
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
   )
+  target_link_libraries(hdbscan_kernels_lto PRIVATE ${CUML_CPP_TARGET})
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include "kernels/condense.cuh"
-
 #include <cuml/cluster/hdbscan.hpp>
-
+#include <cuml/common/lto/kernel_lookup.hpp>
+#include "kernels/create_kernel_database.hpp"
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -28,6 +27,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cub/detail/launcher/cuda_driver.cuh>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -72,6 +72,8 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                int n_leaves,
                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
 {
+  KernelDatabase hdbscan_lto_kernels;
+  create_kernel_database(hdbscan_lto_kernels);
   cudaStream_t stream = handle.get_stream();
   auto exec_policy    = handle.get_thrust_policy();
 
@@ -127,21 +129,41 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
   while (n_elements_to_traverse > 0) {
+    auto condense_hierarchy_kernel = get_kernel(hdbscan_lto_kernels, "condense_hierarchy_kernel");
+    cub::detail::CudaDriverLauncher condense_hierarchy_launcher{
+      dim3{static_cast<unsigned int>(grid), 1, 1},
+      dim3{static_cast<unsigned int>(tpb), 1, 1},
+      size_t{0},
+      stream};
+    condense_hierarchy_launcher.doit(condense_hierarchy_kernel,
+                                     frontier.data(),
+                                     next_frontier.data(),
+                                     ignore.data(),
+                                     relabel.data(),
+                                     children,
+                                     delta,
+                                     sizes,
+                                     n_leaves,
+                                     min_cluster_size,
+                                     out_parent.data(),
+                                     out_child.data(),
+                                     out_lambda.data(),
+                                     out_size.data());
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
     // to schedule only the number of threads needed. (it might not be worth it)
-    condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(frontier.data(),
-                                                                     next_frontier.data(),
-                                                                     ignore.data(),
-                                                                     relabel.data(),
-                                                                     children,
-                                                                     delta,
-                                                                     sizes,
-                                                                     n_leaves,
-                                                                     min_cluster_size,
-                                                                     out_parent.data(),
-                                                                     out_child.data(),
-                                                                     out_lambda.data(),
-                                                                     out_size.data());
+    // condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(frontier.data(),
+    //                                                                  next_frontier.data(),
+    //                                                                  ignore.data(),
+    //                                                                  relabel.data(),
+    //                                                                  children,
+    //                                                                  delta,
+    //                                                                  sizes,
+    //                                                                  n_leaves,
+    //                                                                  min_cluster_size,
+    //                                                                  out_parent.data(),
+    //                                                                  out_child.data(),
+    //                                                                  out_lambda.data(),
+    //                                                                  out_size.data());
 
     thrust::copy(exec_policy, next_frontier.begin(), next_frontier.end(), frontier.begin());
     thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
