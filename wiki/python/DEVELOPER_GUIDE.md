@@ -1,33 +1,34 @@
 # cuML Python Developer Guide
+
 This document summarizes guidelines and best practices for contributions to the python component of the library cuML, the machine learning component of the RAPIDS ecosystem. This is an evolving document so contributions, clarifications and issue reports are highly welcome.
 
 ## General
 Please start by reading:
-1. [CONTRIBUTING.md](../../CONTRIBUTING.md).
+1. [CONTRIBUTING.md](../../CONTRIBUTING.md)
 2. [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md)
 3. [Python cuML README.md](../../python/README.md)
 
-## Thread safety
+## Thread Safety
 Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
 
-## Coding style
+## Coding Style
 1. [PEP8](https://www.python.org/dev/peps/pep-0008) and [flake8](http://flake8.pycqa.org/en/latest/) is used to check the adherence to this style.
 2. [sklearn coding guidelines](https://scikit-learn.org/stable/developers/contributing.html#coding-guidelines)
 
-## Creating class for a new estimator or other ML algorithm
+## Creating Class for a New Estimator or Other ML Algorithm
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
-2. Refer to the [next section](DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
+2. Refer to the [next section](#creating-python-estimator-wrapper-class) for the remaining steps.
 
-## Creating python estimator wrapper class
+## Creating Python Estimator Wrapper Class
 1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
 2. Ensure that the folder structure inside here reflects that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
-.  Match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
-3. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
-4. Ensure that the estimator's output fields follow the 'underscore on both sides' convention explained in the documentation of `cuml.Base`. This allows it to support configurable output types.
+3. Match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
+4. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
+5. Ensure that the estimator's output fields follow the 'underscore on both sides' convention explained in the documentation of `cuml.Base`. This allows it to support configurable output types.
 
 For an in-depth guide to creating estimators, see the [Estimator Guide](ESTIMATOR_GUIDE.md)
 
-## Error handling
+## Error Handling
 If you are trying to call into cuda runtime APIs inside `cuml.cuda`, in case of any errors, they'll raise a `cuml.cuda.CudaRuntimeError`. For example:
 ```python
 from cuml.cuda import Stream, CudaRuntimeError
@@ -62,7 +63,7 @@ and the version in which the old behavior will be removed. The message should al
 a brief explanation of the change and point users to an alternative.
 
 In addition, a deprecation note should be added in the docstring, repeating the information
-from the warning message::
+from the warning message:
 
 ```
 .. deprecated:: 25.06
@@ -90,12 +91,180 @@ The following rules determine whether an API is considered public and therefore 
 When in doubt, treat an API as public to ensure proper deprecation cycles.
 
 ## Logging
-TBD
+
+cuML uses the [rapids-logger library](https://github.com/rapidsai/rapids-logger) for logging which in turn is built on top of [spdlog](https://github.com/gabime/spdlog). This provides fast, asynchronous logging with support for multiple sinks and formatting options.
+
+### Usage
+
+To emit log messages within the Python library, use the functions provided within the `cuml.internals.logger` module:
+
+```python
+from cuml.internals.logger import debug, info, warn, error, critical
+
+# Example usage
+debug("Detailed debug information")
+info("General information")
+warn("Warning message")
+error("Error message")
+critical("Critical error message")
+```
+
+### Log Levels
+
+Use the appropriate log level based on the message's importance and target audience:
+
+- **DEBUG**: Detailed information for debugging primarily aimed at developers
+  - Use for detailed execution flow, variable values, and internal state
+  - Example: "Initializing CUDA stream with device 0"
+
+- **INFO**: General information about program execution primarily aimed at users
+  - Use for messages that could be of interest to users, but usually don't require any further action
+  - Example: "Building knn graph using nn descent"
+
+- **WARNING**: Indicate a potential problem or other potentially surprising behavior
+  - Use for ignored parameters, performance issues, or unexpected but handled conditions
+  - Use for messages that we typically expect users to take action on
+  - Example: "Parameter 'n_neighbors' was ignored as it's not supported in this mode"
+
+- **ERROR**: Indicates a problem that prevents program execution
+  - Use for recoverable errors that prevent the current operation
+  - Example: "Failed to allocate GPU memory for input data"
+
+- **CRITICAL**: A critical problem that is expected to lead to immediate program termination
+  - Use sparingly, only for unrecoverable errors
+  - Example: "CUDA device became unresponsive"
+
+### Best Practices
+
+1. **Message Content**
+   - Be specific and include relevant context
+   - Include error codes or exception details when applicable
+   - Use consistent terminology
+
+2. **Performance**
+   - Avoid expensive string operations in debug messages
+   - Do not emit log messages within loops that are input size dependent
+   - Use lazy evaluation for debug messages:
+   ```python
+   from cuml.internals import logger
+
+   if logger.should_log_for(logging.DEBUG):
+       logger.debug(f"Expensive operation result: {expensive_operation()}")
+   ```
+
+3. **Formatting**
+   - Use proper punctuation and capitalization
+   - Keep messages concise but informative
+   - Include relevant numeric values with units
+
+4. **Context**
+   - Include relevant parameters or state information
+   - For errors, include the operation that failed
+   - For warnings, explain why the behavior might be unexpected
+
+### Configuration
+
+The logging level can be configured through the `cuml.global_settings`:
+
+```python
+import cuml
+cuml.global_settings.log_level = cuml.common.logger.level_debug
+```
+
+Available log levels:
+- `level_debug`
+- `level_info`
+- `level_warn`
+- `level_error`
+- `level_critical`
 
 ## Documentation
-We mostly follow [PEP 257](https://www.python.org/dev/peps/pep-0257/) style docstrings for documenting the interfaces.
-The examples in the documentation are checked through doctest. To skip the check for an example's output, use the command `# doctest: +SKIP`.
-Examples subject to numerical imprecision, or that can't be reproduced consistently should be skipped.
+Doc-string documentation should follow the [NumPy docstring style guide](https://numpydoc.readthedocs.io/en/stable/format.html) for documenting interfaces. This provides a consistent format that is both human-readable and machine-parseable.
+
+### Docstring Sections
+The docstring should include the following sections in order:
+
+1. **Short Summary**
+   - A one-line summary that does not use variable names or the function name
+   - Example: `"""The sum of two numbers."""`
+
+2. **Extended Summary**
+   - A few sentences giving an extended description
+   - Should clarify functionality, not implementation details
+
+3. **Parameters**
+   - Description of function arguments, keywords and their types
+   - Format:
+   ```python
+   Parameters
+   ----------
+   x : type
+       Description of parameter `x`.
+   y : type, optional
+       Description of parameter `y` (with type not specified).
+   ```
+
+4. **Returns**
+   - Description of returned values and their types
+   - Format:
+   ```python
+   Returns
+   -------
+   int
+       Description of anonymous integer return value.
+   ```
+
+5. **Other Sections** (as needed)
+   - Raises
+   - See Also
+   - Notes
+   - References
+   - Examples
+
+### Examples
+Examples must be written in the form of an interactive REPL. The examples in the
+documentation are checked through doctest. To skip the check for an example's
+output, use the command `# doctest: +SKIP`. Examples subject to numerical
+imprecision, or that can't be reproduced consistently should be skipped.
+
+Example docstring format:
+```python
+def function_name(param1, param2):
+    """Short summary.
+
+    Extended summary if needed.
+
+    Parameters
+    ----------
+    param1 : type
+        Description of param1
+    param2 : type, optional
+        Description of param2
+
+    Returns
+    -------
+    type
+        Description of return value
+
+    Examples
+    --------
+    >>> function_name(1, 2)
+    result
+    """
+    pass
+```
+
+### Best Practices
+1. Use reStructuredText (reST) syntax for formatting
+2. Keep docstring lines to 75 characters for readability in text terminals
+3. Enclose parameter names in single backticks when referring to them
+4. Use double backticks for inline code
+5. Include type information for all parameters and return values
+6. Document default values for optional parameters
+7. Use the `@generate_docstring` decorator for common parameter documentation
+8. Include examples that demonstrate typical usage
+
+For more details, refer to the [NumPy docstring style guide](https://numpydoc.readthedocs.io/en/stable/format.html).
 
 ## Testing and Unit Testing
 We use [pytest](https://docs.pytest.org/en/latest/) for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/tests`.
@@ -203,10 +372,26 @@ Common options:
 
 Running pytest from outside the `python/cuml/` directory will result in import errors.
 
-## Device and Host memory allocations
-TODO: talk about enabling RMM here when it is ready
+## Device and Host Memory Allocations
+cuML uses RMM (RAPIDS Memory Manager) for memory management. Here are the key points:
 
-## Asynchronous operations and stream ordering
+1. Enable RMM for better memory management:
+```python
+import rmm
+rmm.reinitialize(
+    pool_allocator=True,
+    initial_pool_size=None,  # Use default size
+    logging=False
+)
+```
+
+2. Best practices:
+   - Use RMM for all GPU memory allocations
+   - Monitor memory usage with `rmm.mr.get_current_device_resource().get_memory_info()`
+   - Consider using memory pools for better performance
+   - Clean up resources when done
+
+## Asynchronous Operations and Stream Ordering
 If you want to schedule the execution of two algorithms concurrently, it is better to create two separate streams and assign them to separate handles. Finally, schedule the algorithms using these handles.
 ```python
 import cuml
@@ -222,18 +407,47 @@ algo2 = cuml.Algo2(handle=h2, ...)
 algo1.fit(X1, y1)
 algo2.fit(X2, y2)
 ```
+
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
-## Multi GPU
+## Multi-GPU Support
+cuML provides limited multi-GPU support through Dask. Here are the key points:
 
-TODO: Add more details.
+1. **Dask Integration**
+   - Use `dask_cudf` for distributed data
+   - Use `cuml.dask` for distributed algorithms
+   - Example:
+   ```python
+   from dask_cuda import LocalCUDACluster
+   from dask.distributed import Client
+   import dask_cudf
+   import cuml.dask
+
+   # Create a local cluster
+   cluster = LocalCUDACluster()
+   client = Client(cluster)
+
+   # Create distributed dataframe
+   ddf = dask_cudf.from_cudf(df, npartitions=2)
+
+   # Use distributed algorithm
+   model = cuml.dask.UMAP()
+   model.fit(ddf)
+   ```
+
+2. **Best Practices**
+   - Partition data appropriately
+   - Monitor GPU memory usage
+   - Use appropriate number of workers
+   - Consider data locality
+   - Handle communication overhead
 
 ## Benchmarking
 
 The cuML code including its Python operations can be profiled. The `nvtx_benchmark.py` is a helper script that produces a simple benchmark summary. To use it, run `python nvtx_benchmark.py "python test.py"`.
 
 Here is an example with the following script:
-```
+```python
 from cuml.datasets import make_blobs
 from cuml.manifold import UMAP
 
@@ -243,6 +457,7 @@ model = UMAP()
 model.fit(X)
 embeddngs = model.transform(X)
 ```
+
 that once benchmarked can have its profiling summarized:
 ```
 datasets.make_blobs                                          :   1.3571 s
@@ -259,3 +474,12 @@ manifold.umap.transform [0x7f10eb69d4f0]                     :   0.0934 s
     |==> umap::smooth_knn                                    :   0.0002 s
     |==> umap::optimization                                  :   0.0011 s
 ```
+
+### Benchmarking Best Practices
+1. Use appropriate dataset sizes
+2. Run multiple iterations
+3. Warm up the GPU before benchmarking
+4. Monitor system resources
+5. Document hardware and software environment
+6. Use appropriate metrics for comparison
+7. Consider both accuracy and performance
