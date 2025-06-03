@@ -1321,8 +1321,9 @@
   marker: cuml_accel_kmeans_empty_clusters_num_labels
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
-- reason: "The signs of the principal components are swapped with cuml.accel (insignificant deviation)"
+- reason: "The signs of the principal components may be swapped with cuml.accel (insignificant deviation)"
   condition: "cuda-python >= 12.9"
+  strict: false
   tests:
   - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
 - reason: "test_estimators checks fail"

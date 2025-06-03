@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 import scipy.sparse
 import sklearn.svm
+import umap
 from numpy.testing import assert_allclose
 from sklearn.cluster import KMeans as SkKMeans
 from sklearn.datasets import make_blobs, make_classification, make_regression
@@ -27,6 +28,8 @@ from sklearn.linear_model import Lasso as SkLasso
 from sklearn.linear_model import LinearRegression as SkLinearRegression
 from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
+from sklearn.manifold import trustworthiness
+from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
@@ -54,8 +57,31 @@ def random_state():
     return 42
 
 
+def assert_params_equal(original, roundtrip, exclude=()):
+    original_params = original.get_params()
+    roundtrip_params = roundtrip.get_params()
+
+    # Remove parameters that are not guaranteed to be equivalent
+    for name in [*exclude, "handle", "output_type", "verbose"]:
+        original_params.pop(name, None)
+        roundtrip_params.pop(name, None)
+
+    def dict_diff(a, b):
+        # Get all keys from both dictionaries
+        all_keys = set(a.keys()) | set(b.keys())
+        differences = {}
+        for key in all_keys:
+            if a.get(key) != b.get(key):
+                differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
+        return differences
+
+    assert (
+        original_params == roundtrip_params
+    ), f"Differences found: {dict_diff(original_params, roundtrip_params)}"
+
+
 def assert_estimator_roundtrip(
-    cuml_model, sklearn_class, X, y=None, transform=False
+    cuml_model, sklearn_class, X, y=None, transform=False, exclude_params=()
 ):
     """
     Generic assertion helper to test round-trip conversion:
@@ -72,49 +98,14 @@ def assert_estimator_roundtrip(
 
     # Convert to sklearn model
     sklearn_model = cuml_model.as_sklearn()
-    check_is_fitted(sklearn_model)
-
-    original_params = cuml_model.get_params()
-
     assert isinstance(sklearn_model, sklearn_class)
+    check_is_fitted(sklearn_model)
 
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
 
-    rm_params = roundtrip_model.get_params()
-
-    # Remove parameters that are not serialized
-    _ = original_params.pop("handle", None)
-    _ = rm_params.pop("handle", None)
-
-    _ = original_params.pop("output_type", None)
-    _ = rm_params.pop("output_type", None)
-
-    _ = original_params.pop("verbose", None)
-    _ = rm_params.pop("verbose", None)
-
-    if isinstance(cuml_model, KMeans):
-        # for KMeans, the roundtrip changes the string of
-        # init from scalable-k-means++ to k-means++ which
-        # in principle should change the value of oversampling_factor
-        # But this value at 2 will lead to better centroids,
-        # so ignoring this issue for now will have no ill
-        # consequences
-        _ = original_params.pop("init", None)
-        _ = rm_params.pop("init", None)
-
-    def dict_diff(a, b):
-        # Get all keys from both dictionaries
-        all_keys = set(a.keys()) | set(b.keys())
-        differences = {}
-        for key in all_keys:
-            if a.get(key) != b.get(key):
-                differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
-        return differences
-
-    assert (
-        original_params == rm_params
-    ), f"Differences found: {dict_diff(original_params, rm_params)}"
+    # Ensure params roundtrip
+    assert_params_equal(cuml_model, roundtrip_model, exclude=exclude_params)
 
     # Ensure roundtrip model is fitted
     check_is_fitted(roundtrip_model)
@@ -336,3 +327,64 @@ def test_svc_probability_true_unsupported(random_state):
 
     with pytest.raises(UnsupportedOnCPU):
         cu_model.as_sklearn()
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+@pytest.mark.parametrize("supervised", [False, True])
+def test_umap(random_state, sparse, supervised):
+    n_neighbors = 10
+    X, y = make_blobs(n_samples=200, random_state=random_state)
+    X = X.astype("float32")
+    X_train, X_test, y_train, _ = train_test_split(
+        X, y, test_size=0.2, random_state=random_state
+    )
+    if sparse:
+        X_train = scipy.sparse.csr_matrix(X_train)
+        X_test = scipy.sparse.csr_matrix(X_test)
+    if not supervised:
+        y_train = None
+
+    cu_model = cuml.UMAP(n_neighbors=n_neighbors, hash_input=True).fit(
+        X_train, y_train
+    )
+    sk_model = umap.UMAP(n_neighbors=n_neighbors).fit(X_train, y_train)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.UMAP.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2, exclude=["build_algo"])
+
+    # Can infer on converted models
+    np.testing.assert_array_equal(
+        sk_model2.transform(X_train), sk_model2.embedding_
+    )
+    with pytest.raises(NotImplementedError):
+        # Can't currently infer on new data in umap.UMAP.transform implementation
+        assert isinstance(sk_model2.transform(X_test), np.ndarray)
+
+    np.testing.assert_array_equal(
+        cu_model2.transform(X_train), cu_model2.embedding_
+    )
+    assert isinstance(cu_model2.transform(X_test), np.ndarray)
+
+    # Can refit on converted models
+    cu_model2.fit(X_train, y_train)
+    sk_model2.fit(X_train, y_train)
+
+    # Refit embeddings have similar scores
+    cu_trust1 = trustworthiness(
+        X_train, cu_model.embedding_, n_neighbors=n_neighbors
+    )
+    cu_trust2 = trustworthiness(
+        X_train, cu_model2.embedding_, n_neighbors=n_neighbors
+    )
+    np.testing.assert_allclose(cu_trust1, cu_trust2, atol=0.05)
+
+    sk_trust1 = trustworthiness(
+        X_train, sk_model.embedding_, n_neighbors=n_neighbors
+    )
+    sk_trust2 = trustworthiness(
+        X_train, sk_model2.embedding_, n_neighbors=n_neighbors
+    )
+    np.testing.assert_allclose(sk_trust1, sk_trust2, atol=0.05)

@@ -23,7 +23,7 @@ import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
@@ -363,7 +363,7 @@ class _AutoIterations:
         return result
 
 
-class ForestInference(UniversalBase, CMajorInputTagMixin):
+class ForestInference(Base, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
