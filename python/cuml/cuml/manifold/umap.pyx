@@ -578,7 +578,7 @@ class UMAP(Base,
 
         if init == "spectral" or init == "random":
             self.init = init
-        elif not cuml.accel.enabled():
+        else:
             raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:

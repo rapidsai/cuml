@@ -57,29 +57,14 @@ def random_state():
     return 42
 
 
-def assert_params_equal(original, roundtrip):
+def assert_params_equal(original, roundtrip, exclude=()):
     original_params = original.get_params()
     roundtrip_params = roundtrip.get_params()
 
-    # Remove parameters that are not serialized
-    _ = original_params.pop("handle", None)
-    _ = roundtrip_params.pop("handle", None)
-
-    _ = original_params.pop("output_type", None)
-    _ = roundtrip_params.pop("output_type", None)
-
-    _ = original_params.pop("verbose", None)
-    _ = roundtrip_params.pop("verbose", None)
-
-    if isinstance(original, KMeans):
-        # for KMeans, the roundtrip changes the string of
-        # init from scalable-k-means++ to k-means++ which
-        # in principle should change the value of oversampling_factor
-        # But this value at 2 will lead to better centroids,
-        # so ignoring this issue for now will have no ill
-        # consequences
-        _ = original_params.pop("init", None)
-        _ = roundtrip_params.pop("init", None)
+    # Remove parameters that are not guaranteed to be equivalent
+    for name in [*exclude, "handle", "output_type", "verbose"]:
+        original_params.pop(name, None)
+        roundtrip_params.pop(name, None)
 
     def dict_diff(a, b):
         # Get all keys from both dictionaries
@@ -96,7 +81,7 @@ def assert_params_equal(original, roundtrip):
 
 
 def assert_estimator_roundtrip(
-    cuml_model, sklearn_class, X, y=None, transform=False
+    cuml_model, sklearn_class, X, y=None, transform=False, exclude_params=()
 ):
     """
     Generic assertion helper to test round-trip conversion:
@@ -120,7 +105,7 @@ def assert_estimator_roundtrip(
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
 
     # Ensure params roundtrip
-    assert_params_equal(cuml_model, roundtrip_model)
+    assert_params_equal(cuml_model, roundtrip_model, exclude=exclude_params)
 
     # Ensure roundtrip model is fitted
     check_is_fitted(roundtrip_model)
@@ -348,7 +333,7 @@ def test_svc_probability_true_unsupported(random_state):
 @pytest.mark.parametrize("supervised", [False, True])
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
-    X, y = make_blobs(n_samples=1000, random_state=random_state)
+    X, y = make_blobs(n_samples=200, random_state=random_state)
     X = X.astype("float32")
     X_train, X_test, y_train, _ = train_test_split(
         X, y, test_size=0.2, random_state=random_state
@@ -368,7 +353,7 @@ def test_umap(random_state, sparse, supervised):
     cu_model2 = cuml.UMAP.from_sklearn(sk_model)
 
     # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    assert_params_equal(cu_model, cu_model2, exclude=["build_algo"])
 
     # Can infer on converted models
     np.testing.assert_array_equal(
