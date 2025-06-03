@@ -42,7 +42,7 @@ dependencies:
 - libcuvs==25.8.*,>=0.0.0a0
 - libraft==25.8.*,>=0.0.0a0
 - librmm==25.8.*,>=0.0.0a0
-- matplotlib
+- matplotlib-base
 - nbsphinx
 - ninja
 - nltk
@@ -79,5 +79,5 @@ dependencies:
 - tenacity
 - treelite==4.4.1
 - umap-learn==0.5.7
-- xgboost>=2.1.0,<3.0.0
+- xgboost>=2.1.0
 name: all_cuda-118_arch-x86_64

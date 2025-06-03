@@ -19,17 +19,11 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.datasets.utils import _create_rs_generator
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.utils import check_random_seed
 
 
 def _generate_hypercube(samples, dimensions, random_state):
     """Returns distinct binary samples of length dimensions"""
-    if not has_sklearn():
-        raise RuntimeError(
-            "Scikit-learn is needed to run make_classification."
-        )
-
     from sklearn.utils.random import sample_without_replacement
 
     # This function and those it calls need a Numpy random state object

@@ -118,6 +118,12 @@ class ProxyBase(BaseEstimator):
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
         cls._cpu_class = cls._gpu_class._cpu_class
 
+        # Store whether sparse inputs are supported, unless overridden
+        if not hasattr(cls, "_gpu_supports_sparse"):
+            cls._gpu_supports_sparse = (
+                "sparse" in cls._gpu_class._get_tags()["X_types_gpu"]
+            )
+
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
 
@@ -134,6 +140,11 @@ class ProxyBase(BaseEstimator):
         # the original full module path so that the class (not an instance) can
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
+        # Forward _estimator_type as a class attribute if available
+        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
+        if isinstance(_estimator_type, str):
+            cls._estimator_type = _estimator_type
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -202,6 +213,25 @@ class ProxyBase(BaseEstimator):
             self._gpu = None
         return self
 
+    def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        """Call a method on the wrapped GPU estimator."""
+        from cuml.common.sparse_utils import is_sparse
+
+        if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
+            # Sparse inputs not supported
+            raise UnsupportedOnGPU
+
+        # Determine the function to call. Check for an override on the proxy class,
+        # falling back to the GPU class method if one exists.
+        gpu_func = getattr(self, f"_gpu_{method}", None)
+        if gpu_func is None:
+            if (gpu_func := getattr(self._gpu, method, None)) is None:
+                # Method is not implemented in cuml
+                raise UnsupportedOnGPU
+
+        out = gpu_func(*args, **kwargs)
+        return self if out is self._gpu else out
+
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
 
@@ -215,7 +245,9 @@ class ProxyBase(BaseEstimator):
 
             # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
-                self._gpu = self._gpu_class.from_sklearn(self._cpu)
+                self._gpu = self._gpu_class(
+                    **self._gpu_class._params_from_cpu(self._cpu)
+                )
             except UnsupportedOnGPU:
                 # Unsupported, fallback to CPU
                 self._gpu = None
@@ -225,22 +257,14 @@ class ProxyBase(BaseEstimator):
                 self._synced = False
 
         if self._gpu is not None:
-            # The hyperparameters are supported, now check for a GPU method to run.
-            gpu_func = getattr(self, f"_gpu_{method}", None)
-            if gpu_func is None:
-                gpu_func = getattr(self._gpu, method, None)
-
-            if gpu_func is not None:
-                try:
-                    out = gpu_func(*args, **kwargs)
-                except UnsupportedOnGPU:
-                    # Unsupported. If it's a `fit` we need to clear
-                    # the GPU state before falling back to CPU.
-                    if is_fit:
-                        self._gpu = None
-                else:
-                    # Ran successfully on GPU. Prep the results and return.
-                    return self if out is self._gpu else out
+            # The hyperparameters are supported, try calling the method
+            try:
+                return self._call_gpu_method(method, *args, **kwargs)
+            except UnsupportedOnGPU:
+                # Unsupported. If it's a `fit` we need to clear
+                # the GPU state before falling back to CPU.
+                if is_fit:
+                    self._gpu = None
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()

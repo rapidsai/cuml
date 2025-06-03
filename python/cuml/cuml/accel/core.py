@@ -28,6 +28,7 @@ ACCELERATED_MODULES = [
     "sklearn.linear_model",
     "sklearn.manifold",
     "sklearn.neighbors",
+    "sklearn.svm",
     "umap",
 ]
 
@@ -77,19 +78,33 @@ def enabled() -> bool:
     return ACCEL.enabled
 
 
-def install(disable_uvm=False):
+def install(disable_uvm=False, log_level=logger.level_enum.warn):
     """Enable cuML Accelerator Mode."""
-    logger.set_level(logger.level_enum.info)
+    logger.set_level(log_level)
     logger.set_pattern("%v")
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():
             import rmm
 
-            logger.debug("cuML: Enabling managed memory...")
-            rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
+            mr = rmm.mr.get_current_device_resource()
+            if isinstance(mr, rmm.mr.ManagedMemoryResource):
+                # Nothing to do
+                pass
+            elif not isinstance(mr, rmm.mr.CudaMemoryResource):
+                logger.debug(
+                    "cuML: A non-default memory resource is already configured, "
+                    "skipping enabling managed memory."
+                )
+            else:
+                rmm.mr.set_current_device_resource(
+                    rmm.mr.ManagedMemoryResource()
+                )
+                logger.debug("cuML: Enabled managed memory.")
         else:
-            logger.warn("cuML: Could not enable managed memory.")
+            logger.debug(
+                "cuML: Could not enable managed memory on this platform."
+            )
 
     ACCEL.install()
     set_global_output_type("numpy")

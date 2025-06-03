@@ -412,7 +412,7 @@ class KernelCache {
       copyIndptrToHost(matrix, host_indptr.data(), stream);
     }
   }
-  ~KernelCache(){};
+  ~KernelCache() {};
 
   /**
    * Helper object to pass batch information of cache while iterating batches

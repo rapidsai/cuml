@@ -18,12 +18,15 @@
 
 import numpy as np
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    api_base_return_array,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -160,6 +163,7 @@ class KNeighborsRegressor(RegressorMixin,
 
     @generate_docstring(convert_dtype_cast='np.float32')
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -183,15 +187,15 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
+    @api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
-        if (convert_dtype):
-            cuml.internals.set_api_output_dtype(self._get_target_dtype())
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -231,7 +235,6 @@ class KNeighborsRegressor(RegressorMixin,
         )
 
         self.handle.sync()
-
         return results
 
     @classmethod

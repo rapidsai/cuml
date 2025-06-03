@@ -4,12 +4,34 @@ Known Limitations
 General Limitations
 ~~~~~~~~~~~~~~~~~~~
 
-The cuML Accelerator present in RAPIDS release 25.02.01 is a beta version, with the following general limitations:
+The cuML Accelerator present in RAPIDS release 25.02.01 is a beta version, with
+the following general limitations:
 
-* Ingestion of lists of numbers by estimator functions is unsupported. Convert lists to structured formats (e.g., NumPy arrays or Pandas DataFrames) to ensure compatibility. This limitation will be removed in the next version of the cuML Accelerator.
-* Labels provided as arrays of strings are not supported. Pre-encode string labels into numerical or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to processing. This limitation will be removed in the next version of the cuML Accelerator.
-* The accelerator is compatible with scikit-learn version 1.5 or higher. This compatibility ensures that cuML's implementation of scikit-learn compatible APIs works as expected.
-* When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified memory) is not supported. This means that automatic memory management between host and device memory is not available. Users may need to be more careful about memory management and consider using the ``--disable-uvm`` flag if experiencing memory-related issues.
+* Ingestion of lists of numbers by estimator functions is unsupported. Convert
+  lists to structured formats (e.g., NumPy arrays or Pandas DataFrames) to
+  ensure compatibility. This limitation will be removed in the next version of
+  the cuML Accelerator.
+
+* Labels provided as arrays of strings are not supported. Pre-encode string
+  labels into numerical or categorical formats (e.g., using scikit-learn's
+  LabelEncoder) prior to processing. This limitation will be removed in the
+  next version of the cuML Accelerator.
+
+* The accelerator is compatible with scikit-learn version 1.5 or higher. This
+  compatibility ensures that cuML's implementation of scikit-learn compatible
+  APIs works as expected.
+
+* The `set_output
+  <https://scikit-learn-enhancement-proposals.readthedocs.io/en/latest/slep018/proposal.html>`__
+  and `Metadata Routing
+  <https://scikit-learn.org/stable/metadata_routing.html>`__ APIs are not
+  currently supported.
+
+* When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified
+  memory) is not supported. This means that automatic memory management between
+  host and device memory is not available. Users may need to be more careful
+  about memory management and consider using the ``--disable-uvm`` flag if
+  experiencing memory-related issues.
 
 For notes on each algorithm, please refer to its specific section on this file.
 
@@ -372,3 +394,29 @@ You can obtain it by doing the following :
     * Only the "uniform" weighting strategy is supported for prediction averaging.
     * Distance-based prediction weights ("distance" option) will trigger CPU fallback.
     * Custom weight functions are not supported on GPU.
+
+``sklearn.svm.SVC``
+^^^^^^^^^^^^^^^^^^^
+
+The ``SVC`` implementation in ``cuml.accel`` uses a different solver than that
+in scikit-learn. As such, you shouldn't expect equivalent support vectors or
+coefficients. To compare results you should compare the performance of the
+model using ``model.score`` or ``sklearn.metrics.accuracy_score``.
+
+* Algorithm Limitations:
+  * ``probability=True`` will fallback to scikit-learn
+  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+  * Multiclass classification will fallback to scikit-learn
+  * Sparse inputs will fallback to scikit-learn
+
+``sklearn.svm.SVR``
+^^^^^^^^^^^^^^^^^^^
+
+The ``SVR`` implementation in ``cuml.accel`` uses a different solver than that
+in scikit-learn. As such, you shouldn't expect equivalent support vectors or
+coefficients. To compare results you should compare the performance of the
+model using ``model.score`` or ``sklearn.metrics.r2_score``.
+
+* Algorithm Limitations:
+  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+  * Sparse inputs will fallback to scikit-learn

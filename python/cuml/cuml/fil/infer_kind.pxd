@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-def has_dask():
-    try:
-        import dask  # NOQA
-        import dask.dataframe  # NOQA
-        import dask.distributed  # NOQA
 
-        return True
-    except ImportError:
-        return False
-
-
-def has_sklearn():
-    try:
-        import sklearn  # NOQA
-
-        return True
-    except ImportError:
-        return False
+cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
+    # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
+    cdef enum infer_kind:
+        default_kind "ML::experimental::fil::infer_kind::default_kind"
+        per_tree "ML::experimental::fil::infer_kind::per_tree"
+        leaf_id "ML::experimental::fil::infer_kind::leaf_id"

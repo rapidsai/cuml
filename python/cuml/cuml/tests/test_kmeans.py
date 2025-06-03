@@ -123,7 +123,7 @@ def test_traditional_kmeans_plus_plus_init(
     cu_score = cuml_kmeans.score(X)
 
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=nclusters, n_init=1
+        random_state=random_state, n_clusters=nclusters, n_init=10
     )
     kmeans.fit(cp.asnumpy(X))
     sk_score = kmeans.score(cp.asnumpy(X))
@@ -165,7 +165,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     cu_score = cuml_kmeans.score(X)
 
     sk_kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=nclusters, n_init=1
+        random_state=random_state, n_clusters=nclusters, n_init=10
     )
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
@@ -434,3 +434,18 @@ def test_fit_transform_weighted_kmeans(
         assert diff / avg_score <= relative_tolerance
 
     assert sk_transf.shape == cuml_transf.shape
+
+
+def test_kmeans_empty_x():
+    """Check that a nice error happens if X is empty, rather than a segfault"""
+    model = cuml.KMeans()
+
+    X = np.empty(shape=(0, 10))
+    y = np.ones(shape=0)
+    with pytest.raises(ValueError, match=r"Found array with 0 sample\(s\)"):
+        model.fit(X, y)
+
+    X = np.empty(shape=(10, 0))
+    y = np.ones(shape=10)
+    with pytest.raises(ValueError, match=r"Found array with 0 feature\(s\)"):
+        model.fit(X, y)
