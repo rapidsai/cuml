@@ -19,6 +19,7 @@ import argparse
 import code
 import runpy
 import sys
+import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
@@ -91,21 +92,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
     )
-    parser.add_argument(
-        "--convert-to-sklearn",
-        help="Path to a pickled accelerated estimator to convert to a scikit-learn estimator.",
-    )
+    # --convert-to-sklearn, --format, and --output are deprecated and hidden
+    # from the CLI --help with `argparse.SUPPRESS
+    parser.add_argument("--convert-to-sklearn", help=argparse.SUPPRESS)
     parser.add_argument(
         "--format",
         choices=["pickle", "joblib"],
         type=str.lower,
         default="pickle",
-        help="Format to save the converted scikit-learn estimator.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--output",
         default="converted_sklearn_model.pkl",
-        help="Output path for the converted scikit-learn estimator file.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--cudf-pandas",
@@ -154,6 +154,12 @@ def main(argv: list[str] | None = None):
 
     # If the user requested a conversion, handle it and exit
     if ns.convert_to_sklearn:
+        warnings.warn(
+            "`--convert-to-sklearn`, `--format`, and `--output` are deprecated and will "
+            "be removed in 25.10. Estimators created with `cuml.accel` may now be "
+            "serialized and loaded in environments without `cuml` without the need for "
+            "running a conversion step."
+        )
         with open(ns.convert_to_sklearn, "rb") as f:
             if ns.format == "pickle":
                 import pickle as serializer
