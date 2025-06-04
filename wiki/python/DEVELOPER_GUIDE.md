@@ -1,19 +1,31 @@
 # cuML Python Developer Guide
 
-This document summarizes guidelines and best practices for contributions to the python component of the library cuML, the machine learning component of the RAPIDS ecosystem. This is an evolving document so contributions, clarifications and issue reports are highly welcome.
+This document provides comprehensive guidelines and best practices for contributing to the cuML Python library, the machine learning library within the CUDA and RAPIDS ecosystem. As an evolving document, we welcome contributions, clarifications, and issue reports to help maintain and improve these guidelines.
 
-## General
-Please start by reading:
-1. [CONTRIBUTING.md](../../CONTRIBUTING.md)
-2. [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md)
-3. [Python cuML README.md](../../python/README.md)
+## Prerequisites
 
-## Thread Safety
-Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
+Before diving into Python development for cuML, please ensure you have:
+
+1. Reviewed our [contribution guidelines](../../CONTRIBUTING.md) for general project standards
+2. Read the [Python cuML README](../../python/README.md) for setup and installation instructions
+
+If you are working on C++/CUDA code or need to understand the underlying implementation details, you should also:
+3. Familiarize yourself with the [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md)
+
+## Getting Started
+
+The cuML Python library provides a scikit-learn style API for GPU-accelerated machine learning algorithms. This guide focuses on Python-specific development practices, while maintaining consistency with the underlying C++/CUDA implementations.
 
 ## Coding Style
-1. [PEP8](https://www.python.org/dev/peps/pep-0008) and [flake8](http://flake8.pycqa.org/en/latest/) is used to check the adherence to this style.
-2. [sklearn coding guidelines](https://scikit-learn.org/stable/developers/contributing.html#coding-guidelines)
+
+The majority of style guidelines are enforced through pre-commit hooks. Python code must be formatted following the PEP8 style as defined by black and isort.
+
+See [Documentation](#documentation) for guidelines on doc-string formatting.
+
+## Thread Safety
+
+Algorithms implemented in C++/CUDA should be implemented in a thread-safe manner. The Python code is generally not thread safe.
+Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
 
 ## Creating Class for a New Estimator or Other ML Algorithm
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
