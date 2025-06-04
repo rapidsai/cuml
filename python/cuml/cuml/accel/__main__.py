@@ -119,6 +119,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="A module to execute",
     )
     group.add_argument(
+        "-c",
+        dest="cmd",
+        help="Python source to execute, passed in as a string",
+    )
+    group.add_argument(
         "script",
         default=None,
         nargs="?",
@@ -130,20 +135,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Additional arguments to forward to script or module",
     )
-    # We want to ignore all arguments after a module or script are provided,
-    # forwarding them on to the module/script. We need to hack around argparse
-    # a bit to do this by only parsing arguments up to the module, then appending
-    # the remainder on afterwards.
+    # We want to ignore all arguments after a module, cmd, or script are provided,
+    # forwarding them on to the module/cmd/script. `script` is handled natively by
+    # argparse, but `-m`/`-c` need some hacking to make work. We handle this by
+    # splitting argv at the first of `-m`/`-c` provided (if any), parsing args up
+    # to this point, then appending the remainder afterwards.
+    m_index = c_index = len(argv)
     try:
         m_index = argv.index("-m")
     except ValueError:
-        remainder = []
-    else:
-        remainder = argv[m_index + 2 :]
-        argv = argv[: m_index + 2]
+        pass
+    try:
+        c_index = argv.index("-c")
+    except ValueError:
+        pass
 
-    ns = parser.parse_args(argv)
-    ns.args.extend(remainder)
+    # Split at the first `-m foo`/`-c foo` found
+    index = min(m_index, c_index)
+    head = argv[: index + 2]
+    tail = argv[index + 2 :]
+
+    # Parse the head, then append the tail to `args`
+    ns = parser.parse_args(head)
+    ns.args.extend(tail)
     return ns
 
 
@@ -192,6 +206,8 @@ def main(argv: list[str] | None = None):
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
         runpy.run_module(ns.module, run_name="__main__")
+    elif ns.cmd is not None:
+        execute_source(ns.cmd, "<stdin>")
     elif ns.script is not None:
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
