@@ -564,12 +564,3 @@ manifold.umap.transform [0x7f10eb69d4f0]                     :   0.0934 s
     |==> umap::smooth_knn                                    :   0.0002 s
     |==> umap::optimization                                  :   0.0011 s
 ```
-
-### Benchmarking Best Practices
-1. Use appropriate dataset sizes
-2. Run multiple iterations
-3. Warm up the GPU before benchmarking
-4. Monitor system resources
-5. Document hardware and software environment
-6. Use appropriate metrics for comparison
-7. Consider both accuracy and performance
