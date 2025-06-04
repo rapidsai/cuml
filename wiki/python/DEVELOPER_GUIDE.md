@@ -463,36 +463,55 @@ algo2.fit(X2, y2)
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Multi-GPU Support
-cuML provides limited multi-GPU support through Dask. Here are the key points:
 
-1. **Dask Integration**
-   - Use `dask_cudf` for distributed data
-   - Use `cuml.dask` for distributed algorithms
-   - Example:
-   ```python
-   from dask_cuda import LocalCUDACluster
-   from dask.distributed import Client
-   import dask_cudf
-   import cuml.dask
+cuML provides limited multi-GPU support through Dask. Here is a basic example:
 
-   # Create a local cluster
-   cluster = LocalCUDACluster()
-   client = Client(cluster)
+```python
+import cudf
+import dask_cudf
+import numpy as np
+from cuml.dask.linear_model import LogisticRegression
+from dask.distributed import Client
+from dask_cuda import LocalCUDACluster
 
-   # Create distributed dataframe
-   ddf = dask_cudf.from_cudf(df, npartitions=2)
 
-   # Use distributed algorithm
-   model = cuml.dask.UMAP()
-   model.fit(ddf)
-   ```
+def main():
+    # Create sample data
+    X = cudf.DataFrame(
+        {
+            "col1": np.array([1, 1, 2, 2], dtype=np.float32),
+            "col2": np.array([1, 2, 2, 3], dtype=np.float32),
+        }
+    )
+    y = cudf.Series(np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32))
 
-2. **Best Practices**
-   - Partition data appropriately
-   - Monitor GPU memory usage
-   - Use appropriate number of workers
-   - Consider data locality
-   - Handle communication overhead
+    # Convert to distributed dataframes
+    X_ddf = dask_cudf.from_cudf(X, npartitions=2)
+    y_ddf = dask_cudf.from_cudf(y, npartitions=2)
+
+    # Train distributed model
+    model = LogisticRegression()
+    model.fit(X_ddf, y_ddf)
+
+    # Make predictions
+    prediction = model.predict(X_ddf)
+    print(prediction.compute())
+
+
+if __name__ == "__main__":
+    # Create a local cluster with 2 GPUs
+    cluster = LocalCUDACluster(CUDA_VISIBLE_DEVICES="0,1")
+    client = Client(cluster)
+    main()
+    client.close()
+    cluster.close()
+```
+
+Key points for implementing multi-GPU estimators:
+
+- Dask-based estimators should be implemented within the cuml.dask namespace
+- The dask layer should focus on distributed computation, with base algorithms implemented in standard estimators
+- See currently implemented estimators, e.g., LogisticRegression for examples on how to implement dask-based Multi-GPU estimators
 
 ## Benchmarking
 
