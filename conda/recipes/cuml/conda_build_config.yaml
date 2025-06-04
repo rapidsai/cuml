@@ -1,14 +1,11 @@
 c_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 13
 
 cxx_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 13
 
 cuda_compiler:
-  - cuda-nvcc  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - nvcc  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - cuda-nvcc
 
 cmake_version:
   - ">=3.30.4"
