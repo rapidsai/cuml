@@ -22,6 +22,8 @@ __all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
 
 class NearestNeighbors(ProxyBase):
     _gpu_class = cuml.neighbors.NearestNeighbors
+    # Exposed for use in sklearn test suite
+    _fit_method = "brute"
 
 
 class KNeighborsClassifier(ProxyBase):
