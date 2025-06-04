@@ -7,6 +7,9 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 # Common setup steps shared by Python test jobs
 source ./ci/test_python_common.sh
 
+source ./ci/use_conda_packages_from_prs.sh
+
+
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e

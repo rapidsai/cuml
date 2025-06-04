@@ -1,7 +1,10 @@
 #!/bin/bash
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
+
+source ./ci/use_conda_packages_from_prs.sh
+
 
 rapids-logger "Create checks conda environment"
 . /opt/conda/etc/profile.d/conda.sh

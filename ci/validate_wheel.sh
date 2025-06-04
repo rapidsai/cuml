@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+source ./ci/use_conda_packages_from_prs.sh
+
+
 package_dir=$1
 wheel_dir_relative_path=$2
 
