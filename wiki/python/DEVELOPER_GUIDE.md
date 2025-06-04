@@ -482,19 +482,26 @@ Use the appropriate log level based on the message's importance and target audie
 
 ### Configuration
 
-The logging level can be configured through the `cuml.global_settings`:
+The logging level can be configured using the `set_level` function from `cuml.internals.logger`:
 
 ```python
-import cuml
-cuml.global_settings.log_level = cuml.common.logger.level_debug
+from cuml.internals import logger
+
+# Set log level directly
+logger.set_level(logger.level_enum.debug)
+
+# Or use as a context manager for temporary level changes
+with logger.set_level(logger.level_enum.debug):
+    # Operations with debug logging
+    pass
 ```
 
 Available log levels:
-- `level_debug`
-- `level_info`
-- `level_warn`
-- `level_error`
-- `level_critical`
+- `logger.level_enum.debug`
+- `logger.level_enum.info`
+- `logger.level_enum.warn`
+- `logger.level_enum.error`
+- `logger.level_enum.critical`
 
 ## Multi-GPU Support
 
