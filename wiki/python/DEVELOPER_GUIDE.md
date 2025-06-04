@@ -2,6 +2,22 @@
 
 This document provides comprehensive guidelines and best practices for contributing to the cuML Python library, the machine learning library within the CUDA and RAPIDS ecosystem. As an evolving document, we welcome contributions, clarifications, and issue reports to help maintain and improve these guidelines.
 
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Getting Started](#getting-started)
+3. [Coding Style](#coding-style)
+4. [Documentation](#documentation)
+5. [Testing and Unit Testing](#testing-and-unit-testing)
+6. [Memory Management](#memory-management)
+7. [Asynchronous Operations and Stream Ordering](#asynchronous-operations-and-stream-ordering)
+8. [Thread Safety](#thread-safety)
+9. [Creating New Estimators](#creating-new-estimators)
+10. [Deprecation Policy](#deprecation-policy)
+11. [Logging](#logging)
+12. [Multi-GPU Support](#multi-gpu-support)
+13. [Benchmarking](#benchmarking)
+
 ## Prerequisites
 
 Before diving into Python development for cuML, please ensure you have:
@@ -21,163 +37,6 @@ The cuML Python library provides a scikit-learn style API for GPU-accelerated ma
 The majority of style guidelines are enforced through pre-commit hooks. Python code must be formatted following the PEP8 style as defined by black and isort.
 
 See [Documentation](#documentation) for guidelines on doc-string formatting.
-
-## Thread Safety
-
-Algorithms implemented in C++/CUDA should be implemented in a thread-safe manner. The Python code is generally not thread safe.
-Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
-
-## Creating Class for a New Estimator or Other ML Algorithm
-1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
-2. Refer to the [next section](#creating-python-estimator-wrapper-class) for the remaining steps.
-
-## Creating Python Estimator Wrapper Class
-1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
-2. Ensure that the folder structure inside here reflects that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
-3. Match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
-4. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
-5. Ensure that the estimator's output fields follow the 'underscore on both sides' convention explained in the documentation of `cuml.Base`. This allows it to support configurable output types.
-
-For an in-depth guide to creating estimators, see the [Estimator Guide](ESTIMATOR_GUIDE.md)
-
-## Deprecation Policy
-
-cuML follows the policy of deprecating code for one release prior to removal. This applies
-to publicly accessible functions, classes, methods, attributes and parameters. During the
-deprecation cycle the old name or value is still supported, but will raise a deprecation
-warning when it is used.
-
-Code in cuML should not use deprecated cuML APIs.
-
-```python
-warnings.warn(
-    (
-        "Attribute `foo` was deprecated in version 25.06 and will be"
-        " removed in 25.08. Use `metric` instead."
-    ),
-    FutureWarning,
-)
-```
-
-The warning message should always give both the version in which the deprecation was introduced
-and the version in which the old behavior will be removed. The message should also include
-a brief explanation of the change and point users to an alternative.
-
-In addition, a deprecation note should be added in the docstring, repeating the information
-from the warning message:
-
-```
-.. deprecated:: 25.06
-    Attribute `foo` was deprecated in version 25.06 and will be removed
-    in 25.08. Use `metric` instead.
-```
-
-A deprecation requires a test which ensures that the warning is raised in relevant cases
-but not in other cases. The warning should be caught in all other tests (using e.g., ``@pytest.mark.filterwarnings``).
-
-### Public vs Private APIs
-The following rules determine whether an API is considered public and therefore subject to the deprecation policy:
-
-1. Any API prefixed with `_` is considered private and not subject to deprecation rules
-2. APIs within the following namespaces are private and not subject to deprecation rules:
-   - `internals`
-   - `utils`
-   - `common`
-3. APIs within the `experimental` namespace are not subject to deprecation rules
-4. For all other APIs, the determination of public vs private status is based on:
-   - Presence in public documentation
-   - Usage in public examples
-   - Explicit declaration as part of the public API
-
-When in doubt, treat an API as public to ensure proper deprecation cycles.
-
-## Logging
-
-cuML uses the [rapids-logger library](https://github.com/rapidsai/rapids-logger) for logging which in turn is built on top of [spdlog](https://github.com/gabime/spdlog). This provides fast, asynchronous logging with support for multiple sinks and formatting options.
-
-### Usage
-
-To emit log messages within the Python library, use the functions provided within the `cuml.internals.logger` module:
-
-```python
-from cuml.internals.logger import debug, info, warn, error, critical
-
-# Example usage
-debug("Detailed debug information")
-info("General information")
-warn("Warning message")
-error("Error message")
-critical("Critical error message")
-```
-
-### Log Levels
-
-Use the appropriate log level based on the message's importance and target audience:
-
-- **DEBUG**: Detailed information for debugging primarily aimed at developers
-  - Use for detailed execution flow, variable values, and internal state
-  - Example: "Initializing CUDA stream with device 0"
-
-- **INFO**: General information about program execution primarily aimed at users
-  - Use for messages that could be of interest to users, but usually don't require any further action
-  - Example: "Building knn graph using nn descent"
-
-- **WARNING**: Indicate a potential problem or other potentially surprising behavior
-  - Use for ignored parameters, performance issues, or unexpected but handled conditions
-  - Use for messages that we typically expect users to take action on
-  - Example: "Parameter 'n_neighbors' was ignored as it's not supported in this mode"
-
-- **ERROR**: Indicates a problem that prevents program execution
-  - Use for recoverable errors that prevent the current operation
-  - Example: "Failed to allocate GPU memory for input data"
-
-- **CRITICAL**: A critical problem that is expected to lead to immediate program termination
-  - Use sparingly, only for unrecoverable errors
-  - Example: "CUDA device became unresponsive"
-
-### Best Practices
-
-1. **Message Content**
-   - Be specific and include relevant context
-   - Include error codes or exception details when applicable
-   - Use consistent terminology
-
-2. **Performance**
-   - Avoid expensive string operations in debug messages
-   - Do not emit log messages within loops that are input size dependent
-   - Use lazy evaluation for debug messages:
-   ```python
-   from cuml.internals import logger
-
-   if logger.should_log_for(logging.DEBUG):
-       logger.debug(f"Expensive operation result: {expensive_operation()}")
-   ```
-
-3. **Formatting**
-   - Use proper punctuation and capitalization
-   - Keep messages concise but informative
-   - Include relevant numeric values with units
-
-4. **Context**
-   - Include relevant parameters or state information
-   - For errors, include the operation that failed
-   - For warnings, explain why the behavior might be unexpected
-
-### Configuration
-
-The logging level can be configured through the `cuml.global_settings`:
-
-```python
-import cuml
-cuml.global_settings.log_level = cuml.common.logger.level_debug
-```
-
-Available log levels:
-- `level_debug`
-- `level_info`
-- `level_warn`
-- `level_error`
-- `level_critical`
 
 ## Documentation
 Doc-string documentation should follow the [NumPy docstring style guide](https://numpydoc.readthedocs.io/en/stable/format.html) for documenting interfaces. This provides a consistent format that is both human-readable and machine-parseable.
@@ -481,6 +340,162 @@ print(kmeans2.cluster_centers_)
 ```
 
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
+
+## Thread Safety
+
+Algorithms implemented in C++/CUDA should be implemented in a thread-safe manner. The Python code is generally not thread safe.
+Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
+
+## Creating New Estimators
+
+When implementing a new estimator in cuML, follow these key steps:
+
+1. Ensure the algorithm is implemented in C++/CUDA first (see [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md))
+2. Create a Python wrapper class that:
+   - Follows scikit-learn's API design patterns
+   - Inherits from `cuml.Base`
+   - Is placed in the appropriate subdirectory matching scikit-learn's structure
+
+For detailed implementation guidelines, including file organization, API design, and best practices, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
+
+## Deprecation Policy
+
+cuML follows the policy of deprecating code for one release prior to removal. This applies
+to publicly accessible functions, classes, methods, attributes and parameters. During the
+deprecation cycle the old name or value is still supported, but will raise a deprecation
+warning when it is used.
+
+Code in cuML should not use deprecated cuML APIs.
+
+```python
+warnings.warn(
+    (
+        "Attribute `foo` was deprecated in version 25.06 and will be"
+        " removed in 25.08. Use `metric` instead."
+    ),
+    FutureWarning,
+)
+```
+
+The warning message should always give both the version in which the deprecation was introduced
+and the version in which the old behavior will be removed. The message should also include
+a brief explanation of the change and point users to an alternative.
+
+In addition, a deprecation note should be added in the docstring, repeating the information
+from the warning message:
+
+```
+.. deprecated:: 25.06
+    Attribute `foo` was deprecated in version 25.06 and will be removed
+    in 25.08. Use `metric` instead.
+```
+
+A deprecation requires a test which ensures that the warning is raised in relevant cases
+but not in other cases. The warning should be caught in all other tests (using e.g., ``@pytest.mark.filterwarnings``).
+
+### Public vs Private APIs
+The following rules determine whether an API is considered public and therefore subject to the deprecation policy:
+
+1. Any API prefixed with `_` is considered private and not subject to deprecation rules
+2. APIs within the following namespaces are private and not subject to deprecation rules:
+   - `internals`
+   - `utils`
+   - `common`
+3. APIs within the `experimental` namespace are not subject to deprecation rules
+4. For all other APIs, the determination of public vs private status is based on:
+   - Presence in public documentation
+   - Usage in public examples
+   - Explicit declaration as part of the public API
+
+When in doubt, treat an API as public to ensure proper deprecation cycles.
+
+## Logging
+
+cuML uses the [rapids-logger library](https://github.com/rapidsai/rapids-logger) for logging which in turn is built on top of [spdlog](https://github.com/gabime/spdlog). This provides fast, asynchronous logging with support for multiple sinks and formatting options.
+
+### Usage
+
+To emit log messages within the Python library, use the functions provided within the `cuml.internals.logger` module:
+
+```python
+from cuml.internals.logger import debug, info, warn, error, critical
+
+# Example usage
+debug("Detailed debug information")
+info("General information")
+warn("Warning message")
+error("Error message")
+critical("Critical error message")
+```
+
+### Log Levels
+
+Use the appropriate log level based on the message's importance and target audience:
+
+- **DEBUG**: Detailed information for debugging primarily aimed at developers
+  - Use for detailed execution flow, variable values, and internal state
+  - Example: "Initializing CUDA stream with device 0"
+
+- **INFO**: General information about program execution primarily aimed at users
+  - Use for messages that could be of interest to users, but usually don't require any further action
+  - Example: "Building knn graph using nn descent"
+
+- **WARNING**: Indicate a potential problem or other potentially surprising behavior
+  - Use for ignored parameters, performance issues, or unexpected but handled conditions
+  - Use for messages that we typically expect users to take action on
+  - Example: "Parameter 'n_neighbors' was ignored as it's not supported in this mode"
+
+- **ERROR**: Indicates a problem that prevents program execution
+  - Use for recoverable errors that prevent the current operation
+  - Example: "Failed to allocate GPU memory for input data"
+
+- **CRITICAL**: A critical problem that is expected to lead to immediate program termination
+  - Use sparingly, only for unrecoverable errors
+  - Example: "CUDA device became unresponsive"
+
+### Best Practices
+
+1. **Message Content**
+   - Be specific and include relevant context
+   - Include error codes or exception details when applicable
+   - Use consistent terminology
+
+2. **Performance**
+   - Avoid expensive string operations in debug messages
+   - Do not emit log messages within loops that are input size dependent
+   - Use lazy evaluation for debug messages:
+   ```python
+   from cuml.internals import logger
+
+   if logger.should_log_for(logging.DEBUG):
+       logger.debug(f"Expensive operation result: {expensive_operation()}")
+   ```
+
+3. **Formatting**
+   - Use proper punctuation and capitalization
+   - Keep messages concise but informative
+   - Include relevant numeric values with units
+
+4. **Context**
+   - Include relevant parameters or state information
+   - For errors, include the operation that failed
+   - For warnings, explain why the behavior might be unexpected
+
+### Configuration
+
+The logging level can be configured through the `cuml.global_settings`:
+
+```python
+import cuml
+cuml.global_settings.log_level = cuml.common.logger.level_debug
+```
+
+Available log levels:
+- `level_debug`
+- `level_info`
+- `level_warn`
+- `level_error`
+- `level_critical`
 
 ## Multi-GPU Support
 
