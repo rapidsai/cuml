@@ -25,8 +25,7 @@ Before diving into Python development for cuML, please ensure you have:
 1. Reviewed our [contribution guidelines](../../CONTRIBUTING.md) for general project standards
 2. Read the [Python cuML README](../../python/README.md) for setup and installation instructions
 
-If you are working on C++/CUDA code or need to understand the underlying implementation details, you should also:
-3. Familiarize yourself with the [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md)
+If you are working on C++/CUDA code or need to understand the underlying implementation details, you should also familiarize yourself with the [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md).
 
 ## Getting Started
 
