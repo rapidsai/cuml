@@ -1,10 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
-
-source ./ci/use_conda_packages_from_prs.sh
-
 
 rapids-logger "Create clang_tidy conda environment"
 . /opt/conda/etc/profile.d/conda.sh

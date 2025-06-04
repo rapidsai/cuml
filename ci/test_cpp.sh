@@ -3,9 +3,6 @@
 
 set -euo pipefail
 
-source ./ci/use_conda_packages_from_prs.sh
-
-
 # Support invoking test_cpp.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
