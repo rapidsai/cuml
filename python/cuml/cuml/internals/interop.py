@@ -20,7 +20,6 @@ import numpy as np
 
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.utils import classproperty
 
 __all__ = (
     "UnsupportedOnGPU",
@@ -58,6 +57,17 @@ class UnsupportedOnCPU(ValueError):
     """An exception raised when a conversion of a GPU to a CPU estimator isn't supported"""
 
 
+def is_fitted(model) -> bool:
+    """Check if a sklearn model is fitted."""
+    if hasattr(model, "__sklearn_is_fitted__"):
+        return model.__sklearn_is_fitted__()
+    if getattr(model, "n_features_in_", None) is not None:
+        return True
+    return any(
+        v for v in vars(model) if v.endswith("_") and not v.startswith("__")
+    )
+
+
 class InteropMixin:
     """A mixin for enabling conversion of a cuml estimator to/from its
     CPU-based counterpart.
@@ -77,8 +87,8 @@ class InteropMixin:
     # The import path to use to import the CPU model class
     _cpu_class_path: str
 
-    @classproperty
-    def _cpu_class(cls):
+    @classmethod
+    def _get_cpu_class(cls):
         """The CPU class that corresponds to this GPU model"""
         module, _, name = cls._cpu_class_path.rpartition(".")
         return getattr(import_module(module), name)
@@ -90,7 +100,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -111,8 +121,8 @@ class InteropMixin:
         Returns
         -------
         dict
-            A mapping of keyword arguments that may be used to instantiate
-            ``self._cpu_class`` to create an equivalent CPU model.
+            A mapping of keyword arguments that may be used to create
+            an equivalent CPU model.
 
         Raises
         ------
@@ -133,7 +143,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -166,7 +176,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -197,9 +207,9 @@ class InteropMixin:
         Parameters
         ----------
         model
-            An instance of ``self._cpu_class``.
+            A CPU model, matching the type of ``self._cpu_class_path``.
         """
-        if getattr(self, "n_features_in_", None) is None:
+        if not is_fitted(self):
             # GPU model not fitted, nothing to do
             return
 
@@ -218,9 +228,9 @@ class InteropMixin:
         Parameters
         ----------
         model
-            An instance of ``self._cpu_class``.
+            A CPU model, matching the type of ``self._cpu_class_path``.
         """
-        if getattr(model, "n_features_in_", None) is None:
+        if not is_fitted(model):
             # CPU model not fitted, nothing to do
             return
 
@@ -240,7 +250,7 @@ class InteropMixin:
             state of the current estimator.
         """
         params = self._params_to_cpu()
-        model = self._cpu_class(**params)
+        model = self._get_cpu_class()(**params)
         self._sync_attrs_to_cpu(model)
         return model
 
@@ -266,7 +276,7 @@ class InteropMixin:
         cannot be inferred from training arguments. If something different is
         required, then please use cuml's output_type configuration utilities.
         """
-        if not isinstance(model, cls._cpu_class):
+        if not isinstance(model, cls._get_cpu_class()):
             raise TypeError(
                 f"Expected instance of {cls._cpu_class_path!r}, got "
                 f"{type(model).__name__!r}"
