@@ -372,24 +372,76 @@ Common options:
 
 Running pytest from outside the `python/cuml/` directory will result in import errors.
 
-## Device and Host Memory Allocations
-cuML uses RMM (RAPIDS Memory Manager) for memory management. Here are the key points:
+## Memory Management
 
-1. Enable RMM for better memory management:
+cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and provides a flexible memory management system through the `CumlArray` class. Here are the key points:
+
+1. **Memory Allocation Best Practices**
+- Do not use RMM directly to allocate memory
+- Use the `CumlArray` class for array-like data allocation
+- Use utility functions from `internals.memory_utils` for CuPy array instantiation
+- Let cuML handle memory management through its internal mechanisms
+
+2. **Memory Types**
+cuML supports several memory types through the `MemoryType` enum:
+- `device`: GPU memory for CUDA operations
+- `host`: CPU memory for host operations
+- `managed`: Unified memory accessible from both CPU and GPU
+- `mirror`: Memory type that mirrors the input data's memory type
+
+3. **CumlArray Usage**
+The `CumlArray` class provides a unified interface for array data:
 ```python
-import rmm
-rmm.reinitialize(
-    pool_allocator=True,
-    initial_pool_size=None,  # Use default size
-    logging=False
-)
+from cuml.internals.array import CumlArray
+
+# Create arrays with specific memory types
+arr = CumlArray.empty(shape=(1000,), dtype='float32', mem_type='device')
+arr = CumlArray.zeros(shape=(1000,), dtype='float32', mem_type='host')
+
+# Convert between memory types
+device_arr = host_arr.to_mem_type('device')
+host_arr = device_arr.to_mem_type('host')
 ```
 
-2. Best practices:
-   - Use RMM for all GPU memory allocations
-   - Monitor memory usage with `rmm.mr.get_current_device_resource().get_memory_info()`
-   - Consider using memory pools for better performance
-   - Clean up resources when done
+4. **Memory Type Conversion**
+- Use `to_output()` for format conversion:
+  ```python
+  # Convert to different formats
+  cupy_arr = arr.to_output('cupy')
+  numpy_arr = arr.to_output('numpy')
+  cudf_series = arr.to_output('series')
+  ```
+- Use `to_mem_type()` for explicit memory type conversion
+- Consider memory overhead when converting between types
+- Supported output types:
+  - 'array': CuPy/NumPy arrays
+  - 'numba': Numba device arrays
+  - 'dataframe': cuDF/Pandas DataFrames
+  - 'series': cuDF/Pandas Series
+
+5. **Context Management**
+Use context managers for temporary memory type changes:
+```python
+from cuml.internals.memory_utils import using_memory_type
+
+with using_memory_type('device'):
+    # Operations using device memory
+    pass
+```
+
+6. **Memory Type Detection**
+Detect memory type of input data:
+```python
+from cuml.internals.memory_utils import determine_array_memtype
+
+mem_type = determine_array_memtype(array)
+```
+
+7. **Additional Considerations**
+- Minimize memory transfers between host and device
+- Use appropriate memory types for your operations
+- Consider memory layout (C/F order) for optimal performance
+- Handle memory allocation failures gracefully
 
 ## Asynchronous Operations and Stream Ordering
 If you want to schedule the execution of two algorithms concurrently, it is better to create two separate streams and assign them to separate handles. Finally, schedule the algorithms using these handles.
