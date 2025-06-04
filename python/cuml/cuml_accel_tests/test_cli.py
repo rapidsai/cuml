@@ -26,24 +26,33 @@ from cuml.accel.__main__ import parse_args
 
 def test_parse_no_args():
     ns = parse_args([])
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd is None
     assert ns.module is None
     assert ns.verbose == 0
     assert ns.args == []
 
 
+def test_parse_explicit_stdin():
+    ns = parse_args(["-v", "-", "-vv"])
+    assert ns.script == "-"
+    assert ns.cmd is None
+    assert ns.module is None
+    assert ns.verbose == 1
+    assert ns.args == ["-vv"]
+
+
 def test_parse_module():
     ns = parse_args(["-m", "mymodule"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd is None
     assert ns.args == []
 
     # trailing options are forwarded, even if they overlap with known options
     ns = parse_args(["-m", "mymodule", "-m", "more", "--unknown", "-v"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd is None
     assert ns.verbose == 0
     assert ns.args == ["-m", "more", "--unknown", "-v"]
@@ -51,7 +60,7 @@ def test_parse_module():
     # earlier options do still apply
     ns = parse_args(["-v", "-m", "mymodule", "-v"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd is None
     assert ns.verbose == 1
     assert ns.args == ["-v"]
@@ -60,14 +69,14 @@ def test_parse_module():
 def test_parse_cmd():
     ns = parse_args(["-c", "print('hello')"])
     assert ns.module is None
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd == "print('hello')"
     assert ns.args == []
 
     # trailing options are forwarded, even if they overlap with known options
     ns = parse_args(["-c", "print('hello')", "-c", "more", "--unknown", "-v"])
     assert ns.module is None
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd == "print('hello')"
     assert ns.verbose == 0
     assert ns.args == ["-c", "more", "--unknown", "-v"]
@@ -75,7 +84,7 @@ def test_parse_cmd():
     # earlier options do still apply
     ns = parse_args(["-v", "-c", "print('hello')", "-v"])
     assert ns.module is None
-    assert ns.script is None
+    assert ns.script == "-"
     assert ns.cmd == "print('hello')"
     assert ns.verbose == 1
     assert ns.args == ["-v"]
@@ -174,8 +183,12 @@ def test_cli_run_cmd():
     assert "ok\n" in stdout
 
 
-def test_cli_run_stdin():
-    stdout = run(["-m", "cuml.accel"], stdin=SCRIPT)
+@pytest.mark.parametrize("pass_hyphen", [False, True])
+def test_cli_run_stdin(pass_hyphen):
+    args = ["-m", "cuml.accel"]
+    if pass_hyphen:
+        args.append("-")
+    stdout = run(args, stdin=SCRIPT)
     assert "ok\n" in stdout
 
 

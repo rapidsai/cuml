@@ -125,7 +125,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     group.add_argument(
         "script",
-        default=None,
+        default="-",
         nargs="?",
         help="A script to execute",
     )
@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None):
         runpy.run_module(ns.module, run_name="__main__")
     elif ns.cmd is not None:
         execute_source(ns.cmd, "<stdin>")
-    elif ns.script is not None:
+    elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
         runpy.run_path(ns.script, run_name="__main__")
