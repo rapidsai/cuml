@@ -276,11 +276,26 @@ All estimators (any class that is a child of `cuml.common.base.Base`) have a sim
 
 All estimators should match the arguments (including the default value) in `Base.__init__` and pass these values to `super().__init__()`. As of 0.17, all estimators should accept `handle`, `verbose` and `output_type`.
 
-In addition, is recommended to force keyword arguments to prevent breaking changes if arguments are added or removed in future versions. For example, all arguments below after `*` must be passed by keyword:
+In general, all estimator constructor parameters should be keyword-only except for those arguments that are not keyword-only in the matched API. This helps prevent breaking changes if arguments are added or removed in future versions. For example:
 
 ```python
+# For an estimator that matches scikit-learn's API where the eps argument can be positional:
+def __init__(self, eps=0.5, *, min_samples=5, max_mbytes_per_batch=None,
+             calc_core_sample_indices=True, handle=None, verbose=False, output_type=None):
+    super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    self.eps = eps
+    self.min_samples = min_samples
+    self.max_mbytes_per_batch = max_mbytes_per_batch
+    self.calc_core_sample_indices = calc_core_sample_indices
+
+# For an estimator that doesn't match any existing API:
 def __init__(self, *, eps=0.5, min_samples=5, max_mbytes_per_batch=None,
              calc_core_sample_indices=True, handle=None, verbose=False, output_type=None):
+    super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    self.eps = eps
+    self.min_samples = min_samples
+    self.max_mbytes_per_batch = max_mbytes_per_batch
+    self.calc_core_sample_indices = calc_core_sample_indices
 ```
 
 Finally, do not alter any input arguments - if you do, it will prevent proper cloning of the estimator. See Scikit-learn's [section](https://scikit-learn.org/stable/developers/develop.html#instantiation) on instantiation for more info.
