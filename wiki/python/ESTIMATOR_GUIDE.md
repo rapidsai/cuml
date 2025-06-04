@@ -7,6 +7,7 @@ This guide is meant to help developers follow the correct patterns when creating
 ## Table of Contents
 
 - [Recommended Scikit-Learn Documentation](#recommended-scikit-learn-documentation)
+- [API Matching Policy](#api-matching-policy)
 - [Quick Start Guide](#quick-start-guide)
 - [Background](#background)
    - [Input and Output Types in cuML](#input-and-output-types-in-cuml)
@@ -36,6 +37,34 @@ To start, it's recommended to read the following Scikit-learn documentation:
       5. [Estimator tags](https://scikit-learn.org/stable/developers/develop.html#estimator-tags)
 2. [Scikit-learn's Docstring Guide](https://scikit-learn.org/stable/developers/contributing.html#guidelines-for-writing-documentation)
    1. We follow the same guidelines for specifying array-like objects, array shapes, dtypes, and default values
+
+## API Matching Policy
+
+cuML often implements GPU-accelerated versions of estimators that already exist in CPU-based libraries, with scikit-learn being the most prominent example. When implementing these variants, we aim to maintain API compatibility with the original library while following these guidelines:
+
+1. **Match the API of the original library where possible and reasonable**
+   - Use identical parameter names, types, and default values
+   - Keep method signatures and return types consistent
+   - Maintain the same behavior and semantics where possible
+
+2. **API deviations must be well-justified and documented**
+   - Document all API deviations clearly
+   - Avoid arbitrary deviations from the original API
+
+     For example, if the original library uses a parameter named `n_neighbor`, we should not arbitrarily change it to `n_neighbors` in our implementation.
+
+   - Explain necessary deviations with in-code comments
+
+3. **Unused parameters or arguments should generally not be matched**
+   - If a parameter exists in the original API but isn't used in cuML's implementation, it's better to omit it
+   - This helps maintain a cleaner, more focused API and is less surprising to both users and developers
+   - However, consider backwards compatibility before removing unused parameters that are already present
+
+4. **Exact API matching is not required**
+   - Consumers who need exact API matching should use `cuml.accel`
+   - Focus on providing a consistent and intuitive API rather than exact matching
+   - Prioritize performance and GPU-specific optimizations over exact API matching
+   - To emphasize: while exact API matching is not required, arbitrary deviations are not permitted
 
 ## Quick Start Guide
 
