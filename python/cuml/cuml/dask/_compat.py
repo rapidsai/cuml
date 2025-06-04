@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-def has_dask():
-    try:
-        import dask  # NOQA
-        import dask.dataframe  # NOQA
-        import dask.distributed  # NOQA
 
-        return True
-    except ImportError:
-        return False
+import functools
+
+import dask
+import packaging.version
 
 
-def has_sklearn():
-    try:
-        import sklearn  # NOQA
-
-        return True
-    except ImportError:
-        return False
+@functools.lru_cache
+def DASK_2025_4_0():
+    return packaging.version.parse(
+        dask.__version__
+    ) >= packaging.version.parse("2025.4.0")

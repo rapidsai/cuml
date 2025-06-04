@@ -25,7 +25,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.mixins import FMajorInputTagMixin
 
 from libcpp cimport bool
@@ -309,6 +309,7 @@ class SGD(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.
@@ -402,6 +403,7 @@ class SGD(Base,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.

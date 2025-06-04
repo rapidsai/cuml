@@ -23,8 +23,8 @@ import cuml.internals
 from libc.stdint cimport uintptr_t
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cuml_array
 
 from pylibraft.common.handle cimport handle_t
@@ -55,7 +55,7 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.

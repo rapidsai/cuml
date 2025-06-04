@@ -24,7 +24,7 @@ import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
 
 from pylibraft.common.handle cimport handle_t
 
@@ -187,7 +187,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = None
         self.distances_ = None
 
-    @generate_docstring(skip_parameters_heading=True)
+    @generate_docstring()
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
@@ -267,8 +268,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
         return self
 
-    @generate_docstring(skip_parameters_heading=True,
-                        return_values={'name': 'preds',
+    @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})

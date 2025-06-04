@@ -21,12 +21,13 @@ from collections.abc import Iterable
 import cupy as cp
 import dask
 import numpy as np
+import treelite
 from dask.distributed import Future
 
 from cuml import using_output_type
+from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.legacy.fil.fil import TreeliteModel
 
 
 class BaseRandomForestModel(object):
@@ -52,7 +53,10 @@ class BaseRandomForestModel(object):
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
-            workers = list(self.client.scheduler_info()["workers"].keys())
+            kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+            workers = list(
+                self.client.scheduler_info(**kwargs)["workers"].keys()
+            )
         self.workers = workers
         self._set_internal_model(None)
         self.active_workers = list()
@@ -101,12 +105,6 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
-        if self.datatype == "cudf":
-            has_float64 = (dataset[0].dtypes == np.float64).any()
-        else:
-            has_float64 = dataset[0].dtype == np.float64
-        if has_float64:
-            raise TypeError("To use Dask RF data should have dtype float32.")
 
         labels = self.client.persist(dataset[1])
         if self.datatype == "cudf":
@@ -176,30 +174,31 @@ class BaseRandomForestModel(object):
         model_serialized_futures = list()
         for w in self.active_workers:
             model_serialized_futures.append(
-                dask.delayed(_get_serialized_model)(self.rfs[w])
+                dask.delayed(_serialize_treelite_bytes)(self.rfs[w])
             )
         mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
         model = self.rfs[last_worker].result()
-        all_tl_mod_handles = [
-            model._tl_handle_from_bytes(indiv_worker_model_bytes)
+        tl_model_objs = [
+            treelite.Model.deserialize_bytes(indiv_worker_model_bytes)
             for indiv_worker_model_bytes in mod_bytes
         ]
-
-        model._concatenate_treelite_handle(all_tl_mod_handles)
-        for tl_handle in all_tl_mod_handles:
-            TreeliteModel.free_treelite_model(tl_handle)
+        concatenated_model = treelite.Model.concatenate(tl_model_objs)
+        model._deserialize_from_treelite(concatenated_model)
         return model
 
     def _partial_inference(self, X, op_type, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
         combined_data = list(map(lambda x: x[1], data.gpu_futures))
 
-        func = (
-            _func_predict_partial
-            if op_type == "regression"
-            else _func_predict_proba_partial
-        )
+        if op_type == "classification":
+            func = _func_predict_proba_partial
+            shape = (X.shape[0], 1, self.num_classes)
+        else:
+            shape = (X.shape[0], 1)
+            func = _func_predict_partial
+
+        meta = cp.zeros((0,) * len(shape), dtype=cp.float32)
 
         partial_infs = list()
         for worker in self.active_workers:
@@ -213,10 +212,13 @@ class BaseRandomForestModel(object):
                     pure=False,
                 )
             )
-        partial_infs = dask.delayed(dask.array.concatenate)(
-            partial_infs, axis=1, allow_unknown_chunksizes=True
-        )
-        return partial_infs
+
+        objs = [
+            dask.array.from_delayed(partial_inf, shape=shape, meta=meta)
+            for partial_inf in partial_infs
+        ]
+        result = dask.array.concatenate(objs, axis=1)
+        return result
 
     def _predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
@@ -335,6 +337,13 @@ class BaseRandomForestModel(object):
 
         return internal_model
 
+    def _get_workers_weights(self) -> cp.ndarray:
+        workers_weights = np.array(self.n_active_estimators_per_worker)
+        workers_weights = workers_weights[workers_weights != 0]
+        workers_weights = workers_weights / workers_weights.sum()
+        workers_weights = cp.array(workers_weights)
+        return workers_weights
+
     def apply_reduction(self, reduce, partial_infs, datatype, delayed):
         """
         Reduces the partial inferences to obtain the final result. The workers
@@ -342,10 +351,7 @@ class BaseRandomForestModel(object):
         correct for this worker's predictions are weighted differently during
         reduction.
         """
-        workers_weights = np.array(self.n_active_estimators_per_worker)
-        workers_weights = workers_weights[workers_weights != 0]
-        workers_weights = workers_weights / workers_weights.sum()
-        workers_weights = cp.array(workers_weights)
+        workers_weights = self._get_workers_weights()
         unique_classes = (
             None
             if not hasattr(self, "unique_classes")
@@ -366,7 +372,7 @@ class BaseRandomForestModel(object):
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])
     y = concatenate([item[1] for item in input_data])
-    return model.fit(X, y, convert_dtype)
+    return model.fit(X, y, convert_dtype=convert_dtype)
 
 
 def _func_predict_partial(model, input_data, **kwargs):
@@ -413,5 +419,5 @@ def _func_set_params(model, **params):
     return model.set_params(**params)
 
 
-def _get_serialized_model(model):
-    return model._get_serialized_model()
+def _serialize_treelite_bytes(model):
+    return model._serialize_treelite_bytes()

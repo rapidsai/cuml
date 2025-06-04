@@ -32,16 +32,18 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_cupy_array,
     sparse_scipy_to_cp,
+)
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.prims.stats import cov
@@ -112,7 +114,8 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(UniversalBase,
+class PCA(Base,
+          InteropMixin,
           FMajorInputTagMixin,
           SparseInputTagMixin):
 
@@ -172,9 +175,6 @@ class PCA(UniversalBase,
         mean: 0 2.666...
         1 2.333...
         2 2.333...
-        dtype: float32
-        >>> print(f'noise variance: {pca_float.noise_variance_}') # doctest: +SKIP
-        noise variance: 0   -7.377287e-08
         dtype: float32
         >>> trans_gdf_float = pca_float.transform(gdf_float)
         >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
@@ -270,36 +270,89 @@ class PCA(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.decomposition.PCA'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
     mean_ = CumlArrayDescriptor(order='F')
-    noise_variance_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "svd_solver": {
-            "arpack": "full",
-            "randomized": "full",
-            "covariance_eigh": "full"
-        },
-        "iterated_power": {
-            "auto": 15,
-        },
-        "n_components": {
-            "mle": "NotImplemented"
-        },
-        "tol": {
-            # tolerance controls tolerance of different solvers
-            # between sklearn and cuML, so at least the default
-            # value needs to be translated.
-            0.0: 1e-7
-        }
-    }
+    _cpu_class_path = "sklearn.decomposition.PCA"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ["copy", "iterated_power", "n_components", "svd_solver", "tol", "whiten"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.n_components == "mle":
+            raise UnsupportedOnGPU
+
+        svd_solver = "auto" if model.svd_solver == "auto" else "full"
+
+        # Since the solvers are different, we want to adjust the tolerances used.
+        # TODO: here we only adjust the default tolerance, there's likely a better
+        # conversion equation we should apply.
+        if (tol := model.tol) == 0.0:
+            tol = 1e-7
+
+        if (iterated_power := model.iterated_power) == "auto":
+            iterated_power = 15
+
+        return {
+            "n_components": model.n_components,
+            "copy": model.copy,
+            "whiten": model.whiten,
+            "svd_solver": svd_solver,
+            "tol": tol,
+            "iterated_power": iterated_power,
+        }
+
+    def _params_to_cpu(self):
+        # Since the solvers are different, we want to adjust the tolerances used.
+        # TODO: here we only adjust the default tolerance, there's likely a better
+        # conversion equation we should apply.
+        if (tol := self.tol) == 1e-7:
+            tol = 0.0
+
+        svd_solver = "auto" if self.svd_solver == "jacobi" else self.svd_solver
+
+        return {
+            "n_components": self.n_components,
+            "copy": self.copy,
+            "whiten": self.whiten,
+            "svd_solver": svd_solver,
+            "tol": tol,
+            "iterated_power": self.iterated_power,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(model.explained_variance_, order="F"),
+            "explained_variance_ratio_": to_gpu(model.explained_variance_ratio_, order="F"),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            "mean_": to_gpu(model.mean_, order="F"),
+            "n_components_": model.n_components_,
+            "n_samples_": model.n_samples_,
+            "noise_variance_": model.noise_variance_,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(self.explained_variance_ratio_),
+            "singular_values_": to_cpu(self.singular_values_),
+            "mean_": to_cpu(self.mean_),
+            "n_components_": self.n_components_,
+            "n_samples_": self.n_samples_,
+            "noise_variance_": self.noise_variance_,
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
@@ -369,7 +422,6 @@ class PCA(UniversalBase,
 
         self.singular_values_ = CumlArray.zeros(n_components,
                                                 dtype=self.dtype)
-        self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def _sparse_fit(self, X):
 
@@ -401,10 +453,11 @@ class PCA(UniversalBase,
             self.explained_variance_)
 
         if self.n_components_ < min(self.n_samples_, self.n_features_in_):
-            self.noise_variance_ = \
+            self.noise_variance_ = float(
                 self.explained_variance_[self.n_components_:].mean()
+            )
         else:
-            self.noise_variance_ = cp.array([0.0])
+            self.noise_variance_ = 0.0
 
         self.explained_variance_ = \
             self.explained_variance_[:self.n_components_]
@@ -422,7 +475,7 @@ class PCA(UniversalBase,
         return self
 
     @generate_docstring(X='dense_sparse')
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -481,8 +534,8 @@ class PCA(UniversalBase,
 
         cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-        cdef uintptr_t noise_vars_ptr = \
-            self.noise_variance_.ptr
+        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
+        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
@@ -510,6 +563,9 @@ class PCA(UniversalBase,
         # following transfers start
         self.handle.sync()
 
+        # Store noise_variance_ as a float
+        self.noise_variance_ = float(noise_variance.to_output("numpy"))
+
         return self
 
     @generate_docstring(X='dense_sparse',
@@ -518,7 +574,6 @@ class PCA(UniversalBase,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
@@ -564,7 +619,7 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "return_sparse", "sparse_tol")
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
@@ -667,7 +722,7 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.
@@ -741,20 +796,8 @@ class PCA(UniversalBase,
 
         return t_input_data
 
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ["copy", "iterated_power", "n_components", "svd_solver", "tol",
-                "whiten"]
-
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
             msg = ("This instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
-
-    def get_attr_names(self):
-        return ['components_', 'explained_variance_',
-                'explained_variance_ratio_', 'singular_values_',
-                'mean_', 'n_components_', 'noise_variance_',
-                'n_samples_', 'n_features_in_', 'feature_names_in_']

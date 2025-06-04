@@ -569,19 +569,6 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
       handle, params.n_row, params.n_col, core_dists.data());
 
     auto stream = handle.get_stream();
-    rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
-    raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
-                                                       (params.min_samples + 1) * params.n_row * 2);
-
-    cuvs::neighbors::reachability::mutual_reachability_graph(
-      handle,
-      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-      params.min_samples + 1,
-      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
-      raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-      mutual_reachability_coo,
-      cuvs::distance::DistanceType::L2SqrtExpanded,
-      1.0);
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
     ML::HDBSCAN::Common::generate_prediction_data(handle,
@@ -723,19 +710,6 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
       handle, params.n_row, params.n_col, core_dists.data());
 
     auto stream = handle.get_stream();
-    rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
-    raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
-                                                       (params.min_samples + 1) * params.n_row * 2);
-
-    cuvs::neighbors::reachability::mutual_reachability_graph(
-      handle,
-      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-      params.min_samples + 1,
-      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
-      raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-      mutual_reachability_coo,
-      cuvs::distance::DistanceType::L2SqrtExpanded,
-      1.0);
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 

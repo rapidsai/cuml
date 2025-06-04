@@ -24,25 +24,18 @@ import pytest
 import treelite
 from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
+from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier as sklrfc
+from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 import cuml
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.internals.import_utils import has_sklearn
 from cuml.testing.utils import as_type
 
 shap = pytest.importorskip("shap")
-
-# See issue #4729 and PR #4777
-pytestmark = pytest.mark.skip
-
-
-if has_sklearn():
-    from sklearn.datasets import make_classification, make_regression
-    from sklearn.ensemble import RandomForestClassifier as sklrfc
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 
 def make_classification_with_categorical(
@@ -117,7 +110,10 @@ def count_categorical_split(tl_model):
     count = 0
     for tree in model_dump["trees"]:
         for node in tree["nodes"]:
-            if "split_type" in node and node["split_type"] == "categorical":
+            if (
+                "node_type" in node
+                and node["node_type"] == "categorical_test_node"
+            ):
                 count += 1
     return count
 
@@ -125,13 +121,11 @@ def count_categorical_split(tl_model):
 @pytest.mark.parametrize(
     "objective",
     [
-        "reg:linear",
         "reg:squarederror",
         "reg:squaredlogerror",
         "reg:pseudohubererror",
     ],
 )
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
 
@@ -153,14 +147,14 @@ def test_xgb_regressor(objective):
         "base_score": 0.5,
         "seed": 0,
         "max_depth": 6,
-        "tree_method": "gpu_hist",
-        "predictor": "gpu_predictor",
+        "tree_method": "hist",
+        "device": "cuda",
     }
     num_round = 10
     xgb_model = xgb.train(
         params, dtrain, num_boost_round=num_round, evals=[(dtrain, "train")]
     )
-    tl_model = treelite.Model.from_xgboost(xgb_model)
+    tl_model = treelite.frontend.from_xgboost(xgb_model)
 
     # Insert NaN randomly into X
     X_test = X.copy()
@@ -189,7 +183,7 @@ def test_xgb_regressor(objective):
         ("count:poisson", 4),
         ("rank:pairwise", 5),
         ("rank:ndcg", 5),
-        ("rank:map", 5),
+        ("rank:map", 2),
         ("multi:softmax", 5),
         ("multi:softprob", 5),
     ],
@@ -205,7 +199,6 @@ def test_xgb_regressor(objective):
         "multi:softprob",
     ],
 )
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
 
@@ -227,8 +220,8 @@ def test_xgb_classifier(objective, n_classes):
         "base_score": 0.5,
         "seed": 0,
         "max_depth": 6,
-        "tree_method": "gpu_hist",
-        "predictor": "gpu_predictor",
+        "tree_method": "hist",
+        "device": "cuda",
     }
     if objective.startswith("rank:"):
         dtrain.set_group([10] * 10)
@@ -287,7 +280,6 @@ def test_degenerate_cases():
 
 
 @pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
     X, y = make_regression(
@@ -315,7 +307,7 @@ def test_cuml_rf_regressor(input_type):
         accuracy_metric="mse",
     )
     cuml_model.fit(X, y)
-    pred = cuml_model.predict(X)
+    pred = cuml_model.predict(X).squeeze()
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
@@ -336,7 +328,6 @@ def test_cuml_rf_regressor(input_type):
 
 @pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
 @pytest.mark.parametrize("n_classes", [2, 5])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
     X, y = make_classification(
@@ -381,13 +372,11 @@ def test_cuml_rf_classifier(n_classes, input_type):
     else:
         expected_value = explainer.expected_value
     # SHAP values should add up to predicted score
-    expected_value = expected_value.reshape(-1, 1)
-    shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
-    pred = np.transpose(pred, (1, 0))
+    expected_value = expected_value.reshape(1, -1)
+    shap_sum = np.sum(out, axis=1) + np.tile(expected_value, (n_samples, 1))
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_regressor():
     n_samples = 100
     X, y = make_regression(
@@ -420,7 +409,6 @@ def test_sklearn_rf_regressor():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_classifier(n_classes):
     n_samples = 100
     X, y = make_classification(
@@ -449,9 +437,6 @@ def test_sklearn_rf_classifier(n_classes):
     ref_explainer = shap.explainers.Tree(model=skl_model)
     correct_out = np.array(ref_explainer.shap_values(X))
     expected_value = ref_explainer.expected_value
-    if n_classes == 2:
-        correct_out = correct_out[1, :, :]
-        expected_value = expected_value[1:]
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(
         explainer.expected_value, expected_value, decimal=5
@@ -471,7 +456,8 @@ def test_xgb_toy_categorical():
     X["x"] = X["x"].astype("category")
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {
-        "tree_method": "gpu_hist",
+        "tree_method": "hist",
+        "device": "cuda",
         "eval_metric": "error",
         "objective": "binary:logistic",
         "max_depth": 2,
@@ -482,7 +468,7 @@ def test_xgb_toy_categorical():
         params, dtrain, num_boost_round=1, evals=[(dtrain, "train")]
     )
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X).get()
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, ref_out[:, :-1], decimal=5)
@@ -492,7 +478,6 @@ def test_xgb_toy_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier_with_categorical(n_classes):
     xgb = pytest.importorskip("xgboost")
 
@@ -511,11 +496,11 @@ def test_xgb_classifier_with_categorical(n_classes):
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {
-        "tree_method": "gpu_hist",
+        "tree_method": "hist",
+        "device": "cuda",
         "max_depth": 6,
         "base_score": 0.5,
         "seed": 0,
-        "predictor": "gpu_predictor",
     }
     if n_classes == 2:
         params["objective"] = "binary:logistic"
@@ -527,7 +512,9 @@ def test_xgb_classifier_with_categorical(n_classes):
     xgb_model = xgb.train(
         params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
     )
-    assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    )
 
     # Insert NaN randomly into X
     X_test = X.values.copy()
@@ -546,15 +533,14 @@ def test_xgb_classifier_with_categorical(n_classes):
     if n_classes == 2:
         ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     else:
-        ref_out = ref_out.transpose((1, 0, 2))
-        ref_out, ref_expected_value = ref_out[:, :, :-1], ref_out[:, 0, -1]
+        ref_out = ref_out.transpose((0, 2, 1))
+        ref_out, ref_expected_value = ref_out[:, :-1, :], ref_out[0, -1, :]
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(
         explainer.expected_value, ref_expected_value, decimal=5
     )
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -570,21 +556,23 @@ def test_xgb_regressor_with_categorical():
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {
-        "tree_method": "gpu_hist",
+        "tree_method": "hist",
+        "device": "cuda",
         "max_depth": 6,
         "base_score": 0.5,
         "seed": 0,
-        "predictor": "gpu_predictor",
         "objective": "reg:squarederror",
         "eval_metric": "rmse",
     }
     xgb_model = xgb.train(
         params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
     )
-    assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_xgboost(xgb_model)) > 0
+    )
 
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X).get()
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
@@ -594,7 +582,6 @@ def test_xgb_regressor_with_categorical():
     )
 
 
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_regressor_with_categorical():
     lgb = pytest.importorskip("lightgbm")
 
@@ -609,7 +596,9 @@ def test_lightgbm_regressor_with_categorical():
         random_state=2022,
     )
 
-    dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
+    dtrain = lgb.Dataset(
+        X, label=y, categorical_feature=list(range(n_categorical))
+    )
     params = {
         "num_leaves": 64,
         "seed": 0,
@@ -624,10 +613,12 @@ def test_lightgbm_regressor_with_categorical():
         valid_sets=[dtrain],
         valid_names=["train"],
     )
-    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    )
 
     explainer = TreeExplainer(model=lgb_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X).get()
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X)
@@ -638,7 +629,6 @@ def test_lightgbm_regressor_with_categorical():
 
 
 @pytest.mark.parametrize("n_classes", [2, 3])
-@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_lightgbm_classifier_with_categorical(n_classes):
     lgb = pytest.importorskip("lightgbm")
 
@@ -656,7 +646,9 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         random_state=2022,
     )
 
-    dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
+    dtrain = lgb.Dataset(
+        X, label=y, categorical_feature=list(range(n_categorical))
+    )
     params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}
     if n_classes == 2:
         params["objective"] = "binary"
@@ -672,7 +664,9 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         valid_sets=[dtrain],
         valid_names=["train"],
     )
-    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+    assert (
+        count_categorical_split(treelite.frontend.from_lightgbm(lgb_model)) > 0
+    )
 
     # Insert NaN randomly into X
     X_test = X.values.copy()
@@ -685,12 +679,8 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     out = explainer.shap_values(X_test)
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
-    ref_out = np.array(ref_explainer.shap_values(X_test))
-    if n_classes == 2:
-        ref_out = ref_out[1, :, :]
-        ref_expected_value = ref_explainer.expected_value[1]
-    else:
-        ref_expected_value = ref_explainer.expected_value
+    ref_out = ref_explainer.shap_values(X_test)
+    ref_expected_value = ref_explainer.expected_value
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(
         explainer.expected_value, ref_expected_value, decimal=5
@@ -705,13 +695,15 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             import xgboost as xgb
         except ImportError:
             assume(False)
+            return None, None
         if task == "regression":
             objective = draw(
                 st.sampled_from(["reg:squarederror", "reg:pseudohubererror"])
             )
             model = xgb.XGBRegressor(
                 n_estimators=n_estimators,
-                tree_method="gpu_hist",
+                tree_method="hist",
+                device="cuda",
                 objective=objective,
                 enable_categorical=True,
                 verbosity=0,
@@ -735,17 +727,20 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             objective = draw(st.sampled_from(valid_objectives))
             model = xgb.XGBClassifier(
                 n_estimators=n_estimators,
-                tree_method="gpu_hist",
+                tree_method="hist",
+                device="cuda",
                 objective=objective,
                 enable_categorical=True,
                 verbosity=0,
             ).fit(X, y)
+        else:
+            raise ValueError(f"Unknown task: {task}")
         pred = model.predict(X, output_margin=True)
         if not use_sklearn_estimator:
             model = model.get_booster()
         return model, pred
     elif learner == "rf":
-        predict_model = "GPU " if y.dtype == np.float32 else "CPU"
+        predict_model = "GPU" if y.dtype == np.float32 else "CPU"
         if task == "regression":
             model = cuml.ensemble.RandomForestRegressor(
                 n_estimators=n_estimators
@@ -758,9 +753,10 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             )
             model.fit(X, y)
             pred = model.predict_proba(X)
+        else:
+            raise ValueError(f"Unknown task: {task}")
         return model, pred
     elif learner == "skl_rf":
-        assume(has_sklearn())
         if task == "regression":
             model = sklrfr(n_estimators=n_estimators)
             model.fit(X, y)
@@ -769,20 +765,27 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             model = sklrfc(n_estimators=n_estimators)
             model.fit(X, y)
             pred = model.predict_proba(X)
+        else:
+            raise ValueError(f"Unknown task: {task}")
         return model, pred
     elif learner == "lgbm":
         try:
             import lightgbm as lgb
         except ImportError:
             assume(False)
+            return None, None
         if task == "regression":
             model = lgb.LGBMRegressor(n_estimators=n_estimators).fit(X, y)
         elif task == "classification":
             model = lgb.LGBMClassifier(n_estimators=n_estimators).fit(X, y)
+        else:
+            raise ValueError(f"Unknown task: {task}")
         pred = model.predict(X, raw_score=True)
         if not use_sklearn_estimator:
             model = model.booster_
         return model, pred
+    else:
+        raise ValueError(f"Unknown learner: {learner}")
 
 
 @st.composite

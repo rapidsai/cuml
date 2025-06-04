@@ -40,7 +40,7 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 
-#include <cuvs/neighbors/reachability.hpp>
+#include <cuvs/cluster/agglomerative.hpp>
 
 namespace ML {
 namespace HDBSCAN {
@@ -61,7 +61,7 @@ namespace HDBSCAN {
  * @param[in] core_dists buffer for storing core distances (size m)
  * @param[out] out output container object
  */
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = int, typename value_t = float>
 void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
@@ -72,52 +72,26 @@ void build_linkage(const raft::handle_t& handle,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
-
-  /**
-   * Mutual reachability graph
-   */
-  rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
-  // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
-  // and be consistent with Scikit learn Contrib.
-  size_t mutual_reachability_nnz = ((params.min_samples + 1) * m * 2);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, mutual_reachability_nnz);
-
-  cuvs::neighbors::reachability::mutual_reachability_graph(
-    handle,
-    raft::make_device_matrix_view<const value_t, int64_t>(X, m, n),
-    params.min_samples + 1,
-    raft::make_device_vector_view<value_idx>(mutual_reachability_indptr.data(), m + 1),
-    raft::make_device_vector_view<value_t>(core_dists, m),
-    mutual_reachability_coo,
-    metric,
-    params.alpha);
-
   value_idx n_edges = m - 1;
+  cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params linkage_params;
+  linkage_params.min_samples = params.min_samples + 1;
 
-  cuvs::neighbors::reachability::helpers::build_single_linkage_dendrogram(
+  cuvs::cluster::agglomerative::helpers::build_linkage(
     handle,
     raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
+    linkage_params,
     metric,
-    raft::make_device_vector_view<value_idx, value_idx>(mutual_reachability_indptr.data(), m + 1),
-    raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
-      mutual_reachability_coo.vals(),
-      raft::make_device_coordinate_structure_view(mutual_reachability_coo.rows(),
-                                                  mutual_reachability_coo.cols(),
-                                                  value_idx(m),
-                                                  value_idx(m),
-                                                  mutual_reachability_nnz)),
-    raft::make_device_vector_view<value_t, value_idx>(core_dists, m),
     raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, value_idx>(
       out.get_mst_weights(),
       raft::make_device_coordinate_structure_view(
         out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
     raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
     raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges));
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
+    std::make_optional<raft::device_vector_view<value_t, value_idx>>(raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
 }
 
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = int, typename value_t = float>
 void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,

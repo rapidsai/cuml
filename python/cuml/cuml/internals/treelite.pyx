@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+cdef str _get_treelite_error():
+    cdef str err = TreeliteGetLastError().decode("UTF-8")
+    return err
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
 
-cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
-    # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
-    cdef enum infer_kind:
-        default_kind "ML::experimental::fil::infer_kind::default_kind"
-        per_tree "ML::experimental::fil::infer_kind::per_tree"
-        leaf_id "ML::experimental::fil::infer_kind::leaf_id"
+def safe_treelite_call(res: int, err_msg: str) -> None:
+    if res < 0:
+        raise RuntimeError(f"{err_msg}\n{_get_treelite_error()}")

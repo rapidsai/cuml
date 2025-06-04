@@ -423,3 +423,4 @@ def test_linear_svc_input_types(kind, weighted):
     y_pred = model.predict(X)
     # predict output type matches input type
     assert type(y_pred).__module__.split(".")[0] == kind
+    assert y_pred.dtype == "int64"

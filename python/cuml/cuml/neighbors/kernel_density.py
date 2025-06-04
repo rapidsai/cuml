@@ -22,7 +22,7 @@ from numba import cuda
 from scipy.special import gammainc
 
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.metrics import pairwise_distances
 
@@ -235,6 +235,7 @@ class KernelDensity(Base):
             "metric_params",
         ]
 
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, sample_weight=None, convert_dtype=True):
         """Fit the Kernel Density model on the data.
 
@@ -275,6 +276,7 @@ class KernelDensity(Base):
 
         return self
 
+    @deprecate_non_keyword_only("convert_dtype")
     def score_samples(self, X, convert_dtype=True):
         """Compute the log-likelihood of each sample under the model.
 

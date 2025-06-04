@@ -21,8 +21,6 @@ from typing import Tuple
 
 import cudf
 import cupy as cp
-import dask.dataframe as dd
-import dask_cudf
 import numpy as np
 import pandas as pd
 from numba import cuda
@@ -1010,6 +1008,18 @@ class CumlArray:
             A new CumlArray
 
         """
+        # Local to workaround circular imports
+        from cuml.common.sparse_utils import is_sparse
+
+        if is_sparse(X):
+            # We don't support coercing sparse arrays to dense via this method.
+            # Raising a NotImplementedError here lets us nicely error
+            # for estimators that don't support sparse arrays without requiring
+            # an additional external check. Otherwise they'd get an opaque error
+            # for code below.
+            raise NotImplementedError(
+                "Sparse inputs are not currently supported for this method"
+            )
         if convert_to_mem_type is None:
             convert_to_mem_type = GlobalSettings().memory_type
         else:
@@ -1041,9 +1051,7 @@ class CumlArray:
             else:
                 return X
 
-        if isinstance(
-            X, (dask_cudf.Series, dask_cudf.DataFrame, dd.Series, dd.DataFrame)
-        ):
+        if hasattr(X, "__dask_graph__") and hasattr(X, "compute"):
             # TODO: Warn, but not when using dask_sql
             X = X.compute()
 

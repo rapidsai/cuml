@@ -1,14 +1,11 @@
 c_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 13
 
 cxx_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 13
 
 cuda_compiler:
-  - cuda-nvcc  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - nvcc  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - cuda-nvcc
 
 c_stdlib:
   - sysroot
@@ -21,37 +18,3 @@ cmake_version:
 
 treelite_version:
   - "=4.4.1"
-
-# The CTK libraries below are missing from the conda-forge::cudatoolkit package
-# for CUDA 11. The "*_host_*" version specifiers correspond to `11.8` packages
-# and the "*_run_*" version specifiers correspond to `11.x` packages.
-
-cuda11_libcublas_host_version:
-  - "=11.11.3.6"
-
-cuda11_libcublas_run_version:
-  - ">=11.5.2.43,<=11.11.3.6"
-
-cuda11_libcusolver_host_version:
-  - "=11.4.1.48"
-
-cuda11_libcusolver_run_version:
-  - ">=11.2.0.43,<=11.4.1.48"
-
-cuda11_libcusparse_host_version:
-  - "=11.7.5.86"
-
-cuda11_libcusparse_run_version:
-  - ">=11.6.0.43,<=11.7.5.86"
-
-cuda11_libcurand_host_version:
-  - "=10.3.0.86"
-
-cuda11_libcurand_run_version:
-  - ">=10.2.5.43,<=10.3.0.86"
-
-cuda11_libcufft_host_version:
-  - "=10.9.0.58"
-
-cuda11_libcufft_run_version:
-  - ">=10.5.0.43,<=10.9.0.58"

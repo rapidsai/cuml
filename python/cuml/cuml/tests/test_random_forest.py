@@ -52,10 +52,6 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore: For reproducible results(.*)" "::cuml[.*]"
-)
-
 
 @pytest.fixture(
     scope="session",
@@ -252,7 +248,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         )
         .fit(X, y)
         .predict(X)
-    )
+    ).squeeze()
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
     mse_tweedie_deviance = mean_tweedie_deviance(
@@ -306,9 +302,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(
-        X_test, predict_model="GPU", threshold=0.5, algo="auto"
-    )
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -367,9 +361,7 @@ def test_rf_classification_unorder(
     )
     cuml_model.fit(X_train, y_train)
 
-    fil_preds = cuml_model.predict(
-        X_test, predict_model="GPU", threshold=0.5, algo="auto"
-    )
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
@@ -721,21 +713,16 @@ def test_rf_classification_proba(
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_sparse_format", ["not_supported", True, "auto", False]
-)
-@pytest.mark.parametrize(
-    "algo", ["auto", "naive", "tree_reorg", "batch_tree_reorg"]
+    "fil_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_classification_sparse(
-    small_clf, datatype, fil_sparse_format, algo
-):
+def test_rf_classification_sparse(small_clf, datatype, fil_layout):
     use_handle = True
-    num_treees = 50
+    num_trees = 50
 
     X, y = small_clf
     X = X.astype(datatype)
@@ -743,6 +730,7 @@ def test_rf_classification_sparse(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
+
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=1)
 
@@ -754,79 +742,58 @@ def test_rf_classification_sparse(
         min_samples_leaf=2,
         random_state=123,
         n_streams=1,
-        n_estimators=num_treees,
+        n_estimators=num_trees,
         handle=handle,
         max_leaves=-1,
         max_depth=40,
     )
     cuml_model.fit(X_train, y_train)
 
-    if (
-        not fil_sparse_format
-        or algo == "tree_reorg"
-        or algo == "batch_tree_reorg"
-    ) or fil_sparse_format == "not_supported":
-        with pytest.raises(ValueError):
-            fil_preds = cuml_model.predict(
-                X_test,
-                predict_model="GPU",
-                threshold=0.5,
-                fil_sparse_format=fil_sparse_format,
-                algo=algo,
-            )
-    else:
-        fil_preds = cuml_model.predict(
-            X_test,
-            predict_model="GPU",
-            threshold=0.5,
-            fil_sparse_format=fil_sparse_format,
-            algo=algo,
+    fil_preds = cuml_model.predict(
+        X_test,
+        predict_model="GPU",
+        layout=fil_layout,
+    )
+    fil_preds = np.reshape(fil_preds, np.shape(y_test))
+    fil_acc = accuracy_score(y_test, fil_preds)
+    np.testing.assert_almost_equal(fil_acc, cuml_model.score(X_test, y_test))
+
+    fil_model = cuml_model.convert_to_fil_model()
+
+    with cuml.using_output_type("numpy"):
+        fil_model_preds = fil_model.predict(X_test)
+        fil_model_acc = accuracy_score(y_test, fil_model_preds)
+        assert fil_acc == fil_model_acc
+
+    tl_model = cuml_model.convert_to_treelite_model()
+    assert num_trees == tl_model.num_tree
+    assert X.shape[1] == tl_model.num_feature
+
+    if X.shape[0] < 500000:
+        sk_model = skrfc(
+            n_estimators=50,
+            max_depth=40,
+            min_samples_split=2,
+            random_state=10,
         )
-        fil_preds = np.reshape(fil_preds, np.shape(y_test))
-        fil_acc = accuracy_score(y_test, fil_preds)
-        np.testing.assert_almost_equal(
-            fil_acc, cuml_model.score(X_test, y_test)
-        )
-
-        fil_model = cuml_model.convert_to_fil_model()
-
-        with cuml.using_output_type("numpy"):
-            fil_model_preds = fil_model.predict(X_test)
-            fil_model_acc = accuracy_score(y_test, fil_model_preds)
-            assert fil_acc == fil_model_acc
-
-        tl_model = cuml_model.convert_to_treelite_model()
-        assert num_treees == tl_model.num_trees
-        assert X.shape[1] == tl_model.num_features
-
-        if X.shape[0] < 500000:
-            sk_model = skrfc(
-                n_estimators=50,
-                max_depth=40,
-                min_samples_split=2,
-                random_state=10,
-            )
-            sk_model.fit(X_train, y_train)
-            sk_preds = sk_model.predict(X_test)
-            sk_acc = accuracy_score(y_test, sk_preds)
-            assert fil_acc >= (sk_acc - 0.07)
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
+        assert fil_acc >= (sk_acc - 0.07)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_sparse_format", ["not_supported", True, "auto", False]
-)
-@pytest.mark.parametrize(
-    "algo", ["auto", "naive", "tree_reorg", "batch_tree_reorg"]
+    "fil_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
+def test_rf_regression_sparse(special_reg, datatype, fil_layout):
     use_handle = True
-    num_treees = 50
+    num_trees = 50
 
     X, y = special_reg
     X = X.astype(datatype)
@@ -845,7 +812,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
         min_samples_leaf=2,
         random_state=123,
         n_streams=1,
-        n_estimators=num_treees,
+        n_estimators=num_trees,
         handle=handle,
         max_leaves=-1,
         max_depth=40,
@@ -854,63 +821,51 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
     cuml_model.fit(X_train, y_train)
 
     # predict using FIL
-    if (
-        not fil_sparse_format
-        or algo == "tree_reorg"
-        or algo == "batch_tree_reorg"
-    ) or fil_sparse_format == "not_supported":
-        with pytest.raises(ValueError):
-            fil_preds = cuml_model.predict(
-                X_test,
-                predict_model="GPU",
-                fil_sparse_format=fil_sparse_format,
-                algo=algo,
-            )
-    else:
-        fil_preds = cuml_model.predict(
-            X_test,
-            predict_model="GPU",
-            fil_sparse_format=fil_sparse_format,
-            algo=algo,
+    fil_preds = cuml_model.predict(
+        X_test,
+        predict_model="GPU",
+        layout=fil_layout,
+    )
+    fil_preds = np.reshape(fil_preds, np.shape(y_test))
+    fil_r2 = r2_score(y_test, fil_preds)
+
+    fil_model = cuml_model.convert_to_fil_model()
+
+    with cuml.using_output_type("numpy"):
+        fil_model_preds = fil_model.predict(X_test)
+        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
+        fil_model_r2 = r2_score(y_test, fil_model_preds)
+        assert fil_r2 == fil_model_r2
+
+    tl_model = cuml_model.convert_to_treelite_model()
+    assert num_trees == tl_model.num_tree
+    assert X.shape[1] == tl_model.num_feature
+
+    # Initialize, fit and predict using
+    # sklearn's random forest regression model
+    if X.shape[0] < 1000:  # mode != "stress":
+        sk_model = skrfr(
+            n_estimators=50,
+            max_depth=40,
+            min_samples_split=2,
+            random_state=10,
         )
-        fil_preds = np.reshape(fil_preds, np.shape(y_test))
-        fil_r2 = r2_score(y_test, fil_preds)
-
-        fil_model = cuml_model.convert_to_fil_model()
-
-        with cuml.using_output_type("numpy"):
-            fil_model_preds = fil_model.predict(X_test)
-            fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-            fil_model_r2 = r2_score(y_test, fil_model_preds)
-            assert fil_r2 == fil_model_r2
-
-        tl_model = cuml_model.convert_to_treelite_model()
-        assert num_treees == tl_model.num_trees
-        assert X.shape[1] == tl_model.num_features
-
-        # Initialize, fit and predict using
-        # sklearn's random forest regression model
-        if X.shape[0] < 1000:  # mode != "stress":
-            sk_model = skrfr(
-                n_estimators=50,
-                max_depth=40,
-                min_samples_split=2,
-                random_state=10,
-            )
-            sk_model.fit(X_train, y_train)
-            sk_preds = sk_model.predict(X_test)
-            sk_r2 = r2_score(y_test, sk_preds)
-            assert fil_r2 >= (sk_r2 - 0.08)
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds)
+        assert fil_r2 >= (sk_r2 - 0.08)
 
 
 @pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
 @pytest.mark.memleak
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("fil_sparse_format", [True, False, "auto"])
+@pytest.mark.parametrize(
+    "fil_layout", ["depth_first", "breadth_first", "layered"]
+)
 @pytest.mark.parametrize(
     "n_iter", [unit_param(5), quality_param(30), stress_param(80)]
 )
-def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
+def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
     use_handle = True
 
     X, y = small_clf
@@ -919,6 +874,7 @@ def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
+
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=1)
 
@@ -931,6 +887,7 @@ def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
     free_mem = cuda.current_context().get_memory_info()[0]
 
     def test_for_memory_leak():
+        nonlocal free_mem
         cuml_mods = curfc(handle=handle)
         cuml_mods.fit(X_train, y_train)
         handle.sync()  # just to be sure
@@ -942,7 +899,7 @@ def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
             cuml_mods.predict(
                 X_test,
                 predict_model="GPU",
-                fil_sparse_format=fil_sparse_format,
+                layout=fil_layout,
             )
             handle.sync()  # just to be sure
             # Calculate the memory free after predicting the cuML model
@@ -1183,7 +1140,7 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
             assert expected_pred[idx] == majority_vote
     elif estimator_type == "regression":
-        expected_pred = cuml_model.predict(X).astype(np.float32)
+        expected_pred = cuml_model.predict(X).astype(np.float32).squeeze()
         pred = []
         for idx, row in enumerate(X):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
@@ -1368,7 +1325,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
     expected_pred = clf.predict(X).reshape((-1, 1, 1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
@@ -1383,7 +1340,7 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     expected_pred = clf.predict_proba(X).reshape((-1, 1, 2))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
@@ -1398,7 +1355,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     expected_prob = clf.predict_proba(X).reshape((X.shape[0], 1, -1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+    clf.convert_to_treelite_model().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
@@ -1418,8 +1375,13 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
     X, y = make_data(random_state=0)
     clf = estimator(min_samples_split=0.0001, random_state=0, n_estimators=2)
 
-    # Does not error
-    clf.fit(X, y)
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
 
 
 # TODO: Remove in v24.08
@@ -1444,7 +1406,15 @@ def test_random_forest_max_features_deprecation(Estimator):
 def test_rf_predict_returns_int():
 
     X, y = make_classification()
-    clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+
     pred = clf.predict(X)
     assert pred.dtype == np.int64
 
@@ -1452,5 +1422,13 @@ def test_rf_predict_returns_int():
 def test_ensemble_estimator_length():
     X, y = make_classification()
     clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
-    clf.fit(X, y)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
+
     assert len(clf) == 3

@@ -28,13 +28,10 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base, deprecate_non_keyword_only
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import (
     ClassifierMixin,
     FMajorInputTagMixin,
@@ -49,7 +46,8 @@ supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(UniversalBase,
+class LogisticRegression(Base,
+                         InteropMixin,
                          ClassifierMixin,
                          FMajorInputTagMixin,
                          SparseInputTagMixin):
@@ -191,22 +189,66 @@ class LogisticRegression(UniversalBase,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "solver": {
-            "lbfgs": "qn",
-            "liblinear": "qn",
-            "newton-cg": "qn",
-            "newton-cholesky": "qn",
-            "sag": "qn",
-            "saga": "qn"
-        },
-    }
+    _cpu_class_path = "sklearn.linear_model.LogisticRegression"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "penalty",
+            "tol",
+            "C",
+            "fit_intercept",
+            "class_weight",
+            "max_iter",
+            "linesearch_max_iter",
+            "l1_ratio",
+            "solver",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {
+            "penalty": model.penalty,
+            "tol": model.tol,
+            "C": model.C,
+            "fit_intercept": model.fit_intercept,
+            "class_weight": model.class_weight,
+            "max_iter": model.max_iter,
+            "l1_ratio": model.l1_ratio,
+            "solver": "qn",
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "penalty": self.penalty,
+            "tol": self.tol,
+            "C": self.C,
+            "fit_intercept": self.fit_intercept,
+            "class_weight": self.class_weight,
+            "max_iter": self.max_iter,
+            "l1_ratio": self.l1_ratio,
+            "solver": "lbfgs" if self.penalty in ("l2", None) else "saga",
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "classes_": model.classes_,
+            "intercept_": to_gpu(model.intercept_, order="F"),
+            "coef_": to_gpu(model.coef_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "classes_": self.classes_,
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(
         self,
         *,
@@ -292,7 +334,7 @@ class LogisticRegression(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any()
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
         """
@@ -415,7 +457,7 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
@@ -432,7 +474,7 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_any()
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
@@ -496,7 +538,7 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
@@ -513,7 +555,7 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
@@ -607,19 +649,6 @@ class LogisticRegression(UniversalBase,
         return self
 
     @property
-    def classes_(self):
-        return self._classes
-
-    @classes_.setter
-    def classes_(self, value):
-        if isinstance(value, CumlArray):
-            # XXX: The default cpu_to_gpu converts all numpy arrays on CPU
-            # to CumlArrays, which we don't want. For now we hack around this
-            # by explicitly converting classes_ back to numpy.
-            value = value.to_output("numpy")
-        self._classes = value
-
-    @property
     def coef_(self) -> CumlArray:
         return self.solver_model.coef_
 
@@ -635,20 +664,6 @@ class LogisticRegression(UniversalBase,
     def intercept_(self, value):
         self.solver_model.intercept_ = value
 
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "penalty",
-            "tol",
-            "C",
-            "fit_intercept",
-            "class_weight",
-            "max_iter",
-            "linesearch_max_iter",
-            "l1_ratio",
-            "solver",
-        ]
-
     def __getstate__(self):
         state = self.__dict__.copy()
         return state
@@ -657,7 +672,3 @@ class LogisticRegression(UniversalBase,
         super().__init__(handle=None,
                          verbose=state["_verbose"])
         self.__dict__.update(state)
-
-    def get_attr_names(self):
-        return ['classes_', 'intercept_', 'coef_', 'n_features_in_',
-                'feature_names_in_']

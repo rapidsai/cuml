@@ -3,10 +3,10 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name="libcuml"
 package_dir="python/libcuml"
-
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 rapids-logger "Generating build requirements"
 
@@ -41,6 +41,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusparse.so.*"
   --exclude "libnvJitLink.so.*"
   --exclude "librapids_logger.so"
+  --exclude "librmm.so"
 )
 
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/"
@@ -53,5 +54,3 @@ python -m auditwheel repair \
     ${package_dir}/dist/*
 
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
-
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
