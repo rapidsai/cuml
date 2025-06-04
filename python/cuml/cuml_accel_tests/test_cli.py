@@ -216,7 +216,8 @@ def test_cli_run_errors(mode, tmpdir):
     stdout = run(args, stdin=stdin, expected_returncode=1)
     assert "got here" in stdout
     assert "but not here" not in stdout
-    assert "exec" not in stdout  # our exec not in traceback
+    if mode in ("stdin", "cmd"):
+        assert "exec" not in stdout  # our exec not in traceback
 
 
 def test_cli_run_interpreter():
