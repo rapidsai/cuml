@@ -327,8 +327,7 @@ class NearestNeighbors(Base,
             "p",
             "metric_params",
             "algo_params",
-            # Fully ignored, here for sklearn API compatibility
-            "n_jobs",
+            "n_jobs",  # Ignored, here for sklearn API compatibility
         ]
 
     @classmethod
@@ -395,7 +394,7 @@ class NearestNeighbors(Base,
         p=2,
         algo_params=None,
         metric_params=None,
-        n_jobs=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
         output_type=None,
     ):
 
@@ -413,7 +412,7 @@ class NearestNeighbors(Base,
         self._fit_method = self.algorithm
         self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
-        self.n_jobs = n_jobs
+        self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
         self.knn_index = None
 
     @generate_docstring(X='dense_sparse')

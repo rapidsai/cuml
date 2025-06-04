@@ -73,12 +73,9 @@ def is_fitted(model) -> bool:
         # those to `None` on init (or define them via `property`). The `n_features_in_`
         # check is sufficient for cuml models for now.
         return getattr(model, "n_features_in_", None) is not None
-    else:
-        return any(
-            v
-            for v in vars(model)
-            if v.endswith("_") and not v.startswith("__")
-        )
+    return any(
+        v for v in vars(model) if v.endswith("_") and not v.startswith("__")
+    )
 
 
 class InteropMixin:
