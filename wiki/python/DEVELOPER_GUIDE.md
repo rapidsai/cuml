@@ -40,17 +40,6 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOP
 
 For an in-depth guide to creating estimators, see the [Estimator Guide](ESTIMATOR_GUIDE.md)
 
-## Error Handling
-If you are trying to call into cuda runtime APIs inside `cuml.cuda`, in case of any errors, they'll raise a `cuml.cuda.CudaRuntimeError`. For example:
-```python
-from cuml.cuda import Stream, CudaRuntimeError
-try:
-    s = Stream()
-    s.sync
-except CudaRuntimeError as cre:
-    print("Cuda Error! '%s'" % str(cre))
-```
-
 ## Deprecation Policy
 
 cuML follows the policy of deprecating code for one release prior to removal. This applies
