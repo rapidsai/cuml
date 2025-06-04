@@ -444,20 +444,39 @@ mem_type = determine_array_memtype(array)
 - Handle memory allocation failures gracefully
 
 ## Asynchronous Operations and Stream Ordering
-If you want to schedule the execution of two algorithms concurrently, it is better to create two separate streams and assign them to separate handles. Finally, schedule the algorithms using these handles.
+To schedule the execution of algorithms concurrently, create separate streams and handles for each operation. Here's a minimal working example:
+
 ```python
 import cuml
-from cuml.cuda import Stream
+from pylibraft.common import Stream, Handle
+import numpy as np
+
+# Create two separate streams and handles
 s1 = Stream()
-h1 = cuml.Handle()
-h1.setStream(s1)
+h1 = Handle(s1)
+
 s2 = Stream()
-h2 = cuml.Handle()
-h2.setStream(s2)
-algo1 = cuml.Algo1(handle=h1, ...)
-algo2 = cuml.Algo2(handle=h2, ...)
-algo1.fit(X1, y1)
-algo2.fit(X2, y2)
+h2 = Handle(s2)
+
+# Create sample data
+X1 = np.array([[1, 2], [2, 3]], dtype=np.float32)
+X2 = np.array([[4, 5], [6, 7]], dtype=np.float32)
+
+# Create and run algorithms concurrently
+kmeans1 = cuml.KMeans(handle=h1, n_clusters=2)
+kmeans2 = cuml.KMeans(handle=h2, n_clusters=2)
+
+# These operations will run concurrently
+kmeans1.fit(X1)
+kmeans2.fit(X2)
+
+# Wait for both operations to complete
+s1.sync()
+s2.sync()
+
+# Access results
+print(kmeans1.cluster_centers_)
+print(kmeans2.cluster_centers_)
 ```
 
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
