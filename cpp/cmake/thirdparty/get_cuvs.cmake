@@ -48,8 +48,8 @@ function(find_and_configure_cuvs)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
-        GIT_REPOSITORY         https://github.com/aamijar/cuvs.git
-        GIT_TAG                umap-dice-coefficient
+        GIT_REPOSITORY         https://github.com/rapidsai/cuvs.git
+        GIT_TAG                ${PKG_PINNED_TAG}
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
@@ -73,8 +73,8 @@ endfunction()
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             aamijar
-      PINNED_TAG       umap-dice-coefficient
+      FORK             rapidsai
+      PINNED_TAG       branch-${CUML_BRANCH_VERSION_cuvs}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory
