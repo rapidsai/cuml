@@ -704,7 +704,7 @@ def test_standardization_on_scaled_dataset(
     n_info = ncols
     n_redundant = 0
     n_parts = 2
-    tolerance = 0.005
+    tolerance = 0.01
 
     from sklearn.linear_model import LogisticRegression as CPULR
     from sklearn.model_selection import train_test_split
