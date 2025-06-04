@@ -200,12 +200,12 @@ Both projects serve a similar role. Just as ``cuml.accel`` offers zero code
 change acceleration for Scikit-Learn and similar packages, ``cudf.pandas``
 offers zero code change acceleration for Pandas.
 
-Using them together is supported as an experimental feature. To do this from the
-CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
+Using them together is supported. To do this from the CLI, both accelerators
+may be invoked like:
 
 .. code-block:: console
 
-   python -m cuml.accel --cudf-pandas
+   python -m cudf.pandas -m cuml.accel ...
 
 For Jupyter notebooks, use the following approach to turn on both:
 
