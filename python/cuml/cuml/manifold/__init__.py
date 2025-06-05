@@ -16,3 +16,7 @@
 
 from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
+from cuml.manifold.spectral_embedding import (
+    SpectralEmbedding,
+    spectral_embedding,
+)
