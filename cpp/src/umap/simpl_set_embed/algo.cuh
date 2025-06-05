@@ -168,21 +168,30 @@ T create_rounding_factor(T max_abs, int n)
 }
 
 template <typename T, typename nnz_t>
-T create_gradient_rounding_factor(
-  const int* head, nnz_t nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
+uint32_t get_95p_n_edges(const int* head, nnz_t nnz, int n_samples, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
-  // calculate the maximum number of edges connected to 1 vertex.
+
+  // Count edges per vertex
   thrust::reduce_by_key(rmm::exec_policy(stream),
                         head,
                         head + nnz,
                         thrust::make_constant_iterator(1u),
                         thrust::make_discard_iterator(),
                         buffer.data());
-  auto ptr         = thrust::device_pointer_cast(buffer.data());
-  uint32_t n_edges = *(thrust::max_element(rmm::exec_policy(stream), ptr, ptr + buffer.size()));
-  T max_abs        = T(n_edges) * T(4.0) * std::abs(alpha);
-  return create_rounding_factor(max_abs, n_edges);
+
+  // Sort the buffer
+  thrust::sort(rmm::exec_policy(stream), buffer.data(), buffer.data() + n_samples);
+
+  // Calculate 95th percentile index
+  std::size_t idx = static_cast<std::size_t>(0.95 * n_samples);
+  if (idx >= n_samples) idx = n_samples - 1;
+
+  T result;
+  raft::copy(&result, buffer.data() + idx, 1, stream);
+  stream.synchronize();
+
+  return static_cast<uint32_t>(result);
 }
 
 /**
@@ -250,9 +259,16 @@ void optimize_layout(T* head_embedding,
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
-  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
+  uint32_t avg_n_edges = get_95p_n_edges<T, nnz_t>(head, nnz, head_n, stream_view);
+  T rounding;
 
   for (int n = 0; n < n_epochs; n++) {
+    // Update the rounding factor at every epoch according to alpha
+    // to increase the accuracy and reduce the presence of
+    // outliers in embeddings
+    T max_abs = T(avg_n_edges) * T(4.0) * std::abs(alpha);
+    rounding  = create_rounding_factor(max_abs, avg_n_edges);
+
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
                                                 tail_embedding,
