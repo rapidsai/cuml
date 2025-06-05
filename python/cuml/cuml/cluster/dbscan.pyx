@@ -23,7 +23,7 @@ from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -472,9 +472,15 @@ class DBSCAN(Base,
         return self
 
     @generate_docstring(skip_parameters_heading=True)
-    @deprecate_non_keyword_only("out_dtype", "convert_dtype")
-    def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
-            convert_dtype=True) -> "DBSCAN":
+    def fit(
+        self,
+        X,
+        y=None,
+        sample_weight=None,
+        *,
+        out_dtype="int32",
+        convert_dtype=True
+    ) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -497,8 +503,7 @@ class DBSCAN(Base,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    @deprecate_non_keyword_only("out_dtype")
-    def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 

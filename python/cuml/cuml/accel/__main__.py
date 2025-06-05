@@ -19,6 +19,7 @@ import argparse
 import code
 import runpy
 import sys
+import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
@@ -72,6 +73,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             Instead of a script, a module may be specified instead.
 
               $ python -m cuml.accel -m mymodule --some-option
+
+            If you also wish to use the `cudf.pandas` accelerator, you can invoke both
+            as part of a single call like:
+
+              $ python -m cudf.pandas -m cuml.accel myscript.py
             """
         ),
         allow_abbrev=False,
@@ -91,26 +97,25 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
     )
-    parser.add_argument(
-        "--convert-to-sklearn",
-        help="Path to a pickled accelerated estimator to convert to a scikit-learn estimator.",
-    )
+    # --convert-to-sklearn, --format, --output, and --cudf-pandas are deprecated
+    # and hidden from the CLI --help with `argparse.SUPPRESS
+    parser.add_argument("--convert-to-sklearn", help=argparse.SUPPRESS)
     parser.add_argument(
         "--format",
         choices=["pickle", "joblib"],
         type=str.lower,
         default="pickle",
-        help="Format to save the converted scikit-learn estimator.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--output",
         default="converted_sklearn_model.pkl",
-        help="Output path for the converted scikit-learn estimator file.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--cudf-pandas",
         action="store_true",
-        help="Turn on cudf.pandas alongside cuml.accel.",
+        help=argparse.SUPPRESS,
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -168,6 +173,13 @@ def main(argv: list[str] | None = None):
 
     # If the user requested a conversion, handle it and exit
     if ns.convert_to_sklearn:
+        warnings.warn(
+            "`--convert-to-sklearn`, `--format`, and `--output` are deprecated and will "
+            "be removed in 25.10. Estimators created with `cuml.accel` may now be "
+            "serialized and loaded in environments without `cuml` without the need for "
+            "running a conversion step.",
+            FutureWarning,
+        )
         with open(ns.convert_to_sklearn, "rb") as f:
             if ns.format == "pickle":
                 import pickle as serializer
@@ -187,6 +199,12 @@ def main(argv: list[str] | None = None):
 
     # Enable cudf.pandas if requested
     if ns.cudf_pandas:
+        warnings.warn(
+            "`--cudf-pandas` is deprecated and will be removed in 25.10. Instead, please "
+            "invoke both accelerators explicitly like\n\n"
+            "  $ python -m cudf.pandas -m cuml.accel ...",
+            FutureWarning,
+        )
         import cudf.pandas
 
         cudf.pandas.install()

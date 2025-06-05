@@ -33,7 +33,7 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
+from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
@@ -763,8 +763,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     @generate_docstring()
     @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """

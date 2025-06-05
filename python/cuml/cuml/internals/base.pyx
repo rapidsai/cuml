@@ -17,11 +17,9 @@
 # distutils: language = c++
 
 import copy
-import functools
 import inspect
 import numbers
 import os
-import warnings
 from importlib import import_module
 
 import numpy as np
@@ -66,40 +64,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-
-
-def deprecate_non_keyword_only(*deprecated):
-    """Deprecate passing non-sklearn-standard keyword arguments positionally.
-
-    Parameters
-    ----------
-    *deprecated : str
-        The parameter names to deprecate passing positionally.
-    """
-
-    def decorator(func):
-        params = list(inspect.signature(func).parameters)
-        for pos, name in enumerate(params):
-            if name in deprecated:
-                break
-        npos = pos
-
-        @functools.wraps(func)
-        def inner(*args, **kwargs):
-            if (ndepr := len(args) - npos) > 0:
-                plural = ndepr > 1
-                params = repr(list(deprecated[:ndepr])) if plural else repr(deprecated[0])
-                warnings.warn(
-                    f"Passing parameter{'s' if plural else ''} {params} positionally to "
-                    f"{func.__qualname__} is deprecated and will be removed in cuml 25.08. "
-                    "Please pass by keyword only.",
-                    FutureWarning,
-                )
-            return func(*args, **kwargs)
-
-        return inner
-
-    return decorator
 
 
 class VerbosityDescriptor:

@@ -32,7 +32,7 @@ from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -503,8 +503,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
-    def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
@@ -667,9 +666,7 @@ class TSNE(Base,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
-    def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None) -> CumlArray:
+    def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """

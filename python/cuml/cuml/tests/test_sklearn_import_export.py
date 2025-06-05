@@ -20,7 +20,12 @@ import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
 from sklearn.cluster import KMeans as SkKMeans
-from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.datasets import (
+    make_blobs,
+    make_classification,
+    make_multilabel_classification,
+    make_regression,
+)
 from sklearn.decomposition import PCA as SkPCA
 from sklearn.decomposition import TruncatedSVD as SkTruncatedSVD
 from sklearn.linear_model import ElasticNet as SkElasticNet
@@ -44,7 +49,6 @@ from cuml.linear_model import (
     Ridge,
 )
 from cuml.manifold import TSNE
-from cuml.neighbors import NearestNeighbors
 from cuml.testing.utils import array_equal
 
 ###############################################################################
@@ -245,19 +249,6 @@ def test_tsne(random_state):
     assert array_equal(original_embedding, roundtrip_embedding)
 
 
-def test_nearest_neighbors(random_state):
-    X = np.random.RandomState(random_state).rand(50, 5)
-    original = NearestNeighbors(n_neighbors=5)
-    original.fit(X)
-    sklearn_model = original.as_sklearn()
-    roundtrip_model = NearestNeighbors.from_sklearn(sklearn_model)
-    # Check that the kneighbors results are the same
-    dist_original, ind_original = original.kneighbors(X)
-    dist_roundtrip, ind_roundtrip = roundtrip_model.kneighbors(X)
-    assert_allclose(dist_original, dist_roundtrip)
-    assert_allclose(ind_original, ind_roundtrip)
-
-
 @pytest.mark.parametrize("sparse", [False, True])
 def test_svr(random_state, sparse):
     X, y = make_regression(n_samples=100, random_state=random_state)
@@ -388,3 +379,123 @@ def test_umap(random_state, sparse, supervised):
         X_train, sk_model2.embedding_, n_neighbors=n_neighbors
     )
     np.testing.assert_allclose(sk_trust1, sk_trust2, atol=0.05)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_nearest_neighbors(random_state, sparse):
+    if sparse:
+        X = scipy.sparse.rand(
+            50,
+            20,
+            density=0.25,
+            rng=random_state,
+            dtype="float32",
+            format="csr",
+        )
+    else:
+        X = np.random.default_rng(random_state).random(
+            (50, 20), dtype="float32"
+        )
+
+    cu_model = cuml.NearestNeighbors(n_neighbors=10).fit(X)
+    sk_model = sklearn.neighbors.NearestNeighbors(n_neighbors=10).fit(X)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.NearestNeighbors.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # Can infer on converted models
+    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
+    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+
+    # Can refit on converted models
+    cu_model2.fit(X)
+    sk_model2.fit(X)
+
+    # Refit models have similar results
+    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
+    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+@pytest.mark.parametrize("n_targets", [1, 3])
+def test_kneighbors_regressor(random_state, sparse, n_targets):
+    X, y = make_regression(
+        100, 50, n_targets=n_targets, random_state=random_state
+    )
+    X = X.astype("float32")
+    if sparse:
+        X[X < -0.5] = 0
+        X = scipy.sparse.csr_matrix(X)
+
+    cu_model = cuml.KNeighborsRegressor(n_neighbors=10).fit(X, y)
+    sk_model = sklearn.neighbors.KNeighborsRegressor(n_neighbors=10).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KNeighborsRegressor.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # Can infer on converted models
+    assert_allclose(sk_model.predict(X), sk_model2.predict(X), atol=1e-3)
+    assert_allclose(cu_model.predict(X), cu_model2.predict(X), atol=1e-3)
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert_allclose(sk_model.predict(X), sk_model2.predict(X), atol=1e-3)
+    assert_allclose(cu_model.predict(X), cu_model2.predict(X), atol=1e-3)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+@pytest.mark.parametrize("n_labels", [1, 3])
+def test_kneighbors_classifier(random_state, sparse, n_labels):
+    if n_labels > 1:
+        X, y = make_multilabel_classification(
+            100,
+            50,
+            n_labels=n_labels,
+            random_state=random_state,
+            sparse=sparse,
+        )
+    else:
+        X, y = make_classification(100, 50, random_state=random_state)
+        if sparse:
+            X[X < -0.5] = 0
+            X = scipy.sparse.csr_matrix(X)
+
+    X = X.astype("float32")
+
+    cu_model = cuml.KNeighborsClassifier(n_neighbors=10).fit(X, y)
+    sk_model = sklearn.neighbors.KNeighborsClassifier(n_neighbors=10).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KNeighborsClassifier.from_sklearn(sk_model)
+
+    # `classes_` attribute transfers properly
+    if n_labels > 1:
+        assert all(isinstance(c, np.ndarray) for c in sk_model2.classes_)
+        assert all(isinstance(c, np.ndarray) for c in cu_model2.classes_)
+    else:
+        assert isinstance(sk_model2.classes_, np.ndarray)
+        assert isinstance(cu_model2.classes_, np.ndarray)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # Can infer on converted models
+    np.testing.assert_array_equal(sk_model.predict(X), sk_model2.predict(X))
+    np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    np.testing.assert_array_equal(sk_model.predict(X), sk_model2.predict(X))
+    np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))

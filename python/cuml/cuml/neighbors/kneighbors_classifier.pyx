@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# distutils: language = c++
-
-import typing
+from __future__ import annotations
 
 import cupy as cp
 import numpy as np
@@ -25,9 +22,8 @@ import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -124,21 +120,55 @@ class KNeighborsClassifier(ClassifierMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
-    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsClassifier"
 
-    y = CumlArrayDescriptor()
-    classes_ = CumlArrayDescriptor()
+    y = CumlArrayDescriptor(order="F")
 
-    _hyperparam_interop_translator = {
-        "weights": {
-            "distance": "NotImplemented",
-        },
-        "algorithm": {
-            "auto": "brute",
-            "ball_tree": "brute",
-            "kd_tree": "brute",
-        },
-    }
+    _cpu_class_path = "sklearn.neighbors.KNeighborsClassifier"
+
+    @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "weights"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.weights != "uniform":
+            raise UnsupportedOnGPU
+
+        return {
+            "weights": "uniform",
+            **super()._params_from_cpu(model),
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "weights": self.weights,
+            **super()._params_to_cpu(),
+        }
+
+    def _attrs_from_cpu(self, model):
+        if isinstance(model.classes_, list):
+            classes = [to_gpu(c) for c in model.classes_]
+        else:
+            classes = to_gpu(model.classes_)
+
+        return {
+            "_classes": classes,
+            "y": to_gpu(model._y, order="F", dtype=np.int32),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        if isinstance(self._classes, list):
+            classes = [to_cpu(c) for c in self._classes]
+        else:
+            classes = to_cpu(self._classes)
+
+        return {
+            "classes_": classes,
+            "_y": to_cpu(self.y),
+            "outputs_2d_": self.outputs_2d_,
+            **super()._attrs_to_cpu(model),
+        }
 
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
@@ -149,14 +179,11 @@ class KNeighborsClassifier(ClassifierMixin,
             **kwargs)
 
         self.y = None
-        self.classes_ = None
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
+    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
@@ -166,13 +193,34 @@ class KNeighborsClassifier(ClassifierMixin,
                              "supported currently.")
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self.y, _, _, _ = \
-            input_to_cuml_array(y, order='F', check_dtype=np.int32,
-                                convert_to_dtype=(np.int32
-                                                  if convert_dtype
-                                                  else None))
-        self.classes_ = cp.unique(self.y)
+        self.y, _, _, _ = input_to_cuml_array(
+            y,
+            order='F',
+            check_dtype=np.int32,
+            convert_to_dtype=(np.int32 if convert_dtype else None)
+        )
+
+        # For multilabel y, `classes_` is a list of classes per label,
+        # otherwise it's a single array of classes
+        if self.y.ndim == 1 or self.y.shape[1] == 1:
+            self._classes = CumlArray.from_input(cp.unique(self.y))
+        else:
+            self._classes = [
+                CumlArray.from_input(cp.unique(self.y[:, i]))
+                for i in range(self.y.shape[1])
+            ]
         return self
+
+    @property
+    @cuml.internals.api_base_return_generic(input_arg=None)
+    def classes_(self):
+        # Using a property here to coerce `CumlArray` values to the proper output type
+        return self._classes
+
+    @property
+    def outputs_2d_(self):
+        """Whether the output is 2d"""
+        return self.y.ndim == 2 and self.y.shape[1] != 1
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
@@ -180,9 +228,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
@@ -239,48 +285,49 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_proba(
-            self,
-            X,
-            convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
+    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray | list[CumlArray]:
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X
 
         """
-        knn_indices = self.kneighbors(X, return_distance=False,
-                                      convert_dtype=convert_dtype)
+        knn_indices = self.kneighbors(
+            X, return_distance=False, convert_dtype=convert_dtype
+        )
 
-        inds, n_rows, _, _ = \
-            input_to_cuml_array(knn_indices, order='C',
-                                check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
+        inds, n_rows, _, _ = input_to_cuml_array(
+            knn_indices,
+            order='C',
+            check_dtype=np.int64,
+            convert_to_dtype=(np.int64 if convert_dtype else None)
+        )
+
+        if self.y.ndim == 1 or self.y.shape[1] == 1:
+            n_classes = [len(self._classes)]
+            ys = [self.y]
+        else:
+            n_classes = [len(c) for c in self._classes]
+            ys = [self.y[:, i] for i in range(self.y.shape[1])]
+
         cdef uintptr_t inds_ctype = inds.ptr
-
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
-
         cdef vector[int*] *y_vec = new vector[int*]()
         cdef vector[float*] *out_vec = new vector[float*]()
-
-        out_classes = []
-        cdef uintptr_t classes_ptr
+        cdef uintptr_t proba_ptr
         cdef uintptr_t y_ptr
-        for out_col in range(out_cols):
-            col = self.y[:, out_col] if out_cols > 1 else self.y
-            classes = CumlArray.zeros((n_rows,
-                                       len(cp.unique(cp.asarray(col)))),
-                                      dtype=np.float32,
-                                      order="C",
-                                      index=inds.index)
-            out_classes.append(classes)
-            classes_ptr = classes.ptr
-            out_vec.push_back(<float*>classes_ptr)
 
-            y_ptr = col.ptr
+        probas = []
+        for n, y in zip(n_classes, ys):
+            proba = CumlArray.zeros(
+                (n_rows, n),
+                dtype=np.float32,
+                order="C",
+                index=inds.index
+            )
+            probas.append(proba)
+            proba_ptr = proba.ptr
+            out_vec.push_back(<float*>proba_ptr)
+
+            y_ptr = y.ptr
             y_vec.push_back(<int*>y_ptr)
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -297,13 +344,4 @@ class KNeighborsClassifier(ClassifierMixin,
 
         self.handle.sync()
 
-        final_classes = []
-        for out_class in out_classes:
-            final_classes.append(out_class)
-
-        return final_classes[0] \
-            if len(final_classes) == 1 else tuple(final_classes)
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + ["weights"]
+        return probas[0] if len(probas) == 1 else probas
