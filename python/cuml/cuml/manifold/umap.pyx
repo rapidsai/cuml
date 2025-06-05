@@ -33,7 +33,7 @@ from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -724,9 +724,7 @@ class UMAP(Base,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit(self, X, y=None, convert_dtype=True,
-            knn_graph=None, data_on_host=False) -> "UMAP":
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host=False) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -901,9 +899,15 @@ class UMAP(Base,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None, data_on_host=False) -> CumlArray:
+    def fit_transform(
+        self,
+        X,
+        y=None,
+        *,
+        convert_dtype=True,
+        knn_graph=None,
+        data_on_host=False,
+    ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -950,8 +954,7 @@ class UMAP(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.

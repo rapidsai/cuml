@@ -25,7 +25,7 @@ from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.prims.array import binarize
@@ -171,8 +171,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
@@ -215,8 +214,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
