@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
@@ -156,7 +157,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph =
+      raft::make_device_coo_matrix<float, int, int, uint64_t>(handle, n_samples, n_samples);
 
     if (test_params.supervised) {
       ML::UMAP::fit(handle,
