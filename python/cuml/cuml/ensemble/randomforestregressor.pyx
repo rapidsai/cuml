@@ -20,20 +20,12 @@ from treelite import Model as TreeliteModel
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import RegressorMixin
-
-from cuml.internals.logger cimport level_enum
-
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import RegressorMixin
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -41,6 +33,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.logger cimport level_enum
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
@@ -243,27 +236,13 @@ class RandomForestRegressor(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+    _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
+    RF_type = REGRESSION
 
-    _default_split_criterion = "gini"
+    @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "accuracy_metric"]
 
-    _hyperparam_interop_translator = {
-        "criterion": {
-            "friedman_mse": "NotImplemented",
-            "absolute_error": "NotImplemented",
-        },
-        "oob_score": {
-            True: "NotImplemented",
-        },
-        "max_depth": {
-            None: 16,
-        },
-        "max_samples": {
-            None: 1.0,
-        },
-    }
-
-    @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
                  max_features=1.0,
@@ -272,11 +251,10 @@ class RandomForestRegressor(BaseRandomForestModel,
                  verbose=False,
                  output_type=None,
                  **kwargs):
-        self.RF_type = REGRESSION
+        self.accuracy_metric = accuracy_metric
         super().__init__(
             split_criterion=split_criterion,
             max_features=max_features,
-            accuracy_metric=accuracy_metric,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
@@ -411,7 +389,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
-    @enable_device_interop
     def fit(self, X, y, *, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -533,18 +510,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         del X_m
         return preds
 
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        if func_name in ("fit", "score"):
-            if kwargs.get("sample_weight", None) is not None:
-                return True
-        return False
-
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @enable_device_interop
     def predict(
         self,
         X,
@@ -615,7 +585,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
-    @enable_device_interop
     def score(
         self,
         X,
@@ -774,26 +743,3 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    @classmethod
-    def _hyperparam_translator(cls, **kwargs):
-        kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
-
-        if "criterion" in kwargs:
-            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
-                kwargs.pop("criterion")
-            )
-
-        if "max_samples" in kwargs:
-            if isinstance(kwargs["max_samples"], int):
-                logger.warn(
-                    f"Integer value of max_samples={kwargs['max_samples']}"
-                    "not supported, changed to 1.0."
-                )
-                kwargs["max_samples"] = 1.0
-
-        # determinism requires only 1 cuda stream
-        if "random_state" in kwargs:
-            kwargs["n_streams"] = 1
-
-        return kwargs, gpuaccel

@@ -25,21 +25,71 @@ import numpy as np
 import treelite.sklearn
 from pylibraft.common.handle import Handle
 
-import cuml.accel
 import cuml.internals
+from cuml.common import input_to_cuml_array
 from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import ForestInference
-from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnCPU,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.treelite import safe_treelite_call
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.internals.treelite cimport *
 
-from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.prims.label.classlabels import check_labels, make_monotonic
+_split_criterion_lookup = {
+    "0": GINI,
+    "gini": GINI,
+    "1": ENTROPY,
+    "entropy": ENTROPY,
+    "2": MSE,
+    "mse": MSE,
+    "3": MAE,
+    "mae": MAE,
+    "4": POISSON,
+    "poisson": POISSON,
+    "5": GAMMA,
+    "gamma": GAMMA,
+    "6": INVERSE_GAUSSIAN,
+    "inverse_gaussian": INVERSE_GAUSSIAN,
+    "7": CRITERION_END
+}
+
+_criterion_to_split_criterion = {
+    "gini": "gini",
+    "entropy": "entropy",
+    "poisson": "poisson",
+    "squared_error": "mse",
+}
+
+_split_criterion_to_criterion = {
+    GINI: "gini",
+    ENTROPY: "entropy",
+    POISSON: "poisson",
+    MSE: "squared_error",
+}
+
+
+def _normalize_split_criterion(split_criterion):
+    if (out := _split_criterion_lookup.get(str(split_criterion))) is None:
+        warnings.warn(
+            "The split criterion chosen was not present in the list of options accepted "
+            "by the model and so the CRITERION_END option has been chosen."
+        )
+        return CRITERION_END
+    if out == MAE:
+        raise NotImplementedError(
+            "cuML does not currently support mean average error as a"
+            " RandomForest split criterion"
+        )
+    return out
 
 
 def compute_max_features(
@@ -63,150 +113,189 @@ def compute_max_features(
         )
 
 
-class BaseRandomForestModel(UniversalBase):
-    _param_names = ['n_estimators', 'max_depth', 'handle',
-                    'max_features', 'n_bins',
-                    'split_criterion', 'min_samples_leaf',
-                    'min_samples_split',
-                    'min_impurity_decrease',
-                    'bootstrap',
-                    'verbose', 'max_samples',
-                    'max_leaves',
-                    'accuracy_metric', 'max_batch_size',
-                    'n_streams', 'dtype',
-                    'output_type', 'min_weight_fraction_leaf', 'n_jobs',
-                    'max_leaf_nodes', 'min_impurity_split', 'oob_score',
-                    'random_state', 'warm_start', 'class_weight',
-                    'criterion']
-
-    criterion_dict = {'0': GINI, 'gini': GINI,
-                      '1': ENTROPY, 'entropy': ENTROPY,
-                      '2': MSE, 'mse': MSE,
-                      '3': MAE, 'mae': MAE,
-                      '4': POISSON, 'poisson': POISSON,
-                      '5': GAMMA, 'gamma': GAMMA,
-                      '6': INVERSE_GAUSSIAN,
-                      'inverse_gaussian': INVERSE_GAUSSIAN,
-                      '7': CRITERION_END}
-
-    classes_ = CumlArrayDescriptor()
+class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
-    def _criterion_to_split_criterion(cls, criterion):
-        """Translate sklearn-style criterion string to cuML equivalent"""
-        if criterion is None:
-            split_criterion = cls._default_split_criterion
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "split_criterion",
+            "n_estimators",
+            "bootstrap",
+            "max_samples",
+            "max_depth",
+            "max_leaves",
+            "max_features",
+            "n_bins",
+            "min_samples_leaf",
+            "min_samples_split",
+            "min_impurity_decrease",
+            "max_batch_size",
+            "random_state",
+            "criterion",
+            "n_streams",
+            "handle",
+            "verbose",
+            "output_type",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.oob_score:
+            raise UnsupportedOnGPU
+
+        if model.warm_start:
+            raise UnsupportedOnGPU
+
+        if model.monotonic_cst is not None:
+            raise UnsupportedOnGPU
+
+        if (split_criterion := _criterion_to_split_criterion.get(model.criterion)) is None:
+            raise UnsupportedOnGPU
+
+        # We only forward some parameters, falling back to cuml defaults otherwise
+        conditional_params = {}
+
+        if isinstance(model.max_samples, int):
+            raise UnsupportedOnGPU
+        elif model.max_samples is not None:
+            conditional_params["max_samples"] = model.max_samples
+
+        if model.random_state is not None:
+            conditional_params["n_streams"] = 1
+
+        if model.max_depth is not None:
+            conditional_params["max_depth"] = model.max_depth
+
+        return {
+            "n_estimators": model.n_estimators,
+            "split_criterion": split_criterion,
+            "min_samples_split": model.min_samples_split,
+            "min_samples_leaf": model.min_samples_leaf,
+            "max_features": model.max_features,
+            "max_leaves": -1 if model.max_leaf_nodes is None else model.max_leaf_nodes,
+            "min_impurity_decrease": model.min_impurity_decrease,
+            "bootstrap": model.bootstrap,
+            "random_state": model.random_state,
+            **conditional_params
+        }
+
+    def _params_to_cpu(self):
+        if (criterion := _split_criterion_to_criterion.get(self.split_criterion)) is None:
+            raise UnsupportedOnCPU
+
+        return {
+            "n_estimators": self.n_estimators,
+            "criterion": criterion,
+            "max_depth": self.max_depth,
+            "min_samples_split": self.min_samples_split,
+            "min_samples_leaf": self.min_samples_leaf,
+            "max_features": self.max_features,
+            "max_leaf_nodes": None if self.max_leaves == -1 else self.max_leaves,
+            "min_impurity_decrease": self.min_impurity_decrease,
+            "bootstrap": self.bootstrap,
+            "random_state": self.random_state,
+            "max_samples": self.max_samples,
+        }
+
+    def _attrs_from_cpu(self, model):
+        tl_model = treelite.sklearn.import_model(model)
+        attrs = {
+            "treelite_serialized_bytes": tl_model.serialize_bytes(),
+            "dtype": np.float64,
+            "update_labels": False,
+            "n_outputs_": model.n_outputs_,
+            "n_rows": model._n_samples,
+            "n_cols": model.n_features_in_
+            **super()._attrs_from_cpu(model)
+        }
+        if self.RF_type == CLASSIFICATION:
+            attrs.update(
+                classes_=to_gpu(model.classes_),
+                n_classes_=model.n_classes_,
+                num_classes=model.n_classes_,
+            )
+        return attrs
+
+    def _attrs_to_cpu(self, model):
+        self._serialize_treelite_bytes()
+        tl_model = treelite.Model.deserialize_bytes(self.treelite_serialized_bytes)
+        sk_model = treelite.sklearn.export_model(tl_model)
+
+        # Compute _n_samples_bootstrap
+        if self.max_samples is None:
+            n_samples_bootstrap = self.n_rows
         else:
-            if criterion == "squared_error":
-                split_criterion = "mse"
-            elif criterion == "absolute_error":
-                split_criterion = "mae"
-            elif criterion == "poisson":
-                split_criterion = "poisson"
-            elif criterion == "gini":
-                split_criterion = "gini"
-            elif criterion == "entropy":
-                split_criterion = "entropy"
-            else:
-                raise NotImplementedError(
-                    f'Split criterion {criterion} is not yet supported in'
-                    ' cuML. See'
-                    ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
-                    ' for full information on supported criteria.'
-                )
-        return criterion
+            n_samples_bootstrap = max(round(self.n_rows * self.max_samples), 1)
 
-    @device_interop_preparation
-    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
-                 max_depth=16, handle=None, max_features='sqrt', n_bins=128,
-                 bootstrap=True,
-                 verbose=False, min_samples_leaf=1, min_samples_split=2,
-                 max_samples=1.0, max_leaves=-1, accuracy_metric=None,
-                 dtype=None, output_type=None, min_weight_fraction_leaf=None,
-                 n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
-                 min_impurity_split=None, oob_score=None, random_state=None,
-                 warm_start=None, class_weight=None,
-                 criterion=None,
-                 max_batch_size=4096, **kwargs):
+        attrs = {
+            "estimator_": sk_model.estimator,
+            "estimators_": sk_model.estimators_,
+            "n_outputs_": self.n_outputs_,
+            "_n_samples": self.n_rows,
+            "_n_samples_bootstrap": n_samples_bootstrap,
+            **super()._attrs_to_cpu(model)
+        }
+        if self.RF_type == CLASSIFICATION:
+            attrs.update(
+                classes_=to_cpu(self.classes_),
+                n_classes_=self.n_classes_,
+            )
+        return attrs
 
-        sklearn_params = {"min_weight_fraction_leaf": min_weight_fraction_leaf,
-                          "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_split": min_impurity_split,
-                          "oob_score": oob_score, "n_jobs": n_jobs,
-                          "warm_start": warm_start,
-                          "class_weight": class_weight}
-
-        for key, vals in sklearn_params.items():
-            if vals and not cuml.accel.enabled():
-                raise TypeError(
-                    " The Scikit-learn variable ", key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation at "
-                    "(https://docs.rapids.ai/api/cuml/nightly/"
-                    "api.html#random-forest) for more information")
-
-        for key in kwargs.keys():
-            if key not in self._param_names and not cuml.accel.enabled():
-                raise TypeError(
-                    " The variable ", key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation at "
-                    "(https://docs.rapids.ai/api/cuml/nightly/"
-                    "api.html#random-forest) for more information")
-
+    def __init__(
+        self,
+        *,
+        split_criterion,
+        n_estimators=100,
+        bootstrap=True,
+        max_samples=1.0,
+        max_depth=16,
+        max_leaves=-1,
+        max_features='sqrt',
+        n_bins=128,
+        min_samples_leaf=1,
+        min_samples_split=2,
+        min_impurity_decrease=0.0,
+        max_batch_size=4096,
+        random_state=None,
+        criterion=None,
+        n_streams=4,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
         if handle is None:
             handle = Handle(n_streams=n_streams)
 
-        super(BaseRandomForestModel, self).__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type)
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
 
-        if (str(split_criterion) not in
-                BaseRandomForestModel.criterion_dict.keys()):
-            warnings.warn("The split criterion chosen was not present"
-                          " in the list of options accepted by the model"
-                          " and so the CRITERION_END option has been chosen.")
-            self.split_criterion = CRITERION_END
-        else:
-            self.split_criterion = \
-                BaseRandomForestModel.criterion_dict[str(split_criterion)]
-        if self.split_criterion == MAE:
-            raise NotImplementedError(
-                "cuML does not currently support mean average error as a"
-                " RandomForest split criterion"
-            )
-
-        if self.split_criterion == MAE:
-            raise NotImplementedError(
-                "cuML does not currently support mean average error as a"
-                " RandomForest split criterion"
-            )
-
+        self.split_criterion = _normalize_split_criterion(split_criterion)
+        self.n_estimators = n_estimators
+        self.bootstrap = bootstrap
+        self.max_samples = max_samples
+        self.max_depth = max_depth
+        self.max_leaves = max_leaves
+        self.max_features = max_features
+        self.n_bins = n_bins
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
-        self.max_samples = max_samples
-        self.max_leaves = max_leaves
-        self.n_estimators = n_estimators
-        self.max_depth = max_depth
-        self.max_features = max_features
-        self.bootstrap = bootstrap
-        self.n_bins = n_bins
-        self.n_cols = None
-        self.dtype = dtype
-        self.accuracy_metric = accuracy_metric
         self.max_batch_size = max_batch_size
-        self.n_streams = n_streams
         self.random_state = random_state
+        self.n_streams = n_streams
+
         self.rf_forest = 0
         self.rf_forest64 = 0
-        self.model_pbuf_bytes = bytearray()
-        self.treelite_model = None
         self.treelite_serialized_bytes = None
+        self.n_cols = None
+
+    def set_params(self, **params):
+        self.treelite_serialized_bytes = None
+        return super().set_params(**params)
 
     def __len__(self):
         """Return the number of estimators in the ensemble."""
@@ -285,38 +374,6 @@ class BaseRandomForestModel(UniversalBase):
         self.n_estimators = tl_model.num_tree
 
         return self
-
-    def cpu_to_gpu(self):
-        tl_model = treelite.sklearn.import_model(self._cpu_model)
-        self.treelite_serialized_bytes = tl_model.serialize_bytes()
-        self.dtype = np.float64
-        self.update_labels = False
-        super().cpu_to_gpu()
-        # Set fitted attributes not transferred by Treelite, but only when the
-        # accelerator is active.
-        # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
-        # instances, as these could be used by the GPU model to make predictions.
-        # The list of names below is hand vetted.
-        if cuml.accel.enabled():
-            for name in ('n_features_in_', 'n_outputs_', 'n_classes_', 'oob_score_'):
-                # Not all attributes are always present
-                try:
-                    value = getattr(self._cpu_model, name)
-                except AttributeError:
-                    continue
-                setattr(self, name, value)
-
-    def gpu_to_cpu(self):
-        self._serialize_treelite_bytes()
-        tl_model = treelite.Model.deserialize_bytes(self.treelite_serialized_bytes)
-        # Make sure the CPU model's hyperparameters are preserved, treelite
-        # does not roundtrip hyperparameters.
-        params = {}
-        if hasattr(self, "_cpu_model"):
-            params = self._cpu_model.get_params()
-
-        self._cpu_model = treelite.sklearn.export_model(tl_model)
-        self._cpu_model.set_params(**params)
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,
@@ -404,13 +461,3 @@ class BaseRandomForestModel(UniversalBase):
         if predict_proba:
             return fil_model.predict_proba(X)
         return fil_model.predict(X, threshold=threshold)
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + BaseRandomForestModel._param_names
-
-    def set_params(self, **params):
-        self.treelite_serialized_bytes = None
-
-        super().set_params(**params)
-        return self

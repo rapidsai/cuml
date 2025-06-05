@@ -22,14 +22,10 @@ from treelite import Model as TreeliteModel
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
-from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
@@ -240,33 +236,14 @@ class RandomForestClassifier(BaseRandomForestModel,
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
+    classes_ = CumlArrayDescriptor()
 
-    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
+    _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
+    RF_type = CLASSIFICATION
 
-    _default_split_criterion = "gini"
-
-    _hyperparam_interop_translator = {
-        "criterion": {
-            "log_loss": "NotImplemented",
-        },
-        "oob_score": {
-            True: "NotImplemented",
-        },
-        "max_depth": {
-            None: 16,
-        },
-        "max_samples": {
-            None: 1.0,
-        },
-    }
-
-    @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
-
-        self.RF_type = CLASSIFICATION
-        self.num_classes = 2
         super().__init__(
             split_criterion=split_criterion,
             handle=handle,
@@ -410,7 +387,6 @@ class RandomForestClassifier(BaseRandomForestModel,
     @cuml.internals.api_base_return_any(set_output_type=False,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
-    @enable_device_interop
     def fit(self, X, y, *, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -422,8 +398,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
-                                                                convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y, convert_dtype)
         # Track the labels to see if update is necessary
         self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
@@ -552,7 +527,6 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
     def predict(
         self,
         X,
@@ -814,26 +788,3 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    @classmethod
-    def _hyperparam_translator(cls, **kwargs):
-        kwargs, gpuaccel = super(RandomForestClassifier, cls)._hyperparam_translator(**kwargs)
-
-        if "criterion" in kwargs:
-            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
-                kwargs.pop("criterion")
-            )
-
-        if "max_samples" in kwargs:
-            if isinstance(kwargs["max_samples"], int):
-                logger.warn(
-                    f"Integer value of max_samples={kwargs['max_samples']}"
-                    "not supported, changed to 1.0."
-                )
-                kwargs["max_samples"] = 1.0
-
-        # determinism requires only 1 cuda stream
-        if "random_state" in kwargs:
-            kwargs["n_streams"] = 1
-
-        return kwargs, gpuaccel
