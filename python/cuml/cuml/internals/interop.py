@@ -13,60 +13,24 @@
 # limitations under the License.
 from __future__ import annotations
 
-import functools
-import warnings
 from importlib import import_module
 from typing import Any
 
 import numpy as np
 
-from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.utils import classproperty
 
 __all__ = (
     "UnsupportedOnGPU",
     "UnsupportedOnCPU",
     "InteropMixin",
-    "warn_legacy_device_interop",
     "to_cpu",
     "to_gpu",
 )
 
 
-def warn_legacy_device_interop(gpu_func):
-    """A decorator for warning users that device selection no longer
-    works on methods previously decorated by `enable_device_selection`."""
-
-    @functools.wraps(gpu_func)
-    def inner(self, *args, **kwargs):
-        cls = type(self)
-        gpu_cls_name = cls.__name__
-        cpu_cls_path = cls._cpu_class_path
-        if GlobalSettings().device_type == DeviceType.host:
-            from cuml.common.device_selection import using_device_type
-
-            warnings.warn(
-                f"Support for setting the `device_type` to execute `{gpu_cls_name}` "
-                f"methods on CPU was removed in version 25.06. Please use "
-                f"`{cpu_cls_path}` directly to handle CPU execution, and "
-                f"`{gpu_cls_name}.from_sklearn`/`{gpu_cls_name}.as_sklearn` "
-                f"to manage conversion to/from cuML as needed."
-            )
-            # Some code internally still checks device_type and errors on the GPU
-            # path if device_type isn't device. For now we warn if set to host
-            # and change to device temporarily for just this method.
-            with using_device_type("device"):
-                return gpu_func(self, *args, **kwargs)
-        else:
-            return gpu_func(self, *args, **kwargs)
-
-    return inner
-
-
-def to_gpu(x, order="K"):
+def to_gpu(x, order="K", dtype=None):
     """Coerce `x` to the equivalent gpu type."""
     from cuml.internals.input_utils import input_to_cuml_array
 
@@ -74,7 +38,10 @@ def to_gpu(x, order="K"):
         # cuml typically expects scalars on host
         return x
     return input_to_cuml_array(
-        x, order=order, convert_to_mem_type=MemoryType.device
+        x,
+        order=order,
+        convert_to_dtype=dtype,
+        convert_to_mem_type=MemoryType.device,
     )[0]
 
 
@@ -91,6 +58,24 @@ class UnsupportedOnGPU(ValueError):
 
 class UnsupportedOnCPU(ValueError):
     """An exception raised when a conversion of a GPU to a CPU estimator isn't supported"""
+
+
+def is_fitted(model) -> bool:
+    """Check if a sklearn model is fitted."""
+    # Local to workaround circular imports
+    from cuml.internals.base import Base
+
+    if hasattr(model, "__sklearn_is_fitted__"):
+        return model.__sklearn_is_fitted__()
+    if isinstance(model, Base):
+        # cuml models all set `n_features_in_` on fit. We can't use the more common
+        # check for attributes with a trailing `_` since many cuml classes still set
+        # those to `None` on init (or define them via `property`). The `n_features_in_`
+        # check is sufficient for cuml models for now.
+        return getattr(model, "n_features_in_", None) is not None
+    return any(
+        v for v in vars(model) if v.endswith("_") and not v.startswith("__")
+    )
 
 
 class InteropMixin:
@@ -112,8 +97,8 @@ class InteropMixin:
     # The import path to use to import the CPU model class
     _cpu_class_path: str
 
-    @classproperty
-    def _cpu_class(cls):
+    @classmethod
+    def _get_cpu_class(cls):
         """The CPU class that corresponds to this GPU model"""
         module, _, name = cls._cpu_class_path.rpartition(".")
         return getattr(import_module(module), name)
@@ -125,7 +110,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -146,8 +131,8 @@ class InteropMixin:
         Returns
         -------
         dict
-            A mapping of keyword arguments that may be used to instantiate
-            ``self._cpu_class`` to create an equivalent CPU model.
+            A mapping of keyword arguments that may be used to create
+            an equivalent CPU model.
 
         Raises
         ------
@@ -168,7 +153,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -201,7 +186,7 @@ class InteropMixin:
         Parameters
         ----------
         model
-            The CPU model, of the same type as ``self._cpu_class``.
+            The CPU model, matching the type of ``self._cpu_class_path``.
 
         Returns
         -------
@@ -232,9 +217,9 @@ class InteropMixin:
         Parameters
         ----------
         model
-            An instance of ``self._cpu_class``.
+            A CPU model, matching the type of ``self._cpu_class_path``.
         """
-        if getattr(self, "n_features_in_", None) is None:
+        if not is_fitted(self):
             # GPU model not fitted, nothing to do
             return
 
@@ -253,9 +238,9 @@ class InteropMixin:
         Parameters
         ----------
         model
-            An instance of ``self._cpu_class``.
+            A CPU model, matching the type of ``self._cpu_class_path``.
         """
-        if getattr(model, "n_features_in_", None) is None:
+        if not is_fitted(model):
             # CPU model not fitted, nothing to do
             return
 
@@ -275,7 +260,7 @@ class InteropMixin:
             state of the current estimator.
         """
         params = self._params_to_cpu()
-        model = self._cpu_class(**params)
+        model = self._get_cpu_class()(**params)
         self._sync_attrs_to_cpu(model)
         return model
 
@@ -301,7 +286,7 @@ class InteropMixin:
         cannot be inferred from training arguments. If something different is
         required, then please use cuml's output_type configuration utilities.
         """
-        if not isinstance(model, cls._cpu_class):
+        if not isinstance(model, cls._get_cpu_class()):
             raise TypeError(
                 f"Expected instance of {cls._cpu_class_path!r}, got "
                 f"{type(model).__name__!r}"

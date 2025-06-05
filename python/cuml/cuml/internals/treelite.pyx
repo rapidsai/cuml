@@ -13,5 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+cdef str _get_treelite_error():
+    cdef str err = TreeliteGetLastError().decode("UTF-8")
+    return err
 
-from cuml.legacy.fil.fil import ForestInference
+
+def safe_treelite_call(res: int, err_msg: str) -> None:
+    if res < 0:
+        raise RuntimeError(f"{err_msg}\n{_get_treelite_error()}")

@@ -25,19 +25,14 @@ from pylibraft.common.handle import Handle
 import cuml.accel
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
+from cuml.fil.fil import ForestInference
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.legacy.fil.fil import ForestInference, TreeliteModel
-
-from cython.operator cimport dereference as deref
-
-from cuml.ensemble.randomforest_shared import (
-    treelite_deserialize,
-    treelite_serialize,
-)
+from cuml.internals.treelite import safe_treelite_call
 
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.treelite cimport *
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -186,8 +181,8 @@ class BaseRandomForestModel(UniversalBase):
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
-        self.treelite_handle = None
-        self.treelite_serialized_model = None
+        self.treelite_model = None
+        self.treelite_serialized_bytes = None
 
     def __len__(self):
         """Return the number of estimators in the ensemble."""
@@ -228,93 +223,87 @@ class BaseRandomForestModel(UniversalBase):
                 "(https://docs.rapids.ai/api/cuml/nightly/api.html"
                 "#random-forest)")
 
-    def _get_serialized_model(self):
+    def _serialize_treelite_bytes(self) -> bytes:
         """
-        Returns the self.model_pbuf_bytes.
-        Cuml RF model gets converted to treelite protobuf bytes by:
+        Serialize the cuML RF model as bytes.
+        Internally, the RF model is serialized as follows:
+        * The RF model is converted to a Treelite model object.
+        * The Treelite model object is then serialized as bytes.
 
-            * Converting the cuml RF model to a treelite model. The treelite
-            models handle (pointer) is returned
-            * The treelite model handle is used to convert the treelite model
-            to a treelite protobuf model which is stored in a temporary file.
-            The protobuf model information is read from the temporary file and
-            the byte information is returned.
-
-        The treelite handle is stored `self.treelite_handle` and the treelite
-        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
-        of information is already present in the model then the respective
-        step is skipped.
+        The serialized byte sequence will be internally cached to
+        self.treelite_serialized_bytes.
         """
-        if self.treelite_serialized_model:
-            return self.treelite_serialized_model
-        elif self.treelite_handle:
-            fit_mod_ptr = self.treelite_handle
-        else:
-            fit_mod_ptr = self._obtain_treelite_handle()
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        self.treelite_serialized_model = treelite_serialize(model_ptr)
-        return self.treelite_serialized_model
+        if self.treelite_serialized_bytes:  # Cache hit
+            return self.treelite_serialized_bytes
 
-    def _obtain_treelite_handle(self):
-        if (not self.treelite_serialized_model) and (not self.rf_forest):
-            raise NotFittedError(
-                    "Attempting to create treelite from un-fit forest.")
+        if not self.rf_forest:
+            raise NotFittedError("Attempting to serialize an un-fit forest.")
+
+        # Convert RF model object to Treelite model object
+        if self.dtype not in [np.float32, np.float64]:
+            raise ValueError("Unknown dtype.")
 
         cdef TreeliteModelHandle tl_handle = NULL
-        if self.treelite_handle:
-            return self.treelite_handle  # Use cached version
-
-        elif self.treelite_serialized_model:  # bytes -> Treelite
-            tl_handle = <TreeliteModelHandle><uintptr_t>treelite_deserialize(
-                self.treelite_serialized_model)
-
+        if self.RF_type == CLASSIFICATION:
+            if self.dtype == np.float32:
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[float, int]*>
+                    <uintptr_t> self.rf_forest,
+                    <int> self.n_cols
+                )
+            elif self.dtype == np.float64:
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[double, int]*>
+                    <uintptr_t> self.rf_forest64,
+                    <int> self.n_cols
+                )
         else:
-            if self.dtype not in [np.float32, np.float64]:
-                raise ValueError("Unknown dtype.")
+            if self.dtype == np.float32:
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[float, float]*>
+                    <uintptr_t> self.rf_forest,
+                    <int> self.n_cols
+                )
+            elif self.dtype == np.float64:
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[double, double]*>
+                    <uintptr_t> self.rf_forest64,
+                    <int> self.n_cols
+                )
 
-            if self.RF_type == CLASSIFICATION:
-                if self.dtype==np.float32:
-                    build_treelite_forest(
-                        &tl_handle,
-                        <RandomForestMetaData[float, int]*>
-                        <uintptr_t> self.rf_forest,
-                        <int> self.n_cols
-                        )
-                elif self.dtype==np.float64:
-                    build_treelite_forest(
-                        &tl_handle,
-                        <RandomForestMetaData[double, int]*>
-                        <uintptr_t> self.rf_forest64,
-                        <int> self.n_cols
-                        )
-            else:
-                if self.dtype==np.float32:
-                    build_treelite_forest(
-                        &tl_handle,
-                        <RandomForestMetaData[float, float]*>
-                        <uintptr_t> self.rf_forest,
-                        <int> self.n_cols
-                        )
-                elif self.dtype==np.float64:
-                    build_treelite_forest(
-                        &tl_handle,
-                        <RandomForestMetaData[double, double]*>
-                        <uintptr_t> self.rf_forest64,
-                        <int> self.n_cols
-                        )
+        cdef const char* tl_bytes = NULL
+        cdef size_t tl_bytes_len
+        safe_treelite_call(
+            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
+            "Failed to serialize RF model to bytes due to internal error: "
+            "Failed to serialize Treelite model to bytes."
+        )
+        cdef bytes tl_serialized_bytes = tl_bytes[:tl_bytes_len]
+        self.treelite_serialized_bytes = tl_serialized_bytes
+        return self.treelite_serialized_bytes
 
-        self.treelite_handle = <uintptr_t> tl_handle
-        return self.treelite_handle
+    def _deserialize_from_treelite(self, tl_model):
+        """
+        Update the cuML RF model to match the given Treelite model.
+        """
+        self._reset_forest_data()
+        self.treelite_serialized_bytes = tl_model.serialize_bytes()
+        self.n_cols = tl_model.num_feature
+        self.n_estimators = tl_model.num_tree
+
+        return self
 
     def cpu_to_gpu(self):
         tl_model = treelite.sklearn.import_model(self._cpu_model)
-        self._temp = TreeliteModel.from_treelite_bytes(tl_model.serialize_bytes())
-        self.treelite_serialized_model = treelite_serialize(self._temp.handle)
-        self._obtain_treelite_handle()
+        self.treelite_serialized_bytes = tl_model.serialize_bytes()
         self.dtype = np.float64
         self.update_labels = False
         super().cpu_to_gpu()
-        # Set fitted attributes not transferred by treelite, but only when the
+        # Set fitted attributes not transferred by Treelite, but only when the
         # accelerator is active.
         # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
         # instances, as these could be used by the GPU model to make predictions.
@@ -329,19 +318,15 @@ class BaseRandomForestModel(UniversalBase):
                 setattr(self, name, value)
 
     def gpu_to_cpu(self):
-        self._obtain_treelite_handle()
-        tl_model = TreeliteModel.from_treelite_model_handle(
-            self.treelite_handle,
-            take_handle_ownership=False)
-        tl_bytes = tl_model.to_treelite_bytes()
-        tl_model2 = treelite.Model.deserialize_bytes(tl_bytes)
-        # Make sure the CPU model's hyper-parameters are preserved, treelite
-        # does not roundtrip hyper-parameters.
+        self._serialize_treelite_bytes()
+        tl_model = treelite.Model.deserialize_bytes(self.treelite_serialized_bytes)
+        # Make sure the CPU model's hyperparameters are preserved, treelite
+        # does not roundtrip hyperparameters.
         params = {}
         if hasattr(self, "_cpu_model"):
             params = self._cpu_model.get_params()
 
-        self._cpu_model = treelite.sklearn.export_model(tl_model2)
+        self._cpu_model = treelite.sklearn.export_model(tl_model)
         self._cpu_model.set_params(**params)
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
@@ -405,160 +390,38 @@ class BaseRandomForestModel(UniversalBase):
                 max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
 
-    def _tl_handle_from_bytes(self, treelite_serialized_model):
-        if not treelite_serialized_model:
-            raise ValueError(
-                '_tl_handle_from_bytes() requires non-empty serialized model')
-        return treelite_deserialize(treelite_serialized_model)
-
-    def _concatenate_treelite_handle(self, treelite_handle):
-        cdef TreeliteModelHandle concat_model_handle = NULL
-        cdef vector[TreeliteModelHandle] *model_handles \
-            = new vector[TreeliteModelHandle]()
-        cdef uintptr_t mod_ptr
-        for i in treelite_handle:
-            mod_ptr = <uintptr_t>i
-            model_handles.push_back((
-                <TreeliteModelHandle> mod_ptr))
-
-        self._reset_forest_data()
-        concat_model_handle = concatenate_trees(deref(model_handles))
-        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
-        self.treelite_handle = concat_model_ptr
-        self.treelite_serialized_model = treelite_serialize(concat_model_ptr)
-
-        # Fix up some instance variables that should match the new TL model
-        tl_model = TreeliteModel.from_treelite_model_handle(
-            self.treelite_handle,
-            take_handle_ownership=False)
-        self.n_cols = tl_model.num_features
-        self.n_estimators = tl_model.num_trees
-
-        return self
-
-    def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, threshold=0.5,
-                              output_class=False,
-                              predict_proba=False) -> CumlArray:
-        treelite_handle = self._obtain_treelite_handle()
-        storage_type = \
-            _check_fil_parameter_validity(depth=self.max_depth,
-                                          fil_sparse_format=fil_sparse_format,
-                                          algo=algo)
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', FutureWarning)
-            fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
-                                        output_type=self.output_type)
-        tl_to_fil_model = \
-            fil_model.load_using_treelite_handle(treelite_handle,
-                                                 output_class=output_class,
-                                                 threshold=threshold,
-                                                 algo=algo,
-                                                 storage_type=storage_type)
-
-        if (predict_proba):
-            preds = tl_to_fil_model.predict_proba(X)
-        else:
-            preds = tl_to_fil_model.predict(X)
-        return preds
+    def _predict_model_on_gpu(
+        self,
+        X,
+        is_classifier = False,
+        predict_proba = False,
+        threshold = 0.5,
+        convert_dtype = True,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+    ) -> CumlArray:
+        treelite_bytes = self._serialize_treelite_bytes()
+        fil_model = ForestInference(
+            treelite_model=treelite_bytes,
+            handle=self.handle,
+            output_type=self.output_type,
+            verbose=self.verbose,
+            is_classifier=is_classifier,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
+        if predict_proba:
+            return fil_model.predict_proba(X)
+        return fil_model.predict(X, threshold=threshold)
 
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + BaseRandomForestModel._param_names
 
     def set_params(self, **params):
-        self.treelite_serialized_model = None
+        self.treelite_serialized_bytes = None
 
         super().set_params(**params)
         return self
-
-
-def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
-    """
-    Check if the FIL storage format type passed by the user is right
-    for the trained cuml Random Forest model they have.
-
-    Parameters
-    ----------
-    depth : max depth value used to train model
-    algo : string (default = 'auto')
-        This is optional and required only while performing the
-        predict operation on the GPU.
-
-         * ``'naive'`` - simple inference using shared memory
-         * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-           coalescing-friendly
-         * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-           multiple rows per thread block
-         * ``'auto'`` - choose the algorithm automatically. Currently
-         * ``'batch_tree_reorg'`` is used for dense storage
-           and 'naive' for sparse storage
-
-    fil_sparse_format : boolean or string (default = 'auto')
-        This variable is used to choose the type of forest that will be
-        created in the Forest Inference Library. It is not required
-        while using predict_model='CPU'.
-
-         * ``'auto'`` - choose the storage type automatically
-           (currently True is chosen by auto)
-         * ``False`` - create a dense forest
-         * ``True`` - create a sparse forest, requires algo='naive'
-           or algo='auto'
-
-    Returns
-    ----------
-    fil_sparse_format
-    """
-    accepted_fil_spars_format = {True, False, 'auto'}
-
-    if (depth > 16 and (fil_sparse_format is False or
-                        algo == 'tree_reorg' or
-                        algo == 'batch_tree_reorg')):
-        raise ValueError("While creating a forest with max_depth greater "
-                         "than 16, `fil_sparse_format` should be True. "
-                         "If `fil_sparse_format=False` then the memory"
-                         "consumed while creating the FIL forest is very "
-                         "large and the process will be aborted. In "
-                         "addition, `algo` must be either set to `naive' "
-                         "or `auto` to set 'fil_sparse_format=True`.")
-    if fil_sparse_format not in accepted_fil_spars_format:
-        raise ValueError(
-            "The value entered for spares_forest is not "
-            "supported. Please refer to the documentation at "
-            "(https://docs.rapids.ai/api/cuml/nightly/api.html"
-            "#forest-inferencing) to see the accepted values.")
-    return fil_sparse_format
-
-
-def _obtain_fil_model(treelite_handle, depth,
-                      output_class=True,
-                      threshold=0.5, algo='auto',
-                      fil_sparse_format='auto'):
-    """
-    Creates a Forest Inference (FIL) model using the treelite
-    handle obtained from the cuML Random Forest model.
-
-    Returns
-    ----------
-    fil_model :
-        A Forest Inference model which can be used to perform
-        inferencing on the random forest model.
-    """
-    storage_format = \
-        _check_fil_parameter_validity(depth=depth,
-                                      fil_sparse_format=fil_sparse_format,
-                                      algo=algo)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', FutureWarning)
-        # Use output_type="input" to prevent an error
-        fil_model = ForestInference(output_type="input")
-
-    tl_to_fil_model = \
-        fil_model.load_using_treelite_handle(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo,
-                                             storage_type=storage_format)
-
-    return tl_to_fil_model

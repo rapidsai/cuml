@@ -15,62 +15,39 @@
 #
 import itertools
 import pathlib
+import warnings
 from time import perf_counter
 
 import numpy as np
 import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
-from cuml.common.device_selection import using_device_type
-from cuml.internals import set_api_output_dtype
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+from cuml.fil.detail.raft_proto.cuda_stream cimport (
     cuda_stream as raft_proto_stream_t,
 )
-from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+from cuml.fil.detail.raft_proto.device_type cimport (
     device_type as raft_proto_device_t,
 )
-from cuml.experimental.fil.detail.raft_proto.handle cimport (
-    handle_t as raft_proto_handle_t,
-)
-from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
-from cuml.experimental.fil.infer_kind cimport infer_kind
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
-from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
+from cuml.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
+from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
+from cuml.fil.infer_kind cimport infer_kind
+from cuml.fil.postprocessing cimport element_op, row_op
+from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
+from cuml.internals.treelite cimport *
 
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
-                                               TreeliteModelHandle* out) except +
-    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
-    cdef const char* TreeliteGetLastError()
-
-
-cdef raft_proto_device_t get_device_type(arr):
-    cdef raft_proto_device_t dev
-    if arr.is_device_accessible:
-        if (
-            GlobalSettings().device_type == DeviceType.host
-            and arr.is_host_accessible
-        ):
-            dev = raft_proto_device_t.cpu
-        else:
-            dev = raft_proto_device_t.gpu
-    else:
-        dev = raft_proto_device_t.cpu
-    return dev
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:
     cdef cppclass forest_model:
@@ -104,21 +81,81 @@ cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::ex
         raft_proto_stream_t
     ) except +
 
+
+class set_fil_device_type:
+    """Set the device type used by FIL.
+
+    May optionally be used as a context-manager to set the device type only
+    within a context.
+
+    Parameters
+    ----------
+    device_type : {'cpu', 'gpu'}
+        The device type to use.
+
+    Examples
+    --------
+    >>> from cuml.fil import set_fil_device_type  # doctest: +SKIP
+
+    Set the device type globally to use CPU.
+
+    >>> set_fil_device_type("cpu")  # doctest: +SKIP
+
+    Set the device type globally to use GPU.
+
+    >>> set_fil_device_type("gpu")  # doctest: +SKIP
+
+    Set the device type to use CPU within a context.
+
+    >>> with set_fil_device_type("cpu"):  # doctest: +SKIP
+    ...     ...
+    """
+    def __init__(self, device_type):
+        device_type = DeviceType.from_str(device_type)
+        self._previous = GlobalSettings().fil_device_type
+        GlobalSettings().fil_device_type = device_type
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        GlobalSettings().fil_device_type = self._previous
+
+
+def get_fil_device_type() -> DeviceType:
+    """Get the device type used by FIL."""
+    return GlobalSettings().fil_device_type
+
+
+cdef raft_proto_device_t get_fil_raft_proto_device_type(arr):
+    """Get the current FIL device type as a raft_proto_device_t"""
+    cdef raft_proto_device_t dev
+    if arr.is_device_accessible:
+        if arr.is_host_accessible and get_fil_device_type() is DeviceType.host:
+            dev = raft_proto_device_t.cpu
+        else:
+            dev = raft_proto_device_t.gpu
+    else:
+        dev = raft_proto_device_t.cpu
+    return dev
+
+
 cdef class ForestInference_impl():
     cdef forest_model model
     cdef raft_proto_handle_t raft_proto_handle
     cdef object raft_handle
 
     def __cinit__(
-            self,
-            raft_handle,
-            tl_model,
-            *,
-            layout='depth_first',
-            align_bytes=0,
-            use_double_precision=None,
-            mem_type=None,
-            device_id=0):
+        self,
+        raft_handle,
+        tl_model_bytes,
+        *,
+        layout='depth_first',
+        align_bytes=0,
+        use_double_precision=None,
+        mem_type=None,
+        device_id=0
+    ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
         self.raft_handle = raft_handle
@@ -126,7 +163,7 @@ cdef class ForestInference_impl():
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
         if mem_type is None:
-            mem_type = GlobalSettings().memory_type
+            mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -138,19 +175,12 @@ cdef class ForestInference_impl():
             use_double_precision_bool = use_double_precision
             use_double_precision_c = use_double_precision_bool
 
-        if not isinstance(tl_model, treelite.Model):
-            raise ValueError("tl_model must be a treelite.Model object")
-        # Serialize Treelite model object and de-serialize again,
-        # to get around C++ ABI incompatibilities (due to different compilers
-        # being used to build cuML pip wheel vs. Treelite pip wheel)
-        bytes_seq = tl_model.serialize_bytes()
-        cdef TreeliteModelHandle model_handle = NULL
-        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq),
-                                                         &model_handle)
-        cdef str err_msg
-        if res < 0:
-            err_msg = TreeliteGetLastError().decode("UTF-8")
-            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
+        cdef TreeliteModelHandle tl_handle = NULL
+        safe_treelite_call(
+            TreeliteDeserializeModelFromBytes(
+                tl_model_bytes, len(tl_model_bytes), &tl_handle),
+            "Failed to load Treelite model from bytes:"
+        )
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
@@ -158,17 +188,17 @@ cdef class ForestInference_impl():
         else:
             dev_type = raft_proto_device_t.cpu
         cdef fil_tree_layout tree_layout
-        if layout.lower() == 'depth_first':
+        if layout.lower() == "depth_first":
             tree_layout = fil_tree_layout.depth_first
-        elif layout.lower() == 'breadth_first':
+        elif layout.lower() == "breadth_first":
             tree_layout = fil_tree_layout.breadth_first
-        elif layout.lower() == 'layered':
+        elif layout.lower() == "layered":
             tree_layout = fil_tree_layout.layered_children_together
         else:
-            raise RuntimeError(f'Unrecognized tree layout {layout}')
+            raise RuntimeError(f"Unrecognized tree layout {layout}")
 
         self.model = import_from_treelite_handle(
-            <TreeliteModelHandle><uintptr_t>model_handle,
+            tl_handle,
             tree_layout,
             align_bytes,
             use_double_precision_c,
@@ -177,7 +207,10 @@ cdef class ForestInference_impl():
             self.raft_proto_handle.get_next_usable_stream()
         )
 
-        TreeliteFreeModel(model_handle)
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle),
+            "Failed to free Treelite model:"
+        )
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
@@ -215,15 +248,7 @@ cdef class ForestInference_impl():
         elif enum_val == element_op.logarithm_one_plus_exp:
             return "logarithm_one_plus_exp"
 
-    def _predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
-        set_api_output_dtype(output_dtype)
+    def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
@@ -231,10 +256,11 @@ cdef class ForestInference_impl():
             X,
             order='C',
             convert_to_dtype=model_dtype,
+            convert_to_mem_type=GlobalSettings().fil_memory_type,
             check_dtype=model_dtype
         )
         cdef raft_proto_device_t in_dev
-        in_dev = get_device_type(in_arr)
+        in_dev = get_fil_raft_proto_device_type(in_arr)
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
@@ -258,7 +284,8 @@ cdef class ForestInference_impl():
                 output_shape,
                 model_dtype,
                 order='C',
-                index=in_arr.index
+                index=in_arr.index,
+                mem_type=GlobalSettings().fil_memory_type,
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
@@ -266,7 +293,7 @@ cdef class ForestInference_impl():
                 raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
-        out_dev = get_device_type(preds)
+        out_dev = get_fil_raft_proto_device_type(preds)
         out_ptr = preds.ptr
 
         cdef optional[uint32_t] chunk_specification
@@ -298,25 +325,23 @@ cdef class ForestInference_impl():
                 chunk_specification
             )
 
-        if GlobalSettings().device_type == DeviceType.device:
+        if get_fil_device_type() is DeviceType.device:
             self.raft_proto_handle.synchronize()
-
         return preds
 
     def predict(
-            self,
-            X,
-            *,
-            predict_type="default",
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
+        self,
+        X,
+        *,
+        predict_type="default",
+        preds=None,
+        chunk_size=None,
+    ):
         return self._predict(
             X,
             predict_type=predict_type,
             preds=preds,
             chunk_size=chunk_size,
-            output_dtype=output_dtype
         )
 
 
@@ -338,20 +363,10 @@ class _AutoIterations:
         return result
 
 
-class ForestInference(UniversalBase, CMajorInputTagMixin):
+class ForestInference(Base, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
-
-    This experimental implementation
-    (`cuml.experimental.ForestInference`) of ForestInference is similar to the
-    original (`cuml.ForestInference`) FIL, but it also offers CPU
-    execution and in most cases superior performance for GPU execution.
-
-    Note: This is an experimental feature. Although it has been
-    extensively reviewed and tested, it has not been as thoroughly evaluated
-    as the original FIL. For maximum stability, we recommend using the
-    original FIL until this implementation moves out of experimental.
 
     **Performance Tuning**
     FIL offers a number of hyperparameters that can be tuned to obtain optimal
@@ -383,7 +398,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     also described below. Testing available layouts is recommended to optimize
     performance, but the impact is likely to be substantially less than
     optimizing `chunk_size`. There is no universal rule for predicting which
-    layout will produce best performance. On both GPU and CPU, the
+    layout will produce the best performance. On both GPU and CPU, the
     `depth_first` layout can improve performance by increasing cache hits
     during tree traversal. This tends to be the strongest effect for most use
     cases, so `depth_first` is used as the default value.
@@ -409,15 +424,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         LightGBM, cuML, Scikit-Learn, or any other forest model framework
         so long as it can be loaded into a treelite.Model object (See
         https://treelite.readthedocs.io/en/latest/treelite-api.html).
-    handle : pylibraft.common.handle or None
-        For GPU execution, the RAFT handle containing the stream or stream
-        pool to use during loading and inference. If input is provide to
-        this model in the wrong memory location (e.g. host memory input but
-        GPU execution), the input will be copied to the correct location
-        using as many streams as are available in the handle. It is therefore
-        recommended that a handle with a stream pool be used for models where
-        it is expected that large input arrays will be coming from the host but
-        evaluated on device.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -428,7 +441,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_class : boolean
-        True for classifier models, false for regressors.
+        Deprecated parameter. Please use is_classifier instead.
     layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
@@ -450,21 +463,29 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. For CPU execution, this value is currently ignored.
 
+    .. deprecated:: 25.06
+        Parameter `output_class` was deprecated in version 25.06 and will be removed
+        in 25.08. Please use `is_classifier` instead.
     """
+    _param_names = [
+        "treelite_model", "handle", "output_type", "verbose", "is_classifier",
+        "output_class", "layout", "default_chunk_size", "align_bytes",
+        "precision", "device_id",
+    ]
 
     def _reload_model(self):
         """Reload model on any device (CPU/GPU) where model has already been
         loaded"""
         if hasattr(self, '_gpu_forest'):
-            with using_device_type('gpu'):
+            with set_fil_device_type('gpu'):
                 self._load_to_fil(device_id=self.device_id)
         if hasattr(self, '_cpu_forest'):
-            with using_device_type('cpu'):
+            with set_fil_device_type('cpu'):
                 self._load_to_fil(device_id=self.device_id)
 
     @staticmethod
     def _get_default_align_bytes():
-        if GlobalSettings().device_type == DeviceType.host:
+        if get_fil_device_type() is DeviceType.host:
             return 64
         else:
             return 0
@@ -594,36 +615,53 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self._reload_model()
 
     def __init__(
-            self,
-            *,
-            treelite_model=None,
-            handle=None,
-            output_type=None,
-            verbose=False,
-            is_classifier=False,
-            output_class=None,
-            layout='depth_first',
-            default_chunk_size=None,
-            align_bytes=None,
-            precision='single',
-            device_id=0):
+        self,
+        *,
+        treelite_model=None,
+        handle=None,
+        output_type=None,
+        verbose=False,
+        is_classifier=False,
+        output_class=None,
+        layout='depth_first',
+        default_chunk_size=None,
+        align_bytes=None,
+        precision='single',
+        device_id=0,
+    ):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
+
+        # Handle deprecated `output_class` parameter (remove in 25.08)
+        if output_class is not None:
+            if is_classifier is True:  # both were explicitly set
+                raise ValueError(
+                    "Both `output_class` and `is_classifier` were explicitly set. "
+                    "The output_class parameter is deprecated. Please only use is_classifier."
+                )
+
+            warnings.warn(
+                "Parameter `output_class` was deprecated in version 25.06 and will be "
+                "replaced with `is_classifier` in 25.08. Please use `is_classifier` in the future. "
+                "For now, `output_class` parameter has been automatically converted to `is_classifier`.",
+                FutureWarning
+            )
+            self.is_classifier = output_class
+        else:
+            self.is_classifier = is_classifier
 
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
         self.layout = layout
         self.precision = precision
-        self.is_classifier = is_classifier
-        self.is_classifier = output_class
         self.device_id = device_id
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
 
     def _load_to_fil(self, mem_type=None, device_id=0):
         if mem_type is None:
-            mem_type = GlobalSettings().memory_type
+            mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -631,9 +669,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self.device_id = device_id
 
         if self.treelite_model is not None:
+            if isinstance(self.treelite_model, treelite.Model):
+                treelite_model_bytes = self.treelite_model.serialize_bytes()
+            elif isinstance(self.treelite_model, bytes):
+                treelite_model_bytes = self.treelite_model
+            else:
+                raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
                 self.handle,
-                self.treelite_model,
+                treelite_model_bytes,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
                 use_double_precision=self._use_double_precision_,
@@ -669,9 +713,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     def forest(self):
         """The underlying FIL forest model loaded in memory compatible with the
         current global device_type setting"""
-        if GlobalSettings().device_type == DeviceType.device:
+        device_type = get_fil_device_type()
+        if device_type is DeviceType.device:
             return self.gpu_forest
-        elif GlobalSettings().device_type == DeviceType.host:
+        elif device_type is DeviceType.host:
             return self.cpu_forest
         else:
             raise DeviceTypeError("Unsupported device type for FIL")
@@ -684,26 +729,22 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @classmethod
     def load(
-            cls,
-            path,
-            *,
-            output_class=False,
-            threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
-            precision='single',
-            model_type=None,
-            output_type=None,
-            verbose=False,
-            default_chunk_size=None,
-            align_bytes=None,
-            layout='depth_first',
-            device_id=0,
-            handle=None):
+        cls,
+        path,
+        *,
+        is_classifier=False,
+        output_class=None,
+        threshold=None,
+        precision='single',
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout='depth_first',
+        device_id=0,
+        handle=None
+    ):
         """Load a model into FIL from a serialized model file.
 
         Parameters
@@ -713,31 +754,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             binary or JSON file, a LightGBM text file, or a Treelite checkpoint
             file. If the model_type parameter is not passed, an attempt will be
             made to load the file based on its extension.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see the `chunk_size`
-            parameter of the predict method for equivalent functionality.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -802,13 +825,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             tl_model = treelite.frontend.load_lightgbm_model(path)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -822,14 +844,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             skl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -845,32 +862,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         ----------
         skl_model
             The Scikit-Learn forest model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -911,7 +909,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with an incompatible device (e.g. device memory and CPU execution),
             the model will be lazily loaded to the correct location at that
             time. In general, it should not be necessary to set this parameter
-            directly (rely instead on the `using_device_type` context manager),
+            directly (rely instead on the `set_fil_device_type` context manager),
             but it can be a useful convenience for some hyperoptimization
             pipelines.
         device_id : int, default=0
@@ -922,13 +920,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             pool to use during loading and inference.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         result = cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -943,14 +940,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             cls,
             tl_model,
             *,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             threshold=None,
-            algo=None,
-            storage_type=None,
-            blocks_per_sm=None,
-            threads_per_tree=None,
-            n_items=None,
-            compute_shape_str=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -964,34 +956,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         Parameters
         ----------
-        tl_model : treelite.model
+        tl_model : treelite.Model
             The Treelite model to load.
-        output_class : boolean, default=False
+        is_classifier : boolean, default=False
             True for classification models, False for regressors
+        output_class : boolean
+            Deprecated parameter. Please use is_classifier instead.
         threshold : float
             For binary classifiers, outputs above this value will be considered
             a positive detection.
-        algo
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `layout` for a
-            parameter that fulfills a similar purpose.
-        storage_type
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        blocks_per_sm
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        threads_per_tree : int
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL. Please see `chunk_size` for a
-            parameter that fulfills an equivalent purpose. If a value is passed
-            for this parameter, it will be used as the `chunk_size` for now.
-        n_items
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
-        compute_shape_str
-            This parameter is deprecated. It is currently retained for
-            compatibility with existing FIL.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -1032,7 +1005,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with an incompatible device (e.g. device memory and CPU execution),
             the model will be lazily loaded to the correct location at that
             time. In general, it should not be necessary to set this parameter
-            directly (rely instead on the `using_device_type` context
+            directly (rely instead on the `set_fil_device_type` context
             manager), but it can be a useful convenience for some
             hyperoptimization pipelines.
         device_id : int, default=0
@@ -1042,13 +1015,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if default_chunk_size is None:
-            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            is_classifier=is_classifier,
             output_class=output_class,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -1061,7 +1033,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
-    def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
+    def predict_proba(
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+    ) -> CumlArray:
         """
         Predict the class probabilities for each row in X.
 
@@ -1075,7 +1053,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1112,12 +1090,13 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         domain='cuml_python'
     )
     def predict(
-            self,
-            X,
-            *,
-            preds=None,
-            chunk_size=None,
-            threshold=None) -> CumlArray:
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+        threshold=None,
+    ) -> CumlArray:
         """
         For classification models, predict the class for each row. For
         regression models, predict the output for each row.
@@ -1132,7 +1111,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1182,7 +1161,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                     proba.to_output(output_type='array') > threshold
                 ).astype('int')
             else:
-                result = GlobalSettings().xpy.argmax(
+                result = GlobalSettings().fil_xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
             if preds is None:
@@ -1219,7 +1198,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1272,7 +1251,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision of the loaded model (float/double) will be converted
             to the correct datatype before inference. If this input is in a
             memory location that is inaccessible to the current device type
-            (as set with e.g. the `using_device_type` context manager),
+            (as set with e.g. the `set_fil_device_type` context manager),
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
@@ -1359,7 +1338,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             provided.
         """
         if data is None:
-            xpy = GlobalSettings().xpy
+            xpy = GlobalSettings().fil_xpy
             dtype = self.forest.get_dtype()
             data = xpy.random.uniform(
                 xpy.finfo(dtype).min / 2,
@@ -1370,6 +1349,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             data = CumlArray.from_input(
                 data,
                 order='K',
+                convert_to_mem_type=GlobalSettings().fil_memory_type,
             ).to_output('array')
         try:
             unique_batches, batch_size, features = data.shape
@@ -1380,7 +1360,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         if max_chunk_size is None:
             max_chunk_size = 512
-        if GlobalSettings().device_type is DeviceType.device:
+        if get_fil_device_type() is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
         max_chunk_size = min(max_chunk_size, batch_size)
@@ -1423,3 +1403,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         self.layout = optimal_layout
         self.default_chunk_size = optimal_chunk_size
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ForestInference._param_names
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        return self

@@ -1,0 +1,23 @@
+name: Assign PR to Author
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write    # only what we need
+  contents: read          # default least-privilege
+
+jobs:
+  assign-author:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign PR to its author via gh CLI
+        env:
+          GH_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER:   ${{ github.event.pull_request.number }}
+          LOGIN:       ${{ github.event.pull_request.user.login }}
+          REPOSITORY:  ${{ github.repository }}
+        run: |
+          # use gh pr edit to add the PR author as assignee
+          gh pr edit "$PR_NUMBER" --add-assignee "$LOGIN" --repo "$REPOSITORY"

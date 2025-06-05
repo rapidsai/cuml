@@ -7,6 +7,7 @@ This guide is meant to help developers follow the correct patterns when creating
 ## Table of Contents
 
 - [Recommended Scikit-Learn Documentation](#recommended-scikit-learn-documentation)
+- [API Matching Policy](#api-matching-policy)
 - [Quick Start Guide](#quick-start-guide)
 - [Background](#background)
    - [Input and Output Types in cuML](#input-and-output-types-in-cuml)
@@ -36,6 +37,34 @@ To start, it's recommended to read the following Scikit-learn documentation:
       5. [Estimator tags](https://scikit-learn.org/stable/developers/develop.html#estimator-tags)
 2. [Scikit-learn's Docstring Guide](https://scikit-learn.org/stable/developers/contributing.html#guidelines-for-writing-documentation)
    1. We follow the same guidelines for specifying array-like objects, array shapes, dtypes, and default values
+
+## API Matching Policy
+
+cuML often implements GPU-accelerated versions of estimators that already exist in CPU-based libraries, with scikit-learn being the most prominent example. When implementing these variants, we aim to maintain API compatibility with the original library while following these guidelines:
+
+1. **Match the API of the original library where possible and reasonable**
+   - Use identical parameter names, types, and default values
+   - Keep method signatures and return types consistent
+   - Maintain the same behavior and semantics where possible
+
+2. **API deviations must be well-justified and documented**
+   - Document all API deviations clearly
+   - Avoid arbitrary deviations from the original API
+
+     For example, if the original library uses a parameter named `n_neighbor`, we should not arbitrarily change it to `n_neighbors` in our implementation.
+
+   - Explain necessary deviations with in-code comments
+
+3. **Unused parameters or arguments should generally not be matched**
+   - If a parameter exists in the original API but isn't used in cuML's implementation, it's better to omit it
+   - This helps maintain a cleaner, more focused API and is less surprising to both users and developers
+   - However, consider backwards compatibility before removing unused parameters that are already present
+
+4. **Exact API matching is not required**
+   - Consumers who need exact API matching should use `cuml.accel`
+   - Focus on providing a consistent and intuitive API rather than exact matching
+   - Prioritize performance and GPU-specific optimizations over exact API matching
+   - To emphasize: while exact API matching is not required, arbitrary deviations are not permitted
 
 ## Quick Start Guide
 
@@ -123,9 +152,9 @@ In cuML we support both ingesting and generating a variety of different object t
  - CuPy arrays
  - CumlArray type (Internal to the `cuml` API only.)
 
-When converting between types, it's important to minimize the CPU<->GPU type conversions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied from device to host or vice-versa.
+When converting between types, it's important to minimize memory accessibility transitions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied between different accessibility domains.
 
-Converting between types of the same device, i.e. CPU<->CPU or GPU<->GPU, do not have as significant of a penalty, though they may still increase memory usage (this is particularly true for the array <-> dataframe conversion. i.e. when converting from CuPy to cuDF, memory usage may increase slightly).
+Converting between types within the same accessibility domain (e.g., NumPy -> Pandas or CuPy -> cuDF) do not have as significant of a penalty, though they may still increase memory usage (this is particularly true for the array <-> dataframe conversion. i.e. when converting from CuPy to cuDF, memory usage may increase slightly).
 
 Finally, conversions between Numba<->CuPy<->CumlArray incur the least amount of overhead since only the device pointer is moved from one class to another.
 
@@ -133,24 +162,34 @@ Internally, all arrays should be converted to `CumlArray` as much as possible si
 
 ### Host and Device Arrays
 
-Beginning with version 23.02, cuML provides support for executing at least
-some algorithms either on CPU or on GPU. Therefore, `CumlArray` objects can
-now be backed by either host or device memory.
+cuML provides flexible memory management through the `CumlArray` class, which can store data in either device-accessible or host-accessible memory. This flexibility allows for efficient data handling and computation.
 
-To ensure that arrays used by algorithms are backed by the correct memory
-type, two new global settings were introduced: `device_type` (`'cpu'` or
-`'gpu'`) and `memory_type` (`'host'` or `'device'`). The former indicates
-what sort of computational device will be used to execute an algorithm while
-the latter indicates where arrays should be stored if not otherwise
-specified. If the `device_type` is updated to a value incompatible with the
-current `memory_type`, the `memory_type` will be changed to something
-compatible with `device_type`, but the reverse is not true. This allows for
-e.g. allocating an array where results will ultimately be stored even if the
-actual computation will take place on a different device.
+To control where arrays are stored, the `memory_type` setting determines where arrays are stored by default. This setting can be configured through:
 
-New array output types were also introduced to take advantage of these
-settings by deferring where appropriate to the globally-set memory type. Read
-on for more details on how to take advantage of these types.
+1. Global settings:
+   ```python
+   import cuml
+   cuml.global_settings.memory_type = 'device'  # For device-accessible memory
+   ```
+
+2. Context managers:
+   ```python
+   with cuml.using_memory_type('device'):
+       # Arrays created here will use device-accessible memory
+       pass
+   ```
+
+3. Individual estimator settings:
+   ```python
+   estimator = MyEstimator(output_mem_type='device')
+   ```
+
+The memory type settings allow for efficient data management:
+- Use device-accessible memory for GPU-accelerated computations
+- Use host-accessible memory for data that needs to be accessed by the CPU
+- Let cuML handle memory transfers automatically when needed
+
+New array output types were introduced to take advantage of these settings by deferring to the globally-set memory type. Read on for more details on how to take advantage of these types.
 
 ### Specifying the Array Output Type
 
@@ -159,7 +198,7 @@ Users can choose which array type should be returned by cuml by either:
 2. Globally setting the `cuml.global_output_type`
 3. Temporarily setting the `cuml.global_output_type` via the `cuml.using_output_type` context manager
 
-**Note:** Setting `cuml.global_output_type` (either directly or via `cuml.set_output_type()` or `cuml.using_output_type()`) <u>will take precedence over any value in `Base.output_type`</u>
+**Note:** Setting `cuml.global_output_type` (either directly or via `cuml.set_output_type()` or `cuml.using_output_type()`) <u>will take precedence over any value in `Base.output_type</u>
 
 In addition, for developers, it is sometimes useful to set the output memory
 type separately from the output type, as will be described in further
@@ -192,26 +231,28 @@ All output_types (including `cuml.global_output_type`) are specified using an al
 **Note:** There is an additional option `"mirror"` which can only be set by internal API calls and is not user accessible. This value is only used internally by the `CumlArrayDescriptor` to mirror any input value set.
 
 #### Deferring to the global memory type
-With the introduction of CPU-only algorithms, it is sometimes useful
-internally to generically request an "array" or a "dataframe" rather than
-specifying cupy/numpy or cudf/pandas. For example, imagine that a
-developer needs to briefly use a method which is specific to cupy/numpy and not
-available on the generic `CumlArray` interface. In the past, a developer might
-call `arr.to_output('cupy')` and proceed with the operation before converting
-back to a `CumlArray`. Now, if the device type is set to `cpu` and this pattern
-is used, we would attempt to execute a host-only operation on device memory.
 
-Instead, developers can use the generic `array`, `series`, `dataframe`, and
-`df_obj` output types to defer to the current globally-set memory type and
-ensure that the data memory location is compatible with the computational
-device. It is recommended that these generic output types be used for any
-internal conversion calls. Where we cannot defer to the global memory type,
-the memory type for that call should be specified directly to facilitate later
-rewrites for host/device interoperability.
+When working with array types, it's often useful to request generic types like "array" or "dataframe" rather than specifying concrete types like cupy/numpy or cudf/pandas. This allows the code to adapt to the current memory accessibility settings automatically.
 
-External users should not typically have to use these generic types unless
-they are specifically writing an application with host/device
-interoperability in mind.
+For example, if a developer needs to use methods specific to array types (like cupy/numpy) that aren't available on the generic `CumlArray` interface, they can use these generic output types to ensure compatibility with the current memory accessibility settings:
+
+```python
+# Instead of hardcoding a specific type
+arr.to_output('cupy')  # May not be appropriate for all memory settings
+
+# Use a generic type that adapts to current settings
+arr.to_output('array')  # Will use appropriate type based on memory settings
+```
+
+The following generic output types are available:
+- `array`: Returns arrays appropriate for the current memory settings
+- `series`: Returns series appropriate for the current memory settings
+- `dataframe`: Returns dataframes appropriate for the current memory settings
+- `df_obj`: Returns series for single-dimensional data or dataframes for multi-dimensional data
+
+It's recommended to use these generic output types for internal conversion calls to ensure compatibility with different memory accessibility configurations. For cases where a specific memory type is required, it should be specified directly to maintain clarity about the memory requirements.
+
+External users typically won't need to use these generic types unless they're specifically working with applications that need to adapt to different memory accessibility configurations.
 
 ### Ingesting Arrays
 
@@ -235,11 +276,26 @@ All estimators (any class that is a child of `cuml.common.base.Base`) have a sim
 
 All estimators should match the arguments (including the default value) in `Base.__init__` and pass these values to `super().__init__()`. As of 0.17, all estimators should accept `handle`, `verbose` and `output_type`.
 
-In addition, is recommended to force keyword arguments to prevent breaking changes if arguments are added or removed in future versions. For example, all arguments below after `*` must be passed by keyword:
+In general, all estimator constructor parameters should be keyword-only except for those arguments that are not keyword-only in the matched API. This helps prevent breaking changes if arguments are added or removed in future versions. For example:
 
 ```python
+# For an estimator that matches scikit-learn's API where the eps argument can be positional:
+def __init__(self, eps=0.5, *, min_samples=5, max_mbytes_per_batch=None,
+             calc_core_sample_indices=True, handle=None, verbose=False, output_type=None):
+    super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    self.eps = eps
+    self.min_samples = min_samples
+    self.max_mbytes_per_batch = max_mbytes_per_batch
+    self.calc_core_sample_indices = calc_core_sample_indices
+
+# For an estimator that doesn't match any existing API:
 def __init__(self, *, eps=0.5, min_samples=5, max_mbytes_per_batch=None,
              calc_core_sample_indices=True, handle=None, verbose=False, output_type=None):
+    super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    self.eps = eps
+    self.min_samples = min_samples
+    self.max_mbytes_per_batch = max_mbytes_per_batch
+    self.calc_core_sample_indices = calc_core_sample_indices
 ```
 
 Finally, do not alter any input arguments - if you do, it will prevent proper cloning of the estimator. See Scikit-learn's [section](https://scikit-learn.org/stable/developers/develop.html#instantiation) on instantiation for more info.
@@ -274,10 +330,10 @@ def _get_param_names(cls):
 
 Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect the capabilities of estimators. These capabilities include items like sparse matrix support and the need for positive inputs, among other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator [developer guide](https://scikit-learn.org/stable/developers/index.html), and will add support for any tag added there.
 
-Additionally, some tags specific to cuML have been added. These tags may or may not be specific to GPU data types and can even apply outside of automated testing, such as allowing for the optimization of data generation. This can be useful for pipelines and HPO, among other things. These are:
+Additionally, some tags specific to cuML have been added. These tags may or may not be specific to device-accessible data types and can even apply outside of automated testing, such as allowing for the optimization of data generation. This can be useful for pipelines and HPO, among other things. These are:
 
 - `X_types_gpu` (default=['2darray'])
-   Analogous to `X_types`, indicates what types of GPU objects an estimator can take. `2darray` includes GPU ndarray objects (like CuPy and Numba) and cuDF objects, since they are all processed the same by `input_utils`. `sparse` includes `CuPy` sparse arrays.
+   Analogous to `X_types`, indicates what types of device-accessible objects an estimator can take. `2darray` includes device-accessible ndarray objects (like CuPy and Numba) and cuDF objects, since they are all processed the same by `input_utils`. `sparse` includes `CuPy` sparse arrays.
  - `preferred_input_order` (default=None)
    One of ['F', 'C', None]. Whether an estimator "prefers" data in column-major ('F') or row-major ('C') contiguous memory layout. If different methods prefer different layouts or neither format is beneficial, then it is defined to `None` unless there is a good reason to chose either `F` or `C`. For example, all of `fit`, `predict`, etc. in an estimator use `F` but only `score` uses`C`.
 - `dynamic_tags` (default=False)
