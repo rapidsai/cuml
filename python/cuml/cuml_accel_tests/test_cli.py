@@ -26,43 +26,94 @@ from cuml.accel.__main__ import parse_args
 
 def test_parse_no_args():
     ns = parse_args([])
-    assert ns.script is None
+    assert ns.script == "-"
+    assert ns.cmd is None
     assert ns.module is None
     assert ns.verbose == 0
     assert ns.args == []
 
 
+def test_parse_explicit_stdin():
+    ns = parse_args(["-v", "-", "-vv"])
+    assert ns.script == "-"
+    assert ns.cmd is None
+    assert ns.module is None
+    assert ns.verbose == 1
+    assert ns.args == ["-vv"]
+
+
 def test_parse_module():
     ns = parse_args(["-m", "mymodule"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
+    assert ns.cmd is None
     assert ns.args == []
 
     # trailing options are forwarded, even if they overlap with known options
     ns = parse_args(["-m", "mymodule", "-m", "more", "--unknown", "-v"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
+    assert ns.cmd is None
     assert ns.verbose == 0
     assert ns.args == ["-m", "more", "--unknown", "-v"]
 
     # earlier options do still apply
     ns = parse_args(["-v", "-m", "mymodule", "-v"])
     assert ns.module == "mymodule"
-    assert ns.script is None
+    assert ns.script == "-"
+    assert ns.cmd is None
     assert ns.verbose == 1
     assert ns.args == ["-v"]
+
+
+def test_parse_cmd():
+    ns = parse_args(["-c", "print('hello')"])
+    assert ns.module is None
+    assert ns.script == "-"
+    assert ns.cmd == "print('hello')"
+    assert ns.args == []
+
+    # trailing options are forwarded, even if they overlap with known options
+    ns = parse_args(["-c", "print('hello')", "-c", "more", "--unknown", "-v"])
+    assert ns.module is None
+    assert ns.script == "-"
+    assert ns.cmd == "print('hello')"
+    assert ns.verbose == 0
+    assert ns.args == ["-c", "more", "--unknown", "-v"]
+
+    # earlier options do still apply
+    ns = parse_args(["-v", "-c", "print('hello')", "-v"])
+    assert ns.module is None
+    assert ns.script == "-"
+    assert ns.cmd == "print('hello')"
+    assert ns.verbose == 1
+    assert ns.args == ["-v"]
+
+
+def test_parse_choses_first_c_or_m():
+    ns = parse_args(["-c", "print('hello')", "-m", "foo"])
+    assert ns.cmd == "print('hello')"
+    assert ns.module is None
+    assert ns.args == ["-m", "foo"]
+
+    ns = parse_args(["-m", "foo", "-c", "print('hello')"])
+    assert ns.cmd is None
+    assert ns.module == "foo"
+    assert ns.args == ["-c", "print('hello')"]
 
 
 def test_parse_script():
     ns = parse_args(["script.py"])
     assert ns.module is None
     assert ns.script == "script.py"
+    assert ns.cmd is None
     assert ns.args == []
 
     # trailing options are forwarded, even if they overlap with known options
     ns = parse_args(["script.py", "-m", "more", "--unknown", "-v"])
     assert ns.module is None
     assert ns.script == "script.py"
+    assert ns.cmd is None
     assert ns.verbose == 0
     assert ns.args == ["-m", "more", "--unknown", "-v"]
 
@@ -70,6 +121,7 @@ def test_parse_script():
     ns = parse_args(["-v", "script.py", "-v"])
     assert ns.module is None
     assert ns.script == "script.py"
+    assert ns.cmd is None
     assert ns.verbose == 1
     assert ns.args == ["-v"]
 
@@ -126,12 +178,22 @@ def test_cli_run_module(tmpdir):
     assert "ok\n" in stdout
 
 
-def test_cli_run_stdin():
-    stdout = run(["-m", "cuml.accel"], stdin=SCRIPT)
+def test_cli_run_cmd():
+    stdout = run(["-m", "cuml.accel", "-c", SCRIPT])
     assert "ok\n" in stdout
 
 
-def test_cli_run_stdin_errors():
+@pytest.mark.parametrize("pass_hyphen", [False, True])
+def test_cli_run_stdin(pass_hyphen):
+    args = ["-m", "cuml.accel"]
+    if pass_hyphen:
+        args.append("-")
+    stdout = run(args, stdin=SCRIPT)
+    assert "ok\n" in stdout
+
+
+@pytest.mark.parametrize("mode", ["stdin", "cmd", "script"])
+def test_cli_run_errors(mode, tmpdir):
     script = dedent(
         """
         print("got" + " here")
@@ -139,10 +201,23 @@ def test_cli_run_stdin_errors():
         print("but" + " not here")
         """
     )
-    stdout = run(["-m", "cuml.accel"], stdin=script, expected_returncode=1)
+    if mode == "stdin":
+        args = ["-m", "cuml.accel"]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-m", "cuml.accel", "-c", script]
+        stdin = None
+    else:
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = ["-m", "cuml.accel", path]
+        stdin = None
+
+    stdout = run(args, stdin=stdin, expected_returncode=1)
     assert "got here" in stdout
     assert "but not here" not in stdout
-    assert "exec" not in stdout  # our exec not in traceback
+    if mode in ("stdin", "cmd"):
+        assert "exec" not in stdout  # our exec not in traceback
 
 
 def test_cli_run_interpreter():
