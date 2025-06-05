@@ -72,7 +72,7 @@ void build_linkage(const raft::handle_t& handle,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
-  value_idx n_edges = m - 1;
+  size_t n_edges = m - 1;
   cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params linkage_params;
   linkage_params.min_samples = params.min_samples + 1;
 
@@ -81,7 +81,7 @@ void build_linkage(const raft::handle_t& handle,
     raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
     linkage_params,
     metric,
-    raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, value_idx>(
+    raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
       out.get_mst_weights(),
       raft::make_device_coordinate_structure_view(
         out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
