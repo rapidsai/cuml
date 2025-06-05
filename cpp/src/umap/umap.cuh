@@ -131,7 +131,7 @@ inline void _fit(const raft::handle_t& handle,
                  float* knn_dists,
                  UMAPParams* params,
                  float* embeddings,
-                 raft::sparse::COO<float, int>* graph)
+                 raft::sparse::host_COO<float, int>* graph)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
     CUML_LOG_DEBUG("Calling UMAP::fit() with precomputed KNN");
@@ -178,7 +178,7 @@ inline void _fit_sparse(const raft::handle_t& handle,
                         float* knn_dists,
                         UMAPParams* params,
                         float* embeddings,
-                        raft::sparse::COO<float, int>* graph)
+                        raft::sparse::host_COO<float, int>* graph)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
     manifold_precomputed_knn_inputs_t<knn_indices_sparse_t, float> inputs(

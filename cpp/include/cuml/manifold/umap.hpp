@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
-         raft::sparse::COO<float, int>* graph);
+         raft::sparse::host_COO<float, int>* graph);
 
 /**
  * Sparse fit
@@ -159,7 +159,7 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
-                raft::sparse::COO<float, int>* graph);
+                raft::sparse::host_COO<float, int>* graph);
 
 /**
  * Dense transform

@@ -91,6 +91,112 @@ inline void find_ab(UMAPParams* params, cudaStream_t stream)
   Optimize::find_params_ab(params, stream);
 }
 
+template <typename value_t>
+inline value_t get_threshold(const raft::handle_t& handle,
+                             raft::sparse::COO<value_t>& in,
+                             int n_rows,
+                             int n_epochs)
+{
+  if (n_epochs <= 0) {
+    if (n_rows <= 10000)
+      n_epochs = 500;
+    else
+      n_epochs = 200;
+  }
+
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
+  value_t max_val = *(thrust::max_element(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz));
+
+  value_t threshold = max_val / static_cast<value_t>(n_epochs);
+  return threshold;
+}
+
+template <typename value_t>
+inline bool should_perform_thresholding(const raft::handle_t& handle,
+                                        raft::sparse::COO<value_t>& in,
+                                        value_t threshold)
+{
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
+  value_t min_val = *(thrust::min_element(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz));
+
+  return min_val < threshold;
+}
+
+template <typename value_t>
+inline void perform_thresholding(const raft::handle_t& handle,
+                                 raft::sparse::COO<value_t>& in,
+                                 value_t threshold)
+{
+  auto stream = raft::resource::get_cuda_stream(handle);
+
+  /**
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
+  raft::linalg::unaryOp<value_t>(
+    in.vals(),
+    in.vals(),
+    in.nnz,
+    [=] __device__(value_t input) {
+      if (input < threshold)
+        return 0.0f;
+      else
+        return input;
+    },
+    stream);
+}
+
+template <typename value_t, typename value_idx, typename nnz_t>
+void trim_graph(const raft::handle_t& handle,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& in,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& trimmed_graph,
+                value_t threshold)
+{
+  auto stream             = raft::resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+
+  trimmed_graph.allocate(in.nnz, in.n_rows, in.n_cols, false, stream);
+
+  auto begin_zip = thrust::make_zip_iterator(thrust::make_tuple(in.rows(), in.cols(), in.vals()));
+  auto end_zip   = thrust::make_zip_iterator(
+    thrust::make_tuple(in.rows() + in.nnz, in.cols() + in.nnz, in.vals() + in.nnz));
+  auto begin_out_zip = thrust::make_zip_iterator(
+    thrust::make_tuple(trimmed_graph.rows(), trimmed_graph.cols(), trimmed_graph.vals()));
+
+  auto predicate = [=] __device__(const auto& tuple) { return thrust::get<2>(tuple) >= threshold; };
+
+  auto end_out_zip =
+    thrust::copy_if(thrust_exec_policy, begin_zip, end_zip, begin_out_zip, predicate);
+
+  nnz_t new_nnz = static_cast<nnz_t>(thrust::distance(begin_out_zip, end_out_zip));
+
+  trimmed_graph.allocate(new_nnz, in.n_rows, in.n_cols, false, stream);  // effectively resizing
+}
+
+template <typename value_t>
+raft::sparse::COO<value_t>* thresholding(const raft::handle_t& handle,
+                                         raft::sparse::COO<value_t>& in,
+                                         raft::sparse::COO<value_t>& out,
+                                         int n_rows,
+                                         int n_epochs)
+{
+  value_t threshold       = get_threshold(handle, in, n_rows, n_epochs);
+  bool apply_thresholding = should_perform_thresholding(handle, in, threshold);
+
+  if (apply_thresholding) {
+    trim_graph(handle, in, out, threshold);
+    return &out;
+  }
+
+  return &in;
+}
+
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _get_strengths(const raft::handle_t& handle,
                     const umap_inputs& inputs,
@@ -151,6 +257,10 @@ void _get_graph(const raft::handle_t& handle,
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&fss_graph, stream);
+
+  // value_t threshold = get_threshold(handle, fss_graph, inputs.n, params->n_epochs);
+  // perform_thresholding(handle, fss_graph, threshold);
+
   raft::sparse::op::coo_remove_zeros<value_t>(&fss_graph, graph, stream);
 }
 
@@ -183,6 +293,10 @@ void _get_graph_supervised(const raft::handle_t& handle,
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&ci_graph, stream);
+
+  // value_t threshold = get_threshold(handle, ci_graph, inputs.n, params->n_epochs);
+  // perform_thresholding(handle, ci_graph, threshold);
+
   raft::sparse::op::coo_remove_zeros<value_t>(&ci_graph, graph, stream);
 }
 
@@ -195,6 +309,9 @@ void _refine(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
+
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -212,6 +329,9 @@ void _init_and_refine(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
+
   // Initialize embeddings
   InitEmbed::run<value_t, nnz_t>(
     handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
@@ -225,15 +345,24 @@ void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
           value_t* embeddings,
-          raft::sparse::COO<float, int>* graph)
+          raft::sparse::host_COO<float, int>* host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
+  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, graph);
+    handle, inputs, params, &full_graph);
+
+  host_graph->init(full_graph, stream);
+
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  raft::sparse::COO<value_t>* graph =
+    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+
+  if (graph == &trimmed_graph) { full_graph.release(); }
 
   /**
    * Run initialization method
@@ -263,15 +392,24 @@ void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
                      value_t* embeddings,
-                     raft::sparse::COO<float, int>* graph)
+                     raft::sparse::host_COO<float, int>* host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
 
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
+  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, graph);
+    handle, inputs, params, &full_graph);
+
+  host_graph->init(full_graph, stream);
+
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  raft::sparse::COO<value_t>* graph =
+    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+
+  if (graph == &trimmed_graph) { full_graph.release(); }
 
   /**
    * Initialize embeddings
@@ -432,12 +570,14 @@ void _transform(const raft::handle_t& handle,
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  /**
-   * Go through raft::sparse::COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
-   */
-  thrust::device_ptr<value_t> d_ptr = thrust::device_pointer_cast(graph_coo.vals());
-  value_t max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
+  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  raft::sparse::COO<value_t>* comp_coo =
+    thresholding(handle, graph_coo, trimmed_graph, inputs.n, params->n_epochs);
+
+  raft::common::nvtx::push_range("umap::optimization");
+  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
+
+  rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
 
   int n_epochs = params->n_epochs;
   if (n_epochs <= 0) {
@@ -449,35 +589,8 @@ void _transform(const raft::handle_t& handle,
     n_epochs /= 3;
   }
 
-  CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
-
-  raft::linalg::unaryOp<value_t>(
-    graph_coo.vals(),
-    graph_coo.vals(),
-    graph_coo.nnz,
-    [=] __device__(value_t input) {
-      if (input < (max / float(n_epochs)))
-        return 0.0f;
-      else
-        return input;
-    },
-    stream);
-
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  /**
-   * Remove zeros
-   */
-  raft::sparse::COO<value_t> comp_coo(stream);
-  raft::sparse::op::coo_remove_zeros<value_t>(&graph_coo, &comp_coo, stream);
-
-  raft::common::nvtx::push_range("umap::optimization");
-  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
-
-  rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
-
   SimplSetEmbedImpl::make_epochs_per_sample(
-    comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
+    comp_coo->vals(), comp_coo->nnz, n_epochs, epochs_per_sample.data(), stream);
 
   CUML_LOG_DEBUG("Performing optimization");
 
@@ -492,9 +605,9 @@ void _transform(const raft::handle_t& handle,
                                                             inputs.n,
                                                             embedding,
                                                             orig_x_inputs.n,
-                                                            comp_coo.rows(),
-                                                            comp_coo.cols(),
-                                                            comp_coo.nnz,
+                                                            comp_coo->rows(),
+                                                            comp_coo->cols(),
+                                                            comp_coo->nnz,
                                                             epochs_per_sample.data(),
                                                             params->repulsion_strength,
                                                             params,
