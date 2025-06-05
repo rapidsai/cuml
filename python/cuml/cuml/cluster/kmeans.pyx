@@ -787,7 +787,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, y=None, *, convert_dtype=False, sample_weight=None) -> CumlArray:
+    def fit_transform(self, X, y=None, sample_weight=None, *, convert_dtype=False) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 
