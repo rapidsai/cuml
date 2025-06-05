@@ -27,7 +27,6 @@ from cuml.internals.api_decorators import (
     enable_device_interop,
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.mixins import RegressorMixin
 
 from cuml.internals.logger cimport level_enum
@@ -421,8 +420,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
     @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, *, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
@@ -555,13 +553,11 @@ class RandomForestRegressor(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @enable_device_interop
-    @deprecate_non_keyword_only(
-      "convert_dtype", "predict_model", "layout", "default_chunk_size", "align_bytes"
-    )
     @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict(
         self,
         X,
+        *,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
@@ -636,14 +632,12 @@ class RandomForestRegressor(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
     @enable_device_interop
-    @deprecate_non_keyword_only(
-        "convert_dtype", "layout", "default_chunk_size", "align_bytes"
-    )
     @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def score(
         self,
         X,
         y,
+        *,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",

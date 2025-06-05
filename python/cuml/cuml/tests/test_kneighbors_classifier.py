@@ -293,6 +293,36 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
     assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
 
 
+@pytest.mark.parametrize("output_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("multioutput", [False, True])
+def test_classes(output_type, multioutput):
+    X = np.array([[0, 0, 1], [1, 0, 1], [0, 1, 0]], dtype="float32")
+    if multioutput:
+        y = np.array([[3, 4], [1, 2], [3, 5]], dtype="int32")
+    else:
+        y = np.array([3, 1, 3], dtype="int32")
+    knn_cu = cuKNN(output_type=output_type).fit(X, y)
+    knn_sk = skKNN().fit(X, y)
+
+    def check(cu, sk):
+        if output_type == "cupy":
+            assert isinstance(cu, cp.ndarray)
+            cu = cu.get()
+        else:
+            assert isinstance(cu, np.ndarray)
+        np.testing.assert_array_equal(cu, sk)
+
+    assert knn_cu.outputs_2d_ == knn_sk.outputs_2d_
+
+    if multioutput:
+        assert isinstance(knn_cu.classes_, list)
+        assert len(knn_cu.classes_) == 2
+        for cu, sk in zip(knn_cu.classes_, knn_sk.classes_):
+            check(cu, sk)
+    else:
+        check(knn_cu.classes_, knn_sk.classes_)
+
+
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):
@@ -346,7 +376,7 @@ def test_predict_proba_multioutput(input_type, output_type):
 
     p = knn_cu.predict_proba(X)
 
-    assert isinstance(p, tuple)
+    assert isinstance(p, list)
 
     for i in p:
         if output_type == "cudf":
