@@ -267,6 +267,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
+                 max_features=1.0,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
@@ -275,6 +276,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.RF_type = REGRESSION
         super().__init__(
             split_criterion=split_criterion,
+            max_features=max_features,
             accuracy_metric=accuracy_metric,
             handle=handle,
             verbose=verbose,
