@@ -3,6 +3,25 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
+# These tests fail with a new scipy version which raises a deprecation warning
+- reason: Test should fail with scikit-learn 1.4 and scipy>1.14
+  condition: "scikit-learn<1.5"
+  tests:
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool0-Y_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool1-Y_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool0-Y_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool1-Y_bool1-sokalmichener]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-canberra]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-haversine]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-minkowski]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-seuclidean]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-braycurtis]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-DM_euclidean]"
+  - "sklearn.metrics.tests.test_pairwise::test_pairwise_boolean_distance[sokalmichener]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
   marker: cuml_accel_bugs
   condition: "scikit-learn<1.6"
@@ -90,6 +109,33 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
+- reason: Test should fail with sciki-learn 1.4
+  condition: scikit-learn < 1.5
+  tests:
+  # RandomForestRegressor fails `check_is_fitted` despite `rf.fit()` being called
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-1.0-2]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-0.5-2]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-1.0-1]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-0.5-1]"
+  # Missing deprecation warning
+  - "sklearn.cluster.tests.test_k_means::test_predict_sample_weight_deprecation_warning[KMeans]"
+  # Invalid parameter value for n_components
+  - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[data0-0.5-full]"
+  # assertion error raised
+  - "sklearn.decomposition.tests.test_incremental_pca::test_whitening"
+  # wrong dtype
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[full]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[arpack]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[randomized]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[auto]"
+  # Index error
+  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csc_array]"
+  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csr_array]"
+  # missing parameter min_samples
+  - "sklearn.linear_model.tests.test_ransac::test_ransac_final_model_fit_sample_weight"
+  # Sparse matrix confusion?
+  - "sklearn.linear_model.tests.test_sag::test_multiclass_classifier_class_weight[csr_matrix]"
+  - "sklearn.linear_model.tests.test_sag::test_multiclass_classifier_class_weight[csr_array]"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   tests:
@@ -349,6 +395,10 @@
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-randomized]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
   - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestRegressor]"
@@ -704,6 +754,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_max_iter_used"
+  - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
   - "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
@@ -1213,6 +1264,7 @@
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
+  - "sklearn.manifold/tests/test_t_sne::test_fit_transform_csr_matrix[csr_matrix-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
@@ -1417,6 +1469,7 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_shape]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
