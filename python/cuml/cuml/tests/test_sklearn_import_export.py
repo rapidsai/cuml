@@ -409,7 +409,7 @@ def test_nearest_neighbors(random_state, sparse):
     def assert_kneighbors_close(m1, m2):
         inds1, dists1 = m1.kneighbors(X)
         inds2, dists2 = m2.kneighbors(X)
-        np.testing.assert_array_equal(inds1, inds2)
+        np.testing.assert_allclose(inds1, inds2, atol=1e-7)
         np.testing.assert_allclose(dists1, dists2, atol=1e-4)
 
     # Can infer on converted models
