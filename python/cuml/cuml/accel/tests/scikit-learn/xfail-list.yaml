@@ -83,6 +83,25 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-lsqr-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-ridgecv-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-ridgecv-csr_array]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-ridgecv-csr_matrix]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sag-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-saga-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sparse_cg-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sparse_cg-csr_array]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sparse_cg-csr_matrix]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-cholesky-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-lsqr-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-ridgecv-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-ridgecv-csr_array]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-ridgecv-csr_matrix]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-sag-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-saga-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-sparse_cg-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-sparse_cg-csr_array]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float64-0.2-sparse_cg-csr_matrix]"
   - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
