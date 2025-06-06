@@ -32,7 +32,7 @@ from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
@@ -416,8 +416,7 @@ class NearestNeighbors(Base,
         self.knn_index = None
 
     @generate_docstring(X='dense_sparse')
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y=None, convert_dtype=True) -> "NearestNeighbors":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -556,12 +555,12 @@ class NearestNeighbors(Base,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @deprecate_non_keyword_only("convert_dtype", "two_pass_precision")
     def kneighbors(
         self,
         X=None,
         n_neighbors=None,
         return_distance=True,
+        *,
         convert_dtype=True,
         two_pass_precision=False
     ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:

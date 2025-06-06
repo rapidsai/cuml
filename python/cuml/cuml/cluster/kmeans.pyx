@@ -24,7 +24,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -373,8 +373,7 @@ class KMeans(Base,
                 )
 
     @generate_docstring()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
+    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
 
@@ -662,9 +661,15 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @deprecate_non_keyword_only("convert_dtype", "normalize_weights")
-    def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
-                normalize_weights=True) -> CumlArray:
+    def predict(
+        self,
+        X,
+        y=None,
+        sample_weight=None,
+        *,
+        convert_dtype=True,
+        normalize_weights=True,
+    ) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -681,8 +686,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
+    def transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
@@ -769,8 +773,7 @@ class KMeans(Base,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def score(self, X, y=None, sample_weight=None, convert_dtype=True):
+    def score(self, X, y=None, sample_weight=None, *, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
 
@@ -784,9 +787,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit_transform(self, X, y=None, convert_dtype=False,
-                      sample_weight=None) -> CumlArray:
+    def fit_transform(self, X, y=None, sample_weight=None, *, convert_dtype=False) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 
