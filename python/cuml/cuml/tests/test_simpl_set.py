@@ -43,6 +43,9 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     return correctness >= threshold
 
 
+@pytest.mark.xfail(
+    reason="Numba compilation error with Python 3.13.4 in pynndescent (see #6867)"
+)
 @pytest.mark.parametrize("n_rows", [800, 5000])
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
