@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -256,9 +256,9 @@ TEST_P(CdTestF, Fit)
   rmm::device_uvector<float> vars_1(params.n_col, stream);
   rmm::device_uvector<float> vars_2(params.n_col, stream);
 
-  raft::stats::mean(means_1.data(), data.data(), params.n_col, params.n_row, false, false, stream);
-  raft::stats::vars(
-    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::mean<false>(means_1.data(), data.data(), params.n_col, params.n_row, false, stream);
+  raft::stats::vars<false>(
+    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, stream);
   raft::stats::meanvar(
     means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
 
@@ -291,9 +291,9 @@ TEST_P(CdTestD, Fit)
   rmm::device_uvector<double> vars_1(params.n_col, stream);
   rmm::device_uvector<double> vars_2(params.n_col, stream);
 
-  raft::stats::mean(means_1.data(), data.data(), params.n_col, params.n_row, false, false, stream);
-  raft::stats::vars(
-    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::mean<false>(means_1.data(), data.data(), params.n_col, params.n_row, false, stream);
+  raft::stats::vars<false>(
+    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, stream);
   raft::stats::meanvar(
     means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
 

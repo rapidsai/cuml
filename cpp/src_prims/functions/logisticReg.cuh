@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ void logisticRegLossGrads(const raft::handle_t& handle,
   raft::matrix::matrixVectorBinaryMult(
     input, labels_pred.data(), n_rows, n_cols, false, false, stream);
 
-  raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
+  raft::stats::mean<false>(grads, input, n_cols, n_rows, false, stream);
 
   rmm::device_uvector<math_t> pen_grads(0, stream);
 
@@ -136,7 +136,7 @@ void logisticRegLoss(const raft::handle_t& handle,
   logisticRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0), stream);
   logLoss(labels_pred.data(), labels, labels_pred.data(), n_rows, stream);
 
-  raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
+  raft::stats::mean<false>(loss, labels_pred.data(), 1, n_rows, false, stream);
 
   rmm::device_uvector<math_t> pen_val(0, stream);
 

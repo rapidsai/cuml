@@ -194,13 +194,12 @@ void fit_impl(raft::handle_t& handle,
     // Compute the scalar noise_vars defined as (pseudocode)
     // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
     if (prms.n_components < prms.n_cols && prms.n_components < prms.n_rows) {
-      raft::stats::mean(noise_vars,
-                        explained_var_all.data() + prms.n_components,
-                        std::size_t{1},
-                        prms.n_cols - prms.n_components,
-                        false,
-                        true,
-                        stream);
+      raft::stats::mean<true>(noise_vars,
+                              explained_var_all.data() + prms.n_components,
+                              std::size_t{1},
+                              prms.n_cols - prms.n_components,
+                              false,
+                              stream);
     } else {
       raft::matrix::setValue(noise_vars, noise_vars, T{0}, 1, stream);
     }

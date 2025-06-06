@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -270,25 +270,19 @@ void tsvdFitTransform(const raft::handle_t& handle,
   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 
   rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
-  raft::stats::mean(
-    mu_trans.data(), trans_input, prms.n_components, prms.n_rows, false, false, stream);
-  raft::stats::vars(explained_var,
-                    trans_input,
-                    mu_trans.data(),
-                    prms.n_components,
-                    prms.n_rows,
-                    false,
-                    false,
-                    stream);
+  raft::stats::mean<false>(
+    mu_trans.data(), trans_input, prms.n_components, prms.n_rows, false, stream);
+  raft::stats::vars<false>(
+    explained_var, trans_input, mu_trans.data(), prms.n_components, prms.n_rows, false, stream);
 
   rmm::device_uvector<math_t> mu(prms.n_cols, stream);
   rmm::device_uvector<math_t> vars(prms.n_cols, stream);
 
-  raft::stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, false, false, stream);
-  raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, false, stream);
+  raft::stats::mean<false>(mu.data(), input, prms.n_cols, prms.n_rows, false, stream);
+  raft::stats::vars<false>(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, stream);
 
   rmm::device_scalar<math_t> total_vars(stream);
-  raft::stats::sum(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, false, stream);
+  raft::stats::sum<false>(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
