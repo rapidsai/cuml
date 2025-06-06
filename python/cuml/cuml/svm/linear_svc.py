@@ -13,9 +13,12 @@
 # limitations under the License.
 #
 
+import numpy as np
+
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -143,6 +146,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html>`_.
     """
 
+    _cpu_class_path = "sklearn.svm.LinearSVC"
     REGISTERED_LOSSES = set(["hinge", "squared_hinge"])
 
     def __init__(self, **kwargs):
@@ -161,6 +165,67 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
         super().__init__(**kwargs)
 
+    @classmethod
+    def _params_from_cpu(cls, model):
+        params = {"loss": model.loss, **super()._params_from_cpu(model)}
+        if hasattr(model, "multi_class"):
+            params["multi_class"] = model.multi_class
+        else:
+            params["multi_class"] = "ovr"
+
+        if hasattr(model, "class_weight"):
+            params["class_weight"] = model.class_weight
+
+        if hasattr(model, "dual") and model.dual is True:
+            raise UnsupportedOnGPU(
+                "sklearn LinearSVC has 'dual' (default True) but cuML LinearSVC is primal"
+            )
+
+        params.pop("dual", None)
+        params.pop("intercept_scaling", None)
+
+        return params
+
+    def _params_to_cpu(self):
+        params = {
+            "loss": self.loss,
+            "multi_class": self.multi_class,
+            "class_weight": self.class_weight,
+            **super()._params_to_cpu(),
+        }
+
+        params.pop("penalized_intercept", None)
+        params.pop("probability", None)
+        params.pop("linesearch_max_iter", None)
+        params.pop("lbfgs_memory", None)
+        params.pop("grad_tol", None)
+        params.pop("change_tol", None)
+
+        params.setdefault("dual", "auto")
+        params.setdefault("intercept_scaling", 1.0)
+
+        return params
+
+    def _attrs_from_cpu(self, model):
+        attrs = super()._attrs_from_cpu(model)
+        if hasattr(model, "classes_"):
+            current_dtype = self.dtype
+            if current_dtype is None:
+                if hasattr(model, "coef_") and hasattr(model.coef_, "dtype"):
+                    current_dtype = model.coef_.dtype
+                else:
+                    current_dtype = np.float32
+            attrs["classes_"] = to_gpu(
+                model.classes_.astype(current_dtype), order="F"
+            )
+        return attrs
+
+    def _attrs_to_cpu(self, model):
+        attrs = super()._attrs_to_cpu(model)
+        if self.classes_ is not None:
+            attrs["classes_"] = to_cpu(self.classes_).astype(np.int64)
+        return attrs
+
     @property
     def loss(self):
         return self.__loss
@@ -174,6 +239,27 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 f"but given '{loss}'."
             )
         self.__loss = loss
+
+    @deprecate_non_keyword_only("convert_dtype")
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
+        X = input_to_cuml_array(X, order="F").array
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y,
+            self.verbose,
+            self.output_type,
+            X.dtype,
+        )
+        return super(LinearSVC, self).fit(
+            X, y, sample_weight, convert_dtype=convert_dtype
+        )
+
+    @deprecate_non_keyword_only("convert_dtype")
+    def predict(self, X, convert_dtype=True) -> CumlArray:
+        y_pred = super().predict(X, convert_dtype=convert_dtype)
+        return y_pred.to_output("cupy", output_dtype="int64")
 
     @classmethod
     def _get_param_names(cls):
@@ -196,25 +282,3 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 "multi_class",
             }.union(super()._get_param_names())
         )
-
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
-        X = input_to_cuml_array(X, order="F").array
-        sample_weight = apply_class_weight(
-            self.handle,
-            sample_weight,
-            self.class_weight,
-            y,
-            self.verbose,
-            self.output_type,
-            X.dtype,
-        )
-        return super(LinearSVC, self).fit(
-            X, y, sample_weight, convert_dtype=convert_dtype
-        )
-
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        y_pred = super().predict(X, convert_dtype=convert_dtype)
-        # Cast to int64 to match expected classifier interface
-        return y_pred.to_output("cupy", output_dtype="int64")

@@ -22,6 +22,7 @@ import typing
 import numpy as np
 
 import cuml
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
@@ -589,7 +590,7 @@ class WithReexportedParams(BaseMetaClass):
         return super().__new__(cls, name, bases, attrs)
 
 
-class LinearSVM(Base, metaclass=WithReexportedParams):
+class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
 
     _model_: typing.Optional[LinearSVMWrapper]
 
@@ -643,6 +644,75 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         self.intercept_ = None
         self.classes_ = None
         self.probScale_ = None
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "penalty",
+            "loss",
+            "fit_intercept",
+            "penalized_intercept",
+            "probability",
+            "max_iter",
+            "linesearch_max_iter",
+            "lbfgs_memory",
+            "C",
+            "grad_tol",
+            "change_tol",
+            "epsilon",
+            "tol"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        params = {
+            "C": model.C,
+            "fit_intercept": model.fit_intercept,
+            "max_iter": model.max_iter,
+            "tol": model.tol,
+            "verbose": model.verbose
+        }
+
+        if hasattr(model, "penalty"):
+            params["penalty"] = model.penalty
+
+        return params
+
+    def _params_to_cpu(self):
+        return {
+            "penalty": self.penalty,
+            "C": self.C,
+            "fit_intercept": self.fit_intercept,
+            "max_iter": self.max_iter,
+            "tol": self.grad_tol,  # Map grad_tol back to tol
+            "verbose": self.verbose
+        }
+
+    def _attrs_from_cpu(self, model):
+        attrs = {
+            "coef_": to_gpu(model.coef_, order="F"),
+            **super()._attrs_from_cpu(model)
+        }
+
+        if hasattr(model, 'intercept_') and model.intercept_ is not None:
+            attrs["intercept_"] = to_gpu(model.intercept_, order="F")
+
+        return attrs
+
+    def _attrs_to_cpu(self, model):
+        attrs = {
+            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
+            **super()._attrs_to_cpu(model)
+        }
+
+        if hasattr(self, 'intercept_') and self.intercept_ is not None:
+            attrs["intercept_"] = to_cpu(self.intercept_, order="C", dtype=np.float64)
+
+        return attrs
+
+    def _sync_attrs_from_cpu(self, model):
+        super()._sync_attrs_from_cpu(model)
+        self.__sync_model()
 
     @property
     def n_classes_(self) -> int:

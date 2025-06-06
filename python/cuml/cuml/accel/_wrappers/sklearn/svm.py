@@ -25,6 +25,8 @@ from cuml.internals.interop import UnsupportedOnGPU
 __all__ = (
     "SVC",
     "SVR",
+    "LinearSVC",
+    "LinearSVR",
 )
 
 
@@ -70,3 +72,19 @@ class SVR(ProxyBase):
     # cuml.SVC supports sparse X for some but not all operations,
     # easier to just fallback for now
     _gpu_supports_sparse = False
+
+
+class LinearSVC(ProxyBase):
+    _gpu_class = cuml.svm.LinearSVC
+    _gpu_supports_sparse = False
+
+    def _gpu_decision_function(self, X):
+        return self._gpu.decision_function(X).astype("float64", copy=False)
+
+
+class LinearSVR(ProxyBase):
+    _gpu_class = cuml.svm.LinearSVR
+    _gpu_supports_sparse = False
+
+    def _gpu_predict(self, X):
+        return self._gpu.decision_function(X).astype("float64", copy=False)

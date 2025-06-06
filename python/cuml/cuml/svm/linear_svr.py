@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
@@ -124,6 +125,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVR.html>`_.
     """
 
+    _cpu_class_path = "sklearn.svm.LinearSVR"
     REGISTERED_LOSSES = set(
         ["epsilon_insensitive", "squared_epsilon_insensitive"]
     )
@@ -137,6 +139,46 @@ class LinearSVR(LinearSVM, RegressorMixin):
             kwargs["loss"] = "epsilon_insensitive"
 
         super().__init__(**kwargs)
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+
+        params = {
+            "loss": model.loss,
+            "epsilon": model.epsilon,
+            **super()._params_from_cpu(model),
+        }
+
+        if hasattr(model, "dual") and model.dual is True:
+            raise UnsupportedOnGPU(
+                "sklearn LinearSVR has 'dual' (default True) but cuML LinearSVR is primal"
+            )
+
+        params.pop("dual", None)
+        params.pop("intercept_scaling", None)
+        return params
+
+    def _params_to_cpu(self):
+        params = {
+            "loss": self.loss,
+            "epsilon": self.epsilon,
+            **super()._params_to_cpu(),
+        }
+        params.pop("penalized_intercept", None)
+        params.pop("probability", None)
+        params.pop("linesearch_max_iter", None)
+        params.pop("lbfgs_memory", None)
+        params.pop("grad_tol", None)
+        params.pop("change_tol", None)
+        params.setdefault("dual", True)
+        params.setdefault("intercept_scaling", 1.0)
+        return params
+
+    def _attrs_from_cpu(self, model):
+        return super()._attrs_from_cpu(model)
+
+    def _attrs_to_cpu(self, model):
+        return super()._attrs_to_cpu(model)
 
     @property
     def loss(self):
