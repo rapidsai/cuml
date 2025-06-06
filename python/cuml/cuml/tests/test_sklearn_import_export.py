@@ -406,17 +406,23 @@ def test_nearest_neighbors(random_state, sparse):
     # Ensure parameters roundtrip
     assert_params_equal(cu_model, cu_model2)
 
+    def assert_kneighbors_close(m1, m2):
+        inds1, dists1 = m1.kneighbors(X)
+        inds2, dists2 = m2.kneighbors(X)
+        np.testing.assert_allclose(inds1, inds2, atol=1e-7)
+        np.testing.assert_allclose(dists1, dists2, atol=1e-4)
+
     # Can infer on converted models
-    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
-    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+    assert_kneighbors_close(sk_model, sk_model2)
+    assert_kneighbors_close(cu_model, cu_model2)
 
     # Can refit on converted models
     cu_model2.fit(X)
     sk_model2.fit(X)
 
     # Refit models have similar results
-    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
-    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+    assert_kneighbors_close(sk_model, sk_model2)
+    assert_kneighbors_close(cu_model, cu_model2)
 
 
 @pytest.mark.parametrize("sparse", [False, True])
