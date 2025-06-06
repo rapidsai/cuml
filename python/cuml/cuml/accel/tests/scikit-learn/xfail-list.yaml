@@ -82,6 +82,7 @@
   condition: scikit-learn == 1.7.*
   marker: cuml_accel_bugs
   tests:
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
   - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
