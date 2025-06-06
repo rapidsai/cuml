@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,21 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.naive_bayes import MultinomialNB as MNB
-from cuml.common import rmm_cupy_ary
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.func import tree_reduce
-from cuml.dask.common.func import reduce
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import BaseEstimator
-from cuml.common import with_cupy_rmm
+import cupy as cp
+import dask
 import dask.array
 from toolz import first
-import dask
-from cuml.internals.safe_imports import gpu_only_import
 
-cp = gpu_only_import("cupy")
+from cuml.common import rmm_cupy_ary, with_cupy_rmm
+from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
+from cuml.dask.common.func import reduce, tree_reduce
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.naive_bayes import MultinomialNB as MNB
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
@@ -75,7 +71,7 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
 
         >>> # Compute accuracy on training set
-        >>> model.score(X, y)
+        >>> model.score(X, y)  # doctest: +SKIP
         array(0.924...)
         >>> client.close()
         >>> cluster.close()

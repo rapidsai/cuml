@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-import warnings
+import cupy as cp
+import numpy as np
 
 import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 def _normalize_regression_metric_args(
@@ -85,7 +82,6 @@ def r2_score(
     sample_weight=None,
     multioutput="uniform_average",
     force_finite=True,
-    **kwargs,
 ):
     """:math:`R^2` (coefficient of determination) regression score function.
 
@@ -123,13 +119,6 @@ def r2_score(
         The :math:`R^2` score or ndarray of scores if 'multioutput' is
         'raw_values'.
     """
-    if kwargs:
-        warnings.warn(
-            "`convert_dtype` and `handle` were deprecated from `r2_score` in version "
-            "25.02.01 and will be removed in 25.06.",
-            FutureWarning,
-        )
-
     (
         y_true,
         y_pred,

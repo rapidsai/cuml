@@ -15,21 +15,18 @@
 
 import inspect
 
-import cuml
-import pytest
 import numpydoc.docscrape
-
+import pytest
 from pylibraft.common.cuda import Stream
 
-from cuml.testing.utils import (
-    get_classes_from_package,
-    small_classification_dataset,
-)
+import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
+from cuml.testing.datasets import small_classification_dataset
+from cuml.testing.utils import get_all_base_subclasses
 
-all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
+all_base_children = get_all_base_subclasses()
 
 
 def test_base_class_usage():

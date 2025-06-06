@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,28 +16,27 @@
 # distutils: language = c++
 
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
 
-from cuml.internals.safe_imports import gpu_only_import
-rmm = gpu_only_import('rmm')
-
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 
 import cuml.internals
 
 from pylibraft.common.handle cimport handle_t
 
 from cuml.common.opg_data_utils_mg cimport *
+
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
+from cuml.internals.array import CumlArray
+
 from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *
 
 
-cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
     cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,
@@ -105,7 +104,10 @@ class PCAMG(BaseDecompositionMG, PCA):
             self.explained_variance_ratio_.ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
-        cdef uintptr_t noise_vars_ptr = self.noise_variance_.ptr
+
+        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
+        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
@@ -138,3 +140,6 @@ class PCAMG(BaseDecompositionMG, PCA):
                 False)
 
         self.handle.sync()
+
+        # Store noise_variance_ as a float
+        self.noise_variance_ = float(noise_variance.to_output("numpy"))

@@ -14,16 +14,15 @@
 # limitations under the License.
 #
 
-from cuml.common import has_scipy
-import cuml.internals.logger as logger
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
+import numpy as np
+import scipy
+from packaging.version import Version
+from scipy.optimize import _lbfgsb
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-np = cpu_only_import("numpy")
+import cuml.internals.logger as logger
+import cuml.internals.nvtx as nvtx
+
+_SCIPY_ATLEAST_115 = Version(scipy.__version__) >= Version("1.15")
 
 
 def _fd_fprime(x, f, h):
@@ -41,7 +40,7 @@ def _fd_fprime(x, f, h):
     return g
 
 
-@nvtx_annotate(message="LBFGS", domain="cuml_python")
+@nvtx.annotate(message="LBFGS", domain="cuml_python")
 def batched_fmin_lbfgs_b(
     func,
     x0,
@@ -99,13 +98,6 @@ def batched_fmin_lbfgs_b(
 
     """
 
-    if has_scipy():
-        from scipy.optimize import _lbfgsb
-
-        scipy_greater_115 = has_scipy(min_version="1.15")
-    else:
-        raise RuntimeError("Scipy is needed to run batched_fmin_lbfgs_b")
-
     n = len(x0) // num_batches
 
     if fprime is None:
@@ -147,7 +139,7 @@ def batched_fmin_lbfgs_b(
     iwa = [np.copy(np.zeros(3 * n, np.int32)) for ib in range(num_batches)]
 
     # we need different inputs after Scipy 1.15 using a C-based lbfgs
-    if scipy_greater_115:
+    if _SCIPY_ATLEAST_115:
         task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
         ln_task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
     else:
@@ -157,7 +149,7 @@ def batched_fmin_lbfgs_b(
     lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
     isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
     dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
-    if not scipy_greater_115:
+    if not _SCIPY_ATLEAST_115:
         for ib in range(num_batches):
             task[ib][:] = "START"
 
@@ -168,11 +160,11 @@ def batched_fmin_lbfgs_b(
     warn_flag = np.zeros(num_batches)
 
     while not all(converged):
-        with nvtx_annotate("LBFGS-ITERATION", domain="cuml_python"):
+        with nvtx.annotate("LBFGS-ITERATION", domain="cuml_python"):
             for ib in range(num_batches):
                 if converged[ib]:
                     continue
-                if scipy_greater_115:
+                if _SCIPY_ATLEAST_115:
                     _lbfgsb.setulb(
                         m,
                         x[ib],
@@ -233,7 +225,7 @@ def batched_fmin_lbfgs_b(
                 #     7 : "ERROR",
                 #     8 : "ABNORMAL"
                 # }
-                if scipy_greater_115:
+                if _SCIPY_ATLEAST_115:
                     cond1 = task[0] == 3
                     cond2 = task[0] == 1
                     cond3 = task[0] == 4
@@ -251,7 +243,7 @@ def batched_fmin_lbfgs_b(
                 elif cond2:
                     n_iterations[ib] += 1
                     if n_iterations[ib] >= maxiter:
-                        if scipy_greater_115:
+                        if _SCIPY_ATLEAST_115:
                             task[ib][0] = 5
                             task[ib][1] = 504
                         else:

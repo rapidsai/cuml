@@ -19,7 +19,7 @@
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_api.h>
 
-#include <raft/distance/distance_types.hpp>
+#include <cuvs/distance/distance.hpp>
 
 #include <tuple>
 
@@ -56,8 +56,8 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   param.tol            = tol;
   param.verbosity      = static_cast<rapids_logger::level_enum>(verbosity);
 
-  raft::distance::kernels::KernelParams kernel_param;
-  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
+  cuvs::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (cuvs::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -130,8 +130,8 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   param.tol            = tol;
   param.verbosity      = static_cast<rapids_logger::level_enum>(verbosity);
 
-  raft::distance::kernels::KernelParams kernel_param;
-  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
+  cuvs::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (cuvs::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -191,8 +191,8 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
                              float buffer_size,
                              int predict_class)
 {
-  raft::distance::kernels::KernelParams kernel_param;
-  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
+  cuvs::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (cuvs::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -246,8 +246,8 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
                              double buffer_size,
                              int predict_class)
 {
-  raft::distance::kernels::KernelParams kernel_param;
-  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
+  cuvs::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (cuvs::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;

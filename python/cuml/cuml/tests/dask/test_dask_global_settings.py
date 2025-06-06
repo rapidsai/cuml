@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import cuml
 from cuml import set_global_output_type, using_output_type
 from cuml.internals.api_context_managers import _using_mirror_output_type
 from cuml.internals.global_settings import (
+    GlobalSettings,
     _global_settings_data,
     _GlobalSettingsData,
-    GlobalSettings,
 )
 
 test_output_types_str = ("numpy", "numba", "cupy", "cudf")

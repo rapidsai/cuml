@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,18 @@
 # limitations under the License.
 #
 
-from cuml.decomposition import PCA
-from cuml.internals.array import CumlArray
-import cuml.internals
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common import input_to_cuml_array
-from cuml import Base
-from cuml.internals.safe_imports import cpu_only_import
 import numbers
 
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
+import cupyx
+import scipy.sparse
 
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-scipy = cpu_only_import("scipy")
+import cuml.internals
+from cuml.common import input_to_cuml_array
+from cuml.decomposition.pca import PCA
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.input_utils import input_to_cupy_array
 
 
 class IncrementalPCA(PCA):
@@ -218,6 +216,7 @@ class IncrementalPCA(PCA):
         self.batch_size = batch_size
         self._sparse_model = True
 
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -274,6 +273,7 @@ class IncrementalPCA(PCA):
         return self
 
     @cuml.internals.api_base_return_any_skipall
+    @deprecate_non_keyword_only("check_input")
     def partial_fit(self, X, y=None, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
@@ -403,6 +403,7 @@ class IncrementalPCA(PCA):
 
         return self
 
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,15 @@
 # limitations under the License.
 #
 
-from numba.cuda import is_cuda_array, as_cuda_array
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba.cuda import as_cuda_array, is_cuda_array
 
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
+import cuml
 
 ###############################################################################
 #                                    Parameters                               #

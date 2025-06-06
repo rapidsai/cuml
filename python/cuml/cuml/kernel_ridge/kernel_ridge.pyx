@@ -16,28 +16,25 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
 import warnings
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-from cupyx import lapack, geterr, seterr
-from cuml.internals.array import CumlArray
+
+import cupy as cp
+import numpy as np
+from cupy import linalg
+from cupyx import geterr, lapack, seterr
+
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import (
+    api_base_return_array,
     device_interop_preparation,
     enable_device_interop,
-    api_base_return_array,
 )
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
 from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
-
 from cuml.metrics import pairwise_kernels
-
-cp = gpu_only_import('cupy')
-linalg = gpu_only_import_from('cupy', 'linalg')
-np = cpu_only_import('numpy')
 
 
 # cholesky solve with fallback to least squares for singular problems
@@ -259,6 +256,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
 
     @generate_docstring()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "KernelRidge":
 

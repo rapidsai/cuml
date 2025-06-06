@@ -15,33 +15,38 @@
 
 # distutils: language = c++
 
-import re
 import inspect
+import re
 import typing
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+import numpy as np
+
 import cuml
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 from collections import OrderedDict
+
 from cython.operator cimport dereference as deref
-from cuml.internals.base_helpers import BaseMetaClass
+
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base_helpers import BaseMetaClass
+
 from cuml.internals.logger cimport level_enum
+
 from cuml.internals import logger
+
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.interruptible import cuda_interruptible
+
 from cuml.common import input_to_cuml_array
+
+from cuda.bindings.cyruntime cimport cudaMemcpyAsync, cudaMemcpyKind
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
-from cuda.bindings.cyruntime cimport(
-    cudaMemcpyAsync,
-    cudaMemcpyKind,
-)
-
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
 
@@ -497,6 +502,7 @@ cdef class LinearSVMWrapper:
 
         return y
 
+    @deprecate_non_keyword_only("log")
     def predict_proba(self, X, log=False) -> CumlArray:
         y = CumlArray.empty(
             shape=(X.shape[0], self.classes_.shape[0]),
@@ -644,6 +650,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             return self.classes_.shape[0]
         return self.model_.classes_.shape[0]
 
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> 'LinearSVM':
 
         X_m, n_rows, _n_cols, self.dtype = input_to_cuml_array(X, order='F')
@@ -696,6 +703,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             if self.probScale_ is not self.model_.probScale_:
                 self.model_.probScale_ = self.probScale_
 
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
         X_m, _, _, _ = input_to_cuml_array(
@@ -704,6 +712,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         self.__sync_model()
         return self.model_.predict(X_m)
 
+    @deprecate_non_keyword_only("convert_dtype")
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
         X_m, _, _, _ = input_to_cuml_array(
@@ -712,6 +721,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         self.__sync_model()
         return self.model_.decision_function(X_m)
 
+    @deprecate_non_keyword_only("log", "convert_dtype")
     def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
         X_m, _, _, _ = input_to_cuml_array(

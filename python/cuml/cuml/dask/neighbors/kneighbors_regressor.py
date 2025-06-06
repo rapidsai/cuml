@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common import parts_to_ranks
-from cuml.dask.common import flatten_grouped_results
-from cuml.dask.common.utils import raise_mg_import_exception
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft_dask.common.comms import get_raft_comm_state
-from cuml.dask.neighbors import NearestNeighbors
-from dask.distributed import get_worker
-import dask.array as da
 from uuid import uuid1
+
+import dask.array as da
+from dask.distributed import get_worker
+from raft_dask.common.comms import get_raft_comm_state
+
+from cuml.dask.common import flatten_grouped_results, parts_to_ranks
+from cuml.dask.common.input_utils import DistributedDataHandler, to_output
+from cuml.dask.common.utils import (
+    raise_mg_import_exception,
+    wait_and_raise_from_futures,
+)
+from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
 
 
 class KNeighborsRegressor(NearestNeighbors):
@@ -256,9 +258,11 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        y_pred = self.predict(X, convert_dtype=True)
-        if not isinstance(y_pred, da.Array):
-            y_pred = y_pred.to_dask_array(lengths=True)
+        y_pred_plain = self.predict(X, convert_dtype=True)
+        if not isinstance(y_pred_plain, da.Array):
+            y_pred = y_pred_plain.to_dask_array(lengths=True)
+        else:
+            y_pred = y_pred_plain
         if not isinstance(y, da.Array):
             y = y.to_dask_array(lengths=True)
         y_true = y.squeeze()

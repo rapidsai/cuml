@@ -12,356 +12,383 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+from __future__ import annotations
 
-import inspect
-import sys
-import types
-from typing import Optional, Tuple, Dict, Any, Type, List
+import functools
+from typing import Any
 
-from cuml.internals import logger
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import gpu_only_import, cpu_only_import
+import sklearn
+from sklearn.base import BaseEstimator
+
+from cuml.internals.interop import UnsupportedOnGPU
 
 
-class ProxyModule:
+class _ReconstructProxy:
+    """A function for reconstructing serialized estimators.
+
+    Defined this way so that it pickles by value, allowing unpickling in
+    environments where cuml isn't installed."""
+
+    @functools.cached_property
+    def _reconstruct(self):
+        # The reconstruct function is defined in a closure so that cloudpickle
+        # will always serialize it by value rather than by reference. This allows
+        # the saved model to be loaded in an environment without cuml installed,
+        # where it will load as the CPU model directly.
+        def reconstruct(cls_path, cpu_model):
+            """Reconstruct a serialized estimator.
+
+            Returns a proxy estimator if `cuml.accel` is installed, falling back
+            to a CPU model otherwise.
+            """
+            import importlib
+
+            path, _, name = cls_path.rpartition(".")
+            module = importlib.import_module(path)
+            try:
+                # `cuml` is in the exclude list, so this _reconstruct method is as well.
+                # To work around this, we directly access the accelerator override mapping
+                # (if available), falling back to CPU if not.
+                cls = module._accel_overrides[name]
+            except (KeyError, AttributeError):
+                # Either:
+                # - cuml.accel is not installed
+                # - The cuml version doesn't support this estimator type
+                # Return the CPU estimator directly
+                return cpu_model
+            # `cuml.accel` is installed, reconstruct a proxy estimator
+            return cls._reconstruct_from_cpu(cpu_model)
+
+        return reconstruct
+
+    def __reduce__(self):
+        import pickle
+
+        # Use cloudpickle bundled with joblib. Since joblib is a required dependency
+        # of sklearn (and sklearn is a required dep of cuml & all accelerated modules),
+        # this should always be installed.
+        import joblib.externals.cloudpickle as cloudpickle
+
+        return (pickle.loads, (cloudpickle.dumps(self._reconstruct),))
+
+    def __call__(self, cls_path, cpu):
+        return self._reconstruct(cls_path, cpu)
+
+
+_reconstruct_proxy = _ReconstructProxy()
+
+
+class ProxyBase(BaseEstimator):
+    """A base class for defining new Proxy estimators.
+
+    Subclasses should define ``_gpu_class``, which must be a subclass of
+    ``InteropMixin``.
+
+    Attributes and hyperparameters are always proxied through the CPU estimator.
+
+    Methods _may_ be run on the GPU estimator if:
+
+    - The GPU estimator supports all the hyperparameters
+    - The GPU estimator has a method with the same name
+
+    Additionally, GPU-specific behavior for a method may be overridden by defining a
+    method on this class with the name ``_gpu_{method}`` (and the same signature).
+    If defined, this will be called instead of ``self._gpu.{method}`` when dispatching
+    to the GPU with the rules above. If this method raises a ``UnsupportedOnGPU`` error
+    then the proxy will fallback to CPU.
+
+    See the definitions in ``cuml.accel._wrappers.linear_model`` for examples.
     """
-    A proxy module that dynamically replaces specified classes with proxy estimators
-    based on GlobalSettings.
 
-    Parameters
-    ----------
-    original_module : module
-        The module to be proxied.
-    Attributes
-    ----------
-    _original_module : module
-        The original module being proxied.
-    _proxy_estimators : dict of str to type
-        A dictionary mapping accelerated class names to their proxy estimators.
-    """
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # The CPU estimator, always defined. This is the source of truth for any
+        # hyperparameters. It also may have fit attributes on it - these are lazily
+        # synced from the GPU estimator when accessed.
+        self._cpu = self._cpu_class(*args, **kwargs)
+        # The GPU estimator. This is only non-None if an estimator was successfully fit
+        # on the GPU.
+        self._gpu = None
+        # Whether fit attributes on the CPU estimator are currently in sync with those
+        # on the GPU estimator.
+        self._synced = False
 
-    def __init__(self, original_module: types.ModuleType) -> None:
-        """Initialize the ProxyModule with the original module."""
-        self._original_module = original_module
-        self._proxy_estimators: Dict[str, Type[Any]] = {}
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
 
-    def add_estimator(
-        self, class_name: str, proxy_estimator: Type[Any]
-    ) -> None:
+        # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
+        cls._cpu_class = cls._gpu_class._cpu_class
+
+        # Store whether sparse inputs are supported, unless overridden
+        if not hasattr(cls, "_gpu_supports_sparse"):
+            cls._gpu_supports_sparse = (
+                "sparse" in cls._gpu_class._get_tags()["X_types_gpu"]
+            )
+
+        # Wrap __init__ to ensure signature compatibility.
+        orig_init = cls.__init__
+
+        @functools.wraps(cls._cpu_class.__init__)
+        def __init__(self, *args, **kwargs):
+            orig_init(self, *args, **kwargs)
+
+        cls.__init__ = __init__
+
+        # Forward some metadata to make the proxy class look like the CPU class
+        cls.__qualname__ = cls._cpu_class.__qualname__
+        cls.__doc__ = cls._cpu_class.__doc__
+        # We use the `_cpu_class_path` (which matches the patched path) instead of
+        # the original full module path so that the class (not an instance) can
+        # be pickled properly.
+        cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
+        # Forward _estimator_type as a class attribute if available
+        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
+        if isinstance(_estimator_type, str):
+            cls._estimator_type = _estimator_type
+
+        # Add proxy method definitions for all public methods on CPU class
+        # that aren't already defined on the proxy class
+        methods = [
+            name
+            for name in dir(cls._cpu_class)
+            if not name.startswith("_")
+            and callable(getattr(cls._cpu_class, name))
+        ]
+
+        def _make_method(name):
+            cpu_method = getattr(cls._cpu_class, name)
+
+            @functools.wraps(cpu_method)
+            def method(self, *args, **kwargs):
+                return self._call_method(name, *args, **kwargs)
+
+            return method
+
+        for name in methods:
+            if not hasattr(cls, name):
+                setattr(cls, name, _make_method(name))
+
+    def _sync_params_to_gpu(self) -> None:
+        """Sync hyperparameters to GPU estimator from CPU estimator.
+
+        If the hyperparameters are unsupported, will cause proxy
+        to fallback to CPU until refit."""
+        if self._gpu is not None:
+            try:
+                params = self._gpu_class._params_from_cpu(self._cpu)
+                self._gpu.set_params(**params)
+            except UnsupportedOnGPU:
+                self._sync_attrs_to_cpu()
+                self._gpu = None
+
+    def _sync_attrs_to_cpu(self) -> None:
+        """Sync fit attributes to CPU estimator from GPU estimator.
+
+        This is a no-op if fit attributes are already in sync.
         """
-        Add a proxy estimator for a specified class name.
-        Parameters
-        ----------
-        class_name : str
-            The name of the class in the original module to be replaced.
-        proxy_estimator : type
-            The proxy estimator class to use as a replacement.
-        """
-        self._proxy_estimators[class_name] = proxy_estimator
+        if self._gpu is not None and not self._synced:
+            self._gpu._sync_attrs_to_cpu(self._cpu)
+            self._synced = True
+
+    @classmethod
+    def _reconstruct_from_cpu(cls, cpu):
+        """Reconstruct a proxy estimator from its CPU counterpart.
+
+        Primarily used when unpickling serialized proxy estimators."""
+        assert type(cpu) is cls._cpu_class
+        self = cls.__new__(cls)
+        self._cpu = cpu
+        self._synced = False
+        if hasattr(self._cpu, "n_features_in_"):
+            # This is a fit estimator. Try to convert model back to GPU
+            try:
+                self._gpu = self._gpu_class.from_sklearn(self._cpu)
+            except UnsupportedOnGPU:
+                self._gpu = None
+            else:
+                # Supported on GPU, clear fit attributes from CPU to release host memory
+                self._cpu = sklearn.clone(self._cpu)
+        else:
+            # Estimator is unfit, delay GPU init until needed
+            self._gpu = None
+        return self
+
+    def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        """Call a method on the wrapped GPU estimator."""
+        from cuml.common.sparse_utils import is_sparse
+
+        if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
+            # Sparse inputs not supported
+            raise UnsupportedOnGPU
+
+        # Determine the function to call. Check for an override on the proxy class,
+        # falling back to the GPU class method if one exists.
+        gpu_func = getattr(self, f"_gpu_{method}", None)
+        if gpu_func is None:
+            if (gpu_func := getattr(self._gpu, method, None)) is None:
+                # Method is not implemented in cuml
+                raise UnsupportedOnGPU
+
+        out = gpu_func(*args, **kwargs)
+        return self if out is self._gpu else out
+
+    def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        """Call a method on the proxied estimators."""
+
+        is_fit = method in ("fit", "fit_transform", "fit_predict")
+
+        if is_fit:
+            # Attempt to call CPU param validation to validate hyperparameters.
+            # This ensures we match errors for invalid hyperparameters during fitting.
+            if hasattr(self._cpu, "_validate_params"):
+                self._cpu._validate_params()
+
+            # Attempt to create a new GPU estimator with the current hyperparameters.
+            try:
+                self._gpu = self._gpu_class(
+                    **self._gpu_class._params_from_cpu(self._cpu)
+                )
+            except UnsupportedOnGPU:
+                # Unsupported, fallback to CPU
+                self._gpu = None
+            else:
+                # New estimator successfully initialized on GPU, reset on CPU
+                self._cpu = sklearn.clone(self._cpu)
+                self._synced = False
+
+        if self._gpu is not None:
+            # The hyperparameters are supported, try calling the method
+            try:
+                return self._call_gpu_method(method, *args, **kwargs)
+            except UnsupportedOnGPU:
+                # Unsupported. If it's a `fit` we need to clear
+                # the GPU state before falling back to CPU.
+                if is_fit:
+                    self._gpu = None
+
+        # Failed to run on GPU, fallback to CPU
+        self._sync_attrs_to_cpu()
+        out = getattr(self._cpu, method)(*args, **kwargs)
+        return self if out is self._cpu else out
+
+    ############################################################
+    # Standard magic methods                                   #
+    ############################################################
+
+    def __dir__(self) -> list[str]:
+        # Ensure attributes are synced so they show up
+        self._sync_attrs_to_cpu()
+        return dir(self._cpu)
+
+    def __reduce__(self):
+        # We only use the CPU estimator for pickling, ensure its fully synced
+        self._sync_attrs_to_cpu()
+        return (
+            _reconstruct_proxy,
+            (self._gpu_class._cpu_class_path, self._cpu),
+        )
 
     def __getattr__(self, name: str) -> Any:
-        """
-        Intercept attribute access on the proxy module.
-        If the attribute name is in the proxy estimators and the accelerator is active,
-        return the proxy estimator; otherwise, return the attribute from the original module.
-        Parameters
-        ----------
-        name : str
-            The name of the attribute being accessed.
-        Returns
-        -------
-        Any
-            The attribute from the proxy estimator or the original module.
-        """
-        if name in self._proxy_estimators:
-            use_proxy = getattr(GlobalSettings(), "accelerator_active", False)
-            if use_proxy:
-                return self._proxy_estimators[name]
-            else:
-                return getattr(self._original_module, name)
-        else:
-            return getattr(self._original_module, name)
-
-    def __dir__(self) -> List[str]:
-        """
-        Provide a list of attributes available in the proxy module.
-        Returns
-        -------
-        list of str
-            A list of attribute names from the original module.
-        """
-        return dir(self._original_module)
-
-
-def intercept(
-    original_module: str,
-    accelerated_module: str,
-    original_class_name: str,
-    accelerated_class_name: Optional[str] = None,
-):
-    """
-    Factory function that creates class definitions of ProxyEstimators that
-    accelerate estimators of the original class.
-
-    This function dynamically creates a new class called `ProxyEstimator` that
-    inherits from the GPU-accelerated class in the `accelerated_module`
-    (e.g., cuML) and acts as a drop-in replacement for the original class in
-    `original_module` (e.g., scikit-learn). Then, this class can be used to
-    create instances of ProxyEstimators that dispatch to either library.
-
-    **Design of the ProxyEstimator Class Inside**
-
-    **`ProxyEstimator` Class:**
-        - The `ProxyEstimator` class inherits from the GPU-accelerated
-        class (`class_b`) obtained from the `accelerated_module`.
-        - It serves as a wrapper that adds additional functionality
-        to maintain compatibility with the original CPU-based estimator.
-        Key methods and attributes:
-            - `__init__`: Initializes the proxy estimator, stores a
-            reference to the original class before ModuleAccelerator
-            replaces the original module, translates hyperparameters,
-            and initializes the parent (cuML) class.
-            - `__repr__` and `__str__`: Provide string representations
-            that reference the original CPU-based class.
-            - Attribute `_cpu_model_class`: Stores a reference to the
-            original CPU-based estimator class.
-            - Attribute `_gpuaccel`: Indicates whether GPU acceleration
-            is enabled.
-            - By designing the `ProxyEstimator` in this way, we can
-            seamlessly replace the original CPU-based estimator with a
-            GPU-accelerated version without altering the existing codebase.
-            The metaclass ensures that the class behaves and appears
-            like the original estimator, while the proxy class manages
-            the underlying acceleration and compatibility.
-
-    **Serialization/Pickling of ProxyEstimators**
-
-    Since pickle has strict rules about serializing classes, we cannot
-    (reasonably) create a method that just pickles and unpickles a
-    ProxyEstimator as if it was just an instance of the original module.
-
-    Therefore, doing a pickling of ProxyEstimator will make it serialize to
-    a file that can be opened in systems with cuML installed (CPU or GPU).
-    To serialize for non cuML systems, the to_sklearn and from_sklearn APIs
-    are being introduced in
-
-    https://github.com/rapidsai/cuml/pull/6102
-
-    Parameters
-    ----------
-    original_module : str
-        Original module that is being accelerated
-    accelerated_module : str
-        Acceleration module
-    class_name: str
-        Name of class beign accelerated
-    accelerated_class_name : str, optional
-        Name of accelerator class. If None, then it is assumed it is the same
-        name as class_name (i.e. the original class in the original module).
-
-    Returns
-    -------
-    A class definition of ProxyEstimator that inherits from
-    the accelerated library class (cuML).
-
-    Examples
-    --------
-    >>> from module_accelerator import intercept
-    >>> ProxyEstimator = intercept('sklearn.linear_model',
-    ...                            'cuml.linear_model', 'LinearRegression')
-    >>> model = ProxyEstimator()
-
-    """
-
-    if accelerated_class_name is None:
-        accelerated_class_name = original_class_name
-
-    # Import the original host module and cuML
-    module_a = cpu_only_import(original_module)
-    module_b = gpu_only_import(accelerated_module)
-
-    # Store a reference to the original (CPU) class
-    original_class_a = getattr(module_a, original_class_name)
-
-    original_class_sig = inspect.signature(original_class_a)
-
-    # Get the class from cuML so ProxyEstimator inherits from it
-    class_b = getattr(module_b, accelerated_class_name)
-
-    class ProxyEstimator(class_b):
-        """
-        A proxy estimator class that wraps the accelerated estimator and provides
-        compatibility with the original estimator interface.
-
-        The ProxyEstimator inherits from the accelerated estimator class and
-        wraps additional functionality to maintain compatibility with the original
-        CPU-based estimator.
-
-        It handles the translation of hyperparameters and the transfer of models
-        between CPU and GPU.
-
-        """
-
-        _cpu_model_class = original_class_a
-        _cpu_hyperparams = list(original_class_sig.parameters.keys())
-
-        def __init__(self, *args, **kwargs):
-            # The cuml signature may not align with the sklearn signature.
-            # Additionally, some sklearn models support positional arguments.
-            # To work around this, we
-            # - Bind arguments to the sklearn signature
-            # - Convert the arguments to named parameters
-            # - Translate them to cuml equivalents
-            # - Then forward them on to the cuml class
-            bound = original_class_sig.bind_partial(*args, **kwargs)
-            translated_kwargs, self._gpuaccel = self._hyperparam_translator(
-                **bound.arguments
-            )
-            super().__init__(**translated_kwargs)
-            self.build_cpu_model(**kwargs)
-
-        def __repr__(self):
-            """
-            Return a formal string representation of the object.
-
-            Returns
-            -------
-            str
-                A string representation indicating that this is a wrapped
-                 version of the original CPU-based estimator.
-            """
-            return self._cpu_model.__repr__()
-
-        def __str__(self):
-            """
-            Return an informal string representation of the object.
-
-            Returns
-            -------
-            str
-                A string representation indicating that this is a wrapped
-                 version of the original CPU-based estimator.
-            """
-            return self._cpu_model.__str__()
-
-        def __getstate__(self):
-            """
-            Prepare the object state for pickling. We need it since
-            we have a custom function in __reduce__.
-
-            Returns
-            -------
-            dict
-                The state of the Estimator.
-            """
-            return self.__dict__.copy()
-
-        def __reduce__(self):
-            """
-            Helper for pickle.
-
-            Returns
-            -------
-            tuple
-                A tuple containing the callable to reconstruct the object
-                and the arguments for reconstruction.
-
-            Notes
-            -----
-            Disables the module accelerator during pickling to ensure correct serialization.
-            """
-            return (
-                reconstruct_proxy,
-                (
-                    original_module,
-                    accelerated_module,
-                    original_class_name,
-                    (),
-                    self.__getstate__(),
-                ),
+        if name.startswith("_"):
+            # Never proxy magic methods or private attributes
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
             )
 
-    # Help make the proxy class look more like the original class
-    for attr in (
-        "__module__",
-        "__name__",
-        "__qualname__",
-        "__doc__",
-        "__annotate__",
-        "__type_params__",
-    ):
-        try:
-            value = getattr(original_class_a, attr)
-        except AttributeError:
-            pass
+        if name.endswith("_"):
+            # Fit attributes require syncing
+            self._sync_attrs_to_cpu()
+        return getattr(self._cpu, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("_cpu", "_gpu", "_synced"):
+            # Internal state
+            object.__setattr__(self, name, value)
+        elif name in self._cpu._get_param_names():
+            # Hyperparameter, set on CPU
+            setattr(self._cpu, name, value)
+            self._sync_params_to_gpu()
         else:
-            setattr(ProxyEstimator, attr, value)
+            # Mutating non-hyperparameter (probably a fit attribute). This
+            # is weird to do, and should never be done during normal sklearn
+            # usage. This does happen sometimes in sklearn tests though.
+            # The only sane thing to do is to fallback to CPU and forward
+            # the mutation through.
+            self._sync_attrs_to_cpu()
+            self._gpu = None
+            setattr(self._cpu, name, value)
 
-    ProxyEstimator.__init__.__signature__ = inspect.signature(
-        original_class_a.__init__
-    )
+    def __delattr__(self, name: str) -> None:
+        if name in ("_cpu", "_gpu", "_synced"):
+            # Internal state. We never call this, just here for parity.
+            object.__delattr__(self, name)
+        else:
+            # No normal workflow deletes attributes (hyperparameters or otherwise)
+            # from a sklearn estimator. The sklearn tests do sometimes though.
+            # The only sane thing to do is to fallback to CPU and forward
+            # the mutation through.
+            self._sync_attrs_to_cpu()
+            self._gpu = None
+            delattr(self._cpu, name)
 
-    logger.debug(
-        f"Created proxy estimator: ({module_b}, {original_class_name}, {ProxyEstimator})"
-    )
-    setattr(module_b, original_class_name, ProxyEstimator)
-    accelerated_modules = GlobalSettings().accelerated_modules
+    ############################################################
+    # Public sklearn methods                                   #
+    ############################################################
 
-    if original_module in accelerated_modules:
-        proxy_module = accelerated_modules[original_module]
-    else:
-        proxy_module = ProxyModule(original_module=module_a)
-        GlobalSettings().accelerated_modules[original_module] = proxy_module
+    @functools.wraps(BaseEstimator.get_params)
+    def get_params(self, deep=True):
+        return self._cpu.get_params(deep=deep)
 
-    proxy_module.add_estimator(
-        class_name=original_class_name, proxy_estimator=ProxyEstimator
-    )
+    @functools.wraps(BaseEstimator.set_params)
+    def set_params(self, **kwargs):
+        self._cpu.set_params(**kwargs)
+        self._sync_params_to_gpu()
+        return self
 
-    sys.modules[original_module] = proxy_module
+    def __sklearn_tags__(self):
+        return self._cpu.__sklearn_tags__()
 
-    return ProxyEstimator
+    def __sklearn_is_fitted__(self):
+        model = self._cpu if self._gpu is None else self._gpu
+        return getattr(model, "n_features_in_", None) is not None
 
+    def __sklearn_clone__(self):
+        cls = type(self)
+        out = cls.__new__(cls)
+        # Clone only copies hyperparameters.
+        out._cpu = sklearn.clone(self._cpu)
+        out._gpu = None
+        out._synced = False
+        return out
 
-def reconstruct_proxy(
-    original_module: str,
-    accelerated_module: str,
-    class_name: str,
-    args: Tuple,
-    kwargs: Dict,
-):
-    """
-    Function to enable pickling of ProxyEstimators since they are defined inside
-    a function, which Pickle doesn't like without a function or something
-    that has an absolute import path like this function.
+    ############################################################
+    # Methods on BaseEstimator used internally by sklearn      #
+    ############################################################
 
-    Parameters
-    ----------
-    original_module : str
-        Original module that is being accelerated
-    accelerated_module : str
-        Acceleration module
-    class_name: str
-        Name of class beign accelerated
-    args : Tuple
-        Args of class to be deserialized (typically empty for ProxyEstimators)
-    kwargs : Dict
-        Keyword arguments to reconstruct the ProxyEstimator instance, typically
-        state from __setstate__ method.
+    @property
+    def _estimator_type(self):
+        return self._cpu._estimator_type
 
-    Returns
-    -------
-    Instance of ProxyEstimator constructed with the kwargs passed to the function.
+    @property
+    def _parameter_constraints(self):
+        return self._cpu._parameter_constraints
 
-    """
-    # We probably don't need to intercept again here, since we already stored
-    # the variables in _wrappers
-    cls = intercept(
-        original_module=original_module,
-        accelerated_module=accelerated_module,
-        original_class_name=class_name,
-    )
+    @classmethod
+    def _get_param_names(cls):
+        return cls._cpu_class._get_param_names()
 
-    estimator = cls()
-    estimator.__dict__.update(kwargs)
-    return estimator
+    def _validate_params(self):
+        self._cpu._validate_params()
+
+    def _get_tags(self):
+        return self._cpu._get_tags()
+
+    def _more_tags(self):
+        return self._cpu._more_tags()
+
+    def _repr_mimebundle_(self, **kwargs):
+        return self._cpu._repr_mimebundle_(**kwargs)
+
+    @property
+    def _repr_html_(self):
+        return self._cpu._repr_html_

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import pytest
 
 from cuml import KernelExplainer as cuKE
 from cuml import LinearRegression
-
 
 # set this variable to True if you want to see the charts
 show_plots = False
@@ -87,10 +86,6 @@ def test_dependence_plot(explainer, exact_shap_regression_dataset):
     shap.dependence_plot(0, shap_values, data, show=show_plots)
 
 
-@pytest.mark.skip(
-    reason="matplotlib has been updated. "
-    "ref: https://github.com/rapidsai/cuml/issues/4893"
-)
 def test_heatmap(explainer, exact_shap_regression_dataset):
     shap = pytest.importorskip("shap")
     shap_values, _ = get_shap_values(

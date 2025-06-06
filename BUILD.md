@@ -11,14 +11,14 @@ To install cuML from source, ensure the following dependencies are met:
 5. Cython (>= 0.29)
 6. gcc (>= 9.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 16.0.6) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=16` and `clang-tools=16` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+8. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
 
 ```bash
-conda create -n cuml_dev python=3.12
+conda create -n cuml_dev python=3.13
 conda env update -n cuml_dev --file=conda/environments/all_cuda-118_arch-x86_64.yaml
 conda activate cuml_dev
 ```

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,30 +14,33 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
 import math
-from sklearn.naive_bayes import GaussianNB as skGNB
-from sklearn.naive_bayes import ComplementNB as skComplementNB
-from sklearn.naive_bayes import CategoricalNB as skCNB
+
+import cupy as cp
+import numpy as np
+import pytest
+from numpy.testing import (
+    assert_allclose,
+    assert_array_almost_equal,
+    assert_array_equal,
+    assert_raises,
+)
+from sklearn.metrics import accuracy_score
 from sklearn.naive_bayes import BernoulliNB as skBNB
+from sklearn.naive_bayes import CategoricalNB as skCNB
+from sklearn.naive_bayes import ComplementNB as skComplementNB
+from sklearn.naive_bayes import GaussianNB as skGNB
 from sklearn.naive_bayes import MultinomialNB as skNB
-from numpy.testing import assert_array_almost_equal, assert_raises
-from numpy.testing import assert_allclose, assert_array_equal
+
 from cuml.datasets import make_classification
 from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.naive_bayes import GaussianNB
-from cuml.naive_bayes import ComplementNB
-from cuml.naive_bayes import CategoricalNB
-from cuml.naive_bayes import BernoulliNB
-from cuml.naive_bayes import MultinomialNB
-from sklearn.metrics import accuracy_score
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-
-
-np = cpu_only_import("numpy")
+from cuml.naive_bayes import (
+    BernoulliNB,
+    CategoricalNB,
+    ComplementNB,
+    GaussianNB,
+    MultinomialNB,
+)
 
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
@@ -305,7 +308,7 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
         weights=weights,
         dtype=x_dtype,
         n_informative=9,
-        random_state=1,
+        random_state=2,
     )
     X -= X.min(0)  # Make all inputs positive
     y = y.astype(y_dtype)

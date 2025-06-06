@@ -15,34 +15,29 @@
 #
 
 
-import dask.dataframe as dd
+from collections import OrderedDict
+from collections.abc import Sequence
 from functools import reduce
+
+import cudf
+import cupy as cp
+import dask.array as da
+import dask.dataframe as dd
+import numpy as np
+from cudf import DataFrame
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
+from dask.distributed import default_client, wait
+from dask_cudf import DataFrame as dcDataFrame
+from dask_cudf import Series as dcSeries
 from toolz import first
-from dask.distributed import default_client
-from dask.distributed import wait
-from cuml.dask.common.part_utils import _extract_partitions
+
+import cuml.internals.logger as logger
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.common.utils import get_client
-from dask_cudf import Series as dcSeries
-from dask.dataframe import Series as daskSeries
-from dask.dataframe import DataFrame as daskDataFrame
-from cuml.internals.safe_imports import gpu_only_import_from
-from collections import OrderedDict
 from cuml.internals.memory_utils import with_cupy_rmm
-from collections.abc import Sequence
-import dask.array as da
-from cuml.internals.safe_imports import cpu_only_import
-import cuml.internals.logger as logger
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-
-DataFrame = gpu_only_import_from("cudf", "DataFrame")
-dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class DistributedDataHandler:
@@ -151,9 +146,10 @@ class DistributedDataHandler:
             for idx, wf in enumerate(self.worker_to_parts.items())
         ]
 
-        sizes = self.client.compute(parts, sync=True)
+        wfs, sizes_futures = zip(*parts)
+        all_sizes = self.client.compute(sizes_futures, sync=True)
 
-        for w, sizes_parts in sizes:
+        for w, sizes_parts in zip(wfs, all_sizes):
             sizes, total = sizes_parts
             self.parts_to_sizes[self.worker_info[w]["rank"]] = sizes
 

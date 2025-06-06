@@ -13,16 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import warnings
+import cudf
+import cupy as cp
+import numpy as np
 
 import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
 
 
 def _input_to_cupy_or_cudf_series(x, check_rows=None):
@@ -61,9 +57,7 @@ def _input_to_cupy_or_cudf_series(x, check_rows=None):
 
 
 @cuml.internals.api_return_any()
-def accuracy_score(
-    y_true, y_pred, *, sample_weight=None, normalize=True, **kwargs
-):
+def accuracy_score(y_true, y_pred, *, sample_weight=None, normalize=True):
     """
     Accuracy classification score.
 
@@ -85,13 +79,6 @@ def accuracy_score(
         The fraction of correctly classified samples, or the number of correctly
         classified samples if ``normalize == False``.
     """
-
-    if kwargs:
-        warnings.warn(
-            "`convert_dtype` and `handle` were deprecated from `accuracy_score` "
-            "in version 25.04 and will be removed in 25.06.",
-            FutureWarning,
-        )
 
     y_true = _input_to_cupy_or_cudf_series(y_true)
     y_pred = _input_to_cupy_or_cudf_series(y_pred, check_rows=len(y_true))

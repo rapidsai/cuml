@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import array_equal
-from cuml.datasets.classification import make_classification
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
 from functools import partial
-from cuml.internals.safe_imports import cpu_only_import
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
+import cupy as cp
+import numpy as np
+import pytest
+
+from cuml.datasets.classification import make_classification
+from cuml.testing.utils import array_equal
 
 
 @pytest.mark.parametrize("n_samples", [500, 1000])
@@ -147,3 +146,30 @@ def test_make_classification_informative_features():
         make(
             n_features=2, n_informative=2, n_classes=3, n_clusters_per_class=2
         )
+
+
+def test_make_classification_random_state():
+    # Check that results are stable across repeated calls
+
+    # We need to use more than 30 features to test all of the code paths
+    X, y = make_classification(n_features=30 + 2, random_state=42)
+    X2, y2 = make_classification(n_features=30 + 2, random_state=42)
+    assert array_equal(X, X2)
+    assert array_equal(y, y2)
+
+    # Check that results are different across different random states
+    X3, y3 = make_classification(n_features=30 + 2, random_state=43)
+    assert not array_equal(X, X3)
+    assert not array_equal(y, y3)
+
+
+def test_make_classification_random_state_gh_6510():
+    # Non regression test for gh-6510
+    X, y = make_classification(
+        10, 35, n_redundant=0, n_repeated=0, n_informative=35, random_state=42
+    )
+    X2, y2 = make_classification(
+        10, 35, n_redundant=0, n_repeated=0, n_informative=35, random_state=42
+    )
+    assert array_equal(X, X2)
+    assert array_equal(y, y2)

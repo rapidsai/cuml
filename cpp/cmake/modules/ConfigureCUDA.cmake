@@ -35,14 +35,14 @@ if(DISABLE_DEPRECATION_WARNINGS)
     list(APPEND CUML_CUDA_FLAGS -Wno-deprecated-declarations -Xcompiler=-Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
 endif()
 
-# Allow invalid CUDA kernels in the short term
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8.0)
-    list(APPEND CUML_CUDA_FLAGS -static-global-template-stub=false)
-endif()
-
-
 # make sure we produce smallest binary size
 list(APPEND CUML_CUDA_FLAGS -Xfatbin=-compress-all)
+if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA"
+   AND (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.9 AND CMAKE_CUDA_COMPILER_VERSION
+                                                                   VERSION_LESS 13.0)
+)
+  list(APPEND CUML_CUDA_FLAGS -Xfatbin=--compress-level=3)
+endif()
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINE_INFO)

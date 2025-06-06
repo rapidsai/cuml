@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
 # limitations under the License.
 #
 
-from distributed.protocol.serialize import serialize
-from cuml.naive_bayes.naive_bayes import MultinomialNB
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.dask.linear_model import LinearRegression
-from cuml.internals.safe_imports import gpu_only_import
-from dask import array as da
-from sklearn.datasets import make_regression
-import numpy as np
 import pickle
 
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
+import cupy as cp
+import cupyx
+import numpy as np
+from dask import array as da
+from distributed.protocol.serialize import serialize
+from sklearn.datasets import make_regression
+
+from cuml.dask.linear_model import LinearRegression
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 
 def test_register_naive_bayes_serialization():

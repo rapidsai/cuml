@@ -14,19 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.svm import SVC
-from cuml.preprocessing import StandardScaler
-from sklearn.datasets import load_iris
-from cuml.model_selection import train_test_split
-from cuml.datasets import make_regression, make_classification
-from cuml.testing.utils import ClassEnumerator
-from cuml.model_selection import GridSearchCV
-from cuml.pipeline import Pipeline, make_pipeline
+import cupy
 import pytest
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
+from sklearn.datasets import load_iris
 
-cupy = gpu_only_import("cupy")
+import cuml
+from cuml.datasets import make_classification, make_regression
+from cuml.model_selection import GridSearchCV, train_test_split
+from cuml.pipeline import Pipeline, make_pipeline
+from cuml.preprocessing import StandardScaler
+from cuml.svm import SVC
+from cuml.testing.utils import ClassEnumerator
 
 
 def test_pipeline():
@@ -120,7 +118,7 @@ def test_pipeline_with_classification(
     assert isinstance(prediction, cupy.ndarray)
     if model_key == "RandomForestClassifier":
         pytest.skip(
-            "RandomForestClassifier is not yet supported"
+            "RandomForestClassifier is not yet supported "
             "by the Pipeline utility"
         )
     _ = pipe.score(X_test, y_test)

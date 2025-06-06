@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,10 @@
 
 
 from math import ceil
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
 
-cp = gpu_only_import("cupy")
-cpx = gpu_only_import("cupyx")
-cuda = gpu_only_import_from("numba", "cuda")
+import cupy as cp
+import cupyx as cpx
+from numba import cuda
 
 
 def csr_mean_variance_axis0(X):

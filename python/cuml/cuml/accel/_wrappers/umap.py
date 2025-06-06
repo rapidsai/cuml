@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.accel.estimator_proxy import intercept
+import cuml.manifold
+from cuml.accel.estimator_proxy_mixin import ProxyMixin
+
+__all__ = ("UMAP",)
 
 
-UMAP = intercept(
-    original_module="umap",
-    accelerated_module="cuml.manifold",
-    original_class_name="UMAP",
-)
+class UMAP(ProxyMixin, cuml.manifold.UMAP):
+    pass

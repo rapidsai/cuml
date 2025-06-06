@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -404,6 +404,10 @@ DI void _block_gemv(int m,
         y[i] = alpha * acc;
       }
     }
+    // Ensure that thread 0 has finished reading from shared memory
+    // before other threads move onto the next iteration in the loop
+    // and overwrite the shared memory with new values
+    __syncthreads();
   }
 }
 

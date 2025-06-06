@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,50 +13,37 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
+
 import cuml.internals
-from cuml.internals.import_utils import has_sklearn
+import cuml.internals.nvtx as nvtx
 from cuml.datasets.utils import _create_rs_generator
-
-from cuml.internals.safe_imports import gpu_only_import
-
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
-
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
+from cuml.internals.utils import check_random_seed
 
 
-def _generate_hypercube(samples, dimensions, rng):
+def _generate_hypercube(samples, dimensions, random_state):
     """Returns distinct binary samples of length dimensions"""
-    if not has_sklearn():
-        raise RuntimeError(
-            "Scikit-learn is needed to run \
-                           make_classification."
-        )
-
     from sklearn.utils.random import sample_without_replacement
+
+    # This function and those it calls need a Numpy random state object
+    np_generator = np.random.RandomState(check_random_seed(random_state))
 
     if dimensions > 30:
         return np.hstack(
             [
-                np.random.randint(2, size=(samples, dimensions - 30)),
-                _generate_hypercube(samples, 30, rng),
+                np_generator.randint(2, size=(samples, dimensions - 30)),
+                _generate_hypercube(samples, 30, np_generator),
             ]
         )
-    random_state = int(rng.randint(dimensions))
     out = sample_without_replacement(
-        2**dimensions, samples, random_state=random_state
+        2**dimensions, samples, random_state=np_generator
     ).astype(dtype=">u4", copy=False)
     out = np.unpackbits(out.view(">u1")).reshape((-1, 32))[:, -dimensions:]
     return out
 
 
-@nvtx_annotate(message="datasets.make_classification", domain="cuml_python")
+@nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_classification(
     n_samples=100,

@@ -16,91 +16,90 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
 
-from cuml.internals.safe_imports import gpu_only_import
-rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from enum import IntEnum
+
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+
+from cython.operator cimport dereference as deref
+from pylibraft.common.handle cimport handle_t
+
+from cuml.decomposition.utils cimport *
 
 
-IF GPUBUILD == 1:
-    from enum import IntEnum
-    from cython.operator cimport dereference as deref
-    from cuml.decomposition.utils cimport *
-    from cuml.decomposition.utils cimport *
-    from pylibraft.common.handle cimport handle_t
-    cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
 
-        cdef void tsvdFit(handle_t& handle,
-                          float *input,
-                          float *components,
-                          float *singular_vals,
-                          const paramsTSVD &prms) except +
+    cdef void tsvdFit(handle_t& handle,
+                      float *input,
+                      float *components,
+                      float *singular_vals,
+                      const paramsTSVD &prms) except +
 
-        cdef void tsvdFit(handle_t& handle,
-                          double *input,
-                          double *components,
-                          double *singular_vals,
-                          const paramsTSVD &prms) except +
+    cdef void tsvdFit(handle_t& handle,
+                      double *input,
+                      double *components,
+                      double *singular_vals,
+                      const paramsTSVD &prms) except +
 
-        cdef void tsvdFitTransform(handle_t& handle,
-                                   float *input,
+    cdef void tsvdFitTransform(handle_t& handle,
+                               float *input,
+                               float *trans_input,
+                               float *components,
+                               float *explained_var,
+                               float *explained_var_ratio,
+                               float *singular_vals,
+                               const paramsTSVD &prms) except +
+
+    cdef void tsvdFitTransform(handle_t& handle,
+                               double *input,
+                               double *trans_input,
+                               double *components,
+                               double *explained_var,
+                               double *explained_var_ratio,
+                               double *singular_vals,
+                               const paramsTSVD &prms) except +
+
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
                                    float *components,
-                                   float *explained_var,
-                                   float *explained_var_ratio,
-                                   float *singular_vals,
+                                   float *input,
                                    const paramsTSVD &prms) except +
 
-        cdef void tsvdFitTransform(handle_t& handle,
-                                   double *input,
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    double *trans_input,
                                    double *components,
-                                   double *explained_var,
-                                   double *explained_var_ratio,
-                                   double *singular_vals,
+                                   double *input,
                                    const paramsTSVD &prms) except +
 
-        cdef void tsvdInverseTransform(handle_t& handle,
-                                       float *trans_input,
-                                       float *components,
-                                       float *input,
-                                       const paramsTSVD &prms) except +
+    cdef void tsvdTransform(handle_t& handle,
+                            float *input,
+                            float *components,
+                            float *trans_input,
+                            const paramsTSVD &prms) except +
 
-        cdef void tsvdInverseTransform(handle_t& handle,
-                                       double *trans_input,
-                                       double *components,
-                                       double *input,
-                                       const paramsTSVD &prms) except +
-
-        cdef void tsvdTransform(handle_t& handle,
-                                float *input,
-                                float *components,
-                                float *trans_input,
-                                const paramsTSVD &prms) except +
-
-        cdef void tsvdTransform(handle_t& handle,
-                                double *input,
-                                double *components,
-                                double *trans_input,
-                                const paramsTSVD &prms) except +
-
-    class Solver(IntEnum):
-        COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
-        COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+    cdef void tsvdTransform(handle_t& handle,
+                            double *input,
+                            double *components,
+                            double *trans_input,
+                            const paramsTSVD &prms) except +
 
 
-class TruncatedSVD(UniversalBase,
+class Solver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+
+
+class TruncatedSVD(Base,
+                   InteropMixin,
                    FMajorInputTagMixin):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
@@ -234,32 +233,69 @@ class TruncatedSVD(UniversalBase,
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.decomposition.TruncatedSVD'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "algorithm": {
-            "randomized": "full",
-            "arpack": "full",
-        },
-        "tol": {
-            # tolerance controls tolerance of different solvers
-            # between sklearn and cuML, so at least the default
-            # value needs to be translated.
-            0.0: 1e-7
-        },
-        "n_iter": {
-            # Translating the default n_iter from sklearn to the
-            # default of 15 of cuML to keep behavior consistent,
-            # and results performing closer.
-            5: 15
-        }
-    }
+    _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        # Since the solvers are different, we want to adjust tol & n_iter.
+        # TODO: here we only adjust the default values, there's likely a better
+        # conversion equation we should apply.
+        if (tol := model.tol) == 0.0:
+            tol = 1e-7
+        if (n_iter := model.n_iter) == 5:
+            n_iter = 15
+
+        return {
+            "n_components": model.n_components,
+            "algorithm": "full",
+            "n_iter": n_iter,
+            "tol": tol,
+        }
+
+    def _params_to_cpu(self):
+        # Since the solvers are different, we want to adjust tol & n_iter.
+        # TODO: here we only adjust the default values, there's likely a better
+        # conversion equation we should apply.
+        if (tol := self.tol) == 1e-7:
+            tol = 0.0
+        if (n_iter := self.n_iter) == 15:
+            n_iter = 5
+
+        return {
+            "n_components": self.n_components,
+            "algorithm": "randomized",
+            "n_iter": n_iter,
+            "tol": tol,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(model.explained_variance_, order="F"),
+            "explained_variance_ratio_": to_gpu(model.explained_variance_ratio_, order="F"),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(self.explained_variance_ratio_),
+            "singular_values_": to_cpu(self.singular_values_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
@@ -283,29 +319,27 @@ class TruncatedSVD(UniversalBase,
         self.singular_values_ = None
 
     def _get_algorithm_c_name(self, algorithm):
-        IF GPUBUILD == 1:
-            algo_map = {
-                'full': Solver.COV_EIG_DQ,
-                'auto': Solver.COV_EIG_DQ,
-                'jacobi': Solver.COV_EIG_JACOBI
-            }
-            if algorithm not in algo_map:
-                msg = "algorithm {!r} is not supported"
-                raise TypeError(msg.format(algorithm))
-            return algo_map[algorithm]
+        algo_map = {
+            'full': Solver.COV_EIG_DQ,
+            'auto': Solver.COV_EIG_DQ,
+            'jacobi': Solver.COV_EIG_JACOBI
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
+        return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        IF GPUBUILD == 1:
-            cdef paramsTSVD *params = new paramsTSVD()
-            params.n_components = self.n_components
-            params.n_rows = n_rows
-            params.n_cols = n_cols
-            params.n_iterations = self.n_iter
-            params.tol = self.tol
-            params.algorithm = <solver> (<underlying_type_t_solver> (
-                self.c_algorithm))
+        cdef paramsTSVD *params = new paramsTSVD()
+        params.n_components = self.n_components
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.n_iterations = self.n_iter
+        params.tol = self.tol
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
-            return <size_t>params
+        return <size_t>params
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -319,7 +353,6 @@ class TruncatedSVD(UniversalBase,
                                                 dtype=self.dtype)
 
     @generate_docstring()
-    @enable_device_interop
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
@@ -334,7 +367,7 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
@@ -365,44 +398,43 @@ class TruncatedSVD(UniversalBase,
         if self.n_components> self.n_features_in_:
             raise ValueError(' n_components must be < n_features')
 
-        IF GPUBUILD == 1:
-            cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-                self._build_params(self.n_rows, self.n_features_in_)
-            _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                            dtype=self.dtype, index=X_m.index)
-            cdef uintptr_t t_input_ptr = _trans_input_.ptr
+        cdef paramsTSVD *params = <paramsTSVD*><size_t> \
+            self._build_params(self.n_rows, self.n_features_in_)
+        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
+                                        dtype=self.dtype, index=X_m.index)
+        cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if self.dtype == np.float32:
-                tsvdFitTransform(handle_[0],
-                                 <float*> _input_ptr,
-                                 <float*> t_input_ptr,
-                                 <float*> _comp_ptr,
-                                 <float*> _explained_var_ptr,
-                                 <float*> _explained_var_ratio_ptr,
-                                 <float*> _singular_vals_ptr,
-                                 deref(params))
-            else:
-                tsvdFitTransform(handle_[0],
-                                 <double*> _input_ptr,
-                                 <double*> t_input_ptr,
-                                 <double*> _comp_ptr,
-                                 <double*> _explained_var_ptr,
-                                 <double*> _explained_var_ratio_ptr,
-                                 <double*> _singular_vals_ptr,
-                                 deref(params))
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if self.dtype == np.float32:
+            tsvdFitTransform(handle_[0],
+                             <float*> _input_ptr,
+                             <float*> t_input_ptr,
+                             <float*> _comp_ptr,
+                             <float*> _explained_var_ptr,
+                             <float*> _explained_var_ratio_ptr,
+                             <float*> _singular_vals_ptr,
+                             deref(params))
+        else:
+            tsvdFitTransform(handle_[0],
+                             <double*> _input_ptr,
+                             <double*> t_input_ptr,
+                             <double*> _comp_ptr,
+                             <double*> _explained_var_ptr,
+                             <double*> _explained_var_ratio_ptr,
+                             <double*> _singular_vals_ptr,
+                             deref(params))
 
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
-            return _trans_input_
+        return _trans_input_
 
     @generate_docstring(return_values={'name': 'X_original',
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
@@ -415,44 +447,43 @@ class TruncatedSVD(UniversalBase,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None))
 
-        IF GPUBUILD == 1:
-            cdef paramsTSVD params
-            params.n_components = self.n_components
-            params.n_rows = _n_rows
-            params.n_cols = self.n_features_in_
+        cdef paramsTSVD params
+        params.n_components = self.n_components
+        params.n_rows = _n_rows
+        params.n_cols = self.n_features_in_
 
-            input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                         dtype=dtype, index=_X_m.index)
+        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
+                                     dtype=dtype, index=_X_m.index)
 
-            cdef uintptr_t trans_input_ptr = _X_m.ptr
-            cdef uintptr_t input_ptr = input_data.ptr
-            cdef uintptr_t components_ptr = self.components_.ptr
+        cdef uintptr_t trans_input_ptr = _X_m.ptr
+        cdef uintptr_t input_ptr = input_data.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                tsvdInverseTransform(handle_[0],
-                                     <float*> trans_input_ptr,
-                                     <float*> components_ptr,
-                                     <float*> input_ptr,
-                                     params)
-            else:
-                tsvdInverseTransform(handle_[0],
-                                     <double*> trans_input_ptr,
-                                     <double*> components_ptr,
-                                     <double*> input_ptr,
-                                     params)
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if dtype.type == np.float32:
+            tsvdInverseTransform(handle_[0],
+                                 <float*> trans_input_ptr,
+                                 <float*> components_ptr,
+                                 <float*> input_ptr,
+                                 params)
+        else:
+            tsvdInverseTransform(handle_[0],
+                                 <double*> trans_input_ptr,
+                                 <double*> components_ptr,
+                                 <double*> input_ptr,
+                                 params)
 
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
-            return input_data
+        return input_data
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
@@ -467,46 +498,35 @@ class TruncatedSVD(UniversalBase,
                                                   else None),
                                 check_cols=self.n_features_in_)
 
-        IF GPUBUILD == 1:
-            cdef paramsTSVD params
-            params.n_components = self.n_components
-            params.n_rows = _n_rows
-            params.n_cols = self.n_features_in_
+        cdef paramsTSVD params
+        params.n_components = self.n_components
+        params.n_rows = _n_rows
+        params.n_cols = self.n_features_in_
 
-            t_input_data = \
-                CumlArray.zeros((params.n_rows, params.n_components),
-                                dtype=dtype, index=_X_m.index)
+        t_input_data = \
+            CumlArray.zeros((params.n_rows, params.n_components),
+                            dtype=dtype, index=_X_m.index)
 
-            cdef uintptr_t input_ptr = _X_m.ptr
-            cdef uintptr_t trans_input_ptr = t_input_data.ptr
-            cdef uintptr_t components_ptr = self.components_.ptr
+        cdef uintptr_t input_ptr = _X_m.ptr
+        cdef uintptr_t trans_input_ptr = t_input_data.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                tsvdTransform(handle_[0],
-                              <float*> input_ptr,
-                              <float*> components_ptr,
-                              <float*> trans_input_ptr,
-                              params)
-            else:
-                tsvdTransform(handle_[0],
-                              <double*> input_ptr,
-                              <double*> components_ptr,
-                              <double*> trans_input_ptr,
-                              params)
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if dtype.type == np.float32:
+            tsvdTransform(handle_[0],
+                          <float*> input_ptr,
+                          <float*> components_ptr,
+                          <float*> trans_input_ptr,
+                          params)
+        else:
+            tsvdTransform(handle_[0],
+                          <double*> input_ptr,
+                          <double*> components_ptr,
+                          <double*> trans_input_ptr,
+                          params)
 
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
-            return t_input_data
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ["algorithm", "n_components", "n_iter", "random_state", "tol"]
-
-    def get_attr_names(self):
-        return ['components_', 'explained_variance_',
-                'explained_variance_ratio_', 'singular_values_',
-                'n_features_in_', 'feature_names_in_']
+        return t_input_data

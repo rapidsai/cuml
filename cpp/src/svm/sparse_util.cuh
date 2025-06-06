@@ -20,8 +20,9 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/distance/kernels.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/sparse/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -31,6 +32,9 @@
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/transform_scan.h>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 namespace ML {
 namespace SVM {
@@ -51,7 +55,7 @@ namespace SVM {
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
               raft::device_matrix_view<math_t, int, raft::layout_stride> input2,
               math_t* result,
@@ -82,7 +86,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
               math_t* input2,
               int rows2,
@@ -114,7 +118,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               math_t* input1,
               int rows1,
               int cols,
@@ -147,7 +151,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_csr_matrix_view<math_t, int, int, int> input1,
               raft::device_csr_matrix_view<math_t, int, int, int> input2,
               math_t* result,
@@ -179,7 +183,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_csr_matrix_view<math_t, int, int, int> input1,
               raft::device_matrix_view<math_t, int, raft::layout_stride> input2,
               math_t* result,
@@ -210,7 +214,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
               raft::device_csr_matrix_view<math_t, int, int, int> input2,
               math_t* result,
@@ -237,7 +241,7 @@ void KernelOp(const raft::handle_t& handle,
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
               raft::device_csr_matrix_view<math_t, int, int, int> input1,
               math_t* input2,
               int rows2,

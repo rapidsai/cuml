@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +15,18 @@
 #
 
 
-import cuml.internals.logger as logger
+import math
+
 import dask.array as da
 
+import cuml.internals.logger as logger
+from cuml.common import with_cupy_rmm
+from cuml.dask._compat import DASK_2025_4_0
+from cuml.dask.common.utils import get_client
+from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
 from cuml.datasets.blobs import _get_centers
 from cuml.datasets.blobs import make_blobs as sg_make_blobs
-from cuml.common import with_cupy_rmm
 from cuml.datasets.utils import _create_rs_generator
-from cuml.dask.datasets.utils import _get_X
-from cuml.dask.datasets.utils import _get_labels
-from cuml.dask.datasets.utils import _create_delayed
-from cuml.dask.common.utils import get_client
-
-import math
 
 
 def _create_local_data(
@@ -147,7 +146,8 @@ def make_blobs(
     generator = _create_rs_generator(random_state=random_state)
 
     if workers is None:
-        workers = list(client.scheduler_info()["workers"].keys())
+        kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+        workers = list(client.scheduler_info(**kwargs)["workers"].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]

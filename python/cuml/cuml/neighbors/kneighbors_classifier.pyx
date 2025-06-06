@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,39 +18,26 @@
 
 import typing
 
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
+import cupy as cp
+import numpy as np
 
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import enable_device_interop
-
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-
+from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cython.operator cimport dereference as deref
-
-from pylibraft.common.handle cimport handle_t
+from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
-
-rmm = gpu_only_import('rmm')
-
-from libc.stdint cimport uintptr_t, int64_t
-
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
-
-cimport cuml.common.cuda
+from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
 
     void knn_classify(
         handle_t &handle,
@@ -137,6 +124,7 @@ class KNeighborsClassifier(ClassifierMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
+    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsClassifier"
 
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
@@ -164,17 +152,19 @@ class KNeighborsClassifier(ClassifierMixin,
         self.classes_ = None
         self.weights = weights
 
-        if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy is "
-                             "supported currently.")
-
     @generate_docstring(convert_dtype_cast='np.float32')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
+        if self.weights != "uniform":
+            raise ValueError("Only uniform weighting strategy is "
+                             "supported currently.")
+
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -190,6 +180,8 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
@@ -248,6 +240,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict_proba(
             self,
             X,

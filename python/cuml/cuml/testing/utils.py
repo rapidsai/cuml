@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,37 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.base import Base
-import cuml
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, brier_score_loss
-from sklearn.datasets import make_classification, make_regression
-from sklearn import datasets
-from pylibraft.common.cuda import Stream
-from sklearn.datasets import make_regression as skl_make_reg
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from numbers import Number
-from cuml.internals.safe_imports import gpu_only_import_from
-from itertools import dropwhile
-from copy import deepcopy
-from cuml.internals.safe_imports import cpu_only_import
 import inspect
+from copy import deepcopy
+from itertools import dropwhile
+from numbers import Number
 from textwrap import dedent, indent
 
-from cuml.internals.safe_imports import gpu_only_import
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
+from pylibraft.common.cuda import Stream
+from sklearn.metrics import brier_score_loss, mean_squared_error
 
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-
-
-cudf = gpu_only_import("cudf")
+import cuml
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.mem_type import MemoryType
 
 
 def array_difference(a, b, with_sign=True):
@@ -161,53 +151,6 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         raise AssertionError(assertion_error_msg)
 
 
-def get_pattern(name, n_samples):
-    np.random.seed(0)
-    random_state = 170
-
-    if name == "noisy_circles":
-        data = datasets.make_circles(
-            n_samples=n_samples, factor=0.5, noise=0.05
-        )
-        params = {
-            "damping": 0.77,
-            "preference": -240,
-            "quantile": 0.2,
-            "n_clusters": 2,
-        }
-
-    elif name == "noisy_moons":
-        data = datasets.make_moons(n_samples=n_samples, noise=0.05)
-        params = {"damping": 0.75, "preference": -220, "n_clusters": 2}
-
-    elif name == "varied":
-        data = datasets.make_blobs(
-            n_samples=n_samples,
-            cluster_std=[1.0, 2.5, 0.5],
-            random_state=random_state,
-        )
-        params = {"eps": 0.18, "n_neighbors": 2}
-
-    elif name == "blobs":
-        data = datasets.make_blobs(n_samples=n_samples, random_state=8)
-        params = {}
-
-    elif name == "aniso":
-        X, y = datasets.make_blobs(
-            n_samples=n_samples, random_state=random_state
-        )
-        transformation = [[0.6, -0.6], [-0.4, 0.8]]
-        X_aniso = np.dot(X, transformation)
-        data = (X_aniso, y)
-        params = {"eps": 0.15, "n_neighbors": 2}
-
-    elif name == "no_structure":
-        data = np.random.rand(n_samples, 2), None
-        params = {}
-
-    return [data, params]
-
-
 def normalize_clusters(a0, b0, n_clusters):
     a = to_nparray(a0)
     b = to_nparray(b0)
@@ -324,36 +267,6 @@ def get_handle(use_handle, n_streams=0):
     return h, s
 
 
-def small_regression_dataset(datatype):
-    X, y = make_regression(
-        n_samples=1000, n_features=20, n_informative=10, random_state=10
-    )
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=0
-    )
-
-    return X_train, X_test, y_train, y_test
-
-
-def small_classification_dataset(datatype):
-    X, y = make_classification(
-        n_samples=500,
-        n_features=20,
-        n_informative=10,
-        n_classes=2,
-        random_state=10,
-    )
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=0
-    )
-
-    return X_train, X_test, y_train, y_test
-
-
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -451,44 +364,22 @@ class ClassEnumerator:
         return models
 
 
-def get_classes_from_package(package, import_sub_packages=False):
+def get_all_base_subclasses() -> dict[str, type]:
     """
-    Gets all modules imported in the specified package and returns a dictionary
-    of any classes that derive from `cuml.Base`
-
-    Parameters
-    ----------
-    package : python module The python module to search import_sub_packages :
-        bool, default=False When set to True, will try to import sub packages
-        by searching the directory tree for __init__.py files and importing
-        them accordingly. By default this is set to False
-
-    Returns
-    -------
-    ClassEnumerator Class enumerator for the specified package
+    Returns all currently defined subclasses of `cuml.Base`,
+    excluding any with a leading `_` in their name.
     """
+    out = {}
 
-    if import_sub_packages:
-        import os
-        import importlib
+    def _collect(cls):
+        if not cls.__name__.startswith("_"):
+            out[cls.__name__] = cls
+        for c in cls.__subclasses__():
+            _collect(c)
 
-        # First, find all __init__.py files in subdirectories of this package
-        root_dir = os.path.dirname(package.__file__)
+    _collect(Base)
 
-        root_relative = os.path.dirname(root_dir)
-
-        # Now loop
-        for root, _, files in os.walk(root_dir):
-
-            if "__init__.py" in files:
-
-                module_name = os.path.relpath(root, root_relative).replace(
-                    os.sep, "."
-                )
-
-                importlib.import_module(module_name)
-
-    return ClassEnumerator(module=package, recursive=True).get_models()
+    return out
 
 
 def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
@@ -773,35 +664,6 @@ def compare_probabilistic_svm(
         brier2 = brier_score_loss(y_test, prob2[:, 1])
         # Brier score - smaller is better
         assert brier1 - brier2 <= brier_tol
-
-
-def create_synthetic_dataset(
-    generator=skl_make_reg,
-    n_samples=100,
-    n_features=10,
-    test_size=0.25,
-    random_state_generator=None,
-    random_state_train_test_split=None,
-    dtype=np.float32,
-    **kwargs,
-):
-    X, y = generator(
-        n_samples=n_samples,
-        n_features=n_features,
-        random_state=random_state_generator,
-        **kwargs,
-    )
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state_train_test_split
-    )
-
-    X_train = X_train.astype(dtype)
-    X_test = X_test.astype(dtype)
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
-
-    return X_train, X_test, y_train, y_test
 
 
 def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):

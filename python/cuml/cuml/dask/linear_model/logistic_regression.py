@@ -13,20 +13,16 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.linear_model import LinearRegression
-from raft_dask.common.comms import get_raft_comm_state
+import cupyx
+import numpy as np
+import scipy
 from dask.distributed import get_worker
+from raft_dask.common.comms import get_raft_comm_state
 
-from cuml.common.sparse_utils import is_sparse, has_scipy
+from cuml.common.sparse_utils import is_sparse
+from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
-scipy = cpu_only_import("scipy")
+from cuml.dask.linear_model import LinearRegression
 
 
 class LogisticRegression(LinearRegression):
@@ -173,7 +169,7 @@ class LogisticRegression(LinearRegression):
         if is_sparse(data[0][0]) is False:
             inp_X = concatenate([X for X, _ in data])
 
-        elif has_scipy() and scipy.sparse.isspmatrix(data[0][0]):
+        elif scipy.sparse.isspmatrix(data[0][0]):
             inp_X = scipy.sparse.vstack([X for X, _ in data])
 
         elif cupyx.scipy.sparse.isspmatrix(data[0][0]):

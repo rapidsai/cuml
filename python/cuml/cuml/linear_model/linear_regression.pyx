@@ -16,58 +16,57 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
 import warnings
 
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.linear_model.base import LinearPredictMixin
+
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
+
+from pylibraft.common.handle import Handle
 
 
-IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from pylibraft.common.handle cimport handle_t
-    from pylibraft.common.handle import Handle
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
-    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+    cdef void olsFit(handle_t& handle,
+                     float *input,
+                     size_t n_rows,
+                     size_t n_cols,
+                     float *labels,
+                     float *coef,
+                     float *intercept,
+                     bool fit_intercept,
+                     bool normalize,
+                     int algo,
+                     float *sample_weight) except +
 
-        cdef void olsFit(handle_t& handle,
-                         float *input,
-                         size_t n_rows,
-                         size_t n_cols,
-                         float *labels,
-                         float *coef,
-                         float *intercept,
-                         bool fit_intercept,
-                         bool normalize,
-                         int algo,
-                         float *sample_weight) except +
-
-        cdef void olsFit(handle_t& handle,
-                         double *input,
-                         size_t n_rows,
-                         size_t n_cols,
-                         double *labels,
-                         double *coef,
-                         double *intercept,
-                         bool fit_intercept,
-                         bool normalize,
-                         int algo,
-                         double *sample_weight) except +
+    cdef void olsFit(handle_t& handle,
+                     double *input,
+                     size_t n_rows,
+                     size_t n_cols,
+                     double *labels,
+                     double *coef,
+                     double *intercept,
+                     bool fit_intercept,
+                     bool normalize,
+                     int algo,
+                     double *sample_weight) except +
 
 
 def divide_non_zero(x1, x2):
@@ -132,8 +131,9 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     )
 
 
-class LinearRegression(LinearPredictMixin,
-                       UniversalBase,
+class LinearRegression(Base,
+                       InteropMixin,
+                       LinearPredictMixin,
                        RegressorMixin,
                        FMajorInputTagMixin):
     """
@@ -266,25 +266,53 @@ class LinearRegression(LinearPredictMixin,
               necessary.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "positive": {
-            True: "NotImplemented",
-        },
-    }
+    _cpu_class_path = "sklearn.linear_model.LinearRegression"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.positive:
+            raise UnsupportedOnGPU
+
+        return {
+            "fit_intercept": model.fit_intercept,
+            "copy_X": model.copy_X,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "fit_intercept": self.fit_intercept,
+            "copy_X": self.copy_X,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "intercept_": to_gpu(model.intercept_, order="F"),
+            "coef_": to_gpu(model.coef_, order="F"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "intercept_": to_cpu(self.intercept_),
+            "coef_": to_cpu(self.coef_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        IF GPUBUILD == 1:
-            if handle is None and algorithm == 'eig':
-                # if possible, create two streams, so that eigenvalue decomposition
-                # can benefit from running independent operations concurrently.
-                handle = Handle(n_streams=2)
+        if handle is None and algorithm == 'eig':
+            # if possible, create two streams, so that eigenvalue decomposition
+            # can benefit from running independent operations concurrently.
+            handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -315,9 +343,8 @@ class LinearRegression(LinearPredictMixin,
         }[algorithm]
 
     @generate_docstring()
-    @enable_device_interop
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+    @deprecate_non_keyword_only("convert_dtype")
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -381,38 +408,37 @@ class LinearRegression(LinearPredictMixin,
         cdef float _c_intercept_f32
         cdef double _c_intercept_f64
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if self.dtype == np.float32:
+        if self.dtype == np.float32:
 
-                olsFit(handle_[0],
-                       <float*>_X_ptr,
-                       <size_t>n_rows,
-                       <size_t>self.n_features_in_,
-                       <float*>_y_ptr,
-                       <float*>_coef_ptr,
-                       <float*>&_c_intercept_f32,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo,
-                       <float*>sample_weight_ptr)
+            olsFit(handle_[0],
+                   <float*>_X_ptr,
+                   <size_t>n_rows,
+                   <size_t>self.n_features_in_,
+                   <float*>_y_ptr,
+                   <float*>_coef_ptr,
+                   <float*>&_c_intercept_f32,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo,
+                   <float*>sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f32
-            else:
-                olsFit(handle_[0],
-                       <double*>_X_ptr,
-                       <size_t>n_rows,
-                       <size_t>self.n_features_in_,
-                       <double*>_y_ptr,
-                       <double*>_coef_ptr,
-                       <double*>&_c_intercept_f64,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo,
-                       <double*>sample_weight_ptr)
+            self.intercept_ = _c_intercept_f32
+        else:
+            olsFit(handle_[0],
+                   <double*>_X_ptr,
+                   <size_t>n_rows,
+                   <size_t>self.n_features_in_,
+                   <double*>_y_ptr,
+                   <double*>_coef_ptr,
+                   <double*>&_c_intercept_f64,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo,
+                   <double*>sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f64
+            self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
@@ -488,14 +514,6 @@ class LinearRegression(LinearPredictMixin,
         # (MRO) Since UniversalBase and LinearPredictMixin now both have a
         # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
-
-    def get_attr_names(self):
-        return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
 
     @staticmethod
     def _more_static_tags():

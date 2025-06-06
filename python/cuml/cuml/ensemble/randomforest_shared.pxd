@@ -16,25 +16,26 @@
 
 import ctypes
 import math
-import numpy as np
 import warnings
 
+import numpy as np
+
+from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint64_t
-from libc.stdlib cimport calloc, malloc, free
-from libcpp.vector cimport vector
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 
 from pylibraft.common.handle import Handle
+
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
-cimport cuml.common.cuda
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* TreeliteModelHandle
-    cdef const char* TreeliteGetLastError()
+from cuml.internals.treelite cimport *
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -45,7 +46,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         INVERSE_GAUSSIAN,
         CRITERION_END
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef enum RF_type:
         CLASSIFICATION,
@@ -107,6 +108,3 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                  int) except +
 
     cdef vector[unsigned char] save_model(TreeliteModelHandle)
-
-    cdef TreeliteModelHandle concatenate_trees(
-        vector[TreeliteModelHandle] &treelite_handles) except +

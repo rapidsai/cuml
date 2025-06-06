@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
+import cudf
 from nltk import stem as nltk_stem
-from cuml.preprocessing.text import stem as rapids_stem
-from cuml.internals.safe_imports import gpu_only_import
 
-cudf = gpu_only_import("cudf")
+from cuml.preprocessing.text import stem as rapids_stem
 
 
 def get_words():

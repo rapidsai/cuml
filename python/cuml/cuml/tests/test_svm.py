@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,37 +14,38 @@
 #
 
 import platform
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
-from sklearn.datasets import make_classification, make_gaussian_quantiles
-from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets import load_iris, make_blobs
+
+import cudf
+import cupy as cp
+import numpy as np
+import pytest
+import scipy.sparse as scipy_sparse
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda
 from sklearn import svm
+from sklearn.datasets import (
+    load_iris,
+    make_blobs,
+    make_classification,
+    make_friedman1,
+    make_gaussian_quantiles,
+    make_regression,
+)
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+import cuml
+import cuml.svm as cu_svm
+from cuml.common import input_to_cuml_array
 from cuml.testing.utils import (
-    unit_param,
+    compare_probabilistic_svm,
+    compare_svm,
     quality_param,
     stress_param,
-    compare_svm,
-    compare_probabilistic_svm,
     svm_array_equal,
+    unit_param,
 )
-from cuml.common import input_to_cuml_array
-import cuml.svm as cu_svm
-import cuml
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-cuda = gpu_only_import_from("numba", "cuda")
-
-cudf = gpu_only_import("cudf")
-scipy_sparse = cpu_only_import("scipy.sparse")
-
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -406,6 +407,7 @@ def test_svm_gamma(params):
 
 @pytest.mark.parametrize("x_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
+@pytest.mark.xfail(reason="SVC testing inflexibility (see issue #6575)")
 def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
     X = X.astype(x_dtype, order="F")
@@ -450,10 +452,7 @@ def get_memsize(svc):
     "n_iter", [unit_param(10), quality_param(100), stress_param(1000)]
 )
 @pytest.mark.parametrize("n_cols", [1000])
-@pytest.mark.parametrize("use_handle", [True, False])
-def test_svm_memleak(
-    params, n_rows, n_iter, n_cols, use_handle, dataset="blobs"
-):
+def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset="blobs"):
     """
     Test whether there is any memory leak.
 
@@ -462,8 +461,7 @@ def test_svm_memleak(
 
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
-    stream = cuml.cuda.Stream()
-    handle = cuml.Handle(stream=stream)
+    handle = cuml.Handle()
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
@@ -517,8 +515,7 @@ def test_svm_memleak_on_exception(
         n_samples=n_rows, n_features=n_cols, random_state=137, centers=2
     )
     X_train = X_train.astype(np.float32)
-    stream = cuml.cuda.Stream()
-    handle = cuml.Handle(stream=stream)
+    handle = cuml.Handle()
 
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done

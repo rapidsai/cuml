@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,21 +14,21 @@
 # limitations under the License.
 #
 
-import dask
+import warnings
+
+import cupy as cp
+import dask.array
+import numpy as np
 from dask.distributed import default_client
-from cuml.dask.ensemble.base import BaseRandomForestModel
+
 from cuml.dask.common.base import (
+    BaseEstimator,
     DelayedPredictionMixin,
     DelayedPredictionProbaMixin,
 )
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.ensemble.base import BaseRandomForestModel
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from cuml.dask.common.base import BaseEstimator
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 class RandomForestClassifier(
@@ -244,10 +244,10 @@ class RandomForestClassifier(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
@@ -276,13 +276,15 @@ class RandomForestClassifier(
     def predict(
         self,
         X,
-        algo="auto",
         threshold=0.5,
         convert_dtype=True,
         predict_model="GPU",
-        fil_sparse_format="auto",
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
         delayed=True,
         broadcast_data=False,
+        **kwargs,
     ):
         """
         Predicts the labels for X.
@@ -299,34 +301,16 @@ class RandomForestClassifier(
         transmission incurs overheads for very large trees. For inference
         on small datasets, this overhead may dominate prediction time.
 
-        The 'CPU' fallback method works with sub-forests in-place,
-        broadcasting the datasets to all workers and combining predictions
-        via a voting method at the end. This method is slower
-        on a per-row basis but may be faster for problems with many trees
-        and few rows.
-
-        In the 0.15 cuML release, inference will be updated with much
-        faster tree transfer. Preliminary builds with this updated approach
-        will be available from rapids.ai
+        The 'CPU' fallback method works with sub-forests in-place, broadcasting
+        the datasets to all workers and combining predictions via a voting
+        method at the end. This method is slower on a per-row basis but may be
+        faster for problems with many trees and few rows.
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. (Default)
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU, that is for,
@@ -339,52 +323,78 @@ class RandomForestClassifier(
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
-
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.  It is not required  while using
             predict_model='CPU'.
         broadcast_data : bool (default = False)
-            If broadcast_data=False, the trees are merged in a single model
-            before the workers perform inference on their share of the
-            prediction workload. When broadcast_data=True, trees aren't merged.
-            Instead each of the workers infer the whole prediction work
-            from trees at disposal. The results are reduced on the client.
-            May be advantageous when the model is larger than the data used
-            for inference.
+            If False, the trees are merged in a single model before the workers
+            perform inference on their share of the prediction workload.
+            When True, trees aren't merged. Instead each worker infers on the
+            whole prediction workload using its available trees. The results are
+            reduced on the client. May be advantageous when the model is larger
+            than the data used for inference.
 
         Returns
         -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+            The predicted class labels.
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06 and
+            will be removed in 25.08. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
+        # Handle deprecated parameters
+        deprecated_params = ("algo", "fil_sparse_format")
+
+        for param in deprecated_params:
+            if param in kwargs:
+                warnings.warn(
+                    f"Parameter `{param}` was deprecated in version 25.06 and will be "
+                    "removed in 25.08. Use `layout`, `default_chunk_size`, and "
+                    "`align_bytes` instead.",
+                    FutureWarning,
+                )
+                kwargs.pop(param)
+
+        if kwargs:
+            raise ValueError(
+                f"Unexpected keyword arguments: {list(kwargs.keys())}"
+            )
+
         if predict_model == "CPU":
             preds = self.predict_model_on_cpu(X=X, convert_dtype=convert_dtype)
         else:
             if broadcast_data:
                 preds = self.partial_inference(
                     X,
-                    algo=algo,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
             else:
                 preds = self._predict_using_fil(
                     X,
-                    algo=algo,
                     threshold=threshold,
                     convert_dtype=convert_dtype,
-                    fil_sparse_format=fil_sparse_format,
+                    layout=layout,
+                    default_chunk_size=default_chunk_size,
+                    align_bytes=align_bytes,
                     delayed=delayed,
                 )
         return preds
@@ -393,21 +403,21 @@ class RandomForestClassifier(
         partial_infs = self._partial_inference(
             X=X, op_type="classification", delayed=delayed, **kwargs
         )
-
-        def reduce(partial_infs, workers_weights, unique_classes):
-            votes = dask.array.average(
-                partial_infs, axis=1, weights=workers_weights
-            )
-            merged_votes = votes.compute()
-            pred_class_indices = merged_votes.argmax(axis=1)
-            pred_class = unique_classes[pred_class_indices]
-            return pred_class
-
-        datatype = (
-            "daskArray" if isinstance(X, dask.array.Array) else "daskDataframe"
+        worker_weights = self._get_workers_weights()
+        merged_votes = dask.array.average(
+            partial_infs, axis=1, weights=worker_weights
         )
+        pred_class_indices = merged_votes.argmax(axis=1)
+        unique_classes = self.unique_classes
 
-        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
+        pred_class = pred_class_indices.map_blocks(
+            lambda x: unique_classes[x],
+            meta=unique_classes[:0],
+        )
+        if delayed:
+            return pred_class
+        else:
+            return pred_class.persist()
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
@@ -489,44 +499,14 @@ class RandomForestClassifier(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. (Default)
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (True) or an eager prediction (False)
+        **kwargs : dict
+            Additional predict parameters passed to the underlying model's predict method.
+            See RandomForestClassifier.predict_proba documentation for a full list.
 
         Returns
         -------

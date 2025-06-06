@@ -7,7 +7,7 @@ context:
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
-  head_rev: ${{ git.head_rev(".")[:8] }}
+  head_rev: '${{ git.head_rev(".")[:8] }}'
 
 recipe:
   name: libcuml-split
@@ -27,7 +27,7 @@ cache:
         export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
         set +x
 
-        ./build.sh -n libcuml prims -v --allgpuarch
+        ./build.sh -n libcuml prims -v --allgpuarch --build-metrics --incl-cache-stats
       secrets:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
@@ -108,6 +108,7 @@ outputs:
         - rapids-logger =0.1
         - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
+        - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
         - if: cuda_major == "11"
           then:

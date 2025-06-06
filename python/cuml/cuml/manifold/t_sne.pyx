@@ -18,42 +18,41 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
 import warnings
-from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
+
+import cupy
+import numpy as np
 
 import cuml.internals
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
-from pylibraft.common.handle cimport handle_t
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-from cuml.internals.utils import check_random_seed
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals import logger
-from cuml.internals cimport logger
-
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.sparsefuncs import extract_knn_infos
-from cuml.metrics.distance_type cimport DistanceType
-rmm = gpu_only_import('rmm')
+from cuml.internals.utils import check_random_seed
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
-from libc.stdint cimport int64_t
-from libc.stdlib cimport free
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport free
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
-cimport cuml.common.cuda
+from cuml.internals cimport logger
+from cuml.metrics.distance_type cimport DistanceType
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
@@ -91,7 +90,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         TSNE_ALGORITHM algorithm
 
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
     cdef void TSNE_fit(
         handle_t &handle,
@@ -119,7 +118,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float* kl_div) except +
 
 
-class TSNE(UniversalBase,
+class TSNE(Base,
+           InteropMixin,
            CMajorInputTagMixin,
            SparseInputTagMixin):
     """
@@ -268,17 +268,111 @@ class TSNE(UniversalBase,
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.manifold.TSNE'
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
-    _hyperparam_interop_translator = {
-        "n_components": {
-            3 : "NotImplemented",
-        }
-    }
+    _cpu_class_path = "sklearn.manifold.TSNE"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "n_components",
+            "perplexity",
+            "early_exaggeration",
+            "late_exaggeration",
+            "learning_rate",
+            "n_iter",
+            "n_iter_without_progress",
+            "min_grad_norm",
+            "metric",
+            "metric_params",
+            "init",
+            "random_state",
+            "method",
+            "angle",
+            "learning_rate_method",
+            "n_neighbors",
+            "perplexity_max_iter",
+            "exaggeration_iter",
+            "pre_momentum",
+            "post_momentum",
+            "square_distances",
+            "precomputed_knn"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.n_components != 2:
+            raise UnsupportedOnGPU
+
+        # Our barnes_hut implementation can sometimes hang, see #3865 and #3360.
+        # fft should be at least as good, and doesn't have this issue.
+        method = {"exact": "exact", "barnes_hut": "fft"}.get(model.method, None)
+        if method is None:
+            raise UnsupportedOnGPU
+
+        if not (isinstance(model.init, str) and model.init in ("pca", "random")):
+            raise UnsupportedOnGPU
+
+        params = {
+            "n_components": model.n_components,
+            "perplexity": model.perplexity,
+            "early_exaggeration": model.early_exaggeration,
+            "n_iter_without_progress": model.n_iter_without_progress,
+            "min_grad_norm": model.min_grad_norm,
+            "metric": model.metric,
+            "metric_params": model.metric_params,
+            "init": model.init,
+            "random_state": model.random_state,
+            "method": method,
+        }
+        if model.learning_rate != "auto":
+            # For now have `learning_rate="auto"` just use cuml's default
+            params["learning_rate"]: model.learning_rate
+
+        if model.max_iter is not None:
+            # max_iter may be None, in that case use cuml's default
+            params["n_iter"] = model.max_iter
+
+        return params
+
+    def _params_to_cpu(self):
+        method = "exact" if self.method == "Exact" else "barnes_hut"
+
+        return {
+            "n_components": self.n_components,
+            "perplexity": self.perplexity,
+            "early_exaggeration": self.early_exaggeration,
+            "learning_rate": self.learning_rate,
+            "max_iter": self.n_iter,
+            "n_iter_without_progress": self.n_iter_without_progress,
+            "min_grad_norm": self.min_grad_norm,
+            "metric": self.metric,
+            "metric_params": self.metric_params,
+            "init": self.init,
+            "random_state": self.random_state,
+            "method": method,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "embedding_": to_gpu(model.embedding_),
+            "kl_divergence_": to_gpu(model.kl_divergence_),
+            **super()._attrs_from_cpu(model)
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "embedding_": to_cpu(self.embedding_),
+            "kl_divergence_": to_cpu(self.kl_divergence_),
+            # XXX: In sklearn `learning_rate_` is either `self.learning_rate` or an inferred
+            # value if that's `"auto"`. In cuml our inferred value differs and is stored
+            # separately in `pre_learning_rate`/`post_learning_rate`. The most equivalent
+            # value is `pre_learning_rate`, which we forward here for now.
+            "learning_rate_": self.pre_learning_rate,
+            **super()._attrs_to_cpu(model)
+        }
+
     def __init__(self, *,
                  n_components=2,
                  perplexity=30.0,
@@ -409,7 +503,7 @@ class TSNE(UniversalBase,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -566,7 +660,6 @@ class TSNE(UniversalBase,
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
-                        skip_parameters_heading=True,
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \
@@ -574,7 +667,7 @@ class TSNE(UniversalBase,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "knn_graph")
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
@@ -662,22 +755,6 @@ class TSNE(UniversalBase,
     def kl_divergence_(self, value):
         self._kl_divergence_ = value
 
-    @property
-    def learning_rate_(self):
-        return self.learning_rate
-
-    @learning_rate_.setter
-    def learning_rate_(self, value):
-        self.learning_rate = value
-
-    @property
-    def n_iter_(self):
-        return self.n_iter
-
-    @n_iter_.setter
-    def n_iter_(self, value):
-        self.n_iter = value
-
     def __del__(self):
 
         if hasattr(self, "embedding_"):
@@ -694,35 +771,3 @@ class TSNE(UniversalBase,
                                    verbose=state['_verbose'])
         self.__dict__.update(state)
         return state
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "n_components",
-            "perplexity",
-            "early_exaggeration",
-            "late_exaggeration",
-            "learning_rate",
-            "n_iter",
-            "n_iter_without_progress",
-            "min_grad_norm",
-            "metric",
-            "metric_params",
-            "init",
-            "random_state",
-            "method",
-            "angle",
-            "learning_rate_method",
-            "n_neighbors",
-            "perplexity_max_iter",
-            "exaggeration_iter",
-            "pre_momentum",
-            "post_momentum",
-            "square_distances",
-            "precomputed_knn"
-        ]
-
-    def get_attr_names(self):
-        return ["embedding", "kl_divergence_",
-                "n_features_in_", "learning_rate_",
-                "n_iter_", "embedding_"]

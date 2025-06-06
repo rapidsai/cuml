@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
-import warnings
-
-if has_dask():
-    from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
-    from cuml.dask.neighbors.kneighbors_classifier import KNeighborsClassifier
-    from cuml.dask.neighbors.kneighbors_regressor import KNeighborsRegressor
-else:
-    warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabled."
-    )
+from cuml.dask.neighbors.kneighbors_classifier import KNeighborsClassifier
+from cuml.dask.neighbors.kneighbors_regressor import KNeighborsRegressor
+from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors

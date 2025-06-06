@@ -15,29 +15,29 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
+
 from libcpp cimport nullptr
+
 from cuml.svm.svm_base import SVMBase
+
 from cuml.internals.logger cimport level_enum
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+
+cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
@@ -47,7 +47,7 @@ cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double gamma
         double coef0
 
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
@@ -62,7 +62,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
 
     cdef cppclass SupportStorage[math_t]:
         int nnz
@@ -230,10 +230,9 @@ class SVR(SVMBase, RegressorMixin):
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.svm.SVR'
+    _cpu_class_path = "sklearn.svm.SVR"
 
-    @device_interop_preparation
-    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
@@ -256,7 +255,7 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
@@ -274,7 +273,12 @@ class SVR(SVMBase, RegressorMixin):
             self.dtype = X_m.dtype
         else:
             X_m, self.n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(X, order='F')
+                input_to_cuml_array(
+                    X,
+                    convert_to_dtype=(np.float32 if convert_dtype else None),
+                    check_dtype=[np.float32, np.float64],
+                    order="F"
+                )
 
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
@@ -348,7 +352,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
@@ -356,11 +360,3 @@ class SVR(SVMBase, RegressorMixin):
         """
 
         return super(SVR, self).predict(X, False, convert_dtype)
-
-    def get_attr_names(self):
-        return super().get_attr_names() + ["_sparse"]
-
-    def cpu_to_gpu(self):
-        self.dtype = np.float64
-
-        super().cpu_to_gpu()

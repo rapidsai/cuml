@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,24 +20,24 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
 
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
+cdef extern from "cuvs/cluster/agglomerative.hpp" namespace "cuvs::cluster::agglomerative" nogil:
 
-    cdef cppclass linkage_output_int:
+    cdef cppclass single_linkage_output[int]:
         int m
         int n_clusters
         int n_leaves
@@ -45,14 +45,14 @@ cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
         int *labels
         int *children
 
-cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
+cdef extern from "cuml/cluster/linkage.hpp" namespace "ML" nogil:
 
     cdef void single_linkage_pairwise(
         const handle_t &handle,
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int *out,
+        single_linkage_output[int] *out,
         DistanceType metric,
         int n_clusters
     ) except +
@@ -62,7 +62,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int *out,
+        single_linkage_output[int] *out,
         DistanceType metric,
         int c,
         int n_clusters
@@ -187,7 +187,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = None
         self.distances_ = None
 
-    @generate_docstring(skip_parameters_heading=True)
+    @generate_docstring()
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
@@ -238,7 +239,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
-        cdef linkage_output_int linkage_output
+        cdef single_linkage_output[int] linkage_output
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
 
@@ -251,13 +252,13 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         if self.connectivity == 'knn':
             single_linkage_neighbors(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int*> &linkage_output,
+                <int> n_cols, <single_linkage_output[int]*> &linkage_output,
                 <DistanceType> metric, <int>self.n_neighbors,
                 <int> self.n_clusters)
         elif self.connectivity == 'pairwise':
             single_linkage_pairwise(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int*> &linkage_output,
+                <int> n_cols, <single_linkage_output[int]*> &linkage_output,
                 <DistanceType> metric, <int> self.n_clusters)
         else:
             raise ValueError("'connectivity' can only be one of "
@@ -267,8 +268,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
         return self
 
-    @generate_docstring(skip_parameters_heading=True,
-                        return_values={'name': 'preds',
+    @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})

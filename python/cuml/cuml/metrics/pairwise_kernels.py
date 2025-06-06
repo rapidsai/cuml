@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import inspect
+
+import cupy as cp
+import numpy as np
+from numba import cuda
+
+import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.metrics import pairwise_distances
-import cuml.internals
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-import inspect
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from("numba", "cuda")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 def linear_kernel(X, Y):

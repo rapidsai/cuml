@@ -14,54 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 # distutils: language = c++
-import sys
-import threading
 
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator
-)
+import numpy as np
+from treelite import Model as TreeliteModel
 
-np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-rmm = gpu_only_import('rmm')
-
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
-from cuml.internals import logger
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.doc_utils import insert_into_docstring
+import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
-from cuml.internals.utils import check_random_seed
-
-from cuml.internals.logger cimport level_enum
+from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.compat import _handle_deprecated_rf_args
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.ensemble.randomforest_common import _obtain_fil_model
-from cuml.ensemble.randomforest_shared cimport *
-
-from cuml.legacy.fil.fil import TreeliteModel
-
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint64_t
-
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
+from cuml.fil.fil import ForestInference
+from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
 
+from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
-cimport cuml.common.cuda
+
+from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.logger cimport level_enum
 
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, int]*,
@@ -168,7 +152,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         only ``0``/``'gini'`` and ``1``/``'entropy'`` valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
-            * If ``True``, eachtree in the forest is built on a bootstrapped
+            * If ``True``, each tree in the forest is built on a bootstrapped
               sample with replacement.
             * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
@@ -200,6 +184,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4)
         Number of parallel streams used for forest building.
+        For nearly reproducible results, set ``n_streams=1``. If ``n_streams``
+        is greater than 1, results may vary due to unpredictable differences in
+        stream/thread timing, even when a ``random_state`` is specified.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum
@@ -275,6 +262,35 @@ class RandomForestClassifier(BaseRandomForestModel,
         },
     }
 
+    def _validate_fil_sparse_format(self, fil_sparse_format, algo):
+        """Validate the deprecated fil_sparse_format parameter.
+
+        This function is used to maintain backward compatibility while
+        transitioning to the new FIL interface. It raises ValueError for
+        invalid combinations of fil_sparse_format and algo parameters.
+
+        Parameters
+        ----------
+        fil_sparse_format : str or bool
+            The deprecated fil_sparse_format parameter
+        algo : str
+            The deprecated algo parameter
+
+        Raises
+        ------
+        ValueError
+            If fil_sparse_format is "not_supported" or if fil_sparse_format is
+            False and algo is "tree_reorg" or "batch_tree_reorg"
+        """
+        if fil_sparse_format == "not_supported":
+            raise ValueError(
+                "fil_sparse_format='not_supported' is not supported"
+            )
+        if not fil_sparse_format or algo in ["tree_reorg", "batch_tree_reorg"]:
+            raise ValueError(
+                f"fil_sparse_format=False is not supported with algo={algo}"
+            )
+
     @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
@@ -301,7 +317,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_serialized_model()  # Ensure we have this cached
+            self._serialize_treelite_bytes()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -316,13 +332,9 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         state["n_cols"] = self.n_cols
         state["_verbose"] = self._verbose
-        state["treelite_serialized_model"] = self.treelite_serialized_model
-        state["treelite_handle"] = None
+        state["treelite_serialized_bytes"] = self.treelite_serialized_bytes
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
-
-        if "_cpu_model_class_lock" in state:
-            del state["_cpu_model_class_lock"]
 
         return state
 
@@ -344,31 +356,25 @@ class RandomForestClassifier(BaseRandomForestModel,
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.treelite_serialized_model = state["treelite_serialized_model"]
+        self.treelite_serialized_bytes = state["treelite_serialized_bytes"]
         self.__dict__.update(state)
-        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
 
     def _reset_forest_data(self):
         """Free memory allocated by this instance and clear instance vars."""
-        if self.rf_forest:
+        if hasattr(self, "rf_forest") and self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>
                 self.rf_forest)
             self.rf_forest = 0
-        if self.rf_forest64:
+        if hasattr(self, "rf_forest64") and self.rf_forest64:
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
             self.rf_forest64 = 0
-
-        if self.treelite_handle:
-            TreeliteModel.free_treelite_model(self.treelite_handle)
-
-        self.treelite_handle = None
-        self.treelite_serialized_model = None
+        self.treelite_serialized_bytes = None
         self.n_cols = None
 
     def get_attr_names(self):
@@ -380,72 +386,61 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         Returns
         -------
-        tl_to_fil_model : Treelite version of this model
+        tl_to_fil_model : treelite.Model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return TreeliteModel.from_treelite_model_handle(treelite_handle)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return TreeliteModel.deserialize_bytes(treelite_bytes)
 
-    def convert_to_fil_model(self, output_class=True,
-                             threshold=0.5, algo='auto',
-                             fil_sparse_format='auto'):
+    @_handle_deprecated_rf_args('output_class', 'threshold', 'algo', 'fil_sparse_format')
+    def convert_to_fil_model(
+        self,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        **kwargs,
+    ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
 
         Parameters
         ----------
-
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
-
-        fil_model
+        fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
 
+        .. deprecated:: 25.06
+            Parameters `output_class`, `threshold`, `algo`, and `fil_sparse_format` were
+            deprecated in version 25.06 and will be removed in 25.08. Parameters `threshold`,
+            `algo`, and `fil_sparse_format` are ignored as of 25.06. Use `layout`,
+            `default_chunk_size`, and `align_bytes` instead.
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
-                                 depth=self.max_depth,
-                                 output_class=output_class,
-                                 threshold=threshold,
-                                 algo=algo,
-                                 fil_sparse_format=fil_sparse_format)
+        treelite_bytes = self._serialize_treelite_bytes()
+        return ForestInference(
+            treelite_model=treelite_bytes,
+            output_type="input",
+            is_classifier=kwargs.get('is_classifier', True),
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @generate_docstring(skip_parameters_heading=True,
@@ -455,6 +450,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
     @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -540,7 +536,11 @@ class RandomForestClassifier(BaseRandomForestModel,
         return self
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
+    def _predict_model_on_cpu(
+        self,
+        X,
+        convert_dtype = True,
+    ) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, _dtype = \
             input_to_cuml_array(X, order='C',
@@ -551,14 +551,14 @@ class RandomForestClassifier(BaseRandomForestModel,
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ = \
+            <handle_t*> <uintptr_t> self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+            <RandomForestMetaData[float, int]*> <uintptr_t> self.rf_forest
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+            <RandomForestMetaData[double, int]*> <uintptr_t> self.rf_forest64
         if self.dtype == np.float32:
             predict(handle_[0],
                     rf_forest,
@@ -586,71 +586,84 @@ class RandomForestClassifier(BaseRandomForestModel,
         del X_m
         return preds
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
-    def predict(self, X, predict_model="GPU", threshold=0.5,
-                algo='auto', convert_dtype=True,
-                fil_sparse_format='auto') -> CumlArray:
+    @deprecate_non_keyword_only(
+        "threshold",
+        "convert_dtype",
+        "predict_model",
+        "layout",
+        "default_chunk_size",
+        "align_bytes",
+    )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
+    def predict(
+        self,
+        X,
+        threshold = 0.5,
+        convert_dtype = True,
+        predict_model = "GPU",
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        **kwargs,
+    ) -> CumlArray:
         """
         Predicts the labels for X.
 
         Parameters
         ----------
         X : {}
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise.
-        algo : string (default = ``'auto'``)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
         threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = ``'auto'``)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+            Threshold used for classification. Only used when predict_model='GPU'.
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        predict_model : string (default = 'GPU')
+            Device to use for prediction: 'GPU' or 'CPU'.
+        layout : string (default = 'depth_first')
+            Forest layout for GPU inference. Options: 'depth_first', 'layered',
+            'breadth_first'. Only used when predict_model='GPU'.
+        default_chunk_size : int, optional (default = None)
+            Controls batch subdivision for parallel processing. Optimal value depends
+            on hardware, model and batch size. If None, determined automatically.
+            Only used when predict_model='GPU'.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded to this byte alignment, which can
+            improve performance. Typical values are 0 or 128 on GPU, 0 or 64 on CPU.
+            Only used when predict_model='GPU'.
 
         Returns
         -------
         y : {}
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
         if predict_model == "CPU":
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
+            preds = self._predict_model_on_cpu(
+                X=X,
+                convert_dtype=convert_dtype,
+            )
         else:
-            preds = \
-                self._predict_model_on_gpu(X=X, output_class=True,
-                                           threshold=threshold,
-                                           algo=algo,
-                                           convert_dtype=convert_dtype,
-                                           fil_sparse_format=fil_sparse_format,
-                                           predict_proba=False)
+            preds = self._predict_model_on_gpu(
+                X=X,
+                is_classifier=True,
+                predict_proba=False,
+                threshold=threshold,
+                convert_dtype=convert_dtype,
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+            )
 
         if self.update_labels:
             preds = preds.to_output().astype(self.classes_.dtype)
@@ -659,9 +672,22 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict_proba(self, X, algo='auto',
-                      convert_dtype=True,
-                      fil_sparse_format='auto') -> CumlArray:
+    @deprecate_non_keyword_only(
+        "convert_dtype",
+        "layout",
+        "default_chunk_size",
+        "align_bytes"
+    )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
+    def predict_proba(
+        self,
+        X,
+        convert_dtype = True,
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        **kwargs,
+    ) -> CumlArray:
         """
         Predicts class probabilities for X. This function uses the GPU
         implementation of predict.
@@ -669,55 +695,63 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
         y : {}
+
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
         """
-        preds_proba = \
-            self._predict_model_on_gpu(X, output_class=True,
-                                       algo=algo,
-                                       convert_dtype=convert_dtype,
-                                       fil_sparse_format=fil_sparse_format,
-                                       predict_proba=True)
+        return self._predict_model_on_gpu(
+            X=X,
+            is_classifier=True,
+            predict_proba=True,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
-        return preds_proba
-
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
-    def score(self, X, y, threshold=0.5,
-              algo='auto', predict_model="GPU",
-              convert_dtype=True, fil_sparse_format='auto'):
+    @deprecate_non_keyword_only(
+        "threshold", "convert_dtype", "layout", "default_chunk_size", "align_bytes",
+    )
+    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
+    def score(
+        self,
+        X,
+        y,
+        threshold = 0.5,
+        convert_dtype = True,
+        predict_model = "GPU",
+        layout = "depth_first",
+        default_chunk_size = None,
+        align_bytes = None,
+        **kwargs,
+    ):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -725,48 +759,37 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         X : {}
         y : {}
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-             * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
-               more coalescing-friendly
-             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
-               multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
-             * ``'batch_tree_reorg'`` is used for dense storage
-               and 'naive' for sparse storage
-
-        threshold : float
-            threshold is used to for classification
-            This is optional and required only while performing the
-            predict operation on the GPU.
-
-        convert_dtype : boolean, default=True
-            whether to convert input data to correct dtype automatically
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-
-             * ``'auto'`` - choose the storage type automatically
-               (currently True is chosen by auto)
-             * ``False`` - create a dense forest
-             * ``True`` - create a sparse forest, requires algo='naive'
-               or algo='auto'
+        threshold : float (default = 0.5)
+            Threshold used for classification predictions
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        predict_model : string (default = 'GPU')
+            Device to use for prediction: 'GPU' or 'CPU'.
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
 
         Returns
         -------
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
-        """
 
+        .. deprecated:: 25.06
+            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
+            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
+            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
+            instead.
+        """
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -778,11 +801,16 @@ class RandomForestClassifier(BaseRandomForestModel,
                                 convert_to_dtype=(np.int32 if convert_dtype
                                                   else False))
         y_ptr = y_m.ptr
-        preds = self.predict(X,
-                             threshold=threshold, algo=algo,
-                             convert_dtype=convert_dtype,
-                             predict_model=predict_model,
-                             fil_sparse_format=fil_sparse_format)
+        preds = self.predict(
+            X,
+            threshold=threshold,
+            convert_dtype=convert_dtype,
+            predict_model=predict_model,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            **kwargs,
+        )
 
         cdef uintptr_t preds_ptr
         preds_m, _, _, _ = \
@@ -865,24 +893,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    def cpu_to_gpu(self):
-        # treelite does an internal isinstance check to detect an sklearn
-        # RF, which proxymodule interferes with. We work around that
-        # temporarily here just for treelite internal check and
-        # restore the __class__ at the end of the method.
-        if GlobalSettings().accelerator_active:
-            with self._cpu_model_class_lock:
-                original_class = self._cpu_model.__class__
-                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestClassifier
-
-                try:
-                    super().cpu_to_gpu()
-                finally:
-                    self._cpu_model.__class__ = original_class
-
-        else:
-            super().cpu_to_gpu()
 
     @classmethod
     def _hyperparam_translator(cls, **kwargs):

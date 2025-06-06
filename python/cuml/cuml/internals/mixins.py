@@ -15,13 +15,15 @@
 #
 
 import inspect
-
 from copy import deepcopy
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_any_skipall
-from cuml.internals.base_helpers import _tags_class_and_instance
-from cuml.internals.api_decorators import enable_device_interop
 
+from cuml._thirdparty._sklearn_compat import _to_new_tags
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    api_base_return_any_skipall,
+    enable_device_interop,
+)
+from cuml.internals.base_helpers import _tags_class_and_instance
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #
@@ -176,6 +178,10 @@ class TagsMixin:
         tags.update(dynamic_tags)
 
         return tags
+
+    def __sklearn_tags__(self):
+        # enables compatibility with sklearn 1.7+
+        return _to_new_tags(self._get_tags(), estimator=self)
 
 
 ###############################################################################

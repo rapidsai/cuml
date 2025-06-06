@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,9 @@
 # limitations under the License.
 #
 import cupy as cp
-import dask
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
-from cuml.preprocessing.encoders import OrdinalEncoder
+from cudf import DataFrame
 
-cp = gpu_only_import("cupy")
-DataFrame = gpu_only_import_from("cudf", "DataFrame")
+from cuml.preprocessing.encoders import OrdinalEncoder
 
 
 class OrdinalEncoderMG(OrdinalEncoder):
@@ -30,6 +26,10 @@ class OrdinalEncoderMG(OrdinalEncoder):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function to check input of fit within the multi-gpu model"""
+        import dask.array
+
+        from cuml.dask.common.dask_arr_utils import to_dask_cudf
+
         if isinstance(X, (dask.array.core.Array, cp.ndarray)):
             self._set_input_type("array")
             if is_categories:

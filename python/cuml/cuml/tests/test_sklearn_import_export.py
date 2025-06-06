@@ -13,36 +13,36 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
+import scipy.sparse
+import sklearn.svm
+from numpy.testing import assert_allclose
+from sklearn.cluster import KMeans as SkKMeans
+from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.decomposition import PCA as SkPCA
+from sklearn.decomposition import TruncatedSVD as SkTruncatedSVD
+from sklearn.linear_model import ElasticNet as SkElasticNet
+from sklearn.linear_model import Lasso as SkLasso
+from sklearn.linear_model import LinearRegression as SkLinearRegression
+from sklearn.linear_model import LogisticRegression as SkLogisticRegression
+from sklearn.linear_model import Ridge as SkRidge
+from sklearn.utils.validation import check_is_fitted
 
-from cuml.cluster import KMeans, DBSCAN
+import cuml
+from cuml.cluster import DBSCAN, KMeans
 from cuml.decomposition import PCA, TruncatedSVD
+from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.linear_model import (
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
 from cuml.manifold import TSNE
 from cuml.neighbors import NearestNeighbors
-
 from cuml.testing.utils import array_equal
-
-from numpy.testing import assert_allclose
-
-from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans
-from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
-from sklearn.linear_model import (
-    LinearRegression as SkLinearRegression,
-    LogisticRegression as SkLogisticRegression,
-    ElasticNet as SkElasticNet,
-    Ridge as SkRidge,
-    Lasso as SkLasso,
-)
 
 ###############################################################################
 #                              Helper functions                               #
@@ -123,21 +123,30 @@ def assert_estimator_roundtrip(
     if transform:
         original_output = cuml_model.transform(X)
         roundtrip_output = roundtrip_model.transform(X)
-        array_equal(original_output, roundtrip_output)
+        assert array_equal(original_output, roundtrip_output)
     else:
         # For predict methods
         if hasattr(cuml_model, "predict"):
             original_pred = cuml_model.predict(X)
             roundtrip_pred = roundtrip_model.predict(X)
-            array_equal(original_pred, roundtrip_pred)
+            assert array_equal(original_pred, roundtrip_pred)
         # For models that only produce labels_ or similar attributes (e.g., clustering)
         elif hasattr(cuml_model, "labels_"):
-            array_equal(cuml_model.labels_, roundtrip_model.labels_)
+            assert array_equal(cuml_model.labels_, roundtrip_model.labels_)
         else:
             # If we get here, need a custom handling for that type
             raise NotImplementedError(
                 "No known method to compare outputs of this model."
             )
+
+    # Check that the scikit-learn estimator can be fitted again which checks
+    # that the hyper-parameter translation from cuml to scikit-learn works
+    # Has to happen after comparing predictions/transforms as refitting might
+    # change cluster IDs and the like
+    if y is not None:
+        sklearn_model.fit(X, y)
+    else:
+        sklearn_model.fit(X)
 
 
 ###############################################################################
@@ -170,18 +179,18 @@ def test_dbscan(random_state):
     original.fit(X)
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
-    array_equal(original.labels_, roundtrip_model.labels_)
+    assert array_equal(original.labels_, roundtrip_model.labels_)
 
 
 def test_pca(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = PCA(n_components=2, random_state=random_state)
+    original = PCA(n_components=2)
     assert_estimator_roundtrip(original, SkPCA, X, transform=True)
 
 
 def test_truncated_svd(random_state):
     X = np.random.RandomState(random_state).rand(50, 5)
-    original = TruncatedSVD(n_components=2, random_state=random_state)
+    original = TruncatedSVD(n_components=2)
     assert_estimator_roundtrip(original, SkTruncatedSVD, X, transform=True)
 
 
@@ -197,7 +206,7 @@ def test_logistic_regression(random_state):
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
     )
-    original = LogisticRegression(random_state=random_state, max_iter=500)
+    original = LogisticRegression(C=5.0, max_iter=500)
     assert_estimator_roundtrip(original, SkLogisticRegression, X, y)
 
 
@@ -205,7 +214,7 @@ def test_elasticnet(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = ElasticNet(random_state=random_state)
+    original = ElasticNet(alpha=0.1)
     assert_estimator_roundtrip(original, SkElasticNet, X, y)
 
 
@@ -213,7 +222,7 @@ def test_ridge(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Ridge(alpha=1.0, random_state=random_state)
+    original = Ridge(alpha=1.0)
     assert_estimator_roundtrip(original, SkRidge, X, y)
 
 
@@ -221,7 +230,7 @@ def test_lasso(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
     )
-    original = Lasso(alpha=0.1, random_state=random_state)
+    original = Lasso(alpha=0.1)
     assert_estimator_roundtrip(original, SkLasso, X, y)
 
 
@@ -241,8 +250,8 @@ def test_tsne(random_state):
     sklearn_embedding = sklearn_model.embedding_
     roundtrip_embedding = roundtrip_model.embedding_
 
-    array_equal(original_embedding, sklearn_embedding)
-    array_equal(original_embedding, roundtrip_embedding)
+    assert array_equal(original_embedding, sklearn_embedding)
+    assert array_equal(original_embedding, roundtrip_embedding)
 
 
 def test_nearest_neighbors(random_state):
@@ -256,3 +265,74 @@ def test_nearest_neighbors(random_state):
     dist_roundtrip, ind_roundtrip = roundtrip_model.kneighbors(X)
     assert_allclose(dist_original, dist_roundtrip)
     assert_allclose(ind_original, ind_roundtrip)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svr(random_state, sparse):
+    X, y = make_regression(n_samples=100, random_state=random_state)
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVR()
+    assert_estimator_roundtrip(original, sklearn.svm.SVR, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.SVR(kernel="linear").fit(X, y)
+    sk_model = sklearn.svm.SVR(kernel="linear").fit(X, y)
+
+    sk_score = cu_model.as_sklearn().score(X, y)
+    assert sk_score > 0.7
+
+    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    assert cu_score > 0.7
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svc(random_state, sparse):
+    X, y = make_classification(
+        n_samples=100, n_features=5, n_informative=3, random_state=random_state
+    )
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVC()
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model = sklearn.svm.SVC().fit(X, y)
+
+    sk_score = cu_model.as_sklearn().score(X, y)
+    assert sk_score > 0.7
+
+    cu_score = cuml.SVC.from_sklearn(sk_model).score(X, y)
+    assert cu_score > 0.7
+
+
+def test_svc_multiclass_unsupported(random_state):
+    X, y = make_classification(
+        n_samples=50,
+        n_features=10,
+        n_classes=3,
+        n_informative=5,
+        random_state=random_state,
+    )
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model = sklearn.svm.SVC().fit(X, y)
+
+    with pytest.raises(UnsupportedOnGPU):
+        cuml.SVC.from_sklearn(sk_model)
+
+    with pytest.raises(UnsupportedOnCPU):
+        cu_model.as_sklearn()
+
+
+def test_svc_probability_true_unsupported(random_state):
+    X, y = make_classification(n_samples=50, random_state=random_state)
+
+    cu_model = cuml.SVC(probability=True).fit(X, y)
+    sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+
+    with pytest.raises(UnsupportedOnGPU):
+        cuml.SVC.from_sklearn(sk_model)
+
+    with pytest.raises(UnsupportedOnCPU):
+        cu_model.as_sklearn()

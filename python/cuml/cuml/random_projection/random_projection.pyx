@@ -16,22 +16,24 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 import cuml.internals
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, deprecate_non_keyword_only
+
 from pylibraft.common.handle cimport *
+
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
-cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
+
+cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML" nogil:
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
@@ -224,6 +226,7 @@ cdef class BaseRandomProjection():
         self.params.density = value
 
     @cuml.internals.api_base_return_any()
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True):
         """
         Fit the model. This function generates the random matrix on GPU.
@@ -261,6 +264,7 @@ cdef class BaseRandomProjection():
         return self
 
     @cuml.internals.api_base_return_array()
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
@@ -322,6 +326,7 @@ cdef class BaseRandomProjection():
         return X_new
 
     @cuml.internals.api_base_return_array(get_output_type=False)
+    @deprecate_non_keyword_only("convert_dtype")
     def fit_transform(self, X, y=None, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 

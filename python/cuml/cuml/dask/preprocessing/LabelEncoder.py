@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing import LabelEncoder as LE
-from cuml.common.exceptions import NotFittedError
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import DelayedInverseTransformMixin
+from collections.abc import Sequence
 
+from dask_cudf import DataFrame as dcDataFrame
+from dask_cudf import Series as dcSeries
 from toolz import first
 
-from collections.abc import Sequence
-from cuml.internals.safe_imports import gpu_only_import_from
-
-dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
-dcSeries = gpu_only_import_from("dask_cudf", "Series")
+from cuml.common.exceptions import NotFittedError
+from cuml.dask.common.base import (
+    BaseEstimator,
+    DelayedInverseTransformMixin,
+    DelayedTransformMixin,
+)
+from cuml.preprocessing import LabelEncoder as LE
 
 
 class LabelEncoder(

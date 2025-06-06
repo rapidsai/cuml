@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,31 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
 import time
-
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.explainer.base import SHAPBase
-from cuml.explainer.common import get_cai_ptr
-from cuml.explainer.common import model_func_call
-from cuml.linear_model import Lasso
-from cuml.linear_model import LinearRegression
 from functools import lru_cache
 from itertools import combinations
-from numbers import Number
 from random import randint
 
+import cupy as cp
+import numpy as np
+from sklearn.linear_model import LassoLarsIC, lars_path
+
+from cuml.explainer.base import SHAPBase
+from cuml.explainer.common import get_cai_ptr, model_func_call
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.linear_model import Lasso, LinearRegression
+
+from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
-from libc.stdint cimport uintptr_t
-from libc.stdint cimport uint64_t
 
 
-cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
+cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML" nogil:
     void kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
         float* X,
@@ -583,30 +577,18 @@ def _l1_regularization(X,
     X = cp.transpose(
         w_sqrt_aug * cp.transpose(cp.vstack((X, X - 1))))
 
-    # Use lasso if Scikit-learn is not present
-    if not has_sklearn():
-        if l1_reg == 'auto':
-            l1_reg = 0.2
-        elif not isinstance(l1_reg, Number):
-            raise ImportError("Scikit-learn is required for l1 "
-                              "regularization that is not Lasso.")
-        nonzero_inds = cp.nonzero(Lasso(alpha=l1_reg).fit(X, y).coef_)[0]
-
-    # Else match default behavior of mainline SHAP
-    elif l1_reg == 'auto':
-        from sklearn.linear_model import LassoLarsIC
+    # Match default behavior of mainline SHAP
+    if l1_reg == 'auto':
         nonzero_inds = np.nonzero(
             LassoLarsIC(criterion="aic").fit(cp.asnumpy(X),
                                              cp.asnumpy(y)).coef_)[0]
 
     elif isinstance(l1_reg, str):
         if l1_reg.startswith("num_features("):
-            from sklearn.linear_model import lars_path
             r = int(l1_reg[len("num_features("):-1])
             nonzero_inds = lars_path(cp.asnumpy(X),
                                      cp.asnumpy(y), max_iter=r)[1]
         elif l1_reg in ["aic", "bic"]:
-            from sklearn.linear_model import LassoLarsIC
             nonzero_inds = np.nonzero(
                 LassoLarsIC(criterion=l1_reg).fit(cp.asnumpy(X),
                                                   cp.asnumpy(y)).coef_)[0]

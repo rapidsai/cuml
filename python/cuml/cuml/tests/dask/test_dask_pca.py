@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,11 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
+import numpy as np
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg
@@ -29,10 +27,10 @@ cp = gpu_only_import("cupy")
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 
-    from cuml.dask.decomposition import PCA as daskPCA
     from sklearn.decomposition import PCA
 
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import PCA as daskPCA
 
     X, _ = make_blobs(
         n_samples=nrows,
@@ -85,8 +83,8 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
 
-    from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import PCA as daskPCA
 
     X_cudf, _ = make_blobs(
         n_samples=nrows,
@@ -110,8 +108,8 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
 @pytest.mark.parametrize("n_parts", [33])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
 
-    from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import PCA as daskPCA
 
     X_cudf, _ = make_blobs(
         n_samples=nrows,
@@ -135,8 +133,8 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
 @pytest.mark.parametrize("n_parts", [28])
 def test_pca_fit_transform_fp32_noncomponents(nrows, ncols, n_parts, client):
     # Tests the case when n_components is not passed for MG scenarios
-    from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import PCA as daskPCA
 
     X_cudf, _ = make_blobs(
         n_samples=nrows,

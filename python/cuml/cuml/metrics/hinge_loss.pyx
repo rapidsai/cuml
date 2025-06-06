@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
+import cudf
+import cupy as cp
+
 import cuml.internals
 from cuml.internals.input_utils import determine_array_type
-from cuml.preprocessing import LabelEncoder, LabelBinarizer
-
-cp = gpu_only_import('cupy')
-cudf = gpu_only_import('cudf')
+from cuml.preprocessing import LabelBinarizer, LabelEncoder
 
 
 @cuml.internals.api_return_any()

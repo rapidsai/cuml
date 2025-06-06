@@ -79,8 +79,8 @@ def main(
         cudf.pandas.install()
 
     # avoid importing cuML before cuDF.pandas
-    from cuml.internals import logger
     from cuml.accel.core import install
+    from cuml.internals import logger
 
     default_logger_level_index = list(logger.level_enum).index(
         logger.level_enum.warn

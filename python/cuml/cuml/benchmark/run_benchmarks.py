@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 """Command-line ML benchmark runner"""
 
 import json
+
+import numpy as np
+
 from cuml.benchmark import algorithms, datagen, runners
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
 
 PrecisionMap = {
     "fp32": np.float32,
@@ -212,13 +211,6 @@ if __name__ == "__main__":
         default="fp32",
         help="Precision of the dataset to benchmark with",
     )
-    parser.add_argument(
-        "--device",
-        choices=["gpu", "cpu"],
-        default=["gpu"],
-        nargs="+",
-        help="The device to use for cuML execution",
-    )
     args = parser.parse_args()
 
     args.dtype = PrecisionMap[args.dtype]
@@ -288,7 +280,6 @@ if __name__ == "__main__":
         dataset_param_override_list=dataset_param_override_list,
         dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
-        device_list=args.device,
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps,
     )

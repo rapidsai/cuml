@@ -16,62 +16,75 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.global_settings import GlobalSettings
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
 import warnings
+
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.internals.array import CumlArray
-from cuml.internals.api_decorators import api_base_return_array_skipall
-from cuml.common.doc_utils import generate_docstring
-from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.linear_model.base import LinearPredictMixin
+
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 
-IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from pylibraft.common.handle cimport handle_t
-    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
-        cdef void ridgeFit(handle_t& handle,
-                           float *input,
-                           size_t n_rows,
-                           size_t n_cols,
-                           float *labels,
-                           float *alpha,
-                           int n_alpha,
-                           float *coef,
-                           float *intercept,
-                           bool fit_intercept,
-                           bool normalize,
-                           int algo,
-                           float *sample_weight) except +
+    cdef void ridgeFit(handle_t& handle,
+                       float *input,
+                       size_t n_rows,
+                       size_t n_cols,
+                       float *labels,
+                       float *alpha,
+                       int n_alpha,
+                       float *coef,
+                       float *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo,
+                       float *sample_weight) except +
 
-        cdef void ridgeFit(handle_t& handle,
-                           double *input,
-                           size_t n_rows,
-                           size_t n_cols,
-                           double *labels,
-                           double *alpha,
-                           int n_alpha,
-                           double *coef,
-                           double *intercept,
-                           bool fit_intercept,
-                           bool normalize,
-                           int algo,
-                           double *sample_weight) except +
+    cdef void ridgeFit(handle_t& handle,
+                       double *input,
+                       size_t n_rows,
+                       size_t n_cols,
+                       double *labels,
+                       double *alpha,
+                       int n_alpha,
+                       double *coef,
+                       double *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo,
+                       double *sample_weight) except +
 
 
-class Ridge(UniversalBase,
+_SOLVER_SKLEARN_TO_CUML = {
+    "auto": "auto",
+    "svd": "svd",
+    "cholesky": "eig",
+    "lsqr": "eig",
+    "sag": "eig",
+    "saga": "eig",
+    "sparse_cg": "eig"
+}
+_SOLVER_CUML_TO_SKLEARN = {
+    "auto": "auto",
+    "svd": "svd",
+    "eig": "cholesky",
+    "cd": "sag",
+}
+
+
+class Ridge(Base,
+            InteropMixin,
             RegressorMixin,
             LinearPredictMixin,
             FMajorInputTagMixin):
@@ -190,26 +203,63 @@ class Ridge(UniversalBase,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.Ridge'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "positive": {
-            True: "NotImplemented"
-        },
-        "solver": {
-            "auto": "auto",
-            "cholesky": "eig",
-            "lsqr": "eig",
-            "sag": "eig",
-            "saga": "eig",
-            "lbfgs": "NotImplemented",
-            "sparse_cg": "eig"
-        },
-    }
+    _cpu_class_path = "sklearn.linear_model.Ridge"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ['solver', 'fit_intercept', 'normalize', 'alpha']
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.positive:
+            raise UnsupportedOnGPU
+
+        solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver)
+        if solver is None:
+            raise UnsupportedOnGPU
+
+        return {
+            "alpha": model.alpha,
+            "fit_intercept": model.fit_intercept,
+            "solver": solver,
+        }
+
+    def _params_to_cpu(self):
+        solver = _SOLVER_CUML_TO_SKLEARN[self.solver]
+        return {
+            "alpha": self.alpha,
+            "fit_intercept": self.fit_intercept,
+            "solver": solver,
+        }
+
+    def _attrs_from_cpu(self, model):
+        solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver_)
+        if solver is None:
+            raise UnsupportedOnGPU
+
+        return {
+            "intercept_": float(model.intercept_),
+            "coef_": to_gpu(model.coef_, order="F"),
+            "solver_": solver,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        if model.solver == "auto":
+            solver = _SOLVER_CUML_TO_SKLEARN[self.solver_]
+        else:
+            solver = model.solver
+
+        return {
+            "intercept_": np.float64(self.intercept_),
+            "coef_": self.coef_.to_output("numpy"),
+            "solver_": solver,
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, alpha=1.0, solver='auto', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
@@ -262,7 +312,7 @@ class Ridge(UniversalBase,
         self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
 
     @generate_docstring()
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
@@ -324,43 +374,42 @@ class Ridge(UniversalBase,
         cdef float _c_alpha_f32
         cdef double _c_alpha_f64
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if self.dtype == np.float32:
-                _c_alpha_f32 = self.alpha
-                ridgeFit(handle_[0],
-                         <float*>_X_ptr,
-                         <size_t>n_rows,
-                         <size_t>self.n_features_in_,
-                         <float*>_y_ptr,
-                         <float*>&_c_alpha_f32,
-                         <int>self.n_alpha,
-                         <float*>_coef_ptr,
-                         <float*>&_c_intercept_f32,
-                         <bool>self.fit_intercept,
-                         <bool>self.normalize,
-                         <int>self.algo,
-                         <float*>_sample_weight_ptr)
+        if self.dtype == np.float32:
+            _c_alpha_f32 = self.alpha
+            ridgeFit(handle_[0],
+                     <float*>_X_ptr,
+                     <size_t>n_rows,
+                     <size_t>self.n_features_in_,
+                     <float*>_y_ptr,
+                     <float*>&_c_alpha_f32,
+                     <int>self.n_alpha,
+                     <float*>_coef_ptr,
+                     <float*>&_c_intercept_f32,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo,
+                     <float*>_sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f32
-            else:
-                _c_alpha_f64 = self.alpha
-                ridgeFit(handle_[0],
-                         <double*>_X_ptr,
-                         <size_t>n_rows,
-                         <size_t>self.n_features_in_,
-                         <double*>_y_ptr,
-                         <double*>&_c_alpha_f64,
-                         <int>self.n_alpha,
-                         <double*>_coef_ptr,
-                         <double*>&_c_intercept_f64,
-                         <bool>self.fit_intercept,
-                         <bool>self.normalize,
-                         <int>self.algo,
-                         <double*>_sample_weight_ptr)
+            self.intercept_ = _c_intercept_f32
+        else:
+            _c_alpha_f64 = self.alpha
+            ridgeFit(handle_[0],
+                     <double*>_X_ptr,
+                     <size_t>n_rows,
+                     <size_t>self.n_features_in_,
+                     <double*>_y_ptr,
+                     <double*>&_c_alpha_f64,
+                     <int>self.n_alpha,
+                     <double*>_coef_ptr,
+                     <double*>&_c_intercept_f64,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo,
+                     <double*>_sample_weight_ptr)
 
-                self.intercept_ = _c_intercept_f64
+            self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
@@ -370,22 +419,3 @@ class Ridge(UniversalBase,
             del sample_weight_m
 
         return self
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['solver', 'fit_intercept', 'normalize', 'alpha']
-
-    def get_attr_names(self):
-        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_', 'solver_']
-
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        """
-        Dispatch fit() function to CPU implementation for multi-target regression.
-        """
-        if func_name == "fit" and len(args) > 1:
-            y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
-
-            # Check if we have multiple targets or 2D array
-            return len(y_m.shape) > 1
-        return False

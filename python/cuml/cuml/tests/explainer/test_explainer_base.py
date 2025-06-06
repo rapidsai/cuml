@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numpy as np
+import pytest
+from pylibraft.common.handle import Handle
+
 from cuml import LinearRegression as cuLR
 from cuml.explainer.base import SHAPBase
-from pylibraft.common.handle import Handle
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("handle", [True, False])

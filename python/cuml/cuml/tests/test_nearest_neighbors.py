@@ -15,40 +15,31 @@
 #
 
 import gc
-from cuml.common import has_scipy
-import cuml
-import sklearn
-from cuml.internals.safe_imports import cpu_only_import_from
-from numpy.testing import assert_array_equal, assert_allclose
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
 import math
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
+import pandas as pd
+import pytest
+import sklearn
+from numpy.testing import assert_allclose, assert_array_equal
+from scipy.sparse import isspmatrix_csr
+from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors as skKNN
+
+import cuml
+from cuml.datasets import make_blobs
+from cuml.internals import logger  # noqa: F401
+from cuml.metrics import pairwise_distances as cuPW
+from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.neighbors import NearestNeighbors as cuKNN
-
-from sklearn.neighbors import NearestNeighbors as skKNN
-from cuml.datasets import make_blobs
-
-from sklearn.metrics import pairwise_distances
-from cuml.metrics import pairwise_distances as cuPW
-
-from cuml.internals import logger  # noqa: F401
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-cudf = gpu_only_import("cudf")
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-isspmatrix_csr = cpu_only_import_from("scipy.sparse", "isspmatrix_csr")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:((.|\n)*)#4020((.|\n)*):" "UserWarning:cuml[.*]"
@@ -107,10 +98,6 @@ def metric_p_combinations():
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("metric_p", metric_p_combinations())
 @pytest.mark.parametrize("nrows", [1000, stress_param(10000)])
-@pytest.mark.skipif(
-    not has_scipy(),
-    reason="Skipping test_self_neighboring" " because Scipy is missing",
-)
 def test_self_neighboring(datatype, metric_p, nrows):
     """Test that searches using an indexed vector itself return sensible
     results for that vector
@@ -124,11 +111,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
     n_neighbors = 3
 
     metric, p = metric_p
-
-    if not has_scipy():
-        pytest.skip(
-            "Skipping test_self_neighboring because " + "Scipy is missing"
-        )
 
     X, y = make_blobs(
         n_samples=nrows, centers=n_clusters, n_features=ncols, random_state=0
@@ -186,12 +168,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
 def test_neighborhood_predictions(
     nrows, ncols, n_neighbors, n_clusters, datatype, algo
 ):
-    if not has_scipy():
-        pytest.skip(
-            "Skipping test_neighborhood_predictions because "
-            + "Scipy is missing"
-        )
-
     X, y = make_blobs(
         n_samples=nrows, centers=n_clusters, n_features=ncols, random_state=0
     )
@@ -479,6 +455,54 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
         knn_cu.fit(X, convert_dtype=False)
 
 
+def check_knn_graph(
+    X, k, mode, metric, p, input_type, output_type, as_instance, include_self
+):
+    if as_instance:
+        sparse_sk = sklearn.neighbors.kneighbors_graph(
+            X.get(),
+            k,
+            mode=mode,
+            metric=metric,
+            p=p,
+            include_self=include_self,
+        )
+    else:
+        knn_sk = skKNN(metric=metric, p=p)
+        knn_sk.fit(X.get())
+        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
+
+    if input_type == "dataframe":
+        X = cudf.DataFrame(X)
+
+    with cuml.using_output_type(output_type):
+        if as_instance:
+            sparse_cu = cuml.neighbors.kneighbors_graph(
+                X, k, mode=mode, metric=metric, p=p, include_self=include_self
+            )
+        else:
+            knn_cu = cuKNN(metric=metric, p=p)
+            knn_cu.fit(X)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
+
+    assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
+    assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
+    assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
+    assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
+
+    if output_type == "cupy":
+        assert np.allclose(
+            sparse_sk.toarray(),
+            np.asarray(sparse_cu.toarray().get()),
+            atol=1e-4,
+        )
+
+    if output_type == "cupy" or output_type is None:
+        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
+    else:
+        assert isspmatrix_csr(sparse_cu)
+
+
 @pytest.mark.parametrize(
     "input_type,mode,output_type,as_instance",
     [
@@ -501,37 +525,17 @@ def test_knn_graph(
 ):
     X, _ = make_blobs(n_samples=nrows, n_features=n_feats, random_state=0)
 
-    if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(
-            X.get(), k, mode=mode, metric=metric, p=p, include_self="auto"
-        )
-    else:
-        knn_sk = skKNN(metric=metric, p=p)
-        knn_sk.fit(X.get())
-        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
+    check_knn_graph(
+        X, k, mode, metric, p, input_type, output_type, as_instance, "auto"
+    )
 
-    if input_type == "dataframe":
-        X = cudf.DataFrame(X)
 
-    with cuml.using_output_type(output_type):
-        if as_instance:
-            sparse_cu = cuml.neighbors.kneighbors_graph(
-                X, k, mode=mode, metric=metric, p=p, include_self="auto"
-            )
-        else:
-            knn_cu = cuKNN(metric=metric, p=p)
-            knn_cu.fit(X)
-            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
+def test_knn_graph_duplicate_point():
+    X = cp.array([[1, 5], [1, 5], [7, 3], [9, 6], [10, 1]])
 
-    assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
-    assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
-    assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
-    assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
-
-    if output_type == "cupy" or output_type is None:
-        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
-    else:
-        assert isspmatrix_csr(sparse_cu)
+    check_knn_graph(
+        X, 2, "connectivity", "euclidean", 2, "ndarray", "cupy", True, False
+    )
 
 
 @pytest.mark.parametrize(

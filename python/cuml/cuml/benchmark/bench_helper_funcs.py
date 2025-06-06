@@ -13,31 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.manifold import UMAP
-from cuml.benchmark import datagen
-from cuml.common.device_selection import using_device_type
-from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    safe_import,
-)
-import sklearn.ensemble as skl_ensemble
-import pickle as pickle
 import os
-import cuml
-from cuml.internals import input_utils
+import pickle as pickle
 from time import perf_counter
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-cuda = gpu_only_import_from("numba", "cuda")
-cp = gpu_only_import("cupy")
-xgb = safe_import("xgboost")
-treelite = safe_import("treelite")
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
+import sklearn.ensemble as skl_ensemble
+from numba import cuda
+
+import cuml
+from cuml.benchmark import datagen
+from cuml.fil import get_fil_device_type, set_fil_device_type
+from cuml.internals import input_utils
+from cuml.internals.device_type import DeviceType
+from cuml.manifold import UMAP
 
 
 def call(m, func_name, X, y=None):
@@ -125,6 +117,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
+    import xgboost as xgb
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -183,7 +176,9 @@ class OptimizedFilWrapper:
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
-    with using_device_type("gpu"):
+    import xgboost as xgb
+
+    with set_fil_device_type("gpu"):
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -208,7 +203,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         bst.save_model(model_path)
 
     allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
-    if GlobalSettings().device_type is DeviceType.host:
+    if get_fil_device_type() is DeviceType.host:
         allowed_chunk_sizes.extend((64, 128, 256))
 
     fil_kwargs = {
@@ -368,6 +363,8 @@ class GtilWrapper:
         self.infer_type = infer_type
 
     def predict(self, X):
+        import treelite
+
         if self.infer_type == "per_tree":
             return treelite.gtil.predict_per_tree(self.tl_model, X)
         return treelite.gtil.predict(self.tl_model, X)
@@ -375,6 +372,8 @@ class GtilWrapper:
 
 def _build_gtil_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
+    import treelite
+    import xgboost as xgb
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]

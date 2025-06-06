@@ -16,102 +16,106 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-scipy = cpu_only_import('scipy')
-
-rmm = gpu_only_import('rmm')
+import cupy as cp
+import cupyx
+import numpy as np
+import scipy.sparse
 
 from libc.stdint cimport uintptr_t
 
+from enum import IntEnum
+
 import cuml.internals
-from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
 import cuml.internals.logger as logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
-from cuml.common.sparse_utils import is_sparse
-from cuml.prims.stats import cov
-from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.input_utils import (
+    input_to_cuml_array,
+    input_to_cupy_array,
+    sparse_scipy_to_cp,
+)
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+from cuml.prims.stats import cov
+
+from cython.operator cimport dereference as deref
+from pylibraft.common.handle cimport handle_t
+
+from cuml.decomposition.utils cimport *
 
 
-IF GPUBUILD == 1:
-    from enum import IntEnum
-    from cython.operator cimport dereference as deref
-    from cuml.decomposition.utils cimport *
-    from pylibraft.common.handle cimport handle_t
+cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
 
-    cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
+    cdef void pcaFit(handle_t& handle,
+                     float *input,
+                     float *components,
+                     float *explained_var,
+                     float *explained_var_ratio,
+                     float *singular_vals,
+                     float *mu,
+                     float *noise_vars,
+                     const paramsPCA &prms) except +
 
-        cdef void pcaFit(handle_t& handle,
-                         float *input,
-                         float *components,
-                         float *explained_var,
-                         float *explained_var_ratio,
-                         float *singular_vals,
-                         float *mu,
-                         float *noise_vars,
-                         const paramsPCA &prms) except +
+    cdef void pcaFit(handle_t& handle,
+                     double *input,
+                     double *components,
+                     double *explained_var,
+                     double *explained_var_ratio,
+                     double *singular_vals,
+                     double *mu,
+                     double *noise_vars,
+                     const paramsPCA &prms) except +
 
-        cdef void pcaFit(handle_t& handle,
-                         double *input,
-                         double *components,
-                         double *explained_var,
-                         double *explained_var_ratio,
-                         double *singular_vals,
-                         double *mu,
-                         double *noise_vars,
-                         const paramsPCA &prms) except +
+    cdef void pcaInverseTransform(handle_t& handle,
+                                  float *trans_input,
+                                  float *components,
+                                  float *singular_vals,
+                                  float *mu,
+                                  float *input,
+                                  const paramsPCA &prms) except +
 
-        cdef void pcaInverseTransform(handle_t& handle,
-                                      float *trans_input,
-                                      float *components,
-                                      float *singular_vals,
-                                      float *mu,
-                                      float *input,
-                                      const paramsPCA &prms) except +
+    cdef void pcaInverseTransform(handle_t& handle,
+                                  double *trans_input,
+                                  double *components,
+                                  double *singular_vals,
+                                  double *mu,
+                                  double *input,
+                                  const paramsPCA &prms) except +
 
-        cdef void pcaInverseTransform(handle_t& handle,
-                                      double *trans_input,
-                                      double *components,
-                                      double *singular_vals,
-                                      double *mu,
-                                      double *input,
-                                      const paramsPCA &prms) except +
+    cdef void pcaTransform(handle_t& handle,
+                           float *input,
+                           float *components,
+                           float *trans_input,
+                           float *singular_vals,
+                           float *mu,
+                           const paramsPCA &prms) except +
 
-        cdef void pcaTransform(handle_t& handle,
-                               float *input,
-                               float *components,
-                               float *trans_input,
-                               float *singular_vals,
-                               float *mu,
-                               const paramsPCA &prms) except +
-
-        cdef void pcaTransform(handle_t& handle,
-                               double *input,
-                               double *components,
-                               double *trans_input,
-                               double *singular_vals,
-                               double *mu,
-                               const paramsPCA &prms) except +
-
-    class Solver(IntEnum):
-        COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
-        COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+    cdef void pcaTransform(handle_t& handle,
+                           double *input,
+                           double *components,
+                           double *trans_input,
+                           double *singular_vals,
+                           double *mu,
+                           const paramsPCA &prms) except +
 
 
-class PCA(UniversalBase,
+class Solver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+
+
+class PCA(Base,
+          InteropMixin,
           FMajorInputTagMixin,
           SparseInputTagMixin):
 
@@ -171,9 +175,6 @@ class PCA(UniversalBase,
         mean: 0 2.666...
         1 2.333...
         2 2.333...
-        dtype: float32
-        >>> print(f'noise variance: {pca_float.noise_variance_}') # doctest: +SKIP
-        noise variance: 0   -7.377287e-08
         dtype: float32
         >>> trans_gdf_float = pca_float.transform(gdf_float)
         >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
@@ -269,36 +270,89 @@ class PCA(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.decomposition.PCA'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
     mean_ = CumlArrayDescriptor(order='F')
-    noise_variance_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
-    _hyperparam_interop_translator = {
-        "svd_solver": {
-            "arpack": "full",
-            "randomized": "full",
-            "covariance_eigh": "full"
-        },
-        "iterated_power": {
-            "auto": 15,
-        },
-        "n_components": {
-            "mle": "NotImplemented"
-        },
-        "tol": {
-            # tolerance controls tolerance of different solvers
-            # between sklearn and cuML, so at least the default
-            # value needs to be translated.
-            0.0: 1e-7
-        }
-    }
+    _cpu_class_path = "sklearn.decomposition.PCA"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
+            ["copy", "iterated_power", "n_components", "svd_solver", "tol", "whiten"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.n_components == "mle":
+            raise UnsupportedOnGPU
+
+        svd_solver = "auto" if model.svd_solver == "auto" else "full"
+
+        # Since the solvers are different, we want to adjust the tolerances used.
+        # TODO: here we only adjust the default tolerance, there's likely a better
+        # conversion equation we should apply.
+        if (tol := model.tol) == 0.0:
+            tol = 1e-7
+
+        if (iterated_power := model.iterated_power) == "auto":
+            iterated_power = 15
+
+        return {
+            "n_components": model.n_components,
+            "copy": model.copy,
+            "whiten": model.whiten,
+            "svd_solver": svd_solver,
+            "tol": tol,
+            "iterated_power": iterated_power,
+        }
+
+    def _params_to_cpu(self):
+        # Since the solvers are different, we want to adjust the tolerances used.
+        # TODO: here we only adjust the default tolerance, there's likely a better
+        # conversion equation we should apply.
+        if (tol := self.tol) == 1e-7:
+            tol = 0.0
+
+        svd_solver = "auto" if self.svd_solver == "jacobi" else self.svd_solver
+
+        return {
+            "n_components": self.n_components,
+            "copy": self.copy,
+            "whiten": self.whiten,
+            "svd_solver": svd_solver,
+            "tol": tol,
+            "iterated_power": self.iterated_power,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(model.explained_variance_, order="F"),
+            "explained_variance_ratio_": to_gpu(model.explained_variance_ratio_, order="F"),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            "mean_": to_gpu(model.mean_, order="F"),
+            "n_components_": model.n_components_,
+            "n_samples_": model.n_samples_,
+            "noise_variance_": model.noise_variance_,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(self.explained_variance_ratio_),
+            "singular_values_": to_cpu(self.singular_values_),
+            "mean_": to_cpu(self.mean_),
+            "n_components_": self.n_components_,
+            "n_samples_": self.n_samples_,
+            "noise_variance_": self.noise_variance_,
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
@@ -330,33 +384,31 @@ class PCA(UniversalBase,
         self._sparse_model = None
 
     def _get_algorithm_c_name(self, algorithm):
-        IF GPUBUILD == 1:
-            algo_map = {
-                'full': Solver.COV_EIG_DQ,
-                'auto': Solver.COV_EIG_DQ,
-                # 'arpack': NOT_SUPPORTED,
-                # 'randomized': NOT_SUPPORTED,
-                'jacobi': Solver.COV_EIG_JACOBI
-            }
-            if algorithm not in algo_map:
-                msg = "algorithm {!r} is not supported"
-                raise TypeError(msg.format(algorithm))
+        algo_map = {
+            'full': Solver.COV_EIG_DQ,
+            'auto': Solver.COV_EIG_DQ,
+            # 'arpack': NOT_SUPPORTED,
+            # 'randomized': NOT_SUPPORTED,
+            'jacobi': Solver.COV_EIG_JACOBI
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
 
-            return algo_map[algorithm]
+        return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        IF GPUBUILD == 1:
-            cdef paramsPCA *params = new paramsPCA()
-            params.n_components = self.n_components_
-            params.n_rows = n_rows
-            params.n_cols = n_cols
-            params.whiten = self.whiten
-            params.n_iterations = self.iterated_power
-            params.tol = self.tol
-            params.algorithm = <solver> (<underlying_type_t_solver> (
-                self.c_algorithm))
+        cdef paramsPCA *params = new paramsPCA()
+        params.n_components = self.n_components_
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
-            return <size_t>params
+        return <size_t>params
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -370,7 +422,6 @@ class PCA(UniversalBase,
 
         self.singular_values_ = CumlArray.zeros(n_components,
                                                 dtype=self.dtype)
-        self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def _sparse_fit(self, X):
 
@@ -402,10 +453,11 @@ class PCA(UniversalBase,
             self.explained_variance_)
 
         if self.n_components_ < min(self.n_samples_, self.n_features_in_):
-            self.noise_variance_ = \
+            self.noise_variance_ = float(
                 self.explained_variance_[self.n_components_:].mean()
+            )
         else:
-            self.noise_variance_ = cp.array([0.0])
+            self.noise_variance_ = 0.0
 
         self.explained_variance_ = \
             self.explained_variance_[:self.n_components_]
@@ -423,7 +475,7 @@ class PCA(UniversalBase,
         return self
 
     @generate_docstring(X='dense_sparse')
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y=None, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -458,59 +510,61 @@ class PCA(UniversalBase,
         cdef uintptr_t _input_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
-        IF GPUBUILD == 1:
-            cdef paramsPCA *params = <paramsPCA*><size_t> \
-                self._build_params(self.n_samples_, self.n_features_in_)
+        cdef paramsPCA *params = <paramsPCA*><size_t> \
+            self._build_params(self.n_samples_, self.n_features_in_)
 
-            if params.n_components > self.n_features_in_:
-                raise ValueError('Number of components should not be greater than'
-                                 'the number of columns in the data')
+        if params.n_components > self.n_features_in_:
+            raise ValueError('Number of components should not be greater than'
+                             'the number of columns in the data')
 
-            # Calling _initialize_arrays, guarantees everything is CumlArray
-            self._initialize_arrays(params.n_components,
-                                    params.n_rows, params.n_cols)
+        # Calling _initialize_arrays, guarantees everything is CumlArray
+        self._initialize_arrays(params.n_components,
+                                params.n_rows, params.n_cols)
 
-            cdef uintptr_t comp_ptr = self.components_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
 
-            cdef uintptr_t explained_var_ptr = \
-                self.explained_variance_.ptr
+        cdef uintptr_t explained_var_ptr = \
+            self.explained_variance_.ptr
 
-            cdef uintptr_t explained_var_ratio_ptr = \
-                self.explained_variance_ratio_.ptr
+        cdef uintptr_t explained_var_ratio_ptr = \
+            self.explained_variance_ratio_.ptr
 
-            cdef uintptr_t singular_vals_ptr = \
-                self.singular_values_.ptr
+        cdef uintptr_t singular_vals_ptr = \
+            self.singular_values_.ptr
 
-            cdef uintptr_t _mean_ptr = self.mean_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-            cdef uintptr_t noise_vars_ptr = \
-                self.noise_variance_.ptr
+        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
+        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if self.dtype == np.float32:
-                pcaFit(handle_[0],
-                       <float*> _input_ptr,
-                       <float*> comp_ptr,
-                       <float*> explained_var_ptr,
-                       <float*> explained_var_ratio_ptr,
-                       <float*> singular_vals_ptr,
-                       <float*> _mean_ptr,
-                       <float*> noise_vars_ptr,
-                       deref(params))
-            else:
-                pcaFit(handle_[0],
-                       <double*> _input_ptr,
-                       <double*> comp_ptr,
-                       <double*> explained_var_ptr,
-                       <double*> explained_var_ratio_ptr,
-                       <double*> singular_vals_ptr,
-                       <double*> _mean_ptr,
-                       <double*> noise_vars_ptr,
-                       deref(params))
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if self.dtype == np.float32:
+            pcaFit(handle_[0],
+                   <float*> _input_ptr,
+                   <float*> comp_ptr,
+                   <float*> explained_var_ptr,
+                   <float*> explained_var_ratio_ptr,
+                   <float*> singular_vals_ptr,
+                   <float*> _mean_ptr,
+                   <float*> noise_vars_ptr,
+                   deref(params))
+        else:
+            pcaFit(handle_[0],
+                   <double*> _input_ptr,
+                   <double*> comp_ptr,
+                   <double*> explained_var_ptr,
+                   <double*> explained_var_ratio_ptr,
+                   <double*> singular_vals_ptr,
+                   <double*> _mean_ptr,
+                   <double*> noise_vars_ptr,
+                   deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
+
+        # Store noise_variance_ as a float
+        self.noise_variance_ = float(noise_variance.to_output("numpy"))
 
         return self
 
@@ -520,7 +574,6 @@ class PCA(UniversalBase,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
@@ -566,7 +619,7 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype", "return_sparse", "sparse_tol")
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
@@ -603,45 +656,44 @@ class PCA(UniversalBase,
 
         cdef uintptr_t _trans_input_ptr = X_m.ptr
 
-        IF GPUBUILD == 1:
-            # todo: check n_cols and dtype
-            cdef paramsPCA params
-            params.n_components = self.n_components_
-            params.n_rows = _n_rows
-            params.n_cols = self.n_features_in_
-            params.whiten = self.whiten
+        # todo: check n_cols and dtype
+        cdef paramsPCA params
+        params.n_components = self.n_components_
+        params.n_rows = _n_rows
+        params.n_cols = self.n_features_in_
+        params.whiten = self.whiten
 
-            input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                         dtype=dtype.type)
+        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
+                                     dtype=dtype.type)
 
-            cdef uintptr_t input_ptr = input_data.ptr
-            cdef uintptr_t components_ptr = self.components_.ptr
-            cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
-            cdef uintptr_t _mean_ptr = self.mean_.ptr
+        cdef uintptr_t input_ptr = input_data.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
+        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-            cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                pcaInverseTransform(h_[0],
-                                    <float*> _trans_input_ptr,
-                                    <float*> components_ptr,
-                                    <float*> singular_vals_ptr,
-                                    <float*> _mean_ptr,
-                                    <float*> input_ptr,
-                                    params)
-            else:
-                pcaInverseTransform(h_[0],
-                                    <double*> _trans_input_ptr,
-                                    <double*> components_ptr,
-                                    <double*> singular_vals_ptr,
-                                    <double*> _mean_ptr,
-                                    <double*> input_ptr,
-                                    params)
+        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
+        if dtype.type == np.float32:
+            pcaInverseTransform(h_[0],
+                                <float*> _trans_input_ptr,
+                                <float*> components_ptr,
+                                <float*> singular_vals_ptr,
+                                <float*> _mean_ptr,
+                                <float*> input_ptr,
+                                params)
+        else:
+            pcaInverseTransform(h_[0],
+                                <double*> _trans_input_ptr,
+                                <double*> components_ptr,
+                                <double*> singular_vals_ptr,
+                                <double*> _mean_ptr,
+                                <double*> input_ptr,
+                                params)
 
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
-            return input_data
+        return input_data
 
     @cuml.internals.api_base_return_array_skipall
     def _sparse_transform(self, X) -> CumlArray:
@@ -670,7 +722,7 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
+    @deprecate_non_keyword_only("convert_dtype")
     def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.
@@ -703,62 +755,49 @@ class PCA(UniversalBase,
 
         cdef uintptr_t _input_ptr = X_m.ptr
 
-        IF GPUBUILD == 1:
-            # todo: check dtype
-            cdef paramsPCA params
-            params.n_components = self.n_components_
-            params.n_rows = _n_rows
-            params.n_cols = _n_cols
-            params.whiten = self.whiten
+        # todo: check dtype
+        cdef paramsPCA params
+        params.n_components = self.n_components_
+        params.n_rows = _n_rows
+        params.n_cols = _n_cols
+        params.whiten = self.whiten
 
-            t_input_data = \
-                CumlArray.zeros((params.n_rows, params.n_components),
-                                dtype=dtype.type, index=X_m.index)
+        t_input_data = \
+            CumlArray.zeros((params.n_rows, params.n_components),
+                            dtype=dtype.type, index=X_m.index)
 
-            cdef uintptr_t _trans_input_ptr = t_input_data.ptr
-            cdef uintptr_t components_ptr = self.components_.ptr
-            cdef uintptr_t singular_vals_ptr = \
-                self.singular_values_.ptr
-            cdef uintptr_t _mean_ptr = self.mean_.ptr
+        cdef uintptr_t _trans_input_ptr = t_input_data.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
+        cdef uintptr_t singular_vals_ptr = \
+            self.singular_values_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                pcaTransform(handle_[0],
-                             <float*> _input_ptr,
-                             <float*> components_ptr,
-                             <float*> _trans_input_ptr,
-                             <float*> singular_vals_ptr,
-                             <float*> _mean_ptr,
-                             params)
-            else:
-                pcaTransform(handle_[0],
-                             <double*> _input_ptr,
-                             <double*> components_ptr,
-                             <double*> _trans_input_ptr,
-                             <double*> singular_vals_ptr,
-                             <double*> _mean_ptr,
-                             params)
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if dtype.type == np.float32:
+            pcaTransform(handle_[0],
+                         <float*> _input_ptr,
+                         <float*> components_ptr,
+                         <float*> _trans_input_ptr,
+                         <float*> singular_vals_ptr,
+                         <float*> _mean_ptr,
+                         params)
+        else:
+            pcaTransform(handle_[0],
+                         <double*> _input_ptr,
+                         <double*> components_ptr,
+                         <double*> _trans_input_ptr,
+                         <double*> singular_vals_ptr,
+                         <double*> _mean_ptr,
+                         params)
 
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
-            return t_input_data
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ["copy", "iterated_power", "n_components", "svd_solver", "tol",
-                "whiten"]
+        return t_input_data
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
             msg = ("This instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
-
-    def get_attr_names(self):
-        return ['components_', 'explained_variance_',
-                'explained_variance_ratio_', 'singular_values_',
-                'mean_', 'n_components_', 'noise_variance_',
-                'n_samples_', 'n_features_in_', 'feature_names_in_']
