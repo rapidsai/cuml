@@ -29,7 +29,6 @@ from cuml.common import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.input_utils import (
     determine_array_type_full,
     input_to_cupy_array,
@@ -580,8 +579,7 @@ class SVC(SVMBase,
 
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
@@ -701,8 +699,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -729,8 +726,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted \
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("log")
-    def predict_proba(self, X, log=False) -> CumlArray:
+    def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
 

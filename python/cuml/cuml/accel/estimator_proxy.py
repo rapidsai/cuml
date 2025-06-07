@@ -23,6 +23,17 @@ from sklearn.base import BaseEstimator
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
 
+def is_proxy(instance_or_class) -> bool:
+    """Check if an instance or class is a proxy object created by the accelerator."""
+    from cuml.accel.estimator_proxy_mixin import ProxyMixin
+
+    if isinstance(instance_or_class, type):
+        cls = instance_or_class
+    else:
+        cls = type(instance_or_class)
+    return issubclass(cls, (ProxyMixin, ProxyBase))
+
+
 class _ReconstructProxy:
     """A function for reconstructing serialized estimators.
 
