@@ -78,9 +78,9 @@ def enabled() -> bool:
     return ACCEL.enabled
 
 
-def install(disable_uvm=False):
+def install(disable_uvm=False, log_level=logger.level_enum.warn):
     """Enable cuML Accelerator Mode."""
-    logger.set_level(logger.level_enum.info)
+    logger.set_level(log_level)
     logger.set_pattern("%v")
 
     if not disable_uvm:

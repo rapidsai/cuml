@@ -20,7 +20,18 @@ from typing import Any
 import sklearn
 from sklearn.base import BaseEstimator
 
-from cuml.internals.interop import UnsupportedOnGPU
+from cuml.internals.interop import UnsupportedOnGPU, is_fitted
+
+
+def is_proxy(instance_or_class) -> bool:
+    """Check if an instance or class is a proxy object created by the accelerator."""
+    from cuml.accel.estimator_proxy_mixin import ProxyMixin
+
+    if isinstance(instance_or_class, type):
+        cls = instance_or_class
+    else:
+        cls = type(instance_or_class)
+    return issubclass(cls, (ProxyMixin, ProxyBase))
 
 
 class _ReconstructProxy:
@@ -116,7 +127,7 @@ class ProxyBase(BaseEstimator):
         super().__init_subclass__(**kwargs)
 
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
-        cls._cpu_class = cls._gpu_class._cpu_class
+        cls._cpu_class = cls._gpu_class._get_cpu_class()
 
         # Store whether sparse inputs are supported, unless overridden
         if not hasattr(cls, "_gpu_supports_sparse"):
@@ -199,7 +210,7 @@ class ProxyBase(BaseEstimator):
         self = cls.__new__(cls)
         self._cpu = cpu
         self._synced = False
-        if hasattr(self._cpu, "n_features_in_"):
+        if is_fitted(self._cpu):
             # This is a fit estimator. Try to convert model back to GPU
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
@@ -240,8 +251,7 @@ class ProxyBase(BaseEstimator):
         if is_fit:
             # Attempt to call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
-            if hasattr(self._cpu, "_validate_params"):
-                self._cpu._validate_params()
+            self._validate_params()
 
             # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
@@ -350,7 +360,7 @@ class ProxyBase(BaseEstimator):
 
     def __sklearn_is_fitted__(self):
         model = self._cpu if self._gpu is None else self._gpu
-        return getattr(model, "n_features_in_", None) is not None
+        return is_fitted(model)
 
     def __sklearn_clone__(self):
         cls = type(self)
@@ -378,7 +388,10 @@ class ProxyBase(BaseEstimator):
         return cls._cpu_class._get_param_names()
 
     def _validate_params(self):
-        self._cpu._validate_params()
+        if hasattr(self._cpu, "_validate_params") and hasattr(
+            self._cpu, "_parameter_constraints"
+        ):
+            self._cpu._validate_params()
 
     def _get_tags(self):
         return self._cpu._get_tags()
