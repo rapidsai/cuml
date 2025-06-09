@@ -44,7 +44,7 @@ dependencies:
 - ninja
 - nltk
 - numba>=0.59.1,<0.62.0a0
-- numpy>=1.23,<3.0a0
+- numpy>=1.23,<=2.2
 - numpydoc
 - packaging
 - pydata-sphinx-theme!=0.14.2
