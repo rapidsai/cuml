@@ -32,7 +32,7 @@
 
 namespace ML {
 namespace Bench {
-namespace filex {
+namespace fil {
 
 struct Params {
   DatasetParams data;
@@ -42,11 +42,11 @@ struct Params {
   int predict_repetitions;
 };
 
-class FILEX : public RegressionFixture<float> {
+class FIL : public RegressionFixture<float> {
   typedef RegressionFixture<float> Base;
 
  public:
-  FILEX(const std::string& name, const Params& p)
+  FIL(const std::string& name, const Params& p)
     : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
   }
@@ -64,13 +64,13 @@ class FILEX : public RegressionFixture<float> {
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
 
-    auto filex_model = ML::fil::import_from_treelite_handle(model,
-                                                            ML::fil::tree_layout::breadth_first,
-                                                            128,
-                                                            false,
-                                                            raft_proto::device_type::gpu,
-                                                            0,
-                                                            stream);
+    auto fil_model = ML::fil::import_from_treelite_handle(model,
+                                                          ML::fil::tree_layout::breadth_first,
+                                                          128,
+                                                          false,
+                                                          raft_proto::device_type::gpu,
+                                                          0,
+                                                          stream);
 
     auto optimal_chunk_size = 1;
     auto optimal_layout     = ML::fil::tree_layout::breadth_first;
@@ -82,7 +82,7 @@ class FILEX : public RegressionFixture<float> {
 
     // Find optimal configuration
     for (auto layout : allowed_layouts) {
-      filex_model = ML::fil::import_from_treelite_handle(
+      fil_model = ML::fil::import_from_treelite_handle(
         model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
       for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
         handle->sync_stream();
@@ -90,14 +90,14 @@ class FILEX : public RegressionFixture<float> {
         auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < p_rest.predict_repetitions; i++) {
           // Create FIL forest
-          filex_model.predict(*handle,
-                              data.y.data(),
-                              data.X.data(),
-                              params.nrows,
-                              raft_proto::device_type::gpu,
-                              raft_proto::device_type::gpu,
-                              ML::fil::infer_kind::default_kind,
-                              chunk_size);
+          fil_model.predict(*handle,
+                            data.y.data(),
+                            data.X.data(),
+                            params.nrows,
+                            raft_proto::device_type::gpu,
+                            raft_proto::device_type::gpu,
+                            ML::fil::infer_kind::default_kind,
+                            chunk_size);
         }
         handle->sync_stream();
         handle->sync_stream_pool();
@@ -112,7 +112,7 @@ class FILEX : public RegressionFixture<float> {
     }
 
     // Build optimal FIL tree
-    filex_model = ML::fil::import_from_treelite_handle(
+    fil_model = ML::fil::import_from_treelite_handle(
       model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);
 
     handle->sync_stream();
@@ -121,16 +121,16 @@ class FILEX : public RegressionFixture<float> {
     // only time prediction
     this->loopOnState(
       state,
-      [this, &filex_model, optimal_chunk_size]() {
+      [this, &fil_model, optimal_chunk_size]() {
         for (int i = 0; i < p_rest.predict_repetitions; i++) {
-          filex_model.predict(*handle,
-                              this->data.y.data(),
-                              this->data.X.data(),
-                              this->params.nrows,
-                              raft_proto::device_type::gpu,
-                              raft_proto::device_type::gpu,
-                              ML::fil::infer_kind::default_kind,
-                              optimal_chunk_size);
+          fil_model.predict(*handle,
+                            this->data.y.data(),
+                            this->data.X.data(),
+                            this->params.nrows,
+                            raft_proto::device_type::gpu,
+                            raft_proto::device_type::gpu,
+                            ML::fil::infer_kind::default_kind,
+                            optimal_chunk_size);
           handle->sync_stream();
           handle->sync_stream_pool();
         }
@@ -207,8 +207,8 @@ std::vector<Params> getInputs()
   return out;
 }
 
-ML_BENCH_REGISTER(Params, FILEX, "", getInputs());
+ML_BENCH_REGISTER(Params, FIL, "", getInputs());
 
-}  // namespace filex
+}  // namespace fil
 }  // end namespace Bench
 }  // end namespace ML
