@@ -223,26 +223,30 @@ def main(argv: list[str] | None = None):
     if ns.module is not None:
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
-        runpy.run_module(ns.module, run_name="__main__")
+        runpy.run_module(ns.module, run_name="__main__", alter_sys=True)
     elif ns.cmd is not None:
+        # Execute a cmd
+        sys.argv[:] = ["-c", *ns.args]
         execute_source(ns.cmd, "<stdin>")
     elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
         runpy.run_path(ns.script, run_name="__main__")
-    elif sys.stdin.isatty():
-        # Start an interpreter as similar to `python` as possible
-        if sys.flags.quiet:
-            banner = ""
-        else:
-            banner = f"Python {sys.version} on {sys.platform}"
-            if not sys.flags.no_site:
-                cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
-                banner += "\n" + cprt
-        code.interact(banner=banner, exitmsg="")
     else:
-        # Execute stdin
-        execute_source(sys.stdin.read(), "<stdin>")
+        sys.argv[:] = ["-", *ns.args]
+        if sys.stdin.isatty():
+            # Start an interpreter as similar to `python` as possible
+            if sys.flags.quiet:
+                banner = ""
+            else:
+                banner = f"Python {sys.version} on {sys.platform}"
+                if not sys.flags.no_site:
+                    cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
+                    banner += "\n" + cprt
+            code.interact(banner=banner, exitmsg="")
+        else:
+            # Execute stdin
+            execute_source(sys.stdin.read(), "<stdin>")
 
 
 if __name__ == "__main__":
