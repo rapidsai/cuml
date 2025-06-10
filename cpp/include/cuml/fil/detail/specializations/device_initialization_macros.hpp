@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/specializations/forest_macros.hpp>
 /* Declare device initialization function for the types specified by the given
  * variant index */
 #define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index)                     \

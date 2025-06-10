@@ -18,10 +18,10 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
-#include <cuml/experimental/fil/tree_layout.hpp>
-#include <cuml/experimental/fil/treelite_importer.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/infer_kind.hpp>
+#include <cuml/fil/tree_layout.hpp>
+#include <cuml/fil/treelite_importer.hpp>
 #include <cuml/tree/algo_helper.h>
 
 #include <treelite/tree.h>

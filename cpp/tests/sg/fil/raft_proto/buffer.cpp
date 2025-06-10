@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_check.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/raft_proto/exceptions.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml/experimental/fil/detail/device_initialization/gpu.cuh>
-#include <cuml/experimental/fil/detail/infer/gpu.cuh>
-#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
-#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
+#include <cuml/fil/detail/device_initialization/gpu.cuh>
+#include <cuml/fil/detail/infer/gpu.cuh>
+#include <cuml/fil/detail/specializations/device_initialization_macros.hpp>
+#include <cuml/fil/detail/specializations/infer_macros.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/tree_layout.hpp>
-#include <cuml/experimental/fil/treelite_importer.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/postproc_ops.hpp>
+#include <cuml/fil/tree_layout.hpp>
+#include <cuml/fil/treelite_importer.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

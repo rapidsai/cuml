@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/cpu_introspection.hpp>
-#include <cuml/experimental/fil/detail/evaluate_tree.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/fil/detail/cpu_introspection.hpp>
+#include <cuml/fil/detail/evaluate_tree.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/fil/infer_kind.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>

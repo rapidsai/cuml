@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/detail/gpu_introspection.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
-#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/fil/constants.hpp>
+#include <cuml/fil/detail/forest.hpp>
+#include <cuml/fil/detail/gpu_introspection.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/infer_kernel/gpu.cuh>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/detail/raft_proto/padding.hpp>
+#include <cuml/fil/detail/specializations/infer_macros.hpp>
+#include <cuml/fil/exceptions.hpp>
+#include <cuml/fil/infer_kind.hpp>
 
 #include <cstddef>
 #include <optional>

@@ -15,18 +15,18 @@
  */
 #pragma once
 
-#include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/detail/cpu_introspection.hpp>
-#include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/infer_kernel/cpu.hpp>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/fil/constants.hpp>
+#include <cuml/fil/detail/cpu_introspection.hpp>
+#include <cuml/fil/detail/forest.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/infer_kernel/cpu.hpp>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/detail/specializations/infer_macros.hpp>
+#include <cuml/fil/infer_kind.hpp>
 
 #include <cstddef>
 #include <optional>

@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml/experimental/fil/detail/device_initialization/gpu.cuh>
-#include <cuml/experimental/fil/detail/infer/gpu.cuh>
-#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
-#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
+#include <cuml/fil/detail/device_initialization/gpu.cuh>
+#include <cuml/fil/detail/infer/gpu.cuh>
+#include <cuml/fil/detail/specializations/device_initialization_macros.hpp>
+#include <cuml/fil/detail/specializations/infer_macros.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

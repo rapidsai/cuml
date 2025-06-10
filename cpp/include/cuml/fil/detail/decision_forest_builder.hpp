@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/bitset.hpp>
-#include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/fil/postproc_ops.hpp>
+#include <cuml/fil/detail/bitset.hpp>
+#include <cuml/fil/detail/forest.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/exceptions.hpp>
+#include <cuml/fil/postproc_ops.hpp>
 
 #include <stdint.h>
 

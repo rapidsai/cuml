@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/fil/detail/forest.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/infer_kind.hpp>
 
 #include <cstddef>
 #include <optional>

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/forest/exceptions.hpp>
-#include <cuml/experimental/forest/traversal/traversal_forest.hpp>
-#include <cuml/experimental/forest/traversal/traversal_node.hpp>
+#include <cuml/forest/exceptions.hpp>
+#include <cuml/forest/traversal/traversal_forest.hpp>
+#include <cuml/forest/traversal/traversal_node.hpp>
 
 #include <treelite/tree.h>
 

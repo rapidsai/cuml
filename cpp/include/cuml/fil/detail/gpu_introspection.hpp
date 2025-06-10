@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_check.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
 
 #include <cuda_runtime_api.h>
 

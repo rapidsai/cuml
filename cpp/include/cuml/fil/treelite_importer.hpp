@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/decision_forest.hpp>
-#include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
-#include <cuml/experimental/fil/detail/degenerate_trees.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/fil/forest_model.hpp>
-#include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/tree_layout.hpp>
-#include <cuml/experimental/forest/integrations/treelite.hpp>
+#include <cuml/fil/constants.hpp>
+#include <cuml/fil/decision_forest.hpp>
+#include <cuml/fil/detail/decision_forest_builder.hpp>
+#include <cuml/fil/detail/degenerate_trees.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/exceptions.hpp>
+#include <cuml/fil/forest_model.hpp>
+#include <cuml/fil/postproc_ops.hpp>
+#include <cuml/fil/tree_layout.hpp>
+#include <cuml/forest/integrations/treelite.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>

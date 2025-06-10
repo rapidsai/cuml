@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-cdef extern from "cuml/experimental/fil/tree_layout.hpp" namespace "ML::experimental::fil" nogil:
+cdef extern from "cuml/fil/tree_layout.hpp" namespace "ML::experimental::fil" nogil:
     cdef enum tree_layout:
         depth_first "ML::experimental::fil::tree_layout::depth_first",
         breadth_first "ML::experimental::fil::tree_layout::breadth_first",

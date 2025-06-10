@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/cpu.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/raft_proto/detail/owning_buffer/cpu.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
 #ifdef CUML_ENABLE_GPU
-#include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/gpu.hpp>
+#include <cuml/fil/detail/raft_proto/detail/owning_buffer/gpu.hpp>
 #endif
 namespace raft_proto {
 template <device_type D, typename T>

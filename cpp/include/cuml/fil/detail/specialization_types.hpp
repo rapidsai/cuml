@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <cuml/experimental/fil/tree_layout.hpp>
+#include <cuml/fil/tree_layout.hpp>
 
 #include <cstddef>
 #include <cstdint>

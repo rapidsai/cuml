@@ -225,7 +225,7 @@ directory here.
 ### Source Files
 The experimental FIL source files contain no implementation details. They
 merely use the macros defined in
-`include/cuml/experimental/fil/detail/specializations` to indicate the template
+`include/cuml/fil/detail/specializations` to indicate the template
 instantiations that must be compiled. These are broken up into an arbitrary
 number of source files. To improve build parallelization, they could be broken
 up further, or to reduce the number of source files, they could be

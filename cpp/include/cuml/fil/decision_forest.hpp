@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/detail/device_initialization.hpp>
-#include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/infer.hpp>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
-#include <cuml/experimental/fil/detail/specialization_types.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
-#include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/tree_layout.hpp>
+#include <cuml/fil/constants.hpp>
+#include <cuml/fil/detail/device_initialization.hpp>
+#include <cuml/fil/detail/forest.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/infer.hpp>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/fil/detail/specialization_types.hpp>
+#include <cuml/fil/exceptions.hpp>
+#include <cuml/fil/infer_kind.hpp>
+#include <cuml/fil/postproc_ops.hpp>
+#include <cuml/fil/tree_layout.hpp>
 
 #include <stddef.h>
 #include <stdint.h>

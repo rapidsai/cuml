@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <cuml/experimental/forest/integrations/treelite.hpp>
+#include <cuml/forest/integrations/treelite.hpp>
 
 #include <treelite/tree.h>
 

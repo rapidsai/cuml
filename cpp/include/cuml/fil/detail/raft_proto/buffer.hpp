@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/detail/const_agnostic.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/detail/copy.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/detail/non_owning_buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/fil/detail/raft_proto/detail/const_agnostic.hpp>
+#include <cuml/fil/detail/raft_proto/detail/copy.hpp>
+#include <cuml/fil/detail/raft_proto/detail/non_owning_buffer.hpp>
+#include <cuml/fil/detail/raft_proto/detail/owning_buffer.hpp>
+#include <cuml/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/fil/detail/raft_proto/gpu_support.hpp>
 
 #include <stdint.h>
 

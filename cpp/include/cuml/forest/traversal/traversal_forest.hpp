@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/forest/traversal/traversal_node.hpp>
-#include <cuml/experimental/forest/traversal/traversal_order.hpp>
+#include <cuml/forest/traversal/traversal_node.hpp>
+#include <cuml/forest/traversal/traversal_order.hpp>
 
 #include <cstddef>
 #include <queue>

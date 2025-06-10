@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuml/experimental/forest/traversal/traversal_forest.hpp>
-#include <cuml/experimental/forest/traversal/traversal_node.hpp>
-#include <cuml/experimental/forest/traversal/traversal_order.hpp>
+#include <cuml/forest/traversal/traversal_forest.hpp>
+#include <cuml/forest/traversal/traversal_node.hpp>
+#include <cuml/forest/traversal/traversal_order.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

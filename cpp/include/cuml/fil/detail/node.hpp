@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/fil/tree_layout.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/tree_layout.hpp>
 
 #include <iostream>
 #include <type_traits>

@@ -15,14 +15,14 @@
  */
 #pragma once
 #include <cuml/common/utils.hpp>
-#include <cuml/experimental/fil/detail/evaluate_tree.hpp>
-#include <cuml/experimental/fil/detail/gpu_introspection.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/infer_kernel/shared_memory_buffer.cuh>
-#include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/fil/detail/evaluate_tree.hpp>
+#include <cuml/fil/detail/gpu_introspection.hpp>
+#include <cuml/fil/detail/index_type.hpp>
+#include <cuml/fil/detail/infer_kernel/shared_memory_buffer.cuh>
+#include <cuml/fil/detail/postprocessor.hpp>
+#include <cuml/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/fil/detail/raft_proto/padding.hpp>
+#include <cuml/fil/infer_kind.hpp>
 
 #include <stddef.h>
 
