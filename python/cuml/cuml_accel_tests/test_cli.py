@@ -15,6 +15,7 @@
 import os
 import pickle
 import pty
+import re
 import subprocess
 import sys
 from textwrap import dedent
@@ -190,6 +191,32 @@ def test_cli_run_stdin(pass_hyphen):
         args.append("-")
     stdout = run(args, stdin=SCRIPT)
     assert "ok\n" in stdout
+
+
+@pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
+def test_cli_correct_argv(mode, tmpdir):
+    """Test that user code sees the same argv with and and without `cuml.accel`"""
+    script = "import sys;print(f'argv={sys.argv}')"
+    stdin = None
+    if mode == "script":
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = [path, "--foo"]
+    elif mode == "module":
+        args = ["-m", "code", "-q"]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-c", script, "--foo"]
+    else:
+        args = ["-", "--foo"]
+        stdin = script
+
+    stdout = run(args, stdin=stdin)
+    stdout_accel = run(["-m", "cuml.accel", *args], stdin=stdin)
+
+    argv = re.search(r"argv=\[.*\]", stdout).group()
+    argv_accel = re.search(r"argv=\[.*\]", stdout_accel).group()
+    assert argv == argv_accel
 
 
 @pytest.mark.parametrize("mode", ["stdin", "cmd", "script"])
