@@ -369,10 +369,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     if(CUML_ENABLE_GPU)
       target_sources(${CUML_CPP_TARGET}
         PRIVATE
-          # Current FIL
-          src/fil/fil.cu
-          src/fil/infer.cu
-          src/fil/treelite_import.cu
           # Experimental FIL
           src/experimental/fil/infer0.cu
           src/experimental/fil/infer1.cu
