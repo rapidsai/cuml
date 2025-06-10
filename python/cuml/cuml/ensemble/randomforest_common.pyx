@@ -197,31 +197,11 @@ class BaseRandomForestModel(UniversalBase):
             return 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
-        elif self.max_features == 'auto':
-            if self.RF_type == CLASSIFICATION:
-                warnings.warn(
-                    "`max_features='auto'` has been deprecated in 24.06 "
-                    "and will be removed in 25.08. To keep the past behaviour "
-                    "and silence this warning, explicitly set "
-                    "`max_features='sqrt'`.",
-                    FutureWarning
-                )
-                return 1/np.sqrt(self.n_cols)
-            else:
-                warnings.warn(
-                    "`max_features='auto'` has been deprecated in 24.06 "
-                    "and will be removed in 25.08. To keep the past behaviour "
-                    "and silence this warning, explicitly set "
-                    "`max_features=1.0`.",
-                    FutureWarning
-                )
-                return 1.0
         else:
             raise ValueError(
-                "Wrong value passed in for max_features"
-                " please read the documentation present at "
-                "(https://docs.rapids.ai/api/cuml/nightly/api.html"
-                "#random-forest)")
+                "Expected `max_features` to be an int, float, or one of ['sqrt', 'log2']."
+                "Got {max_features!r} instead."
+            )
 
     def _serialize_treelite_bytes(self) -> bytes:
         """
