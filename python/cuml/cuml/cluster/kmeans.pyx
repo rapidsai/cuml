@@ -664,29 +664,21 @@ class KMeans(Base,
     def predict(
         self,
         X,
-        y=None,
-        sample_weight=None,
         *,
         convert_dtype=True,
-        normalize_weights=True,
     ) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
         """
-
-        labels, _ = self._predict_labels_inertia(
-            X,
-            convert_dtype=convert_dtype,
-            sample_weight=sample_weight,
-            normalize_weights=normalize_weights)
+        labels, _ = self._predict_labels_inertia(X, convert_dtype=convert_dtype)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
