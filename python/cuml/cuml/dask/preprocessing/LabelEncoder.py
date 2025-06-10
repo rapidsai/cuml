@@ -145,12 +145,12 @@ class LabelEncoder(
         Number of unique classes will be collected at the client. It'll
         consume memory proportional to the number of unique classes.
         """
-        _classes = y.unique().compute().sort_values(ignore_index=True)
+        classes = y.unique().compute().sort_values(ignore_index=True)
         el = first(y) if isinstance(y, Sequence) else y
         self.datatype = (
             "cudf" if isinstance(el, (dcDataFrame, dcSeries)) else "cupy"
         )
-        self._set_internal_model(LE(**self.kwargs).fit(y, _classes=_classes))
+        self._set_internal_model(LE(**self.kwargs)._fit(y, classes=classes))
         return self
 
     def fit_transform(self, y, delayed=True):
