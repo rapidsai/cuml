@@ -25,7 +25,6 @@
 #include <vector>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 using TREELITE_NODE_ID_T = int;
@@ -228,5 +227,4 @@ auto node_accumulate(treelite::Model const& tl_model, T init, lambda_t&& lambda)
 }
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

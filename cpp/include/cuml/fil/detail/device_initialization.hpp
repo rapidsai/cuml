@@ -23,7 +23,6 @@
 #endif
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 /* Set any required device options for optimizing FIL compute */
@@ -45,5 +44,4 @@ void initialize_device(raft_proto::device_id_variant device)
 }
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

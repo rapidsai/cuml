@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-cdef extern from "cuml/fil/infer_kind.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/fil/infer_kind.hpp" namespace "ML::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
     cdef enum infer_kind:
-        default_kind "ML::experimental::fil::infer_kind::default_kind"
-        per_tree "ML::experimental::fil::infer_kind::per_tree"
-        leaf_id "ML::experimental::fil::infer_kind::leaf_id"
+        default_kind "ML::fil::infer_kind::default_kind"
+        per_tree "ML::fil::infer_kind::per_tree"
+        leaf_id "ML::fil::infer_kind::leaf_id"

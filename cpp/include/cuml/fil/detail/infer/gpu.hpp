@@ -25,7 +25,6 @@
 #include <optional>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
@@ -54,5 +53,4 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
 }  // namespace inference
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

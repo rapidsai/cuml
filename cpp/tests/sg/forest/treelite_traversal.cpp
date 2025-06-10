@@ -26,7 +26,6 @@
 #include <cstddef>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 /* |Test Forest
@@ -496,5 +495,4 @@ TEST(ForestTraversal, layered_children_together)
 }
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

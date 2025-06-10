@@ -64,26 +64,25 @@ class FILEX : public RegressionFixture<float> {
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
 
-    auto filex_model = ML::experimental::fil::import_from_treelite_handle(
-      model,
-      ML::experimental::fil::tree_layout::breadth_first,
-      128,
-      false,
-      raft_proto::device_type::gpu,
-      0,
-      stream);
+    auto filex_model = ML::fil::import_from_treelite_handle(model,
+                                                            ML::fil::tree_layout::breadth_first,
+                                                            128,
+                                                            false,
+                                                            raft_proto::device_type::gpu,
+                                                            0,
+                                                            stream);
 
     auto optimal_chunk_size = 1;
-    auto optimal_layout     = ML::experimental::fil::tree_layout::breadth_first;
-    auto allowed_layouts    = std::vector<ML::experimental::fil::tree_layout>{
-      ML::experimental::fil::tree_layout::depth_first,
-      ML::experimental::fil::tree_layout::breadth_first,
-      ML::experimental::fil::tree_layout::layered_children_together};
+    auto optimal_layout     = ML::fil::tree_layout::breadth_first;
+    auto allowed_layouts =
+      std::vector<ML::fil::tree_layout>{ML::fil::tree_layout::depth_first,
+                                        ML::fil::tree_layout::breadth_first,
+                                        ML::fil::tree_layout::layered_children_together};
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
     // Find optimal configuration
     for (auto layout : allowed_layouts) {
-      filex_model = ML::experimental::fil::import_from_treelite_handle(
+      filex_model = ML::fil::import_from_treelite_handle(
         model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
       for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
         handle->sync_stream();
@@ -97,7 +96,7 @@ class FILEX : public RegressionFixture<float> {
                               params.nrows,
                               raft_proto::device_type::gpu,
                               raft_proto::device_type::gpu,
-                              ML::experimental::fil::infer_kind::default_kind,
+                              ML::fil::infer_kind::default_kind,
                               chunk_size);
         }
         handle->sync_stream();
@@ -113,7 +112,7 @@ class FILEX : public RegressionFixture<float> {
     }
 
     // Build optimal FIL tree
-    filex_model = ML::experimental::fil::import_from_treelite_handle(
+    filex_model = ML::fil::import_from_treelite_handle(
       model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);
 
     handle->sync_stream();
@@ -130,7 +129,7 @@ class FILEX : public RegressionFixture<float> {
                               this->params.nrows,
                               raft_proto::device_type::gpu,
                               raft_proto::device_type::gpu,
-                              ML::experimental::fil::infer_kind::default_kind,
+                              ML::fil::infer_kind::default_kind,
                               optimal_chunk_size);
           handle->sync_stream();
           handle->sync_stream_pool();

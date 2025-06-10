@@ -34,7 +34,6 @@
 #include <vector>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -248,5 +247,4 @@ struct decision_forest_builder {
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

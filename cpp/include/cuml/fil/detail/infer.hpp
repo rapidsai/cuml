@@ -33,7 +33,6 @@
 #endif
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -178,5 +177,4 @@ void infer(forest_t const& forest,
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

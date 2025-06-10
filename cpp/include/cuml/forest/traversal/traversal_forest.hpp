@@ -22,7 +22,6 @@
 #include <stack>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 namespace detail {
@@ -199,5 +198,4 @@ struct traversal_forest {
 };
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

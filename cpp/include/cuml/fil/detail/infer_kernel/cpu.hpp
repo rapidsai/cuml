@@ -41,7 +41,6 @@
 #include <vector>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -185,5 +184,4 @@ void infer_kernel_cpu(forest_t const& forest,
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

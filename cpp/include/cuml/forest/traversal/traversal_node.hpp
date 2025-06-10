@@ -19,7 +19,6 @@
 #include <string>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 /** Exception indicating model is incompatible with experimental FIL */
@@ -48,5 +47,4 @@ struct traversal_node {
 };
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

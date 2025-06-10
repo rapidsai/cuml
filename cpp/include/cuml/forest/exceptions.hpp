@@ -18,7 +18,6 @@
 #include <string>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 struct traversal_exception : std::exception {
   traversal_exception() : msg_{"Error encountered while traversing forest"} {}
@@ -30,5 +29,4 @@ struct traversal_exception : std::exception {
   std::string msg_;
 };
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

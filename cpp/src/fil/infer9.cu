@@ -18,7 +18,6 @@
 #include <cuml/fil/detail/specializations/device_initialization_macros.hpp>
 #include <cuml/fil/detail/specializations/infer_macros.hpp>
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
@@ -29,5 +28,4 @@ CUML_FIL_INITIALIZE_DEVICE(template, 9)
 }
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

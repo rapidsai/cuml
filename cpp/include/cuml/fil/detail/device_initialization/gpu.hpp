@@ -23,7 +23,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 namespace device_initialization {
@@ -41,5 +40,4 @@ initialize_device(raft_proto::device_id<D> device);
 }  // namespace detail
 }  // namespace fil
 
-}  // namespace experimental
 }  // namespace ML

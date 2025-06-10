@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #include <new>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 #ifdef __cpplib_hardware_interference_size
@@ -28,5 +27,4 @@ auto constexpr static const hardware_constructive_interference_size = std::size_
 #endif
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

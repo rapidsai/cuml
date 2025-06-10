@@ -23,7 +23,6 @@
 #include <variant>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -85,5 +84,4 @@ using specialization_variant =
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

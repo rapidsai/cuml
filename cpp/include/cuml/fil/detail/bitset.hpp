@@ -26,7 +26,6 @@
 #endif
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 template <typename index_t = size_t, typename storage_t = std::byte>
@@ -115,5 +114,4 @@ struct bitset {
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

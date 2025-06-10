@@ -30,7 +30,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 namespace device_initialization {
@@ -251,5 +250,4 @@ CUML_FIL_INITIALIZE_DEVICE(extern template, 11)
 }  // namespace detail
 }  // namespace fil
 
-}  // namespace experimental
 }  // namespace ML

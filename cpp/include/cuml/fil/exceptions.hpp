@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #include <string>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /** Exception indicating model is incompatible with experimental FIL */
@@ -59,5 +58,4 @@ struct type_error : std::exception {
 };
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

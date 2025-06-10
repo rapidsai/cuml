@@ -22,7 +22,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /* A struct used to simplify complex access to a buffer of shared memory
@@ -156,5 +155,4 @@ struct shared_memory_buffer {
 };
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

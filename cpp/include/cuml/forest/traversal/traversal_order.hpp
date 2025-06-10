@@ -16,7 +16,6 @@
 #pragma once
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 /* A class used to specify the order in which nodes of a forest should be
@@ -47,5 +46,4 @@ enum class forest_order : unsigned char {
 };
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

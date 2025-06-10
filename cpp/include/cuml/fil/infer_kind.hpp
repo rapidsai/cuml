@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
  */
 #pragma once
 namespace ML {
-namespace experimental {
 namespace fil {
 enum class infer_kind : unsigned char { default_kind = 0, per_tree = 1, leaf_id = 2 };
 }
-}  // namespace experimental
 }  // namespace ML

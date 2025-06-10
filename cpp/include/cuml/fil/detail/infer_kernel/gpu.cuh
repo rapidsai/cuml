@@ -29,7 +29,6 @@
 #include <cstddef>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -220,5 +219,4 @@ CUML_KERNEL void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) inf
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

@@ -23,7 +23,7 @@
 #include <memory>
 #include <type_traits>
 
-namespace ML::experimental::fil::detail {
+namespace ML::fil::detail {
 
 // This function returns a modified copy of a given Treelite model if it contains
 // at least one degenerate tree (a single root node with no child).
@@ -31,8 +31,8 @@ namespace ML::experimental::fil::detail {
 std::unique_ptr<treelite::Model> convert_degenerate_trees(treelite::Model const& tl_model)
 {
   bool contains_degenerate =
-    ML::experimental::forest::tree_accumulate(tl_model, false, [](auto&& contains, auto&& tree) {
-      return contains || tree.IsLeaf(ML::experimental::forest::TREELITE_NODE_ID_T{});
+    ML::forest::tree_accumulate(tl_model, false, [](auto&& contains, auto&& tree) {
+      return contains || tree.IsLeaf(ML::forest::TREELITE_NODE_ID_T{});
     });
 
   if (contains_degenerate) {
@@ -44,7 +44,7 @@ std::unique_ptr<treelite::Model> convert_degenerate_trees(treelite::Model const&
         using tree_t =
           treelite::Tree<typename model_t::threshold_type, typename model_t::leaf_output_type>;
         auto modified_trees = std::vector<tree_t>{};
-        const auto root_id  = experimental::forest::TREELITE_NODE_ID_T{};
+        const auto root_id  = ML::forest::TREELITE_NODE_ID_T{};
         for (tree_t& tree : concrete_tl_model.trees) {
           if (tree.IsLeaf(root_id)) {
             const auto inst_cnt =
@@ -83,4 +83,4 @@ std::unique_ptr<treelite::Model> convert_degenerate_trees(treelite::Model const&
   }
 }
 
-}  // namespace ML::experimental::fil::detail
+}  // namespace ML::fil::detail

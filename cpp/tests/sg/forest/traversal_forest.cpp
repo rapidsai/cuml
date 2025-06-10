@@ -24,7 +24,6 @@
 #include <cstddef>
 
 namespace ML {
-namespace experimental {
 namespace forest {
 
 struct test_node : traversal_node<> {
@@ -336,5 +335,4 @@ TEST(ForestTraversal, layered_children_segregated)
 }
 
 }  // namespace forest
-}  // namespace experimental
 }  // namespace ML

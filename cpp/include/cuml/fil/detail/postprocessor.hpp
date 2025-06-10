@@ -29,7 +29,6 @@
 #endif
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /* Convert the postprocessing operations into a single value
@@ -240,5 +239,4 @@ struct postprocessor {
   element_op elem_wise_;
 };
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

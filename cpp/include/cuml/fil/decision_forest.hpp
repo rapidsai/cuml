@@ -39,7 +39,6 @@
 #include <variant>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /**
@@ -487,5 +486,4 @@ inline auto get_forest_variant_index(bool use_double_thresholds,
           (index_type{double_precision} << index_type{1}) + index_type{large_trees});
 }
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

@@ -24,7 +24,6 @@
 #include <vector>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -117,5 +116,4 @@ auto constexpr static const MIN_BLOCKS_PER_SM = MAX_THREADS_PER_SM / MAX_THREADS
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

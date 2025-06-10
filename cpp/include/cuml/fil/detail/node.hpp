@@ -23,7 +23,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 namespace detail {
@@ -249,5 +248,4 @@ struct alignas(detail::get_node_alignment<threshold_t, index_t, metadata_storage
 };
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

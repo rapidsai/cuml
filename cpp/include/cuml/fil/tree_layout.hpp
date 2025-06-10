@@ -15,7 +15,6 @@
  */
 #pragma once
 namespace ML {
-namespace experimental {
 namespace fil {
 enum class tree_layout : unsigned char {
   depth_first   = 0,
@@ -28,5 +27,4 @@ enum class tree_layout : unsigned char {
 };
 
 }
-}  // namespace experimental
 }  // namespace ML

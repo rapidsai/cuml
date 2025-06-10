@@ -26,7 +26,6 @@
 #include <variant>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /**
@@ -309,5 +308,4 @@ struct forest_model {
 };
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

@@ -35,7 +35,6 @@
 #include <variant>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 namespace detail {
@@ -56,11 +55,11 @@ template <tree_layout layout>
 struct treelite_importer {
   auto static constexpr const traversal_order = []() constexpr {
     if constexpr (layout == tree_layout::depth_first) {
-      return ML::experimental::forest::forest_order::depth_first;
+      return ML::forest::forest_order::depth_first;
     } else if constexpr (layout == tree_layout::breadth_first) {
-      return ML::experimental::forest::forest_order::breadth_first;
+      return ML::forest::forest_order::breadth_first;
     } else if constexpr (layout == tree_layout::layered_children_together) {
-      return ML::experimental::forest::forest_order::layered_children_together;
+      return ML::forest::forest_order::layered_children_together;
     } else {
       static_assert(layout == tree_layout::depth_first,
                     "Layout not yet implemented in treelite importer for FIL");
@@ -69,7 +68,7 @@ struct treelite_importer {
 
   auto get_node_count(treelite::Model const& tl_model)
   {
-    return ML::experimental::forest::tree_accumulate(
+    return ML::forest::tree_accumulate(
       tl_model, index_type{}, [](auto&& count, auto&& tree) { return count + tree.num_nodes; });
   }
 
@@ -80,7 +79,7 @@ struct treelite_importer {
     auto result         = std::vector<index_type>(node_count);
     auto parent_indexes = std::vector<index_type>{};
     parent_indexes.reserve(node_count);
-    ML::experimental::forest::node_transform<traversal_order>(
+    ML::forest::node_transform<traversal_order>(
       tl_model,
       std::back_inserter(parent_indexes),
       [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) { return parent_index; });
@@ -118,7 +117,7 @@ struct treelite_importer {
 
   auto get_max_num_categories(treelite::Model const& tl_model)
   {
-    return ML::experimental::forest::node_accumulate<traversal_order>(
+    return ML::forest::node_accumulate<traversal_order>(
       tl_model,
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
@@ -128,7 +127,7 @@ struct treelite_importer {
 
   auto get_num_categorical_nodes(treelite::Model const& tl_model)
   {
-    return ML::experimental::forest::node_accumulate<traversal_order>(
+    return ML::forest::node_accumulate<traversal_order>(
       tl_model,
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
@@ -138,7 +137,7 @@ struct treelite_importer {
 
   auto get_num_leaf_vector_nodes(treelite::Model const& tl_model)
   {
-    return ML::experimental::forest::node_accumulate<traversal_order>(
+    return ML::forest::node_accumulate<traversal_order>(
       tl_model,
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
@@ -259,8 +258,7 @@ struct treelite_importer {
     if constexpr (variant_index != std::variant_size_v<decision_forest_variant>) {
       if (variant_index == target_variant_index) {
         using forest_model_t = std::variant_alternative_t<variant_index, decision_forest_variant>;
-        if constexpr (traversal_order ==
-                      ML::experimental::forest::forest_order::layered_children_together) {
+        if constexpr (traversal_order == ML::forest::forest_order::layered_children_together) {
           // Cannot align whole trees with layered traversal order, since trees
           // are mingled together
           align_bytes = index_type{};
@@ -268,7 +266,7 @@ struct treelite_importer {
         auto builder =
           detail::decision_forest_builder<forest_model_t>(max_num_categories, align_bytes);
         auto node_index = index_type{};
-        ML::experimental::forest::node_for_each<traversal_order>(
+        ML::forest::node_for_each<traversal_order>(
           tl_model,
           [&builder, &offsets, &node_index](
             auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
@@ -516,5 +514,4 @@ auto import_from_treelite_handle(TreeliteModelHandle tl_handle,
 }
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

@@ -17,7 +17,6 @@
 #include <cuml/fil/tree_layout.hpp>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 /**
  * The default memory layout for FIL trees if not otherwise specified
@@ -36,5 +35,4 @@ auto constexpr static const preferred_tree_layout = tree_layout::breadth_first;
 auto constexpr static const reserved_node_metadata_bits = 3;
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

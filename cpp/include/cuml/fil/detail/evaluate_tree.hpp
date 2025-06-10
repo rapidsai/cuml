@@ -23,7 +23,6 @@
 #include <cuml/fil/detail/bitset.hpp>
 #include <cuml/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 
@@ -210,5 +209,4 @@ HOST DEVICE auto evaluate_tree(forest_t const& forest,
 
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

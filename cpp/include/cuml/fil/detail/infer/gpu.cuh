@@ -36,7 +36,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
@@ -316,5 +315,4 @@ CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 7)
 }  // namespace inference
 }  // namespace detail
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

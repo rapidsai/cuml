@@ -30,7 +30,6 @@
 #include <cstdint>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /* |Test Forest
@@ -360,7 +359,7 @@ TEST(TreeliteImporter, DegenerateTree)
                     1,
                     raft_proto::device_type::cpu,
                     raft_proto::device_type::cpu,
-                    ML::experimental::fil::infer_kind::default_kind,
+                    ML::fil::infer_kind::default_kind,
                     1);
   ASSERT_EQ(preds, expected_preds);
 }
@@ -381,11 +380,10 @@ TEST(TreeliteImporter, DegenerateTreeWithVectorLeaf)
                     1,
                     raft_proto::device_type::cpu,
                     raft_proto::device_type::cpu,
-                    ML::experimental::fil::infer_kind::default_kind,
+                    ML::fil::infer_kind::default_kind,
                     1);
   ASSERT_EQ(preds, expected_preds);
 }
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML

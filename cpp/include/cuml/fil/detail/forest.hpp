@@ -23,7 +23,6 @@
 #include <type_traits>
 
 namespace ML {
-namespace experimental {
 namespace fil {
 
 /* A collection of trees which together form a forest model
@@ -80,5 +79,4 @@ struct forest {
 };
 
 }  // namespace fil
-}  // namespace experimental
 }  // namespace ML
