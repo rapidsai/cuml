@@ -160,14 +160,14 @@ class RandomForestRegressor(BaseRandomForestModel,
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
-    max_features : int, float, or string (default = 1.0)
-        Ratio of number of features (columns) to consider
-        per node split.\n
-         * If type ``int`` then ``max_features`` is the absolute count of
-           features to be used.
-         * If type ``float`` then ``max_features`` is used as a fraction.
-         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
-         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+    max_features : {'sqrt', 'log2', None}, int or float (default = 1.0)
+        The number of features to consider per node split:
+
+        * If an int then ``max_features`` is the absolute count of features to be used.
+        * If a float then ``max_features`` is used as a fraction.
+        * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+        * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+        * If ``None`` then ``max_features=n_features``
 
         .. versionchanged:: 24.06
           The default of `max_features` changed from `"auto"` to 1.0.
