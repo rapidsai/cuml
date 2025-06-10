@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
+
 import math
 import typing
 import warnings
+from typing import Literal
 
 import cupy as cp
 import numpy as np
@@ -37,6 +40,27 @@ from cuml.internals.treelite cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.label.classlabels import check_labels, make_monotonic
+
+
+def compute_max_features(
+    max_features: Literal["sqrt", "log2", None] | int | float,
+    n_cols: int,
+) -> float:
+    if isinstance(max_features, int):
+        return max_features / n_cols
+    elif isinstance(max_features, float):
+        return max_features
+    elif max_features == 'sqrt':
+        return math.sqrt(n_cols) / n_cols
+    elif max_features == 'log2':
+        return math.log2(n_cols) / n_cols
+    elif max_features is None:
+        return 1.0
+    else:
+        raise ValueError(
+            f"Expected `max_features` to be an int, float, None, or one of "
+            f"['sqrt', 'log2']. Got {max_features!r} instead."
+        )
 
 
 class BaseRandomForestModel(UniversalBase):
@@ -187,21 +211,6 @@ class BaseRandomForestModel(UniversalBase):
     def __len__(self):
         """Return the number of estimators in the ensemble."""
         return self.n_estimators
-
-    def _get_max_feat_val(self) -> float:
-        if isinstance(self.max_features, int):
-            return self.max_features/self.n_cols
-        elif isinstance(self.max_features, float):
-            return self.max_features
-        elif self.max_features == 'sqrt':
-            return 1/np.sqrt(self.n_cols)
-        elif self.max_features == 'log2':
-            return math.log2(self.n_cols)/self.n_cols
-        else:
-            raise ValueError(
-                "Expected `max_features` to be an int, float, or one of ['sqrt', 'log2']."
-                "Got {max_features!r} instead."
-            )
 
     def _serialize_treelite_bytes(self) -> bytes:
         """
@@ -361,7 +370,7 @@ class BaseRandomForestModel(UniversalBase):
             self.n_outputs_ = y_m.shape[1]
         self.n_features_in_ = X_m.shape[1]
 
-        max_feature_val = self._get_max_feat_val()
+        max_feature_val = compute_max_features(self.max_features, self.n_cols)
         if isinstance(self.min_samples_leaf, float):
             self.min_samples_leaf = \
                 math.ceil(self.min_samples_leaf * self.n_rows)

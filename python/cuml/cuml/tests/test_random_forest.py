@@ -14,6 +14,7 @@
 #
 
 import json
+import math
 import os
 import random
 import warnings
@@ -44,6 +45,7 @@ import cuml
 import cuml.internals.logger as logger
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import (
     get_handle,
@@ -1384,23 +1386,19 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
         clf.fit(X, y)
 
 
-# TODO: Remove in v24.08
 @pytest.mark.parametrize(
-    "Estimator",
+    "max_features, sol",
     [
-        curfr,
-        curfc,
+        (2, 0.02),
+        (0.5, 0.5),
+        ("sqrt", math.sqrt(100) / 100),
+        ("log2", math.log2(100) / 100),
+        (None, 1.0),
     ],
 )
-def test_random_forest_max_features_deprecation(Estimator):
-    X = np.array([[1.0, 2], [3, 4]])
-    y = np.array([1, 0])
-    est = Estimator(max_features="auto")
-
-    error_msg = "`max_features='auto'` has been deprecated in 24.06 "
-
-    with pytest.warns(FutureWarning, match=error_msg):
-        est.fit(X, y)
+def test_max_features(max_features, sol):
+    res = compute_max_features(max_features, 100)
+    assert res == sol
 
 
 def test_rf_predict_returns_int():
