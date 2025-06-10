@@ -27,6 +27,7 @@ from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
 from cuml.internals.array import CumlArray
+from cuml.internals.interop import to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
@@ -240,6 +241,21 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
     RF_type = CLASSIFICATION
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "classes_": to_gpu(model.classes_),
+            "n_classes_": model.n_classes_,
+            "num_classes": model.n_classes_,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "classes_": to_cpu(self.classes_),
+            "n_classes_": self.n_classes_,
+            **super()._attrs_to_cpu(model),
+        }
 
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,

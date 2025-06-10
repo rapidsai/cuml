@@ -35,8 +35,6 @@ from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
     UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
 )
 from cuml.internals.treelite import safe_treelite_call
 from cuml.prims.label.classlabels import check_labels, make_monotonic
@@ -162,6 +160,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             conditional_params["max_samples"] = model.max_samples
 
         if model.random_state is not None:
+            # determinism requires 1 CUDA stream
             conditional_params["n_streams"] = 1
 
         if model.max_depth is not None:
@@ -200,22 +199,15 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     def _attrs_from_cpu(self, model):
         tl_model = treelite.sklearn.import_model(model)
-        attrs = {
+        return {
             "treelite_serialized_bytes": tl_model.serialize_bytes(),
             "dtype": np.float64,
             "update_labels": False,
             "n_outputs_": model.n_outputs_,
             "n_rows": model._n_samples,
-            "n_cols": model.n_features_in_
+            "n_cols": model.n_features_in_,
             **super()._attrs_from_cpu(model)
         }
-        if self.RF_type == CLASSIFICATION:
-            attrs.update(
-                classes_=to_gpu(model.classes_),
-                n_classes_=model.n_classes_,
-                num_classes=model.n_classes_,
-            )
-        return attrs
 
     def _attrs_to_cpu(self, model):
         self._serialize_treelite_bytes()
@@ -228,7 +220,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         else:
             n_samples_bootstrap = max(round(self.n_rows * self.max_samples), 1)
 
-        attrs = {
+        return {
             "estimator_": sk_model.estimator,
             "estimators_": sk_model.estimators_,
             "n_outputs_": self.n_outputs_,
@@ -236,12 +228,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "_n_samples_bootstrap": n_samples_bootstrap,
             **super()._attrs_to_cpu(model)
         }
-        if self.RF_type == CLASSIFICATION:
-            attrs.update(
-                classes_=to_cpu(self.classes_),
-                n_classes_=self.n_classes_,
-            )
-        return attrs
 
     def __init__(
         self,
