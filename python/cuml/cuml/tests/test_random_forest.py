@@ -199,6 +199,36 @@ def special_reg(request):
     return X, y
 
 
+def test_default_parameters():
+    reg_params = curfr().get_params()
+    clf_params = curfc().get_params()
+
+    # Different default max_features
+    assert reg_params["max_features"] == 1.0
+    assert clf_params["max_features"] == "sqrt"
+
+    # Different default split_criterion
+    assert reg_params["split_criterion"] == 2
+    assert clf_params["split_criterion"] == 0
+
+    # Different accuracy_metric
+    assert reg_params["accuracy_metric"] == "r2"
+    assert clf_params["accuracy_metric"] is None
+
+    # Drop differing params
+    for name in [
+        "max_features",
+        "split_criterion",
+        "accuracy_metric",
+        "handle",
+    ]:
+        reg_params.pop(name)
+        clf_params.pop(name)
+
+    # The rest are the same
+    assert reg_params == clf_params
+
+
 @pytest.mark.parametrize("max_depth", [2, 4])
 @pytest.mark.parametrize(
     "split_criterion", ["poisson", "gamma", "inverse_gaussian"]
