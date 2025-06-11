@@ -75,6 +75,7 @@ void build_linkage(const raft::handle_t& handle,
   size_t n_edges = m - 1;
   cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params linkage_params;
   linkage_params.min_samples = params.min_samples + 1;
+  linkage_params.alpha = params.alpha;
 
   cuvs::cluster::agglomerative::helpers::build_linkage(
     handle,
