@@ -53,9 +53,9 @@ class BaseRandomForestModel(object):
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
-            kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+            client_kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
             workers = list(
-                self.client.scheduler_info(**kwargs)["workers"].keys()
+                self.client.scheduler_info(**client_kwargs)["workers"].keys()
             )
         self.workers = workers
         self._set_internal_model(None)

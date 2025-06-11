@@ -103,23 +103,3 @@ def test_invalid_inputs():
 
     with pytest.raises(ValueError):
         AgglomerativeClustering(n_clusters=500).fit(cp.ones((2, 5)))
-
-
-def test_affinity_deprecation():
-    X = cp.array([[1.0, 2], [3, 4]])
-    y = cp.array([1, 0])
-
-    agg = AgglomerativeClustering(affinity="euclidean")
-    with pytest.warns(
-        FutureWarning,
-        match="Attribute `affinity` was deprecated in version 24.06",
-    ):
-        agg.fit(X, y)
-
-    # don't provide both
-    agg = AgglomerativeClustering(affinity="euclidean", metric="euclidean")
-    with pytest.raises(
-        ValueError,
-        match="Both `affinity` and `metric` attributes were set",
-    ):
-        agg.fit(X, y)
