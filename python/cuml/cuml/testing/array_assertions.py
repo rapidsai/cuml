@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Union
+
+import numpy as np
 
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-from typing import Union
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -21,56 +23,45 @@ cp = gpu_only_import("cupy")
 ArrayType = Union[np.ndarray, cp.ndarray]
 
 
-def array_equal(
-    actual: ArrayType,
-    expected: ArrayType,
-    rtol: float = 0.0,
-    atol: float = 0.0,
-    strict_type: bool = False,
-    err_msg: str = "Arrays are not equal",
-    verbose: bool = True,
-) -> None:
-    """
-    Compare two arrays with optional tolerance and type checks.
+def array_equal(a, b, tol=1e-6, relative_diff=False, report_summary=False):
 
-    Parameters
-    ----------
-    actual : np.ndarray or cp.ndarray
-        The actual array to test.
-    expected : np.ndarray or cp.ndarray
-        The expected array to compare against.
-    rtol : float, optional
-        Relative tolerance.
-    atol : float, optional
-        Absolute tolerance.
-    strict_type : bool, optional
-        If True, raises if the array types differ (e.g., np vs cp).
-    err_msg : str, optional
-        Error message to display on failure.
-    verbose : bool, optional
-        Whether to include difference summary on failure.
+    if hasattr(a, "get"):
+        a = a.get()
+    if hasattr(b, "get"):
+        b = b.get()
 
-    Raises
-    ------
-    AssertionError
-        If arrays are not equal within the given tolerance or types mismatch.
-    """
-    if strict_type and type(actual) is not type(expected):
-        raise AssertionError(
-            f"{err_msg}: Type mismatch {type(actual)} vs {type(expected)}"
-        )
+    a = np.asarray(a)
+    b = np.asarray(b)
 
-    if cp and (
-        isinstance(actual, cp.ndarray) or isinstance(expected, cp.ndarray)
-    ):
-        actual = cp.asnumpy(actual)
-        expected = cp.asnumpy(expected)
+    if a.shape != b.shape:
+        raise AssertionError(f"Shapes differ: {a.shape} vs {b.shape}")
 
-    np.testing.assert_allclose(
-        actual,
-        expected,
-        rtol=rtol,
-        atol=atol,
-        err_msg=err_msg,
-        verbose=verbose,
-    )
+    diff = np.abs(a - b)
+
+    if relative_diff:
+        idx = np.nonzero(np.abs(b) > tol)
+        diff[idx] = diff[idx] / np.abs(b[idx])
+
+    if not np.all(diff <= tol):
+        if report_summary:
+            idx = np.argsort(diff.ravel())
+            print("Largest diffs:")
+            a_flat = a.ravel()
+            b_flat = b.ravel()
+            diff_flat = diff.ravel()
+            for i in idx[-5:]:
+                if diff_flat[i] > tol:
+                    print(
+                        diff_flat[i], "at", i, "values", a_flat[i], b_flat[i]
+                    )
+            print(
+                "Avgdiff:",
+                np.mean(diff),
+                "stddiff:",
+                np.std(diff),
+                "avgval:",
+                np.mean(b),
+            )
+        raise AssertionError("Arrays are not equal within tolerance.")
+
+    return True
