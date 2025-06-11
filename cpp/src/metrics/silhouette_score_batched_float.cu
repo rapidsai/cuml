@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -34,7 +35,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int n_labels,
                        float* scores,
                        int chunk,
-                       cuvs::distance::DistanceType metric)
+                       MLCommon::CuvsStubs::DistanceType metric)
 {
   std::optional<raft::device_vector_view<float, int64_t>> silhouette_score_per_sample;
   if (scores != NULL) {
@@ -48,7 +49,7 @@ float silhouette_score(const raft::handle_t& handle,
     silhouette_score_per_sample,
     n_labels,
     chunk,
-    metric);
+    static_cast<cuvs::distance::DistanceType>(metric));
 }
 }  // namespace Batched
 }  // namespace Metrics

@@ -15,6 +15,7 @@
  */
 
 #include <cuml/cluster/kmeans_mg.hpp>
+#include <cuml/cuvs_stubs/kmeans_params.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 
@@ -29,7 +30,7 @@ namespace opg {
 // ----------------------------- fit ---------------------------------//
 
 void fit(const raft::resources& handle,
-         const cuvs::cluster::kmeans::params& params,
+         const MLCommon::CuvsStubs::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -45,7 +46,7 @@ void fit(const raft::resources& handle,
 
   cuvs::cluster::kmeans::fit(
     handle,
-    params,
+    params.to_cuvs(),
     raft::make_device_matrix_view<const float, int>(X, n_samples, n_features),
     sample_weight_view,
     raft::make_device_matrix_view<float, int>(centroids, params.n_clusters, n_features),
