@@ -71,7 +71,7 @@ endfunction()
 
 # Change pinned tag here to test a commit in CI
 # To use a different CUVS locally, set the CMake variable
-set(CPM_cuvs_SOURCE "/raid/tarangj/cuvs")
+# CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
       FORK             rapidsai
       PINNED_TAG       branch-${CUML_BRANCH_VERSION_cuvs}
