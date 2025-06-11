@@ -199,10 +199,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         """
         return self.fit(X, sample_weight=sample_weight).predict(
-            X, sample_weight=sample_weight, delayed=delayed
+            X, delayed=delayed
         )
 
-    def predict(self, X, sample_weight=None, delayed=True):
+    def predict(self, X, delayed=True):
         """
         Predict labels for the input
 
@@ -220,15 +220,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing predictions
         """
-
-        sample_weight = self._check_normalize_sample_weight(sample_weight)
-
-        return self._predict(
-            X,
-            delayed=delayed,
-            sample_weight=sample_weight,
-            normalize_weights=False,
-        )
+        return self._predict(X, delayed=delayed)
 
     def fit_transform(self, X, sample_weight=None, delayed=True):
         """
