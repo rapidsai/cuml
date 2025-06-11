@@ -46,6 +46,9 @@ struct knnIndexImpl {
   std::unique_ptr<cuvs::neighbors::ivf_pq::index<int64_t>> ivf_pq;
 };
 
+knnIndex::knnIndex()  = default;
+knnIndex::~knnIndex() = default;
+
 void brute_force_knn(const raft::handle_t& handle,
                      std::vector<float*>& input,
                      std::vector<int>& sizes,

@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace raft {
 class handle_t;
@@ -94,6 +95,9 @@ void rbc_free_index(std::uintptr_t rbc_index);
 struct knnIndexImpl;
 
 struct knnIndex {
+  knnIndex();
+  ~knnIndex();
+
   MLCommon::CuvsStubs::DistanceType metric;
   float metricArg;
   int nprobe;

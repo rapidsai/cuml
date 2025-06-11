@@ -35,7 +35,7 @@ from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuvs/cluster/agglomerative.hpp" namespace "cuvs::cluster::agglomerative" nogil:
+cdef extern from "cuml/cuvs_stubs/single_linkage_output.hpp" namespace "MLCommon::CuvsStubs" nogil:
 
     cdef cppclass single_linkage_output[int]:
         int m

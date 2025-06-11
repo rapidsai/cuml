@@ -23,19 +23,19 @@ from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/kmeans.hpp" namespace "cuvs::cluster::kmeans::params" nogil:
-    enum InitMethod:
+cdef extern from "cuml/cuvs_stubs/kmeans_params.hpp" namespace "MLCommon::CuvsStubs::KMeansParams" nogil:
+    enum class InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "cuvs/cluster/kmeans.hpp" namespace "cuvs::cluster::kmeans" nogil:
-    cdef struct params:
+cdef extern from "cuml/cuvs_stubs/kmeans_params.hpp" namespace "MLCommon::CuvsStubs" nogil:
+    cdef struct KMeansParams:
+        DistanceType metric,
         int n_clusters,
-        InitMethod init
+        InitMethod init,
         int max_iter,
         double tol,
         level_enum verbosity,
         RngState rng_state,
-        DistanceType metric,
         int n_init,
         double oversampling_factor,
         int batch_samples,

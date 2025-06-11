@@ -19,6 +19,7 @@
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+from libcpp.memory cimport unique_ptr
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
