@@ -168,28 +168,25 @@ class LabelEncoder(Base):
             )
             raise ValueError(msg)
 
-    def fit(self, y, _classes=None):
+    def _fit(self, y, classes=None):
         """
-        Fit a LabelEncoder (nvcategory) instance to a set of categories
+        Fit a LabelEncoder instance to a set of categories.
 
         Parameters
         ----------
         y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
-            Series containing the categories to be encoded. It's elements
-            may or may not be unique
+            The target values to encode.
 
-        _classes: int or None.
-            Passed by the dask client when dask LabelEncoder is used.
+        classes: cudf.Series or None
+            The unique classes. If not provided, will be computed.
 
         Returns
         -------
         self : LabelEncoder
-            A fitted instance of itself to allow method chaining
-
         """
         self._validate_keywords()
 
-        if _classes is None:
+        if classes is None:
             # dedupe and sort
             y = (
                 _to_cudf_series(y)
@@ -198,10 +195,25 @@ class LabelEncoder(Base):
             )
             self.classes_ = y
         else:
-            self.classes_ = _classes
+            self.classes_ = classes
 
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         return self
+
+    def fit(self, y):
+        """
+        Fit a LabelEncoder instance to a set of categories.
+
+        Parameters
+        ----------
+        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
+            The target values to encode.
+
+        Returns
+        -------
+        self : LabelEncoder
+        """
+        return self._fit(y)
 
     def transform(self, y):
         """
@@ -238,7 +250,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y, z=None):
+    def fit_transform(self, y):
         """
         Simultaneously fit and transform an input
 

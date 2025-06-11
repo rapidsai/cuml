@@ -215,9 +215,9 @@ class KMeansMG(KMeans):
 
         self.handle.sync()
 
-        self.labels_, _, _, _ = input_to_cuml_array(self.predict(X_m,
-                                                    sample_weight=sample_weight), order='C',
-                                                    convert_to_dtype=self.dtype)
+        self.labels_, _, _, _ = input_to_cuml_array(
+            self.predict(X_m), order='C', convert_to_dtype=self.dtype
+        )
 
         del X_m
         free(params)

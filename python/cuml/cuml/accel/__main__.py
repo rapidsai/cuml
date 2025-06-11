@@ -19,6 +19,7 @@ import argparse
 import code
 import runpy
 import sys
+import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
@@ -72,6 +73,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             Instead of a script, a module may be specified instead.
 
               $ python -m cuml.accel -m mymodule --some-option
+
+            If you also wish to use the `cudf.pandas` accelerator, you can invoke both
+            as part of a single call like:
+
+              $ python -m cudf.pandas -m cuml.accel myscript.py
             """
         ),
         allow_abbrev=False,
@@ -91,26 +97,25 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
     )
-    parser.add_argument(
-        "--convert-to-sklearn",
-        help="Path to a pickled accelerated estimator to convert to a scikit-learn estimator.",
-    )
+    # --convert-to-sklearn, --format, --output, and --cudf-pandas are deprecated
+    # and hidden from the CLI --help with `argparse.SUPPRESS
+    parser.add_argument("--convert-to-sklearn", help=argparse.SUPPRESS)
     parser.add_argument(
         "--format",
         choices=["pickle", "joblib"],
         type=str.lower,
         default="pickle",
-        help="Format to save the converted scikit-learn estimator.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--output",
         default="converted_sklearn_model.pkl",
-        help="Output path for the converted scikit-learn estimator file.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--cudf-pandas",
         action="store_true",
-        help="Turn on cudf.pandas alongside cuml.accel.",
+        help=argparse.SUPPRESS,
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -119,8 +124,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="A module to execute",
     )
     group.add_argument(
+        "-c",
+        dest="cmd",
+        help="Python source to execute, passed in as a string",
+    )
+    group.add_argument(
         "script",
-        default=None,
+        default="-",
         nargs="?",
         help="A script to execute",
     )
@@ -130,20 +140,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Additional arguments to forward to script or module",
     )
-    # We want to ignore all arguments after a module or script are provided,
-    # forwarding them on to the module/script. We need to hack around argparse
-    # a bit to do this by only parsing arguments up to the module, then appending
-    # the remainder on afterwards.
+    # We want to ignore all arguments after a module, cmd, or script are provided,
+    # forwarding them on to the module/cmd/script. `script` is handled natively by
+    # argparse, but `-m`/`-c` need some hacking to make work. We handle this by
+    # splitting argv at the first of `-m`/`-c` provided (if any), parsing args up
+    # to this point, then appending the remainder afterwards.
+    m_index = c_index = len(argv)
     try:
         m_index = argv.index("-m")
     except ValueError:
-        remainder = []
-    else:
-        remainder = argv[m_index + 2 :]
-        argv = argv[: m_index + 2]
+        pass
+    try:
+        c_index = argv.index("-c")
+    except ValueError:
+        pass
 
-    ns = parser.parse_args(argv)
-    ns.args.extend(remainder)
+    # Split at the first `-m foo`/`-c foo` found
+    index = min(m_index, c_index)
+    head = argv[: index + 2]
+    tail = argv[index + 2 :]
+
+    # Parse the head, then append the tail to `args`
+    ns = parser.parse_args(head)
+    ns.args.extend(tail)
     return ns
 
 
@@ -154,6 +173,13 @@ def main(argv: list[str] | None = None):
 
     # If the user requested a conversion, handle it and exit
     if ns.convert_to_sklearn:
+        warnings.warn(
+            "`--convert-to-sklearn`, `--format`, and `--output` are deprecated and will "
+            "be removed in 25.10. Estimators created with `cuml.accel` may now be "
+            "serialized and loaded in environments without `cuml` without the need for "
+            "running a conversion step.",
+            FutureWarning,
+        )
         with open(ns.convert_to_sklearn, "rb") as f:
             if ns.format == "pickle":
                 import pickle as serializer
@@ -173,6 +199,12 @@ def main(argv: list[str] | None = None):
 
     # Enable cudf.pandas if requested
     if ns.cudf_pandas:
+        warnings.warn(
+            "`--cudf-pandas` is deprecated and will be removed in 25.10. Instead, please "
+            "invoke both accelerators explicitly like\n\n"
+            "  $ python -m cudf.pandas -m cuml.accel ...",
+            FutureWarning,
+        )
         import cudf.pandas
 
         cudf.pandas.install()
@@ -191,24 +223,30 @@ def main(argv: list[str] | None = None):
     if ns.module is not None:
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
-        runpy.run_module(ns.module, run_name="__main__")
-    elif ns.script is not None:
+        runpy.run_module(ns.module, run_name="__main__", alter_sys=True)
+    elif ns.cmd is not None:
+        # Execute a cmd
+        sys.argv[:] = ["-c", *ns.args]
+        execute_source(ns.cmd, "<stdin>")
+    elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
         runpy.run_path(ns.script, run_name="__main__")
-    elif sys.stdin.isatty():
-        # Start an interpreter as similar to `python` as possible
-        if sys.flags.quiet:
-            banner = ""
-        else:
-            banner = f"Python {sys.version} on {sys.platform}"
-            if not sys.flags.no_site:
-                cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
-                banner += "\n" + cprt
-        code.interact(banner=banner, exitmsg="")
     else:
-        # Execute stdin
-        execute_source(sys.stdin.read(), "<stdin>")
+        sys.argv[:] = ["-", *ns.args]
+        if sys.stdin.isatty():
+            # Start an interpreter as similar to `python` as possible
+            if sys.flags.quiet:
+                banner = ""
+            else:
+                banner = f"Python {sys.version} on {sys.platform}"
+                if not sys.flags.no_site:
+                    cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
+                    banner += "\n" + cprt
+            code.interact(banner=banner, exitmsg="")
+        else:
+            # Execute stdin
+            execute_source(sys.stdin.read(), "<stdin>")
 
 
 if __name__ == "__main__":

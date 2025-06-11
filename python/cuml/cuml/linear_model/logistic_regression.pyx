@@ -29,7 +29,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import (
@@ -334,9 +334,7 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "LogisticRegression":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -457,8 +455,7 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def decision_function(self, X, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -474,8 +471,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_any()
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -538,8 +534,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -555,8 +550,7 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
