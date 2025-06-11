@@ -15,8 +15,8 @@
  */
 
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/kernel_params.hpp>
 #include <cuml/datasets/make_blobs.hpp>
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -58,9 +58,10 @@
 
 namespace ML {
 namespace SVM {
-using namespace MLCommon::CuvsStubs;
 using cuvs::distance::kernels::GramMatrixBase;
 using cuvs::distance::kernels::KernelFactory;
+using ML::matrix::KernelParams;
+using ML::matrix::KernelType;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>

@@ -24,7 +24,7 @@
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 
-#include <cuml/cuvs_stubs/kernel_params.hpp>
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 
@@ -51,7 +51,7 @@ void svrFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* y,
              const SvmParameter& param,
-             MLCommon::CuvsStubs::KernelParams& kernel_params,
+             ML::matrix::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -93,7 +93,7 @@ void svrFit(const raft::handle_t& handle,
             int n_cols,
             math_t* y,
             const SvmParameter& param,
-            MLCommon::CuvsStubs::KernelParams& kernel_params,
+            ML::matrix::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -112,7 +112,7 @@ void svrFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* y,
                   const SvmParameter& param,
-                  MLCommon::CuvsStubs::KernelParams& kernel_params,
+                  ML::matrix::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {

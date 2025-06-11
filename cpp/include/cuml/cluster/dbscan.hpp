@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -66,7 +66,7 @@ void fit(const raft::handle_t& handle,
          int n_cols,
          float eps,
          int min_pts,
-         MLCommon::CuvsStubs::DistanceType metric,
+         ML::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices            = nullptr,
          float* sample_weight                = nullptr,
@@ -80,7 +80,7 @@ void fit(const raft::handle_t& handle,
          int n_cols,
          double eps,
          int min_pts,
-         MLCommon::CuvsStubs::DistanceType metric,
+         ML::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices            = nullptr,
          double* sample_weight               = nullptr,
@@ -95,7 +95,7 @@ void fit(const raft::handle_t& handle,
          int64_t n_cols,
          float eps,
          int min_pts,
-         MLCommon::CuvsStubs::DistanceType metric,
+         ML::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices        = nullptr,
          float* sample_weight                = nullptr,
@@ -109,7 +109,7 @@ void fit(const raft::handle_t& handle,
          int64_t n_cols,
          double eps,
          int min_pts,
-         MLCommon::CuvsStubs::DistanceType metric,
+         ML::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices        = nullptr,
          double* sample_weight               = nullptr,

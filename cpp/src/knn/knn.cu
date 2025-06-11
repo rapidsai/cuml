@@ -60,7 +60,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      int k,
                      bool rowMajorIndex,
                      bool rowMajorQuery,
-                     MLCommon::CuvsStubs::DistanceType metric,
+                     ML::distance::DistanceType metric,
                      float metric_arg,
                      std::vector<int64_t>* translations)
 {
@@ -170,7 +170,7 @@ void rbc_build_index(const raft::handle_t& handle,
                      float* X,
                      int64_t n_rows,
                      int64_t n_cols,
-                     MLCommon::CuvsStubs::DistanceType metric)
+                     ML::distance::DistanceType metric)
 {
   auto X_view        = raft::make_device_matrix_view<const float, int64_t>(X, n_rows, n_cols);
   auto rbc_index_ptr = new cuvs::neighbors::ball_cover::index<int64_t, float>(
@@ -209,7 +209,7 @@ void rbc_free_index(std::uintptr_t rbc_index)
 void approx_knn_build_index(raft::handle_t& handle,
                             knnIndex* index,
                             knnIndexParam* params,
-                            MLCommon::CuvsStubs::DistanceType metric,
+                            ML::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,
@@ -231,9 +231,9 @@ void approx_knn_build_index(raft::handle_t& handle,
   // For cosine/correlation distance, the metric processor translates distance
   // to inner product via pre/post processing - pass the translated metric to
   // ANN index
-  if (metric == MLCommon::CuvsStubs::DistanceType::CosineExpanded ||
-      metric == MLCommon::CuvsStubs::DistanceType::CorrelationExpanded) {
-    metric = index->metric = MLCommon::CuvsStubs::DistanceType::InnerProduct;
+  if (metric == ML::distance::DistanceType::CosineExpanded ||
+      metric == ML::distance::DistanceType::CorrelationExpanded) {
+    metric = index->metric = ML::distance::DistanceType::InnerProduct;
   }
   index->metric_processor->preprocess(index_array);
   auto index_view = raft::make_device_matrix_view<const float, int64_t>(index_array, n, D);
@@ -303,15 +303,14 @@ void approx_knn_search(raft::handle_t& handle,
   index->metric_processor->revert(query_array);
 
   // perform post-processing to show the real distances
-  if (index->metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded ||
-      index->metric == MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded ||
-      index->metric == MLCommon::CuvsStubs::DistanceType::LpUnexpanded) {
+  if (index->metric == ML::distance::DistanceType::L2SqrtExpanded ||
+      index->metric == ML::distance::DistanceType::L2SqrtUnexpanded ||
+      index->metric == ML::distance::DistanceType::LpUnexpanded) {
     /**
      * post-processing
      */
     float p = 0.5;  // standard l2
-    if (index->metric == MLCommon::CuvsStubs::DistanceType::LpUnexpanded)
-      p = 1.0 / index->metricArg;
+    if (index->metric == ML::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(distances,
                                  distances,
                                  n * k,

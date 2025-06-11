@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -33,7 +33,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int* labels,
                         int nLabels,
                         double* silScores,
-                        MLCommon::CuvsStubs::DistanceType metric)
+                        ML::distance::DistanceType metric)
 {
   std::optional<raft::device_vector_view<double, int64_t>> silhouette_score_per_sample;
   if (silScores != NULL) {

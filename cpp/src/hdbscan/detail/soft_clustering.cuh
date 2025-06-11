@@ -21,8 +21,8 @@
 #include "utils.h"
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/label/classlabels.cuh>
@@ -66,7 +66,7 @@ void dist_membership_vector(const raft::handle_t& handle,
                             value_idx* exemplar_idx,
                             value_idx* exemplar_label_offsets,
                             value_t* dist_membership_vec,
-                            MLCommon::CuvsStubs::DistanceType metric,
+                            ML::distance::DistanceType metric,
                             size_t batch_size,
                             bool softmax = false)
 {
@@ -391,7 +391,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                                    Common::PredictionData<value_idx, value_t>& prediction_data,
                                    const value_t* X,
-                                   MLCommon::CuvsStubs::DistanceType metric,
+                                   ML::distance::DistanceType metric,
                                    value_t* membership_vec,
                                    size_t batch_size)
 {
@@ -510,12 +510,12 @@ void membership_vector(const raft::handle_t& handle,
                        const value_t* X,
                        const value_t* points_to_predict,
                        size_t n_prediction_points,
-                       MLCommon::CuvsStubs::DistanceType metric,
+                       ML::distance::DistanceType metric,
                        int min_samples,
                        value_t* membership_vec,
                        size_t batch_size)
 {
-  RAFT_EXPECTS(metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == ML::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();
@@ -548,7 +548,7 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_idx(),
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
-                         MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+                         ML::distance::DistanceType::L2SqrtExpanded,
                          batch_size);
 
   auto prediction_lambdas =

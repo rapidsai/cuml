@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
-#include <cuml/cuvs_stubs/single_linkage_output.hpp>
+#include <cuml/cluster/single_linkage_output.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -46,8 +46,8 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             MLCommon::CuvsStubs::single_linkage_output<int>* out,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::single_linkage_output<int>* out,
+                             ML::distance::DistanceType metric,
                              int n_clusters = 5);
 
 /**
@@ -74,17 +74,17 @@ void single_linkage_neighbors(
   const float* X,
   size_t m,
   size_t n,
-  MLCommon::CuvsStubs::single_linkage_output<int>* out,
-  MLCommon::CuvsStubs::DistanceType metric = MLCommon::CuvsStubs::DistanceType::L2Unexpanded,
-  int c                                    = 15,
-  int n_clusters                           = 5);
+  ML::single_linkage_output<int>* out,
+  ML::distance::DistanceType metric = ML::distance::DistanceType::L2Unexpanded,
+  int c                             = 15,
+  int n_clusters                    = 5);
 
 void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             MLCommon::CuvsStubs::single_linkage_output<int64_t>* out,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::single_linkage_output<int64_t>* out,
+                             ML::distance::DistanceType metric,
                              int n_clusters = 5);
 
 };  // namespace ML

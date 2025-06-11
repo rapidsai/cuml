@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -320,7 +320,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
-    score = trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
+    score = trustworthiness_score<float, ML::distance::DistanceType::L2SqrtUnexpanded>(
       h, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
   }
 

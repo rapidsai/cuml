@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
 #include <cumlprims/opg/matrix/data.hpp>
@@ -455,7 +455,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                   params.k,
                   params.rowMajorIndex,
                   params.rowMajorQuery,
-                  CuvsStubs::DistanceType::L2SqrtExpanded,
+                  distance::DistanceType::L2SqrtExpanded,
                   2.0f,
                   &start_indices_long);
   handle.sync_stream(handle.get_stream());

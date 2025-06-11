@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/random/rng_state.hpp>
 
@@ -28,11 +28,11 @@ struct params;
 
 }  // end namespace cuvs::cluster::kmeans
 
-namespace MLCommon::CuvsStubs {
+namespace ML::kmeans {
 
 struct KMeansParams {
   enum class InitMethod { KMeansPlusPlus, Random, Array };
-  DistanceType metric                 = DistanceType::L2Expanded;
+  ML::distance::DistanceType metric   = ML::distance::DistanceType::L2Expanded;
   int n_clusters                      = 8;
   InitMethod init                     = InitMethod::KMeansPlusPlus;
   int max_iter                        = 300;
@@ -48,4 +48,4 @@ struct KMeansParams {
   cuvs::cluster::kmeans::params to_cuvs() const;
 };
 
-}  // end namespace MLCommon::CuvsStubs
+}  // end namespace ML::kmeans

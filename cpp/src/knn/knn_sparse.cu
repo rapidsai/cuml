@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 
 #include <raft/core/handle.hpp>
@@ -42,7 +42,7 @@ void brute_force_knn(raft::handle_t& handle,
                      int k,
                      size_t batch_size_index,  // approx 1M
                      size_t batch_size_query,
-                     MLCommon::CuvsStubs::DistanceType metric,
+                     ML::distance::DistanceType metric,
                      float metricArg)
 {
   auto idx_structure = raft::make_device_compressed_structure_view<int, int, int>(

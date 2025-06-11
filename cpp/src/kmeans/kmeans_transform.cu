@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -26,7 +26,7 @@ namespace kmeans {
 // ----------------------------- transform ---------------------------------//
 template <typename value_t, typename idx_t>
 void transform_impl(const raft::handle_t& handle,
-                    const MLCommon::CuvsStubs::KMeansParams& params,
+                    const ML::kmeans::KMeansParams& params,
                     const value_t* centroids,
                     const value_t* X,
                     idx_t n_samples,
@@ -42,7 +42,7 @@ void transform_impl(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const float* centroids,
                const float* X,
                int n_samples,
@@ -53,7 +53,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const double* centroids,
                const double* X,
                int n_samples,
@@ -64,7 +64,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const float* centroids,
                const float* X,
                int64_t n_samples,
@@ -75,7 +75,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const double* centroids,
                const double* X,
                int64_t n_samples,

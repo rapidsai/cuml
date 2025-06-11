@@ -43,7 +43,7 @@ extern "C" {
  * @param[in] rowMajorIndex is the index array in row major layout?
  * @param[in] rowMajorQuery is the query array in row major layout?
  * @param[in] metric_type the type of distance metric to use. This corresponds
- *            to the value in the cuml::MLCommon::CuvsStubs::DistanceType enum.
+ *            to the value in the cuml::ML::distance::DistanceType enum.
  *            Default is Euclidean (L2).
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  *            is ignored if the metric_type is not Minkowski.

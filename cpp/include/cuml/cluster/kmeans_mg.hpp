@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 namespace raft {
 class resources;
@@ -50,7 +50,7 @@ namespace opg {
  */
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -60,7 +60,7 @@ void fit(const raft::resources& handle,
          int& n_iter);
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -70,7 +70,7 @@ void fit(const raft::resources& handle,
          int& n_iter);
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const float* X,
          int64_t n_samples,
          int64_t n_features,
@@ -80,7 +80,7 @@ void fit(const raft::resources& handle,
          int64_t& n_iter);
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const double* X,
          int64_t n_samples,
          int64_t n_features,

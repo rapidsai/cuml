@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -26,7 +26,7 @@ namespace kmeans {
 // -------------------------- fit_predict --------------------------------//
 template <typename value_t, typename idx_t>
 void fit_predict_impl(const raft::handle_t& handle,
-                      const MLCommon::CuvsStubs::KMeansParams& params,
+                      const ML::kmeans::KMeansParams& params,
                       const value_t* X,
                       idx_t n_samples,
                       idx_t n_features,
@@ -52,7 +52,7 @@ void fit_predict_impl(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const float* X,
                  int n_samples,
                  int n_features,
@@ -67,7 +67,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const double* X,
                  int n_samples,
                  int n_features,
@@ -82,7 +82,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const float* X,
                  int64_t n_samples,
                  int64_t n_features,
@@ -97,7 +97,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const double* X,
                  int64_t n_samples,
                  int64_t n_features,

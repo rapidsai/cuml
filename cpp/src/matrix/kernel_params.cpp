@@ -14,35 +14,22 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/matrix/kernel_params.hpp>
 
-#include <raft/core/device_mdspan.hpp>
+#include <cuvs/distance/distance.hpp>
 
-namespace MLCommon {
-namespace CuvsStubs {
+namespace ML::matrix {
 
-template <typename idx_t>
-class single_linkage_output {
- public:
-  idx_t m;
-  idx_t n_clusters;
+cuvs::distance::kernels::KernelParams KernelParams::to_cuvs() const
+{
+  cuvs::distance::kernels::KernelParams params;
 
-  idx_t n_leaves;
-  idx_t n_connected_components;
+  params.kernel = static_cast<cuvs::distance::kernels::KernelType>(this->kernel);
+  params.degree = this->degree;
+  params.gamma  = this->gamma;
+  params.coef0  = this->coef0;
 
-  idx_t* labels;
-  idx_t* children;
+  return params;
+}
 
-  raft::device_vector_view<idx_t> get_labels()
-  {
-    return raft::make_device_vector_view<idx_t>(labels, m);
-  }
-
-  raft::device_matrix_view<idx_t> get_children()
-  {
-    return raft::make_device_matrix_view<idx_t>(children, m - 1, 2);
-  }
-};
-
-};  // end namespace CuvsStubs
-};  // end namespace MLCommon
+}  // end namespace ML::matrix

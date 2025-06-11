@@ -23,11 +23,11 @@ from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cuvs_stubs/kmeans_params.hpp" namespace "MLCommon::CuvsStubs::KMeansParams" nogil:
+cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans::KMeansParams" nogil:
     enum class InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "cuml/cuvs_stubs/kmeans_params.hpp" namespace "MLCommon::CuvsStubs" nogil:
+cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans" nogil:
     cdef struct KMeansParams:
         DistanceType metric,
         int n_clusters,

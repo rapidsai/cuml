@@ -19,7 +19,7 @@
 #include "runner.h"
 
 #include <cuml/cluster/hdbscan.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -30,7 +30,7 @@ void hdbscan(const raft::handle_t& handle,
              const float* X,
              size_t m,
              size_t n,
-             MLCommon::CuvsStubs::DistanceType metric,
+             ML::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
              float* core_dists)
@@ -91,7 +91,7 @@ void compute_all_points_membership_vectors(
   HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
   const float* X,
-  MLCommon::CuvsStubs::DistanceType metric,
+  ML::distance::DistanceType metric,
   float* membership_vec,
   size_t batch_size)
 {
@@ -106,7 +106,7 @@ void compute_membership_vector(const raft::handle_t& handle,
                                const float* points_to_predict,
                                size_t n_prediction_points,
                                int min_samples,
-                               MLCommon::CuvsStubs::DistanceType metric,
+                               ML::distance::DistanceType metric,
                                float* membership_vec,
                                size_t batch_size)
 {
@@ -131,7 +131,7 @@ void out_of_sample_predict(const raft::handle_t& handle,
                            int* labels,
                            const float* points_to_predict,
                            size_t n_prediction_points,
-                           MLCommon::CuvsStubs::DistanceType metric,
+                           ML::distance::DistanceType metric,
                            int min_samples,
                            int* out_labels,
                            float* out_probabilities)
@@ -158,7 +158,7 @@ void compute_core_dists(const raft::handle_t& handle,
                         float* core_dists,
                         size_t m,
                         size_t n,
-                        MLCommon::CuvsStubs::DistanceType metric,
+                        ML::distance::DistanceType metric,
                         int min_samples)
 {
   HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(

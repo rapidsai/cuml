@@ -28,8 +28,8 @@ from pylibraft.common.handle cimport handle_t
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cuvs_stubs/distance_type.hpp" namespace "MLCommon::CuvsStubs" nogil:
-    ctypedef DistanceType euclidean "(MLCommon::CuvsStubs::DistanceType)5"
+cdef extern from "cuml/common/distance_type.hpp" namespace "ML::distance" nogil:
+    ctypedef DistanceType euclidean "(ML::distance::DistanceType)5"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
 

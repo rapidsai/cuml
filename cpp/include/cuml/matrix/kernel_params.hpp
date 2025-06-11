@@ -22,7 +22,7 @@ struct KernelParams;
 
 }  // end namespace cuvs::distance::kernels
 
-namespace MLCommon::CuvsStubs {
+namespace ML::matrix {
 
 enum class KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
 
@@ -35,4 +35,4 @@ struct KernelParams {
   cuvs::distance::kernels::KernelParams to_cuvs() const;
 };
 
-}  // end namespace MLCommon::CuvsStubs
+}  // end namespace ML::matrix

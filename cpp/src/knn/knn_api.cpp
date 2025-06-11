@@ -16,7 +16,7 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <cuml/neighbors/knn_api.h>
 
@@ -69,8 +69,8 @@ cumlError_t knn_search(const cumlHandle_t handle,
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  MLCommon::CuvsStubs::DistanceType metric_distance_type =
-    static_cast<MLCommon::CuvsStubs::DistanceType>(metric_type);
+  ML::distance::DistanceType metric_distance_type =
+    static_cast<ML::distance::DistanceType>(metric_type);
 
   std::vector<float*> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);

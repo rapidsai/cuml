@@ -15,8 +15,8 @@
  */
 
 #include <cuml/cluster/linkage.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
-#include <cuml/cuvs_stubs/single_linkage_output.hpp>
+#include <cuml/cluster/single_linkage_output.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -28,8 +28,8 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             MLCommon::CuvsStubs::single_linkage_output<int>* out,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::single_linkage_output<int>* out,
+                             ML::distance::DistanceType metric,
                              int n_clusters)
 {
   auto X_view = raft::make_device_matrix_view<const float, int, raft::row_major>(
@@ -48,8 +48,8 @@ void single_linkage_neighbors(const raft::handle_t& handle,
                               const float* X,
                               size_t m,
                               size_t n,
-                              MLCommon::CuvsStubs::single_linkage_output<int>* out,
-                              MLCommon::CuvsStubs::DistanceType metric,
+                              ML::single_linkage_output<int>* out,
+                              ML::distance::DistanceType metric,
                               int c,
                               int n_clusters)
 {

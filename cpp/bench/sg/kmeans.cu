@@ -17,9 +17,9 @@
 #include "benchmark.cuh"
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
 
 #include <raft/random/rng_state.hpp>
 
@@ -34,7 +34,7 @@ namespace kmeans {
 struct Params {
   DatasetParams data;
   BlobsParams blobs;
-  MLCommon::CuvsStubs::KMeansParams kmeans;
+  ML::kmeans::KMeansParams kmeans;
 };
 
 template <typename D>
@@ -75,7 +75,7 @@ class KMeans : public BlobsFixture<D> {
   }
 
  private:
-  MLCommon::CuvsStubs::KMeansParams kParams;
+  ML::kmeans::KMeansParams kParams;
   D* centroids;
   D inertia;
   int nIter;
@@ -91,11 +91,11 @@ std::vector<Params> getInputs()
   p.blobs.center_box_min                   = -10.0;
   p.blobs.center_box_max                   = 10.0;
   p.blobs.seed                             = 12345ULL;
-  p.kmeans.init                            = MLCommon::CuvsStubs::KMeansParams::InitMethod(0);
+  p.kmeans.init                            = ML::kmeans::KMeansParams::InitMethod(0);
   p.kmeans.max_iter                        = 300;
   p.kmeans.tol                             = 1e-4;
   p.kmeans.verbosity                       = rapids_logger::level_enum::info;
-  p.kmeans.metric                          = MLCommon::CuvsStubs::DistanceType::L2Expanded;
+  p.kmeans.metric                          = ML::distance::DistanceType::L2Expanded;
   p.kmeans.rng_state                       = raft::random::RngState(p.blobs.seed);
   p.kmeans.inertia_check                   = true;
   std::vector<std::pair<int, int>> rowcols = {

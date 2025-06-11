@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
 #include <cuvs/distance/distance.hpp>
 
-namespace MLCommon::CuvsStubs {
+namespace ML::kmeans {
 
 cuvs::cluster::kmeans::params KMeansParams::to_cuvs() const
 {
@@ -41,4 +41,4 @@ cuvs::cluster::kmeans::params KMeansParams::to_cuvs() const
   return params;
 }
 
-}  // end namespace MLCommon::CuvsStubs
+}  // end namespace ML::kmeans

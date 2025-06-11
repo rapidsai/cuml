@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -33,7 +33,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       MLCommon::CuvsStubs::DistanceType metric,
+                       ML::distance::DistanceType metric,
                        bool isRowMajor,
                        double metric_arg)
 {
@@ -63,7 +63,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       MLCommon::CuvsStubs::DistanceType metric,
+                       ML::distance::DistanceType metric,
                        bool isRowMajor,
                        float metric_arg)
 {
@@ -100,7 +100,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              value_idx* y_indptr,
                              value_idx* x_indices,
                              value_idx* y_indices,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::distance::DistanceType metric,
                              float metric_arg)
 {
   auto out = raft::make_device_matrix_view<value_t, value_idx>(dist, y_nrows, x_nrows);
@@ -134,7 +134,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::distance::DistanceType metric,
                              float metric_arg)
 {
   pairwiseDistance_sparse<int, float>(handle,
@@ -167,7 +167,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::distance::DistanceType metric,
                              float metric_arg)
 {
   pairwiseDistance_sparse<int, double>(handle,

@@ -26,10 +26,10 @@
 #include <common/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/core/nvtx.hpp>
 #include <raft/label/classlabels.cuh>
@@ -125,7 +125,7 @@ std::size_t run(const raft::handle_t& handle,
                 std::size_t batch_size,
                 EpsNnMethod eps_nn_method,
                 cudaStream_t stream,
-                MLCommon::CuvsStubs::DistanceType metric)
+                ML::distance::DistanceType metric)
 {
   const std::size_t align = 256;
   Index_ n_batches        = raft::ceildiv((std::size_t)n_owned_rows, batch_size);
@@ -149,8 +149,8 @@ std::size_t run(const raft::handle_t& handle,
     }
   }
 
-  if (sparse_rbc_mode && metric != MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded &&
-      metric != MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded) {
+  if (sparse_rbc_mode && metric != ML::distance::DistanceType::L2SqrtExpanded &&
+      metric != ML::distance::DistanceType::L2SqrtUnexpanded) {
     CUML_LOG_WARN("Metric not supported by RBC yet. Falling back to BRUTE_FORCE strategy.");
     sparse_rbc_mode = false;
   }

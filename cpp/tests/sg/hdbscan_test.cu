@@ -18,7 +18,7 @@
 #include "hdbscan_inputs.hpp"
 
 #include <cuml/cluster/hdbscan.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
 #include <raft/core/handle.hpp>
@@ -107,7 +107,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             data.data(),
             params.n_row,
             params.n_col,
-            MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+            ML::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
             out,
             core_dists.data());
@@ -462,7 +462,7 @@ class AllPointsMembershipVectorsTest
                                               condensed_tree,
                                               prediction_data_,
                                               data.data(),
-                                              MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+                                              ML::distance::DistanceType::L2SqrtExpanded,
                                               membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
@@ -603,7 +603,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                               labels.data(),
                               const_cast<float*>(points_to_predict.data()),
                               (size_t)params.n_points_to_predict,
-                              MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+                              ML::distance::DistanceType::L2SqrtExpanded,
                               params.min_samples,
                               out_labels.data(),
                               out_probabilities.data());
@@ -754,7 +754,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                   points_to_predict.data(),
                                   params.n_points_to_predict,
                                   params.min_samples,
-                                  MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+                                  ML::distance::DistanceType::L2SqrtExpanded,
                                   membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),

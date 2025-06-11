@@ -16,7 +16,7 @@
 
 # distutils: language = c++
 
-cdef extern from "cuml/cuvs_stubs/kernel_params.hpp" namespace "MLCommon::CuvsStubs" nogil:
+cdef extern from "cuml/matrix/kernel_params.hpp" namespace "ML::matrix" nogil:
     enum class KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 

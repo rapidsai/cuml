@@ -16,7 +16,7 @@
 
 #include "benchmark.cuh"
 
-#include <cuml/cuvs_stubs/kernel_params.hpp>
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -33,7 +33,7 @@ template <typename D>
 struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
-  MLCommon::CuvsStubs::KernelParams kernel;
+  ML::matrix::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -76,7 +76,7 @@ class SVC : public BlobsFixture<D, D> {
   }
 
  private:
-  MLCommon::CuvsStubs::KernelParams kernel;
+  ML::matrix::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -105,11 +105,10 @@ std::vector<SvcParams<D>> getInputs()
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 
-  std::vector<MLCommon::CuvsStubs::KernelParams> kernels{
-    {MLCommon::CuvsStubs::KernelType::LINEAR, 3, 1, 0},
-    {MLCommon::CuvsStubs::KernelType::POLYNOMIAL, 3, 1, 0},
-    {MLCommon::CuvsStubs::KernelType::RBF, 3, 1, 0},
-    {MLCommon::CuvsStubs::KernelType::TANH, 3, 0.1, 0}};
+  std::vector<ML::matrix::KernelParams> kernels{{ML::matrix::KernelType::LINEAR, 3, 1, 0},
+                                                {ML::matrix::KernelType::POLYNOMIAL, 3, 1, 0},
+                                                {ML::matrix::KernelType::RBF, 3, 1, 0},
+                                                {ML::matrix::KernelType::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
     p.data.nrows    = rc.nrows;

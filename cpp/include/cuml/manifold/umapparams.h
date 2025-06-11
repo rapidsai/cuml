@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuml/common/callback.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 
 namespace ML {
 
@@ -216,7 +216,7 @@ class UMAPParams {
    */
   bool deterministic = true;
 
-  MLCommon::CuvsStubs::DistanceType metric = MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded;
+  ML::distance::DistanceType metric = ML::distance::DistanceType::L2SqrtExpanded;
 
   float p = 2.0;
 

@@ -16,8 +16,7 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace CuvsStubs {
+namespace ML::distance {
 
 enum class DistanceType {
   L2Expanded          = 0,
@@ -44,5 +43,4 @@ enum class DistanceType {
   Precomputed         = 100
 };
 
-};  // end namespace CuvsStubs
-};  // end namespace MLCommon
+}  // end namespace ML::distance

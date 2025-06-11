@@ -20,7 +20,7 @@
 #include "pack.h"
 #include "precomputed.cuh"
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 namespace ML {
 namespace Dbscan {
@@ -43,7 +43,7 @@ void run(const raft::handle_t& handle,
          Index_ start_vertex_id,
          Index_ batch_size,
          cudaStream_t stream,
-         MLCommon::CuvsStubs::DistanceType metric)
+         ML::distance::DistanceType metric)
 {
   Pack<Type_f, Index_> data = {
     rbc_index, vd, wght_sum, ia, ja, max_k, adj, x, sample_weight, eps, N, D};

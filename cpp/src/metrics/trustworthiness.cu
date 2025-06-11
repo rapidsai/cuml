@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -39,7 +39,7 @@ namespace Metrics {
  * @tparam distance_type: Distance type to consider
  * @return Trustworthiness score
  */
-template <typename math_t, MLCommon::CuvsStubs::DistanceType distance_type>
+template <typename math_t, ML::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h,
                              const math_t* X,
                              math_t* X_embedded,
@@ -58,7 +58,7 @@ double trustworthiness_score(const raft::handle_t& h,
     batchSize);
 }
 
-template double trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
+template double trustworthiness_score<float, ML::distance::DistanceType::L2SqrtUnexpanded>(
   const raft::handle_t& h,
   const float* X,
   float* X_embedded,

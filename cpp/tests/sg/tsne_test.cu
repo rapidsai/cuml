@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
 
@@ -116,7 +116,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     auto stream = handle.get_stream();
     TSNEResults results;
 
-    auto DEFAULT_DISTANCE_METRIC = MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded;
+    auto DEFAULT_DISTANCE_METRIC = ML::distance::DistanceType::L2SqrtExpanded;
     float minkowski_p            = 2.0;
 
     // Setup parameters
@@ -164,7 +164,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       n,
                       n,
                       model_params.dim,
-                      MLCommon::CuvsStubs::DistanceType::L2Expanded,
+                      ML::distance::DistanceType::L2Expanded,
                       false);
     handle.sync_stream(stream);
 
@@ -195,7 +195,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 
     // Produce trustworthiness score
     results.trustworthiness =
-      trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
+      trustworthiness_score<float, ML::distance::DistanceType::L2SqrtUnexpanded>(
         handle, X_d.data(), Y_d.data(), n, p, model_params.dim, 5);
 
     return results;

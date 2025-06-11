@@ -15,8 +15,8 @@
  */
 
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
@@ -52,7 +52,7 @@ struct DbscanInputs {
   int min_pts;
   size_t max_bytes_per_batch;
   unsigned long long int seed;
-  MLCommon::CuvsStubs::DistanceType metric;
+  ML::distance::DistanceType metric;
 };
 
 template <typename T, typename IdxT>
@@ -73,10 +73,9 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     rmm::device_uvector<T> out(params.n_row * params.n_col, stream);
     rmm::device_uvector<IdxT> l(params.n_row, stream);
-    rmm::device_uvector<T> dist(params.metric == MLCommon::CuvsStubs::DistanceType::Precomputed
-                                  ? params.n_row * params.n_row
-                                  : 0,
-                                stream);
+    rmm::device_uvector<T> dist(
+      params.metric == ML::distance::DistanceType::Precomputed ? params.n_row * params.n_row : 0,
+      stream);
 
     make_blobs(handle,
                out.data(),
@@ -93,7 +92,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                10.0f,
                params.seed);
 
-    if (params.metric == MLCommon::CuvsStubs::DistanceType::Precomputed) {
+    if (params.metric == ML::distance::DistanceType::Precomputed) {
       ML::Metrics::pairwise_distance(handle,
                                      out.data(),
                                      out.data(),
@@ -101,7 +100,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                                      params.n_row,
                                      params.n_row,
                                      params.n_col,
-                                     MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded);
+                                     ML::distance::DistanceType::L2SqrtUnexpanded);
     }
 
     rmm::device_uvector<IdxT> labels(params.n_row, stream);
@@ -111,18 +110,17 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     handle.sync_stream(stream);
 
-    Dbscan::fit(
-      handle,
-      params.metric == MLCommon::CuvsStubs::DistanceType::Precomputed ? dist.data() : out.data(),
-      params.n_row,
-      params.n_col,
-      params.eps,
-      params.min_pts,
-      params.metric,
-      labels.data(),
-      nullptr,
-      nullptr,
-      params.max_bytes_per_batch);
+    Dbscan::fit(handle,
+                params.metric == ML::distance::DistanceType::Precomputed ? dist.data() : out.data(),
+                params.n_row,
+                params.n_col,
+                params.eps,
+                params.min_pts,
+                params.metric,
+                labels.data(),
+                nullptr,
+                nullptr,
+                params.max_bytes_per_batch);
 
     handle.sync_stream(stream);
 
@@ -146,25 +144,9 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 };
 
 const std::vector<DbscanInputs<float, int>> inputsf2 = {
-  {500,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)100,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, MLCommon::CuvsStubs::DistanceType::Precomputed},
-  {1000,
-   1000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)13e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    10000,
    10,
@@ -173,7 +155,7 @@ const std::vector<DbscanInputs<float, int>> inputsf2 = {
    2,
    (size_t)13e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+   ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    100,
    5000,
@@ -182,37 +164,13 @@ const std::vector<DbscanInputs<float, int>> inputsf2 = {
    2,
    (size_t)13e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded}};
+   ML::distance::DistanceType::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
-  {500,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)100,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, MLCommon::CuvsStubs::DistanceType::Precomputed},
-  {1000,
-   1000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)9e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {50000,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)9e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    10000,
    10,
@@ -221,7 +179,7 @@ const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
    2,
    (size_t)9e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+   ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    100,
    5000,
@@ -230,46 +188,14 @@ const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
    2,
    (size_t)9e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded}};
+   ML::distance::DistanceType::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int>> inputsd2 = {
-  {50000,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)13e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, MLCommon::CuvsStubs::DistanceType::Precomputed},
-  {500,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)100,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {1000,
-   1000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)13e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {100,
-   10000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)13e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, ML::distance::DistanceType::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    10000,
    10,
@@ -278,7 +204,7 @@ const std::vector<DbscanInputs<double, int>> inputsd2 = {
    2,
    (size_t)13e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+   ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    100,
    5000,
@@ -287,46 +213,14 @@ const std::vector<DbscanInputs<double, int>> inputsd2 = {
    2,
    (size_t)13e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded}};
+   ML::distance::DistanceType::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
-  {50000,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)9e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, MLCommon::CuvsStubs::DistanceType::Precomputed},
-  {500,
-   16,
-   5,
-   0.01,
-   2,
-   2,
-   (size_t)100,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {1000,
-   1000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)9e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
-  {100,
-   10000,
-   10,
-   0.01,
-   2,
-   2,
-   (size_t)9e3,
-   1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    10000,
    10,
@@ -335,7 +229,7 @@ const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
    2,
    (size_t)9e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded},
+   ML::distance::DistanceType::L2SqrtUnexpanded},
   {20000,
    100,
    5000,
@@ -344,7 +238,7 @@ const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
    2,
    (size_t)9e3,
    1234ULL,
-   MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded}};
+   ML::distance::DistanceType::L2SqrtUnexpanded}};
 
 typedef DbscanTest<float, int> DbscanTestF_Int;
 TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }
@@ -415,7 +309,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
                 2,
                 params.eps,
                 params.min_pts,
-                MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded,
+                ML::distance::DistanceType::L2SqrtUnexpanded,
                 labels.data(),
                 core_sample_indices_d.data(),
                 sample_weight,

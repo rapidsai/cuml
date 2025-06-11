@@ -17,7 +17,7 @@
 #include "benchmark.cuh"
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <utility>
 
@@ -58,7 +58,7 @@ class Dbscan : public BlobsFixture<D, int> {
                       this->params.ncols,
                       D(dParams.eps),
                       dParams.min_pts,
-                      MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded,
+                      ML::distance::DistanceType::L2SqrtUnexpanded,
                       this->data.y.data(),
                       this->core_sample_indices,
                       nullptr,

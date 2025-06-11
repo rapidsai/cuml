@@ -19,7 +19,7 @@
 #include "kernels/predict.cuh"
 #include "reachability.cuh"
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -162,7 +162,7 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                                        size_t n_prediction_points,
                                        value_idx* min_mr_inds,
                                        value_t* prediction_lambdas,
-                                       MLCommon::CuvsStubs::DistanceType metric)
+                                       ML::distance::DistanceType metric)
 {
   auto stream               = handle.get_stream();
   size_t m                  = prediction_data.n_rows;
@@ -235,12 +235,12 @@ void approximate_predict(const raft::handle_t& handle,
                          value_idx* labels,
                          const value_t* points_to_predict,
                          size_t n_prediction_points,
-                         MLCommon::CuvsStubs::DistanceType metric,
+                         ML::distance::DistanceType metric,
                          int min_samples,
                          value_idx* out_labels,
                          value_t* out_probabilities)
 {
-  RAFT_EXPECTS(metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == ML::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();

@@ -18,8 +18,8 @@
 
 #include "pack.h"
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/utils.hpp>
-#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -173,7 +173,7 @@ void launcher(const raft::handle_t& handle,
               index_t start_vertex_id,
               index_t batch_size,
               cudaStream_t stream,
-              MLCommon::CuvsStubs::DistanceType metric)
+              ML::distance::DistanceType metric)
 {
   ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8, "index_t should be 4 or 8 bytes");
 
@@ -183,7 +183,7 @@ void launcher(const raft::handle_t& handle,
   value_t eps2;
 
   // Compute adjacency matrix `adj` using Cosine or L2 metric.
-  if (metric == MLCommon::CuvsStubs::DistanceType::CosineExpanded) {
+  if (metric == ML::distance::DistanceType::CosineExpanded) {
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
     raft::linalg::rowNorm(rowNorms.data(),

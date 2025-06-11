@@ -458,7 +458,7 @@ if(BUILD_CUML_CPP_LIBRARY)
             src/kmeans/kmeans_transform.cu
             src/kmeans/kmeans_fit_predict.cu
             src/kmeans/kmeans_predict.cu
-            src/cuvs_stubs/kmeans_params.cpp
+            src/kmeans/kmeans_params.cpp
             )
   endif()
 
@@ -533,7 +533,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/svm/svc.cu
         src/svm/svr.cu
         src/svm/linear.cu
-        src/cuvs_stubs/kernel_params.cpp)
+        src/matrix/kernel_params.cpp)
   endif()
 
   if(all_algo OR autoarima_algo)

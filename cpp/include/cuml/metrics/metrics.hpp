@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <cstdint>
 
@@ -105,7 +105,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int* labels,
                         int nLabels,
                         double* silScores,
-                        MLCommon::CuvsStubs::DistanceType metric);
+                        ML::distance::DistanceType metric);
 
 namespace Batched {
 /**
@@ -138,7 +138,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int n_labels,
                        float* scores,
                        int chunk,
-                       MLCommon::CuvsStubs::DistanceType metric);
+                       ML::distance::DistanceType metric);
 double silhouette_score(const raft::handle_t& handle,
                         double* X,
                         int n_rows,
@@ -147,7 +147,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int n_labels,
                         double* scores,
                         int chunk,
-                        MLCommon::CuvsStubs::DistanceType metric);
+                        ML::distance::DistanceType metric);
 
 }  // namespace Batched
 /**
@@ -349,7 +349,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       MLCommon::CuvsStubs::DistanceType metric,
+                       ML::distance::DistanceType metric,
                        bool isRowMajor   = true,
                        double metric_arg = 2.0);
 
@@ -376,7 +376,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       MLCommon::CuvsStubs::DistanceType metric,
+                       ML::distance::DistanceType metric,
                        bool isRowMajor  = true,
                        float metric_arg = 2.0f);
 
@@ -393,7 +393,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::distance::DistanceType metric,
                              float metric_arg);
 void pairwiseDistance_sparse(const raft::handle_t& handle,
                              float* x,
@@ -408,7 +408,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             MLCommon::CuvsStubs::DistanceType metric,
+                             ML::distance::DistanceType metric,
                              float metric_arg);
 
 /**
@@ -425,7 +425,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
  * @tparam distance_type: Distance type to consider
  * @return Trustworthiness score
  */
-template <typename math_t, MLCommon::CuvsStubs::DistanceType distance_type>
+template <typename math_t, ML::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h,
                              const math_t* X,
                              math_t* X_embedded,

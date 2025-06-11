@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 namespace raft {
 class handle_t;
@@ -51,7 +51,7 @@ namespace kmeans {
  * @param[out]    n_iter        Number of iterations run.
  */
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const float* X,
                  int n_samples,
                  int n_features,
@@ -62,7 +62,7 @@ void fit_predict(const raft::handle_t& handle,
                  int& n_iter);
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const double* X,
                  int n_samples,
                  int n_features,
@@ -72,7 +72,7 @@ void fit_predict(const raft::handle_t& handle,
                  double& inertia,
                  int& n_iter);
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const float* X,
                  int64_t n_samples,
                  int64_t n_features,
@@ -83,7 +83,7 @@ void fit_predict(const raft::handle_t& handle,
                  int64_t& n_iter);
 
 void fit_predict(const raft::handle_t& handle,
-                 const MLCommon::CuvsStubs::KMeansParams& params,
+                 const ML::kmeans::KMeansParams& params,
                  const double* X,
                  int64_t n_samples,
                  int64_t n_features,
@@ -116,7 +116,7 @@ void fit_predict(const raft::handle_t& handle,
  */
 
 void predict(const raft::handle_t& handle,
-             const MLCommon::CuvsStubs::KMeansParams& params,
+             const ML::kmeans::KMeansParams& params,
              const float* centroids,
              const float* X,
              int n_samples,
@@ -127,7 +127,7 @@ void predict(const raft::handle_t& handle,
              float& inertia);
 
 void predict(const raft::handle_t& handle,
-             const MLCommon::CuvsStubs::KMeansParams& params,
+             const ML::kmeans::KMeansParams& params,
              const double* centroids,
              const double* X,
              int n_samples,
@@ -137,7 +137,7 @@ void predict(const raft::handle_t& handle,
              int* labels,
              double& inertia);
 void predict(const raft::handle_t& handle,
-             const MLCommon::CuvsStubs::KMeansParams& params,
+             const ML::kmeans::KMeansParams& params,
              const float* centroids,
              const float* X,
              int64_t n_samples,
@@ -148,7 +148,7 @@ void predict(const raft::handle_t& handle,
              float& inertia);
 
 void predict(const raft::handle_t& handle,
-             const MLCommon::CuvsStubs::KMeansParams& params,
+             const ML::kmeans::KMeansParams& params,
              const double* centroids,
              const double* X,
              int64_t n_samples,
@@ -175,7 +175,7 @@ void predict(const raft::handle_t& handle,
  * @param[out]    X_new         X transformed in the new space..
  */
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const float* centroids,
                const float* X,
                int n_samples,
@@ -183,14 +183,14 @@ void transform(const raft::handle_t& handle,
                float* X_new);
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const double* centroids,
                const double* X,
                int n_samples,
                int n_features,
                double* X_new);
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const float* centroids,
                const float* X,
                int64_t n_samples,
@@ -198,7 +198,7 @@ void transform(const raft::handle_t& handle,
                float* X_new);
 
 void transform(const raft::handle_t& handle,
-               const MLCommon::CuvsStubs::KMeansParams& params,
+               const ML::kmeans::KMeansParams& params,
                const double* centroids,
                const double* X,
                int64_t n_samples,

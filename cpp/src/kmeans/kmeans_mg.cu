@@ -15,7 +15,7 @@
  */
 
 #include <cuml/cluster/kmeans_mg.hpp>
-#include <cuml/cuvs_stubs/kmeans_params.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 
@@ -30,7 +30,7 @@ namespace opg {
 // ----------------------------- fit ---------------------------------//
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -55,7 +55,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -80,7 +80,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const float* X,
          int64_t n_samples,
          int64_t n_features,
@@ -106,7 +106,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const MLCommon::CuvsStubs::KMeansParams& params,
+         const ML::kmeans::KMeansParams& params,
          const double* X,
          int64_t n_samples,
          int64_t n_features,

@@ -24,7 +24,7 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
-#include <cuml/cuvs_stubs/kernel_params.hpp>
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 
@@ -58,7 +58,7 @@ void svcFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* labels,
              const SvmParameter& param,
-             MLCommon::CuvsStubs::KernelParams& kernel_params,
+             ML::matrix::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -116,7 +116,7 @@ void svcFit(const raft::handle_t& handle,
             int n_cols,
             math_t* labels,
             const SvmParameter& param,
-            MLCommon::CuvsStubs::KernelParams& kernel_params,
+            ML::matrix::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -135,7 +135,7 @@ void svcFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* labels,
                   const SvmParameter& param,
-                  MLCommon::CuvsStubs::KernelParams& kernel_params,
+                  ML::matrix::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {
@@ -151,7 +151,7 @@ void svcPredictX(const raft::handle_t& handle,
                  MatrixViewType matrix,
                  int n_rows,
                  int n_cols,
-                 MLCommon::CuvsStubs::KernelParams& kernel_params,
+                 ML::matrix::KernelParams& kernel_params,
                  const SvmModel<math_t>& model,
                  math_t* preds,
                  math_t buffer_size,
@@ -318,7 +318,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t* input,
                 int n_rows,
                 int n_cols,
-                MLCommon::CuvsStubs::KernelParams& kernel_params,
+                ML::matrix::KernelParams& kernel_params,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
@@ -338,7 +338,7 @@ void svcPredictSparse(const raft::handle_t& handle,
                       int n_rows,
                       int n_cols,
                       int nnz,
-                      MLCommon::CuvsStubs::KernelParams& kernel_params,
+                      ML::matrix::KernelParams& kernel_params,
                       const SvmModel<math_t>& model,
                       math_t* preds,
                       math_t buffer_size,

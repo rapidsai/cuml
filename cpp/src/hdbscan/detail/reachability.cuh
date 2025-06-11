@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/linalg/unary_op.cuh>
@@ -92,7 +92,7 @@ void compute_knn(const raft::handle_t& handle,
                  const value_t* search_items,
                  size_t n_search_items,
                  int k,
-                 MLCommon::CuvsStubs::DistanceType metric)
+                 ML::distance::DistanceType metric)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -138,10 +138,10 @@ void _compute_core_dists(const raft::handle_t& handle,
                          value_t* core_dists,
                          size_t m,
                          size_t n,
-                         MLCommon::CuvsStubs::DistanceType metric,
+                         ML::distance::DistanceType metric,
                          int min_samples)
 {
-  RAFT_EXPECTS(metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == ML::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream = handle.get_stream();
