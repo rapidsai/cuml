@@ -14,24 +14,13 @@
 # limitations under the License.
 #
 
-# If libcuml was installed as a wheel, we must request it to load the library symbols.
-# Otherwise, we assume that the library was installed in a system path that ld can find.
-try:
-    import libcuml
-except ModuleNotFoundError:
-    pass
-else:
-    libcuml.load_library()
-    del libcuml
-
-from pylibraft.common import Handle
-
+import cuml.common.cuda as cuda
 import cuml.feature_extraction
-from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
+from cuml.common.handle import Handle
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
@@ -45,7 +34,8 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.fil import ForestInference, fil
+from cuml.fil import fil
+from cuml.fil.fil import ForestInference
 from cuml.internals.base import Base, UniversalBase
 from cuml.internals.global_settings import (
     GlobalSettings,
@@ -65,7 +55,9 @@ from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
 from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
-from cuml.metrics import accuracy_score, adjusted_rand_score, r2_score
+from cuml.metrics.accuracy import accuracy_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
+from cuml.metrics.regression import r2_score
 from cuml.model_selection import train_test_split
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.neighbors.kernel_density import KernelDensity
@@ -87,6 +79,15 @@ from cuml.tsa.arima import ARIMA
 from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
+# GPU only packages
+
+
+# Universal packages
+
+
+# Version configuration
+__version__ = "23.04.01"
+
 
 def __getattr__(name):
 
@@ -104,7 +105,6 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
-    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",
@@ -116,6 +116,7 @@ __all__ = [
     "AutoARIMA",
     "Base",
     "CD",
+    "cuda",
     "DBSCAN",
     "ElasticNet",
     "ExponentialSmoothing",
