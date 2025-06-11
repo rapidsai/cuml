@@ -26,7 +26,7 @@ namespace kmeans {
 // ----------------------------- transform ---------------------------------//
 template <typename value_t, typename idx_t>
 void transform_impl(const raft::handle_t& handle,
-                    const ML::kmeans::KMeansParams& params,
+                    const KMeansParams& params,
                     const value_t* centroids,
                     const value_t* X,
                     idx_t n_samples,
@@ -42,7 +42,7 @@ void transform_impl(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const ML::kmeans::KMeansParams& params,
+               const KMeansParams& params,
                const float* centroids,
                const float* X,
                int n_samples,
@@ -53,7 +53,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const ML::kmeans::KMeansParams& params,
+               const KMeansParams& params,
                const double* centroids,
                const double* X,
                int n_samples,
@@ -64,7 +64,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const ML::kmeans::KMeansParams& params,
+               const KMeansParams& params,
                const float* centroids,
                const float* X,
                int64_t n_samples,
@@ -75,7 +75,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const ML::kmeans::KMeansParams& params,
+               const KMeansParams& params,
                const double* centroids,
                const double* X,
                int64_t n_samples,
