@@ -60,7 +60,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    random_state : int (default = 1)
+    random_state : int or None (default = None)
         If you want results to be the same when you restart Python,
         select a state.
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \

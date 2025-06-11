@@ -89,7 +89,7 @@ class KMeans(Base,
         3  4.0  3.0
         >>>
         >>> # Calling fit
-        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto")
+        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto", random_state=1)
         >>> kmeans_float.fit(b)
         KMeans()
         >>>
@@ -124,7 +124,7 @@ class KMeans(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    random_state : int (default = 1)
+    random_state : int or None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
     init : {'scalable-k-means++', 'k-means||', 'random'} or an \
@@ -324,7 +324,7 @@ class KMeans(Base,
         return <size_t>params
 
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=False, random_state=1,
+                 verbose=False, random_state=None,
                  init='scalable-k-means++', n_init="auto", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
