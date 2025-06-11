@@ -155,16 +155,11 @@ def _build_fil_classifier(m, data, args, tmpdir):
 
 
 class OptimizedFilWrapper:
-    """Helper class to make use of optimized parameters in both FIL and
-    experimental FIL through a uniform interface"""
+    """Helper class to make use of optimized parameters in FIL"""
 
-    def __init__(
-        self, fil_model, optimal_chunk_size, experimental, infer_type="default"
-    ):
+    def __init__(self, fil_model, optimal_chunk_size, infer_type="default"):
         self.fil_model = fil_model
-        self.predict_kwargs = {}
-        if experimental:
-            self.predict_kwargs["chunk_size"] = optimal_chunk_size
+        self.predict_kwargs = {"chunk_size": optimal_chunk_size}
         self.infer_type = infer_type
 
     def predict(self, X):
