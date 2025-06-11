@@ -97,6 +97,7 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
 - reason: Test crashes with cuml.accel
   marker: cuml_accel_crashes
+  run: false
   tests:
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
 - reason: Test is flaky with cuml.accel

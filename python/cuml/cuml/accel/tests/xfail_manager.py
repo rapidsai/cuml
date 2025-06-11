@@ -80,6 +80,7 @@ class XfailGroup:
         tests: Optional[List[str]] = None,
         strict: bool = True,
         condition: Optional[str] = None,
+        run: bool = True,
         marker: Optional[str] = None,
     ):
         """Initialize an xfail group.
@@ -95,6 +96,7 @@ class XfailGroup:
         self.tests = [QuoteTestID(test) for test in (tests or [])]
         self.strict = strict
         self.condition = condition
+        self.run = run
         self.marker = marker
 
     def add_test(self, test_id: str) -> None:
@@ -127,7 +129,7 @@ class XfailGroup:
             ]
         )
 
-        # Add optional fields in order: marker, condition, strict, tests
+        # Add optional fields in order: marker, condition, strict, run, tests
         if self.marker:
             result["marker"] = self.marker
         if self.condition:
@@ -136,6 +138,10 @@ class XfailGroup:
         # Only include strict if it's False (to match summarize-results.py)
         if not self.strict:
             result["strict"] = self.strict
+
+        # Only include run if it's False (default is True)
+        if not self.run:
+            result["run"] = self.run
 
         result["tests"] = sorted(self.tests)
         return result
@@ -148,6 +154,7 @@ class XfailGroup:
             tests=[QuoteTestID(test) for test in data.get("tests", [])],
             strict=data.get("strict", True),
             condition=data.get("condition"),
+            run=data.get("run", True),
             marker=data.get("marker"),
         )
 
@@ -183,6 +190,10 @@ class XfailGroup:
         # Quaternary sort: by strict (strict groups first)
         if self.strict != other.strict:
             return self.strict > other.strict  # True > False
+
+        # Quinary sort: by run (run groups first)
+        if self.run != other.run:
+            return self.run > other.run  # True > False
 
         # Final sort: by number of tests (fewer tests first)
         return len(self.tests) < len(other.tests)
@@ -243,6 +254,7 @@ class XfailManager:
         reason: str,
         tests: Optional[List[str]] = None,
         strict: bool = True,
+        run: bool = True,
         condition: Optional[str] = None,
         marker: Optional[str] = None,
     ) -> XfailGroup:
@@ -407,10 +419,17 @@ def cmd_edit(args):
 
     test_ids = parse_test_ids(args.tests)
 
-    # Check for conflicting strict flags
+    # Check for conflicting flags
     if args.strict and args.non_strict:
         print(
             "Error: Cannot specify both --strict and --non-strict",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.run and args.no_run:
+        print(
+            "Error: Cannot specify both --run and --no-run",
             file=sys.stderr,
         )
         return 1
@@ -433,6 +452,8 @@ def cmd_edit(args):
         args.reason
         or args.strict
         or args.non_strict
+        or args.run
+        or args.no_run
         or args.condition is not None
         or args.marker is not None
     ):
@@ -470,12 +491,21 @@ def cmd_edit(args):
             args.marker if args.marker is not None else source_group.marker
         )
 
+        # Handle run flags
+        if args.run:
+            new_run = True
+        elif args.no_run:
+            new_run = False
+        else:
+            new_run = source_group.run  # Inherit from source
+
         # Check if properties actually changed for this test
         properties_changed = (
             new_reason != source_group.reason
             or new_strict != source_group.strict
             or new_condition != source_group.condition
             or new_marker != source_group.marker
+            or new_run != source_group.run
         )
 
         if not properties_changed:
@@ -489,6 +519,7 @@ def cmd_edit(args):
                 and group.strict == new_strict
                 and group.condition == new_condition
                 and group.marker == new_marker
+                and group.run == new_run
             ):
                 target_group = group
                 break
@@ -497,6 +528,7 @@ def cmd_edit(args):
         if target_group is None:
             target_group = manager.create_group(
                 reason=new_reason,
+                run=new_run,
                 tests=[],
                 strict=new_strict,
                 condition=new_condition,
@@ -769,6 +801,12 @@ def main():
     )
     edit_parser.add_argument(
         "--non-strict", action="store_true", help="Make test non-strict"
+    )
+    edit_parser.add_argument(
+        "--run", action="store_true", help="Make test run"
+    )
+    edit_parser.add_argument(
+        "--no-run", action="store_true", help="Make test not run"
     )
     edit_parser.add_argument("--condition", help="New condition for the test")
     edit_parser.add_argument("--marker", help="New marker for the test")
