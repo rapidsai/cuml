@@ -256,7 +256,7 @@ dependencies:
           - dask-cuda==25.8.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.59.1,<0.62.0a0
-          - &numpy numpy>=1.23,<=2.2  # Numba requires NumPy 2.2 or less
+          - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
