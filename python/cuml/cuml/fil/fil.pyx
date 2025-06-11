@@ -706,7 +706,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         path,
         *,
         is_classifier=False,
-        threshold=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -728,9 +727,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             made to load the file based on its extension.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -814,7 +810,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             skl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -832,9 +827,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Scikit-Learn forest model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -906,7 +898,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             tl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -924,9 +915,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Treelite model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
