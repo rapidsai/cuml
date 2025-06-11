@@ -189,11 +189,6 @@ def test_weighted_linear_regression(
     np.testing.assert_almost_equal(cu_score, sk_score)
 
 
-@pytest.mark.skipif(
-    rmm._cuda.gpu.runtimeGetVersion() < 11000,
-    reason="svd solver does not support more than 46340 rows or columns for"
-    " CUDA<11 and other solvers do not support single-column input",
-)
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
     46340 rows (a limitation on CUDA <11)"""
