@@ -41,7 +41,6 @@ function(find_and_configure_raft)
     set(RAFT_NVTX ${PKG_NVTX})
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
-    # set(CPM_raft_SOURCE /raid/dgala/raft)
 
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
