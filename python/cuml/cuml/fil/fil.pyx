@@ -49,7 +49,7 @@ from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.internals.treelite cimport *
 
 
-cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil" nogil:
+cdef extern from "cuml/fil/forest_model.hpp" namespace "ML::fil" nogil:
     cdef cppclass forest_model:
         void predict[io_t](
             const raft_proto_handle_t&,
@@ -70,7 +70,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
 
-cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil" nogil:
+cdef extern from "cuml/fil/treelite_importer.hpp" namespace "ML::fil" nogil:
     forest_model import_from_treelite_handle(
         TreeliteModelHandle,
         fil_tree_layout,
