@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/label/classlabels.cuh>
@@ -65,7 +66,7 @@ void dist_membership_vector(const raft::handle_t& handle,
                             value_idx* exemplar_idx,
                             value_idx* exemplar_label_offsets,
                             value_t* dist_membership_vec,
-                            cuvs::distance::DistanceType metric,
+                            MLCommon::CuvsStubs::DistanceType metric,
                             size_t batch_size,
                             bool softmax = false)
 {
@@ -95,7 +96,7 @@ void dist_membership_vector(const raft::handle_t& handle,
         query + batch_offset * n, samples_per_batch, n),
       raft::make_device_matrix_view<const value_t, int64_t>(exemplars_dense.data(), n_exemplars, n),
       raft::make_device_matrix_view<value_t, int64_t>(dist.data(), samples_per_batch, n_exemplars),
-      metric);
+      static_cast<cuvs::distance::DistanceType>(metric));
 
     // compute the minimum distances to exemplars of each cluster
     value_idx n_elements = samples_per_batch * n_selected_clusters;
@@ -390,7 +391,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                                    Common::PredictionData<value_idx, value_t>& prediction_data,
                                    const value_t* X,
-                                   cuvs::distance::DistanceType metric,
+                                   MLCommon::CuvsStubs::DistanceType metric,
                                    value_t* membership_vec,
                                    size_t batch_size)
 {
@@ -509,12 +510,12 @@ void membership_vector(const raft::handle_t& handle,
                        const value_t* X,
                        const value_t* points_to_predict,
                        size_t n_prediction_points,
-                       cuvs::distance::DistanceType metric,
+                       MLCommon::CuvsStubs::DistanceType metric,
                        int min_samples,
                        value_t* membership_vec,
                        size_t batch_size)
 {
-  RAFT_EXPECTS(metric == cuvs::distance::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();
@@ -547,7 +548,7 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_idx(),
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
-                         cuvs::distance::DistanceType::L2SqrtExpanded,
+                         MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
                          batch_size);
 
   auto prediction_lambdas =

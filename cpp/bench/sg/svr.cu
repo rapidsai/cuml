@@ -16,13 +16,11 @@
 
 #include "benchmark.cuh"
 
+#include <cuml/cuvs_stubs/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <cuml/svm/svr.hpp>
-
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/distance/grammian.hpp>
 
 #include <cmath>
 #include <utility>
@@ -35,7 +33,7 @@ template <typename D>
 struct SvrParams {
   DatasetParams data;
   RegressionParams regression;
-  cuvs::distance::kernels::KernelParams kernel;
+  MLCommon::CuvsStubs::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D>* model;
 };
@@ -51,7 +49,7 @@ class SVR : public RegressionFixture<D> {
   {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
-    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    oss << name << "/" << kernel_names[static_cast<int>(kernel.kernel)] << p.data;
     this->SetName(oss.str().c_str());
   }
 
@@ -77,7 +75,7 @@ class SVR : public RegressionFixture<D> {
   }
 
  private:
-  cuvs::distance::kernels::KernelParams kernel;
+  MLCommon::CuvsStubs::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D>* model;
 };
@@ -108,11 +106,11 @@ std::vector<SvrParams<D>> getInputs()
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 
-  std::vector<cuvs::distance::kernels::KernelParams> kernels{
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::LINEAR, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::POLYNOMIAL, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::RBF, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::TANH, 3, 0.1, 0}};
+  std::vector<MLCommon::CuvsStubs::KernelParams> kernels{
+    {MLCommon::CuvsStubs::KernelType::LINEAR, 3, 1, 0},
+    {MLCommon::CuvsStubs::KernelType::POLYNOMIAL, 3, 1, 0},
+    {MLCommon::CuvsStubs::KernelType::RBF, 3, 1, 0},
+    {MLCommon::CuvsStubs::KernelType::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
     p.data.nrows               = rc.nrows;

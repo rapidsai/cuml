@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
+#include <cuml/cuvs_stubs/kernel_params.hpp>
 
 #include <cublas_v2.h>
 
@@ -54,7 +54,7 @@ void svrFit(const raft::handle_t& handle,
             int n_cols,
             math_t* y,
             const SvmParameter& param,
-            MLCommon::Matrix::KernelParams& kernel_params,
+            MLCommon::CuvsStubs::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight = nullptr);
 
@@ -89,7 +89,7 @@ void svrFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* y,
                   const SvmParameter& param,
-                  cuvs::distance::kernels::KernelParams& kernel_params,
+                  MLCommon::CuvsStubs::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight = nullptr);
 

@@ -15,6 +15,8 @@
  */
 
 #include <cuml/cluster/linkage.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/cuvs_stubs/single_linkage_output.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -26,8 +28,8 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             cuvs::cluster::agglomerative::single_linkage_output<int>* out,
-                             cuvs::distance::DistanceType metric,
+                             MLCommon::CuvsStubs::single_linkage_output<int>* out,
+                             MLCommon::CuvsStubs::DistanceType metric,
                              int n_clusters)
 {
   auto X_view = raft::make_device_matrix_view<const float, int, raft::row_major>(
@@ -36,7 +38,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                                                X_view,
                                                out->get_children(),
                                                out->get_labels(),
-                                               metric,
+                                               static_cast<cuvs::distance::DistanceType>(metric),
                                                static_cast<size_t>(n_clusters),
                                                cuvs::cluster::agglomerative::Linkage::PAIRWISE,
                                                0);
@@ -46,8 +48,8 @@ void single_linkage_neighbors(const raft::handle_t& handle,
                               const float* X,
                               size_t m,
                               size_t n,
-                              cuvs::cluster::agglomerative::single_linkage_output<int>* out,
-                              cuvs::distance::DistanceType metric,
+                              MLCommon::CuvsStubs::single_linkage_output<int>* out,
+                              MLCommon::CuvsStubs::DistanceType metric,
                               int c,
                               int n_clusters)
 {
@@ -57,7 +59,7 @@ void single_linkage_neighbors(const raft::handle_t& handle,
                                                X_view,
                                                out->get_children(),
                                                out->get_labels(),
-                                               metric,
+                                               static_cast<cuvs::distance::DistanceType>(metric),
                                                static_cast<size_t>(n_clusters),
                                                cuvs::cluster::agglomerative::Linkage::KNN_GRAPH,
                                                c);

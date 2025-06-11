@@ -17,6 +17,7 @@
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/kmeans_params.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
@@ -172,7 +173,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   rmm::device_uvector<T> d_centroids;
   rmm::device_uvector<T> d_sample_weight;
   double score;
-  ML::kmeans::KMeansParams params;
+  MLCommon::CuvsStubs::KMeansParams params;
 };
 
 const std::vector<KmeansInputs<float>> inputsf2 = {{1000, 32, 5, 0.0001, true},

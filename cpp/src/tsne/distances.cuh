@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "utils.cuh"
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 
@@ -56,7 +57,7 @@ void get_distances(const raft::handle_t& handle,
                    tsne_input& input,
                    knn_graph<value_idx, value_t>& k_graph,
                    cudaStream_t stream,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    value_t p);
 
 // dense, int64 indices
@@ -65,7 +66,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_dense_inputs_t<float>& input,
                    knn_graph<int64_t, float>& k_graph,
                    cudaStream_t stream,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    float p)
 {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
@@ -73,7 +74,8 @@ void get_distances(const raft::handle_t& handle,
   auto k = k_graph.n_neighbors;
   auto X_view =
     raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input.X, input.n, input.d);
-  auto idx = cuvs::neighbors::brute_force::build(handle, X_view, metric, p);
+  auto idx = cuvs::neighbors::brute_force::build(
+    handle, X_view, static_cast<cuvs::distance::DistanceType>(metric), p);
 
   cuvs::neighbors::brute_force::search(
     handle,
@@ -89,7 +91,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_dense_inputs_t<float>& input,
                    knn_graph<int, float>& k_graph,
                    cudaStream_t stream,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    float p)
 {
   throw raft::exception("Dense TSNE does not support 32-bit integer indices yet.");
@@ -101,7 +103,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_sparse_inputs_t<int, float>& input,
                    knn_graph<int, float>& k_graph,
                    cudaStream_t stream,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    float p)
 {
   auto input_structure = raft::make_device_compressed_structure_view<int, int, int>(
@@ -112,7 +114,8 @@ void get_distances(const raft::handle_t& handle,
   search_params.batch_size_index = ML::Sparse::DEFAULT_BATCH_SIZE;
   search_params.batch_size_query = ML::Sparse::DEFAULT_BATCH_SIZE;
 
-  auto index = cuvs::neighbors::brute_force::build(handle, input_csr, metric, p);
+  auto index = cuvs::neighbors::brute_force::build(
+    handle, input_csr, static_cast<cuvs::distance::DistanceType>(metric), p);
 
   cuvs::neighbors::brute_force::search(
     handle,
@@ -129,7 +132,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_sparse_inputs_t<int64_t, float>& input,
                    knn_graph<int64_t, float>& k_graph,
                    cudaStream_t stream,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    float p)
 {
   throw raft::exception("Sparse TSNE does not support 64-bit integer indices yet.");

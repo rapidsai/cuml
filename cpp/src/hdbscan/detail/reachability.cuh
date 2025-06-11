@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/linalg/unary_op.cuh>
@@ -31,8 +32,6 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
-
-#include <cuvs/distance/distance.hpp>
 
 namespace ML {
 namespace HDBSCAN {
@@ -93,7 +92,7 @@ void compute_knn(const raft::handle_t& handle,
                  const value_t* search_items,
                  size_t n_search_items,
                  int k,
-                 cuvs::distance::DistanceType metric)
+                 MLCommon::CuvsStubs::DistanceType metric)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -139,10 +138,10 @@ void _compute_core_dists(const raft::handle_t& handle,
                          value_t* core_dists,
                          size_t m,
                          size_t n,
-                         cuvs::distance::DistanceType metric,
+                         MLCommon::CuvsStubs::DistanceType metric,
                          int min_samples)
 {
-  RAFT_EXPECTS(metric == cuvs::distance::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream = handle.get_stream();

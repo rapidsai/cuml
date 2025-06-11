@@ -16,6 +16,7 @@
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/single_linkage_output.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 
 #include <raft/core/handle.hpp>
@@ -24,7 +25,6 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <cuvs/distance/distance.hpp>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 
@@ -80,7 +80,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    cuvs::cluster::agglomerative::single_linkage_output<IdxT> out_arrs;
+    MLCommon::CuvsStubs::single_linkage_output<IdxT> out_arrs;
     out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());
@@ -92,7 +92,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                    params.n_row,
                                    params.n_col,
                                    &out_arrs,
-                                   cuvs::distance::DistanceType::L2Unexpanded,
+                                   MLCommon::CuvsStubs::DistanceType::L2Unexpanded,
                                    params.c,
                                    params.n_clusters);
     } else {
@@ -101,7 +101,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                   params.n_row,
                                   params.n_col,
                                   &out_arrs,
-                                  cuvs::distance::DistanceType::L2Expanded,
+                                  MLCommon::CuvsStubs::DistanceType::L2Expanded,
                                   params.n_clusters);
     }
 

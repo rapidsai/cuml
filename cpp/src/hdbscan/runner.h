@@ -23,6 +23,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
 #include <raft/cluster/detail/mst.cuh>            // build_sorted_mst
@@ -159,7 +160,7 @@ void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
                    size_t n,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    Common::HDBSCANParams& params,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
@@ -183,7 +184,7 @@ void build_linkage(const raft::handle_t& handle,
     raft::make_device_vector_view<value_idx>(mutual_reachability_indptr.data(), m + 1),
     raft::make_device_vector_view<value_t>(core_dists, m),
     mutual_reachability_coo,
-    metric,
+    static_cast<cuvs::distance::DistanceType>(metric),
     params.alpha);
 
   /**
@@ -229,7 +230,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,
                   size_t n,
-                  cuvs::distance::DistanceType metric,
+                  MLCommon::CuvsStubs::DistanceType metric,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_t* core_dists,

@@ -16,13 +16,23 @@
 
 #pragma once
 
-#include <cuvs/distance/distance.hpp>
+namespace cuvs::distance::kernels {
 
-namespace MLCommon {
-namespace Matrix {
+struct KernelParams;
 
-using cuvs::distance::kernels::KernelParams;
-using cuvs::distance::kernels::KernelType;
+}  // end namespace cuvs::distance::kernels
 
-};  // end namespace Matrix
-};  // end namespace MLCommon
+namespace MLCommon::CuvsStubs {
+
+enum class KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
+
+struct KernelParams {
+  KernelType kernel;
+  int degree;
+  double gamma;
+  double coef0;
+
+  cuvs::distance::kernels::KernelParams to_cuvs() const;
+};
+
+}  // end namespace MLCommon::CuvsStubs

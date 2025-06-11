@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
 #include <cumlprims/opg/matrix/data.hpp>
@@ -454,7 +455,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                   params.k,
                   params.rowMajorIndex,
                   params.rowMajorQuery,
-                  cuvs::distance::DistanceType::L2SqrtExpanded,
+                  CuvsStubs::DistanceType::L2SqrtExpanded,
                   2.0f,
                   &start_indices_long);
   handle.sync_stream(handle.get_stream());

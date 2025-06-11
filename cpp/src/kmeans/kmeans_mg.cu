@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,12 @@
  */
 
 #include <cuml/cluster/kmeans_mg.hpp>
+
+#include <raft/core/device_mdspan.hpp>
+
+#include <cuvs/cluster/kmeans.hpp>
+
+#include <optional>
 
 namespace ML {
 namespace kmeans {
@@ -48,7 +54,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const cuvs::cluster::kmeans::params& params,
+         const MLCommon::CuvsStubs::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -64,7 +70,7 @@ void fit(const raft::resources& handle,
 
   cuvs::cluster::kmeans::fit(
     handle,
-    params,
+    params.to_cuvs(),
     raft::make_device_matrix_view<const double, int>(X, n_samples, n_features),
     sample_weight_view,
     raft::make_device_matrix_view<double, int>(centroids, params.n_clusters, n_features),
@@ -73,7 +79,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const cuvs::cluster::kmeans::params& params,
+         const MLCommon::CuvsStubs::KMeansParams& params,
          const float* X,
          int64_t n_samples,
          int64_t n_features,
@@ -90,7 +96,7 @@ void fit(const raft::resources& handle,
 
   cuvs::cluster::kmeans::fit(
     handle,
-    params,
+    params.to_cuvs(),
     raft::make_device_matrix_view<const float, int64_t>(X, n_samples, n_features),
     sample_weight_view,
     raft::make_device_matrix_view<float, int64_t>(centroids, params.n_clusters, n_features),
@@ -99,7 +105,7 @@ void fit(const raft::resources& handle,
 }
 
 void fit(const raft::resources& handle,
-         const cuvs::cluster::kmeans::params& params,
+         const MLCommon::CuvsStubs::KMeansParams& params,
          const double* X,
          int64_t n_samples,
          int64_t n_features,
@@ -116,7 +122,7 @@ void fit(const raft::resources& handle,
 
   cuvs::cluster::kmeans::fit(
     handle,
-    params,
+    params.to_cuvs(),
     raft::make_device_matrix_view<const double, int64_t>(X, n_samples, n_features),
     sample_weight_view,
     raft::make_device_matrix_view<double, int64_t>(centroids, params.n_clusters, n_features),

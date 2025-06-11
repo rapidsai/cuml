@@ -18,9 +18,7 @@
 
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
-
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/neighbors/nn_descent.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 namespace ML {
 
@@ -218,7 +216,7 @@ class UMAPParams {
    */
   bool deterministic = true;
 
-  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+  MLCommon::CuvsStubs::DistanceType metric = MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded;
 
   float p = 2.0;
 

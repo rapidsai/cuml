@@ -18,21 +18,17 @@
 #include "smosolver.cuh"
 #include "svr_impl.cuh"
 
+#include <cuml/cuvs_stubs/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/distance/grammian.hpp>
-
 #include <iostream>
 
 namespace ML {
 namespace SVM {
-
-using namespace cuvs::distance::kernels;
 
 // Explicit instantiation for the library
 template void svrFit<float>(const raft::handle_t& handle,
@@ -41,7 +37,7 @@ template void svrFit<float>(const raft::handle_t& handle,
                             int n_cols,
                             float* y,
                             const SvmParameter& param,
-                            KernelParams& kernel_params,
+                            MLCommon::CuvsStubs::KernelParams& kernel_params,
                             SvmModel<float>& model,
                             const float* sample_weight);
 
@@ -51,7 +47,7 @@ template void svrFit<double>(const raft::handle_t& handle,
                              int n_cols,
                              double* y,
                              const SvmParameter& param,
-                             KernelParams& kernel_params,
+                             MLCommon::CuvsStubs::KernelParams& kernel_params,
                              SvmModel<double>& model,
                              const double* sample_weight);
 
@@ -64,7 +60,7 @@ template void svrFitSparse<float>(const raft::handle_t& handle,
                                   int nnz,
                                   float* y,
                                   const SvmParameter& param,
-                                  KernelParams& kernel_params,
+                                  MLCommon::CuvsStubs::KernelParams& kernel_params,
                                   SvmModel<float>& model,
                                   const float* sample_weight);
 
@@ -77,7 +73,7 @@ template void svrFitSparse<double>(const raft::handle_t& handle,
                                    int nnz,
                                    double* y,
                                    const SvmParameter& param,
-                                   KernelParams& kernel_params,
+                                   MLCommon::CuvsStubs::KernelParams& kernel_params,
                                    SvmModel<double>& model,
                                    const double* sample_weight);
 

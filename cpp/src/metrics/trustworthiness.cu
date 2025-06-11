@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <cuvs/stats/trustworthiness_score.hpp>
 
 namespace ML {
@@ -37,7 +39,7 @@ namespace Metrics {
  * @tparam distance_type: Distance type to consider
  * @return Trustworthiness score
  */
-template <typename math_t, cuvs::distance::DistanceType distance_type>
+template <typename math_t, MLCommon::CuvsStubs::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h,
                              const math_t* X,
                              math_t* X_embedded,
@@ -52,11 +54,11 @@ double trustworthiness_score(const raft::handle_t& h,
     raft::make_device_matrix_view<const math_t, int64_t>(X, n, m),
     raft::make_device_matrix_view<const math_t, int64_t>(X_embedded, n, d),
     n_neighbors,
-    distance_type,
+    static_cast<cuvs::distance::DistanceType>(distance_type),
     batchSize);
 }
 
-template double trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
+template double trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
   const raft::handle_t& h,
   const float* X,
   float* X_embedded,

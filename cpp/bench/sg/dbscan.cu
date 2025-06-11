@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "benchmark.cuh"
 
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <utility>
 
@@ -57,7 +58,7 @@ class Dbscan : public BlobsFixture<D, int> {
                       this->params.ncols,
                       D(dParams.eps),
                       dParams.min_pts,
-                      cuvs::distance::DistanceType::L2SqrtUnexpanded,
+                      MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded,
                       this->data.y.data(),
                       this->core_sample_indices,
                       nullptr,

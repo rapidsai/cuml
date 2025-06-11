@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
+#include <cuml/cuvs_stubs/kmeans_params.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -70,7 +72,7 @@ int main(int argc, char* argv[])
   const std::string input = get_argval<std::string>(argv, argv + argc, "-input", std::string(""));
   // Default values for k and max_iterations are taken from
   // https://github.com/h2oai/h2o4gpu/blob/master/examples/py/demos/H2O4GPU_KMeans_Homesite.ipynb
-  ML::kmeans::KMeansParams params;
+  MLCommon::CuvsStubs::KMeansParams params;
   params.n_clusters = get_argval<int>(argv, argv + argc, "-k", 10);
   params.max_iter   = get_argval<int>(argv, argv + argc, "-max_iterations", 300);
   {
@@ -112,8 +114,8 @@ int main(int argc, char* argv[])
       params.max_iter   = 300;
       params.tol        = 0.05;
     }
-    params.metric = cuvs::distance::DistanceType::L2SqrtExpanded;
-    params.init   = ML::kmeans::KMeansParams::InitMethod::Random;
+    params.metric = MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded;
+    params.init   = MLCommon::CuvsStubs::KMeansParams::InitMethod::Random;
 
     // Inputs copied from kmeans_test.cu
     size_t n_samples  = 4;

@@ -17,8 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
-
-#include <cuvs/distance/distance.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 namespace raft {
 class handle_t;
@@ -106,7 +105,7 @@ struct TSNEParams {
   bool square_distances = true;
 
   // Distance metric to use.
-  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+  MLCommon::CuvsStubs::DistanceType metric = MLCommon::CuvsStubs::DistanceType::L2SqrtExpanded;
 
   // Value of p for Minkowski distance
   float p = 2.0;

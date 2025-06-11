@@ -20,6 +20,7 @@
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuvs_stubs/distance_type.hpp>
 
 #include <raft/core/nvtx.hpp>
 
@@ -103,7 +104,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    Index_ n_cols,
                    T eps,
                    Index_ min_pts,
-                   cuvs::distance::DistanceType metric,
+                   MLCommon::CuvsStubs::DistanceType metric,
                    Index_* labels,
                    Index_* core_sample_indices,
                    T* sample_weight,
@@ -116,7 +117,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
   ML::default_logger().set_level(verbosity);
   // XXX: for algo_vd and algo_adj, 0 (naive) is no longer an option and has
   // been removed.
-  int algo_vd  = (metric == cuvs::distance::DistanceType::Precomputed) ? 2 : 1;
+  int algo_vd  = (metric == MLCommon::CuvsStubs::DistanceType::Precomputed) ? 2 : 1;
   int algo_adj = 1;
   int algo_ccl = 2;
 
@@ -149,7 +150,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
 
     // X can either be a feature matrix or distance matrix
-    size_t dataset_memory = (metric == cuvs::distance::DistanceType::Precomputed)
+    size_t dataset_memory = (metric == MLCommon::CuvsStubs::DistanceType::Precomputed)
                               ? ((size_t)n_rows * (size_t)n_rows * sizeof(T))
                               : ((size_t)n_rows * (size_t)n_cols * sizeof(T));
 

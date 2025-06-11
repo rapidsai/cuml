@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
@@ -27,6 +28,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -239,7 +241,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components, stream));
 
     double trustworthiness =
-      trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
+      trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
         handle,
         X,
         embedding_ptr,

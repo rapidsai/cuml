@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/cuvs_stubs/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
@@ -319,7 +320,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
-    score = trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
+    score = trustworthiness_score<float, MLCommon::CuvsStubs::DistanceType::L2SqrtUnexpanded>(
       h, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
   }
 

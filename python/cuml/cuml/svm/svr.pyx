@@ -36,8 +36,8 @@ from cuml.svm.svm_base import SVMBase
 from cuml.internals.logger cimport level_enum
 
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
-    enum KernelType:
+cdef extern from "cuml/cuvs_stubs/kernel_params.hpp" namespace "MLCommon::Matrix" nogil:
+    enum class KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
     cdef struct KernelParams:
