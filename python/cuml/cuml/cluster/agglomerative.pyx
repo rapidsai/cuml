@@ -16,8 +16,6 @@
 
 # distutils: language = c++
 
-import warnings
-
 from libc.stdint cimport uintptr_t
 
 import numpy as np
@@ -101,15 +99,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         See :ref:`verbosity-levels` for more info.
     n_clusters : int (default = 2)
         The number of clusters to find.
-    affinity : str, default='euclidean'
-        Metric used to compute the linkage. Can be "euclidean", "l1",
-        "l2", "manhattan", or "cosine". If connectivity is "knn" only
-        "euclidean" is accepted.
-
-        .. deprecated:: 24.06
-            `affinity` was deprecated in version 24.06 and will be renamed to
-            `metric` in 25.08.
-
     metric : str, default=None
         Metric used to compute the linkage. Can be "euclidean", "l1",
         "l2", "manhattan", or "cosine". If set to `None` then "euclidean"
@@ -149,7 +138,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     labels_ = CumlArrayDescriptor()
     children_ = CumlArrayDescriptor()
 
-    def __init__(self, *, n_clusters=2, affinity="deprecated", metric=None,
+    def __init__(self, *, n_clusters=2, metric=None,
                  linkage="single", handle=None, verbose=False,
                  connectivity='knn', n_neighbors=10, output_type=None):
 
@@ -173,10 +162,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                              "between 2 and 1023")
 
         if metric is not None and metric not in _metrics_mapping:
-            raise ValueError("Metric '%s' is not supported." % affinity)
+            raise ValueError(f"Metric {metric!r} is not supported.")
 
         self.n_clusters = n_clusters
-        self.affinity = affinity
         self.metric = metric
         self.linkage = linkage
         self.n_neighbors = n_neighbors
@@ -192,26 +180,10 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         """
         Fit the hierarchical clustering from features.
         """
-        if self.affinity != "deprecated":
-            if self.metric is not None:
-                raise ValueError(
-                    "Both `affinity` and `metric` attributes were set. Attribute"
-                    " `affinity` was deprecated in version 24.06 and will be removed in"
-                    " 25.08. To avoid this error, only set the `metric` attribute."
-                )
-            warnings.warn(
-                (
-                    "Attribute `affinity` was deprecated in version 24.06 and will be"
-                    " removed in 25.08. Use `metric` instead."
-                ),
-                FutureWarning,
-            )
-            metric_name = self.affinity
+        if self.metric is None:
+            metric_name = "euclidean"
         else:
-            if self.metric is None:
-                metric_name = "euclidean"
-            else:
-                metric_name = self.metric
+            metric_name = self.metric
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
@@ -282,7 +254,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     def _get_param_names(cls):
         return super()._get_param_names() + [
             "n_clusters",
-            "affinity",
             "metric",
             "linkage",
             "connectivity",
