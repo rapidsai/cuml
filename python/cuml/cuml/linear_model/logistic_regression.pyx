@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import pprint
-import warnings
 
 import cupy as cp
 import numpy as np
@@ -41,7 +40,7 @@ from cuml.internals.output_utils import cudf_to_pandas
 from cuml.preprocessing import LabelEncoder
 from cuml.solvers import QN
 
-supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
+supported_penalties = ["l1", "l2", None, "elasticnet"]
 
 supported_solvers = ["qn"]
 
@@ -277,18 +276,8 @@ class LogisticRegression(Base,
             raise ValueError("Only quasi-newton `qn` solver is "
                              " supported, not %s" % solver)
         self.solver = solver
-
         self.C = C
-
-        if penalty == "none":
-            warnings.warn(
-                "The 'none' option was deprecated in version 24.06, and will "
-                "be removed in 25.08. Use None instead.",
-                FutureWarning
-            )
-            penalty = None
         self.penalty = penalty
-
         self.tol = tol
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
