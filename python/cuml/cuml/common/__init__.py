@@ -17,7 +17,6 @@
 # from cuml.internals.array import CumlArray
 # from cuml.internals.array_sparse import SparseCumlArray
 
-from cuml.common.device_selection import using_device_type
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.common.timing_utils import timed
 from cuml.internals import logger
@@ -52,7 +51,6 @@ __all__ = [
     "input_to_host_array_with_sparse_support",
     "rmm_cupy_ary",
     "set_global_output_type",
-    "using_device_type",
     "using_memory_type",
     "using_output_type",
     "with_cupy_rmm",
