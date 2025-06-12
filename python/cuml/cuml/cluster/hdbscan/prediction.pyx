@@ -25,83 +25,14 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
+from cuml.cluster.hdbscan.headers cimport (
+    CondensedHierarchy,
+    PredictionData,
+    compute_all_points_membership_vectors,
+    compute_membership_vector,
+    out_of_sample_predict,
+)
 from cuml.metrics.distance_type cimport DistanceType
-
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
-
-    cdef cppclass CondensedHierarchy[value_idx, value_t]:
-        CondensedHierarchy(
-            const handle_t &handle, size_t n_leaves)
-
-        value_idx *get_parents()
-        value_idx *get_children()
-        value_t *get_lambdas()
-        value_idx get_n_edges()
-
-    cdef cppclass hdbscan_output[int, float]:
-        hdbscan_output(const handle_t &handle,
-                       int n_leaves,
-                       int *labels,
-                       float *probabilities,
-                       int *children,
-                       int *sizes,
-                       float *deltas,
-                       int *mst_src,
-                       int *mst_dst,
-                       float *mst_weights)
-
-        int get_n_leaves()
-        int get_n_clusters()
-        float *get_stabilities()
-        int *get_labels()
-        int *get_inverse_label_map()
-        float *get_core_dists()
-        CondensedHierarchy[int, float] &get_condensed_tree()
-
-    cdef cppclass PredictionData[int, float]:
-        PredictionData(const handle_t &handle,
-                       int m,
-                       int n,
-                       float *core_dists)
-
-        size_t n_rows
-        size_t n_cols
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
-
-    void compute_all_points_membership_vectors(
-        const handle_t &handle,
-        CondensedHierarchy[int, float] &condensed_tree,
-        PredictionData[int, float] &prediction_data_,
-        float* X,
-        DistanceType metric,
-        float* membership_vec,
-        size_t batch_size)
-
-    void compute_membership_vector(
-        const handle_t& handle,
-        CondensedHierarchy[int, float] &condensed_tree,
-        PredictionData[int, float] &prediction_data,
-        float* X,
-        float* points_to_predict,
-        size_t n_prediction_points,
-        int min_samples,
-        DistanceType metric,
-        float* membership_vec,
-        size_t batch_size)
-
-    void out_of_sample_predict(const handle_t &handle,
-                               CondensedHierarchy[int, float] &condensed_tree,
-                               PredictionData[int, float] &prediction_data,
-                               float* X,
-                               int* labels,
-                               float* points_to_predict,
-                               size_t n_prediction_points,
-                               DistanceType metric,
-                               int min_samples,
-                               int* out_labels,
-                               float* out_probabilities)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,

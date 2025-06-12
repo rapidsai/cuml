@@ -42,126 +42,20 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_uvector cimport device_uvector
 
+from cuml.cluster.hdbscan.headers cimport (
+    CLUSTER_SELECTION_METHOD,
+    CondensedHierarchy,
+    HDBSCANParams,
+    PredictionData,
+    _extract_clusters,
+    build_condensed_hierarchy,
+    compute_core_dists,
+    compute_inverse_label_map,
+    generate_prediction_data,
+)
+from cuml.cluster.hdbscan.headers cimport hdbscan as c_hdbscan
+from cuml.cluster.hdbscan.headers cimport hdbscan_output
 from cuml.metrics.distance_type cimport DistanceType
-
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
-
-    ctypedef enum CLUSTER_SELECTION_METHOD:
-        EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
-        LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
-
-    cdef cppclass CondensedHierarchy[value_idx, value_t]:
-        CondensedHierarchy(
-            const handle_t &handle, size_t n_leaves)
-
-        CondensedHierarchy(const handle_t& handle_,
-                           size_t n_leaves_,
-                           int _n_edges_,
-                           value_idx* parents_,
-                           value_idx* children_,
-                           value_t* lambdas_,
-                           value_idx* sizes_)
-
-        value_idx *get_parents()
-        value_idx *get_children()
-        value_t *get_lambdas()
-        value_idx *get_sizes()
-        value_idx get_n_edges()
-
-    cdef cppclass hdbscan_output[int, float]:
-        hdbscan_output(const handle_t &handle,
-                       int n_leaves,
-                       int *labels,
-                       float *probabilities,
-                       int *children,
-                       int *sizes,
-                       float *deltas,
-                       int *mst_src,
-                       int *mst_dst,
-                       float *mst_weights)
-        int get_n_leaves()
-        int get_n_clusters()
-        float *get_stabilities()
-        int *get_labels()
-        int *get_inverse_label_map()
-        float *get_core_dists()
-        CondensedHierarchy[int, float] &get_condensed_tree()
-
-    cdef cppclass HDBSCANParams:
-        int min_samples
-        int min_cluster_size
-        int max_cluster_size,
-
-        float cluster_selection_epsilon,
-
-        bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method,
-
-    cdef cppclass PredictionData[int, float]:
-        PredictionData(const handle_t &handle,
-                       int m,
-                       int n,
-                       float *core_dists)
-
-        size_t n_rows
-        size_t n_cols
-
-    void generate_prediction_data(const handle_t& handle,
-                                  CondensedHierarchy[int, float]&
-                                  condensed_tree,
-                                  int* labels,
-                                  int* inverse_label_map,
-                                  int n_selected_clusters,
-                                  PredictionData[int, float]& prediction_data)
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
-
-    void hdbscan(const handle_t & handle,
-                 const float * X,
-                 size_t m, size_t n,
-                 DistanceType metric,
-                 HDBSCANParams & params,
-                 hdbscan_output & output,
-                 float * core_dists)
-
-    void build_condensed_hierarchy(
-      const handle_t &handle,
-      const int *children,
-      const float *delta,
-      const int *sizes,
-      int min_cluster_size,
-      int n_leaves,
-      CondensedHierarchy[int, float] &condensed_tree)
-
-    void _extract_clusters(const handle_t &handle, size_t n_leaves,
-                           int _n_edges, int *parents, int *children,
-                           float *lambdas, int *sizes, int *labels,
-                           float *probabilities,
-                           CLUSTER_SELECTION_METHOD cluster_selection_method,
-                           bool allow_single_cluster, int max_cluster_size,
-                           float cluster_selection_epsilon)
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER" nogil:
-
-    void compute_core_dists(const handle_t& handle,
-                            const float* X,
-                            float* core_dists,
-                            size_t m,
-                            size_t n,
-                            DistanceType metric,
-                            int min_samples)
-
-    void compute_inverse_label_map(const handle_t& handle,
-                                   CondensedHierarchy[int, float]&
-                                   condensed_tree,
-                                   size_t n_leaves,
-                                   CLUSTER_SELECTION_METHOD
-                                   cluster_selection_method,
-                                   device_uvector[int]& inverse_label_map,
-                                   bool allow_single_cluster,
-                                   int max_cluster_size,
-                                   float cluster_selection_epsilon)
 
 
 def import_hdbscan():
@@ -854,14 +748,16 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
         if self.connectivity == 'knn' or self.connectivity == 'pairwise':
-            hdbscan(handle_[0],
-                    <float*>_input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <DistanceType> metric,
-                    params,
-                    deref(linkage_output),
-                    <float*> core_dists_ptr)
+            c_hdbscan(
+                handle_[0],
+                <float*>_input_ptr,
+                <int> n_rows,
+                <int> n_cols,
+                <DistanceType> metric,
+                params,
+                deref(linkage_output),
+                <float*> core_dists_ptr
+            )
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
