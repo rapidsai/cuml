@@ -17,21 +17,16 @@
 """
 Xfail list management tool for cuml.accel tests.
 
-This module provides tools for editing and maintaining xfail lists used in
+This module provides tools for validating and auto-formatting xfail lists used in
 cuml.accel testing. It offers both a programmatic API through the XfailManager
-and XfailGroup classes, and a command-line interface for common operations.
+and XfailGroup classes, and a command-line interface for formatting operations.
 
-Key features:
-- Edit test properties and move tests between groups
-- Add/remove tests from existing groups
+Primary functions:
 - Deterministic formatting and sorting of xfail lists
-- Support for @file syntax to read test IDs from files
-- Validation of test IDs and group conditions
+- Validation of group conditions
+- Cleanup of empty groups
 
 CLI Commands:
-- edit-tests: Modify properties of tests and move them to new groups
-- add-tests: Add tests to existing groups
-- remove-tests: Remove tests from xfail lists
 - format: Apply consistent formatting and sorting
 
 The tool ensures xfail lists remain maintainable and produce clean diffs
@@ -39,7 +34,6 @@ in version control systems.
 """
 
 import argparse
-import re
 import sys
 from collections import OrderedDict, defaultdict
 from pathlib import Path
@@ -99,28 +93,6 @@ class XfailGroup:
         self.run = run
         self.marker = marker
 
-    def add_test(self, test_id: str) -> None:
-        """Add a test ID to this group."""
-        quoted_id = QuoteTestID(test_id)
-        if quoted_id not in self.tests:
-            self.tests.append(quoted_id)
-
-    def remove_test(self, test_id: str) -> bool:
-        """Remove a test ID from this group.
-
-        Returns:
-            True if test was removed, False if it wasn't in the group
-        """
-        try:
-            self.tests.remove(QuoteTestID(test_id))
-            return True
-        except ValueError:
-            return False
-
-    def has_test(self, test_id: str) -> bool:
-        """Check if a test ID is in this group."""
-        return QuoteTestID(test_id) in self.tests
-
     def to_dict(self) -> OrderedDict:
         """Convert to OrderedDict format for YAML serialization."""
         result = OrderedDict(
@@ -161,10 +133,6 @@ class XfailGroup:
     def __len__(self) -> int:
         """Return number of tests in this group."""
         return len(self.tests)
-
-    def __bool__(self) -> bool:
-        """Return True if group has tests."""
-        return bool(self.tests)
 
     def __lt__(self, other: "XfailGroup") -> bool:
         """Define ordering for deterministic sorting of groups."""
@@ -226,7 +194,6 @@ class XfailManager:
             raise ValueError("Xfail list must be a list of test groups")
 
         self.groups = [XfailGroup.from_dict(group_data) for group_data in data]
-        self._rebuild_test_index()
 
     def save(self, xfail_list_path: Union[str, Path]) -> None:
         """Save xfail list to YAML file."""
@@ -243,103 +210,6 @@ class XfailManager:
         with path.open("w") as f:
             yaml.dump(data, f, sort_keys=False, width=float("inf"))
 
-    def add_group(self, group: XfailGroup) -> None:
-        """Add an xfail group."""
-        self.groups.append(group)
-        for test_id in group.tests:
-            self._test_to_groups[test_id].append(group)
-
-    def create_group(
-        self,
-        reason: str,
-        tests: Optional[List[str]] = None,
-        strict: bool = True,
-        run: bool = True,
-        condition: Optional[str] = None,
-        marker: Optional[str] = None,
-    ) -> XfailGroup:
-        """Create and add a new xfail group.
-
-        Returns:
-            The created XfailGroup
-        """
-        group = XfailGroup(reason, tests, strict, condition, marker)
-        self.add_group(group)
-        return group
-
-    def remove_group(self, group: XfailGroup) -> bool:
-        """Remove an xfail group.
-
-        Returns:
-            True if group was removed, False if it wasn't found
-        """
-        try:
-            self.groups.remove(group)
-            self._rebuild_test_index()
-            return True
-        except ValueError:
-            return False
-
-    def find_groups_by_marker(self, marker: str) -> List[XfailGroup]:
-        """Find all groups with a specific marker."""
-        return [group for group in self.groups if group.marker == marker]
-
-    def find_groups_by_reason_pattern(self, pattern: str) -> List[XfailGroup]:
-        """Find groups whose reason matches a regex pattern."""
-        regex = re.compile(pattern, re.IGNORECASE)
-        return [group for group in self.groups if regex.search(group.reason)]
-
-    def get_test_groups(self, test_id: str) -> List[XfailGroup]:
-        """Get all groups that contain a specific test ID."""
-        quoted_id = QuoteTestID(test_id)
-        return self._test_to_groups.get(quoted_id, [])
-
-    def add_test_to_group(self, test_id: str, group: XfailGroup) -> None:
-        """Add a test to an existing group."""
-        quoted_id = QuoteTestID(test_id)
-        if not group.has_test(test_id):
-            group.add_test(test_id)
-            self._test_to_groups[quoted_id].append(group)
-
-    def remove_test_from_group(self, test_id: str, group: XfailGroup) -> bool:
-        """Remove a test from a specific group.
-
-        Returns:
-            True if test was removed, False if it wasn't in the group
-        """
-        quoted_id = QuoteTestID(test_id)
-        if group.remove_test(test_id):
-            self._test_to_groups[quoted_id].remove(group)
-            return True
-        return False
-
-    def remove_test_completely(self, test_id: str) -> int:
-        """Remove a test from all groups.
-
-        Returns:
-            Number of groups the test was removed from
-        """
-        quoted_id = QuoteTestID(test_id)
-        groups = self._test_to_groups.get(quoted_id, []).copy()
-        count = 0
-        for group in groups:
-            if self.remove_test_from_group(test_id, group):
-                count += 1
-        return count
-
-    def move_test(
-        self, test_id: str, from_group: XfailGroup, to_group: XfailGroup
-    ) -> bool:
-        """Move a test from one group to another.
-
-        Returns:
-            True if test was moved, False if it wasn't in from_group
-        """
-        if self.remove_test_from_group(test_id, from_group):
-            self.add_test_to_group(test_id, to_group)
-            return True
-        return False
-
     def cleanup_empty_groups(self) -> int:
         """Remove groups with no tests.
 
@@ -348,7 +218,7 @@ class XfailManager:
         """
         empty_groups = [group for group in self.groups if not group]
         for group in empty_groups:
-            self.remove_group(group)
+            self.groups.remove(group)
         return len(empty_groups)
 
     def validate_conditions(self) -> List[str]:
@@ -369,269 +239,8 @@ class XfailManager:
                     )
         return errors
 
-    def _rebuild_test_index(self) -> None:
-        """Rebuild the internal test-to-groups index."""
-        self._test_to_groups.clear()
-        for group in self.groups:
-            for test_id in group.tests:
-                quoted_id = QuoteTestID(test_id)
-                self._test_to_groups[quoted_id].append(group)
-
 
 # CLI Commands Implementation
-
-
-def parse_test_ids(test_args: List[str]) -> List[str]:
-    """Parse test IDs, expanding @file references.
-
-    Args:
-        test_args: List of test ID arguments, may include @filename entries
-
-    Returns:
-        List of test IDs with @file references expanded
-    """
-    test_ids = []
-
-    for arg in test_args:
-        if arg.startswith("@"):
-            # Read test IDs from file
-            filename = arg[1:]  # Remove @ prefix
-            try:
-                with open(filename) as f:
-                    file_tests = [line.strip() for line in f if line.strip()]
-                    test_ids.extend(file_tests)
-            except FileNotFoundError:
-                print(f"Error: File not found: {filename}", file=sys.stderr)
-                sys.exit(1)
-            except Exception as e:
-                print(f"Error reading file {filename}: {e}", file=sys.stderr)
-                sys.exit(1)
-        else:
-            # Regular test ID
-            test_ids.append(arg)
-
-    return test_ids
-
-
-def cmd_edit(args):
-    """Edit properties of tests and move them to new groups."""
-    manager = XfailManager(args.xfail_list)
-
-    test_ids = parse_test_ids(args.tests)
-
-    # Check for conflicting flags
-    if args.strict and args.non_strict:
-        print(
-            "Error: Cannot specify both --strict and --non-strict",
-            file=sys.stderr,
-        )
-        return 1
-
-    if args.run and args.no_run:
-        print(
-            "Error: Cannot specify both --run and --no-run",
-            file=sys.stderr,
-        )
-        return 1
-
-    # Validate all test IDs exist
-    missing_tests = []
-    for test_id in test_ids:
-        existing_groups = manager.get_test_groups(test_id)
-        if not existing_groups:
-            missing_tests.append(test_id)
-
-    if missing_tests:
-        print(
-            f"Tests not found in xfail list: {missing_tests}", file=sys.stderr
-        )
-        return 1
-
-    # Check if any properties actually need to change
-    if not (
-        args.reason
-        or args.strict
-        or args.non_strict
-        or args.run
-        or args.no_run
-        or args.condition is not None
-        or args.marker is not None
-    ):
-        print("No changes specified - tests remain in same groups")
-        return 0
-
-    # Process each test ID
-    moved_count = 0
-    empty_groups_to_remove = set()
-
-    for test_id in test_ids:
-        existing_groups = manager.get_test_groups(test_id)
-        if not existing_groups:
-            continue  # Already validated above, but be safe
-
-        source_group = existing_groups[0]
-
-        # Determine new properties (use provided values or inherit from source)
-        new_reason = args.reason if args.reason else source_group.reason
-
-        # Handle strict flags
-        if args.strict:
-            new_strict = True
-        elif args.non_strict:
-            new_strict = False
-        else:
-            new_strict = source_group.strict  # Inherit from source
-
-        new_condition = (
-            args.condition
-            if args.condition is not None
-            else source_group.condition
-        )
-        new_marker = (
-            args.marker if args.marker is not None else source_group.marker
-        )
-
-        # Handle run flags
-        if args.run:
-            new_run = True
-        elif args.no_run:
-            new_run = False
-        else:
-            new_run = source_group.run  # Inherit from source
-
-        # Check if properties actually changed for this test
-        properties_changed = (
-            new_reason != source_group.reason
-            or new_strict != source_group.strict
-            or new_condition != source_group.condition
-            or new_marker != source_group.marker
-            or new_run != source_group.run
-        )
-
-        if not properties_changed:
-            continue  # Skip this test, no changes needed
-
-        # Check if a group with these exact properties already exists
-        target_group = None
-        for group in manager.groups:
-            if (
-                group.reason == new_reason
-                and group.strict == new_strict
-                and group.condition == new_condition
-                and group.marker == new_marker
-                and group.run == new_run
-            ):
-                target_group = group
-                break
-
-        # Create new group if needed
-        if target_group is None:
-            target_group = manager.create_group(
-                reason=new_reason,
-                run=new_run,
-                tests=[],
-                strict=new_strict,
-                condition=new_condition,
-                marker=new_marker,
-            )
-            print(f"Created new group: {new_reason}")
-
-        # Move test from source to target group
-        if manager.move_test(test_id, source_group, target_group):
-            print(f"Moved test '{test_id}' to group with updated properties")
-            moved_count += 1
-
-            # Mark empty groups for removal
-            if not source_group:
-                empty_groups_to_remove.add(source_group)
-        else:
-            print(f"Failed to move test '{test_id}'", file=sys.stderr)
-
-    # Clean up empty groups
-    removed_groups = 0
-    for empty_group in empty_groups_to_remove:
-        if manager.remove_group(empty_group):
-            removed_groups += 1
-
-    if removed_groups > 0:
-        print(f"Removed {removed_groups} empty groups")
-
-    # Save the updated xfail list
-    if args.in_place:
-        manager.save(args.xfail_list)
-    else:
-        manager.save(args.output or args.xfail_list)
-
-    print(f"Successfully processed {moved_count} tests")
-    return 0
-
-
-def cmd_add_tests(args):
-    """Add tests to an existing group."""
-    manager = XfailManager(args.xfail_list)
-
-    # Find target group
-    if args.marker:
-        groups = manager.find_groups_by_marker(args.marker)
-        if not groups:
-            print(
-                f"No group found with marker: {args.marker}", file=sys.stderr
-            )
-            return 1
-        target_group = groups[0]
-    elif args.reason_pattern:
-        groups = manager.find_groups_by_reason_pattern(args.reason_pattern)
-        if not groups:
-            print(
-                f"No group found matching pattern: {args.reason_pattern}",
-                file=sys.stderr,
-            )
-            return 1
-        target_group = groups[0]
-    else:
-        print(
-            "Must specify either --marker or --reason-pattern", file=sys.stderr
-        )
-        return 1
-
-    # Get tests to add
-    tests = []
-    if args.tests:
-        tests = parse_test_ids(args.tests)
-
-    # Add tests
-    for test in tests:
-        manager.add_test_to_group(test, target_group)
-
-    if args.in_place:
-        manager.save(args.xfail_list)
-    else:
-        manager.save(args.output or args.xfail_list)
-
-    print(f"Added {len(tests)} tests to group: {target_group.reason}")
-    return 0
-
-
-def cmd_remove_tests(args):
-    """Remove tests from xfail list."""
-    manager = XfailManager(args.xfail_list)
-
-    tests = []
-    if args.tests:
-        tests = parse_test_ids(args.tests)
-
-    removed_count = 0
-    for test in tests:
-        count = manager.remove_test_completely(test)
-        removed_count += count
-
-    if args.in_place:
-        manager.save(args.xfail_list)
-    else:
-        manager.save(args.output or args.xfail_list)
-
-    print(f"Removed {removed_count} test entries")
-    return 0
 
 
 def cmd_format(args):
@@ -783,84 +392,6 @@ def main():
     subparsers = parser.add_subparsers(
         dest="command", help="Available commands"
     )
-
-    # Edit tests command
-    edit_parser = subparsers.add_parser(
-        "edit-tests",
-        help="Edit properties of a test and move it to a new group",
-    )
-    edit_parser.add_argument("xfail_list", help="Xfail list file to modify")
-    edit_parser.add_argument(
-        "tests",
-        nargs="+",
-        help="Test IDs to edit (use @filename to read from file)",
-    )
-    edit_parser.add_argument("--reason", help="New reason for the test")
-    edit_parser.add_argument(
-        "--strict", action="store_true", help="Make test strict"
-    )
-    edit_parser.add_argument(
-        "--non-strict", action="store_true", help="Make test non-strict"
-    )
-    edit_parser.add_argument(
-        "--run", action="store_true", help="Make test run"
-    )
-    edit_parser.add_argument(
-        "--no-run", action="store_true", help="Make test not run"
-    )
-    edit_parser.add_argument("--condition", help="New condition for the test")
-    edit_parser.add_argument("--marker", help="New marker for the test")
-    edit_parser.add_argument(
-        "--output", help="Output file (default: modify in-place)"
-    )
-    edit_parser.add_argument(
-        "--in-place", action="store_true", help="Modify file in-place"
-    )
-    edit_parser.set_defaults(func=cmd_edit)
-
-    # Add tests command
-    add_tests_parser = subparsers.add_parser(
-        "add-tests", help="Add tests to existing group"
-    )
-    add_tests_parser.add_argument(
-        "xfail_list", help="Xfail list file to modify"
-    )
-    add_tests_parser.add_argument("--marker", help="Target group by marker")
-    add_tests_parser.add_argument(
-        "--reason-pattern", help="Target group by reason pattern"
-    )
-    add_tests_parser.add_argument(
-        "tests",
-        nargs="+",
-        help="Test IDs to add (use @filename to read from file)",
-    )
-    add_tests_parser.add_argument(
-        "--output", help="Output file (default: modify in-place)"
-    )
-    add_tests_parser.add_argument(
-        "--in-place", action="store_true", help="Modify file in-place"
-    )
-    add_tests_parser.set_defaults(func=cmd_add_tests)
-
-    # Remove tests command
-    remove_tests_parser = subparsers.add_parser(
-        "remove-tests", help="Remove tests from xfail list"
-    )
-    remove_tests_parser.add_argument(
-        "xfail_list", help="Xfail list file to modify"
-    )
-    remove_tests_parser.add_argument(
-        "tests",
-        nargs="+",
-        help="Test IDs to remove (use @filename to read from file)",
-    )
-    remove_tests_parser.add_argument(
-        "--output", help="Output file (default: modify in-place)"
-    )
-    remove_tests_parser.add_argument(
-        "--in-place", action="store_true", help="Modify file in-place"
-    )
-    remove_tests_parser.set_defaults(func=cmd_remove_tests)
 
     # Format command
     format_parser = subparsers.add_parser(
