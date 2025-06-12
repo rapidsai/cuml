@@ -1,132 +1,3 @@
-- reason: Flaky deviations in n_iter_ values in cuml.accel
-  strict: false
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
-- reason: Integer inputs are converted to float32 instead of float64 with cuml.accel
-  marker: cuml_accel_kmeans_integer_dtype
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int32-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int64-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int32-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int64-dense]"
-- reason: Parameter validation differs from scikit-learn
-  marker: cuml_accel_kmeans_param_validation
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
-- reason: 'RAFT library limitation: tolerance must be positive'
-  marker: cuml_accel_kmeans_needs_nonnegative_tolerance
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-lloyd]"
-- reason: SVC input handling and validation
-  marker: cuml_accel_svc_estimator_checks
-  tests:
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
-  - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
-- reason: SVM doesn't handle sample_weight identically to sklearn
-  marker: cuml_accel_svm_sample_weight
-  tests:
-  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVC]"
-  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVR]"
-  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVC]"
-  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVR]"
-  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
-  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
-  - "sklearn.svm.tests.test_svm::test_weight"
-- reason: SVM missing certain fit attributes
-  marker: cuml_accel_svm_missing_fit_attributes
-  tests:
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
-- reason: SVR input handling and validation
-  marker: cuml_accel_svr_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
-- reason: TSNE does validation on __init__, which causes these tests to fail only on certain sklearn versions
-  marker: cuml_accel_tsne_validation_on_init
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-- reason: TSNE isn't deterministic, even with random_state
-  marker: cuml_accel_tsne_nondeterministic
-  condition: scikit-learn<1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
-- reason: Test crashes with cuml.accel
-  marker: cuml_accel_crashes
-  run: false
-  tests:
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
-- reason: Test is flaky with cuml.accel
-  marker: cuml_accel_flaky
-  strict: false
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
-  - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
-  - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
-  - "sklearn.ensemble.tests.test_forest::test_max_samples_boundary_regressors[RandomForestRegressor]"
-  - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
-  - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-exact]"
-  - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
-  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hut]"
-  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[exact]"
-  - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
-  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-2-65535]"
-  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
-  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
-  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
-  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
-  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
-  - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
-  - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   tests:
@@ -1171,56 +1042,6 @@
   - "sklearn.metrics._plot.tests.test_roc_curve_display::test_roc_curve_from_cv_results_legend_label[single-None]"
   - "sklearn.metrics._plot.tests.test_roc_curve_display::test_roc_curve_from_cv_results_legend_label[single-curve_kwargs1]"
   - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
-- reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
-  marker: cuml_accel_invalid_sklearn_tests
-  tests:
-  - "sklearn.svm.tests.test_svm::test_gamma_scale"
-  - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
-- reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
-  condition: cuda-python >= 12.9
-  strict: false
-  tests:
-  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
-- reason: Unexpected deviations in inertia values in cuml.accel
-  marker: cuml_accel_kmeans_inertia_weights
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_float_precision[42-KMeans-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
-- reason: cuml doesn't set `feature_names_in_` properly
-  marker: cuml_accel_feature_names_in
-  tests:
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[ElasticNet()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsClassifier()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsRegressor()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[Lasso()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[NearestNeighbors()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[PCA()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestClassifier()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestRegressor()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
-- reason: cuml missing certain fit attributes
-  marker: cuml_accel_missing_fit_attributes
-  tests:
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   tests:
@@ -1252,10 +1073,67 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
-- reason: 'cuml.accel bug: Missing components_ attribute'
+- reason: Test crashes with cuml.accel
+  marker: cuml_accel_crashes
+  run: false
   tests:
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
+- reason: cuml doesn't set `feature_names_in_` properly
+  marker: cuml_accel_feature_names_in
+  tests:
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[ElasticNet()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsClassifier()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsRegressor()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[Lasso()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[NearestNeighbors()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[PCA()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestClassifier()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestRegressor()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
+  - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
+  - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
+  - "sklearn.ensemble.tests.test_forest::test_max_samples_boundary_regressors[RandomForestRegressor]"
+  - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
+  - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-exact]"
+  - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
+  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hut]"
+  - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[exact]"
+  - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
+  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
+  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
+  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-2-65535]"
+  - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
+  - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
+  - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
+  - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
+  - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
+- reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
+  marker: cuml_accel_invalid_sklearn_tests
+  tests:
+  - "sklearn.svm.tests.test_svm::test_gamma_scale"
+  - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
+- reason: cuml.accel does not support callable initialization for KMeans
+  marker: cuml_accel_kmeans_callable_init
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
 - reason: cuml.accel deviates in KMeans cluster_centers_ attribute
   marker: cuml_accel_kmeans_cluster_centers_attribute
   tests:
@@ -1264,13 +1142,48 @@
   marker: cuml_accel_kmeans_empty_clusters_num_labels
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
-- reason: cuml.accel deviates in log output for KMeans
-  marker: cuml_accel_kmeans_verbose_logging_message_deviation
+- reason: Unexpected deviations in inertia values in cuml.accel
+  marker: cuml_accel_kmeans_inertia_weights
   tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-elkan]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-lloyd]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_warns_less_centers_than_unique_points[42]"
-  - "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
+  - "sklearn.cluster.tests.test_k_means::test_float_precision[42-KMeans-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_relocated_clusters[lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
+- reason: Integer inputs are converted to float32 instead of float64 with cuml.accel
+  marker: cuml_accel_kmeans_integer_dtype
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int32-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-k-means++-int64-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int32-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_integer_input[42-KMeans-ndarray-int64-dense]"
+- reason: 'cuml.accel fails for KMeans with AttributeError: ''KMeans'' object has no attribute ''_n_init'''
+  marker: cuml_accel_kmeans_n_init
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-k-means++-1]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-random-default]"
+  - "sklearn.cluster.tests.test_k_means::test_n_init_auto[KMeans-10]"
+- reason: 'RAFT library limitation: tolerance must be positive'
+  marker: cuml_accel_kmeans_needs_nonnegative_tolerance
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-elkan]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0-lloyd]"
+- reason: Parameter validation differs from scikit-learn
+  marker: cuml_accel_kmeans_param_validation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
+  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
   marker: cuml_accel_kmeans_predict_output_deviation
   tests:
@@ -1293,21 +1206,17 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-elkan-sparse]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-lloyd-dense]"
+- reason: cuml.accel deviates in log output for KMeans
+  marker: cuml_accel_kmeans_verbose_logging_message_deviation
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-elkan]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_verbose[0.01-lloyd]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_warns_less_centers_than_unique_points[42]"
+  - "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
 - reason: cuml.accel does not emit RuntimeWarning when n_init > 1 and precomputed centers are passed
   marker: cuml_accel_kmeans_warning_n_init_precomputed_centers
   tests:
   - "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
-- reason: cuml.accel does not support callable initialization for KMeans
-  marker: cuml_accel_kmeans_callable_init
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
-- reason: 'cuml.accel fails for KMeans with AttributeError: ''KMeans'' object has no attribute ''_n_init'''
-  marker: cuml_accel_kmeans_n_init
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-k-means++-1]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-random-default]"
-  - "sklearn.cluster.tests.test_k_means::test_n_init_auto[KMeans-10]"
 - reason: metadata routing not yet supported
   marker: cuml_accel_metadata_routing
   tests:
@@ -1316,6 +1225,15 @@
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_refit[42-True]"
   - "sklearn.tests.test_metadata_routing::test_metaestimator_warnings"
+- reason: cuml missing certain fit attributes
+  marker: cuml_accel_missing_fit_attributes
+  tests:
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   tests:
@@ -1325,6 +1243,61 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
+- reason: SVC input handling and validation
+  marker: cuml_accel_svc_estimator_checks
+  tests:
+  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
+  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
+  - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
+- reason: SVM missing certain fit attributes
+  marker: cuml_accel_svm_missing_fit_attributes
+  tests:
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
+  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
+- reason: SVM doesn't handle sample_weight identically to sklearn
+  marker: cuml_accel_svm_sample_weight
+  tests:
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-negative-SVR]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVR]"
+  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
+  - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
+  - "sklearn.svm.tests.test_svm::test_weight"
+- reason: SVR input handling and validation
+  marker: cuml_accel_svr_estimator_checks
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   tests:
@@ -1496,3 +1469,30 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
+- reason: TSNE isn't deterministic, even with random_state
+  marker: cuml_accel_tsne_nondeterministic
+  condition: scikit-learn<1.6
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
+- reason: TSNE does validation on __init__, which causes these tests to fail only on certain sklearn versions
+  marker: cuml_accel_tsne_validation_on_init
+  condition: scikit-learn>=1.6
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
+- reason: Flaky deviations in n_iter_ values in cuml.accel
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+- reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
+  condition: cuda-python >= 12.9
+  strict: false
+  tests:
+  - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
+- reason: 'cuml.accel bug: Missing components_ attribute'
+  tests:
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
+  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"

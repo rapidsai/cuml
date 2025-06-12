@@ -139,15 +139,15 @@ class XfailGroup:
         if not isinstance(other, XfailGroup):
             return NotImplemented
 
-        # Primary sort: by reason (alphabetically)
-        if self.reason != other.reason:
-            return self.reason < other.reason
-
-        # Secondary sort: by marker (None values last)
+        # Primary sort: by marker (None values last)
         self_marker = self.marker or "zzz_no_marker"
         other_marker = other.marker or "zzz_no_marker"
         if self_marker != other_marker:
             return self_marker < other_marker
+
+        # Secondary sort: by reason (alphabetically)
+        if self.reason != other.reason:
+            return self.reason < other.reason
 
         # Tertiary sort: by condition (None values last)
         self_condition = self.condition or "zzz_no_condition"
