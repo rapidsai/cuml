@@ -427,13 +427,57 @@ void matrixRowNorm(const raft::handle_t& handle,
   bool is_col_major_contiguous = matrix.stride(0) == 1 && matrix.stride(1) == matrix.extent(0);
   ASSERT(is_row_major_contiguous || is_col_major_contiguous,
          "Dense matrix rowNorm only support contiguous data");
-  raft::linalg::rowNorm(target,
-                        matrix.data_handle(),
-                        matrix.extent(1),  //! cols first arg!
-                        matrix.extent(0),
-                        norm,
-                        is_row_major_contiguous,
-                        handle.get_stream());
+  if (is_row_major_contiguous) {
+    if (norm == raft::linalg::NormType::L2Norm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, true>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else if (norm == raft::linalg::NormType::L1Norm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::L1Norm, true>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else if (norm == raft::linalg::NormType::LinfNorm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::LinfNorm, true>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else {
+      RAFT_FAIL("Unsupported norm type");
+    }
+  } else {
+    if (norm == raft::linalg::NormType::L2Norm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, false>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else if (norm == raft::linalg::NormType::L1Norm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::L1Norm, false>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else if (norm == raft::linalg::NormType::LinfNorm) {
+      raft::linalg::rowNorm<raft::linalg::NormType::LinfNorm, false>(
+        target,
+        matrix.data_handle(),
+        matrix.extent(1),  //! cols first arg!
+        matrix.extent(0),
+        handle.get_stream());
+    } else {
+      RAFT_FAIL("Unsupported norm type");
+    }
+  }
 }
 
 /**
