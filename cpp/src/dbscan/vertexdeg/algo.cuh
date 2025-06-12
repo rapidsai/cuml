@@ -186,14 +186,8 @@ void launcher(const raft::handle_t& handle,
   if (metric == ML::distance::DistanceType::CosineExpanded) {
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
-    raft::linalg::rowNorm(rowNorms.data(),
-                          data.x,
-                          k,
-                          m,
-                          raft::linalg::NormType::L2Norm,
-                          true,
-                          stream,
-                          [] __device__(value_t in) { return sqrtf(in); });
+    raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, true>(
+      rowNorms.data(), data.x, k, m, stream, [] __device__(value_t in) { return sqrtf(in); });
 
     /* Cast away constness because the output matrix for normalization cannot be of const type.
      * Input matrix will be modified due to normalization.
