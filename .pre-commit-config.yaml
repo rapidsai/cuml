@@ -99,7 +99,6 @@ repos:
       hooks:
         - id: shellcheck
           args: ["--severity=warning"]
-          files: ^ci/
 
 default_language_version:
     python: python3
