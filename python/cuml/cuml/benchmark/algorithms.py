@@ -15,6 +15,7 @@
 #
 import tempfile
 import warnings
+from importlib import import_module
 
 import numpy as np
 import sklearn
@@ -697,8 +698,6 @@ def all_algorithms():
         ),
     ]
     try:
-        from importlib import import_module
-
         # Importing via import_module avoids rebinding the name `cuml`, which
         # would otherwise make it a *local* variable and break earlier
         # references inside this function (see Python's scoping rules) and
