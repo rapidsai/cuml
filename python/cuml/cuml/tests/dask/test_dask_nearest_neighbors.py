@@ -33,15 +33,6 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-IS_ARM = platform.processor() == "aarch64"
-
-if IS_ARM and cp.cuda.runtime.runtimeGetVersion() < 11080:
-    pytest.skip(
-        "Test hang in AARCH64 with CUDA < 11.8: "
-        "https://github.com/rapidsai/cuml/issues/5673",
-        allow_module_level=True,
-    )
-
 
 def predict(neigh_ind, _y, n_neighbors):
     neigh_ind = neigh_ind.astype(np.int64)
