@@ -187,7 +187,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 set(CUML_USE_RAFT_NN OFF)
-set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
@@ -370,39 +369,33 @@ if(BUILD_CUML_CPP_LIBRARY)
     if(CUML_ENABLE_GPU)
       target_sources(${CUML_CPP_TARGET}
         PRIVATE
-          # Current FIL
-          src/fil/fil.cu
-          src/fil/infer.cu
-          src/fil/treelite_import.cu
-          # Experimental FIL
-          src/experimental/fil/infer0.cu
-          src/experimental/fil/infer1.cu
-          src/experimental/fil/infer2.cu
-          src/experimental/fil/infer3.cu
-          src/experimental/fil/infer4.cu
-          src/experimental/fil/infer5.cu
-          src/experimental/fil/infer6.cu
-          src/experimental/fil/infer7.cu
-          src/experimental/fil/infer8.cu
-          src/experimental/fil/infer9.cu
-          src/experimental/fil/infer10.cu
-          src/experimental/fil/infer11.cu)
+          src/fil/infer0.cu
+          src/fil/infer1.cu
+          src/fil/infer2.cu
+          src/fil/infer3.cu
+          src/fil/infer4.cu
+          src/fil/infer5.cu
+          src/fil/infer6.cu
+          src/fil/infer7.cu
+          src/fil/infer8.cu
+          src/fil/infer9.cu
+          src/fil/infer10.cu
+          src/fil/infer11.cu)
     endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        # Experimental FIL
-        src/experimental/fil/infer0.cpp
-        src/experimental/fil/infer1.cpp
-        src/experimental/fil/infer2.cpp
-        src/experimental/fil/infer3.cpp
-        src/experimental/fil/infer4.cpp
-        src/experimental/fil/infer5.cpp
-        src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer7.cpp
-        src/experimental/fil/infer8.cpp
-        src/experimental/fil/infer9.cpp
-        src/experimental/fil/infer10.cpp
-        src/experimental/fil/infer11.cpp)
+        src/fil/infer0.cpp
+        src/fil/infer1.cpp
+        src/fil/infer2.cpp
+        src/fil/infer3.cpp
+        src/fil/infer4.cpp
+        src/fil/infer5.cpp
+        src/fil/infer6.cpp
+        src/fil/infer7.cpp
+        src/fil/infer8.cpp
+        src/fil/infer9.cpp
+        src/fil/infer10.cpp
+        src/fil/infer11.cpp)
   endif()
 
   # todo: organize linear models better
@@ -667,7 +660,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    $<$<BOOL:${CUML_RAFT_COMPILED}>:${RAFT_COMPILED_LIB}>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 

@@ -406,17 +406,23 @@ def test_nearest_neighbors(random_state, sparse):
     # Ensure parameters roundtrip
     assert_params_equal(cu_model, cu_model2)
 
+    def assert_kneighbors_close(m1, m2):
+        inds1, dists1 = m1.kneighbors(X)
+        inds2, dists2 = m2.kneighbors(X)
+        np.testing.assert_allclose(inds1, inds2, atol=1e-7)
+        np.testing.assert_allclose(dists1, dists2, atol=1e-4)
+
     # Can infer on converted models
-    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
-    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+    assert_kneighbors_close(sk_model, sk_model2)
+    assert_kneighbors_close(cu_model, cu_model2)
 
     # Can refit on converted models
     cu_model2.fit(X)
     sk_model2.fit(X)
 
     # Refit models have similar results
-    assert_allclose(sk_model.kneighbors(X), sk_model2.kneighbors(X))
-    assert_allclose(cu_model.kneighbors(X), cu_model2.kneighbors(X))
+    assert_kneighbors_close(sk_model, sk_model2)
+    assert_kneighbors_close(cu_model, cu_model2)
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -499,3 +505,58 @@ def test_kneighbors_classifier(random_state, sparse, n_labels):
     # Refit models have similar results
     np.testing.assert_array_equal(sk_model.predict(X), sk_model2.predict(X))
     np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))
+
+
+def test_random_forest_classifier(random_state):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state
+    )
+
+    cu_model = cuml.RandomForestClassifier().fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier().fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.RandomForestClassifier.from_sklearn(sk_model)
+
+    # `classes_` attribute transfers properly
+    assert isinstance(sk_model2.classes_, np.ndarray)
+    assert isinstance(cu_model2.classes_, np.ndarray)
+    assert (sk_model2.classes_ == cu_model2.classes_).all()
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+
+def test_random_forest_regressor(random_state):
+    X, y = make_regression(n_samples=200, random_state=random_state)
+    X = X.astype("float32")
+
+    cu_model = cuml.RandomForestRegressor().fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor().fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7

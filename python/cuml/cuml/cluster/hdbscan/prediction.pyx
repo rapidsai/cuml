@@ -15,18 +15,14 @@
 
 # distutils: language = c++
 
-from libc.stdint cimport uintptr_t
-
 import numpy as np
 
-import cuml
-from cuml.cluster.hdbscan.hdbscan import import_hdbscan
-from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.common import input_to_cuml_array
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
-from cuml.internals.device_type import DeviceType
 
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 from cuml.metrics.distance_type cimport DistanceType
@@ -147,37 +143,8 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    device_type = cuml.global_settings.device_type
-
-    # cpu infer, cpu/gpu train
-    if device_type == DeviceType.host:
-        hdbscan = import_hdbscan()
-
-        # trained on gpu
-        if not hasattr(clusterer, "_cpu_model"):
-            clusterer.import_cpu_model()
-            clusterer.build_cpu_model()
-            clusterer.gpu_to_cpu()
-            # These attributes have to be reassigned to the CPU model
-            # as the raw arrays because the reference HDBSCAN implementation
-            # reconstructs the objects from the raw arrays
-            clusterer._cpu_model.condensed_tree_ = \
-                clusterer.condensed_tree_._raw_tree
-            clusterer._cpu_model.single_linkage_tree_ = \
-                clusterer.single_linkage_tree_._linkage
-            clusterer._cpu_model.minimum_spanning_tree_ = \
-                clusterer.minimum_spanning_tree_._mst
-
-        # this took a long debugging session to figure out, but
-        # this method on cpu does not work without this copy for some reason
-        clusterer._cpu_model.prediction_data_.raw_data = \
-            clusterer._cpu_model.prediction_data_.raw_data.copy()
-        return hdbscan.prediction.all_points_membership_vectors(clusterer._cpu_model)
-    # gpu infer, cpu/gpu train
-    elif device_type == DeviceType.device:
-        # trained on cpu
-        if hasattr(clusterer, "_cpu_model"):
-            clusterer._prep_cpu_to_gpu_prediction()
+    if hasattr(clusterer, "_cpu_model"):
+        clusterer._prep_cpu_to_gpu_prediction()
 
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
@@ -253,30 +220,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         in ``membership_vectors[i, j]``.
     """
 
-    device_type = cuml.global_settings.device_type
-
-    # cpu infer, cpu/gpu train
-    if device_type == DeviceType.host:
-        hdbscan = import_hdbscan()
-
-        # trained on gpu
-        if not hasattr(clusterer, "_cpu_model"):
-            # the reference HDBSCAN implementations uses @property
-            # for attributes without setters available for them,
-            # so they can't be transferred from the GPU model
-            # to the CPU model
-            raise ValueError("Inferring on CPU is not supported yet when the "
-                             "model has been trained on GPU")
-
-        host_points_to_predict = input_to_host_array(points_to_predict).array
-        return hdbscan.prediction.membership_vector(
-            clusterer._cpu_model, host_points_to_predict
-        )
-
-    elif device_type == DeviceType.device:
-        # trained on cpu
-        if hasattr(clusterer, "_cpu_model"):
-            clusterer._prep_cpu_to_gpu_prediction()
+    # trained on cpu
+    if hasattr(clusterer, "_cpu_model"):
+        clusterer._prep_cpu_to_gpu_prediction()
 
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
@@ -371,30 +317,9 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         The soft cluster scores for each of the ``points_to_predict``
     """
 
-    device_type = cuml.global_settings.device_type
-
-    # cpu infer, cpu/gpu train
-    if device_type == DeviceType.host:
-        hdbscan = import_hdbscan()
-
-        # trained on gpu
-        if not hasattr(clusterer, "_cpu_model"):
-            # the reference HDBSCAN implementations uses @property
-            # for attributes without setters available for them,
-            # so they can't be transferred from the GPU model
-            # to the CPU model
-            raise ValueError("Inferring on CPU is not supported yet when the "
-                             "model has been trained on GPU")
-
-        host_points_to_predict = input_to_host_array(points_to_predict).array
-        return hdbscan.prediction.approximate_predict(
-            clusterer._cpu_model, host_points_to_predict
-        )
-
-    elif device_type == DeviceType.device:
-        # trained on cpu
-        if hasattr(clusterer, "_cpu_model"):
-            clusterer._prep_cpu_to_gpu_prediction()
+    # trained on cpu
+    if hasattr(clusterer, "_cpu_model"):
+        clusterer._prep_cpu_to_gpu_prediction()
 
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
