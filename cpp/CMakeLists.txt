@@ -668,9 +668,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm
             ${_cuml_cpp_public_libs}
-    PRIVATE ${_cuml_cpp_private_libs}
+    PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
