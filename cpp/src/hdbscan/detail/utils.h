@@ -230,7 +230,7 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
   raft::linalg::norm<raft::linalg::NormType::LinfNorm, raft::Apply::ALONG_ROWS>(
     handle, data_const_view, linf_norm_view);
 
-  raft::linalg::matrix_vector_op<raft::linalg::Apply::ALONG_COLUMNS>(
+  raft::linalg::matrix_vector_op<raft::Apply::ALONG_COLUMNS>(
     handle,
     data_const_view,
     linf_norm_const_view,
