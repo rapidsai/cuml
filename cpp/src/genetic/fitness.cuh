@@ -79,7 +79,7 @@ void weightedPearson(const raft::handle_t& h,
   math_t N = (math_t)n_samples;
 
   // Sum of weights
-  raft::stats::sum(dWS.data(), W, (uint64_t)1, n_samples, false, stream);
+  raft::stats::sum<false>(dWS.data(), W, (uint64_t)1, n_samples, stream);
   math_t WS = dWS.value(stream);
 
   // Find y_mu
@@ -92,7 +92,7 @@ void weightedPearson(const raft::handle_t& h,
     [N, WS] __device__(math_t y, math_t w) { return N * w * y / WS; },
     stream);
 
-  raft::stats::mean(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false, false, stream);
+  raft::stats::mean<false>(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false, stream);
 
   // Find x_mu
   raft::linalg::matrixVectorOp<false, true>(
@@ -104,7 +104,7 @@ void weightedPearson(const raft::handle_t& h,
     [N, WS] __device__(math_t x, math_t w) { return N * w * x / WS; },
     stream);
 
-  raft::stats::mean(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, false, stream);
+  raft::stats::mean<false>(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, stream);
 
   // Find y_diff
   raft::stats::meanCenter(
@@ -161,7 +161,7 @@ void weightedPearson(const raft::handle_t& h,
     [] __device__(math_t c, math_t xd) { return c / xd; },
     stream);
 
-  raft::stats::mean(out, corr.data(), n_progs, n_samples, false, false, stream);
+  raft::stats::mean<false>(out, corr.data(), n_progs, n_samples, false, stream);
 }
 
 struct rank_functor {
@@ -253,7 +253,7 @@ void meanAbsoluteError(const raft::handle_t& h,
   math_t N = (math_t)n_samples;
 
   // Weight Sum
-  raft::stats::sum(dWS.data(), W, (uint64_t)1, n_samples, false, stream);
+  raft::stats::sum<false>(dWS.data(), W, (uint64_t)1, n_samples, stream);
   math_t WS = dWS.value(stream);
 
   // Compute absolute differences
@@ -268,7 +268,7 @@ void meanAbsoluteError(const raft::handle_t& h,
     stream);
 
   // Average along rows
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
+  raft::stats::mean<false>(out, error.data(), n_progs, n_samples, false, stream);
 }
 
 template <typename math_t = float>
@@ -286,7 +286,7 @@ void meanSquareError(const raft::handle_t& h,
   math_t N = (math_t)n_samples;
 
   // Weight Sum
-  raft::stats::sum(dWS.data(), W, (uint64_t)1, n_samples, false, stream);
+  raft::stats::sum<false>(dWS.data(), W, (uint64_t)1, n_samples, stream);
   math_t WS = dWS.value(stream);
 
   // Compute square differences
@@ -303,7 +303,7 @@ void meanSquareError(const raft::handle_t& h,
     stream);
 
   // Add up row values per column
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
+  raft::stats::mean<false>(out, error.data(), n_progs, n_samples, false, stream);
 }
 
 template <typename math_t = float>
@@ -340,7 +340,7 @@ void logLoss(const raft::handle_t& h,
   math_t N = (math_t)n_samples;
 
   // Weight Sum
-  raft::stats::sum(dWS.data(), W, (uint64_t)1, n_samples, false, stream);
+  raft::stats::sum<false>(dWS.data(), W, (uint64_t)1, n_samples, stream);
   math_t WS = dWS.value(stream);
 
   // Compute logistic loss as described in
@@ -369,7 +369,7 @@ void logLoss(const raft::handle_t& h,
     stream);
 
   // Take average along rows
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
+  raft::stats::mean<false>(out, error.data(), n_progs, n_samples, false, stream);
 }
 
 }  // namespace genetic
