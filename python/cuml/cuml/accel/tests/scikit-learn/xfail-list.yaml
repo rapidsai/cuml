@@ -438,7 +438,6 @@
   - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_matrix-RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-auto]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-predict]"
