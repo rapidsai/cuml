@@ -642,7 +642,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
-    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -667,7 +666,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC  rapids_logger::rapids_logger rmm::rmm
-            ${_cuml_cpp_public_libs}
+            raft::raft ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
