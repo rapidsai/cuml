@@ -295,7 +295,7 @@ void approx_knn_search(raft::handle_t& handle,
     params.n_probes = index->nprobe;
 
     cuvs::neighbors::ivf_pq::search(
-      handle, params, *index->pimpl->ivf_pq, query_view, indices_view, distances_view);
+      handle, params, *(index->pimpl->ivf_pq), query_view, indices_view, distances_view);
   } else {
     RAFT_FAIL("The model is not trained");
   }
