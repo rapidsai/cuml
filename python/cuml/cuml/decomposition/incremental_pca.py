@@ -24,7 +24,7 @@ import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
 
 
@@ -216,8 +216,7 @@ class IncrementalPCA(PCA):
         self.batch_size = batch_size
         self._sparse_model = True
 
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y=None, convert_dtype=True) -> "IncrementalPCA":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
 
@@ -273,8 +272,7 @@ class IncrementalPCA(PCA):
         return self
 
     @cuml.internals.api_base_return_any_skipall
-    @deprecate_non_keyword_only("check_input")
-    def partial_fit(self, X, y=None, check_input=True) -> "IncrementalPCA":
+    def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
 
@@ -403,8 +401,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 

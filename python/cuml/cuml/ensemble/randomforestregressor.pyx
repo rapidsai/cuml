@@ -20,22 +20,12 @@ from treelite import Model as TreeliteModel
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.ensemble.compat import _handle_deprecated_rf_args
-from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
-from cuml.internals.mixins import RegressorMixin
-
-from cuml.internals.logger cimport level_enum
-
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import RegressorMixin
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -43,6 +33,7 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.logger cimport level_enum
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
@@ -162,14 +153,14 @@ class RandomForestRegressor(BaseRandomForestModel,
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
-    max_features : int, float, or string (default = 1.0)
-        Ratio of number of features (columns) to consider
-        per node split.\n
-         * If type ``int`` then ``max_features`` is the absolute count of
-           features to be used.
-         * If type ``float`` then ``max_features`` is used as a fraction.
-         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
-         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+    max_features : {'sqrt', 'log2', None}, int or float (default = 1.0)
+        The number of features to consider per node split:
+
+        * If an int then ``max_features`` is the absolute count of features to be used.
+        * If a float then ``max_features`` is used as a fraction.
+        * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+        * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+        * If ``None`` then ``max_features=n_features``
 
         .. versionchanged:: 24.06
           The default of `max_features` changed from `"auto"` to 1.0.
@@ -245,38 +236,25 @@ class RandomForestRegressor(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+    _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
+    RF_type = REGRESSION
 
-    _default_split_criterion = "gini"
+    @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "accuracy_metric"]
 
-    _hyperparam_interop_translator = {
-        "criterion": {
-            "friedman_mse": "NotImplemented",
-            "absolute_error": "NotImplemented",
-        },
-        "oob_score": {
-            True: "NotImplemented",
-        },
-        "max_depth": {
-            None: 16,
-        },
-        "max_samples": {
-            None: 1.0,
-        },
-    }
-
-    @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
+                 max_features=1.0,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
                  output_type=None,
                  **kwargs):
-        self.RF_type = REGRESSION
+        self.accuracy_metric = accuracy_metric
         super().__init__(
             split_criterion=split_criterion,
-            accuracy_metric=accuracy_metric,
+            max_features=max_features,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
@@ -365,13 +343,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         treelite_bytes = self._serialize_treelite_bytes()
         return TreeliteModel.deserialize_bytes(treelite_bytes)
 
-    @_handle_deprecated_rf_args('output_class', 'algo', 'fil_sparse_format')
     def convert_to_fil_model(
         self,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -397,22 +373,15 @@ class RandomForestRegressor(BaseRandomForestModel,
         fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
-
-        .. deprecated:: 25.06
-            Parameters `output_class`, `algo`, and `fil_sparse_format` were
-            deprecated in version 25.06 and will be removed in 25.08. Parameters
-            `algo` and `fil_sparse_format` are ignored as of 25.06. Use `layout`,
-            `default_chunk_size`, and `align_bytes` instead.
         """
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
             output_type="input",
-            is_classifier=kwargs.get('is_classifier', False),
+            is_classifier=False,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
-            **kwargs,
         )
 
     @nvtx.annotate(
@@ -420,9 +389,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, *, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
@@ -543,31 +510,20 @@ class RandomForestRegressor(BaseRandomForestModel,
         del X_m
         return preds
 
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        if func_name in ("fit", "score"):
-            if kwargs.get("sample_weight", None) is not None:
-                return True
-        return False
-
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @enable_device_interop
-    @deprecate_non_keyword_only(
-      "convert_dtype", "predict_model", "layout", "default_chunk_size", "align_bytes"
-    )
-    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict(
         self,
         X,
+        *,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ) -> CumlArray:
         """
         Predicts the values for X.
@@ -600,12 +556,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         Returns
         -------
         y : {}
-
-        .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
-            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
-            instead.
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(
@@ -635,21 +585,16 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
-    @enable_device_interop
-    @deprecate_non_keyword_only(
-        "convert_dtype", "layout", "default_chunk_size", "align_bytes"
-    )
-    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def score(
         self,
         X,
         y,
+        *,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -683,12 +628,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float
-
-        .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
-            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
-            instead.
         """
         from cuml.metrics.regression import r2_score
 
@@ -709,7 +648,6 @@ class RandomForestRegressor(BaseRandomForestModel,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
-            **kwargs,
         )
 
         cdef uintptr_t preds_ptr
@@ -805,26 +743,3 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    @classmethod
-    def _hyperparam_translator(cls, **kwargs):
-        kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
-
-        if "criterion" in kwargs:
-            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
-                kwargs.pop("criterion")
-            )
-
-        if "max_samples" in kwargs:
-            if isinstance(kwargs["max_samples"], int):
-                logger.warn(
-                    f"Integer value of max_samples={kwargs['max_samples']}"
-                    "not supported, changed to 1.0."
-                )
-                kwargs["max_samples"] = 1.0
-
-        # determinism requires only 1 cuda stream
-        if "random_state" in kwargs:
-            kwargs["n_streams"] = 1
-
-        return kwargs, gpuaccel

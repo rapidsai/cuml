@@ -200,12 +200,12 @@ Both projects serve a similar role. Just as ``cuml.accel`` offers zero code
 change acceleration for Scikit-Learn and similar packages, ``cudf.pandas``
 offers zero code change acceleration for Pandas.
 
-Using them together is supported as an experimental feature. To do this from the
-CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
+Using them together is supported. To do this from the CLI, both accelerators
+may be invoked like:
 
 .. code-block:: console
 
-   python -m cuml.accel --cudf-pandas
+   python -m cudf.pandas -m cuml.accel ...
 
 For Jupyter notebooks, use the following approach to turn on both:
 
@@ -227,21 +227,13 @@ Bugs affecting ``cuml.accel`` can be reported via the `cuML issue tracker <https
 
 10. If I serialize a model using ``cuml.accel``, can I load it without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This is a common use case for ``cuml.accel`` and cuML in general, since it may be useful to train
-a model using NVIDIA GPUs but deploy it for inference in an environment that
-does not have access to NVIDIA GPUs.
+This is a common use case for ``cuml.accel`` and cuML in general, since it may
+be useful to train a model using NVIDIA GPUs but deploy it for inference in an
+environment that does not have access to NVIDIA GPUs.
 
-Currently, models serialized with
-``cuml.accel`` need to be converted to pure Scikit-Learn (or UMAP/HDBSCAN/...).
-After serializing a model, using either pickle or joblib, for example to `model_pickled.pkl`,
-that model can then be converted to a regular sklearn/umap-learn/hdbscan pickled model with:
+Models serialized with ``cuml.accel`` may be loaded in environments without
+``cuml.accel`` - in this case they'll be loaded as their normal
+sklearn/umap-learn/hdbscan counterpart.
 
-.. code-block:: console
-
-    python -m cuml.accel --convert-to-sklearn model_pickled.pkl --format pickle --output converted_model.pkl
-
-
-The `converted_model.pkl` is now a regular pickled/joblib serialized model,
-that can be deserialized and used in a computer/environment without cuML or GPUs.
-
-This conversion step should become unnecessary in a future release of cuML.
+Note that the same serialized model may also be loaded with ``cuml.accel``
+active, in which case they'll be accelerated ``cuml.accel`` backed models.

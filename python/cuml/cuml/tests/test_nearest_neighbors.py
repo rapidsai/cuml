@@ -719,5 +719,8 @@ def test_haversine_fails_high_dimensions():
 
 
 def test_n_jobs_parameter_passthrough():
-    cunn = cuKNN()
+    """Check that `n_jobs` is supported for compatibility with imbalanced-learn"""
+    cunn = cuKNN(n_jobs=1)
+    assert cunn.n_jobs == 1
     cunn.set_params(n_jobs=12)
+    assert cunn.n_jobs == 12

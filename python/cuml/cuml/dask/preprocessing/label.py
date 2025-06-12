@@ -111,7 +111,7 @@ class LabelBinarizer(BaseEstimator):
     @staticmethod
     def _func_inv_xform(y, *, model, threshold):
         y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
-        return model.inverse_transform(y, threshold)
+        return model.inverse_transform(y, threshold=threshold)
 
     def fit(self, y):
         """Fit label binarizer
