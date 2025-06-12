@@ -178,7 +178,6 @@ class XfailManager:
                 empty list
         """
         self.groups: List[XfailGroup] = []
-        self._test_to_groups: Dict[str, List[XfailGroup]] = defaultdict(list)
 
         if xfail_list_path:
             self.load(xfail_list_path)
@@ -198,6 +197,9 @@ class XfailManager:
     def save(self, xfail_list_path: Union[str, Path]) -> None:
         """Save xfail list to YAML file."""
         path = Path(xfail_list_path)
+
+        # Merge groups with identical properties before saving
+        self._merge_identical_groups()
 
         # Filter out empty groups and sort deterministically
         non_empty_groups = [group for group in self.groups if group]
@@ -238,6 +240,54 @@ class XfailManager:
                         f"'{group.condition}': {e}"
                     )
         return errors
+
+    def _merge_identical_groups(self) -> int:
+        """Merge groups that have identical properties except for tests.
+
+        Returns:
+            Number of groups that were merged (removed)
+        """
+        # Group the groups by their properties (excluding tests)
+        property_groups = defaultdict(list)
+
+        for group in self.groups:
+            # Create a key based on all properties except tests
+            key = (
+                group.reason,
+                group.strict,
+                group.condition,
+                group.run,
+                group.marker,
+            )
+            property_groups[key].append(group)
+
+        merged_count = 0
+        new_groups = []
+
+        for groups_with_same_properties in property_groups.values():
+            if len(groups_with_same_properties) == 1:
+                # Only one group with these properties, keep as-is
+                new_groups.append(groups_with_same_properties[0])
+            else:
+                # Multiple groups with same properties, merge them
+                merged_count += len(groups_with_same_properties) - 1
+
+                # Take the first group as the base
+                base_group = groups_with_same_properties[0]
+
+                # Collect all unique tests from all groups
+                all_tests = set(base_group.tests)
+                for group in groups_with_same_properties[1:]:
+                    all_tests.update(group.tests)
+
+                # Update the base group with all tests
+                base_group.tests = sorted(list(all_tests))
+                new_groups.append(base_group)
+
+        # Replace the groups list with merged groups
+        self.groups = new_groups
+
+        return merged_count
 
 
 # CLI Commands Implementation
