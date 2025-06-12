@@ -197,14 +197,12 @@ void launcher(const raft::handle_t& handle,
     /* Cast away constness because the output matrix for normalization cannot be of const type.
      * Input matrix will be modified due to normalization.
      */
-    raft::linalg::matrixVectorOp(
+    raft::linalg::matrixVectorOp<true, true>(
       const_cast<value_t*>(data.x),
       data.x,
       rowNorms.data(),
       k,
       m,
-      true,
-      true,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
       stream);
 
@@ -220,14 +218,12 @@ void launcher(const raft::handle_t& handle,
     /**
      * Restoring the input matrix after normalization.
      */
-    raft::linalg::matrixVectorOp(
+    raft::linalg::matrixVectorOp<true, true>(
       const_cast<value_t*>(data.x),
       data.x,
       rowNorms.data(),
       k,
       m,
-      true,
-      true,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
   } else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,12 +81,11 @@ void preProcessData(const raft::handle_t& handle,
         n_cols,
         [] __device__(math_t v) { return raft::sqrt(v); },
         stream);
-      raft::matrix::linewiseOp(
+      raft::matrix::linewiseOp<false>(
         input,
         input,
         n_rows,
         n_cols,
-        false,
         [] __device__(math_t x, math_t m, math_t s) { return s > 1e-10 ? (x - m) / s : 0; },
         stream,
         mu_input,
@@ -166,12 +165,11 @@ void postProcessData(const raft::handle_t& handle,
   *intercept = d_intercept.value(stream);
 
   if (normalize) {
-    raft::matrix::linewiseOp(
+    raft::matrix::linewiseOp<false>(
       input,
       input,
       n_rows,
       n_cols,
-      false,
       [] __device__(math_t x, math_t m, math_t s) { return s * x + m; },
       stream,
       mu_input,

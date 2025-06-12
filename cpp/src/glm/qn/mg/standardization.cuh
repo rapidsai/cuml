@@ -326,15 +326,13 @@ struct Standardizer {
     col_slice(W, Wweights, 0, D);
 
     auto mul_lambda = [] __device__(const T a, const T b) { return a * b; };
-    raft::linalg::matrixVectorOp(Wweights.data,
-                                 Wweights.data,
-                                 std_inv.data,
-                                 Wweights.n,
-                                 Wweights.m,
-                                 false,
-                                 true,
-                                 mul_lambda,
-                                 handle.get_stream());
+    raft::linalg::matrixVectorOp<false, true>(Wweights.data,
+                                              Wweights.data,
+                                              std_inv.data,
+                                              Wweights.n,
+                                              Wweights.m,
+                                              mul_lambda,
+                                              handle.get_stream());
 
     if (has_bias) {
       SimpleVec<T> Wbias;

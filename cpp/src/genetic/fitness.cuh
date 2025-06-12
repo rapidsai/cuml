@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,28 +83,24 @@ void weightedPearson(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Find y_mu
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     y_tmp.data(),
     Y,
     W,
     (uint64_t)1,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y, math_t w) { return N * w * y / WS; },
     stream);
 
   raft::stats::mean(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false, false, stream);
 
   // Find x_mu
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, true>(
     x_tmp.data(),
     X,
     W,
     n_progs,
     n_samples,
-    false,
-    true,
     [N, WS] __device__(math_t x, math_t w) { return N * w * x / WS; },
     stream);
 
@@ -145,27 +141,23 @@ void weightedPearson(const raft::handle_t& h,
     [] __device__(math_t in) { return raft::sqrt(in); });
 
   // Cross covariance
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     corr.data(),
     x_diff.data(),
     y_diff.data(),
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, HYstd] __device__(math_t xd, math_t yd, math_t w) { return N * w * xd * yd / HYstd; },
     stream);
 
   // Find Correlation coeff
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, true>(
     corr.data(),
     corr.data(),
     x_std.data(),
     n_progs,
     n_samples,
-    false,
-    true,
     [] __device__(math_t c, math_t xd) { return c / xd; },
     stream);
 
@@ -265,15 +257,13 @@ void meanAbsoluteError(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Compute absolute differences
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) { return N * w * raft::abs(y - y_p) / WS; },
     stream);
 
@@ -300,15 +290,13 @@ void meanSquareError(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Compute square differences
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) {
       return N * w * (y_p - y) * (y_p - y) / WS;
     },
@@ -358,15 +346,13 @@ void logLoss(const raft::handle_t& h,
   // Compute logistic loss as described in
   // http://fa.bianp.net/blog/2019/evaluate_logistic/
   // in an attempt to avoid encountering nan values. Modified for weighted logistic regression.
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t yp, math_t y, math_t w) {
       math_t logsig;
       if (yp < -33.3)

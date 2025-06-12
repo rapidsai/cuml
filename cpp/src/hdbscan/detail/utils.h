@@ -194,14 +194,12 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
     sums.data(), data, (size_t)n, m, raft::linalg::L1Norm, true, stream);
 
   // Divide vector by row sums (modify in place)
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     data,
     const_cast<value_t*>(data),
     sums.data(),
     n,
     (value_idx)m,
-    true,
-    false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream);
 }
@@ -235,12 +233,11 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
                      raft::linalg::LinfNorm,
                      raft::linalg::Apply::ALONG_ROWS);
 
-  raft::linalg::matrix_vector_op(
+  raft::linalg::matrix_vector_op<raft::linalg::Apply::ALONG_COLUMNS>(
     handle,
     data_const_view,
     linf_norm_const_view,
     data_view,
-    raft::linalg::Apply::ALONG_COLUMNS,
     [] __device__(value_t mat_in, value_t vec_in) { return exp(mat_in - vec_in); });
 }
 
