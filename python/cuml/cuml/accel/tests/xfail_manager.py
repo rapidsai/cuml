@@ -309,14 +309,12 @@ def cmd_format(args):
             return 1
 
     # Track overall results
-    total_errors = 0
+    results = []
 
     for xfail_path in xfail_paths:
-        result = _format_single_file(xfail_path, args)
-        if result > 0:
-            total_errors += 1
+        results.append(_format_single_file(xfail_path, args))
 
-    return 1 if total_errors > 0 else 0
+    return 1 if any(results) else 0
 
 
 def _format_single_file(xfail_path, args):
