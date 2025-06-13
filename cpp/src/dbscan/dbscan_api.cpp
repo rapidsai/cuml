@@ -18,6 +18,7 @@
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/cluster/dbscan_api.h>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/cuml_api.h>
 
 extern "C" {
@@ -44,7 +45,7 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle,
                       n_cols,
                       eps,
                       min_pts,
-                      cuvs::distance::DistanceType::L2SqrtUnexpanded,
+                      ML::distance::DistanceType::L2SqrtUnexpanded,
                       labels,
                       core_sample_indices,
                       NULL,
@@ -87,7 +88,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
                       n_cols,
                       eps,
                       min_pts,
-                      cuvs::distance::DistanceType::L2SqrtUnexpanded,
+                      ML::distance::DistanceType::L2SqrtUnexpanded,
                       labels,
                       core_sample_indices,
                       NULL,

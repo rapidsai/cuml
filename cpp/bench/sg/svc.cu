@@ -16,12 +16,10 @@
 
 #include "benchmark.cuh"
 
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/distance/grammian.hpp>
 
 #include <cmath>
 #include <sstream>
@@ -35,7 +33,7 @@ template <typename D>
 struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
-  cuvs::distance::kernels::KernelParams kernel;
+  ML::matrix::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -51,7 +49,7 @@ class SVC : public BlobsFixture<D, D> {
   {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
-    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    oss << name << "/" << kernel_names[static_cast<int>(kernel.kernel)] << p.data;
     this->SetName(oss.str().c_str());
   }
 
@@ -78,7 +76,7 @@ class SVC : public BlobsFixture<D, D> {
   }
 
  private:
-  cuvs::distance::kernels::KernelParams kernel;
+  ML::matrix::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -107,11 +105,10 @@ std::vector<SvcParams<D>> getInputs()
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 
-  std::vector<cuvs::distance::kernels::KernelParams> kernels{
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::LINEAR, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::POLYNOMIAL, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::RBF, 3, 1, 0},
-    cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::TANH, 3, 0.1, 0}};
+  std::vector<ML::matrix::KernelParams> kernels{{ML::matrix::KernelType::LINEAR, 3, 1, 0},
+                                                {ML::matrix::KernelType::POLYNOMIAL, 3, 1, 0},
+                                                {ML::matrix::KernelType::RBF, 3, 1, 0},
+                                                {ML::matrix::KernelType::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
     p.data.nrows    = rc.nrows;

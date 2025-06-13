@@ -17,11 +17,12 @@
 #include "benchmark.cuh"
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <raft/random/rng_state.hpp>
 
-#include <cuvs/distance/distance.hpp>
 #include <rapids_logger/logger.hpp>
 
 #include <utility>
@@ -94,7 +95,7 @@ std::vector<Params> getInputs()
   p.kmeans.max_iter                        = 300;
   p.kmeans.tol                             = 1e-4;
   p.kmeans.verbosity                       = rapids_logger::level_enum::info;
-  p.kmeans.metric                          = cuvs::distance::DistanceType::L2Expanded;
+  p.kmeans.metric                          = ML::distance::DistanceType::L2Expanded;
   p.kmeans.rng_state                       = raft::random::RngState(p.blobs.seed);
   p.kmeans.inertia_check                   = true;
   std::vector<std::pair<int, int>> rowcols = {

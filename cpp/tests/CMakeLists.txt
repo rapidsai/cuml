@@ -66,6 +66,7 @@ function(ConfigureTest)
     $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
     $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
     ${TREELITE_LIBS}
+    ${CUVS_LIB}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 

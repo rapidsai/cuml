@@ -16,6 +16,7 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -57,7 +58,10 @@
 
 namespace ML {
 namespace SVM {
-using namespace cuvs::distance::kernels;
+using cuvs::distance::kernels::GramMatrixBase;
+using cuvs::distance::kernels::KernelFactory;
+using ML::matrix::KernelParams;
+using ML::matrix::KernelType;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>
@@ -195,20 +199,20 @@ class KernelCacheTest : public ::testing::Test {
   void ApplyNonlin(KernelParams params)
   {
     switch (params.kernel) {
-      case LINEAR: break;
-      case POLYNOMIAL:
+      case KernelType::LINEAR: break;
+      case KernelType::POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = pow(val, params.degree);
         }
         break;
-      case TANH:
+      case KernelType::TANH:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = tanh(val);
         }
         break;
-      case RBF:
+      case KernelType::RBF:
         for (int i = 0; i < n_ws; i++) {
           for (int j = 0; j < n_rows; j++) {
             math_t d = 0;
@@ -271,10 +275,10 @@ TYPED_TEST_CASE_P(KernelCacheTest);
 TYPED_TEST_P(KernelCacheTest, EvalTest)
 {
   auto stream = this->handle.get_stream();
-  std::vector<KernelParams> param_vec{KernelParams{LINEAR, 3, 1, 0},
-                                      KernelParams{POLYNOMIAL, 2, 1.3, 1},
-                                      KernelParams{TANH, 2, 0.5, 2.4},
-                                      KernelParams{RBF, 2, 0.5, 0}};
+  std::vector<KernelParams> param_vec{{KernelType::LINEAR, 3, 1, 0},
+                                      {KernelType::POLYNOMIAL, 2, 1.3, 1},
+                                      {KernelType::TANH, 2, 0.5, 2.4},
+                                      {KernelType::RBF, 2, 0.5, 0}};
   float cache_size = 0;
 
   auto dense_view =
@@ -282,7 +286,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
       this->x_dev.data(), this->n_rows, this->n_cols, 0);
 
   for (auto params : param_vec) {
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params.to_cuvs());
     KernelCache<TypeParam, raft::device_matrix_view<TypeParam, int, raft::layout_stride>> cache(
       this->handle,
       dense_view,
@@ -290,7 +294,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
       this->n_cols,
       this->n_ws,
       kernel,
-      params.kernel,
+      static_cast<cuvs::distance::kernels::KernelType>(params.kernel),
       cache_size,
       C_SVC);
 
@@ -315,7 +319,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
 
 TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 {
-  KernelParams param{LINEAR, 3, 1, 0};
+  KernelParams param{KernelType::LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
   std::vector<KernelCacheTestInput> data{{KernelCacheTestInput{false, false, false}},
@@ -330,7 +334,7 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param.to_cuvs());
     if (input.sparse) {
       auto csr_structure =
         raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
@@ -346,7 +350,7 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
         this->n_cols,
         this->n_ws,
         kernel,
-        param.kernel,
+        static_cast<cuvs::distance::kernels::KernelType>(param.kernel),
         cache_size,
         C_SVC,
         tile_byte_limit,
@@ -376,7 +380,7 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
         this->n_cols,
         this->n_ws,
         kernel,
-        param.kernel,
+        static_cast<cuvs::distance::kernels::KernelType>(param.kernel),
         cache_size,
         C_SVC,
         tile_byte_limit,
@@ -403,7 +407,7 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 
 TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
 {
-  KernelParams param{LINEAR, 3, 1, 0};
+  KernelParams param{KernelType::LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
   this->n_ws        = 6;
@@ -422,7 +426,7 @@ TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param.to_cuvs());
     if (input.sparse) {
       auto csr_structure =
         raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
@@ -438,7 +442,7 @@ TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
         this->n_cols,
         this->n_ws,
         kernel,
-        param.kernel,
+        static_cast<cuvs::distance::kernels::KernelType>(param.kernel),
         cache_size,
         EPSILON_SVR,
         tile_byte_limit,
@@ -468,7 +472,7 @@ TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
         this->n_cols,
         this->n_ws,
         kernel,
-        param.kernel,
+        static_cast<cuvs::distance::kernels::KernelType>(param.kernel),
         cache_size,
         EPSILON_SVR,
         tile_byte_limit,
@@ -617,7 +621,7 @@ class SmoUpdateTest : public ::testing::Test {
   void RunTest()
   {
     SvmParameter param = getDefaultSvmParameter();
-    SmoSolver<float> smo(handle, param, LINEAR, nullptr);
+    SmoSolver<float> smo(handle, param, cuvs::distance::kernels::LINEAR, nullptr);
     smo.UpdateF(f_dev.data(), n_rows, delta_alpha_dev.data(), n_ws, kernel_dev.data());
 
     float f_host_expected[] = {0.1f, 7.4505806e-9f, 0.3f, 0.2f, 0.5f, 0.4f};
@@ -1072,7 +1076,7 @@ TYPED_TEST(SmoSolverTest, SvrBlockSolveTest) { this->svrBlockSolveTest(); }
 std::string kernelName(KernelParams k)
 {
   std::vector<std::string> names{"linear", "poly", "rbf", "tanh"};
-  return names[k.kernel];
+  return names[static_cast<int>(k.kernel)];
 }
 
 template <typename math_t>
@@ -1086,7 +1090,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
 {
   auto stream = this->handle.get_stream();
   std::vector<std::pair<smoInput<TypeParam>, smoOutput<TypeParam>>> data{
-    {smoInput<TypeParam>{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
+    {smoInput<TypeParam>{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 100, 1},
      smoOutput<TypeParam>{4,                         // n_sv
                           {-0.6, 1, -1, 0.6},        // dual_coefs
                           -1.8,                      // b
@@ -1094,9 +1098,9 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                           {1, 1, 2, 2, 1, 2, 2, 3},  // x_support
                           {0, 2, 3, 5}}},            // support idx
     /*
-    {smoInput<TypeParam>{10, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
+    {smoInput<TypeParam>{10, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 100, 1},
      smoOutput<TypeParam>{3, {2, -4, 2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
-    {smoInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 1}, 100, 1},
+    {smoInput<TypeParam>{1, 1e-6, KernelParams{KernelType::POLYNOMIAL, 3, 1, 1}, 100, 1},
      smoOutput<TypeParam>{
        3, {-0.0255614, 0.0397971, -0.0142357}, -1.07739149, {}, {1, 1, 2, 1, 2, 2}, {0, 2, 3}}}
     */
@@ -1110,8 +1114,12 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     param.C            = p.C;
     param.tol          = p.tol;
     // param.max_iter = p.max_iter;
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params);
-    SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params.to_cuvs());
+    SmoSolver<TypeParam> smo(
+      this->handle,
+      param,
+      static_cast<cuvs::distance::kernels::KernelType>(p.kernel_params.kernel),
+      kernel);
     {
       SvmModel<TypeParam> model1{0, this->n_cols, 0, nullptr, {}, nullptr, 0, nullptr};
       auto dense_view =
@@ -1167,7 +1175,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
   std::vector<std::pair<svcInput<TypeParam>, smoOutput2<TypeParam>>> data{
     {svcInput<TypeParam>{1,
                          0.001,
-                         KernelParams{LINEAR, 3, 1, 0},
+                         KernelParams{KernelType::LINEAR, 3, 1, 0},
                          this->n_rows,
                          this->n_cols,
                          this->x_dev.data(),
@@ -1184,7 +1192,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     {// C == 0 marks a special test case with sample weights
      svcInput<TypeParam>{0,
                          0.001,
-                         KernelParams{LINEAR, 3, 1, 0},
+                         KernelParams{KernelType::LINEAR, 3, 1, 0},
                          this->n_rows,
                          this->n_cols,
                          this->x_dev.data(),
@@ -1194,7 +1202,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
        3, {}, -1.0f, {-2, 2}, {1, 2, 2, 2, 2, 3}, {2, 3, 5}, {-1.0, -3.0, 1.0, -1.0, 3.0, 1.0}}},
     {svcInput<TypeParam>{1,
                          1e-6,
-                         KernelParams{POLYNOMIAL, 3, 1, 0},
+                         KernelParams{KernelType::POLYNOMIAL, 3, 1, 0},
                          this->n_rows,
                          this->n_cols,
                          this->x_dev.data(),
@@ -1211,7 +1219,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     */
     {svcInput<TypeParam>{10,
                          1e-6,
-                         KernelParams{TANH, 3, 0.3, 1.0},
+                         KernelParams{KernelType::TANH, 3, 0.3, 1.0},
                          this->n_rows,
                          this->n_cols,
                          this->x_dev.data(),
@@ -1227,7 +1235,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
        {0.25670694, -0.16451539, 0.16451427, -0.1568888, -0.04496891, -0.2387212}}},
     {svcInput<TypeParam>{1,
                          1.0e-6,
-                         KernelParams{RBF, 0, 0.15, 0},
+                         KernelParams{KernelType::RBF, 0, 0.15, 0},
                          this->n_rows,
                          this->n_cols,
                          this->x_dev.data(),
@@ -1358,10 +1366,10 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
   auto stream = this->handle.get_stream();
   // Pair.second is the expected accuracy. It might change if the Rng changes.
   std::vector<std::pair<blobInput, TypeParam>> data{
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 200, 10}, 98},
-    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 200, 10}, 98},
-    {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 200, 2}, 98},
-    {blobInput{1, 0.009, KernelParams{TANH, 3, 0.1, 0}, 200, 10}, 98}};
+    {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 200, 10}, 98},
+    {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 200, 10}, 98},
+    {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 200, 2}, 98},
+    {blobInput{1, 0.009, KernelParams{KernelType::TANH, 3, 0.1, 0}, 200, 10}, 98}};
 
   // This should be larger then N_PRED_BATCH in svcPredict
   const int n_pred = 5000;
@@ -1418,8 +1426,10 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
   // and some of those would be missed by this method.
   enum class ThrowException { Yes, No };
   std::vector<std::pair<blobInput, ThrowException>> data{
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 1000}, ThrowException::No},
-    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 400, 5, 10}, 1000, 1000}, ThrowException::Yes}};
+    {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 0.01, 0}, 1000, 1000},
+     ThrowException::No},
+    {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 400, 5, 10}, 1000, 1000},
+     ThrowException::Yes}};
   // For the second set of input parameters  training will fail, some kernel
   // function values would be 1e400 or larger, which does not fit fp64.
   // This will lead to NaN diff in SmoSolver, which will throw an exception
@@ -1481,10 +1491,10 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
     // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
     // is merged, that PR would reduce the kernel tile memory size.
     std::vector<std::pair<blobInput, TypeParam>> data{
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 2800000, 4}, 98}};
 
     for (auto d : data) {
       auto p = d.first;
@@ -1656,10 +1666,10 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
     GTEST_SKIP();  // Skip the test for double input
   } else {
     std::vector<blobInput> data{
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000000, 4}}};
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 1000000, 4}}};
 
     for (auto input : data) {
       SCOPED_TRACE(input);
@@ -1708,25 +1718,25 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
   } else {
     std::vector<blobInput> data{
       // sparse input with batching
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 1000000, 4}},
       // sparse input with sparse row extraction (also sparse support)
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000, 300000}},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000, 300000}},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000, 300000}},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 1000, 300000}},
       // sparse input with batching AND sparse row extraction (also sparse support)
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 290000, 290000}},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 290000, 290000}},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 290000, 290000}},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 290000, 290000}},
       // sparse input with sparse support
-      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 100000, 10000}},
-      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100000, 10000}},
-      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 100000, 10000}},
-      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 100000, 10000}}};
+      {blobInput{1, 0.001, KernelParams{KernelType::RBF, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::LINEAR, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::POLYNOMIAL, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{KernelType::TANH, 3, 1, 0}, 100000, 10000}}};
 
     for (auto input : data) {
       SCOPED_TRACE(input);
@@ -1882,7 +1892,7 @@ class SvrTest : public ::testing::Test {
     auto stream        = this->handle.get_stream();
     SvmParameter param = getDefaultSvmParameter();
     param.svmType      = EPSILON_SVR;
-    SmoSolver<math_t> smo(handle, param, LINEAR, nullptr);
+    SmoSolver<math_t> smo(handle, param, cuvs::distance::kernels::KernelType::LINEAR, nullptr);
     smo.SvrInit(y_dev.data(), n_rows, yc.data(), f.data());
 
     EXPECT_TRUE(
@@ -1964,7 +1974,7 @@ class SvrTest : public ::testing::Test {
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
          SvmParameter{1, 0, 1, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
          {0, 1},  // x
@@ -1974,7 +1984,7 @@ class SvrTest : public ::testing::Test {
 
       {SvrInput<math_t>{
          SvmParameter{1, 10, 1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
          {1, 2},  // x
@@ -1984,7 +1994,7 @@ class SvrTest : public ::testing::Test {
 
       {SvrInput<math_t>{
          SvmParameter{1, 0, 1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
          {1, 2, 5, 5},  // x
@@ -1994,7 +2004,7 @@ class SvrTest : public ::testing::Test {
 
       {SvrInput<math_t>{
          SvmParameter{1, 0, 100, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
          {1, 2, 3, 4, 5, 6, 7},  // x
@@ -2010,7 +2020,7 @@ class SvrTest : public ::testing::Test {
       // Almost same as above, but with sample weights
       {SvrInput<math_t>{
          SvmParameter{1, 0, 100, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                       // n_rows
          1,                       // n_cols
          {1, 2, 3, 4, 5, 6, 7},   // x
@@ -2021,7 +2031,7 @@ class SvrTest : public ::testing::Test {
          6, {}, -15.5, {3.9}, {1.0, 2.0, 3.0, 4.0, 6.0, 7.0}, {0, 1, 2, 3, 5, 6}, {}}},
       {SvrInput<math_t>{
          SvmParameter{1, 0, 100, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
-         KernelParams{LINEAR, 3, 1, 0},
+         KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
          {1, 2, 3, 4, 5, 6, 7},  // x

@@ -17,6 +17,7 @@
 #include "dbscan.cuh"
 
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/util/cudart_utils.hpp>
 
@@ -29,7 +30,7 @@ void fit(const raft::handle_t& handle,
          int n_cols,
          float eps,
          int min_pts,
-         cuvs::distance::DistanceType metric,
+         ML::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices,
          float* sample_weight,
@@ -76,7 +77,7 @@ void fit(const raft::handle_t& handle,
          int n_cols,
          double eps,
          int min_pts,
-         cuvs::distance::DistanceType metric,
+         ML::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices,
          double* sample_weight,
@@ -123,7 +124,7 @@ void fit(const raft::handle_t& handle,
          int64_t n_cols,
          float eps,
          int min_pts,
-         cuvs::distance::DistanceType metric,
+         ML::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices,
          float* sample_weight,
@@ -170,7 +171,7 @@ void fit(const raft::handle_t& handle,
          int64_t n_cols,
          double eps,
          int min_pts,
-         cuvs::distance::DistanceType metric,
+         ML::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices,
          double* sample_weight,

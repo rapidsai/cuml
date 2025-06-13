@@ -16,6 +16,7 @@
 
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_mg.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>

@@ -48,6 +48,7 @@ if(BUILD_CUML_BENCH)
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       ${TREELITE_LIBS}
+      ${CUVS_LIB}
       raft::raft
   )
 

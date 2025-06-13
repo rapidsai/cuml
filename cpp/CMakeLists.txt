@@ -455,6 +455,7 @@ if(BUILD_CUML_CPP_LIBRARY)
             src/kmeans/kmeans_transform.cu
             src/kmeans/kmeans_fit_predict.cu
             src/kmeans/kmeans_predict.cu
+            src/kmeans/kmeans_params.cpp
             )
   endif()
 
@@ -528,7 +529,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu)
+        src/svm/linear.cu
+        src/matrix/kernel_params.cpp)
   endif()
 
   if(all_algo OR autoarima_algo)
@@ -640,7 +642,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
-    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -664,9 +665,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
-            ${_cuml_cpp_public_libs}
-    PRIVATE ${_cuml_cpp_private_libs}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm
+            raft::raft ${_cuml_cpp_public_libs}
+    PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

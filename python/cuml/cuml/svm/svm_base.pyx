@@ -41,20 +41,8 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams, KernelType
 
-
-cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance::kernels" nogil:
-    enum KernelType:
-        LINEAR,
-        POLYNOMIAL,
-        RBF,
-        TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
@@ -436,10 +424,10 @@ class SVMBase(Base,
         kernel: string, ('linear', 'poly', 'rbf', or 'sigmoid')
         """
         return {
-            'linear': LINEAR,
-            'poly': POLYNOMIAL,
-            'rbf': RBF,
-            'sigmoid': TANH
+            'linear': KernelType.LINEAR,
+            'poly': KernelType.POLYNOMIAL,
+            'rbf': KernelType.RBF,
+            'sigmoid': KernelType.TANH
         }[kernel]
 
     def _calc_gamma_val(self, X):
@@ -486,7 +474,7 @@ class SVMBase(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def coef_(self):
-        if self._c_kernel != LINEAR:
+        if self._c_kernel != KernelType.LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
             raise AttributeError("Call fit before prediction")

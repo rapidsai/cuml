@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <cuml/common/distance_type.hpp>
+
 #include <raft/spatial/knn/detail/processing.hpp>  // MetricProcessor
 
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/neighbors/ivf_flat.hpp>
-#include <cuvs/neighbors/ivf_pq.hpp>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace raft {
 class handle_t;
@@ -60,18 +62,18 @@ void brute_force_knn(const raft::handle_t& handle,
                      int64_t* res_I,
                      float* res_D,
                      int k,
-                     bool rowMajorIndex                  = false,
-                     bool rowMajorQuery                  = false,
-                     cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2Expanded,
-                     float metric_arg                    = 2.0f,
-                     std::vector<int64_t>* translations  = nullptr);
+                     bool rowMajorIndex                 = false,
+                     bool rowMajorQuery                 = false,
+                     ML::distance::DistanceType metric  = ML::distance::DistanceType::L2Expanded,
+                     float metric_arg                   = 2.0f,
+                     std::vector<int64_t>* translations = nullptr);
 
 void rbc_build_index(const raft::handle_t& handle,
                      std::uintptr_t& rbc_index,
                      float* X,
                      int64_t n_rows,
                      int64_t n_cols,
-                     cuvs::distance::DistanceType metric);
+                     ML::distance::DistanceType metric);
 
 void rbc_knn_query(const raft::handle_t& handle,
                    const std::uintptr_t& rbc_index,
@@ -89,16 +91,19 @@ void rbc_knn_query(const raft::handle_t& handle,
  */
 void rbc_free_index(std::uintptr_t rbc_index);
 
+struct knnIndexImpl;
+
 struct knnIndex {
-  cuvs::distance::DistanceType metric;
+  knnIndex();
+  ~knnIndex();
+
+  ML::distance::DistanceType metric;
   float metricArg;
   int nprobe;
   std::unique_ptr<raft::spatial::knn::MetricProcessor<float>> metric_processor;
-
-  std::unique_ptr<cuvs::neighbors::ivf_flat::index<float, int64_t>> ivf_flat;
-  std::unique_ptr<cuvs::neighbors::ivf_pq::index<int64_t>> ivf_pq;
-
   int device;
+
+  std::unique_ptr<knnIndexImpl> pimpl;
 };
 
 struct knnIndexParam {
@@ -134,7 +139,7 @@ struct IVFPQParam : IVFParam {
 void approx_knn_build_index(raft::handle_t& handle,
                             knnIndex* index,
                             knnIndexParam* params,
-                            cuvs::distance::DistanceType metric,
+                            ML::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,

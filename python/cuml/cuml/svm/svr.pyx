@@ -34,17 +34,8 @@ from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 
 from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams
 
-
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
-    enum KernelType:
-        LINEAR, POLYNOMIAL, RBF, TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
