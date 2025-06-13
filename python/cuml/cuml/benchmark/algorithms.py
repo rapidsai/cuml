@@ -15,6 +15,7 @@
 #
 import tempfile
 import warnings
+from importlib import import_module
 
 import numpy as np
 import sklearn
@@ -697,7 +698,16 @@ def all_algorithms():
         ),
     ]
     try:
-        import cuml.dask
+        # Importing via import_module avoids rebinding the name `cuml`, which
+        # would otherwise make it a *local* variable and break earlier
+        # references inside this function (see Python's scoping rules) and
+        # causes an error like:
+        #   File "algorithms.py", line 227, in all_algorithms
+        #   cuml.cluster.KMeans,
+        #     ^^^^
+        # UnboundLocalError: cannot access local variable 'cuml' where it is
+        # not associated with a value
+        import_module("cuml.dask")
     except ImportError:
         warnings.warn(
             "Not all dependencies required for `cuml.dask` are installed, the "
