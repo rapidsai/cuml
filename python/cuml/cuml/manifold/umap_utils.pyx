@@ -147,7 +147,8 @@ _METRICS = {
     "hellinger": DistanceType.HellingerExpanded,
     "hamming": DistanceType.HammingUnexpanded,
     "jaccard": DistanceType.JaccardExpanded,
-    "canberra": DistanceType.Canberra
+    "canberra": DistanceType.Canberra,
+    "dice": DistanceType.DiceExpanded,
 }
 
 _SUPPORTED_METRICS = {
@@ -168,6 +169,7 @@ _SUPPORTED_METRICS = {
             DistanceType.L2Expanded,
             DistanceType.Linf,
             DistanceType.LpUnexpanded,
+            DistanceType.DiceExpanded,
         )),
         "dense": frozenset((
             DistanceType.Canberra,
@@ -181,6 +183,7 @@ _SUPPORTED_METRICS = {
             DistanceType.L2Expanded,
             DistanceType.Linf,
             DistanceType.LpUnexpanded,
+            DistanceType.DiceExpanded,
         ))
     }
 }
