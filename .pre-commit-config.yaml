@@ -77,7 +77,7 @@ repos:
             entry: python python/cuml/cuml/accel/tests/xfail_manager.py
             language: python
             files: '.*xfail.*\.yaml$'
-            args: ['format']
+            args: ['format', '--cleanup']
             additional_dependencies: ['pyyaml>=6.0', 'packaging>=21.0']
     - repo: https://github.com/rapidsai/pre-commit-hooks
       rev: v0.6.0
