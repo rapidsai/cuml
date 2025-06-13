@@ -295,7 +295,6 @@ class XfailManager:
 
 def cmd_format(args):
     """Auto-format xfail list(s) according to standards."""
-    from pathlib import Path
 
     # Handle multiple files
     xfail_paths = [Path(p) for p in args.xfail_list]
@@ -311,35 +310,13 @@ def cmd_format(args):
 
     # Track overall results
     total_errors = 0
-    total_changes = 0
 
     for xfail_path in xfail_paths:
-        if args.output and len(xfail_paths) > 1:
-            print(
-                "Error: --output cannot be used with multiple files",
-                file=sys.stderr,
-            )
-            return 1
-
         result = _format_single_file(xfail_path, args)
         if result > 0:
             total_errors += 1
-        elif result == 0 and not args.check:
-            # In format mode, 0 means changes were made or no changes needed
-            pass
-        elif result == 0 and args.check:
-            # In check mode, 0 means no changes needed
-            pass
-        else:
-            # In check mode, 1 means changes needed
-            total_changes += 1
 
-    if args.check:
-        # In check mode, return 1 if any files need changes
-        return 1 if total_changes > 0 else 0
-    else:
-        # In format mode, return 1 if any files had errors
-        return 1 if total_errors > 0 else 0
+    return 1 if total_errors > 0 else 0
 
 
 def _format_single_file(xfail_path, args):
@@ -347,8 +324,6 @@ def _format_single_file(xfail_path, args):
 
     Returns 0 on success, 1 on error/changes needed.
     """
-    import tempfile
-    from pathlib import Path
 
     # Read original content
     original_content = xfail_path.read_text()
@@ -364,69 +339,32 @@ def _format_single_file(xfail_path, args):
 
         # Validate the list
         validation_errors = manager.validate_conditions()
-        if validation_errors and not args.ignore_validation:
-            if not args.quiet:
-                print(f"Validation errors in {xfail_path}:", file=sys.stderr)
-                for error in validation_errors:
-                    print(f"  {error}", file=sys.stderr)
-            if not args.fix_validation:
-                return 1
+        if validation_errors:
+            print(f"Validation errors in {xfail_path}:", file=sys.stderr)
+            for error in validation_errors:
+                print(f"  {error}", file=sys.stderr)
+            return 1
 
-        # Generate formatted content
-        if args.check:
-            # In check mode, save to temporary file to get formatted content
-            # without modifying the original
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yaml", delete=False
-            ) as tmp_file:
-                tmp_path = Path(tmp_file.name)
-                manager.save(tmp_path)
-                formatted_content = tmp_path.read_text()
-                tmp_path.unlink()  # Clean up temp file
-        else:
-            # In format mode, save to the intended output location
-            if args.output:
-                output_path = Path(args.output)
-            else:
-                output_path = xfail_path
-
-            manager.save(output_path)
-            formatted_content = output_path.read_text()
+        # Save changes
+        manager.save(xfail_path)
+        formatted_content = xfail_path.read_text()
 
         # Check if changes were made
         content_changed = original_content != formatted_content
 
-        if args.check:
-            # Check mode: return 1 if formatting would change content
-            if content_changed:
-                print(f"File {xfail_path} needs formatting")
-                return 1
-            else:
-                if not args.quiet:
-                    print(f"File {xfail_path} is already properly formatted")
-                return 0
+        # Report changes
+        changes = []
+        if content_changed:
+            changes.append("formatting applied")
+        if removed_groups > 0:
+            changes.append(f"{removed_groups} empty groups removed")
+
+        if changes:
+            print(f"Formatted {xfail_path}: {', '.join(changes)}")
         else:
-            # Format mode: apply changes and report
-            changes = []
-            if content_changed:
-                changes.append("formatting applied")
-            if removed_groups > 0:
-                changes.append(f"{removed_groups} empty groups removed")
+            print(f"No changes needed for {xfail_path}")
 
-            if changes:
-                if not args.quiet:
-                    output_path = (
-                        Path(args.output) if args.output else xfail_path
-                    )
-                    print(f"Formatted {output_path}: {', '.join(changes)}")
-            else:
-                if not args.quiet:
-                    output_path = (
-                        Path(args.output) if args.output else xfail_path
-                    )
-                    print(f"No changes needed for {output_path}")
-
-            return 0
+        return 0
 
     except Exception as e:
         print(f"Error formatting {xfail_path}: {e}", file=sys.stderr)
@@ -454,24 +392,7 @@ def main():
         help="Xfail list files to format",
     )
     format_parser.add_argument(
-        "--output", help="Output file (default: modify in-place)"
-    )
-    format_parser.add_argument(
         "--cleanup", action="store_true", help="Remove empty groups"
-    )
-    format_parser.add_argument(
-        "--check", action="store_true", help="Check if formatting needed"
-    )
-    format_parser.add_argument(
-        "--ignore-validation",
-        action="store_true",
-        help="Ignore validation errors",
-    )
-    format_parser.add_argument(
-        "--fix-validation", action="store_true", help="Fix validation errors"
-    )
-    format_parser.add_argument(
-        "--quiet", action="store_true", help="Suppress output messages"
     )
     format_parser.set_defaults(func=cmd_format)
 
