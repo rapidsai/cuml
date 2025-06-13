@@ -210,25 +210,25 @@ std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto filex_model = ML::fil::import_from_treelite_handle(model,
-                                                          ML::fil::tree_layout::breadth_first,
-                                                          128,
-                                                          std::is_same_v<DataT, double>,
-                                                          raft_proto::device_type::gpu,
-                                                          handle.get_device(),
-                                                          handle.get_next_usable_stream());
+  auto fil_model = ML::fil::import_from_treelite_handle(model,
+                                                        ML::fil::tree_layout::breadth_first,
+                                                        128,
+                                                        std::is_same_v<DataT, double>,
+                                                        raft_proto::device_type::gpu,
+                                                        handle.get_device(),
+                                                        handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  filex_model.predict(handle,
-                      workspace->data().get(),
-                      X_transpose,
-                      params.n_rows,
-                      raft_proto::device_type::gpu,
-                      raft_proto::device_type::gpu,
-                      ML::fil::infer_kind::default_kind,
-                      1);
+  fil_model.predict(handle,
+                    workspace->data().get(),
+                    X_transpose,
+                    params.n_rows,
+                    raft_proto::device_type::gpu,
+                    raft_proto::device_type::gpu,
+                    ML::fil::infer_kind::default_kind,
+                    1);
   handle.sync_stream();
   handle.sync_stream_pool();
 
@@ -281,25 +281,25 @@ auto FilPredictProba(const raft::handle_t& handle,
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto filex_model = ML::fil::import_from_treelite_handle(model,
-                                                          ML::fil::tree_layout::breadth_first,
-                                                          128,
-                                                          std::is_same_v<DataT, double>,
-                                                          raft_proto::device_type::gpu,
-                                                          handle.get_device(),
-                                                          handle.get_next_usable_stream());
+  auto fil_model = ML::fil::import_from_treelite_handle(model,
+                                                        ML::fil::tree_layout::breadth_first,
+                                                        128,
+                                                        std::is_same_v<DataT, double>,
+                                                        raft_proto::device_type::gpu,
+                                                        handle.get_device(),
+                                                        handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  filex_model.predict(handle,
-                      pred->data().get(),
-                      X_transpose,
-                      params.n_rows,
-                      raft_proto::device_type::gpu,
-                      raft_proto::device_type::gpu,
-                      ML::fil::infer_kind::default_kind,
-                      1);
+  fil_model.predict(handle,
+                    pred->data().get(),
+                    X_transpose,
+                    params.n_rows,
+                    raft_proto::device_type::gpu,
+                    raft_proto::device_type::gpu,
+                    ML::fil::infer_kind::default_kind,
+                    1);
   handle.sync_stream();
   handle.sync_stream_pool();
 
@@ -657,25 +657,25 @@ TEST(RfTests, IntegerOverflow)
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
-  auto filex_model = ML::fil::import_from_treelite_handle(model,
-                                                          ML::fil::tree_layout::breadth_first,
-                                                          128,
-                                                          false,
-                                                          raft_proto::device_type::gpu,
-                                                          handle.get_device(),
-                                                          handle.get_next_usable_stream());
+  auto fil_model = ML::fil::import_from_treelite_handle(model,
+                                                        ML::fil::tree_layout::breadth_first,
+                                                        128,
+                                                        false,
+                                                        raft_proto::device_type::gpu,
+                                                        handle.get_device(),
+                                                        handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  filex_model.predict(handle,
-                      pred.data().get(),
-                      X.data().get(),
-                      m,
-                      raft_proto::device_type::gpu,
-                      raft_proto::device_type::gpu,
-                      ML::fil::infer_kind::default_kind,
-                      1);
+  fil_model.predict(handle,
+                    pred.data().get(),
+                    X.data().get(),
+                    m,
+                    raft_proto::device_type::gpu,
+                    raft_proto::device_type::gpu,
+                    ML::fil::infer_kind::default_kind,
+                    1);
   handle.sync_stream();
   handle.sync_stream_pool();
 }

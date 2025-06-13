@@ -21,7 +21,7 @@
 namespace ML {
 namespace forest {
 
-/** Exception indicating model is incompatible with experimental FIL */
+/** Exception indicating model is incompatible with FIL */
 struct parentless_node_exception : std::exception {
   parentless_node_exception() : msg_{"Node does not track its parent"} {}
   parentless_node_exception(std::string msg) : msg_{msg} {}
