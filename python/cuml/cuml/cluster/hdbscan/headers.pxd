@@ -67,6 +67,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
         int max_cluster_size,
 
         float cluster_selection_epsilon,
+        float alpha,
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method,

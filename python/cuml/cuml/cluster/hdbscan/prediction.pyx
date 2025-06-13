@@ -25,13 +25,8 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from cuml.cluster.hdbscan.headers cimport (
-    CondensedHierarchy,
-    PredictionData,
-    compute_all_points_membership_vectors,
-    compute_membership_vector,
-    out_of_sample_predict,
-)
+cimport cuml.cluster.hdbscan.headers as lib
+from cuml.cluster.hdbscan.headers cimport CondensedHierarchy, PredictionData
 from cuml.metrics.distance_type cimport DistanceType
 
 _metrics_mapping = {
@@ -104,13 +99,15 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     cdef CondensedHierarchy[int, float] *condensed_tree = \
         <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
-    compute_all_points_membership_vectors(handle_[0],
-                                          deref(condensed_tree),
-                                          deref(prediction_data_),
-                                          <float*> _input_ptr,
-                                          _metrics_mapping[clusterer.metric],
-                                          <float*> _membership_vec_ptr,
-                                          batch_size)
+    lib.compute_all_points_membership_vectors(
+        handle_[0],
+        deref(condensed_tree),
+        deref(prediction_data_),
+        <float*> _input_ptr,
+        _metrics_mapping[clusterer.metric],
+        <float*> _membership_vec_ptr,
+        batch_size
+    )
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -197,16 +194,18 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    compute_membership_vector(handle_[0],
-                              deref(condensed_tree),
-                              deref(prediction_data_),
-                              <float*> _input_ptr,
-                              <float*> _prediction_ptr,
-                              n_prediction_points,
-                              clusterer.min_samples,
-                              _metrics_mapping[clusterer.metric],
-                              <float*> _membership_vec_ptr,
-                              batch_size)
+    lib.compute_membership_vector(
+        handle_[0],
+        deref(condensed_tree),
+        deref(prediction_data_),
+        <float*> _input_ptr,
+        <float*> _prediction_ptr,
+        n_prediction_points,
+        clusterer.min_samples,
+        _metrics_mapping[clusterer.metric],
+        <float*> _membership_vec_ptr,
+        batch_size
+    )
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -306,17 +305,19 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    out_of_sample_predict(handle_[0],
-                          deref(condensed_tree),
-                          deref(prediction_data_),
-                          <float*> _input_ptr,
-                          <int*> _labels_ptr,
-                          <float*> _prediction_ptr,
-                          n_prediction_points,
-                          _metrics_mapping[clusterer.metric],
-                          clusterer.min_samples,
-                          <int*> _prediction_labels_ptr,
-                          <float*> _prediction_probs_ptr)
+    lib.out_of_sample_predict(
+        handle_[0],
+        deref(condensed_tree),
+        deref(prediction_data_),
+        <float*> _input_ptr,
+        <int*> _labels_ptr,
+        <float*> _prediction_ptr,
+        n_prediction_points,
+        _metrics_mapping[clusterer.metric],
+        clusterer.min_samples,
+        <int*> _prediction_labels_ptr,
+        <float*> _prediction_probs_ptr
+    )
 
     clusterer.handle.sync()
     return prediction_labels.to_output(output_type="numpy"), \
