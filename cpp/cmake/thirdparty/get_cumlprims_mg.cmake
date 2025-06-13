@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ function(find_and_configure_cumlprims_mg)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-          GIT_REPOSITORY https://github.com/${PKG_FORK}/cumlprims_mg.git
+          GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
           SOURCE_SUBDIR    cpp
@@ -63,8 +63,8 @@ endfunction()
 # `-D CPM_cumlprims_mg_SOURCE=/path/to/cumlprims_mg`
 ###
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
-                                FORK       aamijar
-                                PINNED_TAG raft-compile-time-invocation
+                                FORK       rapidsai
+                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
                                 BUILD_STATIC     ${CUML_USE_CUMLPRIMS_MG_STATIC}
                                 EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL}
                                 # When PINNED_TAG above doesn't match cuml,
