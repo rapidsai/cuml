@@ -54,6 +54,8 @@ def create_version_condition(condition_str: str) -> bool:
                       - 'numpy<2.0.0'
                       - 'pandas==2.1.0'
 
+                      Use 'and' to combine multiple version conditions.
+
     Returns:
         bool: True if the condition is met, False otherwise
     """
@@ -61,9 +63,12 @@ def create_version_condition(condition_str: str) -> bool:
         return True
 
     try:
-        req = Requirement(condition_str)
-        installed_version = version(req.name)
-        return req.specifier.contains(installed_version, prereleases=True)
+        for condition in condition_str.split(" and "):
+            req = Requirement(condition)
+            installed_version = version(req.name)
+            if not req.specifier.contains(installed_version, prereleases=True):
+                return False
+        return True
     except Exception:
         return False
 
