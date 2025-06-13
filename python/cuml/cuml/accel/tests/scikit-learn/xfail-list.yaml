@@ -145,11 +145,6 @@
 - reason: Test should fail with sciki-learn 1.4
   condition: scikit-learn < 1.5
   tests:
-  # RandomForestRegressor fails `check_is_fitted` despite `rf.fit()` being called
-  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-1.0-2]"
-  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-0.5-2]"
-  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-1.0-1]"
-  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression[ones-0.5-1]"
   # Missing deprecation warning
   - "sklearn.cluster.tests.test_k_means::test_predict_sample_weight_deprecation_warning[KMeans]"
   # Invalid parameter value for n_components
