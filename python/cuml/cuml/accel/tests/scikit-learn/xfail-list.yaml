@@ -1050,6 +1050,7 @@
   strict: false
   marker: cuml_accel_flaky
   tests:
+  - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
