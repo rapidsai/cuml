@@ -67,136 +67,40 @@ _metrics_mapping = {
 }
 
 
-def _cuml_array_from_ptr(ptr, buf_size, shape, dtype, owner):
-    mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size,
-                                owner=owner,
-                                device_id=-1)
-    mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
-    return CumlArray(data=cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr))
-
-
-def _construct_condensed_tree_attribute(ptr,
-                                        n_condensed_tree_edges,
-                                        dtype="int32",
-                                        owner=None):
-
-    return _cuml_array_from_ptr(
-        ptr, n_condensed_tree_edges * sizeof(float),
-        (n_condensed_tree_edges,), dtype, owner
-    )
-
-
-def _build_condensed_tree_plot_host(
-        parent, child, lambdas, sizes,
-        cluster_selection_method, allow_single_cluster):
-    raw_tree = np.recarray(shape=(parent.shape[0],),
-                           formats=[np.intp, np.intp, float, np.intp],
-                           names=('parent', 'child', 'lambda_val',
-                                  'child_size'))
-    raw_tree['parent'] = parent
-    raw_tree['child'] = child
-    raw_tree['lambda_val'] = lambdas
-    raw_tree['child_size'] = sizes
-
-    hdbscan = import_hdbscan()
-    return hdbscan.plots.CondensedTree(
-        raw_tree, cluster_selection_method, allow_single_cluster
-    )
-
-
-def condense_hierarchy(dendrogram,
-                       min_cluster_size,
-                       allow_single_cluster=False,
-                       cluster_selection_epsilon=0.0):
+def _condense_hierarchy(dendrogram, min_cluster_size):
     """
     Accepts a dendrogram in the Scipy hierarchy format, condenses the
     dendrogram to collapse subtrees containing less than min_cluster_size
-    leaves, and returns an hdbscan.plots.CondensedTree object with
-    the result on host.
+    leaves, and returns a ``condensed_tree``.
+
+    Exposed for testing only.
 
     Parameters
     ----------
+    dendrogram : array-like (n_samples, 4)
+        Dendrogram in Scipy hierarchy format.
 
-    dendrogram : array-like (size n_samples, 4)
-        Dendrogram in Scipy hierarchy format
-
-    min_cluster_size : int minimum number of children for a cluster
-        to persist
-
-    allow_single_cluster : bool whether or not to allow a single
-        cluster in the face of mostly noise.
-
-    cluster_selection_epsilon : float minimum distance threshold used to
-        determine when clusters should be merged.
+    min_cluster_size : int
+        Minimum number of children for a cluster to persist.
 
     Returns
     -------
-
-    condensed_tree : hdbscan.plots.CondensedTree object
+    condensed_tree : np.ndarray
     """
+    state = _HDBSCANState.from_dendrogram(dendrogram, min_cluster_size)
+    return state.get_condensed_tree()
 
-    _children, _, _, _ = \
-        input_to_cuml_array(dendrogram[:, 0:2].astype('int32'), order='C',
-                            check_dtype=[np.int32],
-                            convert_to_dtype=(np.int32))
 
-    _lambdas, _, _, _ = \
-        input_to_cuml_array(dendrogram[:, 2], order='C',
-                            check_dtype=[np.float32],
-                            convert_to_dtype=(np.float32))
-
-    _sizes, _, _, _ = \
-        input_to_cuml_array(dendrogram[:, 3], order='C',
-                            check_dtype=[np.int32],
-                            convert_to_dtype=(np.int32))
-
-    handle = Handle()
-    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-    n_leaves = dendrogram.shape[0]+1
-    cdef CondensedHierarchy[int, float] *condensed_tree =\
-        new CondensedHierarchy[int, float](
-            handle_[0], <size_t>n_leaves)
-
-    cdef uintptr_t _children_ptr = _children.ptr
-    cdef uintptr_t _lambdas_ptr = _lambdas.ptr
-    cdef uintptr_t _sizes_ptr = _sizes.ptr
-
-    lib.build_condensed_hierarchy(
-        handle_[0],
-        <int*> _children_ptr,
-        <float*> _lambdas_ptr,
-        <int*> _sizes_ptr,
-        <int>min_cluster_size,
-        n_leaves,
-        deref(condensed_tree)
+def _cupy_array_from_ptr(ptr, shape, dtype, owner):
+    dtype = np.dtype(dtype)
+    mem = cp.cuda.UnownedMemory(
+        ptr=ptr,
+        size=np.prod(shape) * dtype.itemsize,
+        owner=owner,
+        device_id=-1,
     )
-
-    n_condensed_tree_edges = condensed_tree.get_n_edges()
-
-    condensed_parent_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_parents(), n_condensed_tree_edges)
-
-    condensed_child_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_children(), n_condensed_tree_edges)
-
-    condensed_lambdas_ = \
-        _construct_condensed_tree_attribute(
-            <size_t>condensed_tree.get_lambdas(), n_condensed_tree_edges,
-            "float32")
-
-    condensed_sizes_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_sizes(), n_condensed_tree_edges)
-
-    condensed_tree_host = _build_condensed_tree_plot_host(
-        condensed_parent_.to_output('numpy'),
-        condensed_child_.to_output("numpy"),
-        condensed_lambdas_.to_output("numpy"),
-        condensed_sizes_.to_output("numpy"), cluster_selection_epsilon,
-        allow_single_cluster)
-
-    del condensed_tree
-
-    return condensed_tree_host
+    mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
+    return cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr)
 
 
 cdef class _HDBSCANState:
@@ -218,10 +122,62 @@ cdef class _HDBSCANState:
             del self.hdbscan_output
             self.hdbscan_output = NULL
 
-    cdef lib.CondensedHierarchy[int, float]* get_condensed_tree(self):
+    cdef lib.CondensedHierarchy[int, float]* get_condensed_tree_ptr(self):
         if self.hdbscan_output != NULL:
             return &(self.hdbscan_output.get_condensed_tree())
         return self.condensed_tree
+
+    @staticmethod
+    def from_dendrogram(dendrogram, min_cluster_size):
+        """Initialize internal state from a ScipPy dendrogram.
+
+        Parameters
+        ----------
+        dendrogram : array-like (size n_samples, 4)
+            Dendrogram in Scipy hierarchy format
+
+        min_cluster_size : int
+            Minimum number of children for a cluster to persist
+        """
+        cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
+
+        children = input_to_cuml_array(
+            dendrogram[:, 0:2],
+            order='C',
+            check_dtype=[np.int32],
+            convert_to_dtype=np.int32,
+        )[0]
+
+        lambdas = input_to_cuml_array(
+            dendrogram[:, 2],
+            order='C',
+            check_dtype=[np.float32],
+            convert_to_dtype=np.float32,
+        )[0]
+
+        sizes = input_to_cuml_array(
+            dendrogram[:, 3],
+            order='C',
+            check_dtype=[np.int32],
+            convert_to_dtype=np.int32,
+        )[0]
+
+        cdef size_t n_leaves = dendrogram.shape[0] + 1
+
+        handle = Handle()
+        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+
+        self.condensed_tree = new lib.CondensedHierarchy[int, float](handle_[0], n_leaves)
+        lib.build_condensed_hierarchy(
+            handle_[0],
+            <int*><uintptr_t>(children.ptr),
+            <float*><uintptr_t>(lambdas.ptr),
+            <int*><uintptr_t>(sizes.ptr),
+            <int>min_cluster_size,
+            n_leaves,
+            deref(self.condensed_tree)
+        )
+        return self
 
     @staticmethod
     cdef init_and_fit(
@@ -281,25 +237,25 @@ cdef class _HDBSCANState:
         # Extract and store local state
         self.n_clusters = self.hdbscan_output.get_n_clusters()
         if self.n_clusters > 0:
-            self.inverse_label_map = _cuml_array_from_ptr(
+            self.inverse_label_map = _cupy_array_from_ptr(
                 <size_t>self.hdbscan_output.get_inverse_label_map(),
-                self.n_clusters * sizeof(int),
                 (self.n_clusters,),
-                "int32",
+                np.int32,
                 self
-            )
+            ).copy()
         else:
-            self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
+            self.inverse_label_map = cp.empty((0,), dtype=np.int32)
         self.core_dists = core_dists
 
         # Extract and prepare results
         if self.n_clusters > 0:
-            cluster_persistence = _cuml_array_from_ptr(
-                <size_t>self.hdbscan_output.get_stabilities(),
-                self.n_clusters * sizeof(float),
-                (1, self.n_clusters),
-                "float32",
-                self,
+            cluster_persistence = CumlArray(
+                data=_cupy_array_from_ptr(
+                    <size_t>self.hdbscan_output.get_stabilities(),
+                    (1, self.n_clusters),
+                    np.float32,
+                    self,
+                )
             )
         else:
             cluster_persistence = CumlArray.empty((0,), dtype="float32")
@@ -316,11 +272,11 @@ cdef class _HDBSCANState:
             min_span_tree = None
 
         single_linkage_tree = np.concatenate(
-            [
+            (
                 children.to_output("numpy", output_dtype=np.float64),
                 lambdas.to_output("numpy", output_dtype=np.float64)[None, :],
                 sizes.to_output("numpy", output_dtype=np.float64)[None, :],
-            ],
+            ),
         )[:, :n_rows - 1].T
 
         return (
@@ -348,55 +304,63 @@ cdef class _HDBSCANState:
             <float*><uintptr_t>(self.core_dists.ptr),
         )
 
-        cdef lib.CondensedHierarchy[int, float] *condensed_tree = self.get_condensed_tree()
+        cdef lib.CondensedHierarchy[int, float] *condensed_tree = self.get_condensed_tree_ptr()
 
         lib.generate_prediction_data(
             handle_[0],
             deref(condensed_tree),
             <int*><uintptr_t>(labels.ptr),
-            <int*><uintptr_t>(self.inverse_label_map.ptr),
+            <int*><uintptr_t>(self.inverse_label_map.data.ptr),
             <int> self.n_clusters,
             deref(self.prediction_data),
         )
         handle.sync()
 
-    def get_condensed_tree_components(self):
-        cdef lib.CondensedHierarchy[int, float]* condensed_tree = self.get_condensed_tree()
+    def get_condensed_tree(self):
+        cdef lib.CondensedHierarchy[int, float]* condensed_tree = self.get_condensed_tree_ptr()
 
         n_condensed_tree_edges = condensed_tree.get_n_edges()
 
-        parents = _cuml_array_from_ptr(
+        tree = np.recarray(
+            shape=(n_condensed_tree_edges,),
+            formats=[np.int32, np.int32, np.float32, np.int32],
+            names=('parent', 'child', 'lambda_val', 'child_size'),
+        )
+
+        parents = _cupy_array_from_ptr(
             <size_t>condensed_tree.get_parents(),
-            n_condensed_tree_edges * sizeof(int),
             (n_condensed_tree_edges,),
-            "int32",
+            np.int32,
             self,
         )
 
-        children = _cuml_array_from_ptr(
+        children = _cupy_array_from_ptr(
             <size_t>condensed_tree.get_children(),
-            n_condensed_tree_edges * sizeof(int),
             (n_condensed_tree_edges,),
-            "int32",
+            np.int32,
             self,
         )
 
-        lambdas = _cuml_array_from_ptr(
+        lambdas = _cupy_array_from_ptr(
             <size_t>condensed_tree.get_lambdas(),
-            n_condensed_tree_edges * sizeof(float),
             (n_condensed_tree_edges,),
-            "float32",
+            np.float32,
             self,
         )
 
-        sizes = _cuml_array_from_ptr(
+        sizes = _cupy_array_from_ptr(
             <size_t>condensed_tree.get_sizes(),
-            n_condensed_tree_edges * sizeof(int),
             (n_condensed_tree_edges,),
-            "int32",
+            np.int32,
             self,
         )
-        return parents, children, lambdas, sizes
+
+        tree['parent'] = parents.get()
+        tree['child'] = children.get()
+        tree['lambda_val'] = lambdas.get()
+        tree['child_size'] = sizes.get()
+
+        return tree
 
 
 class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
@@ -608,13 +572,14 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         return self.X_m.to_output("numpy")
 
     @cached_property
+    def _condensed_tree(self):
+        return self._state.get_condensed_tree()
+
+    @property
     def condensed_tree_(self):
-        parents, children, lambdas, sizes = self._state.get_condensed_tree_components()
-        return _build_condensed_tree_plot_host(
-            parents.to_output("numpy"),
-            children.to_output("numpy"),
-            lambdas.to_output("numpy"),
-            sizes.to_output("numpy"),
+        hdbscan = import_hdbscan()
+        return hdbscan.plots.CondensedTree(
+            self._condensed_tree,
             self.cluster_selection_method,
             self.allow_single_cluster
         )

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.cluster.hdbscan.hdbscan import HDBSCAN, condense_hierarchy
+from cuml.cluster.hdbscan.hdbscan import HDBSCAN
 from cuml.cluster.hdbscan.prediction import (
     all_points_membership_vectors,
     approximate_predict,

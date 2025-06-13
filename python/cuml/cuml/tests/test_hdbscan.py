@@ -22,7 +22,8 @@ from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
-from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
+from cuml.cluster.hdbscan import HDBSCAN
+from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy
 from cuml.cluster.hdbscan.prediction import (
     all_points_membership_vectors,
     approximate_predict,
@@ -82,18 +83,18 @@ def assert_condensed_trees(sk_agg, min_cluster_size):
 
     slt = sk_agg.single_linkage_tree_._linkage
 
-    condensed_tree = condense_hierarchy(slt, min_cluster_size)
+    condensed_tree = _condense_hierarchy(slt, min_cluster_size)
 
-    cu_parents = condensed_tree._raw_tree["parent"]
+    cu_parents = condensed_tree["parent"]
     sk_parents = sk_agg.condensed_tree_._raw_tree["parent"]
 
-    cu_children = condensed_tree._raw_tree["child"]
+    cu_children = condensed_tree["child"]
     sk_children = sk_agg.condensed_tree_._raw_tree["child"]
 
-    cu_lambda = condensed_tree._raw_tree["lambda_val"]
+    cu_lambda = condensed_tree["lambda_val"]
     sk_lambda = sk_agg.condensed_tree_._raw_tree["lambda_val"]
 
-    cu_child_size = condensed_tree._raw_tree["child_size"]
+    cu_child_size = condensed_tree["child_size"]
     sk_child_size = sk_agg.condensed_tree_._raw_tree["child_size"]
 
     # Start at the root, perform bfs
