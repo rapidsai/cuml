@@ -438,7 +438,6 @@
   - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_matrix-RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-auto]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-predict]"
@@ -1051,6 +1050,7 @@
   strict: false
   marker: cuml_accel_flaky
   tests:
+  - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data[csr_array]"
