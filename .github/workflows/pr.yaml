@@ -1,14 +1,11 @@
 name: pr
-
 on:
   push:
     branches:
       - "pull-request/[0-9]+"
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   # Please keep pr-builder as the top job here
   pr-builder:
@@ -41,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
-        OTEL_SERVICE_NAME: "pr-cuml"
+      OTEL_SERVICE_NAME: "pr-cuml"
     steps:
       - name: Telemetry setup
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
@@ -250,7 +247,6 @@ jobs:
         sccache -z;
         build-all --verbose -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON;
         sccache -s;
-
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
     runs-on: linux-amd64-cpu4
@@ -260,3 +256,5 @@ jobs:
     steps:
       - name: Telemetry summarize
         uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
+    env:
+      GH_TOKEN: ${{ github.token }}
