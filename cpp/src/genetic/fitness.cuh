@@ -107,11 +107,11 @@ void weightedPearson(const raft::handle_t& h,
   raft::stats::mean<false>(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, stream);
 
   // Find y_diff
-  raft::stats::meanCenter(
-    y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples, false, true, stream);
+  raft::stats::meanCenter<false, true>(
+    y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples, stream);
 
   // Find x_diff
-  raft::stats::meanCenter(x_diff.data(), X, x_mu.data(), n_progs, n_samples, false, true, stream);
+  raft::stats::meanCenter<false, true>(x_diff.data(), X, x_mu.data(), n_progs, n_samples, stream);
 
   // Find y_std
   raft::linalg::stridedReduction(

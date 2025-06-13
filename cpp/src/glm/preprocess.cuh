@@ -97,7 +97,7 @@ void preProcessData(const raft::handle_t& handle,
       } else {
         raft::stats::mean<false>(mu_input, input, n_cols, n_rows, false, stream);
       }
-      raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
+      raft::stats::meanCenter<false, true>(input, input, mu_input, n_cols, n_rows, stream);
       if (normalize) {
         raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
           norm2_input, input, n_cols, n_rows, stream, [] __device__(math_t v) {
@@ -114,7 +114,7 @@ void preProcessData(const raft::handle_t& handle,
     } else {
       raft::stats::mean<false>(mu_labels, labels, (size_t)1, n_rows, false, stream);
     }
-    raft::stats::meanCenter(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
+    raft::stats::meanCenter<false, true>(labels, labels, mu_labels, (size_t)1, n_rows, stream);
   }
 }
 
@@ -171,9 +171,9 @@ void postProcessData(const raft::handle_t& handle,
       mu_input,
       norm2_input);
   } else {
-    raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
+    raft::stats::meanAdd<false, true>(input, input, mu_input, n_cols, n_rows, stream);
   }
-  raft::stats::meanAdd(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
+  raft::stats::meanAdd<false, true>(labels, labels, mu_labels, (size_t)1, n_rows, stream);
 }
 
 };  // namespace GLM
