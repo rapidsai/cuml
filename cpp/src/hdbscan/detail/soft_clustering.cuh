@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,14 +190,12 @@ void all_points_outlier_membership_vector(
                              return deaths[parents[index_into_children[idx]] - n_leaves];
                            });
 
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     outlier_membership_vec,
     merge_heights,
     leaf_max_lambdas.data_handle(),
     n_selected_clusters,
     (value_idx)m,
-    true,
-    false,
     [] __device__(value_t mat_in, value_t vec_in) {
       return exp(-(vec_in + 1e-8) / mat_in);
     },  //+ 1e-8 to avoid zero lambda
@@ -303,14 +301,12 @@ void outlier_membership_vector(const raft::handle_t& handle,
       return deaths[parents[index_into_children[min_mr_inds[idx]]] - n_leaves];
     });
 
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     outlier_membership_vec,
     merge_heights,
     nearest_cluster_max_lambda.data_handle(),
     n_selected_clusters,
     (value_idx)n_prediction_points,
-    true,
-    false,
     [] __device__(value_t mat_in, value_t vec_in) {
       value_t denominator = vec_in - mat_in;
       if (denominator <= 0) { denominator = 1e-8; }
@@ -472,14 +468,12 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     Utils::normalize(membership_vec, n_selected_clusters, m, stream);
 
     // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
-    raft::linalg::matrixVectorOp(
+    raft::linalg::matrixVectorOp<true, false>(
       membership_vec,
       membership_vec,
       prob_in_some_cluster.data(),
       n_selected_clusters,
       (value_idx)m,
-      true,
-      false,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
   }
@@ -619,14 +613,12 @@ void membership_vector(const raft::handle_t& handle,
 
   // Multiply conditional probabilities with probability of point belonging to some cluster. This
   // gives the joint distribution.
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     membership_vec,
     membership_vec,
     prob_in_some_cluster_.data(),
     n_selected_clusters,
     (value_idx)n_prediction_points,
-    true,
-    false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
     stream);
 }

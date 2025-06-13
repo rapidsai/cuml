@@ -43,15 +43,13 @@ void hingeLossGradMult(math_t* data,
                        idx_type n_col,
                        cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     data,
     data,
     vec1,
     vec2,
     n_col,
     n_row,
-    false,
-    false,
     [] __device__(math_t a, math_t b, math_t c) {
       if (c < math_t(1))
         return -a * b;

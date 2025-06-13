@@ -56,8 +56,8 @@ inline void linearFwd(const raft::handle_t& handle,
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
     // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
-    raft::linalg::matrixVectorOp(
-      Z.data, Z.data, bias.data, Z.n, Z.m, false, false, set_bias, stream);
+    raft::linalg::matrixVectorOp<false, false>(
+      Z.data, Z.data, bias.data, Z.n, Z.m, set_bias, stream);
 
     Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
   } else {
