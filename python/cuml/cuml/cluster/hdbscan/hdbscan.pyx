@@ -335,7 +335,7 @@ cdef class _HDBSCANState:
 
         tree = np.recarray(
             shape=(n_condensed_tree_edges,),
-            formats=[np.int32, np.int32, np.float32, np.int32],
+            formats=[np.intp, np.intp, np.float64, np.intp],
             names=('parent', 'child', 'lambda_val', 'child_size'),
         )
 
@@ -589,6 +589,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def _condensed_tree(self):
         return self._state.get_condensed_tree_array()
 
+    @_condensed_tree.setter
+    def _condensed_tree(self, value):
+        self.__dict__["_condensed_tree"] = value
+
     @property
     def condensed_tree_(self):
         hdbscan = import_hdbscan()
@@ -734,7 +738,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.cluster_persistence_ = cluster_persistence
         self._min_spanning_tree = min_spanning_tree
         self._single_linkage_tree = single_linkage_tree
-        self._all_finite = True
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
 
@@ -769,20 +772,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         if self.prediction_data:
             self.generate_prediction_data()
 
-    def gpu_to_cpu(self):
-        super().gpu_to_cpu()
-
-        # set non array hdbscan variables
-        self._cpu_model.condensed_tree_ = \
-            self.condensed_tree_._raw_tree
-        self._cpu_model.single_linkage_tree_ = \
-            self.single_linkage_tree_._linkage
-        if hasattr(self, "_raw_data"):
-            self._cpu_model._raw_data = self._raw_data
-        if self.gen_min_span_tree:
-            self._cpu_model.minimum_spanning_tree_ = \
-                self.minimum_spanning_tree_._mst
-
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
@@ -801,20 +790,34 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         ]
 
     def get_attr_names(self):
-        attr_names = ['labels_', 'probabilities_', 'cluster_persistence_',
-                      'condensed_tree_', 'single_linkage_tree_',
-                      'outlier_scores_', '_all_finite']
-        if self.gen_min_span_tree:
-            attr_names = attr_names + ['minimum_spanning_tree_']
-        if self.prediction_data:
-            attr_names = attr_names + ['prediction_data_']
+        return ["labels_", "probabilities_", "cluster_persistence_"]
 
-        return attr_names
+    def gpu_to_cpu(self):
+        super().gpu_to_cpu()
+        if getattr(self, "labels_", None) is None:
+            return
+        self._cpu_model._condensed_tree = self._condensed_tree
+        self._cpu_model._single_linkage_tree = self._single_linkage_tree
+        self._cpu_model._min_spanning_tree = self._min_spanning_tree
+        if self.prediction_data:
+            self._cpu_model.prediction_data_ = self.prediction_data_
+        self._cpu_model._raw_data = self._raw_data
+
+    def cpu_to_gpu(self):
+        super().cpu_to_gpu()
+        if getattr(self._cpu_model, "labels_", None) is None:
+            return
+        self._condensed_tree = self._cpu_model._condensed_tree
+        self._single_linkage_tree = self._cpu_model._single_linkage_tree
+        self._min_spanning_tree = self._cpu_model._min_spanning_tree
+        if hasattr(self._cpu_model, "_prediction_data"):
+            self._prediction_data = self._cpu_model._prediction_data
 
 
 ###########################################################
 #                  Prediction Functions                   #
 ###########################################################
+
 
 def _check_clusterer(clusterer):
     """Validate an HDBSCAN instance is fit and has prediction data"""
