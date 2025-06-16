@@ -41,6 +41,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
         value_t *get_lambdas()
         value_idx *get_sizes()
         value_idx get_n_edges()
+        value_idx get_n_leaves()
+        int get_n_clusters()
 
     cdef cppclass hdbscan_output[int, float]:
         hdbscan_output(const handle_t &handle,

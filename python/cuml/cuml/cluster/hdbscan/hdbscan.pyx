@@ -107,9 +107,9 @@ cdef class _HDBSCANState:
     cdef lib.hdbscan_output *hdbscan_output
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
     cdef lib.PredictionData[int, float] *prediction_data
-    cdef int n_clusters
     cdef object core_dists
     cdef object inverse_label_map
+    cdef object cached_condensed_tree
 
     def __dealloc__(self):
         if self.prediction_data != NULL:
@@ -121,6 +121,45 @@ cdef class _HDBSCANState:
         if self.hdbscan_output != NULL:
             del self.hdbscan_output
             self.hdbscan_output = NULL
+
+    def to_dict(self):
+        cdef int n_leaves = self.get_condensed_tree_ptr().get_n_leaves()
+        return {
+            "n_leaves": n_leaves,
+            "core_dists": self.core_dists,
+            "inverse_label_map": self.inverse_label_map,
+            "condensed_tree": self.get_condensed_tree(),
+        }
+
+    @staticmethod
+    def from_dict(handle, mapping):
+        cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
+
+        self.core_dists = mapping["core_dists"]
+        self.inverse_label_map = mapping["inverse_label_map"]
+        tree = mapping["condensed_tree"]
+        self.cached_condensed_tree = tree
+
+        parents = input_to_cuml_array(tree["parent"], order="C", convert_to_dtype=np.int32)[0]
+        children = input_to_cuml_array(tree["child"], order="C", convert_to_dtype=np.int32)[0]
+        lambdas = input_to_cuml_array(tree["lambda_val"], order="C", convert_to_dtype=np.float32)[0]
+        sizes = input_to_cuml_array(tree["child_size"], order="C", convert_to_dtype=np.int32)[0]
+
+        cdef size_t n_leaves = mapping["n_leaves"]
+        cdef int n_edges = len(tree)
+
+        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+        self.condensed_tree = new lib.CondensedHierarchy[int, float](
+            handle_[0],
+            n_leaves,
+            n_edges,
+            <int*><uintptr_t>(parents.ptr),
+            <int*><uintptr_t>(children.ptr),
+            <float*><uintptr_t>(lambdas.ptr),
+            <int*><uintptr_t>(sizes.ptr),
+        )
+
+        return self
 
     cdef lib.CondensedHierarchy[int, float]* get_condensed_tree_ptr(self):
         if self.hdbscan_output != NULL:
@@ -235,30 +274,32 @@ cdef class _HDBSCANState:
         handle.sync()
 
         # Extract and store local state
-        self.n_clusters = self.hdbscan_output.get_n_clusters()
-        if self.n_clusters > 0:
-            self.inverse_label_map = _cupy_array_from_ptr(
-                <size_t>self.hdbscan_output.get_inverse_label_map(),
-                (self.n_clusters,),
-                np.int32,
-                self
-            ).copy()
+        cdef int n_clusters = self.hdbscan_output.get_n_clusters()
+        if n_clusters > 0:
+            self.inverse_label_map = CumlArray(
+                data=_cupy_array_from_ptr(
+                    <size_t>self.hdbscan_output.get_inverse_label_map(),
+                    (n_clusters,),
+                    np.int32,
+                    self
+                )
+            )
         else:
-            self.inverse_label_map = cp.empty((0,), dtype=np.int32)
+            self.inverse_label_map = CumlArray.empty((0,), dtype=np.int32)
         self.core_dists = core_dists
 
         # Extract and prepare results
-        if self.n_clusters > 0:
+        if n_clusters > 0:
             cluster_persistence = CumlArray(
                 data=_cupy_array_from_ptr(
                     <size_t>self.hdbscan_output.get_stabilities(),
-                    (1, self.n_clusters),
+                    (1, n_clusters),
                     np.float32,
                     self,
                 )
             )
         else:
-            cluster_persistence = CumlArray.empty((0,), dtype="float32")
+            cluster_persistence = CumlArray.empty((0,), dtype=np.float32)
 
         if gen_min_span_tree:
             min_span_tree = np.column_stack(
@@ -281,7 +322,7 @@ cdef class _HDBSCANState:
 
         return (
             self,
-            self.n_clusters,
+            n_clusters,
             labels,
             probabilities,
             cluster_persistence,
@@ -295,6 +336,7 @@ cdef class _HDBSCANState:
 
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[0]
+        cdef int n_clusters = self.get_condensed_tree_ptr().get_n_clusters()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self.prediction_data = new lib.PredictionData[int, float](
@@ -310,8 +352,8 @@ cdef class _HDBSCANState:
             handle_[0],
             deref(condensed_tree),
             <int*><uintptr_t>(labels.ptr),
-            <int*><uintptr_t>(self.inverse_label_map.data.ptr),
-            <int> self.n_clusters,
+            <int*><uintptr_t>(self.inverse_label_map.ptr),
+            <int> n_clusters,
             deref(self.prediction_data),
         )
         handle.sync()
@@ -739,12 +781,18 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         return self.fit(X).labels_
 
     def __getstate__(self):
-        # TODO
-        pass
+        out = self.__dict__.copy()
+        if (state := out.pop("_state", None)) is not None:
+            out["_state_dict"] = state.to_dict()
+        return out
 
     def __setstate__(self, state):
-        # TODO
-        pass
+        state_dict = state.pop("_state_dict", None)
+        super().__setstate__(state)
+        if state_dict is not None:
+            self._state = _HDBSCANState.from_dict(self.handle, state_dict)
+        if self.prediction_data:
+            self.generate_prediction_data()
 
     def gpu_to_cpu(self):
         super().gpu_to_cpu()
