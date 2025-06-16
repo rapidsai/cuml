@@ -59,17 +59,30 @@ _metrics_mapping = {
 
 
 def _cupy_array_from_ptr(ptr, shape, dtype, owner):
+    """Create a cupy array from a pointer and metadata."""
     dtype = np.dtype(dtype)
     mem = cp.cuda.UnownedMemory(
-        ptr=ptr,
-        size=np.prod(shape) * dtype.itemsize,
-        owner=owner,
+        ptr=ptr, size=np.prod(shape) * dtype.itemsize, owner=owner,
     )
     mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
     return cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr)
 
 
 cdef class _HDBSCANState:
+    """Holds internal state of a fit HDBSCAN model.
+
+    This class exists to decouple the c++ classes backing the results of an
+    HDBSCAN fit from an `HDBSCAN` estimator itself. This helps ensure that
+    refitting the same estimator doesn't invalidate old arrays that may still
+    be lingering in memory.
+
+    Further, it handles all the ways to coerce other values into internal state
+    of `HDBSCAN`:
+
+    - `init_and_fit`: for a direct call to `HDBSCAN.fit`
+    - `from_dendrogram`: for testing comparisons to upstream `hdbscan`
+    - `from_dict`: for unpickling
+    """
     cdef lib.hdbscan_output *hdbscan_output
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
     cdef lib.PredictionData[int, float] *prediction_data
