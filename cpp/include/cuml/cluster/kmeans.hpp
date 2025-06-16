@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuvs/cluster/kmeans.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 namespace raft {
 class handle_t;
@@ -25,8 +25,6 @@ class handle_t;
 namespace ML {
 
 namespace kmeans {
-
-using KMeansParams = cuvs::cluster::kmeans::params;
 
 /**
  * @brief Compute k-means clustering and predicts cluster index for each sample

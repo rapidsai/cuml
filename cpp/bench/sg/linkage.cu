@@ -17,9 +17,9 @@
 #include "benchmark.cuh"
 
 #include <cuml/cluster/linkage.hpp>
+#include <cuml/cluster/single_linkage_output.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
-
-#include <cuvs/distance/distance.hpp>
 
 #include <utility>
 
@@ -54,7 +54,7 @@ class Linkage : public BlobsFixture<D> {
                                    this->params.nrows,
                                    this->params.ncols,
                                    &out_arrs,
-                                   cuvs::distance::DistanceType::L2Unexpanded,
+                                   ML::distance::DistanceType::L2Unexpanded,
                                    15,
                                    50);
     });
@@ -75,7 +75,7 @@ class Linkage : public BlobsFixture<D> {
  private:
   int* labels;
   int* out_children;
-  cuvs::cluster::agglomerative::single_linkage_output<int> out_arrs;
+  ML::single_linkage_output<int> out_arrs;
 };
 
 std::vector<Params> getInputs()
