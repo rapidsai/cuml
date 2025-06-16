@@ -83,6 +83,11 @@ cdef class _HDBSCANState:
     - `init_and_fit`: for a direct call to `HDBSCAN.fit`
     - `from_dendrogram`: for testing comparisons to upstream `hdbscan`
     - `from_dict`: for unpickling
+    - `from_sklearn`: for coercion from `hdbscan.HDBSCAN`
+
+    The wrapper class helps isolate all `new`/`del` calls from the rest of the
+    code. Any exposed output arrays have their lifetimes tied to it, ensuring
+    that memory won't be freed until no python references still exist.
     """
     cdef lib.hdbscan_output *hdbscan_output
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
@@ -104,6 +109,7 @@ cdef class _HDBSCANState:
             self.hdbscan_output = NULL
 
     def to_dict(self):
+        """Returns a dict that can later be passed to `from_dict` to recreate state."""
         return {
             "n_leaves": self.get_condensed_tree().get_n_leaves(),
             "n_clusters": self.n_clusters,
@@ -113,6 +119,7 @@ cdef class _HDBSCANState:
         }
 
     def _init_from_condensed_tree_array(self, handle, tree, n_leaves):
+        """Shared helper for initializing a `CondensedHierarchy` from a condensed_tree array"""
         self.cached_condensed_tree = tree
 
         parents = input_to_cuml_array(tree["parent"], order="C", convert_to_dtype=np.int32)[0]
@@ -134,6 +141,7 @@ cdef class _HDBSCANState:
 
     @staticmethod
     def from_dict(handle, mapping):
+        """Initialize internal state from the output of `to_dict`."""
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
         self.n_clusters = mapping["n_clusters"]
         self.core_dists = mapping["core_dists"]
@@ -143,6 +151,7 @@ cdef class _HDBSCANState:
 
     @staticmethod
     def from_sklearn(handle, model, X):
+        """Initialize internal state from a `hdbscan.HDBSCAN` instance."""
         cdef DistanceType metric = _metrics_mapping[model.metric]
         cdef lib.CLUSTER_SELECTION_METHOD cluster_selection_method = {
             "eom": lib.CLUSTER_SELECTION_METHOD.EOM,
@@ -268,6 +277,7 @@ cdef class _HDBSCANState:
         DistanceType metric,
         bool gen_min_span_tree,
     ):
+        """Initialize internal state from a new `fit`"""
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
         cdef int n_rows = X.shape[0]
@@ -373,6 +383,7 @@ cdef class _HDBSCANState:
         )
 
     def generate_prediction_data(self, handle, X, labels):
+        """Generate `prediction_data` if it hasn't already been generated."""
         if self.prediction_data != NULL:
             return
 
@@ -400,7 +411,9 @@ cdef class _HDBSCANState:
         handle.sync()
 
     def get_condensed_tree_array(self):
+        """Coerce `condensed_tree` to the same array layout that `hdbscan.HDBSCAN` uses."""
         if self.cached_condensed_tree is not None:
+            # Cached, return the same result
             return self.cached_condensed_tree
 
         cdef lib.CondensedHierarchy[int, float]* condensed_tree = self.get_condensed_tree()
@@ -452,7 +465,6 @@ cdef class _HDBSCANState:
 
 
 class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
-
     """
     HDBSCAN Clustering
 
@@ -888,6 +900,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self._min_spanning_tree = self._cpu_model._min_spanning_tree
         if hasattr(self._cpu_model, "_prediction_data"):
             self._prediction_data = self._cpu_model._prediction_data
+            self.generate_prediction_data()
 
 
 ###########################################################
