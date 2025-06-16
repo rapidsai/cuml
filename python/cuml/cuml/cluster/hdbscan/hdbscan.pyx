@@ -35,6 +35,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+from rmm.librmm.device_uvector cimport device_uvector
 
 cimport cuml.cluster.hdbscan.headers as lib
 from cuml.metrics.distance_type cimport DistanceType
@@ -86,7 +87,7 @@ cdef class _HDBSCANState:
     cdef lib.hdbscan_output *hdbscan_output
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
     cdef lib.PredictionData[int, float] *prediction_data
-    cdef int n_clusters
+    cdef public int n_clusters
     cdef object core_dists
     cdef object inverse_label_map
     cdef object cached_condensed_tree
@@ -111,14 +112,7 @@ cdef class _HDBSCANState:
             "condensed_tree": self.get_condensed_tree_array(),
         }
 
-    @staticmethod
-    def from_dict(handle, mapping):
-        cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
-
-        self.n_clusters = mapping["n_clusters"]
-        self.core_dists = mapping["core_dists"]
-        self.inverse_label_map = mapping["inverse_label_map"]
-        tree = mapping["condensed_tree"]
+    def _init_from_condensed_tree_array(self, handle, tree, n_leaves):
         self.cached_condensed_tree = tree
 
         parents = input_to_cuml_array(tree["parent"], order="C", convert_to_dtype=np.int32)[0]
@@ -126,9 +120,7 @@ cdef class _HDBSCANState:
         lambdas = input_to_cuml_array(tree["lambda_val"], order="C", convert_to_dtype=np.float32)[0]
         sizes = input_to_cuml_array(tree["child_size"], order="C", convert_to_dtype=np.int32)[0]
 
-        cdef size_t n_leaves = mapping["n_leaves"]
         cdef int n_edges = len(tree)
-
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
         self.condensed_tree = new lib.CondensedHierarchy[int, float](
             handle_[0],
@@ -139,6 +131,75 @@ cdef class _HDBSCANState:
             <float*><uintptr_t>(lambdas.ptr),
             <int*><uintptr_t>(sizes.ptr),
         )
+
+    @staticmethod
+    def from_dict(handle, mapping):
+        cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
+        self.n_clusters = mapping["n_clusters"]
+        self.core_dists = mapping["core_dists"]
+        self.inverse_label_map = mapping["inverse_label_map"]
+        self._init_from_condensed_tree_array(handle, mapping["condensed_tree"], mapping["n_leaves"])
+        return self
+
+    @staticmethod
+    def from_sklearn(handle, model, X):
+        cdef DistanceType metric = _metrics_mapping[model.metric]
+        cdef lib.CLUSTER_SELECTION_METHOD cluster_selection_method = {
+            "eom": lib.CLUSTER_SELECTION_METHOD.EOM,
+            "leaf": lib.CLUSTER_SELECTION_METHOD.LEAF,
+        }[model.cluster_selection_method]
+
+        cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
+
+        n_rows = X.shape[0]
+        n_cols = X.shape[1]
+
+        self._init_from_condensed_tree_array(handle, model._condensed_tree, n_rows)
+
+        self.core_dists = CumlArray.empty(n_rows, dtype=np.float32)
+
+        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+        lib.compute_core_dists(
+            handle_[0],
+            <float*><uintptr_t>(X.ptr),
+            <float*><uintptr_t>(self.core_dists.ptr),
+            n_rows,
+            n_cols,
+            metric,
+            (self.min_samples or self.min_cluster_size),
+        )
+
+        cdef device_uvector[int] *temp_buffer = new device_uvector[int](
+            0,
+            handle_[0].get_stream(),
+        )
+
+        lib.compute_inverse_label_map(
+            handle_[0],
+            deref(self.condensed_tree),
+            n_rows,
+            cluster_selection_method,
+            deref(temp_buffer),
+            <bool> self.allow_single_cluster,
+            <int> self.max_cluster_size,
+            <float> self.cluster_selection_epsilon
+        )
+
+        self.n_clusters = temp_buffer.size()
+
+        if self.n_clusters > 0:
+            self.inverse_label_map = CumlArray(
+                data=_cupy_array_from_ptr(
+                    <size_t>temp_buffer.data(),
+                    (self.n_clusters,),
+                    np.int32,
+                    self
+                ).copy()
+            )
+        else:
+            self.inverse_label_map = CumlArray.empty((0,), dtype=np.int32)
+
+        del temp_buffer
 
         return self
 
@@ -602,10 +663,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def _condensed_tree(self):
         return self._state.get_condensed_tree_array()
 
-    @_condensed_tree.setter
-    def _condensed_tree(self, value):
-        self.__dict__["_condensed_tree"] = value
-
     @property
     def condensed_tree_(self):
         hdbscan = import_hdbscan()
@@ -751,8 +808,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.cluster_persistence_ = cluster_persistence
         self._min_spanning_tree = min_spanning_tree
         self._single_linkage_tree = single_linkage_tree
-        self.n_connected_components_ = 1
-        self.n_leaves_ = n_rows
 
         if self.prediction_data:
             self.generate_prediction_data()
@@ -820,7 +875,15 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         super().cpu_to_gpu()
         if getattr(self._cpu_model, "labels_", None) is None:
             return
-        self._condensed_tree = self._cpu_model._condensed_tree
+        self.X_m, self.n_rows, self.n_cols, _ = input_to_cuml_array(
+            self._cpu_model._raw_data, order="C", convert_to_dtype=np.float32,
+        )
+        if self._cpu_model.metric in _metrics_mapping:
+            self._state = _HDBSCANState.from_sklearn(self.handle, self._cpu_model, self.X_m)
+            self.n_clusters_ = self._state.n_clusters
+        else:
+            # TODO: raise UnsupportedOnGPU once we convert to `InteropMixin`
+            pass
         self._single_linkage_tree = self._cpu_model._single_linkage_tree
         self._min_spanning_tree = self._cpu_model._min_spanning_tree
         if hasattr(self._cpu_model, "_prediction_data"):
