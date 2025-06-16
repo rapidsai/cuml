@@ -21,6 +21,7 @@ from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml.cluster.hdbscan import (
     HDBSCAN,
     all_points_membership_vectors,
@@ -1166,3 +1167,19 @@ def test_membership_vector_circles(
     )
 
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
+
+
+def test_prediction_namespace_deprecated():
+    # Attribute access warns
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        func = cuml.cluster.hdbscan.prediction.all_points_membership_vectors
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Imports warn
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        from cuml.cluster.hdbscan.prediction import (
+            all_points_membership_vectors as func,
+        )
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
