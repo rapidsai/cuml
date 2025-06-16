@@ -17,18 +17,17 @@ import cupy as cp
 import hdbscan
 import numpy as np
 import pytest
-from hdbscan.plots import CondensedTree
 from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
-from cuml.cluster.hdbscan import HDBSCAN
-from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy
-from cuml.cluster.hdbscan.prediction import (
+from cuml.cluster.hdbscan import (
+    HDBSCAN,
     all_points_membership_vectors,
     approximate_predict,
     membership_vector,
 )
+from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy, _extract_clusters
 from cuml.internals import logger
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
@@ -300,18 +299,6 @@ def test_hdbscan_sklearn_extract_clusters(
     max_cluster_size,
     allow_single_cluster,
 ):
-    X = supervised_learning_dataset
-    cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
-        allow_single_cluster=allow_single_cluster,
-        gen_min_span_tree=True,
-        min_samples=min_samples,
-        max_cluster_size=max_cluster_size,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-    )
-
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
         approx_min_span_tree=False,
@@ -323,14 +310,18 @@ def test_hdbscan_sklearn_extract_clusters(
         algorithm="generic",
     )
 
-    sk_agg.fit(cp.asnumpy(X))
+    sk_agg.fit(supervised_learning_dataset)
 
-    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
-
-    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
-    assert np.allclose(
-        cp.asnumpy(cuml_agg.probabilities_test), sk_agg.probabilities_
+    labels, probabilties = _extract_clusters(
+        sk_agg.condensed_tree_.to_numpy(),
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        cluster_selection_method=cluster_selection_method,
+        cluster_selection_epsilon=cluster_selection_epsilon,
     )
+
+    assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
+    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -420,16 +411,6 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
-    cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
-        allow_single_cluster=allow_single_cluster,
-        min_samples=min_samples,
-        max_cluster_size=max_cluster_size,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-    )
-
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
         approx_min_span_tree=False,
@@ -440,15 +421,18 @@ def test_hdbscan_cluster_patterns_extract_clusters(
         cluster_selection_method=cluster_selection_method,
         algorithm="generic",
     )
+    sk_agg.fit(X)
 
-    sk_agg.fit(cp.asnumpy(X))
-
-    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
-
-    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
-    assert np.allclose(
-        cp.asnumpy(cuml_agg.probabilities_test), sk_agg.probabilities_
+    labels, probabilties = _extract_clusters(
+        sk_agg.condensed_tree_.to_numpy(),
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        cluster_selection_method=cluster_selection_method,
+        cluster_selection_epsilon=cluster_selection_epsilon,
     )
+
+    assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
+    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
 
 
 def test_hdbscan_core_dists_bug_4054():
@@ -488,27 +472,23 @@ def test_hdbscan_metric_parameter_input(metric, supported):
 
 
 def test_hdbscan_empty_cluster_tree():
-
     raw_tree = np.recarray(
         shape=(5,),
         formats=[np.intp, np.intp, float, np.intp],
         names=("parent", "child", "lambda_val", "child_size"),
     )
-
     raw_tree["parent"] = np.asarray([5, 5, 5, 5, 5])
     raw_tree["child"] = [0, 1, 2, 3, 4]
     raw_tree["lambda_val"] = [1.0, 1.0, 1.0, 1.0, 1.0]
     raw_tree["child_size"] = [1, 1, 1, 1, 1]
 
-    condensed_tree = CondensedTree(raw_tree, 0.0, True)
-
-    cuml_agg = HDBSCAN(
-        allow_single_cluster=True, cluster_selection_method="eom"
+    labels, probabilties = _extract_clusters(
+        raw_tree,
+        allow_single_cluster=True,
+        cluster_selection_method="eom",
     )
-    cuml_agg._extract_clusters(condensed_tree)
-
     # We just care that all points are assigned to the root cluster
-    assert np.sum(cuml_agg.labels_test.to_output("numpy")) == 0
+    assert np.sum(labels) == 0
 
 
 def test_hdbscan_plots():
@@ -532,7 +512,8 @@ def test_hdbscan_plots():
     cuml_agg = HDBSCAN(gen_min_span_tree=False)
     cuml_agg.fit(X)
 
-    assert cuml_agg.minimum_spanning_tree_ is None
+    with pytest.raises(AttributeError):
+        assert cuml_agg.minimum_spanning_tree_
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -572,8 +553,7 @@ def test_all_points_membership_vectors_blobs(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
-    )
-    cuml_agg.fit(X)
+    ).fit(X)
 
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
@@ -584,9 +564,7 @@ def test_all_points_membership_vectors_blobs(
         cluster_selection_method=cluster_selection_method,
         algorithm="generic",
         prediction_data=True,
-    )
-
-    sk_agg.fit(cp.asnumpy(X))
+    ).fit(X)
 
     cu_membership_vectors = all_points_membership_vectors(cuml_agg, batch_size)
     cu_membership_vectors.sort(axis=1)

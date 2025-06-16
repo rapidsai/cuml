@@ -14,9 +14,6 @@
 #
 
 # distutils: language = c++
-
-from functools import cached_property
-
 import cupy as cp
 import numpy as np
 from pylibraft.common.handle import Handle
@@ -25,6 +22,7 @@ import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
@@ -39,13 +37,6 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 cimport cuml.cluster.hdbscan.headers as lib
-from cuml.cluster.hdbscan.headers cimport (
-    CLUSTER_SELECTION_METHOD,
-    CondensedHierarchy,
-    HDBSCANParams,
-    PredictionData,
-    hdbscan_output,
-)
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -62,33 +53,9 @@ def import_hdbscan():
 
 
 _metrics_mapping = {
-    'l2': DistanceType.L2SqrtExpanded,
-    'euclidean': DistanceType.L2SqrtExpanded,
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
 }
-
-
-def _condense_hierarchy(dendrogram, min_cluster_size):
-    """
-    Accepts a dendrogram in the Scipy hierarchy format, condenses the
-    dendrogram to collapse subtrees containing less than min_cluster_size
-    leaves, and returns a ``condensed_tree``.
-
-    Exposed for testing only.
-
-    Parameters
-    ----------
-    dendrogram : array-like (n_samples, 4)
-        Dendrogram in Scipy hierarchy format.
-
-    min_cluster_size : int
-        Minimum number of children for a cluster to persist.
-
-    Returns
-    -------
-    condensed_tree : np.ndarray
-    """
-    state = _HDBSCANState.from_dendrogram(dendrogram, min_cluster_size)
-    return state.get_condensed_tree()
 
 
 def _cupy_array_from_ptr(ptr, shape, dtype, owner):
@@ -123,12 +90,12 @@ cdef class _HDBSCANState:
             self.hdbscan_output = NULL
 
     def to_dict(self):
-        cdef int n_leaves = self.get_condensed_tree_ptr().get_n_leaves()
+        cdef int n_leaves = self.get_condensed_tree().get_n_leaves()
         return {
             "n_leaves": n_leaves,
             "core_dists": self.core_dists,
             "inverse_label_map": self.inverse_label_map,
-            "condensed_tree": self.get_condensed_tree(),
+            "condensed_tree": self.get_condensed_tree_array(),
         }
 
     @staticmethod
@@ -161,7 +128,7 @@ cdef class _HDBSCANState:
 
         return self
 
-    cdef lib.CondensedHierarchy[int, float]* get_condensed_tree_ptr(self):
+    cdef lib.CondensedHierarchy[int, float]* get_condensed_tree(self):
         if self.hdbscan_output != NULL:
             return &(self.hdbscan_output.get_condensed_tree())
         return self.condensed_tree
@@ -222,7 +189,7 @@ cdef class _HDBSCANState:
     cdef init_and_fit(
         handle,
         X,
-        HDBSCANParams params,
+        lib.HDBSCANParams params,
         DistanceType metric,
         bool gen_min_span_tree,
     ):
@@ -336,7 +303,7 @@ cdef class _HDBSCANState:
 
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[0]
-        cdef int n_clusters = self.get_condensed_tree_ptr().get_n_clusters()
+        cdef int n_clusters = self.get_condensed_tree().get_n_clusters()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self.prediction_data = new lib.PredictionData[int, float](
@@ -346,7 +313,7 @@ cdef class _HDBSCANState:
             <float*><uintptr_t>(self.core_dists.ptr),
         )
 
-        cdef lib.CondensedHierarchy[int, float] *condensed_tree = self.get_condensed_tree_ptr()
+        cdef lib.CondensedHierarchy[int, float] *condensed_tree = self.get_condensed_tree()
 
         lib.generate_prediction_data(
             handle_[0],
@@ -358,8 +325,11 @@ cdef class _HDBSCANState:
         )
         handle.sync()
 
-    def get_condensed_tree(self):
-        cdef lib.CondensedHierarchy[int, float]* condensed_tree = self.get_condensed_tree_ptr()
+    def get_condensed_tree_array(self):
+        if self.cached_condensed_tree is not None:
+            return self.cached_condensed_tree
+
+        cdef lib.CondensedHierarchy[int, float]* condensed_tree = self.get_condensed_tree()
 
         n_condensed_tree_edges = condensed_tree.get_n_edges()
 
@@ -401,6 +371,8 @@ cdef class _HDBSCANState:
         tree['child'] = children.get()
         tree['lambda_val'] = lambdas.get()
         tree['child_size'] = sizes.get()
+
+        self.cached_condensed_tree = tree
 
         return tree
 
@@ -613,9 +585,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def _raw_data(self):
         return self.X_m.to_output("numpy")
 
-    @cached_property
+    @property
     def _condensed_tree(self):
-        return self._state.get_condensed_tree()
+        return self._state.get_condensed_tree_array()
 
     @property
     def condensed_tree_(self):
@@ -643,31 +615,34 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         hdbscan = import_hdbscan()
         return hdbscan.plots.SingleLinkageTree(self._single_linkage_tree)
 
-    @cached_property
+    @property
     def prediction_data_(self):
         if not self.prediction_data:
-            raise ValueError(
-               "Train model with fit(prediction_data=True). or call "
-               "model.generate_prediction_data()"
+            raise AttributeError(
+               "Prediction data not yet generated, please call "
+               "`model.generate_prediction_data()`"
             )
 
-        hdbscan = import_hdbscan()
-        from sklearn.neighbors import BallTree, KDTree
+        if not hasattr(self, "_prediction_data"):
+            hdbscan = import_hdbscan()
+            from sklearn.neighbors import BallTree, KDTree
 
-        if self.metric in KDTree.valid_metrics:
-            tree_type = "kdtree"
-        elif self.metric in BallTree.valid_metrics:
-            tree_type = "balltree"
-        else:
-            raise AttributeError(f"Metric {self.metric} not supported for prediction data")
+            if self.metric in KDTree.valid_metrics:
+                tree_type = "kdtree"
+            elif self.metric in BallTree.valid_metrics:
+                tree_type = "balltree"
+            else:
+                raise AttributeError(f"Metric {self.metric} not supported for prediction data")
 
-        return hdbscan.prediction.PredictionData(
-            self._raw_data,
-            self.condensed_tree_,
-            self.min_samples or self.min_cluster_size,
-            tree_type=tree_type,
-            metric=self.metric
-        )
+            self._prediction_data = hdbscan.prediction.PredictionData(
+                self._raw_data,
+                self.condensed_tree_,
+                self.min_samples or self.min_cluster_size,
+                tree_type=tree_type,
+                metric=self.metric
+            )
+
+        return self._prediction_data
 
     @enable_device_interop
     def generate_prediction_data(self):
@@ -676,7 +651,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         the label of new/unseen points. This data is only useful if you
         are intending to use functions from hdbscan.prediction.
         """
-        if not hasattr(self, "labels_"):
+        if getattr(self, "labels_", None) is None:
             raise ValueError("The model is not trained yet (call fit() first).")
 
         with cuml.using_output_type("cuml"):
@@ -702,7 +677,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_cols = n_cols
 
         # Validate and prepare hyperparameters
-        cdef HDBSCANParams params
+        cdef lib.HDBSCANParams params
         params.min_samples = self.min_samples
         params.alpha = self.alpha
         params.min_cluster_size = self.min_cluster_size
@@ -717,9 +692,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             )
 
         if self.cluster_selection_method == 'eom':
-            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+            params.cluster_selection_method = lib.CLUSTER_SELECTION_METHOD.EOM
         elif self.cluster_selection_method == 'leaf':
-            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+            params.cluster_selection_method = lib.CLUSTER_SELECTION_METHOD.LEAF
         else:
             raise ValueError(
                 "`cluster_selection_method` must be one of {'eom', 'leaf'}, "
@@ -835,3 +810,345 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             attr_names = attr_names + ['prediction_data_']
 
         return attr_names
+
+
+###########################################################
+#                  Prediction Functions                   #
+###########################################################
+
+def _check_clusterer(clusterer):
+    """Validate an HDBSCAN instance is fit and has prediction data"""
+    if not isinstance(clusterer, HDBSCAN):
+        raise TypeError(
+            f"Expected an instance of `HDBSCAN`, got {type(clusterer).__name__}"
+        )
+
+    if getattr(clusterer, "labels_", None) is None:
+        raise ValueError(
+            "The clusterer is not fit, please call `clusterer.fit` first"
+        )
+    cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
+
+    if state.prediction_data == NULL:
+        raise ValueError(
+            "Prediction data not yet generated, please call "
+            "`clusterer.generate_prediction_data()`"
+        )
+
+    return state
+
+
+def all_points_membership_vectors(clusterer, batch_size=4096):
+    """
+    Predict soft cluster membership vectors for all points in the
+    original dataset the clusterer was trained on. This function is more
+    efficient by making use of the fact that all points are already in the
+    condensed tree, and processing in bulk.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        had ``prediction_data=True`` set.
+
+    batch_size : int, optional, default=min(4096, n_rows)
+        Lowers memory requirement by computing distance-based membership
+        in smaller batches of points in the training data. For example, a batch
+        size of 1,000 computes distance based memberships for 1,000 points at a
+        time. The default batch size is 4,096.
+
+    Returns
+    -------
+    membership_vectors : array (n_samples, n_clusters)
+        The probability that point ``i`` of the original dataset is a member of
+        cluster ``j`` is in ``membership_vectors[i, j]``.
+    """
+    _check_clusterer(clusterer)
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(clusterer.n_rows, dtype=np.float32)
+
+    membership_vec = CumlArray.empty(
+        (clusterer.n_rows * clusterer.n_clusters_,),
+        dtype="float32"
+    )
+
+    cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+    lib.compute_all_points_membership_vectors(
+        handle_[0],
+        deref(state.get_condensed_tree()),
+        deref(state.prediction_data),
+        <float*><uintptr_t>(clusterer.X_m.ptr),
+        _metrics_mapping[clusterer.metric],
+        <float*><uintptr_t>(membership_vec.ptr),
+        batch_size
+    )
+
+    clusterer.handle.sync()
+
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32",
+    ).reshape((clusterer.n_rows, clusterer.n_clusters_))
+
+
+def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dtype=True):
+    """
+    Predict soft cluster membership. The result produces a vector
+    for each point in ``points_to_predict`` that gives a probability that
+    the given point is a member of a cluster for each of the selected clusters
+    of the ``clusterer``.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        either had ``prediction_data=True`` set, or called the
+        ``generate_prediction_data`` method after the fact.
+
+    points_to_predict : array, or array-like (n_samples, n_features)
+        The new data points to predict cluster labels for. They should
+        have the same dimensionality as the original dataset over which
+        clusterer was fit.
+
+    batch_size : int, optional, default=min(4096, n_points_to_predict)
+        Lowers memory requirement by computing distance-based membership
+        in smaller batches of points in the prediction data. For example, a
+        batch size of 1,000 computes distance based memberships for 1,000
+        points at a time. The default batch size is 4,096.
+
+    Returns
+    -------
+    membership_vectors : array (n_samples, n_clusters)
+        The probability that point ``i`` is a member of cluster ``j`` is
+        in ``membership_vectors[i, j]``.
+    """
+    _check_clusterer(clusterer)
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
+    points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
+        points_to_predict,
+        order="C",
+        check_dtype=[np.float32],
+        convert_to_dtype=(np.float32 if convert_dtype else None)
+    )
+
+    if n_cols != clusterer.n_cols:
+        raise ValueError("New points dimension does not match fit data!")
+
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(n_prediction_points, dtype=np.float32)
+
+    membership_vec = CumlArray.empty(
+        (n_prediction_points * clusterer.n_clusters_,),
+        dtype="float32"
+    )
+
+    cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+    lib.compute_membership_vector(
+        handle_[0],
+        deref(state.get_condensed_tree()),
+        deref(state.prediction_data),
+        <float*><uintptr_t>(clusterer.X_m.ptr),
+        <float*><uintptr_t>(points_to_predict_m.ptr),
+        n_prediction_points,
+        clusterer.min_samples,
+        _metrics_mapping[clusterer.metric],
+        <float*><uintptr_t>(membership_vec.ptr),
+        batch_size
+    )
+
+    clusterer.handle.sync()
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32"
+    ).reshape((n_prediction_points, clusterer.n_clusters_))
+
+
+def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
+    """Predict the cluster label of new points. The returned labels
+    will be those of the original clustering found by ``clusterer``,
+    and therefore are not (necessarily) the cluster labels that would
+    be found by clustering the original data combined with
+    ``points_to_predict``, hence the 'approximate' label.
+
+    If you simply wish to assign new points to an existing clustering
+    in the 'best' way possible, this is the function to use. If you
+    want to predict how ``points_to_predict`` would cluster with
+    the original data under HDBSCAN the most efficient existing approach
+    is to simply recluster with the new point(s) added to the original dataset.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        had ``prediction_data=True`` set.
+
+    points_to_predict : array, or array-like (n_samples, n_features)
+        The new data points to predict cluster labels for. They should
+        have the same dimensionality as the original dataset over which
+        clusterer was fit.
+
+    Returns
+    -------
+    labels : array (n_samples,)
+        The predicted labels of the ``points_to_predict``
+
+    probabilities : array (n_samples,)
+        The soft cluster scores for each of the ``points_to_predict``
+    """
+    _check_clusterer(clusterer)
+
+    if clusterer.n_clusters_ == 0:
+        logger.warn(
+            "Clusterer does not have any defined clusters, new data "
+            "will be automatically predicted as outliers."
+        )
+
+    points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
+        points_to_predict,
+        order="C",
+        check_dtype=[np.float32],
+        convert_to_dtype=(np.float32 if convert_dtype else None),
+    )
+
+    if n_cols != clusterer.n_cols:
+        raise ValueError("New points dimension does not match fit data!")
+
+    prediction_labels = CumlArray.empty((n_prediction_points,), dtype="int32")
+    prediction_probs = CumlArray.empty((n_prediction_points,), dtype="float32")
+
+    with cuml.using_output_type("cuml"):
+        labels = clusterer.labels_
+
+    cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+    lib.out_of_sample_predict(
+        handle_[0],
+        deref(state.get_condensed_tree()),
+        deref(state.prediction_data),
+        <float*><uintptr_t>(clusterer.X_m.ptr),
+        <int*><uintptr_t>(labels.ptr),
+        <float*><uintptr_t>(points_to_predict_m.ptr),
+        n_prediction_points,
+        _metrics_mapping[clusterer.metric],
+        clusterer.min_samples,
+        <int*><uintptr_t>(prediction_labels.ptr),
+        <float*><uintptr_t>(prediction_probs.ptr),
+    )
+    clusterer.handle.sync()
+
+    return (
+        prediction_labels.to_output(output_type="numpy"),
+        prediction_probs.to_output(output_type="numpy", output_dtype="float32")
+    )
+
+
+###########################################################
+#           Functions exposed for testing only            #
+###########################################################
+
+def _condense_hierarchy(dendrogram, min_cluster_size):
+    """
+    Accepts a dendrogram in the Scipy hierarchy format, condenses the
+    dendrogram to collapse subtrees containing less than min_cluster_size
+    leaves, and returns a ``condensed_tree``.
+
+    Exposed for testing only.
+
+    Parameters
+    ----------
+    dendrogram : array-like (n_samples, 4)
+        Dendrogram in Scipy hierarchy format.
+
+    min_cluster_size : int
+        Minimum number of children for a cluster to persist.
+
+    Returns
+    -------
+    condensed_tree : np.ndarray
+    """
+    state = _HDBSCANState.from_dendrogram(dendrogram, min_cluster_size)
+    return state.get_condensed_tree_array()
+
+
+def _extract_clusters(
+    condensed_tree,
+    handle=None,
+    allow_single_cluster=False,
+    max_cluster_size=0,
+    cluster_selection_method="eom",
+    cluster_selection_epsilon=0.0,
+):
+    """Extract clusters from a condensed_tree.
+
+    Exposed for testing only"""
+    cdef size_t n_leaves = condensed_tree['parent'].min()
+    cdef int n_edges = len(condensed_tree)
+
+    parents = input_to_cuml_array(
+        condensed_tree['parent'],
+        order='C',
+        convert_to_dtype=np.int32,
+    )[0]
+
+    children = input_to_cuml_array(
+        condensed_tree["child"],
+        order='C',
+        convert_to_dtype=np.int32,
+    )[0]
+
+    lambdas = input_to_cuml_array(
+        condensed_tree['lambda_val'],
+        order='C',
+        convert_to_dtype=np.float32,
+    )[0]
+
+    sizes = input_to_cuml_array(
+        condensed_tree['child_size'],
+        order='C',
+        convert_to_dtype=np.int32,
+    )[0]
+
+    labels = CumlArray.empty(n_leaves, dtype="int32")
+    probabilities = CumlArray.empty(n_leaves, dtype="float32")
+
+    cdef lib.CLUSTER_SELECTION_METHOD cluster_selection_method_val = {
+        "eom": lib.CLUSTER_SELECTION_METHOD.EOM,
+        "leaf": lib.CLUSTER_SELECTION_METHOD.LEAF,
+    }[cluster_selection_method]
+
+    if handle is None:
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+    lib._extract_clusters(
+        handle_[0],
+        n_leaves,
+        n_edges,
+        <int*><uintptr_t>(parents.ptr),
+        <int*><uintptr_t>(children.ptr),
+        <float*><uintptr_t>(lambdas.ptr),
+        <int*><uintptr_t>(sizes.ptr),
+        <int*><uintptr_t>(labels.ptr),
+        <float*><uintptr_t>(probabilities.ptr),
+        cluster_selection_method_val,
+        <bool> allow_single_cluster,
+        <int> max_cluster_size,
+        <float> cluster_selection_epsilon,
+    )
+
+    return (
+        labels.to_output("numpy"),
+        probabilities.to_output("numpy"),
+    )
