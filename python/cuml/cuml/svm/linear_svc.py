@@ -242,7 +242,13 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     @deprecate_non_keyword_only("convert_dtype")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
-        X = input_to_cuml_array(X, order="F").array
+        X = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float64 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+            order="F",
+        ).array
+        y = input_to_cuml_array(y, order="F").array
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,
