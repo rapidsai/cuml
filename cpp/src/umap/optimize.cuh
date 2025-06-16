@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,8 +119,8 @@ void abLossGrads(
   /**
    * Finally, take the mean
    */
-  raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
-  raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false, stream);
+  raft::stats::mean<false>(grads, a_deriv.data(), 1, n_rows, false, stream);
+  raft::stats::mean<false>(grads + 1, b_deriv.data(), 1, n_rows, false, stream);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

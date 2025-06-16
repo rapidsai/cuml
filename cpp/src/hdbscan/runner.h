@@ -22,6 +22,7 @@
 #include "detail/soft_clustering.cuh"
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/device_coo_matrix.hpp>
@@ -66,7 +67,7 @@ void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
                    size_t n,
-                   cuvs::distance::DistanceType metric,
+                   ML::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
@@ -97,7 +98,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,
                   size_t n,
-                  cuvs::distance::DistanceType metric,
+                  ML::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_t* core_dists,
