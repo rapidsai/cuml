@@ -887,12 +887,16 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         super().cpu_to_gpu()
         if getattr(self._cpu_model, "labels_", None) is None:
             return
-        self.X_m, self.n_rows, self.n_cols, _ = input_to_cuml_array(
-            self._cpu_model._raw_data, order="C", convert_to_dtype=np.float32,
-        )
-        if self._cpu_model.metric in _metrics_mapping:
-            self._state = _HDBSCANState.from_sklearn(self.handle, self._cpu_model, self.X_m)
-            self.n_clusters_ = self._state.n_clusters
+        if isinstance(self._cpu_model._raw_data, np.ndarray):
+            self.X_m, self.n_rows, self.n_cols, _ = input_to_cuml_array(
+                self._cpu_model._raw_data, order="C", convert_to_dtype=np.float32,
+            )
+            if self._cpu_model.metric in _metrics_mapping:
+                self._state = _HDBSCANState.from_sklearn(self.handle, self._cpu_model, self.X_m)
+                self.n_clusters_ = self._state.n_clusters
+            else:
+                # TODO: raise UnsupportedOnGPU once we convert to `InteropMixin`
+                pass
         else:
             # TODO: raise UnsupportedOnGPU once we convert to `InteropMixin`
             pass
@@ -900,7 +904,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self._min_spanning_tree = self._cpu_model._min_spanning_tree
         if hasattr(self._cpu_model, "_prediction_data"):
             self._prediction_data = self._cpu_model._prediction_data
-            self.generate_prediction_data()
+            # TODO: This guard can be removed after port to `InteropMixin`
+            if hasattr(self, "_state"):
+                self.generate_prediction_data()
 
 
 ###########################################################
