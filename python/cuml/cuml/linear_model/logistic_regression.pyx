@@ -190,7 +190,7 @@ class LogisticRegression(Base,
 
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
-    _n_iter_ = CumlArrayDescriptor()
+    n_iter_ = CumlArrayDescriptor()
 
     _cpu_class_path = "sklearn.linear_model.LogisticRegression"
 
@@ -423,7 +423,7 @@ class LogisticRegression(Base,
         self.solver_model.fit(X, y, sample_weight=sample_weight,
                               convert_dtype=convert_dtype)
 
-        self._n_iter_ = cp.asarray([self.solver_model.num_iters])
+        self.n_iter_ = cp.asarray([self.solver_model.num_iters])
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_enum.debug):
@@ -635,14 +635,6 @@ class LogisticRegression(Base,
         _ = params.pop("solver", None)
         self.solver_model.set_params(**params)
         return self
-
-    @property
-    def n_iter_(self) -> CumlArray:
-        return self._n_iter_
-
-    @n_iter_.setter
-    def n_iter_(self, value):
-        self._n_iter_ = value
 
     @property
     def coef_(self) -> CumlArray:
