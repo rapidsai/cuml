@@ -1,5 +1,5 @@
-#=============================================================================
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+#
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
 
-add_executable(symreg_example symreg_example.cpp)
-target_include_directories(symreg_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
-target_link_libraries(symreg_example cuml++ cuvs::cuvs)
+# distutils: language = c++
+
+cdef extern from "cuml/matrix/kernel_params.hpp" namespace "ML::matrix" nogil:
+    enum class KernelType:
+        LINEAR, POLYNOMIAL, RBF, TANH
+
+    cdef struct KernelParams:
+        KernelType kernel
+        int degree
+        double gamma
+        double coef0
