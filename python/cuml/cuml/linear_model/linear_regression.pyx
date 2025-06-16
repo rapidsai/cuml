@@ -32,7 +32,6 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
-    warn_legacy_device_interop,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
@@ -344,8 +343,7 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    @warn_legacy_device_interop
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearRegression":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 

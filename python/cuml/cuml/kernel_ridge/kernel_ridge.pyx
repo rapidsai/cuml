@@ -256,8 +256,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "KernelRidge":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "KernelRidge":
 
         ravel = False
         if len(y.shape) == 1:

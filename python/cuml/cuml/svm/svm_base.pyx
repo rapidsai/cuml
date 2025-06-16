@@ -17,42 +17,32 @@
 
 import cupy
 import numpy as np
-
-from libc.stdint cimport uintptr_t
+import scipy.sparse
 
 import cuml.internals
+from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.internals.input_utils import determine_array_type_full
-from cuml.internals.logger import warn
-
-from cuml.internals.logger cimport level_enum
-
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
-from cuml.internals.mem_type import MemoryType
+from cuml.internals.base import Base
+from cuml.internals.input_utils import determine_array_type_full
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
+from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams, KernelType
 
-cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance::kernels" nogil:
-    enum KernelType:
-        LINEAR,
-        POLYNOMIAL,
-        RBF,
-        TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
@@ -109,7 +99,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
                                      SvmModel[math_t] &m) except +
 
 
-class SVMBase(UniversalBase,
+class SVMBase(Base,
+              InteropMixin,
               FMajorInputTagMixin,
               SparseInputTagMixin):
     """
@@ -222,7 +213,134 @@ class SVMBase(UniversalBase,
     _internal_coef_ = CumlArrayDescriptor(order='F')
     _unique_labels_ = CumlArrayDescriptor(order='F')
 
-    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "kernel",
+            "degree",
+            "gamma",
+            "coef0",
+            "tol",
+            "C",
+            "cache_size",
+            "max_iter",
+            "nochange_steps",
+            "epsilon",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.kernel == "precomputed" or callable(model.kernel):
+            raise UnsupportedOnGPU
+
+        if (cache_size := model.cache_size) == 200:
+            # XXX: the cache sizes differ between cuml and sklearn, for now we
+            # just adjust when the value's match the defaults.
+            cache_size = 1024.0
+
+        return {
+            "kernel": model.kernel,
+            "degree": model.degree,
+            "gamma": model.gamma,
+            "coef0": model.coef0,
+            "tol": model.tol,
+            "C": model.C,
+            "cache_size": cache_size,
+            "max_iter": model.max_iter,
+            "epsilon": model.epsilon,
+        }
+
+    def _params_to_cpu(self):
+        if (cache_size := self.cache_size) == 1024:
+            # XXX: the cache sizes differ between cuml and sklearn, for now we
+            # just adjust when the value's match the defaults.
+            cache_size = 200
+
+        return {
+            "kernel": self.kernel,
+            "degree": self.degree,
+            "gamma": self.gamma,
+            "coef0": self.coef0,
+            "tol": self.tol,
+            "C": self.C,
+            "cache_size": cache_size,
+            "max_iter": self.max_iter,
+            "epsilon": self.epsilon,
+        }
+
+    def _attrs_from_cpu(self, model):
+        if model._sparse:
+            # sklearn stores dual_coef_ and support_vectors_ as sparse
+            # csr_matrix objects when fit on sparse data. cuml always
+            # stores them as dense.
+            dual_coef_ = model.dual_coef_.toarray()
+            support_vectors_ = model.support_vectors_.toarray()
+        else:
+            dual_coef_ = model.dual_coef_
+            support_vectors_ = model.support_vectors_
+
+        return {
+            "dual_coef_": to_gpu(dual_coef_, order="F"),
+            "intercept_": to_gpu(model.intercept_, order="F"),
+            "n_support_": int(model.n_support_.sum()),
+            "support_": to_gpu(model.support_, order="F"),
+            "support_vectors_": to_gpu(support_vectors_, order="F"),
+            "_gamma": float(model._gamma),
+            "_sparse": model._sparse,
+            "dtype": np.float64,
+            "target_dtype": np.int64,
+            "n_rows": model.shape_fit_[0],
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _sync_attrs_from_cpu(self, model):
+        super()._sync_attrs_from_cpu(model)
+        # Clear cached coef_
+        self._internal_coef_ = None
+        # Release existing _model (if any)
+        self._dealloc()
+        # Rebuild _model from new attributes
+        self._model = self._get_svm_model()
+
+    def _attrs_to_cpu(self, model):
+        dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
+        support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
+        intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+
+        if self._sparse:
+            # sklearn stores dual_coef_ and support_vectors_ as sparse
+            # csr_matrix objects when fit on sparse data. cuml always
+            # stores them as dense.
+            dual_coef_ = scipy.sparse.csr_matrix(dual_coef_)
+            support_vectors_ = scipy.sparse.csr_matrix(support_vectors_)
+
+        if hasattr(self, "classes_"):
+            # sklearn's binary classification expects inverted
+            # _dual_coef_ and _intercept_.
+            _dual_coef_ = -dual_coef_
+            _intercept_ = -intercept_
+        else:
+            _dual_coef_ = dual_coef_
+            _intercept_ = intercept_
+
+        return {
+            "dual_coef_": dual_coef_,
+            "_dual_coef_": _dual_coef_,
+            "fit_status_": 1,
+            "intercept_": intercept_,
+            "_intercept_": _intercept_,
+            "shape_fit_": (self.n_rows, self.n_features_in_),
+            "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
+            "support_": to_cpu(self.support_, order="C", dtype=np.int32),
+            "support_vectors_": support_vectors_,
+            "_gamma": self._gamma,
+            "_probA": np.empty(0),
+            "_probB": np.empty(0),
+            "_sparse": self._sparse,
+            **super()._attrs_to_cpu(model),
+        }
+
+    def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  epsilon=0.1, output_type=None):
@@ -295,6 +413,7 @@ class SVMBase(UniversalBase,
                 pass
 
         self._model = None
+        self._freeSvmBuffers = False
 
     def _get_c_kernel(self, kernel):
         """
@@ -305,10 +424,10 @@ class SVMBase(UniversalBase,
         kernel: string, ('linear', 'poly', 'rbf', or 'sigmoid')
         """
         return {
-            'linear': LINEAR,
-            'poly': POLYNOMIAL,
-            'rbf': RBF,
-            'sigmoid': TANH
+            'linear': KernelType.LINEAR,
+            'poly': KernelType.POLYNOMIAL,
+            'rbf': KernelType.RBF,
+            'sigmoid': KernelType.TANH
         }[kernel]
 
     def _calc_gamma_val(self, X):
@@ -355,7 +474,7 @@ class SVMBase(UniversalBase,
     @property
     @cuml.internals.api_base_return_array_skipall
     def coef_(self):
-        if self._c_kernel != LINEAR:
+        if self._c_kernel != KernelType.LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
             raise AttributeError("Call fit before prediction")
@@ -600,12 +719,6 @@ class SVMBase(UniversalBase,
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        if predict_class:
-            out_dtype = self._get_target_dtype()
-        else:
-            out_dtype = self.dtype
-
-        cuml.internals.set_api_output_dtype(out_dtype)
 
         self._check_is_fitted('_model')
 
@@ -670,27 +783,6 @@ class SVMBase(UniversalBase,
 
         return preds
 
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "C",
-            "kernel",
-            "degree",
-            "gamma",
-            "coef0",
-            "tol",
-            "cache_size",
-            "max_iter",
-            "nochange_steps",
-            "epsilon",
-        ]
-
-    def get_attr_names(self):
-        attr_names = ["fit_status_", "n_features_in_", "shape_fit_"]
-        if self.kernel == "linear":
-            attr_names.append("coef_")
-        return attr_names
-
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
@@ -703,64 +795,3 @@ class SVMBase(UniversalBase,
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
-
-    def gpu_to_cpu(self):
-        super().gpu_to_cpu()
-
-        intercept_ = self._intercept_.to_output('numpy')
-        dual_coef_ = self.dual_coef_.to_output('numpy')
-        support_= self.support_.to_output('numpy')
-        support_vectors_ = self.support_vectors_.to_output('numpy')
-
-        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
-            intercept_ = -1.0 * intercept_
-            dual_coef_ = -1.0 * dual_coef_
-
-        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
-        self._cpu_model._intercept_ = np.ascontiguousarray(intercept_, dtype=np.float64)
-        self._cpu_model._dual_coef_ = np.ascontiguousarray(dual_coef_, dtype=np.float64)
-        self._cpu_model.support_ = np.ascontiguousarray(support_, dtype=np.int32)
-        self._cpu_model.support_vectors_ = np.ascontiguousarray(support_vectors_, dtype=np.float64)
-
-        self._cpu_model._probA = np.empty(0, dtype=np.float64)
-        self._cpu_model._probB = np.empty(0, dtype=np.float64)
-        self._cpu_model._gamma = self._gamma
-
-    def cpu_to_gpu(self):
-        super().cpu_to_gpu()
-
-        self.n_support_ = self._cpu_model.n_support_
-
-        intercept_ = self._cpu_model._intercept_
-        dual_coef_ = self._cpu_model._dual_coef_
-
-        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
-            intercept_ = -1.0 * intercept_
-            dual_coef_ = -1.0 * dual_coef_
-
-        self._intercept_ = input_to_cuml_array(
-            intercept_,
-            convert_to_mem_type=MemoryType.device,
-            convert_to_dtype=np.float64,
-            order='F')[0]
-        self.dual_coef_ = input_to_cuml_array(
-            dual_coef_,
-            convert_to_mem_type=MemoryType.device,
-            convert_to_dtype=np.float64,
-            order='F')[0]
-        self.support_ = input_to_cuml_array(
-            self._cpu_model.support_,
-            convert_to_mem_type=MemoryType.device,
-            convert_to_dtype=np.int32,
-            order='F')[0]
-        self.support_vectors_ = input_to_cuml_array(
-            self._cpu_model.support_vectors_,
-            convert_to_mem_type=MemoryType.device,
-            convert_to_dtype=np.float64,
-            order='F')[0]
-
-        self._probA = np.empty(0, dtype=np.float64)
-        self._probB = np.empty(0, dtype=np.float64)
-        self._gamma = self._cpu_model._gamma
-
-        self._model = self._get_svm_model()

@@ -196,7 +196,9 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             }.union(super()._get_param_names())
         )
 
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "LinearSVM":
         X = input_to_cuml_array(X, order="F").array
         sample_weight = apply_class_weight(
             self.handle,
@@ -207,9 +209,11 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             self.output_type,
             X.dtype,
         )
-        return super(LinearSVC, self).fit(X, y, sample_weight, convert_dtype)
+        return super(LinearSVC, self).fit(
+            X, y, sample_weight, convert_dtype=convert_dtype
+        )
 
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         y_pred = super().predict(X, convert_dtype=convert_dtype)
         # Cast to int64 to match expected classifier interface
         return y_pred.to_output("cupy", output_dtype="int64")

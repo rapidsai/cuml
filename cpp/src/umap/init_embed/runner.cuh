@@ -45,7 +45,12 @@ void run(const raft::handle_t& handle,
      */
     case 0: RandomInit::launcher<T, nnz_t>(n, d, params, embedding, handle.get_stream()); break;
 
-    case 1: SpectralInit::launcher<T, nnz_t>(handle, n, d, coo, params, embedding); break;
+    case 1: try { SpectralInit::launcher<T, nnz_t>(handle, n, d, coo, params, embedding);
+      } catch (const raft::exception& e) {
+        CUML_LOG_WARN("Spectral initialization failed, using random initialization instead.");
+        RandomInit::launcher<T, nnz_t>(n, d, params, embedding, handle.get_stream());
+      }
+      break;
   }
 }
 }  // namespace InitEmbed

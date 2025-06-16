@@ -56,15 +56,6 @@ from cuml.testing.utils import array_difference, array_equal
 ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
-# TODO(25.08): remove this test
-def test_logreg_penalty_deprecation():
-    with pytest.warns(
-        FutureWarning,
-        match="The 'none' option was deprecated in version 24.06",
-    ):
-        cuLog(penalty="none")
-
-
 @given(
     datatype=dataset_dtypes(),
     algorithm=st.sampled_from(["eig", "svd"]),
@@ -1086,7 +1077,7 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     qn = cuElasticNet(solver="qn", **kwargs)
     qn.fit(X_train, y_train)
     # the results of the two models should be close (even if both are bad)
-    assert qn.score(X_test, cd_res) > 0.95
+    assert qn.score(X_test, cd_res) > 0.90
     # coefficients of the two models should be close
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 

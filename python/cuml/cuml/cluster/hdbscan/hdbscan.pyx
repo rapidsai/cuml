@@ -763,7 +763,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """

@@ -29,7 +29,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.cluster import KMeans
 from cuml.common import input_to_cuml_array
 
-from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.cluster.kmeans_utils cimport KMeansParams
 
 from cuml.internals.utils import check_random_seed
 
@@ -215,9 +215,9 @@ class KMeansMG(KMeans):
 
         self.handle.sync()
 
-        self.labels_, _, _, _ = input_to_cuml_array(self.predict(X_m,
-                                                    sample_weight=sample_weight), order='C',
-                                                    convert_to_dtype=self.dtype)
+        self.labels_, _, _, _ = input_to_cuml_array(
+            self.predict(X_m), order='C', convert_to_dtype=self.dtype
+        )
 
         del X_m
         free(params)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,14 +61,12 @@ void generate_data(
     [=] __device__(float input) { return 2 * input - 1; },
     stream);
 
-  raft::linalg::reduce(
+  raft::linalg::reduce<true, true>(
     out_labels,
     out_samples,
     n_cols,
     n_rows,
     0.0f,
-    true,
-    true,
     stream,
     false,
     [=] __device__(float in, int n) { return in * in; },

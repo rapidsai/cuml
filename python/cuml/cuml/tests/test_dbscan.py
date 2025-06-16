@@ -62,6 +62,9 @@ def test_dbscan(
     out_dtype,
     algorithm,
 ):
+    if algorithm == "rbc":
+        if datatype == np.float64 or out_dtype in ["int32", np.int32]:
+            pytest.skip("RBC does not support float64 dtype or int32 labels")
     if nrows == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
             nrows = nrows * pytest.max_gpu_memory // 32
@@ -79,6 +82,7 @@ def test_dbscan(
         n_features=n_feats,
         random_state=0,
     )
+    X = X.astype(datatype)
 
     handle, stream = get_handle(use_handle)
 
@@ -444,6 +448,10 @@ def test_core_point_prop3():
 def test_dbscan_propagation(
     datatype, use_handle, out_dtype, algorithm, n_samples
 ):
+    if algorithm == "rbc":
+        if datatype == np.float64 or out_dtype in ["int32", np.int32]:
+            pytest.skip("RBC does not support float64 dtype or int32 labels")
+
     X, y = make_blobs(
         n_samples,
         centers=1,

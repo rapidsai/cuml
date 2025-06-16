@@ -27,12 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_gpu,
-    warn_legacy_device_interop,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 
@@ -317,8 +312,7 @@ class Ridge(Base,
         self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
 
     @generate_docstring()
-    @warn_legacy_device_interop
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """

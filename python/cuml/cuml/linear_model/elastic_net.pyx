@@ -28,7 +28,6 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
-    warn_legacy_device_interop,
 )
 from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
@@ -310,9 +309,7 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    @warn_legacy_device_interop
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "ElasticNet":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "ElasticNet":
         """
         Fit the model with X and y.
 

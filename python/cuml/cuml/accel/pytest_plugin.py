@@ -63,7 +63,7 @@ def create_version_condition(condition_str: str) -> bool:
     try:
         req = Requirement(condition_str)
         installed_version = version(req.name)
-        return req.specifier.contains(installed_version)
+        return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
 
@@ -106,6 +106,7 @@ def pytest_collection_modifyitems(config, items):
 
         reason = group["reason"]
         strict = group.get("strict", True)
+        run = group.get("run", True)
         tests = group["tests"]
         condition = True
         if "condition" in group:
@@ -115,6 +116,7 @@ def pytest_collection_modifyitems(config, items):
         config = {
             "reason": reason,
             "strict": strict,
+            "run": run,
             "condition": condition,
             "extra_marker": marker,
         }
@@ -131,6 +133,7 @@ def pytest_collection_modifyitems(config, items):
                     pytest.mark.xfail(
                         reason=config["reason"],
                         strict=config["strict"],
+                        run=config["run"],
                         condition=config["condition"],
                     )
                 )

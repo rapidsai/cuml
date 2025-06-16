@@ -226,7 +226,7 @@ cdef class BaseRandomProjection():
         self.params.density = value
 
     @cuml.internals.api_base_return_any()
-    def fit(self, X, y=None, convert_dtype=True):
+    def fit(self, X, y=None, *, convert_dtype=True):
         """
         Fit the model. This function generates the random matrix on GPU.
 
@@ -263,7 +263,7 @@ cdef class BaseRandomProjection():
         return self
 
     @cuml.internals.api_base_return_array()
-    def transform(self, X, convert_dtype=True):
+    def transform(self, X, *, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -324,7 +324,7 @@ cdef class BaseRandomProjection():
         return X_new
 
     @cuml.internals.api_base_return_array(get_output_type=False)
-    def fit_transform(self, X, y=None, convert_dtype=True):
+    def fit_transform(self, X, y=None, *, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 

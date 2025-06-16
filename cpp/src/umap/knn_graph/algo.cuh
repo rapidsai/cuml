@@ -33,8 +33,8 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/all_neighbors.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
-#include <cuvs/neighbors/nn_descent.hpp>
 #include <stdint.h>
 
 #include <iostream>
@@ -56,23 +56,6 @@ void launcher(const raft::handle_t& handle,
               const ML::UMAPParams* params,
               cudaStream_t stream);
 
-auto get_graph_nnd(const raft::handle_t& handle,
-                   const ML::manifold_dense_inputs_t<float>& inputs,
-                   const ML::UMAPParams* params)
-{
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputs.X));
-  float* ptr = reinterpret_cast<float*>(attr.devicePointer);
-  if (ptr != nullptr) {
-    auto dataset =
-      raft::make_device_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
-    return cuvs::neighbors::nn_descent::build(handle, params->nn_descent_params, dataset);
-  } else {
-    auto dataset = raft::make_host_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
-    return cuvs::neighbors::nn_descent::build(handle, params->nn_descent_params, dataset);
-  }
-}
-
 // Instantiation for dense inputs, int64_t indices
 template <>
 inline void launcher(const raft::handle_t& handle,
@@ -83,20 +66,21 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
+  bool data_on_device = attr.type == cudaMemoryTypeDevice;
+
   if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
-    cudaPointerAttributes attr;
-    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
-    float* ptr = reinterpret_cast<float*>(attr.devicePointer);
-    auto idx   = [&]() {
-      if (ptr != nullptr) {  // inputsA on device
+    auto idx = [&]() {
+      if (data_on_device) {  // inputsA on device
         return cuvs::neighbors::brute_force::build(
           handle,
-          {params->metric, params->p},
+          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
           raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
       } else {  // inputsA on host
         return cuvs::neighbors::brute_force::build(
           handle,
-          {params->metric, params->p},
+          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
           raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
       }
     }();
@@ -107,45 +91,50 @@ inline void launcher(const raft::handle_t& handle,
       raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
       raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
   } else {  // nn_descent
-    // TODO:  use nndescent from cuvs
-    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
-                 "n_neighbors should be smaller than the graph degree computed by nn descent");
-    RAFT_EXPECTS(params->nn_descent_params.return_distances,
-                 "return_distances for nn descent should be set to true to be used for UMAP");
+    RAFT_EXPECTS(
+      static_cast<size_t>(n_neighbors) <= params->build_params.nn_descent_params.graph_degree,
+      "n_neighbors should be smaller than the graph degree computed by nn descent");
+    RAFT_EXPECTS(
+      params->build_params.nn_descent_params.graph_degree <=
+        params->build_params.nn_descent_params.intermediate_graph_degree,
+      "graph_degree should be smaller than intermediate_graph_degree computed by nn descent");
 
-    auto graph = get_graph_nnd(handle, inputsA, params);
+    auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
+    all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
+    all_neighbors_params.n_clusters     = params->build_params.n_clusters;
+    all_neighbors_params.metric         = static_cast<cuvs::distance::DistanceType>(params->metric);
 
-    // `graph.graph()` is a host array (n x graph_degree).
-    // Slice and copy to a temporary host array (n x n_neighbors), then copy
-    // that to the output device array `out.knn_indices` (n x n_neighbors).
-    // TODO: force graph_degree = n_neighbors so the temporary host array and
-    // slice isn't necessary.
-    auto temp_indices_h = raft::make_host_matrix<int64_t, int64_t>(inputsA.n, n_neighbors);
-    size_t graph_degree = params->nn_descent_params.graph_degree;
-#pragma omp parallel for
-    for (size_t i = 0; i < static_cast<size_t>(inputsA.n); i++) {
-      for (int j = 0; j < n_neighbors; j++) {
-        auto target                 = temp_indices_h.data_handle();
-        auto source                 = graph.graph().data_handle();
-        target[i * n_neighbors + j] = source[i * graph_degree + j];
-      }
+    auto nn_descent_params =
+      cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
+    nn_descent_params.graph_degree = params->build_params.nn_descent_params.graph_degree;
+    nn_descent_params.intermediate_graph_degree =
+      params->build_params.nn_descent_params.intermediate_graph_degree;
+    nn_descent_params.max_iterations = params->build_params.nn_descent_params.max_iterations;
+    nn_descent_params.termination_threshold =
+      params->build_params.nn_descent_params.termination_threshold;
+    nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(params->metric);
+    all_neighbors_params.graph_build_params = nn_descent_params;
+
+    auto indices_view =
+      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
+    auto distances_view =
+      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
+
+    if (data_on_device) {  // inputsA on device
+      cuvs::neighbors::all_neighbors::build(
+        handle,
+        all_neighbors_params,
+        raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+        indices_view,
+        distances_view);
+    } else {  // inputsA on host
+      cuvs::neighbors::all_neighbors::build(
+        handle,
+        all_neighbors_params,
+        raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+        indices_view,
+        distances_view);
     }
-    raft::copy(handle,
-               raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors),
-               temp_indices_h.view());
-
-    // `graph.distances()` is a device array (n x graph_degree).
-    // Slice and copy to the output device array `out.knn_dists` (n x n_neighbors).
-    // TODO: force graph_degree = n_neighbors so this slice isn't necessary.
-    raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
-                                           static_cast<int64_t>(0),
-                                           static_cast<int64_t>(inputsA.n),
-                                           static_cast<int64_t>(n_neighbors)};
-    raft::matrix::slice<float, int64_t, raft::row_major>(
-      handle,
-      raft::make_const_mdspan(graph.distances().value()),
-      raft::make_device_matrix_view(out.knn_dists, inputsA.n, n_neighbors),
-      coords);
   }
 }
 
@@ -186,7 +175,8 @@ inline void launcher(const raft::handle_t& handle,
   search_params.batch_size_index = ML::Sparse::DEFAULT_BATCH_SIZE;
   search_params.batch_size_query = ML::Sparse::DEFAULT_BATCH_SIZE;
 
-  auto index = cuvs::neighbors::brute_force::build(handle, a_csr, params->metric, params->p);
+  auto index = cuvs::neighbors::brute_force::build(
+    handle, a_csr, static_cast<cuvs::distance::DistanceType>(params->metric), params->p);
 
   cuvs::neighbors::brute_force::search(
     handle,

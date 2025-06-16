@@ -171,7 +171,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
@@ -214,7 +214,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
