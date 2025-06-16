@@ -85,6 +85,3 @@ class LinearSVC(ProxyBase):
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
     _gpu_supports_sparse = False
-
-    def _gpu_predict(self, X):
-        return self._gpu.decision_function(X).astype("float64", copy=False)
