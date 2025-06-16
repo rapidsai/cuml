@@ -64,7 +64,6 @@ def _cupy_array_from_ptr(ptr, shape, dtype, owner):
         ptr=ptr,
         size=np.prod(shape) * dtype.itemsize,
         owner=owner,
-        device_id=-1,
     )
     mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
     return cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr)
@@ -74,6 +73,7 @@ cdef class _HDBSCANState:
     cdef lib.hdbscan_output *hdbscan_output
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
     cdef lib.PredictionData[int, float] *prediction_data
+    cdef int n_clusters
     cdef object core_dists
     cdef object inverse_label_map
     cdef object cached_condensed_tree
@@ -90,9 +90,9 @@ cdef class _HDBSCANState:
             self.hdbscan_output = NULL
 
     def to_dict(self):
-        cdef int n_leaves = self.get_condensed_tree().get_n_leaves()
         return {
-            "n_leaves": n_leaves,
+            "n_leaves": self.get_condensed_tree().get_n_leaves(),
+            "n_clusters": self.n_clusters,
             "core_dists": self.core_dists,
             "inverse_label_map": self.inverse_label_map,
             "condensed_tree": self.get_condensed_tree_array(),
@@ -102,6 +102,7 @@ cdef class _HDBSCANState:
     def from_dict(handle, mapping):
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
+        self.n_clusters = mapping["n_clusters"]
         self.core_dists = mapping["core_dists"]
         self.inverse_label_map = mapping["inverse_label_map"]
         tree = mapping["condensed_tree"]
@@ -241,12 +242,12 @@ cdef class _HDBSCANState:
         handle.sync()
 
         # Extract and store local state
-        cdef int n_clusters = self.hdbscan_output.get_n_clusters()
-        if n_clusters > 0:
+        self.n_clusters = self.hdbscan_output.get_n_clusters()
+        if self.n_clusters > 0:
             self.inverse_label_map = CumlArray(
                 data=_cupy_array_from_ptr(
                     <size_t>self.hdbscan_output.get_inverse_label_map(),
-                    (n_clusters,),
+                    (self.n_clusters,),
                     np.int32,
                     self
                 )
@@ -256,11 +257,11 @@ cdef class _HDBSCANState:
         self.core_dists = core_dists
 
         # Extract and prepare results
-        if n_clusters > 0:
+        if self.n_clusters > 0:
             cluster_persistence = CumlArray(
                 data=_cupy_array_from_ptr(
                     <size_t>self.hdbscan_output.get_stabilities(),
-                    (1, n_clusters),
+                    (1, self.n_clusters),
                     np.float32,
                     self,
                 )
@@ -289,7 +290,7 @@ cdef class _HDBSCANState:
 
         return (
             self,
-            n_clusters,
+            self.n_clusters,
             labels,
             probabilities,
             cluster_persistence,
@@ -302,8 +303,7 @@ cdef class _HDBSCANState:
             return
 
         cdef int n_rows = X.shape[0]
-        cdef int n_cols = X.shape[0]
-        cdef int n_clusters = self.get_condensed_tree().get_n_clusters()
+        cdef int n_cols = X.shape[1]
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self.prediction_data = new lib.PredictionData[int, float](
@@ -320,7 +320,7 @@ cdef class _HDBSCANState:
             deref(condensed_tree),
             <int*><uintptr_t>(labels.ptr),
             <int*><uintptr_t>(self.inverse_label_map.ptr),
-            <int> n_clusters,
+            <int> self.n_clusters,
             deref(self.prediction_data),
         )
         handle.sync()
@@ -888,7 +888,6 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
         <float*><uintptr_t>(membership_vec.ptr),
         batch_size
     )
-
     clusterer.handle.sync()
 
     return membership_vec.to_output(
@@ -966,8 +965,8 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         <float*><uintptr_t>(membership_vec.ptr),
         batch_size
     )
-
     clusterer.handle.sync()
+
     return membership_vec.to_output(
         output_type="numpy",
         output_dtype="float32"
@@ -1147,6 +1146,7 @@ def _extract_clusters(
         <int> max_cluster_size,
         <float> cluster_selection_epsilon,
     )
+    handle.sync()
 
     return (
         labels.to_output("numpy"),

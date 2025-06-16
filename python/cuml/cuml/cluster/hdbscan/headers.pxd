@@ -84,12 +84,11 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
         size_t n_cols
 
     void generate_prediction_data(const handle_t& handle,
-                                  CondensedHierarchy[int, float]&
-                                  condensed_tree,
+                                  CondensedHierarchy[int, float]& condensed_tree,
                                   int* labels,
                                   int* inverse_label_map,
                                   int n_selected_clusters,
-                                  PredictionData[int, float]& prediction_data)
+                                  PredictionData[int, float]& prediction_data) except +
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
 
@@ -99,7 +98,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output,
-                 float * core_dists)
+                 float * core_dists) except +
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -108,7 +107,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
       const int *sizes,
       int min_cluster_size,
       int n_leaves,
-      CondensedHierarchy[int, float] &condensed_tree)
+      CondensedHierarchy[int, float] &condensed_tree) except +
 
     void _extract_clusters(const handle_t &handle, size_t n_leaves,
                            int _n_edges, int *parents, int *children,
@@ -116,7 +115,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
                            float *probabilities,
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
-                           float cluster_selection_epsilon)
+                           float cluster_selection_epsilon) except +
 
     void compute_all_points_membership_vectors(
         const handle_t &handle,
@@ -125,7 +124,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
         float* X,
         DistanceType metric,
         float* membership_vec,
-        size_t batch_size)
+        size_t batch_size) except +
 
     void compute_membership_vector(
         const handle_t& handle,
@@ -137,7 +136,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
         int min_samples,
         DistanceType metric,
         float* membership_vec,
-        size_t batch_size)
+        size_t batch_size) except +
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -149,7 +148,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML" nogil:
                                DistanceType metric,
                                int min_samples,
                                int* out_labels,
-                               float* out_probabilities)
+                               float* out_probabilities) except +
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER" nogil:
 
@@ -159,7 +158,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER" nogi
                             size_t m,
                             size_t n,
                             DistanceType metric,
-                            int min_samples)
+                            int min_samples) except +
 
     void compute_inverse_label_map(const handle_t& handle,
                                    CondensedHierarchy[int, float]&
@@ -170,4 +169,4 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER" nogi
                                    device_uvector[int]& inverse_label_map,
                                    bool allow_single_cluster,
                                    int max_cluster_size,
-                                   float cluster_selection_epsilon)
+                                   float cluster_selection_epsilon) except +
