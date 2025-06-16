@@ -89,12 +89,34 @@ cdef class _HDBSCANState:
     code. Any exposed output arrays have their lifetimes tied to it, ensuring
     that memory won't be freed until no python references still exist.
     """
+
+    # A pointer to an `hdbscan_output` instance from a `fit` call, or `NULL` if
+    # this state was initialized through a different method
     cdef lib.hdbscan_output *hdbscan_output
+
+    # A pointer to a `CondensedHierarchy`, or `NULL` if this state was
+    # initialized through a `fit` call.
     cdef lib.CondensedHierarchy[int, float] *condensed_tree
+
+    # The generated PredictionData, or NULL if prediction data was not yet generated.
     cdef lib.PredictionData[int, float] *prediction_data
+
+    # The number of clusters
     cdef public int n_clusters
+
+    # A CumlArray. Either a view of `hdbscan_output`, or memory allocated by
+    # `CumlArray` (if not from a `fit` call). This is also passed to
+    # `PredictionData`, which keeps a view of it (but doesn't do anything to
+    # keep it alive while using it). We keep a reference here to work around
+    # that.
     cdef object core_dists
+
+    # A CumlArray. Either a view of `hdbscan_output`, or memory allocated by
+    # `CumlArray` (if not from a `fit` call).
     cdef object inverse_label_map
+
+    # A cached numpy array of the condensed tree, or None if a host-array version
+    # of the tree hasn't been requested yet.
     cdef object cached_condensed_tree
 
     def __dealloc__(self):
