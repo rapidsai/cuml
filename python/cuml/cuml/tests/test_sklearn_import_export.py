@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 import scipy.sparse
+import sklearn.kernel_ridge
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
@@ -247,6 +249,42 @@ def test_tsne(random_state):
 
     assert array_equal(original_embedding, sklearn_embedding)
     assert array_equal(original_embedding, roundtrip_embedding)
+
+
+@pytest.mark.parametrize("alpha_kind", ["scalar", "numpy", "cupy"])
+def test_kernel_ridge(random_state, alpha_kind):
+    X, y = make_regression(
+        n_samples=50,
+        n_features=10,
+        n_targets=2,
+        noise=0.1,
+        random_state=random_state,
+    )
+    if alpha_kind == "scalar":
+        cu_alpha = sk_alpha = 1
+    elif alpha_kind == "numpy":
+        cu_alpha = sk_alpha = np.array([1.0, 2.0])
+    elif alpha_kind == "cupy":
+        cu_alpha = cp.array([1.0, 2.0])
+        sk_alpha = cu_alpha.get()
+
+    cu_model = cuml.KernelRidge(alpha=cu_alpha).fit(X, y)
+    sk_model = sklearn.kernel_ridge.KernelRidge(alpha=sk_alpha).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KernelRidge.from_sklearn(sk_model)
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
 
 
 @pytest.mark.parametrize("sparse", [False, True])
