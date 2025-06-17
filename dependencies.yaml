@@ -235,13 +235,13 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-              - gcc_linux-64=13.*
+              - gcc_linux-64=14.*
           - matrix:
               arch: aarch64
               cuda: "12.*"
             packages:
               - cuda-nvcc
-              - gcc_linux-aarch64=13.*
+              - gcc_linux-aarch64=14.*
   py_build_cuml:
     common:
       - output_types: [conda, requirements, pyproject]

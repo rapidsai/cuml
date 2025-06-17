@@ -13,7 +13,7 @@ dependencies:
 - cuda-profiler-api
 - cuda-version=12.8
 - cxx-compiler
-- gcc_linux-64=13.*
+- gcc_linux-64=14.*
 - libcublas-dev
 - libcufft-dev
 - libcumlprims==25.8.*,>=0.0.0a0
