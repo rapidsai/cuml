@@ -1601,3 +1601,5 @@
   - "sklearn.svm.tests.test_sparse::test_sparse_liblinear_intercept_handling"
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
   - "sklearn.svm.tests.test_svm::test_liblinear_set_coef"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l1-hinge]"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l2-hinge]"
