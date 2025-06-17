@@ -144,10 +144,10 @@ cdef class _HDBSCANState:
         """Shared helper for initializing a `CondensedHierarchy` from a condensed_tree array"""
         self.cached_condensed_tree = tree
 
-        parents = input_to_cuml_array(tree["parent"], order="C", convert_to_dtype=np.int32)[0]
-        children = input_to_cuml_array(tree["child"], order="C", convert_to_dtype=np.int32)[0]
-        lambdas = input_to_cuml_array(tree["lambda_val"], order="C", convert_to_dtype=np.float32)[0]
-        sizes = input_to_cuml_array(tree["child_size"], order="C", convert_to_dtype=np.int32)[0]
+        parents = np.ascontiguousarray(tree["parent"], dtype=np.int32)
+        children = np.ascontiguousarray(tree["child"], dtype=np.int32)
+        lambdas = np.ascontiguousarray(tree["lambda_val"], dtype=np.float32)
+        sizes = np.ascontiguousarray(tree["child_size"], dtype=np.int32)
 
         cdef int n_edges = len(tree)
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
@@ -155,10 +155,10 @@ cdef class _HDBSCANState:
             handle_[0],
             n_leaves,
             n_edges,
-            <int*><uintptr_t>(parents.ptr),
-            <int*><uintptr_t>(children.ptr),
-            <float*><uintptr_t>(lambdas.ptr),
-            <int*><uintptr_t>(sizes.ptr),
+            <int*><uintptr_t>(parents.ctypes.data),
+            <int*><uintptr_t>(children.ctypes.data),
+            <float*><uintptr_t>(lambdas.ctypes.data),
+            <int*><uintptr_t>(sizes.ctypes.data),
         )
 
     @staticmethod
