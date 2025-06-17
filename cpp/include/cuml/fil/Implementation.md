@@ -223,7 +223,7 @@ directory here.
   implemented as a macro.
 
 ### Source Files
-The experimental FIL source files contain no implementation details. They
+The FIL source files contain no implementation details. They
 merely use the macros defined in
 `include/cuml/fil/detail/specializations` to indicate the template
 instantiations that must be compiled. These are broken up into an arbitrary
