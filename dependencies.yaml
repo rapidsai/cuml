@@ -409,7 +409,7 @@ dependencies:
           - nltk
           - numpydoc
           - pyyaml
-          - pytest==7.*
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
