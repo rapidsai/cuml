@@ -23,7 +23,6 @@ import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
 from cuml.internals import logger
 
 
@@ -190,7 +189,7 @@ def main(argv: list[str] | None = None):
         # Conversion is only necessary for estimators built on `ProxyMixin`,
         # estimators built with `ProxyBase` pickle transparently as their
         # non-accelerated versions.
-        if isinstance(estimator, ProxyMixin):
+        if hasattr(estimator, "as_sklearn"):
             estimator = estimator.as_sklearn()
 
         with open(ns.output, "wb") as f:
