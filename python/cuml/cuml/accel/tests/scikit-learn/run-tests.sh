@@ -11,6 +11,13 @@
 
 set -eu
 
+file=$CONDA_PREFIX/lib/python3.13/site-packages/sklearn/utils/discovery.py
+if ! grep -qF 'estimators = {name: est for name, est in estimators}' "$file"; then
+  sed -i "/return sorted(set(estimators), key=itemgetter(0))/i\\
+    estimators = {name: est for name, est in estimators}\\
+    estimators = [(name, est) for name, est in estimators.items()]" "$file"
+fi
+
 # Base arguments
 PYTEST_ARGS=("-p" "cuml.accel" "--pyargs" "sklearn" "--xfail-list=$(dirname "$0")/xfail-list.yaml")
 
