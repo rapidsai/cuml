@@ -706,6 +706,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         path,
         *,
         is_classifier=False,
+        threshold=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -727,6 +728,8 @@ class ForestInference(Base, CMajorInputTagMixin):
             made to load the file based on its extension.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
+        threshold : float
+            Removed in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -767,6 +770,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        if threshold is not None:
+            raise ValueError(
+                "`load()` no longer accepts `threshold` parameter. "
+                "Set `threshold` in `predict()` instead."
+            )
         if model_type is None:
             extension = pathlib.Path(path).suffix
             if extension == '.json':
@@ -810,6 +818,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             skl_model,
             *,
             is_classifier=False,
+            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -827,6 +836,8 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Scikit-Learn forest model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
+        threshold : float
+            Removed in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -877,6 +888,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        if threshold is not None:
+            raise ValueError(
+                "`load_from_sklearn()` no longer accepts `threshold` parameter. "
+                "Set `threshold` in `predict()` instead."
+            )
         tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
             treelite_model=tl_model,
@@ -898,6 +914,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             tl_model,
             *,
             is_classifier=False,
+            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -915,6 +932,8 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Treelite model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
+        threshold : float
+            Removed in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -965,6 +984,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        if threshold is not None:
+            raise ValueError(
+                "`load_from_treelite_model()` no longer accepts `threshold` parameter. "
+                "Set `threshold` in `predict()` instead."
+            )
         return cls(
             treelite_model=tl_model,
             handle=handle,
