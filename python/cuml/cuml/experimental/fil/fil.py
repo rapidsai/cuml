@@ -50,8 +50,6 @@ class ForestInference(NewForestInference):
         See :ref:`verbosity-levels` for more info.
     is_classifier : boolean
         True for classifier models, False for regressors.
-    output_class : boolean
-        Deprecated parameter. Please use is_classifier instead.
     layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
@@ -82,7 +80,6 @@ class ForestInference(NewForestInference):
         output_type=None,
         verbose=False,
         is_classifier=False,
-        output_class=None,
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -101,7 +98,6 @@ class ForestInference(NewForestInference):
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
-            output_class=output_class,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,

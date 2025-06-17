@@ -17,7 +17,6 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
@@ -240,33 +239,6 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             )
         self.__loss = loss
 
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
-        X = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float64 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
-        y = input_to_cuml_array(y, order="F").array
-        sample_weight = apply_class_weight(
-            self.handle,
-            sample_weight,
-            self.class_weight,
-            y,
-            self.verbose,
-            self.output_type,
-            X.dtype,
-        )
-        return super(LinearSVC, self).fit(
-            X, y, sample_weight, convert_dtype=convert_dtype
-        )
-
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        y_pred = super().predict(X, convert_dtype=convert_dtype)
-        return y_pred.to_output("cupy", output_dtype="int64")
-
     @classmethod
     def _get_param_names(cls):
         return list(
@@ -288,3 +260,30 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 "multi_class",
             }.union(super()._get_param_names())
         )
+
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "LinearSVM":
+        X = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float64 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+            order="F",
+        ).array
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y,
+            self.verbose,
+            self.output_type,
+            X.dtype,
+        )
+        return super(LinearSVC, self).fit(
+            X, y, sample_weight, convert_dtype=convert_dtype
+        )
+
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+        y_pred = super().predict(X, convert_dtype=convert_dtype)
+        # Cast to int64 to match expected classifier interface
+        return y_pred.to_output("cupy", output_dtype="int64")

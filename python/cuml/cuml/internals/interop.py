@@ -30,7 +30,7 @@ __all__ = (
 )
 
 
-def to_gpu(x, order="K"):
+def to_gpu(x, order="K", dtype=None):
     """Coerce `x` to the equivalent gpu type."""
     from cuml.internals.input_utils import input_to_cuml_array
 
@@ -38,7 +38,10 @@ def to_gpu(x, order="K"):
         # cuml typically expects scalars on host
         return x
     return input_to_cuml_array(
-        x, order=order, convert_to_mem_type=MemoryType.device
+        x,
+        order=order,
+        convert_to_dtype=dtype,
+        convert_to_mem_type=MemoryType.device,
     )[0]
 
 
@@ -59,10 +62,17 @@ class UnsupportedOnCPU(ValueError):
 
 def is_fitted(model) -> bool:
     """Check if a sklearn model is fitted."""
+    # Local to workaround circular imports
+    from cuml.internals.base import Base
+
     if hasattr(model, "__sklearn_is_fitted__"):
         return model.__sklearn_is_fitted__()
-    if getattr(model, "n_features_in_", None) is not None:
-        return True
+    if isinstance(model, Base):
+        # cuml models all set `n_features_in_` on fit. We can't use the more common
+        # check for attributes with a trailing `_` since many cuml classes still set
+        # those to `None` on init (or define them via `property`). The `n_features_in_`
+        # check is sufficient for cuml models for now.
+        return getattr(model, "n_features_in_", None) is not None
     return any(
         v for v in vars(model) if v.endswith("_") and not v.startswith("__")
     )

@@ -21,7 +21,7 @@ import cuml.internals
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
@@ -251,8 +251,7 @@ class LabelBinarizer(Base):
             sparse_output=self.sparse_output,
         )
 
-    @deprecate_non_keyword_only("threshold")
-    def inverse_transform(self, y, threshold=None) -> CumlArray:
+    def inverse_transform(self, y, *, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels
 

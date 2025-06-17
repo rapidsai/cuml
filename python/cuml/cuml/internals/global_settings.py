@@ -67,10 +67,6 @@ class GlobalSettings:
         self.__dict__ = _global_settings_data.shared_state
 
     @property
-    def device_type(self):
-        return DeviceType.device
-
-    @property
     def memory_type(self):
         return self._memory_type
 

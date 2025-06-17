@@ -22,7 +22,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -309,9 +309,7 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "ElasticNet":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "ElasticNet":
         """
         Fit the model with X and y.
 

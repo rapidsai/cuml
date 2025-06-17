@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import pprint
-import warnings
 
 import cupy as cp
 import numpy as np
@@ -29,7 +28,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import (
@@ -41,7 +40,7 @@ from cuml.internals.output_utils import cudf_to_pandas
 from cuml.preprocessing import LabelEncoder
 from cuml.solvers import QN
 
-supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
+supported_penalties = ["l1", "l2", None, "elasticnet"]
 
 supported_solvers = ["qn"]
 
@@ -277,18 +276,8 @@ class LogisticRegression(Base,
             raise ValueError("Only quasi-newton `qn` solver is "
                              " supported, not %s" % solver)
         self.solver = solver
-
         self.C = C
-
-        if penalty == "none":
-            warnings.warn(
-                "The 'none' option was deprecated in version 24.06, and will "
-                "be removed in 25.08. Use None instead.",
-                FutureWarning
-            )
-            penalty = None
         self.penalty = penalty
-
         self.tol = tol
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
@@ -334,9 +323,7 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "LogisticRegression":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -457,8 +444,7 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def decision_function(self, X, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -474,8 +460,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_any()
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -538,8 +523,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -555,8 +539,7 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
