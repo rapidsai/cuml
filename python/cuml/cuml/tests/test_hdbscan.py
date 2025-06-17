@@ -493,7 +493,6 @@ def test_hdbscan_empty_cluster_tree():
 
 
 def test_hdbscan_plots():
-
     X, y = make_blobs(
         n_samples=int(100),
         n_features=100,
@@ -502,19 +501,26 @@ def test_hdbscan_plots():
         shuffle=False,
         random_state=42,
     )
+    model = HDBSCAN(gen_min_span_tree=True)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=True)
-    cuml_agg.fit(X)
+    # All attributes not available before fit
+    attrs = [
+        "condensed_tree_",
+        "minimum_spanning_tree_",
+        "single_linkage_tree_",
+    ]
+    for name in attrs:
+        assert not hasattr(model, name)
 
-    assert cuml_agg.condensed_tree_ is not None
-    assert cuml_agg.minimum_spanning_tree_ is not None
-    assert cuml_agg.single_linkage_tree_ is not None
+    model.fit(X)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=False)
-    cuml_agg.fit(X)
+    # All attributes available after fit
+    for name in attrs:
+        assert getattr(model, name) is not None
 
-    with pytest.raises(AttributeError):
-        assert cuml_agg.minimum_spanning_tree_
+    # minimum_spanning_tree_ not available if not requested
+    model = HDBSCAN(gen_min_span_tree=False).fit(X)
+    assert not hasattr(model, "minimum_spanning_tree_")
 
 
 @pytest.mark.parametrize("nrows", [1000])
