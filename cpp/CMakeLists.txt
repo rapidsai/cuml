@@ -187,7 +187,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 set(CUML_USE_RAFT_NN OFF)
-set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
@@ -456,6 +455,7 @@ if(BUILD_CUML_CPP_LIBRARY)
             src/kmeans/kmeans_transform.cu
             src/kmeans/kmeans_fit_predict.cu
             src/kmeans/kmeans_predict.cu
+            src/kmeans/kmeans_params.cpp
             )
   endif()
 
@@ -529,7 +529,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu)
+        src/svm/linear.cu
+        src/matrix/kernel_params.cpp)
   endif()
 
   if(all_algo OR autoarima_algo)
@@ -641,7 +642,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
-    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -661,14 +661,13 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    $<$<BOOL:${CUML_RAFT_COMPILED}>:${RAFT_COMPILED_LIB}>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
-            ${_cuml_cpp_public_libs}
-    PRIVATE ${_cuml_cpp_private_libs}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm
+            raft::raft ${_cuml_cpp_public_libs}
+    PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

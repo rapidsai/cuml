@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -203,7 +204,7 @@ int main(int argc, char* argv[])
                   nCols,
                   eps,
                   minPts,
-                  cuvs::distance::DistanceType::L2SqrtUnexpanded,
+                  ML::distance::DistanceType::L2SqrtUnexpanded,
                   d_labels,
                   nullptr,
                   nullptr,
