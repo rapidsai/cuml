@@ -22,6 +22,7 @@ import typing
 import numpy as np
 
 import cuml
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
@@ -323,7 +324,7 @@ cdef class LinearSVMWrapper:
         cdef size_t nCols = 0
         cdef size_t nRows = 0
         if do_training:
-            nCols = X.shape[1]
+            nCols = X.shape[1] if len(X.shape) == 2 else 1
             nRows = X.shape[0]
             if self.dtype == np.float32:
                 with cuda_interruptible():
@@ -588,7 +589,7 @@ class WithReexportedParams(BaseMetaClass):
         return super().__new__(cls, name, bases, attrs)
 
 
-class LinearSVM(Base, metaclass=WithReexportedParams):
+class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
 
     _model_: typing.Optional[LinearSVMWrapper]
 
@@ -643,6 +644,83 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         self.classes_ = None
         self.probScale_ = None
 
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "penalty",
+            "loss",
+            "fit_intercept",
+            "penalized_intercept",
+            "probability",
+            "max_iter",
+            "linesearch_max_iter",
+            "lbfgs_memory",
+            "C",
+            "grad_tol",
+            "change_tol",
+            "epsilon",
+            "tol"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        params = {
+            "C": model.C,
+            "fit_intercept": model.fit_intercept,
+            "max_iter": model.max_iter,
+            "tol": model.tol,
+            "verbose": model.verbose
+        }
+
+        if hasattr(model, "penalty"):
+            params["penalty"] = model.penalty
+
+        return params
+
+    def _params_to_cpu(self):
+        return {
+            "penalty": self.penalty,
+            "C": self.C,
+            "fit_intercept": self.fit_intercept,
+            "max_iter": self.max_iter,
+            "tol": self.grad_tol,  # Map grad_tol back to tol
+            "verbose": self.verbose
+        }
+
+    def _attrs_from_cpu(self, model):
+        attrs = {
+            "coef_": to_gpu(model.coef_, order="F"),
+            "n_features_in_": model.n_features_in_,
+            **super()._attrs_from_cpu(model)
+        }
+
+        if hasattr(model, 'feature_names_in_'):
+            attrs["feature_names_in_"] = model.feature_names_in_
+
+        if hasattr(model, 'intercept_'):
+            attrs["intercept_"] = to_gpu(model.intercept_, order="F")
+
+        return attrs
+
+    def _attrs_to_cpu(self, model):
+        attrs = {
+            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
+            "n_features_in_": self.n_features_in_,
+            **super()._attrs_to_cpu(model)
+        }
+
+        if hasattr(self, 'feature_names_in_'):
+            attrs["feature_names_in_"] = self.feature_names_in_
+
+        if hasattr(self, 'intercept_'):
+            attrs["intercept_"] = to_cpu(self.intercept_, order="C", dtype=np.float64)
+
+        return attrs
+
+    def _sync_attrs_from_cpu(self, model):
+        super()._sync_attrs_from_cpu(model)
+        self.__sync_model()
+
     @property
     def n_classes_(self) -> int:
         if self.classes_ is not None:
@@ -650,15 +728,25 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         return self.model_.classes_.shape[0]
 
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> 'LinearSVM':
+        X_m, n_rows, self.n_features_in_, dtype = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float64 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+            order='F')
+        if hasattr(X_m, "index"):
+            self.feature_names_in_ = X_m.index
 
-        X_m, n_rows, _n_cols, self.dtype = input_to_cuml_array(X, order='F')
-        convert_to_dtype = self.dtype if convert_dtype else None
+        convert_to_dtype = dtype if convert_dtype else None
         y_m = input_to_cuml_array(
-            y, check_dtype=self.dtype,
+            y, check_dtype=dtype,
             convert_to_dtype=convert_to_dtype,
             check_rows=n_rows, check_cols=1).array
+
+        if X.size == 0 or y.size == 0:
+            raise ValueError("empty data")
+
         sample_weight_m = input_to_cuml_array(
-            sample_weight, check_dtype=self.dtype,
+            sample_weight, check_dtype=dtype,
             convert_to_dtype=convert_to_dtype,
             check_rows=n_rows, check_cols=1
             ).array if sample_weight is not None else None
@@ -702,25 +790,32 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
                 self.model_.probScale_ = self.probScale_
 
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
-        convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=self.dtype,
+        current_dtype = self.coef_.dtype
+        convert_to_dtype = current_dtype if convert_dtype else None
+        X_m, _, n_features, _ = input_to_cuml_array(
+            X, check_dtype=current_dtype,
             convert_to_dtype=convert_to_dtype)
+
+        if n_features != self.n_features_in_:
+            raise ValueError("Reshape your data")
+
         self.__sync_model()
         return self.model_.predict(X_m)
 
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
-        convert_to_dtype = self.dtype if convert_dtype else None
+        current_dtype = self.coef_.dtype
+        convert_to_dtype = current_dtype if convert_dtype else None
         X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=self.dtype,
+            X, check_dtype=current_dtype,
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
         return self.model_.decision_function(X_m)
 
     def predict_proba(self, X, *, log=False, convert_dtype=True) -> CumlArray:
-        convert_to_dtype = self.dtype if convert_dtype else None
+        current_dtype = self.coef_.dtype
+        convert_to_dtype = current_dtype if convert_dtype else None
         X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=self.dtype,
+            X, check_dtype=current_dtype,
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
         return self.model_.predict_proba(X_m, log=log)

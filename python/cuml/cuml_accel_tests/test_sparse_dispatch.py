@@ -30,7 +30,7 @@ from sklearn.linear_model import (
     Ridge,
 )
 from sklearn.neighbors import NearestNeighbors
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 from umap import UMAP
 
 estimators = {
@@ -48,6 +48,8 @@ estimators = {
     "SVC": lambda: SVC(),
     "SVR": lambda: SVR(),
     "KernelRidge": lambda: KernelRidge(),
+    "LinearSVC": lambda: LinearSVC(),
+    "LinearSVR": lambda: LinearSVR(),
 }
 
 
