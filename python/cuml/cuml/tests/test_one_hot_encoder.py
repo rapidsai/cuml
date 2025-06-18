@@ -391,14 +391,3 @@ def test_onehot_get_feature_names(as_array):
     ]
     feature_names = enc.get_feature_names(["fruit", "size"])
     assert np.array_equal(feature_names, feature_names_ref)
-
-
-# TODO(24.08): remove this test
-def test_sparse_deprecation():
-    X = cp.array([[33, 1], [34, 3], [34, 2]])
-    oh = OneHotEncoder(sparse=True)
-
-    with pytest.warns(
-        FutureWarning, match="`sparse` was renamed to `sparse_output`"
-    ):
-        oh.fit(X)

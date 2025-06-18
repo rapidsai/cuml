@@ -17,7 +17,6 @@
 
 if(CUML_ALGORITHMS STREQUAL "ALL")
     set(CUML_USE_RAFT_NN ON)
-    set(CUML_RAFT_COMPILED ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
     set(LINK_CUVS ON)
@@ -33,7 +32,6 @@ else()
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
     set(CUML_USE_RAFT_NN OFF)
-    set(CUML_RAFT_COMPILED OFF)
 
     foreach(algo ${CUML_ALGORITHMS})
       string(TOLOWER ${algo} lower_algo)
@@ -108,7 +106,6 @@ else()
 
     if(knn_algo)
         set(CUML_USE_RAFT_NN ON)
-        set(CUML_RAFT_COMPILED ON)
     endif()
 
     if(randomforest_algo)
@@ -118,10 +115,6 @@ else()
 
     if(hierarchicalclustering_algo OR kmeans_algo)
       set(metrics_algo ON)
-    endif()
-
-    if(metrics_algo)
-        set(CUML_RAFT_COMPILED ON)
     endif()
 
     if(dbscan_algo OR hdbscan_algo OR kmeans_algo OR knn_algo

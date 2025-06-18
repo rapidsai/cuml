@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,4 +16,4 @@
 
 add_executable(symreg_example symreg_example.cpp)
 target_include_directories(symreg_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
-target_link_libraries(symreg_example cuml++)
+target_link_libraries(symreg_example cuml++ cuvs::cuvs)

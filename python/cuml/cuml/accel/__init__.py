@@ -15,32 +15,13 @@
 #
 
 from cuml.accel.core import enabled, install
-from cuml.accel.estimator_proxy_mixin import ProxyMixin as _ProxyMixin
+from cuml.accel.estimator_proxy import is_proxy
 from cuml.accel.magics import load_ipython_extension
 from cuml.accel.pytest_plugin import (
     pytest_addoption,
     pytest_collection_modifyitems,
     pytest_load_initial_conftests,
 )
-
-try:
-    from cuml.accel.estimator_proxy import ProxyBase as _ProxyBase
-except ImportError:
-
-    class _ProxyBase:
-        pass
-
-
-# TODO: move back to estimator_proxy.py once sklearn is a required dependency
-def is_proxy(instance_or_class) -> bool:
-    """Check if an instance or class is a proxy object created by the accelerator."""
-
-    if isinstance(instance_or_class, type):
-        cls = instance_or_class
-    else:
-        cls = type(instance_or_class)
-    return issubclass(cls, (_ProxyMixin, _ProxyBase))
-
 
 __all__ = (
     "enabled",

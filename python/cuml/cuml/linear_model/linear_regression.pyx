@@ -26,7 +26,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -343,8 +343,7 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearRegression":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -510,9 +509,6 @@ class LinearRegression(Base,
     def _predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.features_in_ = self.coef_.shape[0]
-        # Adding UniversalBase here skips it in the Method Resolution Order
-        # (MRO) Since UniversalBase and LinearPredictMixin now both have a
-        # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
 
     @staticmethod

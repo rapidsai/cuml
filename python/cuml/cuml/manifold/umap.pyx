@@ -19,9 +19,10 @@
 import warnings
 
 import cupy
-import cupyx
+import cupyx.scipy.sparse
 import joblib
 import numpy as np
+import scipy.sparse
 
 import cuml.accel
 import cuml.internals
@@ -30,14 +31,16 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
@@ -109,7 +112,20 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                           float *transformed) except +
 
 
-class UMAP(UniversalBase,
+def _joblib_hash(X):
+    """A thin shim around joblib.hash"""
+    if scipy.sparse.issparse(X):
+        # XXX: joblib.hash doesn't special case sparse inputs, meaning that
+        # it's sensitive to what should be irrelevant internal state. For now
+        # we trigger a cached attribute to ensure state is always fully filled
+        # in so hashing is consistent. This is a relatively cheap operation and
+        # has no measurable impact on performance.
+        X.has_sorted_indices
+    return joblib.hash(X)
+
+
+class UMAP(Base,
+           InteropMixin,
            CMajorInputTagMixin,
            SparseInputTagMixin):
     """
@@ -336,33 +352,188 @@ class UMAP(UniversalBase,
        <https://arxiv.org/abs/2008.00325>`_
     """
 
-    _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
 
-    _hyperparam_interop_translator = {
-        "metric": {
-            "sokalsneath": "NotImplemented",
-            "rogerstanimoto": "NotImplemented",
-            "sokalmichener": "NotImplemented",
-            "yule": "NotImplemented",
-            "ll_dirichlet": "NotImplemented",
-            "russellrao": "NotImplemented",
-            "kulsinski": "NotImplemented",
-            "dice": "NotImplemented",
-            "wminkowski": "NotImplemented",
-            "mahalanobis": "NotImplemented",
-            "haversine": "NotImplemented",
-        },
-        "init": {
-            "pca": "NotImplemented",
-            "tswspectral": "NotImplemented"
-        },
-        "target_metric": {
-            "l2": "euclidean"
-        }
-    }
+    _cpu_class_path = "umap.UMAP"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_neighbors",
+            "n_components",
+            "n_epochs",
+            "learning_rate",
+            "min_dist",
+            "spread",
+            "set_op_mix_ratio",
+            "local_connectivity",
+            "repulsion_strength",
+            "negative_sample_rate",
+            "transform_queue_size",
+            "init",
+            "a",
+            "b",
+            "target_n_neighbors",
+            "target_weight",
+            "target_metric",
+            "hash_input",
+            "random_state",
+            "callback",
+            "metric",
+            "metric_kwds",
+            "precomputed_knn",
+            "build_algo",
+            "build_kwds"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if not (isinstance(model.init, str) and model.init in ("spectral", "random")):
+            raise UnsupportedOnGPU
+
+        if isinstance(model.metric, str):
+            try:
+                coerce_metric(model.metric)
+            except (ValueError, NotImplementedError):
+                raise UnsupportedOnGPU
+        else:
+            raise UnsupportedOnGPU
+
+        if model.target_metric not in ("categorical", "l2", "euclidean"):
+            raise UnsupportedOnGPU
+
+        if model.unique:
+            raise UnsupportedOnGPU
+
+        if model.densmap:
+            raise UnsupportedOnGPU
+
+        precomputed_knn = model.precomputed_knn[:2]
+        if all(item is None for item in precomputed_knn):
+            precomputed_knn = None
+
+        return {
+            "n_neighbors": model.n_neighbors,
+            "n_components": model.n_components,
+            "metric": model.metric,
+            "metric_kwds": model.metric_kwds,
+            "n_epochs": model.n_epochs,
+            "learning_rate": model.learning_rate,
+            "min_dist": model.min_dist,
+            "spread": model.spread,
+            "set_op_mix_ratio": model.set_op_mix_ratio,
+            "local_connectivity": model.local_connectivity,
+            "repulsion_strength": model.repulsion_strength,
+            "negative_sample_rate": model.negative_sample_rate,
+            "transform_queue_size": model.transform_queue_size,
+            "init": model.init,
+            "a": model.a,
+            "b": model.b,
+            "target_n_neighbors": model.target_n_neighbors,
+            "target_weight": model.target_weight,
+            "target_metric": model.target_metric,
+            "hash_input": True,
+            "random_state": model.random_state,
+            "precomputed_knn": precomputed_knn,
+        }
+
+    def _params_to_cpu(self):
+        if (precomputed_knn := self.precomputed_knn) is None:
+            precomputed_knn = (None, None, None)
+
+        return {
+            "n_neighbors": self.n_neighbors,
+            "n_components": self.n_components,
+            "metric": self.metric,
+            "metric_kwds": self.metric_kwds,
+            "n_epochs": self.n_epochs,
+            "learning_rate": self.learning_rate,
+            "min_dist": self.min_dist,
+            "spread": self.spread,
+            "set_op_mix_ratio": self.set_op_mix_ratio,
+            "local_connectivity": self.local_connectivity,
+            "repulsion_strength": self.repulsion_strength,
+            "negative_sample_rate": self.negative_sample_rate,
+            "transform_queue_size": self.transform_queue_size,
+            "init": self.init,
+            "a": self.a,
+            "b": self.b,
+            "target_n_neighbors": self.target_n_neighbors,
+            "target_weight": self.target_weight,
+            "target_metric": self.target_metric,
+            "random_state": self.random_state,
+            "precomputed_knn": precomputed_knn,
+        }
+
+    def _attrs_from_cpu(self, model):
+        if scipy.sparse.issparse(model._raw_data):
+            raw_data = SparseCumlArray(
+                model._raw_data,
+                convert_to_dtype=cupy.float32,
+                convert_format=True
+            )
+        else:
+            raw_data = to_gpu(model._raw_data)
+
+        return {
+            "embedding_": to_gpu(model.embedding_, order="C"),
+            "graph_": cupyx.scipy.sparse.coo_matrix(model.graph_),
+            "_raw_data": raw_data,
+            "_input_hash": model._input_hash,
+            "sparse_fit": model._sparse_data,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        from umap.umap_ import DISCONNECTION_DISTANCES
+
+        disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+
+        raw_data = self._raw_data.to_output("numpy")
+
+        if (input_hash := getattr(self, "_input_hash", None)) is None:
+            input_hash = _joblib_hash(raw_data)
+
+        if (knn_dists := getattr(self, "_knn_dists", None)) is not None:
+            knn_dists = to_cpu(knn_dists)
+
+        if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
+            knn_indices = to_cpu(knn_indices)
+
+        return {
+            "embedding_": to_cpu(self.embedding_),
+            "graph_": self.graph_.get().tocsr(),
+            "graph_dists_": None,
+            "_raw_data": raw_data,
+            "_input_hash": input_hash,
+            "_sparse_data": self.sparse_fit,
+            "_a": self.a,
+            "_b": self.b,
+            "_disconnection_distance": disconnection_distance,
+            "_initial_alpha": self.learning_rate,
+            "_n_neighbors": self.n_neighbors,
+            "_supervised": self._supervised,
+            "_small_data": False,
+            "_knn_dists": knn_dists,
+            "_knn_indices": knn_indices,
+            # XXX: umap.UMAP requires _knn_search_index to transform on new data.
+            # This is an instance of pynndescent.NNDescent, which can _currently_
+            # only be recreated by rerunning the nndescent algorithm, effectively
+            # repeating any work already done on GPU. Instead, we opt to set
+            # _knn_search_index to None (which is allowed). In this case
+            # calling umap.UMAP.transform on _new_ data will result in
+            # a nicer NotImplementedError being raised informing the user
+            # that that's not supported on the instance.
+            "_knn_search_index": None,
+            **super()._attrs_to_cpu(model),
+        }
+
+    def _sync_attrs_to_cpu(self, model):
+        super()._sync_attrs_to_cpu(model)
+        # _validate_parameters constructs the rest of umap.UMAP's internal state
+        model._validate_parameters()
+
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
@@ -407,7 +578,7 @@ class UMAP(UniversalBase,
 
         if init == "spectral" or init == "random":
             self.init = init
-        elif not cuml.accel.enabled():
+        else:
             raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
@@ -431,9 +602,9 @@ class UMAP(UniversalBase,
 
         self.random_state = random_state
 
-        if target_metric == "euclidean" or target_metric == "categorical":
+        if target_metric in {"euclidean", "l2", "categorical"}:
             self.target_metric = target_metric
-        elif not cuml.accel.enabled():
+        else:
             raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
@@ -443,7 +614,6 @@ class UMAP(UniversalBase,
 
         self.sparse_fit = False
         self._input_hash = None
-        self._small_data = False
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
 
@@ -494,7 +664,7 @@ class UMAP(UniversalBase,
         else:  # self.init == "random"
             umap_params.init = <int> 0
 
-        if self.target_metric == "euclidean":
+        if self.target_metric in {"euclidean", "l2"}:
             umap_params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
@@ -554,10 +724,7 @@ class UMAP(UniversalBase,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit(self, X, y=None, convert_dtype=True,
-            knn_graph=None, data_on_host=False) -> "UMAP":
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host=False) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -665,7 +832,7 @@ class UMAP(UniversalBase,
                                           index=self._raw_data.index)
 
         if self.hash_input:
-            self._input_hash = joblib.hash(self._raw_data.to_output('numpy'))
+            self._input_hash = _joblib_hash(self._raw_data.to_output('numpy'))
 
         cdef uintptr_t _embed_raw_ptr = self.embedding_.ptr
 
@@ -678,6 +845,9 @@ class UMAP(UniversalBase,
                                                       if convert_dtype
                                                       else None))
             _y_raw_ptr = y_m.ptr
+            self._supervised = True
+        else:
+            self._supervised = False
 
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
@@ -729,10 +899,15 @@ class UMAP(UniversalBase,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None, data_on_host=False) -> CumlArray:
+    def fit_transform(
+        self,
+        X,
+        y=None,
+        *,
+        convert_dtype=True,
+        knn_graph=None,
+        data_on_host=False,
+    ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -779,9 +954,7 @@ class UMAP(UniversalBase,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -828,8 +1001,7 @@ class UMAP(UniversalBase,
                              "training data")
 
         if self.hash_input:
-            if joblib.hash(X_m.to_output('numpy')) == self._input_hash:
-                del X_m
+            if _joblib_hash(X_m.to_output('numpy')) == self._input_hash:
                 return self.embedding_
 
         embedding = CumlArray.zeros((n_rows, self.n_components),
@@ -880,95 +1052,3 @@ class UMAP(UniversalBase,
 
         del X_m
         return embedding
-
-    @property
-    def _n_neighbors(self):
-        return self.n_neighbors
-
-    @_n_neighbors.setter
-    def _n_neighbors(self, value):
-        self.n_neighbors = value
-
-    @property
-    def _a(self):
-        return self.a
-
-    @_a.setter
-    def _a(self, value):
-        self.a = value
-
-    @property
-    def _b(self):
-        return self.b
-
-    @_b.setter
-    def _b(self, value):
-        self.b = value
-
-    @property
-    def _initial_alpha(self):
-        return self.learning_rate
-
-    @_initial_alpha.setter
-    def _initial_alpha(self, value):
-        self.learning_rate = value
-
-    @property
-    def _disconnection_distance(self):
-        from umap.umap_ import DISCONNECTION_DISTANCES
-        self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
-        return self.disconnection_distance
-
-    @_disconnection_distance.setter
-    def _disconnection_distance(self, value):
-        self.disconnection_distance = value
-
-    def gpu_to_cpu(self):
-        from umap.umap_ import nearest_neighbors
-        if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
-            self._knn_dists = self.knn_dists
-            self._knn_indices = self.knn_indices
-            self._knn_search_index = None
-        if hasattr(self, '_raw_data'):
-            self._knn_dists, self._knn_indices, self._knn_search_index = \
-                nearest_neighbors(self._raw_data.to_output('numpy'), self.n_neighbors, self.metric,
-                                  self.metric_kwds, False, self.random_state)
-
-        super().gpu_to_cpu()
-        self._cpu_model._validate_parameters()
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "n_neighbors",
-            "n_components",
-            "n_epochs",
-            "learning_rate",
-            "min_dist",
-            "spread",
-            "set_op_mix_ratio",
-            "local_connectivity",
-            "repulsion_strength",
-            "negative_sample_rate",
-            "transform_queue_size",
-            "init",
-            "a",
-            "b",
-            "target_n_neighbors",
-            "target_weight",
-            "target_metric",
-            "hash_input",
-            "random_state",
-            "callback",
-            "metric",
-            "metric_kwds",
-            "precomputed_knn",
-            "build_algo",
-            "build_kwds"
-        ]
-
-    def get_attr_names(self):
-        return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
-                '_knn_dists', '_knn_indices', '_knn_search_index',
-                '_disconnection_distance', '_n_neighbors', '_a', '_b',
-                '_initial_alpha', '_sparse_data']

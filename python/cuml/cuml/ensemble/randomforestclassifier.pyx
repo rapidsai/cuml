@@ -22,17 +22,12 @@ from treelite import Model as TreeliteModel
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.ensemble.compat import _handle_deprecated_rf_args
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
-from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.interop import to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
@@ -166,17 +161,17 @@ class RandomForestClassifier(BaseRandomForestModel,
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
-    max_features : int, float, or string (default = 'sqrt')
-        Ratio of number of features (columns) to consider per node
-        split.\n
-         * If type ``int`` then ``max_features`` is the absolute count of
-           features to be used
-         * If type ``float`` then ``max_features`` is used as a fraction.
-         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
-         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+    max_features : {'sqrt', 'log2', None}, int or float (default = 'sqrt')
+        The number of features to consider per node split:
+
+        * If an int then ``max_features`` is the absolute count of features to be used.
+        * If a float then ``max_features`` is used as a fraction.
+        * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+        * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+        * If ``None`` then ``max_features=n_features``
 
         .. versionchanged:: 24.06
-           The default of `max_features` changed from `"auto"` to `"sqrt"`.
+          The default of `max_features` changed from `"auto"` to `"sqrt"`.
 
     n_bins : int (default = 128)
         Maximum number of bins used by the split algorithm per feature.
@@ -242,62 +237,29 @@ class RandomForestClassifier(BaseRandomForestModel,
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
+    classes_ = CumlArrayDescriptor()
 
-    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
+    _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
+    RF_type = CLASSIFICATION
 
-    _default_split_criterion = "gini"
+    def _attrs_from_cpu(self, model):
+        return {
+            "classes_": to_gpu(model.classes_),
+            "n_classes_": model.n_classes_,
+            "num_classes": model.n_classes_,
+            **super()._attrs_from_cpu(model),
+        }
 
-    _hyperparam_interop_translator = {
-        "criterion": {
-            "log_loss": "NotImplemented",
-        },
-        "oob_score": {
-            True: "NotImplemented",
-        },
-        "max_depth": {
-            None: 16,
-        },
-        "max_samples": {
-            None: 1.0,
-        },
-    }
+    def _attrs_to_cpu(self, model):
+        return {
+            "classes_": to_cpu(self.classes_),
+            "n_classes_": self.n_classes_,
+            **super()._attrs_to_cpu(model),
+        }
 
-    def _validate_fil_sparse_format(self, fil_sparse_format, algo):
-        """Validate the deprecated fil_sparse_format parameter.
-
-        This function is used to maintain backward compatibility while
-        transitioning to the new FIL interface. It raises ValueError for
-        invalid combinations of fil_sparse_format and algo parameters.
-
-        Parameters
-        ----------
-        fil_sparse_format : str or bool
-            The deprecated fil_sparse_format parameter
-        algo : str
-            The deprecated algo parameter
-
-        Raises
-        ------
-        ValueError
-            If fil_sparse_format is "not_supported" or if fil_sparse_format is
-            False and algo is "tree_reorg" or "batch_tree_reorg"
-        """
-        if fil_sparse_format == "not_supported":
-            raise ValueError(
-                "fil_sparse_format='not_supported' is not supported"
-            )
-        if not fil_sparse_format or algo in ["tree_reorg", "batch_tree_reorg"]:
-            raise ValueError(
-                f"fil_sparse_format=False is not supported with algo={algo}"
-            )
-
-    @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
-
-        self.RF_type = CLASSIFICATION
-        self.num_classes = 2
         super().__init__(
             split_criterion=split_criterion,
             handle=handle,
@@ -377,9 +339,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.treelite_serialized_bytes = None
         self.n_cols = None
 
-    def get_attr_names(self):
-        return []
-
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
@@ -391,13 +350,11 @@ class RandomForestClassifier(BaseRandomForestModel,
         treelite_bytes = self._serialize_treelite_bytes()
         return TreeliteModel.deserialize_bytes(treelite_bytes)
 
-    @_handle_deprecated_rf_args('output_class', 'threshold', 'algo', 'fil_sparse_format')
     def convert_to_fil_model(
         self,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -423,18 +380,12 @@ class RandomForestClassifier(BaseRandomForestModel,
         fil_model : ForestInference
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
-
-        .. deprecated:: 25.06
-            Parameters `output_class`, `threshold`, `algo`, and `fil_sparse_format` were
-            deprecated in version 25.06 and will be removed in 25.08. Parameters `threshold`,
-            `algo`, and `fil_sparse_format` are ignored as of 25.06. Use `layout`,
-            `default_chunk_size`, and `align_bytes` instead.
         """
         treelite_bytes = self._serialize_treelite_bytes()
         return ForestInference(
             treelite_model=treelite_bytes,
             output_type="input",
-            is_classifier=kwargs.get('is_classifier', True),
+            is_classifier=True,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -449,9 +400,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @cuml.internals.api_base_return_any(set_output_type=False,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, *, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
@@ -462,8 +411,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
-                                                                convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y, convert_dtype)
         # Track the labels to see if update is necessary
         self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
@@ -592,26 +540,16 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only(
-        "threshold",
-        "convert_dtype",
-        "predict_model",
-        "layout",
-        "default_chunk_size",
-        "align_bytes",
-    )
-    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict(
         self,
         X,
+        *,
         threshold = 0.5,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ) -> CumlArray:
         """
         Predicts the labels for X.
@@ -641,12 +579,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         Returns
         -------
         y : {}
-
-        .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
-            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
-            instead.
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(
@@ -672,21 +604,14 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @deprecate_non_keyword_only(
-        "convert_dtype",
-        "layout",
-        "default_chunk_size",
-        "align_bytes"
-    )
-    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def predict_proba(
         self,
         X,
+        *,
         convert_dtype = True,
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ) -> CumlArray:
         """
         Predicts class probabilities for X. This function uses the GPU
@@ -714,12 +639,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         Returns
         -------
         y : {}
-
-        .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
-            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
-            instead.
         """
         return self._predict_model_on_gpu(
             X=X,
@@ -736,21 +655,17 @@ class RandomForestClassifier(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
-    @deprecate_non_keyword_only(
-        "threshold", "convert_dtype", "layout", "default_chunk_size", "align_bytes",
-    )
-    @_handle_deprecated_rf_args('algo', 'fil_sparse_format')
     def score(
         self,
         X,
         y,
+        *,
         threshold = 0.5,
         convert_dtype = True,
         predict_model = "GPU",
         layout = "depth_first",
         default_chunk_size = None,
         align_bytes = None,
-        **kwargs,
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -783,12 +698,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
-
-        .. deprecated:: 25.06
-            Parameters `algo` and `fil_sparse_format` were deprecated in version 25.06
-            and will be removed in 25.08. Parameters `algo` and `fil_sparse_format` are
-            ignored as of 25.06. Use `layout`, `default_chunk_size`, and `align_bytes`
-            instead.
         """
         cdef uintptr_t y_ptr
         _, n_rows, _, _ = \
@@ -809,7 +718,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
-            **kwargs,
         )
 
         cdef uintptr_t preds_ptr
@@ -893,26 +801,3 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    @classmethod
-    def _hyperparam_translator(cls, **kwargs):
-        kwargs, gpuaccel = super(RandomForestClassifier, cls)._hyperparam_translator(**kwargs)
-
-        if "criterion" in kwargs:
-            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
-                kwargs.pop("criterion")
-            )
-
-        if "max_samples" in kwargs:
-            if isinstance(kwargs["max_samples"], int):
-                logger.warn(
-                    f"Integer value of max_samples={kwargs['max_samples']}"
-                    "not supported, changed to 1.0."
-                )
-                kwargs["max_samples"] = 1.0
-
-        # determinism requires only 1 cuda stream
-        if "random_state" in kwargs:
-            kwargs["n_streams"] = 1
-
-        return kwargs, gpuaccel

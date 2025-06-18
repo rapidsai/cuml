@@ -25,7 +25,6 @@ import cuml.accel
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
-from cuml.internals import logger
 from cuml.internals.api_context_managers import (
     BaseReturnAnyCM,
     BaseReturnArrayCM,
@@ -296,77 +295,3 @@ def exit_internal_api():
 
     finally:
         GlobalSettings().root_cm = old_root_cm
-
-
-def mirror_args(
-    wrapped: _DecoratorType,
-    assigned=("__doc__", "__annotations__"),
-    updated=functools.WRAPPER_UPDATES,
-) -> typing.Callable[[_DecoratorType], _DecoratorType]:
-    return _wrap_once(wrapped=wrapped, assigned=assigned, updated=updated)
-
-
-def device_interop_preparation(init_func):
-    """
-    This function serves as a decorator for cuML estimators that implement
-    the CPU/GPU interoperability feature. It processes the estimator's
-    hyperparameters by saving them and filtering them for GPU execution.
-    """
-
-    @functools.wraps(init_func)
-    def processor(self, *args, **kwargs):
-        # if child class is already prepared for interop, skip
-        if hasattr(self, "_full_kwargs"):
-            return init_func(self, *args, **kwargs)
-
-        # Save all kwargs
-        self._full_kwargs = kwargs
-        # Generate list of available cuML hyperparameters
-
-        from cuml.ensemble.randomforest_common import BaseRandomForestModel
-
-        # Random Forest models init signature is a combination of the
-        # parameters in BaseRandomForest and the regressor/classifier classes
-        # so we need to join their init hyperparameters.
-        gpu_hyperparams = []
-        if isinstance(self, BaseRandomForestModel):
-            gpu_hyperparams.extend(
-                list(
-                    inspect.signature(
-                        BaseRandomForestModel.__init__
-                    ).parameters.keys()
-                )
-            )
-
-        gpu_hyperparams.extend(
-            list(inspect.signature(init_func).parameters.keys())
-        )
-
-        # Filter provided parameters for cuML estimator initialization
-        filtered_kwargs = {}
-        for keyword, arg in self._full_kwargs.items():
-            if keyword in gpu_hyperparams:
-                filtered_kwargs[keyword] = arg
-            else:
-                logger.info(
-                    "Unused keyword parameter: {} "
-                    "during cuML estimator "
-                    "initialization".format(keyword)
-                )
-
-        return init_func(self, *args, **filtered_kwargs)
-
-    return processor
-
-
-def enable_device_interop(gpu_func):
-    @functools.wraps(gpu_func)
-    def dispatch(self, *args, **kwargs):
-        # check that the estimator implements CPU/GPU interoperability
-        if hasattr(self, "dispatch_func"):
-            func_name = gpu_func.__name__
-            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
-        else:
-            return gpu_func(self, *args, **kwargs)
-
-    return dispatch
