@@ -222,9 +222,6 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             "kernel_params",
         ]
 
-    def get_attr_names(self):
-        return ['dual_coef_', 'X_fit_']
-
     @classmethod
     def _params_from_cpu(cls, model):
         return {
