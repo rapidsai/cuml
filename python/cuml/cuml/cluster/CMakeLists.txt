@@ -19,7 +19,6 @@ add_module_gpu_default("kmeans.pyx" ${kmeans_algo} ${cluster_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
-       dbscan_mg.pyx
        kmeans_mg.pyx
   )
 endif()
