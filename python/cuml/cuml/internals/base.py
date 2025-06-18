@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import inspect
 import os
 
@@ -51,6 +49,7 @@ class VerbosityDescriptor:
     to the cuML API. This ensures that cuML code treats verbosity values as
     expected for an spdlog-based codebase.
     """
+
     def __get__(self, obj, cls=None):
         if api_context_managers.in_internal_api():
             return logger._verbose_to_level(obj._verbose)
@@ -69,12 +68,11 @@ class VerbosityDescriptor:
                 raise ValueError(
                     "The log level should always be provided as an integer, "
                     "not using the enum"
-                    )
+                )
             obj._verbose = value
 
 
-class Base(TagsMixin,
-           metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -204,16 +202,22 @@ class Base(TagsMixin,
         base.handle.sync()
         del base  # optional!
     """
-    def __init__(self, *,
-                 handle=None,
-                 verbose=False,
-                 output_type=None,
-                 output_mem_type=None):
+
+    def __init__(
+        self,
+        *,
+        handle=None,
+        verbose=False,
+        output_type=None,
+        output_mem_type=None,
+    ):
         """
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = pylibraft.common.handle.Handle() if handle is None else handle
+        self.handle = (
+            pylibraft.common.handle.Handle() if handle is None else handle
+        )
 
         # The following manipulation of the root_cm ensures that the verbose
         # descriptor sees any set or get of the verbose attribute as happening
@@ -231,7 +235,9 @@ class Base(TagsMixin,
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
-            if output_type is None else output_type)
+            if output_type is None
+            else output_type
+        )
         if output_mem_type is None:
             self.output_mem_type = cuml.global_settings.memory_type
         else:
@@ -240,8 +246,8 @@ class Base(TagsMixin,
         self._input_mem_type = None
         self.target_dtype = None
 
-        nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
-        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
+        nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
+        if nvtx_benchmark and nvtx_benchmark.lower() == "true":
             self.set_nvtx_annotations()
 
     verbose = VerbosityDescriptor()
@@ -250,12 +256,11 @@ class Base(TagsMixin,
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
-        cdef list signature = inspect.getfullargspec(self.__init__).args
-        if len(signature) > 0 and signature[0] == 'self':
+        signature = inspect.getfullargspec(self.__init__).args
+        if len(signature) > 0 and signature[0] == "self":
             del signature[0]
-        cdef dict state = self.__dict__
-        cdef str string = self.__class__.__name__ + '('
-        cdef str key
+        state = self.__dict__
+        string = self.__class__.__name__ + "("
         for key in signature:
             if key not in state:
                 continue
@@ -264,11 +269,11 @@ class Base(TagsMixin,
             else:
                 if hasattr(state[key], "__str__"):
                     string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(', ')
-        output = string + ')'
+        string = string.rstrip(", ")
+        output = string + ")"
 
-        if hasattr(self, 'sk_model_'):
-            output += ' <sk_model_ attribute used>'
+        if hasattr(self, "sk_model_"):
+            output += " <sk_model_ attribute used>"
         return output
 
     @classmethod
@@ -336,16 +341,15 @@ class Base(TagsMixin,
         Redirects to `solver_model` if the attribute exists.
         """
         if attr == "solver_model":
-            return self.__dict__['solver_model']
+            return self.__dict__["solver_model"]
         if "solver_model" in self.__dict__.keys():
             return getattr(self.solver_model, attr)
         else:
             raise AttributeError(attr)
 
-    def _set_base_attributes(self,
-                             output_type=None,
-                             target_dtype=None,
-                             n_features=None):
+    def _set_base_attributes(
+        self, output_type=None, target_dtype=None, n_features=None
+    ):
         """
         Method to set the base class attributes - output type,
         target dtype and n_features. It combines the three different
@@ -389,9 +393,7 @@ class Base(TagsMixin,
         self._input_type = determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = determine_array_memtype(
-            inp
-        )
+        self._input_mem_type = determine_array_memtype(inp)
 
     def _get_output_type(self, inp):
         """
@@ -404,11 +406,11 @@ class Base(TagsMixin,
         output_type = cuml.global_settings.output_type
 
         # If its None, default to our type
-        if (output_type is None or output_type == "mirror"):
+        if output_type is None or output_type == "mirror":
             output_type = self.output_type
 
         # If we are input, get the type from the input
-        if output_type == 'input':
+        if output_type == "input":
             output_type = determine_array_type(inp)
 
         return output_type
@@ -424,14 +426,15 @@ class Base(TagsMixin,
         mem_type = cuml.global_settings.memory_type
 
         # If we are input, get the type from the input
-        if cuml.global_settings.output_type == 'input':
+        if cuml.global_settings.output_type == "input":
             mem_type = determine_array_memtype(inp)
 
         return mem_type
 
     def _set_target_dtype(self, target):
         self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
-            target)
+            target
+        )
 
     def _get_target_dtype(self):
         """
@@ -463,8 +466,8 @@ class Base(TagsMixin,
         # casts to).
         # By default, our transform methods convert to self.dtype, but
         # we need to check whether the tag has been defined already.
-        if hasattr(self, 'transform') and hasattr(self, 'dtype'):
-            return {'preserves_dtype': [self.dtype]}
+        if hasattr(self, "transform") and hasattr(self, "dtype"):
+            return {"preserves_dtype": [self.dtype]}
         return {}
 
     def _repr_mimebundle_(self, **kwargs):
@@ -475,13 +478,20 @@ class Base(TagsMixin,
             return output
 
     def set_nvtx_annotations(self):
-        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
-                          'fit_predict']:
+        for func_name in [
+            "fit",
+            "transform",
+            "predict",
+            "fit_transform",
+            "fit_predict",
+        ]:
             if hasattr(self, func_name):
-                msg = '{class_name}.{func_name} [{addr}]'
-                msg = msg.format(class_name=self.__class__.__module__,
-                                 func_name=func_name,
-                                 addr=hex(id(self)))
+                msg = "{class_name}.{func_name} [{addr}]"
+                msg = msg.format(
+                    class_name=self.__class__.__module__,
+                    func_name=func_name,
+                    addr=hex(id(self)),
+                )
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
@@ -491,14 +501,14 @@ class Base(TagsMixin,
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
 
-    if (output_str is None):
+    if output_str is None:
         return "input"
 
-    assert output_str != "mirror", \
-        ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
-         "to pass `output_type=self.output_type` to a child estimator? "
-         "Currently `cuml.global_settings.output_type==`{}`"
-         ).format(cuml.global_settings.output_type)
+    assert output_str != "mirror", (
+        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+        "to pass `output_type=self.output_type` to a child estimator? "
+        "Currently `cuml.global_settings.output_type==`{}`"
+    ).format(cuml.global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -509,10 +519,8 @@ def _check_output_type_str(output_str):
             # to support sklearn.base.clone() where possible
             return output_str if output_type == output_str else output_type
 
-    valid_output_types_str = ', '.join(
-        [f"'{x}'" for x in VALID_OUTPUT_TYPES]
-    )
+    valid_output_types_str = ", ".join([f"'{x}'" for x in VALID_OUTPUT_TYPES])
     raise ValueError(
-        f'output_type must be one of {valid_output_types_str}'
-        f' Got: {output_str}'
+        f"output_type must be one of {valid_output_types_str}"
+        f" Got: {output_str}"
     )
