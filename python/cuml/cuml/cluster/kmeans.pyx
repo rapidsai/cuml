@@ -204,15 +204,6 @@ class KMeans(Base,
 
     _cpu_class_path = "sklearn.cluster.KMeans"
 
-    _hyperparam_interop_translator = {
-        "init": {
-            # k-means++ would work, but setting it explicitly changes the configuration
-            # of the estimator compared to not specifying it. So we explicitly translate
-            # it to the default value.
-            "k-means++": "scalable-k-means++",
-        },
-    }
-
     @classmethod
     def _get_param_names(cls):
         return [
