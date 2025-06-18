@@ -72,7 +72,6 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
