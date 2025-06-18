@@ -186,12 +186,6 @@ def main(argv: list[str] | None = None):
                 import joblib as serializer
             estimator = serializer.load(f)
 
-        # Conversion is only necessary for estimators built on `ProxyMixin`,
-        # estimators built with `ProxyBase` pickle transparently as their
-        # non-accelerated versions.
-        if hasattr(estimator, "as_sklearn"):
-            estimator = estimator.as_sklearn()
-
         with open(ns.output, "wb") as f:
             serializer.dump(estimator, f)
         sys.exit()
