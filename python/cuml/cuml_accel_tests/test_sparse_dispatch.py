@@ -21,6 +21,7 @@ from scipy.sparse import csr_matrix
 from sklearn.base import is_classifier, is_regressor
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.decomposition import TruncatedSVD
+from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import (
     ElasticNet,
     Lasso,
@@ -46,6 +47,7 @@ estimators = {
     "HDBSCAN": lambda: HDBSCAN(),
     "SVC": lambda: SVC(),
     "SVR": lambda: SVR(),
+    "KernelRidge": lambda: KernelRidge(),
     "LinearSVC": lambda: LinearSVC(),
     "LinearSVR": lambda: LinearSVR(),
 }

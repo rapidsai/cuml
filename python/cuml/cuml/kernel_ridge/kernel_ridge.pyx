@@ -26,13 +26,15 @@ from cupyx import geterr, lapack, seterr
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    api_base_return_array,
-    device_interop_preparation,
-    enable_device_interop,
-)
+from cuml.internals.api_decorators import api_base_return_array
 from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import RegressorMixin
 from cuml.metrics import pairwise_kernels
 
@@ -104,7 +106,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-class KernelRidge(UniversalBase, RegressorMixin):
+class KernelRidge(Base, InteropMixin, RegressorMixin):
     """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
@@ -162,7 +164,6 @@ class KernelRidge(UniversalBase, RegressorMixin):
 
     Attributes
     ----------
-
     dual_coef_ : ndarray of shape (n_samples,) or (n_samples, n_targets)
         Representation of weight vector(s) in kernel space
     X_fit_ : ndarray of shape (n_samples, n_features)
@@ -206,9 +207,66 @@ class KernelRidge(UniversalBase, RegressorMixin):
     """
 
     dual_coef_ = CumlArrayDescriptor()
-    _cpu_estimator_import_path = "sklearn.kernel_ridge.KernelRidge"
+    X_fit_ = CumlArrayDescriptor()
 
-    @device_interop_preparation
+    _cpu_class_path = "sklearn.kernel_ridge.KernelRidge"
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "alpha",
+            "kernel",
+            "gamma",
+            "degree",
+            "coef0",
+            "kernel_params",
+        ]
+
+    def get_attr_names(self):
+        return ['dual_coef_', 'X_fit_']
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {
+            "alpha": model.alpha,
+            "kernel": model.kernel,
+            "gamma": model.gamma,
+            "degree": model.degree,
+            "coef0": model.coef0,
+            "kernel_params": model.kernel_params,
+        }
+
+    def _params_to_cpu(self):
+        if cp.isscalar(self.alpha):
+            alpha = self.alpha
+        else:
+            alpha = cp.asnumpy(self.alpha)
+        return {
+            "alpha": alpha,
+            "kernel": self.kernel,
+            "gamma": self.gamma,
+            "degree": self.degree,
+            "coef0": self.coef0,
+            "kernel_params": self.kernel_params,
+        }
+
+    def _attrs_from_cpu(self, model):
+        if not isinstance(model.X_fit_, np.ndarray):
+            raise UnsupportedOnGPU
+
+        return {
+            "dual_coef_": to_gpu(model.dual_coef_),
+            "X_fit_": to_gpu(model.X_fit_),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "dual_coef_": to_cpu(self.dual_coef_),
+            "X_fit_": to_cpu(self.X_fit_),
+            **super()._attrs_to_cpu(model),
+        }
+
     def __init__(
         self,
         *,
@@ -222,40 +280,22 @@ class KernelRidge(UniversalBase, RegressorMixin):
         handle=None,
         verbose=False
     ):
-        super().__init__(handle=handle, verbose=verbose,
-                         output_type=output_type)
-        self.alpha = cp.asarray(alpha)
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        self.alpha = alpha
         self.kernel = kernel
         self.gamma = gamma
         self.degree = degree
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
-    def get_attr_names(self):
-        return ['dual_coef_', 'X_fit_']
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "alpha",
-            "kernel",
-            "gamma",
-            "degree",
-            "coef0",
-            "kernel_params",
-        ]
-
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
-            params = {"gamma": self.gamma,
-                      "degree": self.degree, "coef0": self.coef0}
+            params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
         else:
             params = self.kernel_params or {}
-        return pairwise_kernels(X, Y, metric=self.kernel,
-                                filter_params=True, **params)
+        return pairwise_kernels(X, Y, metric=self.kernel, filter_params=True, **params)
 
     @generate_docstring()
-    @enable_device_interop
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "KernelRidge":
 
         ravel = False
@@ -263,10 +303,9 @@ class KernelRidge(UniversalBase, RegressorMixin):
             y = y.reshape(-1, 1)
             ravel = True
 
-        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
+        X_m, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
             X,
-            convert_to_dtype=(np.float32 if convert_dtype
-                              else None),
+            convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64]
         )
 
@@ -277,13 +316,13 @@ class KernelRidge(UniversalBase, RegressorMixin):
             check_rows=n_rows,
         )
 
-        if self.n_cols < 1:
+        if self.n_features_in_ < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
         K = self._get_kernel(X_m)
         self.dual_coef_ = _solve_cholesky_kernel(
-            K, cp.asarray(y_m), self.alpha, sample_weight
+            K, cp.asarray(y_m), cp.asarray(self.alpha), sample_weight
         )
 
         if ravel:
@@ -292,7 +331,6 @@ class KernelRidge(UniversalBase, RegressorMixin):
         return self
 
     @api_base_return_array()
-    @enable_device_interop
     def predict(self, X):
         """
         Predict using the kernel ridge model.

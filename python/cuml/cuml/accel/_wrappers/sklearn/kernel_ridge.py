@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.experimental.fil.fil import ForestInference
+import cuml.kernel_ridge
+from cuml.accel.estimator_proxy import ProxyBase
 
-__all__ = [ForestInference]
+__all__ = ("KernelRidge",)
+
+
+class KernelRidge(ProxyBase):
+    _gpu_class = cuml.kernel_ridge.KernelRidge
