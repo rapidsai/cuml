@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import warnings
 
 import cupy as cp
@@ -275,9 +273,11 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         kernel_params=None,
         output_type=None,
         handle=None,
-        verbose=False
+        verbose=False,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         self.alpha = alpha
         self.kernel = kernel
         self.gamma = gamma
@@ -287,13 +287,21 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
-            params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
+            params = {
+                "gamma": self.gamma,
+                "degree": self.degree,
+                "coef0": self.coef0,
+            }
         else:
             params = self.kernel_params or {}
-        return pairwise_kernels(X, Y, metric=self.kernel, filter_params=True, **params)
+        return pairwise_kernels(
+            X, Y, metric=self.kernel, filter_params=True, **params
+        )
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "KernelRidge":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "KernelRidge":
 
         ravel = False
         if len(y.shape) == 1:
@@ -303,7 +311,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         X_m, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64]
+            check_dtype=[np.float32, np.float64],
         )
 
         y_m, _, _, _ = input_to_cuml_array(
@@ -346,7 +354,8 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             Returns predicted values.
         """
         X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64])
+            X, check_dtype=[np.float32, np.float64]
+        )
 
         K = self._get_kernel(X_m, self.X_fit_)
         return CumlArray(cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_)))
