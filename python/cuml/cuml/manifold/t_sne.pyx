@@ -330,9 +330,12 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if model.max_iter is not None:
-            # max_iter may be None, in that case use cuml's default
-            params["n_iter"] = model.max_iter
+        # Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+        max_iter = getattr(model, "max_iter", None)
+        if max_iter is not None:
+            params["n_iter"] = max_iter
+        else:
+            params["n_iter"] = model.n_iter
 
         return params
 
