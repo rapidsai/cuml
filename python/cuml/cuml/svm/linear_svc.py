@@ -208,21 +208,15 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     def _attrs_from_cpu(self, model):
         attrs = super()._attrs_from_cpu(model)
         if hasattr(model, "classes_"):
-            current_dtype = self.dtype
-            if current_dtype is None:
-                if hasattr(model, "coef_") and hasattr(model.coef_, "dtype"):
-                    current_dtype = model.coef_.dtype
-                else:
-                    current_dtype = np.float32
-            attrs["classes_"] = to_gpu(
-                model.classes_.astype(current_dtype), order="F"
-            )
+            attrs["classes_"] = to_gpu(model.classes_, order="F")
         return attrs
 
     def _attrs_to_cpu(self, model):
         attrs = super()._attrs_to_cpu(model)
-        if self.classes_ is not None:
-            attrs["classes_"] = to_cpu(self.classes_).astype(np.int64)
+        if hasattr(self, "classes_"):
+            attrs["classes_"] = to_cpu(self.classes_, order="C").astype(
+                np.int64
+            )
         return attrs
 
     @property
@@ -264,12 +258,27 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVM":
-        X = input_to_cuml_array(
+        X, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float64 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
+        )
+        if hasattr(X, "index"):
+            self.feature_names_in_ = X.index
+
+        convert_to_dtype = self.dtype if convert_dtype else None
+        y = input_to_cuml_array(
+            y,
+            check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype,
+            check_rows=n_rows,
+            check_cols=1,
         ).array
+
+        if X.size == 0 or y.size == 0:
+            raise ValueError("empty data")
+
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,
