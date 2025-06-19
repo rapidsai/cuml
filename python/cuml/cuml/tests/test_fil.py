@@ -876,7 +876,7 @@ def test_missing_categorical():
     builder.start_node(0)
     builder.categorical_test(
         feature_id=0,
-        category_list=[0, 2],
+        category_list=[],
         default_left=False,
         category_list_right_child=False,
         left_child_key=1,
