@@ -561,9 +561,7 @@ def test_thresholding(is_classifier, small_classifier_and_preds):
     else:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
 
-    with pytest.raises(
-        ValueError, match=r".*no longer accepts `threshold` parameter.*"
-    ):
+    with pytest.warns(FutureWarning):
         _ = ForestInference.load(
             model_path,
             model_type=model_type,
