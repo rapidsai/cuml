@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -52,16 +52,17 @@ void find_ab(const raft::handle_t& handle, UMAPParams* params);
  * @param[in] knn_indices: pointer to knn_indices (optional)
  * @param[in] knn_dists: pointer to knn_dists (optional)
  * @param[in] params: pointer to ML::UMAPParams object
- * @return: simplical set as a unique pointer to a raft::sparse::COO object
+ * @return: simplical set as a unique pointer to a raft::device_coo_matrix object
  */
-std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& handle,
-                                                         float* X,  // input matrix
-                                                         float* y,  // labels
-                                                         int n,
-                                                         int d,
-                                                         int64_t* knn_indices,
-                                                         float* knn_dists,
-                                                         UMAPParams* params);
+std::unique_ptr<raft::device_coo_matrix<float, int, int, uint64_t>> get_graph(
+  const raft::handle_t& handle,
+  float* X,  // input matrix
+  float* y,  // labels
+  int n,
+  int d,
+  int64_t* knn_indices,
+  float* knn_dists,
+  UMAPParams* params);
 
 /**
  * Performs a UMAP fit on existing embeddings without reinitializing them, which enables
@@ -71,7 +72,8 @@ std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& h
  * @param[in] X: pointer to input array
  * @param[in] n: n_samples of input array
  * @param[in] d: n_features of input array
- * @param[in] graph: pointer to raft::sparse::COO object computed using ML::UMAP::get_graph
+ * @param[in] graph: pointer to raft::device_coo_matrix object computed using
+ * ML::UMAP::get_graph
  * @param[in] params: pointer to ML::UMAPParams object
  * @param[out] embeddings: pointer to current embedding with shape n * n_components, stores updated
  * embeddings on executing refine
@@ -80,7 +82,7 @@ void refine(const raft::handle_t& handle,
             float* X,
             int n,
             int d,
-            raft::sparse::COO<float, int>* graph,
+            raft::device_coo_matrix<float, int, int, uint64_t>* graph,
             UMAPParams* params,
             float* embeddings);
 
@@ -92,7 +94,8 @@ void refine(const raft::handle_t& handle,
  * @param[in] X: pointer to input array
  * @param[in] n: n_samples of input array
  * @param[in] d: n_features of input array
- * @param[in] graph: pointer to raft::sparse::COO object computed using ML::UMAP::get_graph
+ * @param[in] graph: pointer to raft::device_coo_matrix object computed using
+ * ML::UMAP::get_graph
  * @param[in] params: pointer to ML::UMAPParams object
  * @param[out] embeddings: pointer to current embedding with shape n * n_components, stores updated
  * embeddings on executing refine
@@ -101,7 +104,7 @@ void init_and_refine(const raft::handle_t& handle,
                      float* X,
                      int n,
                      int d,
-                     raft::sparse::COO<float, int>* graph,
+                     raft::device_coo_matrix<float, int, int, uint64_t>* graph,
                      UMAPParams* params,
                      float* embeddings);
 
@@ -128,7 +131,7 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
-         raft::sparse::COO<float, int>* graph);
+         raft::device_coo_matrix<float, int, int, uint64_t>* graph);
 
 /**
  * Sparse fit
@@ -159,7 +162,7 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
-                raft::sparse::COO<float, int>* graph);
+                raft::device_coo_matrix<float, int, int, uint64_t>* graph);
 
 /**
  * Dense transform
