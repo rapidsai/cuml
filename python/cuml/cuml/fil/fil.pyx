@@ -777,7 +777,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         if threshold is not None:
             warnings.warn(
                 "The `threshold` parameter of `load()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead."
+                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
+                FutureWarning
             )
         if model_type is None:
             extension = pathlib.Path(path).suffix
@@ -896,7 +897,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         if threshold is not None:
             warnings.warn(
                 "The `threshold` parameter of `load_from_sklearn()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead."
+                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
+                FutureWarning
             )
         tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
@@ -993,7 +995,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         if threshold is not None:
             warnings.warn(
                 "The `threshold` parameter of `load_from_treelite_model()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead."
+                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
+                FutureWarning
             )
         return cls(
             treelite_model=tl_model,
