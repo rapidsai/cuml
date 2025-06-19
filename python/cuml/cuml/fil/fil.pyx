@@ -463,7 +463,7 @@ class ForestInference(Base, CMajorInputTagMixin):
     """
     _param_names = [
         "treelite_model", "handle", "output_type", "verbose", "is_classifier",
-        "layout", "default_chunk_size", "align_bytes", "precision", "device_id",
+        "default_threshold", "layout", "default_chunk_size", "align_bytes", "precision", "device_id",
     ]
 
     def _reload_model(self):
