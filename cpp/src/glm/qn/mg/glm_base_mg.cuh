@@ -150,15 +150,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
         *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n);
 
       // scale reg part of the gradient for the upcoming adapt_gradient_for_linearBwd
-      raft::linalg::matrixVectorOp(G.data,
-                                   G.data,
-                                   stder_p->std.data,
-                                   stder_p->std.len,
-                                   G.m,
-                                   false,
-                                   true,
-                                   raft::mul_op(),
-                                   stream);
+      raft::linalg::matrixVectorOp<false, true>(
+        G.data, G.data, stder_p->std.data, stder_p->std.len, G.m, raft::mul_op(), stream);
     }
 
     // apply linearFwd, getLossAndDz, linearBwd
