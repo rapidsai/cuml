@@ -37,7 +37,7 @@ from cuml.testing.utils import array_equal
 def ignore_deprecated_lbfgs_params_warning():
     """Ignores a warning in sklearn raised by scipy.optimize deprecated params"""
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", module="sklearn")
+        warnings.filterwarnings("ignore")
         yield
 
 
