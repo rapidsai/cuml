@@ -24,6 +24,7 @@
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 
@@ -50,7 +51,7 @@ void svrFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* y,
              const SvmParameter& param,
-             cuvs::distance::kernels::KernelParams& kernel_params,
+             ML::matrix::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -64,9 +65,12 @@ void svrFitX(const raft::handle_t& handle,
 
   cudaStream_t stream = handle_impl.get_stream();
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
 
-  SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
+  SmoSolver<math_t> smo(handle_impl,
+                        param,
+                        static_cast<cuvs::distance::kernels::KernelType>(kernel_params.kernel),
+                        kernel);
   smo.Solve(matrix,
             n_rows,
             n_cols,
@@ -89,7 +93,7 @@ void svrFit(const raft::handle_t& handle,
             int n_cols,
             math_t* y,
             const SvmParameter& param,
-            cuvs::distance::kernels::KernelParams& kernel_params,
+            ML::matrix::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -108,7 +112,7 @@ void svrFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* y,
                   const SvmParameter& param,
-                  cuvs::distance::kernels::KernelParams& kernel_params,
+                  ML::matrix::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {

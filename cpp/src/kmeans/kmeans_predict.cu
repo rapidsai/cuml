@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuml/cluster/kmeans_params.hpp>
+
 #include <raft/core/handle.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
@@ -25,7 +27,7 @@ namespace kmeans {
 
 template <typename value_t, typename idx_t>
 void predict_impl(const raft::handle_t& handle,
-                  const cuvs::cluster::kmeans::params& params,
+                  const KMeansParams& params,
                   const value_t* centroids,
                   const value_t* X,
                   idx_t n_samples,
@@ -46,11 +48,11 @@ void predict_impl(const raft::handle_t& handle,
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
   cuvs::cluster::kmeans::predict(
-    handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
+    handle, params.to_cuvs(), X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
 }
 
 void predict(const raft::handle_t& handle,
-             const cuvs::cluster::kmeans::params& params,
+             const KMeansParams& params,
              const float* centroids,
              const float* X,
              int n_samples,
@@ -73,7 +75,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const cuvs::cluster::kmeans::params& params,
+             const KMeansParams& params,
              const double* centroids,
              const double* X,
              int n_samples,
@@ -96,7 +98,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const cuvs::cluster::kmeans::params& params,
+             const KMeansParams& params,
              const float* centroids,
              const float* X,
              int64_t n_samples,
@@ -119,7 +121,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const cuvs::cluster::kmeans::params& params,
+             const KMeansParams& params,
              const double* centroids,
              const double* X,
              int64_t n_samples,

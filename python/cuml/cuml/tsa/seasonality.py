@@ -13,8 +13,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import numpy as np
 
 import cuml.internals
@@ -25,8 +23,7 @@ from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
 
 
 def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
-    """Python prototype to be ported later in CUDA
-    """
+    """Python prototype to be ported later in CUDA"""
     # TODO: our own implementation of STL
     from statsmodels.tsa.seasonal import STL
 
@@ -36,7 +33,8 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
         seasonal = stlfit.seasonal
         residual = stlfit.resid
         heuristics = max(
-            0, min(1, 1 - np.var(residual)/ np.var(residual + seasonal)))
+            0, min(1, 1 - np.var(residual) / np.var(residual + seasonal))
+        )
         results.append(heuristics > threshold)
 
     return results
@@ -71,20 +69,23 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
     """
     if s <= 1:
         raise ValueError(
-            "ERROR: Invalid period for the seasonal differencing test: {}"
-            .format(s))
+            "ERROR: Invalid period for the seasonal differencing test: {}".format(
+                s
+            )
+        )
 
     # At the moment we use a host array
-    h_y, n_obs, batch_size, _ = \
-        input_to_host_array(y,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
+    h_y, n_obs, batch_size, _ = input_to_host_array(
+        y,
+        convert_to_dtype=(np.float32 if convert_dtype else None),
+        check_dtype=[np.float32, np.float64],
+    )
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
-    d_res, *_ = input_to_cuml_array(np.array(python_res),
-                                    convert_to_dtype=(bool if convert_dtype
-                                                      else None),
-                                    check_dtype=bool)
+    d_res, *_ = input_to_cuml_array(
+        np.array(python_res),
+        convert_to_dtype=(bool if convert_dtype else None),
+        check_dtype=bool,
+    )
     return d_res

@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -24,9 +22,7 @@ from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDClassifier(Base,
-                      ClassifierMixin,
-                      FMajorInputTagMixin):
+class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
@@ -158,14 +154,29 @@ class MBSGDClassifier(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
-    def __init__(self, *, loss='hinge', penalty='l2', alpha=0.0001,
-                 l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbose=False, output_type=None):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+    def __init__(
+        self,
+        *,
+        loss="hinge",
+        penalty="l2",
+        alpha=0.0001,
+        l1_ratio=0.15,
+        fit_intercept=True,
+        epochs=1000,
+        tol=1e-3,
+        shuffle=True,
+        learning_rate="constant",
+        eta0=0.001,
+        power_t=0.5,
+        batch_size=32,
+        n_iter_no_change=5,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -191,19 +202,21 @@ class MBSGDClassifier(Base,
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples, 1)",
+        }
+    )
     @cuml.internals.api_base_return_array_skipall
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        preds = \
-            self.solver_model.predictClass(X,
-                                           convert_dtype=convert_dtype)
+        preds = self.solver_model.predictClass(X, convert_dtype=convert_dtype)
 
         return preds
 
