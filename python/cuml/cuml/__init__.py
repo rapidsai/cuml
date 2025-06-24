@@ -46,7 +46,7 @@ from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.fil import ForestInference, fil
-from cuml.internals.base import Base, UniversalBase
+from cuml.internals.base import Base
 from cuml.internals.global_settings import (
     GlobalSettings,
     _global_settings_data,
@@ -152,7 +152,6 @@ __all__ = [
     "TreeExplainer",
     "TSNE",
     "UMAP",
-    "UniversalBase",
     # Functions
     "johnson_lindenstrauss_min_dim",
     "make_arima",

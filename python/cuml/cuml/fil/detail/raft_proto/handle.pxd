@@ -27,7 +27,7 @@ from cuml.fil.detail.raft_proto.cuda_stream cimport (
 )
 
 
-cdef extern from "cuml/experimental/fil/detail/raft_proto/handle.hpp" namespace "raft_proto" nogil:
+cdef extern from "cuml/fil/detail/raft_proto/handle.hpp" namespace "raft_proto" nogil:
     cdef cppclass handle_t:
         handle_t() except +
         handle_t(const raft_handle_t* handle_ptr) except +

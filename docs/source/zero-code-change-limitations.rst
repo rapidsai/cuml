@@ -238,6 +238,18 @@ The following values for ``criterion`` will trigger a CPU fallback:
 * ``log_loss``
 * ``friedman_mse``
 
+``sklearn.kernel_ridge.KernelRidge``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``KernelRidge`` results should be almost identical to those of Scikit-Learn
+when running with ``cuml.accel`` enabled. In particular, the fitted
+``dual_coef_`` should be close enough that they may be compared via
+``np.allclose``.
+
+It currently has the following limitations:
+
+* Sparse inputs are not currently supported and will fallback to CPU.
+
 ``sklearn.linear_model.LinearRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -25,7 +25,7 @@ import ctypes
 
 from libcpp cimport bool
 
-from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.cluster.kmeans_utils cimport KMeansParams
 from cuml.common.rng_state cimport RngState
 from cuml.metrics.distance_type cimport DistanceType
 

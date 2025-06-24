@@ -23,7 +23,6 @@ import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
 from cuml.internals import logger
 
 
@@ -124,8 +123,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="A module to execute",
     )
     group.add_argument(
+        "-c",
+        dest="cmd",
+        help="Python source to execute, passed in as a string",
+    )
+    group.add_argument(
         "script",
-        default=None,
+        default="-",
         nargs="?",
         help="A script to execute",
     )
@@ -135,20 +139,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Additional arguments to forward to script or module",
     )
-    # We want to ignore all arguments after a module or script are provided,
-    # forwarding them on to the module/script. We need to hack around argparse
-    # a bit to do this by only parsing arguments up to the module, then appending
-    # the remainder on afterwards.
+    # We want to ignore all arguments after a module, cmd, or script are provided,
+    # forwarding them on to the module/cmd/script. `script` is handled natively by
+    # argparse, but `-m`/`-c` need some hacking to make work. We handle this by
+    # splitting argv at the first of `-m`/`-c` provided (if any), parsing args up
+    # to this point, then appending the remainder afterwards.
+    m_index = c_index = len(argv)
     try:
         m_index = argv.index("-m")
     except ValueError:
-        remainder = []
-    else:
-        remainder = argv[m_index + 2 :]
-        argv = argv[: m_index + 2]
+        pass
+    try:
+        c_index = argv.index("-c")
+    except ValueError:
+        pass
 
-    ns = parser.parse_args(argv)
-    ns.args.extend(remainder)
+    # Split at the first `-m foo`/`-c foo` found
+    index = min(m_index, c_index)
+    head = argv[: index + 2]
+    tail = argv[index + 2 :]
+
+    # Parse the head, then append the tail to `args`
+    ns = parser.parse_args(head)
+    ns.args.extend(tail)
     return ns
 
 
@@ -172,12 +185,6 @@ def main(argv: list[str] | None = None):
             elif ns.format == "joblib":
                 import joblib as serializer
             estimator = serializer.load(f)
-
-        # Conversion is only necessary for estimators built on `ProxyMixin`,
-        # estimators built with `ProxyBase` pickle transparently as their
-        # non-accelerated versions.
-        if isinstance(estimator, ProxyMixin):
-            estimator = estimator.as_sklearn()
 
         with open(ns.output, "wb") as f:
             serializer.dump(estimator, f)
@@ -209,24 +216,30 @@ def main(argv: list[str] | None = None):
     if ns.module is not None:
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
-        runpy.run_module(ns.module, run_name="__main__")
-    elif ns.script is not None:
+        runpy.run_module(ns.module, run_name="__main__", alter_sys=True)
+    elif ns.cmd is not None:
+        # Execute a cmd
+        sys.argv[:] = ["-c", *ns.args]
+        execute_source(ns.cmd, "<stdin>")
+    elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
         runpy.run_path(ns.script, run_name="__main__")
-    elif sys.stdin.isatty():
-        # Start an interpreter as similar to `python` as possible
-        if sys.flags.quiet:
-            banner = ""
-        else:
-            banner = f"Python {sys.version} on {sys.platform}"
-            if not sys.flags.no_site:
-                cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
-                banner += "\n" + cprt
-        code.interact(banner=banner, exitmsg="")
     else:
-        # Execute stdin
-        execute_source(sys.stdin.read(), "<stdin>")
+        sys.argv[:] = ["-", *ns.args]
+        if sys.stdin.isatty():
+            # Start an interpreter as similar to `python` as possible
+            if sys.flags.quiet:
+                banner = ""
+            else:
+                banner = f"Python {sys.version} on {sys.platform}"
+                if not sys.flags.no_site:
+                    cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
+                    banner += "\n" + cprt
+            code.interact(banner=banner, exitmsg="")
+        else:
+            # Execute stdin
+            execute_source(sys.stdin.read(), "<stdin>")
 
 
 if __name__ == "__main__":
