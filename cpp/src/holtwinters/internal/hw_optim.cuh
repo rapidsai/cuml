@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -619,7 +619,7 @@ CUML_KERNEL void holtwinters_optim_gpu_shared_kernel(const Dtype* ts,
                                                      bool single_param)
 {
   int tid = GET_TID;
-  extern __shared__ __align__(sizeof(Dtype)) unsigned char pseason_[];
+  extern __shared__ unsigned char pseason_[];
   Dtype* pseason = reinterpret_cast<Dtype*>(pseason_);
 
   if (tid < batch_size) {
