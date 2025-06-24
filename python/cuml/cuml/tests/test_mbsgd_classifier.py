@@ -69,7 +69,7 @@ def make_dataset(request):
     # while still keeping good coverage of the different features of MBSGD
     ("lrate", "penalty", "loss"),
     [
-        ("constant", "none", "log"),
+        ("constant", None, "log"),
         ("invscaling", "l2", "hinge"),
         ("adaptive", "l1", "squared_loss"),
         ("constant", "elasticnet", "hinge"),
@@ -116,7 +116,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     # while still keeping good coverage of the different features of MBSGD
     ("lrate", "penalty", "loss"),
     [
-        ("constant", "none", "log"),
+        ("constant", None, "log"),
         ("invscaling", "l2", "hinge"),
         ("adaptive", "l1", "squared_loss"),
         ("constant", "elasticnet", "hinge"),

@@ -22,9 +22,15 @@ from sklearn.model_selection import train_test_split
 from cuml.solvers import SGD as cumlSGD
 
 
+def test_sgd_penalty_none_deprecated():
+    with pytest.warns(FutureWarning):
+        solver = cumlSGD(penalty="none")
+    assert solver.penalty is None
+
+
 @pytest.mark.parametrize("lrate", ["constant", "invscaling", "adaptive"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
+@pytest.mark.parametrize("penalty", [None, "l1", "l2", "elasticnet"])
 @pytest.mark.parametrize("loss", ["hinge", "log", "squared_loss"])
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_sgd(dtype, lrate, penalty, loss, datatype):
