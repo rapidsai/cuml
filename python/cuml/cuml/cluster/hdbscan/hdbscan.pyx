@@ -14,6 +14,8 @@
 #
 
 # distutils: language = c++
+import warnings
+
 import cupy as cp
 import numpy as np
 from pylibraft.common.handle import Handle
@@ -750,7 +752,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  gen_min_span_tree=False,
                  handle=None,
                  verbose=False,
-                 connectivity='knn',
+                 connectivity='deprecated',
                  output_type=None,
                  prediction_data=False):
 
@@ -761,9 +763,11 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         if min_samples is None:
             min_samples = min_cluster_size
 
-        if connectivity not in ["knn", "pairwise"]:
-            raise ValueError("'connectivity' can only be one of "
-                             "{'knn', 'pairwise'}")
+        if connectivity != "deprecated":
+            warnings.warn(
+                "The `connectivity` parameter is deprecated and will be removed in 25.10",
+                FutureWarning,
+            )
 
         if 2 < min_samples and min_samples > 1023:
             raise ValueError("'min_samples' must be a positive number "
@@ -887,12 +891,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         params.max_cluster_size = self.max_cluster_size
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
-
-        if self.connectivity not in {"knn", "pairwise"}:
-            raise ValueError(
-                "`connectivity` must be one of {'knn', 'pairwise'}, "
-                f"got {self.connectivity!r}"
-            )
 
         if self.cluster_selection_method == 'eom':
             params.cluster_selection_method = lib.CLUSTER_SELECTION_METHOD.EOM
