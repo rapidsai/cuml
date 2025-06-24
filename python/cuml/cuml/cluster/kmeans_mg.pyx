@@ -29,7 +29,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.cluster import KMeans
 from cuml.common import input_to_cuml_array
 
-from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.cluster.kmeans_utils cimport KMeansParams
 
 from cuml.internals.utils import check_random_seed
 

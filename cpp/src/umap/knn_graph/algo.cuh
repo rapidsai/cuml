@@ -75,12 +75,12 @@ inline void launcher(const raft::handle_t& handle,
       if (data_on_device) {  // inputsA on device
         return cuvs::neighbors::brute_force::build(
           handle,
-          {params->metric, params->p},
+          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
           raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
       } else {  // inputsA on host
         return cuvs::neighbors::brute_force::build(
           handle,
-          {params->metric, params->p},
+          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
           raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
       }
     }();
@@ -102,7 +102,7 @@ inline void launcher(const raft::handle_t& handle,
     auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
     all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
     all_neighbors_params.n_clusters     = params->build_params.n_clusters;
-    all_neighbors_params.metric         = params->metric;
+    all_neighbors_params.metric         = static_cast<cuvs::distance::DistanceType>(params->metric);
 
     auto nn_descent_params =
       cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
@@ -112,7 +112,7 @@ inline void launcher(const raft::handle_t& handle,
     nn_descent_params.max_iterations = params->build_params.nn_descent_params.max_iterations;
     nn_descent_params.termination_threshold =
       params->build_params.nn_descent_params.termination_threshold;
-    nn_descent_params.metric                = params->metric;
+    nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(params->metric);
     all_neighbors_params.graph_build_params = nn_descent_params;
 
     auto indices_view =
@@ -175,7 +175,8 @@ inline void launcher(const raft::handle_t& handle,
   search_params.batch_size_index = ML::Sparse::DEFAULT_BATCH_SIZE;
   search_params.batch_size_query = ML::Sparse::DEFAULT_BATCH_SIZE;
 
-  auto index = cuvs::neighbors::brute_force::build(handle, a_csr, params->metric, params->p);
+  auto index = cuvs::neighbors::brute_force::build(
+    handle, a_csr, static_cast<cuvs::distance::DistanceType>(params->metric), params->p);
 
   cuvs::neighbors::brute_force::search(
     handle,

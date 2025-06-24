@@ -925,6 +925,7 @@
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
   tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_one_label]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_regression_target]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_dtype_object]"
@@ -1048,6 +1049,7 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KMeans()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsClassifier()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsRegressor()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelRidge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Lasso()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
@@ -1062,6 +1064,7 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_n_features_in_after_fitting]"
@@ -1085,6 +1088,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsClassifier()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsRegressor()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KernelRidge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Lasso()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
@@ -1130,6 +1134,25 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
+- reason: KernelRidge input handling and validation
+  marker: cuml_accel_kernel_ridge_estimator_checks
+  tests:
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_dtypes]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressor_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_sample_weights_pandas_series]"
+  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_supervised_y_no_nan]"
 - reason: cuml.accel does not support callable initialization for KMeans
   marker: cuml_accel_kmeans_callable_init
   tests:

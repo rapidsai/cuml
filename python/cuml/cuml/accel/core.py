@@ -25,6 +25,7 @@ ACCELERATED_MODULES = [
     "sklearn.cluster",
     "sklearn.decomposition",
     "sklearn.ensemble",
+    "sklearn.kernel_ridge",
     "sklearn.linear_model",
     "sklearn.manifold",
     "sklearn.neighbors",

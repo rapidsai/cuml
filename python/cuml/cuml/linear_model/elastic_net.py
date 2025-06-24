@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 from inspect import signature
 
 from cuml.common import input_to_cuml_array
@@ -35,11 +33,9 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers import CD, QN
 
 
-class ElasticNet(Base,
-                 InteropMixin,
-                 LinearPredictMixin,
-                 RegressorMixin,
-                 FMajorInputTagMixin):
+class ElasticNet(
+    Base, InteropMixin, LinearPredictMixin, RegressorMixin, FMajorInputTagMixin
+):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -153,7 +149,7 @@ class ElasticNet(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    coef_ = CumlArrayDescriptor(order='F')
+    coef_ = CumlArrayDescriptor(order="F")
 
     _cpu_class_path = "sklearn.linear_model.ElasticNet"
 
@@ -205,7 +201,7 @@ class ElasticNet(Base,
             "fit_intercept": self.fit_intercept,
             "tol": tol,
             "max_iter": self.max_iter,
-            "selection": self.selection
+            "selection": self.selection,
         }
 
     def _attrs_from_cpu(self, model):
@@ -222,10 +218,21 @@ class ElasticNet(Base,
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
-                 normalize=False, max_iter=1000, tol=1e-3,
-                 solver='cd', selection='cyclic',
-                 handle=None, output_type=None, verbose=False):
+    def __init__(
+        self,
+        *,
+        alpha=1.0,
+        l1_ratio=0.5,
+        fit_intercept=True,
+        normalize=False,
+        max_iter=1000,
+        tol=1e-3,
+        solver="cd",
+        selection="cyclic",
+        handle=None,
+        output_type=None,
+        verbose=False,
+    ):
         """
         Initializes the elastic-net regression class.
 
@@ -245,9 +252,9 @@ class ElasticNet(Base,
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
@@ -260,7 +267,7 @@ class ElasticNet(Base,
         self.max_iter = max_iter
         self.tol = tol
         self.solver_model = None
-        if selection in ['cyclic', 'random']:
+        if selection in ["cyclic", "random"]:
             self.selection = selection
         else:
             msg = "selection {!r} is not supported"
@@ -269,32 +276,44 @@ class ElasticNet(Base,
         self.intercept_value = 0.0
 
         shuffle = False
-        if self.selection == 'random':
+        if self.selection == "random":
             shuffle = True
 
-        if solver == 'qn':
+        if solver == "qn":
             pams = signature(self.__init__).parameters
-            if (pams['selection'].default != selection):
-                warn("Parameter 'selection' has no effect "
-                     "when 'qn' solver is used.")
-            if (pams['normalize'].default != normalize):
-                warn("Parameter 'normalize' has no effect "
-                     "when 'qn' solver is used.")
+            if pams["selection"].default != selection:
+                warn(
+                    "Parameter 'selection' has no effect "
+                    "when 'qn' solver is used."
+                )
+            if pams["normalize"].default != normalize:
+                warn(
+                    "Parameter 'normalize' has no effect "
+                    "when 'qn' solver is used."
+                )
 
             self.solver_model = QN(
                 fit_intercept=self.fit_intercept,
                 l1_strength=self.alpha * self.l1_ratio,
                 l2_strength=self.alpha * (1.0 - self.l1_ratio),
-                max_iter=self.max_iter, handle=self.handle,
-                loss='l2', tol=self.tol, penalty_normalized=False,
-                verbose=self.verbose)
-        elif solver == 'cd':
+                max_iter=self.max_iter,
+                handle=self.handle,
+                loss="l2",
+                tol=self.tol,
+                penalty_normalized=False,
+                verbose=self.verbose,
+            )
+        elif solver == "cd":
             self.solver_model = CD(
                 fit_intercept=self.fit_intercept,
-                normalize=self.normalize, alpha=self.alpha,
-                l1_ratio=self.l1_ratio, shuffle=shuffle,
-                max_iter=self.max_iter, handle=self.handle,
-                tol=self.tol)
+                normalize=self.normalize,
+                alpha=self.alpha,
+                l1_ratio=self.l1_ratio,
+                shuffle=shuffle,
+                max_iter=self.max_iter,
+                handle=self.handle,
+                tol=self.tol,
+            )
         else:
             raise TypeError(f"solver {solver} is not supported")
 
@@ -309,25 +328,28 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "ElasticNet":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "ElasticNet":
         """
         Fit the model with X and y.
 
         """
         X_m, _, self.n_features_in_, self.dtype = input_to_cuml_array(X)
         y_m, _, _, _ = input_to_cuml_array(y)
-        if hasattr(X_m, 'index'):
+        if hasattr(X_m, "index"):
             self.feature_names_in_ = X_m.index
 
         # Check for multi-target regression
-        if (self.solver in ['cd', 'qn']) and y_m.ndim > 1 and y_m.shape[1] > 1:
+        if (self.solver in ["cd", "qn"]) and y_m.ndim > 1 and y_m.shape[1] > 1:
             raise ValueError(
                 f"The {self.solver} solver does not support "
                 "multi-target regression."
             )
 
-        self.solver_model.fit(X_m, y_m, convert_dtype=convert_dtype,
-                              sample_weight=sample_weight)
+        self.solver_model.fit(
+            X_m, y_m, convert_dtype=convert_dtype, sample_weight=sample_weight
+        )
         if isinstance(self.solver_model, QN):
             coefs = self.solver_model.coef_
             self.coef_ = CumlArray(
@@ -335,7 +357,7 @@ class ElasticNet(Base,
                 index=coefs._index,
                 dtype=coefs.dtype,
                 order=coefs.order,
-                shape=(coefs.shape[1],)
+                shape=(coefs.shape[1],),
             )
             self.intercept_ = self.solver_model.intercept_.item()
         else:
@@ -346,8 +368,8 @@ class ElasticNet(Base,
 
     def set_params(self, **params):
         super().set_params(**params)
-        if 'selection' in params:
-            params.pop('selection')
-            params['shuffle'] = self.selection == 'random'
+        if "selection" in params:
+            params.pop("selection")
+            params["shuffle"] = self.selection == "random"
         self.solver_model.set_params(**params)
         return self
