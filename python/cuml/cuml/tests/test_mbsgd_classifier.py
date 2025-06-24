@@ -63,7 +63,6 @@ def make_dataset(request):
     return nrows, X_train, X_test, y_train, y_test
 
 
-@pytest.mark.xfail(reason="Related to CuPy 9.0 update (see issue #3813)")
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -110,7 +109,6 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
         assert cu_acc >= skl_acc - 0.08
 
 
-@pytest.mark.xfail(reason="Related to CuPy 9.0 update (see issue #3813)")
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -142,7 +140,6 @@ def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
     assert cu_acc > 0.79
 
 
-@pytest.mark.xfail(reason="Related to CuPy 9.0 update (see issue #3813)")
 def test_mbsgd_classifier_default(make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
