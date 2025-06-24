@@ -4,16 +4,16 @@
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 # These tests fail with a new scipy version which raises a deprecation warning
-- reason: Test should fail with scikit-learn 1.4 and scipy>1.14
-  condition: "scikit-learn<1.5 and scipy>1.14"
-  tests:
-  #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool0-Y_bool0-sokalmichener]"
-  #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool1-Y_bool1-sokalmichener]"
-  #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool0-Y_bool0-sokalmichener]"
-  #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool1-Y_bool1-sokalmichener]"
-  #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-seuclidean]"
-  #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-braycurtis]"
-  #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-DM_euclidean]"
+# - reason: Test should fail with scikit-learn 1.4 and scipy>1.14
+#   condition: "scikit-learn<1.5 and scipy>1.14"
+#   tests:
+#   #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool0-Y_bool0-sokalmichener]"
+#   #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool1-Y_bool1-sokalmichener]"
+#   #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool0-Y_bool0-sokalmichener]"
+#   #- "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool1-Y_bool1-sokalmichener]"
+#   #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-seuclidean]"
+#   #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-braycurtis]"
+#   #- "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-DM_euclidean]"
 - reason: Test should fail with scikit-learn 1.4
   condition: "scikit-learn<1.5"
   tests:
