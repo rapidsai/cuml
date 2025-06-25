@@ -659,8 +659,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_brute_backend[float64-42-sokalmichener]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_brute_backend[float64-42-sokalsneath]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_brute_backend[float64-42-yule]"
-  - "sklearn.neighbors.tests.test_neighbors::test_nan_euclidean_support[KNeighborsClassifier-params1]"
-  - "sklearn.neighbors.tests.test_neighbors::test_nan_euclidean_support[KNeighborsRegressor-params0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[k_best-base_estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-base_estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-base_estimator0]"
@@ -888,7 +886,6 @@
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_no_nan]"
-  - "sklearn.utils.tests.test_validation::test_cross_val_predict[coo_matrix]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
@@ -1237,11 +1234,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-lloyd-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-lloyd-dense]"
-- reason: cuml.accel deviates in repeated predict output for KMeans scikit-learn 1.6
-  marker: cuml_accel_kmeans_repeated_predict_output_deviation
-  condition: scikit-learn<1.6
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-elkan-sparse]"
 - reason: cuml.accel deviates in repeated predict output for KMeans scikit-learn 1.6
   marker: cuml_accel_kmeans_repeated_predict_output_deviation
   condition: scikit-learn>=1.6
