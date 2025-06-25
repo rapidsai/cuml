@@ -113,9 +113,9 @@ class LogisticRegression(
 
     Parameters
     ----------
-    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = 'l2')
         Used to specify the norm used in the penalization.
-        If 'none' or 'l2' are selected, then L-BFGS solver will be used.
+        If None or 'l2' are selected, then L-BFGS solver will be used.
         If 'l1' is selected, solver OWL-QN will be used.
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
