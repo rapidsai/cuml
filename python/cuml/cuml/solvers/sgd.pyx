@@ -162,10 +162,10 @@ class SGD(Base,
         'log' uses logistic regression
         'squared_loss' uses linear regression
     penalty : {'l1', 'l2', 'elasticnet', None} (default = None)
-        The penalty (aka regularization term) to be used.
+        The penalty (aka regularization term) to apply.
 
         - 'l1': L1 norm (Lasso) regularization
-        - 'l2': L2 norm (Ridge) regularazation
+        - 'l2': L2 norm (Ridge) regularization
         - 'elasticnet': Elastic Net regularization, a weighted average of L1 and L2
         - None: no penalty is added (the default)
 

@@ -23,7 +23,7 @@ from cuml.solvers import SGD as cumlSGD
 
 
 def test_sgd_penalty_none_deprecated():
-    with pytest.warns(FutureWarning):
+    with pytest.warns(FutureWarning, match="penalty='none' is deprecated"):
         solver = cumlSGD(penalty="none")
     assert solver.penalty is None
 
