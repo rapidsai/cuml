@@ -18,6 +18,8 @@ import cupyx
 import numpy as np
 import pytest
 import scipy.sparse
+import sklearn
+from packaging.version import Version
 from sklearn import datasets
 from sklearn.datasets import make_blobs, make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
@@ -38,6 +40,7 @@ from cuml.testing.utils import (
 @pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("sparse", [True, False])
 def test_pca_fit(datatype, input_type, sparse, use_handle):
+    solver = "auto"
     if sparse:
         X = scipy.sparse.random(
             200,
@@ -47,6 +50,8 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
             random_state=10,
         )
         tol = 1e-1
+        if Version(sklearn.__version__) < Version("1.5.0"):
+            solver = "arpack"
     else:
         tol = 1e-3
         X, _ = make_multilabel_classification(
@@ -57,7 +62,7 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
             random_state=1,
         )
 
-    skpca = skPCA(n_components=2)
+    skpca = skPCA(n_components=2, svd_solver=solver)
     skpca.fit(X)
 
     handle, stream = get_handle(use_handle)
