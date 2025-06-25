@@ -79,14 +79,14 @@ class MBSGDRegressor(Base, RegressorMixin, FMajorInputTagMixin):
     ----------
     loss : 'squared_loss' (default = 'squared_loss')
        'squared_loss' uses linear regression
-    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = 'l2')
+        The penalty (aka regularization term) to apply.
+
+        - 'l1': L1 norm (Lasso) regularization
+        - 'l2': L2 norm (Ridge) regularization (the default)
+        - 'elasticnet': Elastic Net regularization, a weighted average of L1 and L2
+        - None: no penalty is added
+
     alpha : float (default = 0.0001)
        The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
