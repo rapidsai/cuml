@@ -625,7 +625,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-        # TODO(hcho3): Remove this paramteter; direct users to set `threshold` in predict()
+        # TODO(hcho3): 25.10: Remove this parameter; direct users to set `threshold` in predict()
         self.default_threshold = default_threshold if default_threshold else 0.5
         self.is_classifier = is_classifier
         self.default_chunk_size = default_chunk_size
