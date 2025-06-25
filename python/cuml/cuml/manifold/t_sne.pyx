@@ -22,6 +22,8 @@ import warnings
 
 import cupy
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -342,12 +344,11 @@ class TSNE(Base,
     def _params_to_cpu(self):
         method = "exact" if self.method == "Exact" else "barnes_hut"
 
-        return {
+        params = {
             "n_components": self.n_components,
             "perplexity": self.perplexity,
             "early_exaggeration": self.early_exaggeration,
             "learning_rate": self.learning_rate,
-            "max_iter": self.n_iter,
             "n_iter_without_progress": self.n_iter_without_progress,
             "min_grad_norm": self.min_grad_norm,
             "metric": self.metric,
@@ -356,6 +357,11 @@ class TSNE(Base,
             "random_state": self.random_state,
             "method": method,
         }
+        if Version(sklearn.__version__) >= Version("1.5.0"):
+            params["max_iter"] = self.n_iter
+        else:
+            params["n_iter"] = self.n_iter
+        return params
 
     def _attrs_from_cpu(self, model):
         return {
