@@ -850,7 +850,8 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         np.testing.assert_equal(pred_leaf, expected_pred_leaf)
 
 
-def test_missing_categorical():
+@pytest.mark.parametrize("test_empty_category_list", [True, False])
+def test_missing_categorical(test_empty_category_list):
     builder = treelite.model_builder.ModelBuilder(
         threshold_type="float32",
         leaf_output_type="float32",
@@ -874,7 +875,7 @@ def test_missing_categorical():
     builder.start_node(0)
     builder.categorical_test(
         feature_id=0,
-        category_list=[],
+        category_list=[] if test_empty_category_list else [0, 2],
         default_left=False,
         category_list_right_child=False,
         left_child_key=1,
