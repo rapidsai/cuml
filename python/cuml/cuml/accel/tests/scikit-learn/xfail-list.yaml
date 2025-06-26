@@ -926,6 +926,26 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
+- reason: Test should fail with cuml.accel (scikit-learn 1.4)
+  marker: cuml_accel_bugs
+  condition: scikit-learn<1.5
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_predict_sample_weight_deprecation_warning[KMeans]"
+  - "sklearn.decomposition.tests.test_incremental_pca::test_whitening"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[arpack]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[auto]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[full]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[randomized]"
+  - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[data0-0.5-full]"
+  - "sklearn.linear_model.tests.test_ransac::test_ransac_final_model_fit_sample_weight"
+  - "sklearn.linear_model.tests.test_sag::test_multiclass_classifier_class_weight[csr_array]"
+  - "sklearn.linear_model.tests.test_sag::test_multiclass_classifier_class_weight[csr_matrix]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-canberra]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-haversine]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-minkowski]"
+  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csc_array]"
+  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csr_array]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
