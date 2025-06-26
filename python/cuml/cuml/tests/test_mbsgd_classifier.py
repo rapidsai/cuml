@@ -123,7 +123,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
 def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
-    cu_mbsgd_classifier = cumlMBSGClassifier(
+    model = cumlMBSGClassifier(
         learning_rate=lrate,
         eta0=0.005,
         epochs=100,
@@ -132,9 +132,18 @@ def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
         tol=0.0,
         penalty=penalty,
     )
+    # Fitted attributes don't exist before fit
+    assert not hasattr(model, "coef_")
+    assert not hasattr(model, "intercept_")
 
-    cu_mbsgd_classifier.fit(X_train, y_train)
-    cu_pred = cu_mbsgd_classifier.predict(X_test)
+    model.fit(X_train, y_train)
+
+    # Fitted attributes exist and have correct types after fit
+    assert isinstance(model.coef_, type(X_train))
+    assert isinstance(model.intercept_, float)
+    assert isinstance(model.classes_, type(X_train))
+
+    cu_pred = model.predict(X_test)
     cu_acc = accuracy_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test))
 
     assert cu_acc > 0.79

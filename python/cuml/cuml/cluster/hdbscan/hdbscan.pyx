@@ -963,7 +963,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
     def __setstate__(self, state):
         state_dict = state.pop("_state_dict", None)
-        super().__setstate__(state)
+        self.__dict__.update(state)
         if state_dict is not None:
             self._state = _HDBSCANState.from_dict(self.handle, state_dict)
         if self.prediction_data:
