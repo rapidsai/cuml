@@ -199,6 +199,10 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         return self
 
     @property
+    def dtype(self):
+        return self.solver_model.dtype
+
+    @property
     def coef_(self) -> CumlArray:
         return self.solver_model.coef_
 
