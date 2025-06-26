@@ -35,7 +35,7 @@ from cuml.neighbors import (  # noqa: F401
     NearestNeighbors,
 )
 
-# Currently only UniversalBase estimators raise a NotImplementedError
+# Currently only certain estimators raise a NotImplementedError
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
     "DBSCAN": lambda: DBSCAN(eps=1.0),

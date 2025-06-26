@@ -44,11 +44,12 @@ def gradient_norm(model, X, y, K, sw=None):
     betas = cp.array(
         as_type("cupy", model.dual_coef_), dtype=np.float64
     ).reshape(y.shape)
+    alphas = cp.asarray(model.alpha)
 
     # initialise to NaN in case below loop has 0 iterations
     grads = cp.full_like(y, np.nan)
     for i, (beta, target, current_alpha) in enumerate(
-        zip(betas.T, y.T, model.alpha)
+        zip(betas.T, y.T, alphas)
     ):
         grads[:, i] = 0.0
         grads[:, i] = -cp.dot(K * sw, target)

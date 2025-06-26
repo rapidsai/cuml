@@ -14,6 +14,7 @@
 #
 
 # distutils: language = c++
+import warnings
 
 import cupy as cp
 import numpy as np
@@ -141,7 +142,7 @@ class SGD(Base,
         >>> pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
         >>> cu_sgd = cumlSGD(learning_rate='constant', eta0=0.005, epochs=2000,
         ...                  fit_intercept=True, batch_size=2,
-        ...                  tol=0.0, penalty='none', loss='squared_loss')
+        ...                  tol=0.0, penalty=None, loss='squared_loss')
         >>> cu_sgd.fit(X, y)
         SGD()
         >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
@@ -160,14 +161,14 @@ class SGD(Base,
         'hinge' uses linear SVM
         'log' uses logistic regression
         'squared_loss' uses linear regression
-    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
-        'none' does not perform any regularization
-        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-        of coefficients
-        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-        the coefficients
-        'elasticnet' performs Elastic Net regularization which is a weighted
-        average of L1 and L2 norms
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = None)
+        The penalty (aka regularization term) to apply.
+
+        - 'l1': L1 norm (Lasso) regularization
+        - 'l2': L2 norm (Ridge) regularization
+        - 'elasticnet': Elastic Net regularization, a weighted average of L1 and L2
+        - None: no penalty is added (the default)
+
     alpha : float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -218,7 +219,7 @@ class SGD(Base,
     coef_ = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, *, loss='squared_loss', penalty='none', alpha=0.0001,
+    def __init__(self, *, loss='squared_loss', penalty=None, alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
@@ -227,16 +228,19 @@ class SGD(Base,
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = loss
         else:
-            msg = "loss {!r} is not supported"
-            raise TypeError(msg.format(loss))
+            raise ValueError(f"loss {loss!r} is not supported")
 
-        if penalty is None:
-            penalty = 'none'
-        if penalty in ['none', 'l1', 'l2', 'elasticnet']:
+        if penalty == 'none':
+            warnings.warn(
+                "penalty='none' is deprecated and will be removed in 25.10. Please use "
+                "`penalty=None` instead.",
+                FutureWarning,
+            )
+            self.penalty = None
+        elif penalty in [None, 'l1', 'l2', 'elasticnet']:
             self.penalty = penalty
         else:
-            msg = "penalty {!r} is not supported"
-            raise TypeError(msg.format(penalty))
+            raise ValueError(f"penalty {penalty!r} is not supported")
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -301,7 +305,7 @@ class SGD(Base,
 
     def _get_penalty_int(self):
         return {
-            'none': 0,
+            None: 0,
             'l1': 1,
             'l2': 2,
             'elasticnet': 3
