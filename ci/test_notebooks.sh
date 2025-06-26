@@ -46,7 +46,7 @@ for nb in $(find . -name "*.ipynb"); do
     nbBasename=$(basename "${nb}")
     # Skip all NBs that use dask (in the code or even in their name)
     if (echo "${nb}" | grep -qi dask) || \
-        (grep -q dask "${nb}"); then
+        ( grep -q dask "${nb}" && [ "${nbBasename}" != 'forest_inference_demo.ipynb' ] ); then
         echo "--------------------------------------------------------------------------------"
         echo "SKIPPING: ${nb} (suspected Dask usage, not currently automatable)"
         echo "--------------------------------------------------------------------------------"
