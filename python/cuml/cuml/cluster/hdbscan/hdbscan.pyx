@@ -995,6 +995,7 @@ def _check_clusterer(clusterer):
     return state
 
 
+@cuml.internals.api_return_array()
 def all_points_membership_vectors(clusterer, batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1025,13 +1026,24 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
+    # Reflect the output type from global settings or the clusterer
+    cuml.internals.set_api_output_type(clusterer._get_output_type())
+
     n_rows = clusterer._raw_data.shape[0]
 
     if clusterer.n_clusters_ == 0:
-        return np.zeros(n_rows, dtype=np.float32)
+        return CumlArray.zeros(
+            n_rows,
+            dtype=np.float32,
+            order="C",
+            index=clusterer._raw_data.index,
+        )
 
     membership_vec = CumlArray.empty(
-        (n_rows * clusterer.n_clusters_,), dtype="float32"
+        (n_rows, clusterer.n_clusters_,),
+        dtype="float32",
+        order="C",
+        index=clusterer._raw_data.index,
     )
 
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
@@ -1048,12 +1060,10 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     )
     clusterer.handle.sync()
 
-    return membership_vec.to_output(
-        output_type="numpy",
-        output_dtype="float32",
-    ).reshape((n_rows, clusterer.n_clusters_))
+    return membership_vec
 
 
+@cuml.internals.api_return_array()
 def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dtype=True):
     """
     Predict soft cluster membership. The result produces a vector
@@ -1090,6 +1100,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
+    # Reflect the output type from global settings, the clusterer, or the input
+    cuml.internals.set_api_output_type(clusterer._get_output_type(points_to_predict))
+
     points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
         points_to_predict,
         order="C",
@@ -1101,11 +1114,15 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         raise ValueError("New points dimension does not match fit data!")
 
     if clusterer.n_clusters_ == 0:
-        return np.zeros(n_prediction_points, dtype=np.float32)
+        return CumlArray.zeros(
+            n_prediction_points, dtype=np.float32, index=points_to_predict_m.index
+        )
 
     membership_vec = CumlArray.empty(
-        (n_prediction_points * clusterer.n_clusters_,),
-        dtype="float32"
+        (n_prediction_points, clusterer.n_clusters_,),
+        dtype="float32",
+        order="C",
+        index=points_to_predict_m.index,
     )
 
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
@@ -1125,12 +1142,10 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     )
     clusterer.handle.sync()
 
-    return membership_vec.to_output(
-        output_type="numpy",
-        output_dtype="float32"
-    ).reshape((n_prediction_points, clusterer.n_clusters_))
+    return membership_vec
 
 
+@cuml.internals.api_return_generic()
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
@@ -1165,6 +1180,9 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """
     _check_clusterer(clusterer)
 
+    # Reflect the output type from global settings, the clusterer, or the input
+    cuml.internals.set_api_output_type(clusterer._get_output_type(points_to_predict))
+
     if clusterer.n_clusters_ == 0:
         logger.warn(
             "Clusterer does not have any defined clusters, new data "
@@ -1181,8 +1199,16 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     if n_cols != clusterer._raw_data.shape[1]:
         raise ValueError("New points dimension does not match fit data!")
 
-    prediction_labels = CumlArray.empty((n_prediction_points,), dtype="int32")
-    prediction_probs = CumlArray.empty((n_prediction_points,), dtype="float32")
+    prediction_labels = CumlArray.empty(
+        (n_prediction_points,),
+        dtype="int32",
+        index=points_to_predict_m.index,
+    )
+    prediction_probs = CumlArray.empty(
+        (n_prediction_points,),
+        dtype="float32",
+        index=points_to_predict_m.index,
+    )
 
     with cuml.using_output_type("cuml"):
         labels = clusterer.labels_
@@ -1205,10 +1231,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     )
     clusterer.handle.sync()
 
-    return (
-        prediction_labels.to_output(output_type="numpy"),
-        prediction_probs.to_output(output_type="numpy", output_dtype="float32")
-    )
+    return prediction_labels, prediction_probs
 
 
 ###########################################################
