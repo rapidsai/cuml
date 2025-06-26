@@ -4,7 +4,6 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - conda-forge
-- nvidia
 dependencies:
 - c-compiler
 - certifi
