@@ -14,51 +14,23 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-import copy
 import inspect
-import numbers
 import os
-from importlib import import_module
 
-import numpy as np
-
-import cuml.internals.nvtx as nvtx
-
-try:
-    from sklearn.utils import estimator_html_repr
-except ImportError:
-    estimator_html_repr = None
-
-
-import cupy as cp
 import pylibraft.common.handle
-from cupy import ndarray as cp_ndarray
+from sklearn.utils import estimator_html_repr
 
 import cuml
-import cuml.accel
 import cuml.common
 import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.sparse_utils import is_sparse
+import cuml.internals.nvtx as nvtx
 from cuml.internals import api_context_managers
-from cuml.internals.array import CumlArray
-from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.input_utils import (
-    determine_array_type,
-    input_to_cuml_array,
-    input_to_host_array_with_sparse_support,
-    is_array_like,
-)
+from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import (
-    determine_array_memtype,
-    using_memory_type,
-)
+from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mixins import TagsMixin
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
@@ -77,6 +49,7 @@ class VerbosityDescriptor:
     to the cuML API. This ensures that cuML code treats verbosity values as
     expected for an spdlog-based codebase.
     """
+
     def __get__(self, obj, cls=None):
         if api_context_managers.in_internal_api():
             return logger._verbose_to_level(obj._verbose)
@@ -95,12 +68,11 @@ class VerbosityDescriptor:
                 raise ValueError(
                     "The log level should always be provided as an integer, "
                     "not using the enum"
-                    )
+                )
             obj._verbose = value
 
 
-class Base(TagsMixin,
-           metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -231,18 +203,21 @@ class Base(TagsMixin,
         del base  # optional!
     """
 
-    _hyperparam_interop_translator = {}
-
-    def __init__(self, *,
-                 handle=None,
-                 verbose=False,
-                 output_type=None,
-                 output_mem_type=None):
+    def __init__(
+        self,
+        *,
+        handle=None,
+        verbose=False,
+        output_type=None,
+        output_mem_type=None,
+    ):
         """
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = pylibraft.common.handle.Handle() if handle is None else handle
+        self.handle = (
+            pylibraft.common.handle.Handle() if handle is None else handle
+        )
 
         # The following manipulation of the root_cm ensures that the verbose
         # descriptor sees any set or get of the verbose attribute as happening
@@ -260,7 +235,9 @@ class Base(TagsMixin,
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
-            if output_type is None else output_type)
+            if output_type is None
+            else output_type
+        )
         if output_mem_type is None:
             self.output_mem_type = cuml.global_settings.memory_type
         else:
@@ -269,8 +246,8 @@ class Base(TagsMixin,
         self._input_mem_type = None
         self.target_dtype = None
 
-        nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
-        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
+        nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
+        if nvtx_benchmark and nvtx_benchmark.lower() == "true":
             self.set_nvtx_annotations()
 
     verbose = VerbosityDescriptor()
@@ -279,12 +256,11 @@ class Base(TagsMixin,
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
-        cdef list signature = inspect.getfullargspec(self.__init__).args
-        if len(signature) > 0 and signature[0] == 'self':
+        signature = inspect.getfullargspec(self.__init__).args
+        if len(signature) > 0 and signature[0] == "self":
             del signature[0]
-        cdef dict state = self.__dict__
-        cdef str string = self.__class__.__name__ + '('
-        cdef str key
+        state = self.__dict__
+        string = self.__class__.__name__ + "("
         for key in signature:
             if key not in state:
                 continue
@@ -293,11 +269,11 @@ class Base(TagsMixin,
             else:
                 if hasattr(state[key], "__str__"):
                     string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(', ')
-        output = string + ')'
+        string = string.rstrip(", ")
+        output = string + ")"
 
-        if hasattr(self, 'sk_model_'):
-            output += ' <sk_model_ attribute used>'
+        if hasattr(self, "sk_model_"):
+            output += " <sk_model_ attribute used>"
         return output
 
     @classmethod
@@ -365,16 +341,15 @@ class Base(TagsMixin,
         Redirects to `solver_model` if the attribute exists.
         """
         if attr == "solver_model":
-            return self.__dict__['solver_model']
+            return self.__dict__["solver_model"]
         if "solver_model" in self.__dict__.keys():
             return getattr(self.solver_model, attr)
         else:
             raise AttributeError(attr)
 
-    def _set_base_attributes(self,
-                             output_type=None,
-                             target_dtype=None,
-                             n_features=None):
+    def _set_base_attributes(
+        self, output_type=None, target_dtype=None, n_features=None
+    ):
         """
         Method to set the base class attributes - output type,
         target dtype and n_features. It combines the three different
@@ -418,9 +393,7 @@ class Base(TagsMixin,
         self._input_type = determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = determine_array_memtype(
-            inp
-        )
+        self._input_mem_type = determine_array_memtype(inp)
 
     def _get_output_type(self, inp):
         """
@@ -433,11 +406,11 @@ class Base(TagsMixin,
         output_type = cuml.global_settings.output_type
 
         # If its None, default to our type
-        if (output_type is None or output_type == "mirror"):
+        if output_type is None or output_type == "mirror":
             output_type = self.output_type
 
         # If we are input, get the type from the input
-        if output_type == 'input':
+        if output_type == "input":
             output_type = determine_array_type(inp)
 
         return output_type
@@ -453,14 +426,15 @@ class Base(TagsMixin,
         mem_type = cuml.global_settings.memory_type
 
         # If we are input, get the type from the input
-        if cuml.global_settings.output_type == 'input':
+        if cuml.global_settings.output_type == "input":
             mem_type = determine_array_memtype(inp)
 
         return mem_type
 
     def _set_target_dtype(self, target):
         self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
-            target)
+            target
+        )
 
     def _get_target_dtype(self):
         """
@@ -492,8 +466,8 @@ class Base(TagsMixin,
         # casts to).
         # By default, our transform methods convert to self.dtype, but
         # we need to check whether the tag has been defined already.
-        if hasattr(self, 'transform') and hasattr(self, 'dtype'):
-            return {'preserves_dtype': [self.dtype]}
+        if hasattr(self, "transform") and hasattr(self, "dtype"):
+            return {"preserves_dtype": [self.dtype]}
         return {}
 
     def _repr_mimebundle_(self, **kwargs):
@@ -504,60 +478,37 @@ class Base(TagsMixin,
             return output
 
     def set_nvtx_annotations(self):
-        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
-                          'fit_predict']:
+        for func_name in [
+            "fit",
+            "transform",
+            "predict",
+            "fit_transform",
+            "fit_predict",
+        ]:
             if hasattr(self, func_name):
-                msg = '{class_name}.{func_name} [{addr}]'
-                msg = msg.format(class_name=self.__class__.__module__,
-                                 func_name=func_name,
-                                 addr=hex(id(self)))
+                msg = "{class_name}.{func_name} [{addr}]"
+                msg = msg.format(
+                    class_name=self.__class__.__module__,
+                    func_name=func_name,
+                    addr=hex(id(self)),
+                )
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
-    @classmethod
-    def _hyperparam_translator(cls, **kwargs):
-        """
-        This method is meant to do checks and translations of hyperparameters
-        at estimator creating time.
-        Each children estimator can override the method, returning either
-        modifier **kwargs with equivalent options, or setting gpuaccel to False
-        for hyperaparameters not supported by cuML yet.
-        """
-        gpuaccel = True
-        # Copy it so we can modify it
-        # we need to explicitly use UniversalBase because not all estimator
-        # have it as the first parent in their MRO/inheritance, like
-        # linear_regression
-        translations = dict(UniversalBase._hyperparam_interop_translator)
-        # Allow the derived class to overwrite the base class
-        translations.update(cls._hyperparam_interop_translator)
-        for parameter_name, value in kwargs.items():
-            if parameter_name in translations:
-                try:
-                    remapping = translations[parameter_name][value]
-                    if remapping == "NotImplemented":
-                        gpuaccel = False
-                    else:
-                        kwargs[parameter_name] = remapping
-                except (KeyError, TypeError):
-                    pass  # Parameter value not found in translation dictionary
-
-        return kwargs, gpuaccel
-
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
 
-    if (output_str is None):
+    if output_str is None:
         return "input"
 
-    assert output_str != "mirror", \
-        ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
-         "to pass `output_type=self.output_type` to a child estimator? "
-         "Currently `cuml.global_settings.output_type==`{}`"
-         ).format(cuml.global_settings.output_type)
+    assert output_str != "mirror", (
+        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+        "to pass `output_type=self.output_type` to a child estimator? "
+        "Currently `cuml.global_settings.output_type==`{}`"
+    ).format(cuml.global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -568,315 +519,8 @@ def _check_output_type_str(output_str):
             # to support sklearn.base.clone() where possible
             return output_str if output_type == output_str else output_type
 
-    valid_output_types_str = ', '.join(
-        [f"'{x}'" for x in VALID_OUTPUT_TYPES]
-    )
+    valid_output_types_str = ", ".join([f"'{x}'" for x in VALID_OUTPUT_TYPES])
     raise ValueError(
-        f'output_type must be one of {valid_output_types_str}'
-        f' Got: {output_str}'
+        f"output_type must be one of {valid_output_types_str}"
+        f" Got: {output_str}"
     )
-
-
-def _determine_stateless_output_type(output_type, input_obj):
-    """
-    This function determines the output type using the same steps that are
-    performed in `cuml.common.base.Base`. This can be used to mimic the
-    functionality in `Base` for stateless functions or objects that do not
-    derive from `Base`.
-    """
-
-    # Default to the global type if not specified, otherwise, check the
-    # output_type string
-    temp_output = cuml.global_settings.output_type if output_type is None \
-        else _check_output_type_str(output_type)
-
-    # If we are using 'input', determine the the type from the input object
-    if temp_output == 'input':
-        temp_output = determine_array_type(input_obj)
-
-    return temp_output
-
-
-class UniversalBase(Base):
-    @classmethod
-    def import_cpu_model(cls):
-        # We check in `__dict__` instead of with hasattr to ensure that subclasses
-        # have their respective model class imported again, rather than accidentally
-        # reusing one loaded for the base class.
-        if "_cpu_model_class" in cls.__dict__:
-            return
-
-        module, _, name = cls._cpu_estimator_import_path.rpartition(".")
-        cls._cpu_model_class = getattr(import_module(module), name)
-
-        # Save list of available CPU estimator hyperparameters
-        cls._cpu_hyperparams = list(
-            inspect.signature(cls._cpu_model_class.__init__).parameters.keys()
-        )
-
-    def build_cpu_model(self, **kwargs):
-        if hasattr(self, '_cpu_model'):
-            return
-        if kwargs:
-            filtered_kwargs = kwargs
-        else:
-            filtered_kwargs = {}
-            for keyword, arg in self._full_kwargs.items():
-                if keyword in self._cpu_hyperparams:
-                    filtered_kwargs[keyword] = arg
-                else:
-                    logger.info("Unused keyword parameter: {} "
-                                "during CPU estimator "
-                                "initialization".format(keyword))
-
-        # initialize model
-        self._cpu_model = self._cpu_model_class(**filtered_kwargs)
-
-    def gpu_to_cpu(self):
-        """Transfer attributes from GPU estimator to CPU estimator."""
-        for name in self.get_attr_names():
-            try:
-                # This avoids calling `__getattr__`, which may recurse
-                # in cuml.accel models.
-                value = object.__getattribute__(self, name)
-            except AttributeError:
-                # Skip missing attributes
-                continue
-
-            # Coerce all arrays to numpy
-            if isinstance(value, CumlArray):
-                value = value.to_output("numpy")
-            elif isinstance(value, cp_ndarray):
-                value = cp.asnumpy(value)
-
-            setattr(self._cpu_model, name, value)
-
-    def cpu_to_gpu(self):
-        """Transfer attributes from CPU estimator to GPU estimator."""
-        with using_memory_type(MemoryType.device):
-            for name in self.get_attr_names():
-                try:
-                    value = getattr(self._cpu_model, name)
-                except AttributeError:
-                    # Skip missing attributes
-                    continue
-
-                if isinstance(value, np.ndarray):
-                    # Coerce arrays to CumlArrays with the proper order
-                    descriptor = getattr(type(self), name, None)
-                    order = descriptor.order if isinstance(descriptor, CumlArrayDescriptor) else "K"
-                    value = input_to_cuml_array(
-                        value, order=order, convert_to_mem_type=MemoryType.device
-                    )[0]
-
-                setattr(self, name, value)
-
-    def args_to_cpu(self, *args, **kwargs):
-        # put all the args on host
-        new_args = tuple(
-            input_to_host_array_with_sparse_support(arg) for arg in args
-        )
-
-        # put all the kwargs on host
-        new_kwargs = dict()
-        for kw, arg in kwargs.items():
-            # if array-like, ensure array-like is on the host
-            if is_array_like(arg, accept_lists=cuml.accel.enabled()):
-                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
-            # if Real or string or NoneType, pass as is
-            elif isinstance(arg, (numbers.Real, str, type(None))):
-                new_kwargs[kw] = arg
-            else:
-                raise ValueError(f"Unable to process argument {kw}")
-
-        new_kwargs.pop("convert_dtype", None)
-        return new_args, new_kwargs
-
-    def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
-        """
-        This function will dispatch calls to training and inference according
-        to the global configuration. It should work for all estimators
-        sufficiently close the scikit-learn implementation as it uses
-        it for training and inferences on host.
-
-        Parameters
-        ----------
-        func_name : string
-            name of the function to be dispatched
-        gpu_func : function
-            original cuML function
-        args : arguments
-            arguments to be passed to the function for the call
-        kwargs : keyword arguments
-            keyword arguments to be passed to the function for the call
-        """
-        # look for current device_type
-        device_type = self._dispatch_selector(func_name, *args, **kwargs)
-
-        if device_type == DeviceType.device:
-            # call the function from the GPU estimator
-            if cuml.accel.enabled():
-                logger.debug(f"cuML: Performing {func_name} in GPU")
-            return gpu_func(self, *args, **kwargs)
-
-        # CPU case
-        elif device_type == DeviceType.host:
-            # check if a CPU model already exists
-            if not hasattr(self, '_cpu_model'):
-                # import CPU estimator from library
-                self.import_cpu_model()
-                # create an instance of the estimator
-                self.build_cpu_model()
-
-                # new CPU model + CPU inference
-                if func_name not in ['fit', 'fit_transform', 'fit_predict']:
-                    # transfer trained attributes from GPU to CPU
-                    self.gpu_to_cpu()
-
-            # ensure args and kwargs are on the CPU
-            args, kwargs = self.args_to_cpu(*args, **kwargs)
-
-            # get the function from the CPU estimator
-            cpu_func = getattr(self._cpu_model, func_name)
-            # call the function from the CPU estimator
-            logger.debug(f"cuML: Performing {func_name} in CPU")
-            res = cpu_func(*args, **kwargs)
-
-            # CPU training
-            if func_name in ['fit', 'fit_transform', 'fit_predict']:
-                # mirror input type
-                self._set_output_type(args[0])
-                self._set_output_mem_type(args[0])
-
-                # transfer trained attributes from CPU to GPU
-                self.cpu_to_gpu()
-
-                # return the cuml estimator when training
-                if func_name == 'fit':
-                    return self
-
-            # return function result
-            return res
-
-    def _dispatch_selector(self, func_name, *args, **kwargs):
-        """
-        """
-        # check for sparse inputs and whether estimator supports them
-        sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
-
-        if args and is_sparse(args[0]):
-            if sparse_support:
-                return DeviceType.device
-            elif cuml.accel.enabled():
-                logger.info(
-                    f"cuML: Estimator {self} does not support sparse inputs in GPU."
-                )
-                return DeviceType.host
-            else:
-                raise NotImplementedError(
-                    "Estimator does not support sparse inputs currently"
-                )
-
-        if not hasattr(self, "_gpuaccel"):
-            # if not using accelerator, select device type
-            return DeviceType.device
-        elif not self._gpuaccel:
-            # otherwise we select CPU when _gpuaccel is off
-            return DeviceType.host
-        elif not self._should_dispatch_cpu(func_name, *args, **kwargs):
-            return DeviceType.device
-        else:
-            return DeviceType.host
-
-    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
-        """
-        This method is meant to do checks of data sizes and other things
-        at fit and other method call time, to decide where to disptach
-        a function. For hyperparameters of the estimator,
-        see the method _hyperparam_translator.
-        Each estimator inheritting from UniversalBase can override this
-        method to have custom rules of when to dispatch to CPU depending
-        on the data passed to fit/predict...
-        """
-
-        return False
-
-    def as_sklearn(self, deepcopy=False):
-        """
-        Convert the current GPU-accelerated estimator into a scikit-learn estimator.
-
-        This method imports and builds an equivalent CPU-backed scikit-learn model,
-        transferring all necessary parameters from the GPU representation to the
-        CPU model. After this conversion, the returned object should be a fully
-        compatible scikit-learn estimator, allowing you to use it in standard
-        scikit-learn pipelines and workflows.
-
-        Parameters
-        ----------
-        deepcopy : boolean (default=False)
-            Whether to return a deepcopy of the internal scikit-learn estimator of
-            the cuML models. cuML models internally have CPU based estimators that
-            could be updated. If you intend to use both the cuML and the scikit-learn
-            estimators after using the method in parallel, it is recommended to set
-            this to True to avoid one overwriting data of the other.
-
-        Returns
-        -------
-        sklearn.base.BaseEstimator
-            A scikit-learn compatible estimator instance that mirrors the trained
-            state of the current GPU-accelerated estimator.
-
-        """
-        self.import_cpu_model()
-        self.build_cpu_model()
-        self.gpu_to_cpu()
-        if deepcopy:
-            return copy.deepcopy(self._cpu_model)
-        else:
-            return self._cpu_model
-
-    @classmethod
-    def from_sklearn(cls, model):
-        """
-        Create a GPU-accelerated estimator from a scikit-learn estimator.
-
-        This class method takes an existing scikit-learn estimator and converts it
-        into the corresponding GPU-backed estimator. It imports any required CPU
-        model definitions, stores the given scikit-learn model internally, and then
-        transfers the model parameters and state onto the GPU.
-
-        Parameters
-        ----------
-        model : sklearn.base.BaseEstimator
-            A fitted scikit-learn estimator from which to create the GPU-accelerated
-            version.
-
-        Returns
-        -------
-        cls
-            A new instance of the GPU-accelerated estimator class that mirrors the
-            state of the input scikit-learn estimator.
-
-        Notes
-        -----
-        - `output_type` of the estimator is set to "numpy"
-            by default, as these cannot be inferred from training arguments. If
-            something different is required, then please use cuML's output_type
-            configuration utilities.
-        """
-        estimator = cls()
-        estimator.import_cpu_model()
-        estimator._cpu_model = model
-        params, _ = cls._hyperparam_translator(**model.get_params())
-        params = {key: params[key] for key in cls._get_param_names() if key in params}
-        estimator.set_params(**params)
-        estimator.cpu_to_gpu()
-
-        # we need to set an output type here since
-        # we cannot infer from training args.
-        # Setting to numpy seems like a reasonable default for matching the
-        # deserialized class by default.
-        estimator.output_type = "numpy"
-        estimator.output_mem_type = MemoryType.host
-
-        return estimator

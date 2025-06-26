@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import pprint
 
 import cupy as cp
@@ -45,11 +43,13 @@ supported_penalties = ["l1", "l2", None, "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base,
-                         InteropMixin,
-                         ClassifierMixin,
-                         FMajorInputTagMixin,
-                         SparseInputTagMixin):
+class LogisticRegression(
+    Base,
+    InteropMixin,
+    ClassifierMixin,
+    FMajorInputTagMixin,
+    SparseInputTagMixin,
+):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -113,9 +113,9 @@ class LogisticRegression(Base,
 
     Parameters
     ----------
-    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = 'l2')
         Used to specify the norm used in the penalization.
-        If 'none' or 'l2' are selected, then L-BFGS solver will be used.
+        If None or 'l2' are selected, then L-BFGS solver will be used.
         If 'l1' is selected, solver OWL-QN will be used.
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
@@ -190,8 +190,8 @@ class LogisticRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    class_weight = CumlArrayDescriptor(order='F')
-    expl_spec_weights_ = CumlArrayDescriptor(order='F')
+    class_weight = CumlArrayDescriptor(order="F")
+    expl_spec_weights_ = CumlArrayDescriptor(order="F")
 
     _cpu_class_path = "sklearn.linear_model.LogisticRegression"
 
@@ -269,16 +269,18 @@ class LogisticRegression(Base,
         output_type=None,
     ):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + " not supported.")
 
         if solver not in supported_solvers:
-            raise ValueError("Only quasi-newton `qn` solver is "
-                             " supported, not %s" % solver)
+            raise ValueError(
+                "Only quasi-newton `qn` solver is "
+                " supported, not %s" % solver
+            )
         self.solver = solver
         self.C = C
         self.penalty = penalty
@@ -325,9 +327,11 @@ class LogisticRegression(Base,
         else:
             self.verb_prefix = ""
 
-    @generate_docstring(X='dense_sparse')
+    @generate_docstring(X="dense_sparse")
     @cuml.internals.api_base_return_any()
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LogisticRegression":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -339,16 +343,17 @@ class LogisticRegression(Base,
             n_rows, self.n_features_in_, self.dtype = (
                 X.shape[0],
                 (X.shape[1] if X.ndim == 2 else 1),
-                X.dtype)
+                X.dtype,
+            )
         else:
-            X, n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(X,
-                                    convert_to_dtype=(np.float32 if convert_dtype
-                                                      else None),
-                                    check_dtype=[np.float32, np.float64],
-                                    order='K')
+            X, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                order="K",
+            )
 
-        if hasattr(X, 'index'):
+        if hasattr(X, "index"):
             self.feature_names_in_ = X.index
 
         # LabelEncoder currently always returns cudf (ignoring output_type),
@@ -379,9 +384,10 @@ class LogisticRegression(Base,
             sample_weight, n_weights, D, _ = input_to_cuml_array(sample_weight)
 
             if n_rows != n_weights or D != 1:
-                raise ValueError("sample_weight.shape == {}, "
-                                 "expected ({},)!".format(sample_weight.shape,
-                                                          n_rows))
+                raise ValueError(
+                    "sample_weight.shape == {}, "
+                    "expected ({},)!".format(sample_weight.shape, n_rows)
+                )
 
             def check_expl_spec_weights():
                 with cuml.using_output_type("numpy"):
@@ -392,8 +398,10 @@ class LogisticRegression(Base,
                             raise ValueError(msg)
 
             if self.class_weight is not None:
-                if self.class_weight == 'balanced':
-                    class_weight = n_rows / (self._num_classes * cp.bincount(y))
+                if self.class_weight == "balanced":
+                    class_weight = n_rows / (
+                        self._num_classes * cp.bincount(y)
+                    )
                     class_weight = CumlArray(class_weight)
                 else:
                     check_expl_spec_weights()
@@ -405,7 +413,7 @@ class LogisticRegression(Base,
                         self.class_weight = class_weight
                     else:
                         class_weight = self.class_weight
-                sample_weight *= class_weight[y].to_output('cupy')
+                sample_weight *= class_weight[y].to_output("cupy")
                 sample_weight = CumlArray(sample_weight)
 
         if self._num_classes > 2:
@@ -421,8 +429,9 @@ class LogisticRegression(Base,
         if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.solver_model.fit(X, y, sample_weight=sample_weight,
-                              convert_dtype=convert_dtype)
+        self.solver_model.fit(
+            X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
+        )
 
         self.n_iter_ = np.asarray([self.solver_model.num_iters])
 
@@ -434,8 +443,11 @@ class LogisticRegression(Base,
 
         if logger.should_log_for(logger.level_enum.trace):
             with using_output_type("cupy"):
-                logger.trace(self.verb_prefix + "Coefficients: " +
-                             str(self.solver_model.coef_))
+                logger.trace(
+                    self.verb_prefix
+                    + "Coefficients: "
+                    + str(self.solver_model.coef_)
+                )
                 if self.fit_intercept:
                     logger.trace(
                         self.verb_prefix
@@ -445,26 +457,33 @@ class LogisticRegression(Base,
 
         return self
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'score',
-                                       'type': 'dense',
-                                       'description': 'Confidence score',
-                                       'shape': '(n_samples, n_classes)'})
+    @generate_docstring(
+        X="dense_sparse",
+        return_values={
+            "name": "score",
+            "type": "dense",
+            "description": "Confidence score",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
         """
         return self.solver_model._decision_function(
-            X,
-            convert_dtype=convert_dtype
+            X, convert_dtype=convert_dtype
         )
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        X="dense_sparse",
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples, 1)",
+        },
+    )
     @cuml.internals.api_base_return_any()
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
@@ -481,16 +500,20 @@ class LogisticRegression(Base,
         # internally. This is a hack.
         output_type = self._get_output_type(X)
 
-        is_numeric = self.classes_.dtype.kind in 'ifu'
+        is_numeric = self.classes_.dtype.kind in "ifu"
         nclasses = len(self.classes_)
 
         # Choose a smaller index type when possible
-        ind_dtype = np.int32 if nclasses <= np.iinfo(np.int32).max else np.int64
+        ind_dtype = (
+            np.int32 if nclasses <= np.iinfo(np.int32).max else np.int64
+        )
 
         if is_numeric:
             if (self.classes_ == np.arange(nclasses)).all():
                 # Fast path for common case of monotonically increasing numeric classes
-                out = indices.to_output("cupy", output_dtype=self.classes_.dtype)
+                out = indices.to_output(
+                    "cupy", output_dtype=self.classes_.dtype
+                )
             else:
                 # Classes are not monotonically increasing from 0, we need to
                 # do a transform.
@@ -505,10 +528,11 @@ class LogisticRegression(Base,
             # error appropriately later on when converting to outputs like `cupy`
             # that don't support strings.
             import cudf
+
             out = (
-                cudf.Series(self.classes_).take(
-                    indices.to_output("cupy", output_dtype=ind_dtype)
-                ).reset_index(drop=True)
+                cudf.Series(self.classes_)
+                .take(indices.to_output("cupy", output_dtype=ind_dtype))
+                .reset_index(drop=True)
             )
             if output_type in ("cudf", "df_obj", "series"):
                 return out
@@ -523,46 +547,51 @@ class LogisticRegression(Base,
                     f"{output_type=} doesn't support objects of dtype {self.classes_.dtype!r}"
                 )
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted class \
-                                                       probabilities',
-                                       'shape': '(n_samples, n_classes)'})
+    @generate_docstring(
+        X="dense_sparse",
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted class \
+                                                       probabilities",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
         return self._predict_proba_impl(
-            X,
-            convert_dtype=convert_dtype,
-            log_proba=False
+            X, convert_dtype=convert_dtype, log_proba=False
         )
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Logaright of predicted \
-                                                       class probabilities',
-                                       'shape': '(n_samples, n_classes)'})
+    @generate_docstring(
+        X="dense_sparse",
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Logaright of predicted \
+                                                       class probabilities",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
         """
         return self._predict_proba_impl(
-            X,
-            convert_dtype=convert_dtype,
-            log_proba=True
+            X, convert_dtype=convert_dtype, log_proba=True
         )
 
-    def _predict_proba_impl(self,
-                            X,
-                            convert_dtype=False,
-                            log_proba=False) -> CumlArray:
+    def _predict_proba_impl(
+        self, X, convert_dtype=False, log_proba=False
+    ) -> CumlArray:
         _num_classes = self.classes_.shape[0]
 
-        scores = self.decision_function(X, convert_dtype=convert_dtype).to_output("cupy")
+        scores = self.decision_function(
+            X, convert_dtype=convert_dtype
+        ).to_output("cupy")
         if _num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
@@ -601,8 +630,8 @@ class LogisticRegression(Base,
     def _build_class_weights(self, class_weight):
         if class_weight is None:
             self.class_weight = None
-        elif class_weight == 'balanced':
-            self.class_weight = 'balanced'
+        elif class_weight == "balanced":
+            self.class_weight = "balanced"
         else:
             classes = list(class_weight.keys())
             weights = list(class_weight.values())
@@ -610,25 +639,27 @@ class LogisticRegression(Base,
             class_weight = cp.ones(max_class + 1)
             class_weight[classes] = weights
             self.class_weight, _, _, _ = input_to_cuml_array(class_weight)
-            self.expl_spec_weights_, _, _, _ = \
-                input_to_cuml_array(np.array(classes))
+            self.expl_spec_weights_, _, _, _ = input_to_cuml_array(
+                np.array(classes)
+            )
 
     def set_params(self, **params):
         super().set_params(**params)
         rebuild_params = False
         # Remove class-specific parameters
-        for param_name in ['penalty', 'l1_ratio', 'C']:
+        for param_name in ["penalty", "l1_ratio", "C"]:
             if param_name in params:
                 params.pop(param_name)
                 rebuild_params = True
         if rebuild_params:
             # re-build QN solver parameters
             l1_strength, l2_strength = self._get_qn_params()
-            params.update({'l1_strength': l1_strength,
-                           'l2_strength': l2_strength})
-        if 'class_weight' in params:
+            params.update(
+                {"l1_strength": l1_strength, "l2_strength": l2_strength}
+            )
+        if "class_weight" in params:
             # re-build class weight
-            class_weight = params.pop('class_weight')
+            class_weight = params.pop("class_weight")
             self._build_class_weights(class_weight)
 
         # if the user is setting the solver, then
@@ -658,6 +689,5 @@ class LogisticRegression(Base,
         return state
 
     def __setstate__(self, state):
-        super().__init__(handle=None,
-                         verbose=state["_verbose"])
+        super().__init__(handle=None, verbose=state["_verbose"])
         self.__dict__.update(state)
