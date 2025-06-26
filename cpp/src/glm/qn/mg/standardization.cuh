@@ -365,8 +365,8 @@ struct Standardizer {
     SimpleDenseMat<T> Gweights;
     col_slice(G, Gweights, 0, D);
 
-    raft::matrix::matrixVectorBinaryMult(
-      Gweights.data, std_inv.data, Gweights.m, D, false, true, stream);
+    raft::matrix::matrixVectorBinaryMult<false, true>(
+      Gweights.data, std_inv.data, Gweights.m, D, stream);
 
     if (has_bias) {
       SimpleVec<T> Gbias;
