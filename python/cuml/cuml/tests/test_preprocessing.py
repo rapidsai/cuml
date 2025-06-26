@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 import scipy
 import sklearn
+from packaging.version import Version
 from sklearn.impute import MissingIndicator as skMissingIndicator
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import Binarizer as skBinarizer
@@ -926,6 +927,12 @@ def test_quantile_transformer(
     ignore_implicit_zeros,
     subsample,
 ):
+    # The exact way the subsampling works in QuantileTransformer changed
+    # and means we do not get exactly the same quantiles for older versions.
+    # This is Ok, we do not need to get the exact same quantiles.
+    if Version(sklearn.__version__) < Version("1.5.0"):
+        pytest.skip("Skipping test for sklearn < 1.5.0")
+
     X_np, X = nan_filled_positive
 
     transformer = cuQuantileTransformer(
