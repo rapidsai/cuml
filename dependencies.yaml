@@ -407,7 +407,8 @@ dependencies:
           - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
-          - numpydoc
+          # upstream sklearn docstring tests require numpydoc<1.9
+          - numpydoc<1.9
           - pyyaml
           - pytest==7.*
           - pytest-benchmark

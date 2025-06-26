@@ -36,6 +36,7 @@ from sklearn.linear_model import LinearRegression as SkLinearRegression
 from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
 from sklearn.manifold import trustworthiness
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
@@ -598,3 +599,61 @@ def test_random_forest_regressor(random_state):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
+
+
+@pytest.mark.parametrize("prediction_data", [False, True])
+@pytest.mark.parametrize("gen_min_span_tree", [False, True])
+def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
+    hdbscan = pytest.importorskip("hdbscan")
+
+    X, y = make_blobs(random_state=random_state)
+
+    cu_model = cuml.HDBSCAN(
+        prediction_data=prediction_data, gen_min_span_tree=gen_min_span_tree
+    ).fit(X, y)
+    sk_model = hdbscan.HDBSCAN(
+        prediction_data=prediction_data, gen_min_span_tree=gen_min_span_tree
+    ).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.HDBSCAN.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # tree attributes all available
+    for attr in ["single_linkage_tree_", "condensed_tree_"]:
+        assert getattr(cu_model2, attr) is not None
+        assert getattr(sk_model2, attr) is not None
+
+    # minimum_spanning_tree_ available if generated
+    if gen_min_span_tree:
+        assert getattr(cu_model2, "minimum_spanning_tree_") is not None
+        assert getattr(sk_model2, "minimum_spanning_tree_") is not None
+    else:
+        assert not hasattr(cu_model2, "minimum_spanning_tree_")
+        assert not hasattr(sk_model2, "minimum_spanning_tree_")
+
+    # prediction data available if generated
+    if prediction_data:
+        assert getattr(cu_model2, "prediction_data_") is not None
+        assert getattr(sk_model2, "prediction_data_") is not None
+    else:
+        assert not hasattr(cu_model2, "prediction_data_")
+        assert not hasattr(sk_model2, "prediction_data_")
+
+        # Generate prediction data
+        cu_model2.generate_prediction_data()
+        sk_model2.generate_prediction_data()
+
+    # Can infer on converted models
+    cu_labels, cu_probs = cuml.cluster.hdbscan.approximate_predict(
+        cu_model2, X
+    )
+    sk_labels, sk_probs = hdbscan.approximate_predict(sk_model2, X)
+    assert accuracy_score(cu_labels, cu_model2.labels_) > 0.9
+    assert accuracy_score(sk_labels, sk_model2.labels_) > 0.9
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)

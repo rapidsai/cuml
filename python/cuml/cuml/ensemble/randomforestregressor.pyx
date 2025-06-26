@@ -329,9 +329,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.treelite_serialized_bytes = None
         self.n_cols = None
 
-    def get_attr_names(self):
-        return []
-
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model

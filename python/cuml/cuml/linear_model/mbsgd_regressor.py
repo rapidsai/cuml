@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -24,9 +22,7 @@ from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base,
-                     RegressorMixin,
-                     FMajorInputTagMixin):
+class MBSGDRegressor(Base, RegressorMixin, FMajorInputTagMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -83,14 +79,14 @@ class MBSGDRegressor(Base,
     ----------
     loss : 'squared_loss' (default = 'squared_loss')
        'squared_loss' uses linear regression
-    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = 'l2')
+        The penalty (aka regularization term) to apply.
+
+        - 'l1': L1 norm (Lasso) regularization
+        - 'l2': L2 norm (Ridge) regularization (the default)
+        - 'elasticnet': Elastic Net regularization, a weighted average of L1 and L2
+        - None: no penalty is added
+
     alpha : float (default = 0.0001)
        The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -149,15 +145,30 @@ class MBSGDRegressor(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
-    def __init__(self, *, loss='squared_loss', penalty='l2', alpha=0.0001,
-                 l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbose=False, output_type=None):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-        if loss in ['squared_loss']:
+    def __init__(
+        self,
+        *,
+        loss="squared_loss",
+        penalty="l2",
+        alpha=0.0001,
+        l1_ratio=0.15,
+        fit_intercept=True,
+        epochs=1000,
+        tol=1e-3,
+        shuffle=True,
+        learning_rate="constant",
+        eta0=0.001,
+        power_t=0.5,
+        batch_size=32,
+        n_iter_no_change=5,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
+        if loss in ["squared_loss"]:
             self.loss = loss
         else:
             msg = "loss {!r} is not supported"
@@ -186,10 +197,14 @@ class MBSGDRegressor(Base,
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples, 1)",
+        }
+    )
     @cuml.internals.api_base_return_array_skipall
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
@@ -197,8 +212,7 @@ class MBSGDRegressor(Base,
 
         """
 
-        preds = self.solver_model.predict(X,
-                                          convert_dtype=convert_dtype)
+        preds = self.solver_model.predict(X, convert_dtype=convert_dtype)
         return preds
 
     def set_params(self, **params):
