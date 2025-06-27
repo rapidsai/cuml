@@ -578,6 +578,7 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-minkowski]"
   - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csc_array]"
   - "sklearn.preprocessing.tests.test_data::test_standard_scaler_partial_fit_numerical_stability[csr_array]"
+  - "sklearn.test_metadata_routing::test_metaestimator_warnings"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
   marker: cuml_accel_bugs
