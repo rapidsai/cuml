@@ -922,8 +922,6 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-10-randomized]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-400-full]"
   - "sklearn.manifold.tests.test_t_sne::test_max_iter_used"
-  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
-  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
   - "sklearn.model_selection.tests.test_classification_threshold::test_fit_and_score_over_thresholds_sample_weight"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
   marker: cuml_accel_bugs
@@ -1088,6 +1086,12 @@
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-auto]"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
+- reason: Test should fail with cuml.accel (scikit-learn<1.7)
+  marker: cuml_accel_bugs
+  condition: scikit-learn<1.7 and scikit-learn>=1.5.0
+  tests:
+  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
+  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
