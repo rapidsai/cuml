@@ -162,16 +162,12 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_validation[auto-3-n_components=3 must be between 0 and min\\\\(n_samples, n_features\\\\)=2 with svd_solver='full'-data1]"
   - "sklearn.decomposition.tests.test_pca::test_pca_validation[randomized-0-must be between 1 and min\\\\(n_samples, n_features\\\\)-data0]"
   - "sklearn.decomposition.tests.test_pca::test_pca_validation[randomized-0-must be between 1 and min\\\\(n_samples, n_features\\\\)-data1]"
-  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-randomized]"
-  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-randomized]"
-  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-randomized]"
-  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
@@ -366,7 +362,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_matrix]"
-  - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
   - "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
@@ -1084,6 +1079,15 @@
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed2-20-float64-0.2-sparse_cg-None]"
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed2-20-float64-0.2-sparse_cg-csr_array]"
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed2-20-float64-0.2-sparse_cg-csr_matrix]"
+- reason: Test should fail with cuml.accel (scikit-learn<1.7)
+  marker: cuml_accel_bugs
+  condition: scikit-learn<1.7
+  tests:
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-auto]"
+  - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-auto]"
+  - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
