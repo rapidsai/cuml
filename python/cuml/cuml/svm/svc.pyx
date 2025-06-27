@@ -51,20 +51,8 @@ from libcpp cimport nullptr
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams
 
-
-cdef extern from "cuvs/distance/distance.hpp"  namespace "cuvs::distance::kernels" nogil:
-    enum KernelType:
-        LINEAR,
-        POLYNOMIAL,
-        RBF,
-        TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:

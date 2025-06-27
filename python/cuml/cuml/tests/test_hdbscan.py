@@ -17,17 +17,18 @@ import cupy as cp
 import hdbscan
 import numpy as np
 import pytest
-from hdbscan.plots import CondensedTree
 from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
-from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
-from cuml.cluster.hdbscan.prediction import (
+import cuml
+from cuml.cluster.hdbscan import (
+    HDBSCAN,
     all_points_membership_vectors,
     approximate_predict,
     membership_vector,
 )
+from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy, _extract_clusters
 from cuml.internals import logger
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
@@ -82,18 +83,18 @@ def assert_condensed_trees(sk_agg, min_cluster_size):
 
     slt = sk_agg.single_linkage_tree_._linkage
 
-    condensed_tree = condense_hierarchy(slt, min_cluster_size)
+    condensed_tree = _condense_hierarchy(slt, min_cluster_size)
 
-    cu_parents = condensed_tree._raw_tree["parent"]
+    cu_parents = condensed_tree["parent"]
     sk_parents = sk_agg.condensed_tree_._raw_tree["parent"]
 
-    cu_children = condensed_tree._raw_tree["child"]
+    cu_children = condensed_tree["child"]
     sk_children = sk_agg.condensed_tree_._raw_tree["child"]
 
-    cu_lambda = condensed_tree._raw_tree["lambda_val"]
+    cu_lambda = condensed_tree["lambda_val"]
     sk_lambda = sk_agg.condensed_tree_._raw_tree["lambda_val"]
 
-    cu_child_size = condensed_tree._raw_tree["child_size"]
+    cu_child_size = condensed_tree["child_size"]
     sk_child_size = sk_agg.condensed_tree_._raw_tree["child_size"]
 
     # Start at the root, perform bfs
@@ -153,12 +154,10 @@ def assert_membership_vectors(cu_vecs, sk_vecs):
 @pytest.mark.parametrize("cluster_selection_epsilon", [0.0])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_blobs(
     nrows,
     ncols,
     nclusters,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     allow_single_cluster,
@@ -224,10 +223,8 @@ def test_hdbscan_blobs(
 )
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_datasets(
     supervised_learning_dataset,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_samples_cluster_size_bounds,
@@ -288,10 +285,8 @@ def test_hdbscan_sklearn_datasets(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_extract_clusters(
     supervised_learning_dataset,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_samples,
@@ -299,18 +294,6 @@ def test_hdbscan_sklearn_extract_clusters(
     max_cluster_size,
     allow_single_cluster,
 ):
-    X = supervised_learning_dataset
-    cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
-        allow_single_cluster=allow_single_cluster,
-        gen_min_span_tree=True,
-        min_samples=min_samples,
-        max_cluster_size=max_cluster_size,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-    )
-
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
         approx_min_span_tree=False,
@@ -322,14 +305,18 @@ def test_hdbscan_sklearn_extract_clusters(
         algorithm="generic",
     )
 
-    sk_agg.fit(cp.asnumpy(X))
+    sk_agg.fit(supervised_learning_dataset)
 
-    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
-
-    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
-    assert np.allclose(
-        cp.asnumpy(cuml_agg.probabilities_test), sk_agg.probabilities_
+    labels, probabilties = _extract_clusters(
+        sk_agg.condensed_tree_.to_numpy(),
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        cluster_selection_method=cluster_selection_method,
+        cluster_selection_epsilon=cluster_selection_epsilon,
     )
+
+    assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
+    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -340,11 +327,9 @@ def test_hdbscan_sklearn_extract_clusters(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_cluster_patterns(
     dataset,
     nrows,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_cluster_size,
@@ -403,11 +388,9 @@ def test_hdbscan_cluster_patterns(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_cluster_patterns_extract_clusters(
     dataset,
     nrows,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_cluster_size,
@@ -419,16 +402,6 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
-    cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
-        allow_single_cluster=allow_single_cluster,
-        min_samples=min_samples,
-        max_cluster_size=max_cluster_size,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-    )
-
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
         approx_min_span_tree=False,
@@ -439,15 +412,18 @@ def test_hdbscan_cluster_patterns_extract_clusters(
         cluster_selection_method=cluster_selection_method,
         algorithm="generic",
     )
+    sk_agg.fit(X)
 
-    sk_agg.fit(cp.asnumpy(X))
-
-    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
-
-    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
-    assert np.allclose(
-        cp.asnumpy(cuml_agg.probabilities_test), sk_agg.probabilities_
+    labels, probabilties = _extract_clusters(
+        sk_agg.condensed_tree_.to_numpy(),
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        cluster_selection_method=cluster_selection_method,
+        cluster_selection_epsilon=cluster_selection_epsilon,
     )
+
+    assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
+    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
 
 
 def test_hdbscan_core_dists_bug_4054():
@@ -487,31 +463,26 @@ def test_hdbscan_metric_parameter_input(metric, supported):
 
 
 def test_hdbscan_empty_cluster_tree():
-
     raw_tree = np.recarray(
         shape=(5,),
         formats=[np.intp, np.intp, float, np.intp],
         names=("parent", "child", "lambda_val", "child_size"),
     )
-
     raw_tree["parent"] = np.asarray([5, 5, 5, 5, 5])
     raw_tree["child"] = [0, 1, 2, 3, 4]
     raw_tree["lambda_val"] = [1.0, 1.0, 1.0, 1.0, 1.0]
     raw_tree["child_size"] = [1, 1, 1, 1, 1]
 
-    condensed_tree = CondensedTree(raw_tree, 0.0, True)
-
-    cuml_agg = HDBSCAN(
-        allow_single_cluster=True, cluster_selection_method="eom"
+    labels, probabilties = _extract_clusters(
+        raw_tree,
+        allow_single_cluster=True,
+        cluster_selection_method="eom",
     )
-    cuml_agg._extract_clusters(condensed_tree)
-
     # We just care that all points are assigned to the root cluster
-    assert np.sum(cuml_agg.labels_test.to_output("numpy")) == 0
+    assert np.sum(labels) == 0
 
 
 def test_hdbscan_plots():
-
     X, y = make_blobs(
         n_samples=int(100),
         n_features=100,
@@ -520,18 +491,26 @@ def test_hdbscan_plots():
         shuffle=False,
         random_state=42,
     )
+    model = HDBSCAN(gen_min_span_tree=True)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=True)
-    cuml_agg.fit(X)
+    # All attributes not available before fit
+    attrs = [
+        "condensed_tree_",
+        "minimum_spanning_tree_",
+        "single_linkage_tree_",
+    ]
+    for name in attrs:
+        assert not hasattr(model, name)
 
-    assert cuml_agg.condensed_tree_ is not None
-    assert cuml_agg.minimum_spanning_tree_ is not None
-    assert cuml_agg.single_linkage_tree_ is not None
+    model.fit(X)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=False)
-    cuml_agg.fit(X)
+    # All attributes available after fit
+    for name in attrs:
+        assert getattr(model, name) is not None
 
-    assert cuml_agg.minimum_spanning_tree_ is None
+    # minimum_spanning_tree_ not available if not requested
+    model = HDBSCAN(gen_min_span_tree=False).fit(X)
+    assert not hasattr(model, "minimum_spanning_tree_")
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -571,8 +550,7 @@ def test_all_points_membership_vectors_blobs(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
-    )
-    cuml_agg.fit(X)
+    ).fit(X)
 
     sk_agg = hdbscan.HDBSCAN(
         allow_single_cluster=allow_single_cluster,
@@ -583,9 +561,7 @@ def test_all_points_membership_vectors_blobs(
         cluster_selection_method=cluster_selection_method,
         algorithm="generic",
         prediction_data=True,
-    )
-
-    sk_agg.fit(cp.asnumpy(X))
+    ).fit(X)
 
     cu_membership_vectors = all_points_membership_vectors(cuml_agg, batch_size)
     cu_membership_vectors.sort(axis=1)
@@ -603,7 +579,6 @@ def test_all_points_membership_vectors_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [128, 1000])
 def test_all_points_membership_vectors_moons(
     nrows,
@@ -613,7 +588,6 @@ def test_all_points_membership_vectors_moons(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
 
@@ -660,7 +634,6 @@ def test_all_points_membership_vectors_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [128, 1000])
 def test_all_points_membership_vectors_circles(
     nrows,
@@ -670,7 +643,6 @@ def test_all_points_membership_vectors_circles(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
     X, y = datasets.make_circles(
@@ -794,7 +766,6 @@ def test_approximate_predict_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_moons(
     nrows,
     n_points_to_predict,
@@ -804,7 +775,6 @@ def test_approximate_predict_moons(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
 
     X, y = datasets.make_moons(
@@ -859,7 +829,6 @@ def test_approximate_predict_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_circles(
     nrows,
     n_points_to_predict,
@@ -869,7 +838,6 @@ def test_approximate_predict_circles(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
     X, y = datasets.make_circles(
         n_samples=nrows + n_points_to_predict,
@@ -925,7 +893,6 @@ def test_approximate_predict_circles(
 @pytest.mark.parametrize("allow_single_cluster", [False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_digits(
     n_points_to_predict,
     min_samples,
@@ -934,7 +901,6 @@ def test_approximate_predict_digits(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
     digits = datasets.load_digits()
     X, y = digits.data, digits.target
@@ -1067,7 +1033,6 @@ def test_membership_vector_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [16])
 def test_membership_vector_moons(
     nrows,
@@ -1078,7 +1043,6 @@ def test_membership_vector_moons(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
 
@@ -1131,7 +1095,6 @@ def test_membership_vector_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [16])
 def test_membership_vector_circles(
     nrows,
@@ -1142,7 +1105,6 @@ def test_membership_vector_circles(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
     X, y = datasets.make_circles(
@@ -1187,3 +1149,19 @@ def test_membership_vector_circles(
     )
 
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
+
+
+def test_prediction_namespace_deprecated():
+    # Attribute access warns
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        func = cuml.cluster.hdbscan.prediction.all_points_membership_vectors
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Imports warn
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        from cuml.cluster.hdbscan.prediction import (
+            all_points_membership_vectors as func,
+        )
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
