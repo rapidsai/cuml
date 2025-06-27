@@ -71,7 +71,8 @@ struct decision_forest_builder {
     auto constexpr const bin_width = index_type(sizeof(typename node_type::index_type) * 8);
     auto node_value                = typename node_type::index_type{};
     auto set_storage               = &node_value;
-    auto max_node_categories       = *std::max_element(vec_begin, vec_end) + 1;
+    auto max_node_categories =
+      (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) + 1 : 1;
     if (max_num_categories_ > bin_width) {
       // TODO(wphicks): Check for overflow here
       node_value         = categorical_storage_.size();

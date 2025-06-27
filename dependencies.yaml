@@ -179,7 +179,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - nvidia
 dependencies:
   rapids_build_backend:
     common:
@@ -248,7 +247,6 @@ dependencies:
         packages:
           - &cython cython>=3.0.0
           - &treelite treelite==4.4.1
-
   py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
