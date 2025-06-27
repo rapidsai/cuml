@@ -21,11 +21,8 @@ the following general limitations:
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
 
-* The `set_output
-  <https://scikit-learn-enhancement-proposals.readthedocs.io/en/latest/slep018/proposal.html>`__
-  and `Metadata Routing
-  <https://scikit-learn.org/stable/metadata_routing.html>`__ APIs are not
-  currently supported.
+* The `Metadata Routing <https://scikit-learn.org/stable/metadata_routing.html>`__
+  APIs are not currently supported.
 
 * When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified
   memory) is not supported. This means that automatic memory management between
