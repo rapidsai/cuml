@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cupy as cp
 
 import cuml.internals
@@ -33,7 +31,7 @@ def prepare_cluster_metric_inputs(labels_true, labels_pred):
         labels_true,
         check_dtype=[cp.int32, cp.int64],
         check_cols=1,
-        deepcopy=True  # deepcopy because we call make_monotonic inplace below
+        deepcopy=True,  # deepcopy because we call make_monotonic inplace below
     )
 
     y_pred, _, _, _ = input_to_cuml_array(
@@ -41,7 +39,7 @@ def prepare_cluster_metric_inputs(labels_true, labels_pred):
         check_dtype=dtype,
         check_rows=n_rows,
         check_cols=1,
-        deepcopy=True  # deepcopy because we call make_monotonic inplace below
+        deepcopy=True,  # deepcopy because we call make_monotonic inplace below
     )
 
     classes = sorted_unique_labels(y_true, y_pred)

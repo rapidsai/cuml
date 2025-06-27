@@ -116,6 +116,17 @@ Ideally, Each use of `strict: false` should include:
 - A plan to fix the underlying issue
 - Regular review to ensure the flag is still necessary
 
+### Handling Unmatched Test IDs
+
+The pytest plugin validates that all test IDs in the xfail list correspond to actual tests. When tests don't exist, a `UnmatchedXfailTests` warning is issued.
+
+#### Common Causes
+- **Version-specific tests**: Tests that only exist in certain dependency versions
+- **Renamed/removed tests**: Tests changed across versions
+- **Typographical errors**: Misspelled test IDs
+
+You can suppress the warning during development by removing the pytest argument that
+elevates the warning to an error within `run-tests.sh`.
 
 ## Recommended workflow for fixing parity issues
 

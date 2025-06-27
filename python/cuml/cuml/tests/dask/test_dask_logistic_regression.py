@@ -14,6 +14,8 @@
 #
 
 import random
+import warnings
+from contextlib import contextmanager
 
 import cudf
 import cupy as cp
@@ -29,6 +31,14 @@ from sklearn.metrics import accuracy_score
 from cuml.dask.common import utils as dask_utils
 from cuml.internals import logger
 from cuml.testing.utils import array_equal
+
+
+@contextmanager
+def ignore_deprecated_lbfgs_params_warning():
+    """Ignores a warning in sklearn raised by scipy.optimize deprecated params"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        yield
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -184,7 +194,7 @@ def test_lbfgs_init(client):
         )
 
         lr.fit(X_df, y_df)
-        qnpams = lr.qnparams.params
+        qnpams = lr.solver_model.qnparams.params
         assert qnpams["grad_tol"] == tol
         assert qnpams["loss"] == 0  # "sigmoid" loss
         assert qnpams["penalty_l1"] == 0.0
@@ -307,7 +317,9 @@ def _test_lbfgs(
         l1_ratio=l1_ratio,
         C=C,
     )
-    sk_model.fit(X, y)
+    with ignore_deprecated_lbfgs_params_warning():
+        sk_model.fit(X, y)
+
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
 
@@ -381,7 +393,7 @@ def test_noreg(fit_intercept, client):
         penalty=None,
     )
 
-    qnpams = lr.qnparams.params
+    qnpams = lr.solver_model.qnparams.params
     assert qnpams["penalty_l1"] == 0.0
     assert qnpams["penalty_l2"] == 0.0
 
@@ -775,7 +787,8 @@ def test_standardization_on_scaled_dataset(
         l1_ratio=l1_ratio,
         C=C,
     )
-    cpu.fit(X_train_scaled, y_train)
+    with ignore_deprecated_lbfgs_params_warning():
+        cpu.fit(X_train_scaled, y_train)
     cpu_preds = cpu.predict(X_test_scaled)
     cpu_accuracy = accuracy_score(y_test, cpu_preds)
 
@@ -1117,7 +1130,8 @@ def test_sparse_all_zeroes(
         ) = standardize_dataset(X, X, fit_intercept)
 
     cpu_lr = LogisticRegression(fit_intercept=fit_intercept)
-    cpu_lr.fit(X_cpu, y)
+    with ignore_deprecated_lbfgs_params_warning():
+        cpu_lr.fit(X_cpu, y)
     cpu_preds = cpu_lr.predict(X_cpu)
 
     assert array_equal(mg_preds, cpu_preds)

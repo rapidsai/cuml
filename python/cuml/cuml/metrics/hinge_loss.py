@@ -23,10 +23,9 @@ from cuml.preprocessing import LabelBinarizer, LabelEncoder
 
 
 @cuml.internals.api_return_any()
-def hinge_loss(y_true,
-               pred_decision,
-               labels=None,
-               sample_weights=None) -> float:
+def hinge_loss(
+    y_true, pred_decision, labels=None, sample_weights=None
+) -> float:
     """
     Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
 
@@ -57,29 +56,39 @@ def hinge_loss(y_true,
     pd_type = determine_array_type(pred_decision)
     labels_type = determine_array_type(labels)
 
-    if yt_type not in ['cupy', 'numba', 'cudf']:
-        raise TypeError("y_true needs to be either a cuDF Series or \
-                        a cuPy/numba array.")
+    if yt_type not in ["cupy", "numba", "cudf"]:
+        raise TypeError(
+            "y_true needs to be either a cuDF Series or \
+                        a cuPy/numba array."
+        )
 
-    if pd_type not in ['cupy', 'numba', 'cudf']:
-        raise TypeError("pred_decision needs to be either a cuDF DataFrame or \
-                        a cuPy/numba array.")
+    if pd_type not in ["cupy", "numba", "cudf"]:
+        raise TypeError(
+            "pred_decision needs to be either a cuDF DataFrame or \
+                        a cuPy/numba array."
+        )
 
-    if labels_type not in ['cupy', 'numba', 'cudf']:
-        raise TypeError("labels needs to be either a cuDF Series or \
-                        a cuPy/numba array.")
+    if labels_type not in ["cupy", "numba", "cudf"]:
+        raise TypeError(
+            "labels needs to be either a cuDF Series or \
+                        a cuPy/numba array."
+        )
 
     if y_true.shape[0] != pred_decision.shape[0]:
-        raise ValueError("y_true and pred_decision must have the same"
-                         " number of rows(found {} and {})".format(
-                             y_true.shape[0],
-                             pred_decision.shape[0]))
+        raise ValueError(
+            "y_true and pred_decision must have the same"
+            " number of rows(found {} and {})".format(
+                y_true.shape[0], pred_decision.shape[0]
+            )
+        )
 
     if sample_weights and sample_weights.shape[0] != y_true.shape[0]:
-        raise ValueError("y_true and sample_weights must have the same "
-                         "number of rows (found {} and {})".format(
-                             y_true.shape[0],
-                             sample_weights.shape[0]))
+        raise ValueError(
+            "y_true and sample_weights must have the same "
+            "number of rows (found {} and {})".format(
+                y_true.shape[0], sample_weights.shape[0]
+            )
+        )
 
     if not isinstance(labels, cudf.Series):
         labels = cudf.Series(labels)
@@ -90,10 +99,15 @@ def hinge_loss(y_true,
     y_true_unique = cp.unique(labels if labels is not None else y_true)
 
     if y_true_unique.size > 2:
-        if (labels is None and pred_decision.ndim > 1 and
-                (cp.size(y_true_unique) != pred_decision.shape[1])):
-            raise ValueError("Please include all labels in y_true "
-                             "or pass labels as third argument")
+        if (
+            labels is None
+            and pred_decision.ndim > 1
+            and (cp.size(y_true_unique) != pred_decision.shape[1])
+        ):
+            raise ValueError(
+                "Please include all labels in y_true "
+                "or pass labels as third argument"
+            )
         if labels is None:
             labels = y_true_unique
         le = LabelEncoder(output_type="cudf")
@@ -105,8 +119,9 @@ def hinge_loss(y_true,
         mask = cp.ones_like(pred_decision, dtype=bool)
         mask[cp.arange(y_true.shape[0]), y_true.values] = False
         margin = pred_decision[~mask]
-        margin -= cp.max(pred_decision[mask].reshape(y_true.shape[0], -1),
-                         axis=1)
+        margin -= cp.max(
+            pred_decision[mask].reshape(y_true.shape[0], -1), axis=1
+        )
     else:
         # Handles binary class case
         # this code assumes that positive and negative labels
