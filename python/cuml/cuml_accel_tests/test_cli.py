@@ -15,6 +15,7 @@
 import os
 import pickle
 import pty
+import re
 import subprocess
 import sys
 from textwrap import dedent
@@ -192,6 +193,32 @@ def test_cli_run_stdin(pass_hyphen):
     assert "ok\n" in stdout
 
 
+@pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
+def test_cli_correct_argv(mode, tmpdir):
+    """Test that user code sees the same argv with and and without `cuml.accel`"""
+    script = "import sys;print(f'argv={sys.argv}')"
+    stdin = None
+    if mode == "script":
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = [path, "--foo"]
+    elif mode == "module":
+        args = ["-m", "code", "-q"]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-c", script, "--foo"]
+    else:
+        args = ["-", "--foo"]
+        stdin = script
+
+    stdout = run(args, stdin=stdin)
+    stdout_accel = run(["-m", "cuml.accel", *args], stdin=stdin)
+
+    argv = re.search(r"argv=\[.*\]", stdout).group()
+    argv_accel = re.search(r"argv=\[.*\]", stdout_accel).group()
+    assert argv == argv_accel
+
+
 @pytest.mark.parametrize("mode", ["stdin", "cmd", "script"])
 def test_cli_run_errors(mode, tmpdir):
     script = dedent(
@@ -221,25 +248,27 @@ def test_cli_run_errors(mode, tmpdir):
 
 
 def test_cli_run_interpreter():
-    driver, receiver = pty.openpty()
+    driver_fd, receiver_fd = pty.openpty()
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "cuml.accel"],
-        stdin=receiver,
-        stdout=receiver,
+        stdin=receiver_fd,
+        stdout=receiver_fd,
         stderr=subprocess.STDOUT,
     )
-    os.close(receiver)
+    os.close(receiver_fd)
 
-    os.write(driver, b"import cuml.accel\n")
-    os.write(driver, b"assert cuml.accel.enabled()\n")
-    os.write(driver, b"print('got' + ' here')\n")
-    os.write(driver, b"exit()\n")
-    proc.wait(timeout=10)
+    driver = os.fdopen(driver_fd, mode="a")
+    driver.write("import cuml.accel\n")
+    driver.write("assert cuml.accel.enabled()\n")
+    driver.write("print('got' + ' here')\n")
+    driver.write("exit()\n")
+
+    proc.wait(timeout=20)
     assert proc.returncode == 0
 
-    stdout = os.read(driver, 10000).decode("utf-8")
-    os.close(driver)
+    stdout = os.read(driver_fd, 10000).decode("utf-8")
+    driver.close()
     assert "got here" in stdout
     assert "AssertionError" not in stdout
 

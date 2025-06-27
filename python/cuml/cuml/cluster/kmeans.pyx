@@ -43,8 +43,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.cluster.cpp.kmeans cimport fit_predict as cpp_fit_predict
 from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
 from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
-from cuml.cluster.kmeans_utils cimport Array, KMeansPlusPlus, Random
-from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.cluster.kmeans_utils cimport InitMethod, KMeansParams
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
@@ -89,7 +88,7 @@ class KMeans(Base,
         3  4.0  3.0
         >>>
         >>> # Calling fit
-        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto")
+        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto", random_state=1)
         >>> kmeans_float.fit(b)
         KMeans()
         >>>
@@ -124,7 +123,7 @@ class KMeans(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    random_state : int (default = 1)
+    random_state : int or None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
     init : {'scalable-k-means++', 'k-means||', 'random'} or an \
@@ -204,15 +203,6 @@ class KMeans(Base,
     cluster_centers_ = CumlArrayDescriptor(order='C')
 
     _cpu_class_path = "sklearn.cluster.KMeans"
-
-    _hyperparam_interop_translator = {
-        "init": {
-            # k-means++ would work, but setting it explicitly changes the configuration
-            # of the estimator compared to not specifying it. So we explicitly translate
-            # it to the default value.
-            "k-means++": "scalable-k-means++",
-        },
-    }
 
     @classmethod
     def _get_param_names(cls):
@@ -324,7 +314,7 @@ class KMeans(Base,
         return <size_t>params
 
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=False, random_state=1,
+                 verbose=False, random_state=None,
                  init='scalable-k-means++', n_init="auto", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
@@ -356,14 +346,14 @@ class KMeans(Base,
 
         if (init_str in ['scalable-k-means++', 'k-means||']):
             self.init = init_str
-            self._params_init = KMeansPlusPlus
+            self._params_init = InitMethod.KMeansPlusPlus
 
         elif (init_str == 'random'):
             self.init = init
-            self._params_init = Random
+            self._params_init = InitMethod.Random
         else:
             self.init = 'preset'
-            self._params_init = Array
+            self._params_init = InitMethod.Array
             self.cluster_centers_, _n_rows, self.n_features_in_, self.dtype = \
                 input_to_cuml_array(
                     init, order='C',
@@ -664,29 +654,21 @@ class KMeans(Base,
     def predict(
         self,
         X,
-        y=None,
-        sample_weight=None,
         *,
         convert_dtype=True,
-        normalize_weights=True,
     ) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
         """
-
-        labels, _ = self._predict_labels_inertia(
-            X,
-            convert_dtype=convert_dtype,
-            sample_weight=sample_weight,
-            normalize_weights=normalize_weights)
+        labels, _ = self._predict_labels_inertia(X, convert_dtype=convert_dtype)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 

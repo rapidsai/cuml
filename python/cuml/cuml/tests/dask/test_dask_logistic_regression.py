@@ -14,6 +14,8 @@
 #
 
 import random
+import warnings
+from contextlib import contextmanager
 
 import cudf
 import cupy as cp
@@ -29,6 +31,14 @@ from sklearn.metrics import accuracy_score
 from cuml.dask.common import utils as dask_utils
 from cuml.internals import logger
 from cuml.testing.utils import array_equal
+
+
+@contextmanager
+def ignore_deprecated_lbfgs_params_warning():
+    """Ignores a warning in sklearn raised by scipy.optimize deprecated params"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        yield
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -293,7 +303,7 @@ def _test_lbfgs(
     lr_coef = array_to_numpy(lr.coef_)
     lr_intercept = array_to_numpy(lr.intercept_)
 
-    if penalty == "l2" or penalty == "none":
+    if penalty == "l2" or penalty is None:
         sk_solver = "lbfgs"
     elif penalty == "l1" or penalty == "elasticnet":
         sk_solver = "saga"
@@ -303,11 +313,13 @@ def _test_lbfgs(
     sk_model = skLR(
         solver=sk_solver,
         fit_intercept=fit_intercept,
-        penalty=penalty if penalty != "none" else None,
+        penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
     )
-    sk_model.fit(X, y)
+    with ignore_deprecated_lbfgs_params_warning():
+        sk_model.fit(X, y)
+
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
 
@@ -378,7 +390,7 @@ def test_noreg(fit_intercept, client):
         datatype=datatype,
         delayed=True,
         client=client,
-        penalty="none",
+        penalty=None,
     )
 
     qnpams = lr.qnparams.params
@@ -508,7 +520,7 @@ def test_elasticnet(fit_intercept, delayed, n_classes, l1_ratio, client):
 @pytest.mark.parametrize(
     "reg_dtype",
     [
-        (("none", 1.0, None), np.float32),
+        ((None, 1.0, None), np.float32),
         (("l2", 2.0, None), np.float64),
         (("l1", 2.0, None), np.float32),
         (("elasticnet", 2.0, 0.2), np.float64),
@@ -601,7 +613,7 @@ def test_exception_one_label(client):
 @pytest.mark.parametrize(
     "reg_dtype",
     [
-        (("none", 1.0, None), np.float64),
+        ((None, 1.0, None), np.float64),
         (("l2", 2.0, None), np.float32),
         (("l1", 2.0, None), np.float64),
         (("elasticnet", 2.0, 0.2), np.float32),
@@ -682,7 +694,7 @@ def adjust_standardization_model_for_comparison(
 @pytest.mark.parametrize(
     "reg_dtype",
     [
-        (("none", 1.0, None), np.float32),
+        ((None, 1.0, None), np.float32),
         (("l2", 2.0, None), np.float32),
         (("l1", 2.0, None), np.float64),
         (("elasticnet", 2.0, 0.2), np.float64),
@@ -767,15 +779,16 @@ def test_standardization_on_scaled_dataset(
         X_train, X_test, fit_intercept
     )
 
-    sk_solver = "lbfgs" if penalty == "l2" or penalty == "none" else "saga"
+    sk_solver = "lbfgs" if penalty == "l2" or penalty is None else "saga"
     cpu = CPULR(
         solver=sk_solver,
         fit_intercept=fit_intercept,
-        penalty=penalty if penalty != "none" else None,
+        penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
     )
-    cpu.fit(X_train_scaled, y_train)
+    with ignore_deprecated_lbfgs_params_warning():
+        cpu.fit(X_train_scaled, y_train)
     cpu_preds = cpu.predict(X_test_scaled)
     cpu_accuracy = accuracy_score(y_test, cpu_preds)
 
@@ -1117,7 +1130,8 @@ def test_sparse_all_zeroes(
         ) = standardize_dataset(X, X, fit_intercept)
 
     cpu_lr = LogisticRegression(fit_intercept=fit_intercept)
-    cpu_lr.fit(X_cpu, y)
+    with ignore_deprecated_lbfgs_params_warning():
+        cpu_lr.fit(X_cpu, y)
     cpu_preds = cpu_lr.predict(X_cpu)
 
     assert array_equal(mg_preds, cpu_preds)

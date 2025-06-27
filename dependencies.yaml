@@ -179,7 +179,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - nvidia
 dependencies:
   rapids_build_backend:
     common:
@@ -248,7 +247,6 @@ dependencies:
         packages:
           - &cython cython>=3.0.0
           - &treelite treelite==4.4.1
-
   py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -256,7 +254,7 @@ dependencies:
           - dask-cuda==25.8.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.59.1,<0.62.0a0
-          - &numpy numpy>=1.23,<=2.2  # Numba requires NumPy 2.2 or less
+          - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
@@ -407,7 +405,8 @@ dependencies:
           - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
-          - numpydoc
+          # upstream sklearn docstring tests require numpydoc<1.9
+          - numpydoc<1.9
           - pyyaml
           - pytest
           - pytest-benchmark

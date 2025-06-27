@@ -71,6 +71,14 @@ repos:
                 - cpp/test
             pass_filenames: false
             language: python
+          - id: xfail-format
+            name: Format xfail lists
+            description: 'Ensure xfail lists are properly formatted according to standards'
+            entry: python python/cuml/cuml/accel/tests/xfail_manager.py
+            language: python
+            files: '.*xfail.*\.yaml$'
+            args: ['format', '--cleanup']
+            additional_dependencies: ['pyyaml>=6.0', 'packaging>=21.0']
     - repo: https://github.com/rapidsai/pre-commit-hooks
       rev: v0.6.0
       hooks:
@@ -90,7 +98,7 @@ repos:
         - id: verify-codeowners
           args: [--fix, --project-prefix=cuml]
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.17.1
+      rev: v1.19.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
@@ -99,7 +107,6 @@ repos:
       hooks:
         - id: shellcheck
           args: ["--severity=warning"]
-          files: ^ci/
 
 default_language_version:
     python: python3

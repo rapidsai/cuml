@@ -219,7 +219,9 @@ def test_kernel_housing_dataset(housing_dataset):
     y_train = y_train.astype(np.float32)
     y_test = y_test.astype(np.float32)
 
-    cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
+    cumodel = cuml.RandomForestRegressor(max_features="sqrt").fit(
+        X_train, y_train
+    )
 
     explainer = KernelExplainer(
         model=cumodel.predict, data=X_train[:100], output_type="numpy"

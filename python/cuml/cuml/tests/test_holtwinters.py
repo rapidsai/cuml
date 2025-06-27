@@ -15,9 +15,11 @@
 import numpy as np
 import pytest
 from sklearn.metrics import r2_score
-from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
 
 from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
+
+holtwinters = pytest.importorskip("statsmodels.tsa.holtwinters")
+sm_ES = holtwinters.ExponentialSmoothing
 
 airpassengers = [
     112,
