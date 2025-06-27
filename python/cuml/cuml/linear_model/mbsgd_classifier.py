@@ -198,6 +198,34 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
+    @property
+    def dtype(self):
+        return self.solver_model.dtype
+
+    @property
+    def coef_(self) -> CumlArray:
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self.solver_model.coef_ = value
+
+    @property
+    def intercept_(self) -> float:
+        return self.solver_model.intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self.solver_model.intercept_ = value
+
+    @property
+    def classes_(self) -> CumlArray:
+        return self.solver_model.classes_
+
+    @classes_.setter
+    def classes_(self, value):
+        self.solver_model.classes_ = value
+
     @generate_docstring(
         return_values={
             "name": "preds",

@@ -532,8 +532,8 @@ def test_exp_decay_params(build_algo):
         cuml_model = cuUMAP(
             a=a, b=b, min_dist=min_dist, spread=spread, build_algo=build_algo
         )
-        state = cuml_model.__getstate__()
-        cuml_a, cuml_b = state["a"], state["b"]
+        cuml_a = cuml_model.a
+        cuml_b = cuml_model.b
         skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
         skl_model.fit(np.zeros((1, 1)))
         sklearn_a, sklearn_b = skl_model._a, skl_model._b

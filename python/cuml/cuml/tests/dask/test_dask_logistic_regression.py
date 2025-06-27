@@ -194,7 +194,7 @@ def test_lbfgs_init(client):
         )
 
         lr.fit(X_df, y_df)
-        qnpams = lr.qnparams.params
+        qnpams = lr.solver_model.qnparams.params
         assert qnpams["grad_tol"] == tol
         assert qnpams["loss"] == 0  # "sigmoid" loss
         assert qnpams["penalty_l1"] == 0.0
@@ -393,7 +393,7 @@ def test_noreg(fit_intercept, client):
         penalty=None,
     )
 
-    qnpams = lr.qnparams.params
+    qnpams = lr.solver_model.qnparams.params
     assert qnpams["penalty_l1"] == 0.0
     assert qnpams["penalty_l2"] == 0.0
 
