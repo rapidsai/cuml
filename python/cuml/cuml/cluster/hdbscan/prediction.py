@@ -32,5 +32,5 @@ def __getattr__(name):
 
         return getattr(mod, name)
     raise AttributeError(
-        "module `cuml.cluster.hdbscan.prediction` has no attribute 'foo'"
+        f"module `cuml.cluster.hdbscan.prediction` has no attribute {name!r}"
     )
