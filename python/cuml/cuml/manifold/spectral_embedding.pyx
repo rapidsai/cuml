@@ -41,11 +41,11 @@ from pylibraft.common.handle cimport device_resources
 from pylibraft.random.cpp.rng_state cimport RngState
 
 from cuml.common import input_to_cuml_array
-from cuml.internals.base import UniversalBase
+from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
 
-cdef extern from "cuvs/preprocessing/spectral/spectral_embedding.hpp" namespace "cuvs::preprocessing::spectral_embedding":
+cdef extern from "cuvs/preprocessing/spectral/spectral_embedding.hpp" namespace "cuvs::preprocessing::spectral_embedding" nogil:
     cdef cppclass params:
         int n_components
         int n_neighbors
@@ -104,7 +104,7 @@ def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, nor
 
     return cp.asarray(eigenvectors)
 
-class SpectralEmbedding(UniversalBase,
+class SpectralEmbedding(Base,
                         CMajorInputTagMixin,
                         SparseInputTagMixin):
 

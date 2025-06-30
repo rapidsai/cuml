@@ -14,21 +14,26 @@
 #
 
 import cupy as cp
+import cupyx.scipy.sparse
 import numpy as np
 import pytest
 import scipy.sparse
-import cupyx.scipy.sparse
 from sklearn import datasets
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
+from sklearn.metrics import adjusted_rand_score
+from sklearn.utils.extmath import _deterministic_vector_sign_flip
+
 # from sklearn.cluster import KMeans
 from cuml.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
-from cuml.metrics import trustworthiness as cuml_trustworthiness
-
 from cuml.manifold import SpectralEmbedding
-from cuml.testing.utils import array_equal, stress_param, unit_param, quality_param
-from sklearn.utils.extmath import _deterministic_vector_sign_flip
+from cuml.metrics import trustworthiness as cuml_trustworthiness
+from cuml.testing.utils import (
+    array_equal,
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 # Default testing parameters
 DEFAULT_N_NEIGHBORS = 12
@@ -51,13 +56,15 @@ def validate_embedding(X, Y, score=0.70, n_neighbors=DEFAULT_N_NEIGHBORS):
 
 
 @pytest.mark.parametrize("n_components", [2, 5, 10])
-def test_spectral_embedding_components(supervised_learning_dataset, n_components):
+def test_spectral_embedding_components(
+    supervised_learning_dataset, n_components
+):
     """Test that spectral embedding respects n_components parameter"""
     X = supervised_learning_dataset
-    
+
     spectral = SpectralEmbedding(n_components=n_components, random_state=42)
     embedding = spectral.fit_transform(X)
-    
+
     assert embedding.shape[1] == n_components
 
 
@@ -69,21 +76,21 @@ def test_spectral_embedding_components(supervised_learning_dataset, n_components
 # ):
 #     """Test various parameter combinations of spectral embedding"""
 #     X = supervised_learning_dataset
-    
+
 #     spectral = SpectralEmbedding(
 #         n_components=n_components,
 #         random_state=42,
 #         n_neighbors=DEFAULT_N_NEIGHBORS
 #     )
-    
+
 #     embedding = spectral._fit(
-#         X, n_components, 
-#         random_state=42, 
+#         X, n_components,
+#         random_state=42,
 #         n_neighbors=DEFAULT_N_NEIGHBORS,
 #         norm_laplacian=norm_laplacian,
 #         drop_first=drop_first
 #     )
-    
+
 #     validate_embedding(X, embedding)
 
 # @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
@@ -93,67 +100,71 @@ def test_spectral_embedding_components(supervised_learning_dataset, n_components
 #     X, y = datasets.make_blobs(
 #         n_samples=500, n_features=20, centers=5, random_state=42
 #     )
-    
+
 #     # Sparsify the data (set 50% of entries to zero)
 #     sparsification = np.random.choice(
 #         [0.0, 1.0], p=[0.5, 0.5], size=X.shape
 #     )
 #     X_sparse = np.multiply(X, sparsification)
-    
+
 #     if input_type == "cupy":
 #         X_sparse = cupyx.scipy.sparse.csr_matrix(X_sparse)
 #     else:
 #         X_sparse = scipy.sparse.csr_matrix(X_sparse)
-    
+
 #     spectral = SpectralEmbedding(
 #         n_components=2,
 #         random_state=42,
 #         n_neighbors=DEFAULT_N_NEIGHBORS
 #     )
-    
+
 #     embedding = spectral.fit_transform(X_sparse)
-    
+
 #     validate_embedding(X, embedding)
 
 
 @pytest.mark.parametrize("random_state", [None, 42, 999])
-def test_spectral_embedding_reproducibility(supervised_learning_dataset, random_state):
+def test_spectral_embedding_reproducibility(
+    supervised_learning_dataset, random_state
+):
     """Test that spectral embedding is reproducible with fixed random state"""
     X = supervised_learning_dataset
-    
+
     # First embedding
     spectral1 = SpectralEmbedding(
         n_components=DEFAULT_N_COMPONENTS,
         random_state=random_state,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_neighbors=DEFAULT_N_NEIGHBORS,
     )
     embedding1 = spectral1.fit_transform(X)
-    
+
     # Second embedding
     spectral2 = SpectralEmbedding(
         n_components=DEFAULT_N_COMPONENTS,
         random_state=random_state,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_neighbors=DEFAULT_N_NEIGHBORS,
     )
     embedding2 = spectral2.fit_transform(X)
-    
+
     # If random state is None, embeddings may differ
     if random_state is not None:
         assert array_equal(embedding1, embedding2, 1e-4, with_sign=True)
 
 
 @pytest.mark.parametrize("n_neighbors", [5, 10, 15])
-def test_spectral_embedding_n_neighbors(supervised_learning_dataset, n_neighbors):
+def test_spectral_embedding_n_neighbors(
+    supervised_learning_dataset, n_neighbors
+):
     """Test different number of neighbors impact on spectral embedding"""
     X = supervised_learning_dataset
-    
+
     spectral = SpectralEmbedding(
         n_components=DEFAULT_N_COMPONENTS,
         random_state=42,
-        n_neighbors=n_neighbors
+        n_neighbors=n_neighbors,
     )
     embedding = spectral.fit_transform(X)
-    
+
     validate_embedding(X, embedding, n_neighbors=n_neighbors)
 
 
@@ -168,14 +179,12 @@ def test_spectral_embedding_datasets(dataset_name):
         X, y = datasets.load_iris(return_X_y=True)
     elif dataset_name == "digits":
         X, y = datasets.load_digits(return_X_y=True)
-    
+
     spectral = SpectralEmbedding(
-        n_components=2,
-        random_state=42,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
     )
     embedding = spectral.fit_transform(X)
-    
+
     print(X.shape, embedding.shape)
     validate_embedding(X, embedding, n_neighbors=DEFAULT_N_NEIGHBORS)
 
@@ -191,15 +200,13 @@ def test_spectral_embedding_scaling(nrows, n_feats):
     X, y = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=42
     )
-    
+
     spectral = SpectralEmbedding(
-        n_components=2,
-        random_state=42,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
     )
-    
+
     embedding = spectral.fit_transform(X)
-    
+
     if nrows <= 2000:  # Only check trustworthiness for smaller datasets
         validate_embedding(X, embedding)
 
@@ -207,20 +214,16 @@ def test_spectral_embedding_scaling(nrows, n_feats):
 def test_compare_sklearn():
     """Compare results with sklearn's implementation for basic correctness check"""
     X, y = datasets.load_digits(return_X_y=True)
-    
+
     # cuML implementation
     cuml_spectral = SpectralEmbedding(
-        n_components=2,
-        random_state=42,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
     )
     cuml_embedding = cuml_spectral.fit_transform(X)
-    
+
     # sklearn implementation
     sk_spectral = skSpectralEmbedding(
-        n_components=2,
-        random_state=42,
-        n_neighbors=DEFAULT_N_NEIGHBORS
+        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
     )
     sk_embedding = sk_spectral.fit_transform(X)
 
@@ -234,11 +237,18 @@ def test_compare_sklearn():
     print(sk_embedding)
 
     # check if cuml_embedding is close to sk_embedding
-    assert array_equal(cuml_embedding, sk_embedding, unit_tol=1e-2, with_sign=True)
-    
+    assert array_equal(
+        cuml_embedding, sk_embedding, unit_tol=1e-2, with_sign=True
+    )
+
+    print("cuml trust")
+    validate_embedding(X, cuml_embedding)
+    print("sklearn trust")
+    validate_embedding(X, sk_embedding)
+
     # # Check that both embeddings have similar clustering quality
     # cuml_score = adjusted_rand_score(y, KMeans(5).fit_predict(cuml_embedding))
     # sk_score = adjusted_rand_score(y, KMeans(5).fit_predict(sk_embedding))
-    
+
     # # The scores don't need to be identical, but should be comparable
     # assert abs(cuml_score - sk_score) < 0.2
