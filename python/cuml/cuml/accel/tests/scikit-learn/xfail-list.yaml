@@ -1272,6 +1272,14 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+- reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
+  marker: cuml_accel_scipy_1_16
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
+  - "sklearn.linear_model._glm.tests.test_glm::test_linalg_warning_with_newton_solver[42]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_path_convergence_fail"
+  - "sklearn.linear_model.tests.test_logistic::test_newton_cholesky_fallback_to_lbfgs[42]"
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
   condition: scikit-learn>=1.6
