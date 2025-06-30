@@ -24,11 +24,7 @@ from tabulate import tabulate
 class AnnotatedTraceFormatter:
     """Formats trace output to show calling code with acceleration status icons."""
 
-    def __init__(
-        self, show_timestamps: bool = True, show_duration: bool = True
-    ):
-        self.show_timestamps = show_timestamps
-        self.show_duration = show_duration
+    def __init__(self):
 
         # ANSI color codes for nice formatting
         self.colors = {
@@ -151,13 +147,12 @@ class AnnotatedTraceFormatter:
         # Build the output line
         parts = [icon]
 
-        # Add duration if requested
-        if self.show_duration:
-            duration_str = self.format_duration(duration)
-            parts.append(self.colorize(f"({duration_str})", "gray"))
+        # Add duration
+        duration_str = self.format_duration(duration)
+        parts.append(self.colorize(f"({duration_str})", "gray"))
 
-        # Add timestamp if requested
-        if self.show_timestamps and start_time:
+        # Add timestamp
+        if start_time:
             timestamp_str = self.format_timestamp(start_time)
             parts.append(self.colorize(f"[{timestamp_str}]", "gray"))
 
@@ -184,11 +179,7 @@ class AnnotatedTraceFormatter:
 class ScriptAnnotatedTraceFormatter:
     """Formats trace output to show the entire script with acceleration status icons."""
 
-    def __init__(
-        self, show_timestamps: bool = True, show_duration: bool = True
-    ):
-        self.show_timestamps = show_timestamps
-        self.show_duration = show_duration
+    def __init__(self):
 
         # ANSI color codes for nice formatting
         self.colors = {
@@ -362,17 +353,15 @@ class ScriptAnnotatedTraceFormatter:
 
                 # Extract timestamp
                 timestamp_str = ""
-                if self.show_timestamps and line_data["first_timestamp"]:
+                if line_data["first_timestamp"]:
                     timestamp_str = self.format_timestamp(
                         line_data["first_timestamp"]
                     )
 
                 # Extract duration
-                duration_str = ""
-                if self.show_duration:
-                    duration_str = self.format_duration(
-                        line_data["total_duration"]
-                    )
+                duration_str = self.format_duration(
+                    line_data["total_duration"]
+                )
 
                 # Determine the acceleration icon
                 if line_data["has_cpu_fallback"]:
