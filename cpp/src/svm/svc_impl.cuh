@@ -24,6 +24,7 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
+#include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 
@@ -57,7 +58,7 @@ void svcFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* labels,
              const SvmParameter& param,
-             cuvs::distance::kernels::KernelParams& kernel_params,
+             ML::matrix::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -87,8 +88,11 @@ void svcFitX(const raft::handle_t& handle,
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
-  SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
+  SmoSolver<math_t> smo(handle_impl,
+                        param,
+                        static_cast<cuvs::distance::kernels::KernelType>(kernel_params.kernel),
+                        kernel);
   smo.Solve(matrix,
             n_rows,
             n_cols,
@@ -112,7 +116,7 @@ void svcFit(const raft::handle_t& handle,
             int n_cols,
             math_t* labels,
             const SvmParameter& param,
-            cuvs::distance::kernels::KernelParams& kernel_params,
+            ML::matrix::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -131,7 +135,7 @@ void svcFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* labels,
                   const SvmParameter& param,
-                  cuvs::distance::kernels::KernelParams& kernel_params,
+                  ML::matrix::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {
@@ -147,7 +151,7 @@ void svcPredictX(const raft::handle_t& handle,
                  MatrixViewType matrix,
                  int n_rows,
                  int n_cols,
-                 cuvs::distance::kernels::KernelParams& kernel_params,
+                 ML::matrix::KernelParams& kernel_params,
                  const SvmModel<math_t>& model,
                  math_t* preds,
                  math_t buffer_size,
@@ -174,7 +178,7 @@ void svcPredictX(const raft::handle_t& handle,
   }
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
 
   /*
     // kernel computation:
@@ -219,7 +223,8 @@ void svcPredictX(const raft::handle_t& handle,
       : raft::make_device_csr_matrix_view<math_t, int, int, int>(nullptr, csr_structure_view);
 
   bool transpose_kernel = is_csr_support && !is_csr_input;
-  if (model.n_support > 0 && kernel_params.kernel == cuvs::distance::kernels::RBF) {
+  if (model.n_support > 0 && static_cast<cuvs::distance::kernels::KernelType>(
+                               kernel_params.kernel) == cuvs::distance::kernels::RBF) {
     l2_input.resize(n_rows, stream);
     l2_support.resize(model.n_support, stream);
     ML::SVM::matrixRowNorm(handle, matrix, l2_input.data(), raft::linalg::NormType::L2Norm);
@@ -313,7 +318,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t* input,
                 int n_rows,
                 int n_cols,
-                cuvs::distance::kernels::KernelParams& kernel_params,
+                ML::matrix::KernelParams& kernel_params,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
@@ -333,7 +338,7 @@ void svcPredictSparse(const raft::handle_t& handle,
                       int n_rows,
                       int n_cols,
                       int nnz,
-                      cuvs::distance::kernels::KernelParams& kernel_params,
+                      ML::matrix::KernelParams& kernel_params,
                       const SvmModel<math_t>& model,
                       math_t* preds,
                       math_t buffer_size,

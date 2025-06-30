@@ -4,7 +4,6 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - conda-forge
-- nvidia
 dependencies:
 - c-compiler
 - certifi
@@ -46,6 +45,7 @@ dependencies:
 - numba>=0.59.1,<0.62.0a0
 - numpy>=1.23,<3.0a0
 - numpydoc
+- numpydoc<1.9
 - packaging
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==25.8.*,>=0.0.0a0

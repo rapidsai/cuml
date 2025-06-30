@@ -21,7 +21,6 @@ add_module_gpu_default("entropy.pyx" ${entropy_algo} ${metrics_algo})
 add_module_gpu_default("homogeneity_score.pyx" ${homogeneity_score_algo} ${metrics_algo})
 add_module_gpu_default("mutual_info_score.pyx" ${mutual_info_score_algo} ${metrics_algo})
 add_module_gpu_default("silhouette_score.pyx" ${silhouette_score_algo} ${metrics_algo})
-add_module_gpu_default("utils.pyx" ${utils_algo} ${metrics_algo})
 add_module_gpu_default("v_measure.pyx" ${v_measure_algo} ${metrics_algo})
 
 rapids_cython_create_modules(
