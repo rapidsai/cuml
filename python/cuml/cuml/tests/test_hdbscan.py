@@ -1165,3 +1165,25 @@ def test_prediction_namespace_deprecated():
         )
 
     assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Unknown attribute errors
+    with pytest.raises(AttributeError, match="not_a_real_attr"):
+        cuml.cluster.hdbscan.prediction.not_a_real_attr
+
+
+def test_prediction_functions_cluster_namespace_deprecated():
+    # Attribute access warns
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        func = cuml.cluster.all_points_membership_vectors
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Imports warn
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        from cuml.cluster import all_points_membership_vectors as func
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Unknown attribute errors
+    with pytest.raises(AttributeError, match="not_a_real_attr"):
+        cuml.cluster.not_a_real_attr
