@@ -122,10 +122,7 @@ class AnnotatedConsoleSpanExporter(ConsoleSpanExporter):
 
         if self.script_path:
             # Use script annotation formatter
-            formatter = ScriptAnnotatedTraceFormatter(
-                show_timestamps=True,
-                show_duration=True,
-            )
+            formatter = ScriptAnnotatedTraceFormatter()
             annotated_script = formatter.format_script_with_annotations(
                 self.script_path, spans
             )
