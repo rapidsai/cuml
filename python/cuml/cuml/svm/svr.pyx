@@ -20,10 +20,6 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import determine_array_type_full
@@ -38,17 +34,8 @@ from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 
 from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams
 
-
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix" nogil:
-    enum KernelType:
-        LINEAR, POLYNOMIAL, RBF, TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
@@ -233,10 +220,9 @@ class SVR(SVMBase, RegressorMixin):
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.svm.SVR'
+    _cpu_class_path = "sklearn.svm.SVR"
 
-    @device_interop_preparation
-    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
@@ -259,8 +245,7 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    @enable_device_interop
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
 
@@ -277,7 +262,12 @@ class SVR(SVMBase, RegressorMixin):
             self.dtype = X_m.dtype
         else:
             X_m, self.n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(X, order='F')
+                input_to_cuml_array(
+                    X,
+                    convert_to_dtype=(np.float32 if convert_dtype else None),
+                    check_dtype=[np.float32, np.float64],
+                    order="F"
+                )
 
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
@@ -351,19 +341,10 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @enable_device_interop
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
 
         """
 
         return super(SVR, self).predict(X, False, convert_dtype)
-
-    def get_attr_names(self):
-        return super().get_attr_names() + ["_sparse"]
-
-    def cpu_to_gpu(self):
-        self.dtype = np.float64
-
-        super().cpu_to_gpu()

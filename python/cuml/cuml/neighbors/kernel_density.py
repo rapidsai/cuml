@@ -235,7 +235,7 @@ class KernelDensity(Base):
             "metric_params",
         ]
 
-    def fit(self, X, y=None, sample_weight=None, convert_dtype=True):
+    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True):
         """Fit the Kernel Density model on the data.
 
         Parameters
@@ -275,7 +275,7 @@ class KernelDensity(Base):
 
         return self
 
-    def score_samples(self, X, convert_dtype=True):
+    def score_samples(self, X, *, convert_dtype=True):
         """Compute the log-likelihood of each sample under the model.
 
         Parameters

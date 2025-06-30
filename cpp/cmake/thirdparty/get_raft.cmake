@@ -79,7 +79,6 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
       # force local raft clone in build directory
       # even if it's already installed.
       CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
-      COMPILE_LIBRARY  ${CUML_RAFT_COMPILED}
       USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
       NVTX             ${NVTX}
       )

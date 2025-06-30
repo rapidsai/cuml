@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@
 #include "pack.h"
 #include "precomputed.cuh"
 
+#include <cuml/common/distance_type.hpp>
+
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 template <typename Type_f, typename Index_ = int>
 void run(const raft::handle_t& handle,
-         raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index,
+         void* rbc_index,
          Index_* ia,
          rmm::device_uvector<Index_>* ja,
          Index_ max_k,
@@ -41,7 +43,7 @@ void run(const raft::handle_t& handle,
          Index_ start_vertex_id,
          Index_ batch_size,
          cudaStream_t stream,
-         cuvs::distance::DistanceType metric)
+         ML::distance::DistanceType metric)
 {
   Pack<Type_f, Index_> data = {
     rbc_index, vd, wght_sum, ia, ja, max_k, adj, x, sample_weight, eps, N, D};

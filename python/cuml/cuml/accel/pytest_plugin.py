@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import warnings
 from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
@@ -22,6 +23,21 @@ import yaml
 from packaging.requirements import Requirement
 
 from cuml.accel.core import install
+
+
+class UnmatchedXfailTests(UserWarning):
+    """Warning raised when xfail entries in the configuration file don't match any actual tests.
+
+    This warning is raised during pytest collection when there are entries in the xfail
+    list that don't correspond to any existing test functions. This typically indicates
+    either:
+    1. Tests have been renamed or removed but the xfail list wasn't updated
+    2. There are typos in the test IDs in the xfail list
+    3. The tests only exist for specific versions of dependencies (check the condition
+       field in the xfail list)
+    """
+
+    ...
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
@@ -63,7 +79,7 @@ def create_version_condition(condition_str: str) -> bool:
     try:
         req = Requirement(condition_str)
         installed_version = version(req.name)
-        return req.specifier.contains(installed_version)
+        return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
 
@@ -85,37 +101,80 @@ def pytest_collection_modifyitems(config, items):
     xfail_list = yaml.safe_load(xfail_list_path.read_text())
 
     if not isinstance(xfail_list, list):
-        raise ValueError("Xfail list must be a list of test entries")
+        raise ValueError("Xfail list must be a list of test groups")
 
-    # Convert list of dicts into dict mapping test IDs to lists of xfail configs
+    # Create markers for all unique markers in the xfail list
+    markers = {
+        marker: pytest.mark.__getattr__(marker)
+        for group in xfail_list
+        if (marker := group.get("marker"))
+    }
+    # Convert list of groups into dict mapping test IDs to lists of xfail
+    # configs
     xfail_configs = defaultdict(list)
-    for entry in xfail_list:
-        if not isinstance(entry, dict):
+    for group in xfail_list:
+        if not isinstance(group, dict):
             raise ValueError("Xfail list entry must be a dictionary")
-        if "id" not in entry:
-            raise ValueError("Xfail list entry must contain an 'id' field")
+        if "reason" not in group:
+            raise ValueError("Xfail list entry must contain a 'reason' field")
+        if "tests" not in group:
+            raise ValueError("Xfail list entry must contain a 'tests' field")
 
-        test_id = entry["id"]
+        reason = group["reason"]
+        strict = group.get("strict", True)
+        run = group.get("run", True)
+        tests = group["tests"]
         condition = True
-        if "condition" in entry:
-            condition = create_version_condition(entry["condition"])
+        if "condition" in group:
+            condition = create_version_condition(group["condition"])
+        marker = markers.get(group.get("marker", None), None)
 
         config = {
-            "reason": entry.get("reason", "Test listed in xfail list"),
-            "strict": entry.get("strict", True),
+            "reason": reason,
+            "strict": strict,
+            "run": run,
             "condition": condition,
+            "extra_marker": marker,
         }
 
-        xfail_configs[test_id].append(config)
+        for test_id in tests:
+            xfail_configs[test_id].append(config)
+
+    # Track which xfail test IDs were actually found
+    found_xfail_tests = set()
 
     for item in items:
         test_id = f"{item.module.__name__}::{item.name}"
         if test_id in xfail_configs:
+            found_xfail_tests.add(test_id)
             for config in xfail_configs[test_id]:
+                # Add the xfail marker
                 item.add_marker(
                     pytest.mark.xfail(
                         reason=config["reason"],
                         strict=config["strict"],
+                        run=config["run"],
                         condition=config["condition"],
                     )
                 )
+                # If there's a marker, add it as a proper pytest marker
+                if extra_marker := config["extra_marker"]:
+                    item.add_marker(extra_marker)
+
+    # Check for xfail entries that don't match any actual tests
+    # Only include tests where at least one config has a met condition
+    expected_tests = {
+        test_id
+        for test_id, configs in xfail_configs.items()
+        if any(config["condition"] for config in configs)
+    }
+    missing_tests = expected_tests - found_xfail_tests
+    if missing_tests:
+        missing_list = sorted(missing_tests)
+        print("Did not find the following test ids:")
+        print("\n".join(missing_list))
+
+        warnings.warn(
+            f"Found {len(missing_list)} xfail entries that don't match any present tests",
+            category=UnmatchedXfailTests,
+        )

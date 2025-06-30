@@ -132,8 +132,6 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
 
-TreeliteModelHandle concatenate_trees(std::vector<TreeliteModelHandle> treelite_handles);
-
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

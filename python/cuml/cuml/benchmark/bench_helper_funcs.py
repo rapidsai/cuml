@@ -26,10 +26,9 @@ from numba import cuda
 
 import cuml
 from cuml.benchmark import datagen
-from cuml.common.device_selection import using_device_type
+from cuml.fil import get_fil_device_type, set_fil_device_type
 from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import GlobalSettings
 from cuml.manifold import UMAP
 
 
@@ -143,11 +142,10 @@ def _build_fil_classifier(m, data, args, tmpdir):
     fil_kwargs = {
         param: args[input_name]
         for param, input_name in (
-            ("algo", "fil_algo"),
-            ("output_class", "output_class"),
+            ("is_classifier", "is_classifier"),
             ("threshold", "threshold"),
-            ("storage_type", "storage_type"),
             ("precision", "precision"),
+            ("layout", "layout"),
         )
         if input_name in args
     }
@@ -156,16 +154,11 @@ def _build_fil_classifier(m, data, args, tmpdir):
 
 
 class OptimizedFilWrapper:
-    """Helper class to make use of optimized parameters in both FIL and
-    experimental FIL through a uniform interface"""
+    """Helper class to make use of optimized parameters in FIL"""
 
-    def __init__(
-        self, fil_model, optimal_chunk_size, experimental, infer_type="default"
-    ):
+    def __init__(self, fil_model, optimal_chunk_size, infer_type="default"):
         self.fil_model = fil_model
-        self.predict_kwargs = {}
-        if experimental:
-            self.predict_kwargs["chunk_size"] = optimal_chunk_size
+        self.predict_kwargs = {"chunk_size": optimal_chunk_size}
         self.infer_type = infer_type
 
     def predict(self, X):
@@ -179,7 +172,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     parameters"""
     import xgboost as xgb
 
-    with using_device_type("gpu"):
+    with set_fil_device_type("gpu"):
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -204,84 +197,54 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         bst.save_model(model_path)
 
     allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
-    if GlobalSettings().device_type is DeviceType.host:
+    if get_fil_device_type() is DeviceType.host:
         allowed_chunk_sizes.extend((64, 128, 256))
 
     fil_kwargs = {
         param: args[input_name]
         for param, input_name in (
-            ("algo", "fil_algo"),
-            ("output_class", "output_class"),
+            ("is_classifier", "is_classifier"),
             ("threshold", "threshold"),
-            ("storage_type", "storage_type"),
             ("precision", "precision"),
+            ("layout", "layout"),
         )
         if input_name in args
     }
-    experimental = m is cuml.experimental.ForestInference
-    if experimental:
-        allowed_storage_types = ["sparse"]
-    else:
-        allowed_storage_types = ["sparse", "sparse8"]
-        if args["storage_type"] == "dense":
-            allowed_storage_types.append("dense")
     infer_type = args.get("infer_type", "default")
 
-    optimal_storage_type = "sparse"
-    optimal_algo = "NAIVE"
     optimal_layout = "breadth_first"
     optimal_chunk_size = 1
     best_time = None
     optimization_cycles = 5
-    for storage_type in allowed_storage_types:
-        fil_kwargs["storage_type"] = storage_type
-        allowed_algo_types = ["NAIVE"]
-        if not experimental and storage_type == "dense":
-            allowed_algo_types.extend(("TREE_REORG", "BATCH_TREE_REORG"))
-        allowed_layout_types = ["breadth_first"]
-        if experimental:
-            allowed_layout_types.append("depth_first")
-            allowed_layout_types.append("layered")
-        for algo in allowed_algo_types:
-            fil_kwargs["algo"] = algo
-            for layout in allowed_layout_types:
-                if experimental:
-                    fil_kwargs["layout"] = layout
-                for chunk_size in allowed_chunk_sizes:
-                    fil_kwargs["threads_per_tree"] = chunk_size
-                    call_args = {}
-                    if experimental:
-                        call_args = {"chunk_size": chunk_size}
-                    fil_model = m.load(model_path, **fil_kwargs)
-                    if infer_type == "per_tree":
-                        fil_model.predict_per_tree(train_data, **call_args)
-                    else:
-                        fil_model.predict(train_data, **call_args)
-                    begin = perf_counter()
-                    if infer_type == "per_tree":
-                        fil_model.predict_per_tree(train_data, **call_args)
-                    else:
-                        for _ in range(optimization_cycles):
-                            fil_model.predict(train_data, **call_args)
-                    end = perf_counter()
-                    elapsed = end - begin
-                    if best_time is None or elapsed < best_time:
-                        best_time = elapsed
-                        optimal_storage_type = storage_type
-                        optimal_algo = algo
-                        optimal_chunk_size = chunk_size
-                        optimal_layout = layout
 
-        fil_kwargs["storage_type"] = optimal_storage_type
-        fil_kwargs["algo"] = optimal_algo
-        fil_kwargs["threads_per_tree"] = optimal_chunk_size
-        if experimental:
-            fil_kwargs["layout"] = optimal_layout
+    allowed_layout_types = ["breadth_first", "depth_first", "layered"]
+    for layout in allowed_layout_types:
+        fil_kwargs["layout"] = layout
+        for chunk_size in allowed_chunk_sizes:
+            call_args = {"chunk_size": chunk_size}
+            fil_model = m.load(model_path, **fil_kwargs)
+            if infer_type == "per_tree":
+                fil_model.predict_per_tree(train_data, **call_args)
+            else:
+                fil_model.predict(train_data, **call_args)
+            begin = perf_counter()
+            if infer_type == "per_tree":
+                fil_model.predict_per_tree(train_data, **call_args)
+            else:
+                for _ in range(optimization_cycles):
+                    fil_model.predict(train_data, **call_args)
+            end = perf_counter()
+            elapsed = end - begin
+            if best_time is None or elapsed < best_time:
+                best_time = elapsed
+                optimal_chunk_size = chunk_size
+                optimal_layout = layout
+
+        fil_kwargs["layout"] = optimal_layout
 
         return OptimizedFilWrapper(
             m.load(model_path, **fil_kwargs),
             optimal_chunk_size,
-            experimental,
             infer_type=infer_type,
         )
 
@@ -302,11 +265,10 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
 
     # remove keyword arguments not understood by SKLearn
     for param_name in [
-        "fil_algo",
-        "output_class",
+        "is_classifier",
         "threshold",
-        "storage_type",
         "precision",
+        "layout",
     ]:
         params.pop(param_name, None)
 
@@ -326,11 +288,10 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     fil_kwargs = {
         param: args[input_name]
         for param, input_name in (
-            ("algo", "fil_algo"),
-            ("output_class", "output_class"),
+            ("is_classifier", "is_classifier"),
             ("threshold", "threshold"),
-            ("storage_type", "storage_type"),
             ("precision", "precision"),
+            ("layout", "layout"),
         )
         if input_name in args
     }

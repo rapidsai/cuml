@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.internals.api_decorators import device_interop_preparation
 from cuml.linear_model.elastic_net import ElasticNet
 
 
@@ -30,10 +29,6 @@ class Lasso(ElasticNet):
     NumPy arrays or in device (as Numba or `__cuda_array_interface__`
     compliant), in addition to cuDF objects. It uses coordinate descent to fit
     a linear model.
-
-    This estimator supports cuML's experimental device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Examples
     --------
@@ -133,9 +128,23 @@ class Lasso(ElasticNet):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    _cpu_estimator_import_path = "sklearn.linear_model.Lasso"
+    _cpu_class_path = "sklearn.linear_model.Lasso"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return list(set(super()._get_param_names()) - {"l1_ratio"})
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        out = super()._params_from_cpu(model)
+        out.pop("l1_ratio")
+        return out
+
+    def _params_to_cpu(self):
+        out = super()._params_to_cpu()
+        out.pop("l1_ratio")
+        return out
+
     def __init__(
         self,
         *,
@@ -164,7 +173,3 @@ class Lasso(ElasticNet):
             output_type=output_type,
             verbose=verbose,
         )
-
-    @classmethod
-    def _get_param_names(cls):
-        return list(set(super()._get_param_names()) - {"l1_ratio"})

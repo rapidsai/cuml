@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,4 @@
 # limitations under the License.
 #
 
-import warnings
-
-from cuml.internals.import_utils import has_dask
-
-if has_dask():
-    from cuml.dask.manifold.umap import UMAP
-else:
-    warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabled."
-    )
-
-__all__ = ["UMAP"]
+from cuml.dask.manifold.umap import UMAP

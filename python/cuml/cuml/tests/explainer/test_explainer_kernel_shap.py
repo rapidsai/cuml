@@ -219,7 +219,9 @@ def test_kernel_housing_dataset(housing_dataset):
     y_train = y_train.astype(np.float32)
     y_test = y_test.astype(np.float32)
 
-    cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
+    cumodel = cuml.RandomForestRegressor(max_features="sqrt").fit(
+        X_train, y_train
+    )
 
     explainer = KernelExplainer(
         model=cumodel.predict, data=X_train[:100], output_type="numpy"
@@ -340,7 +342,6 @@ def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     assert isinstance(nz, cp.ndarray)
 
 
-@pytest.mark.skip(reason="Currently failing for unknown reasons.")
 def test_typeerror_input():
     X, y = make_regression(n_samples=100, n_features=10, random_state=10)
     clf = Lasso()

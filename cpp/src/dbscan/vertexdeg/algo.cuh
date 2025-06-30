@@ -18,6 +18,7 @@
 
 #include "pack.h"
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/device_mdspan.hpp>
@@ -37,7 +38,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
-#include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/ball_cover.hpp>
 #include <math.h>
 
 namespace ML {
@@ -89,7 +90,7 @@ CUML_KERNEL void accumulateWeights(const index_t* ia,
   if (thread_in_warp == 0 && idx < num_rows && weight_sum > 0) { weight_sums[idx] = weight_sum; }
 }
 
-template <typename value_t, typename index_t = int>
+template <typename value_t, typename index_t>
 void eps_nn(const raft::handle_t& handle,
             Pack<value_t, index_t> data,
             index_t start_vertex_id,
@@ -97,52 +98,67 @@ void eps_nn(const raft::handle_t& handle,
             cudaStream_t stream,
             value_t eps)
 {
-  index_t n = min(data.N - start_vertex_id, batch_size);
-  index_t k = data.D;
+  // This general template case is not implemented
+  RAFT_FAIL("eps_nn not implemented for the given type combination");
+}
 
-  index_t spare_elemets_per_row =
+// Explicit specialization for float and int64_t
+template <>
+void eps_nn<float, int64_t>(const raft::handle_t& handle,
+                            Pack<float, int64_t> data,
+                            int64_t start_vertex_id,
+                            int64_t batch_size,
+                            cudaStream_t stream,
+                            float eps)
+{
+  auto rbc_index = static_cast<cuvs::neighbors::ball_cover::index<int64_t, float>*>(data.rbc_index);
+
+  int64_t n = min(data.N - start_vertex_id, batch_size);
+  int64_t k = data.D;
+
+  int64_t spare_elemets_per_row =
     data.max_k > 0 ? (batch_size * data.N - data.ja->capacity()) / n : 0;
 
   if (data.max_k > 0 && data.max_k < spare_elemets_per_row) {
     ASSERT(data.ja != nullptr, "column pointer should be valid");
 
-    index_t max_k = data.max_k;
-    raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+    int64_t max_k = data.max_k;
+    cuvs::neighbors::ball_cover::eps_nn(
       handle,
-      *data.rbc_index,
-      raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-      raft::make_device_vector_view<index_t, index_t>(data.ja->data(), n * data.N),
-      raft::make_device_vector_view<index_t, index_t>(nullptr, n + 1),
-      raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+      *rbc_index,
+      raft::make_device_vector_view<int64_t, int64_t>(data.ia, n + 1),
+      raft::make_device_vector_view<int64_t, int64_t>(data.ja->data(), n * data.N),
+      raft::make_device_vector_view<int64_t, int64_t>(nullptr, n + 1),
+      raft::make_device_matrix_view<const float, int64_t>(data.x + start_vertex_id * k, n, k),
       eps,
-      raft::make_host_scalar_view<index_t, index_t>(&max_k));
+      raft::make_host_scalar_view<int64_t, int64_t>(&max_k));
     ASSERT(max_k == data.max_k, "given maximum rowsize was not sufficient");
   } else {
-    raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+    cuvs::neighbors::ball_cover::eps_nn(
       handle,
-      *data.rbc_index,
-      raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-      raft::make_device_vector_view<index_t, index_t>(nullptr, 0),
-      raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
-      raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+      *rbc_index,
+      raft::make_device_vector_view<int64_t, int64_t>(data.ia, n + 1),
+      raft::make_device_vector_view<int64_t, int64_t>(nullptr, 0),
+      raft::make_device_vector_view<int64_t, int64_t>(data.vd, n + 1),
+      raft::make_device_matrix_view<const float, int64_t>(data.x + start_vertex_id * k, n, k),
       eps);
 
     if (data.ja != nullptr) {
       // no need to re-compute in second batch loop - ja has already been resized
       if (data.vd != nullptr) {
-        index_t curradjlen = 0;
+        int64_t curradjlen = 0;
         raft::update_host(&curradjlen, data.vd + n, 1, stream);
         handle.sync_stream(stream);
         data.ja->resize(curradjlen, stream);
       }
 
-      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+      cuvs::neighbors::ball_cover::eps_nn(
         handle,
-        *data.rbc_index,
-        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-        raft::make_device_vector_view<index_t, index_t>(data.ja->data(), n * data.N),
-        raft::make_device_vector_view<index_t, index_t>(nullptr, n + 1),
-        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+        *rbc_index,
+        raft::make_device_vector_view<int64_t, int64_t>(data.ia, n + 1),
+        raft::make_device_vector_view<int64_t, int64_t>(data.ja->data(), n * data.N),
+        raft::make_device_vector_view<int64_t, int64_t>(nullptr, n + 1),
+        raft::make_device_matrix_view<const float, int64_t>(data.x + start_vertex_id * k, n, k),
         eps);
     }
   }
@@ -157,7 +173,7 @@ void launcher(const raft::handle_t& handle,
               index_t start_vertex_id,
               index_t batch_size,
               cudaStream_t stream,
-              cuvs::distance::DistanceType metric)
+              ML::distance::DistanceType metric)
 {
   ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8, "index_t should be 4 or 8 bytes");
 
@@ -167,17 +183,11 @@ void launcher(const raft::handle_t& handle,
   value_t eps2;
 
   // Compute adjacency matrix `adj` using Cosine or L2 metric.
-  if (metric == cuvs::distance::DistanceType::CosineExpanded) {
+  if (metric == ML::distance::DistanceType::CosineExpanded) {
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
-    raft::linalg::rowNorm(rowNorms.data(),
-                          data.x,
-                          k,
-                          m,
-                          raft::linalg::NormType::L2Norm,
-                          true,
-                          stream,
-                          [] __device__(value_t in) { return sqrtf(in); });
+    raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, true>(
+      rowNorms.data(), data.x, k, m, stream, [] __device__(value_t in) { return sqrtf(in); });
 
     /* Cast away constness because the output matrix for normalization cannot be of const type.
      * Input matrix will be modified due to normalization.

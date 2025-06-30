@@ -42,11 +42,8 @@ from copy import copy
 
 import cudf
 import cupy as cp
-import dask.array as da
-import dask.dataframe as df
 import numpy as np
 import pytest
-from dask.distributed import wait
 
 from cuml.benchmark import algorithms, datagen
 from cuml.benchmark.bench_helper_funcs import (
@@ -63,9 +60,16 @@ from cuml.benchmark.nvtx_benchmark import Profiler
 
 
 def distribute(client, data):
+    import dask.array as da
+    import dask.dataframe as df
+    from dask.distributed import wait
+
+    from cuml.dask._compat import DASK_2025_4_0
+
     if data is not None:
         n_rows = data.shape[0]
-        n_workers = len(client.scheduler_info()["workers"])
+        kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
+        n_workers = len(client.scheduler_info(**kwargs)["workers"])
         rows_per_chunk = math.ceil(n_rows / n_workers)
         if isinstance(data, (np.ndarray, cp.ndarray)):
             dask_array = da.from_array(

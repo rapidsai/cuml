@@ -14,8 +14,6 @@
 #
 
 import cupy as cp
-import cupyx
-import dask
 
 from cuml.common import rmm_cupy_ary
 from cuml.dask.common.base import BaseEstimator
@@ -106,14 +104,14 @@ class LabelBinarizer(BaseEstimator):
         return rmm_cupy_ary(cp.unique, y)
 
     @staticmethod
-    def _func_xform(model, y):
+    def _func_xform(y, *, model):
         xform_in = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
         return model.transform(xform_in)
 
     @staticmethod
-    def _func_inv_xform(model, y, threshold):
+    def _func_inv_xform(y, *, model, threshold):
         y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
-        return model.inverse_transform(y, threshold)
+        return model.inverse_transform(y, threshold=threshold)
 
     def fit(self, y):
         """Fit label binarizer
@@ -177,27 +175,13 @@ class LabelBinarizer(BaseEstimator):
 
         arr : Dask.Array backed by CuPy arrays containing encoded labels
         """
-
-        parts = self.client.sync(_extract_partitions, y)
-
-        internal_model = self._get_internal_model()
-
-        xform_func = dask.delayed(LabelBinarizer._func_xform)
-        meta = rmm_cupy_ary(cp.zeros, 1)
-        if internal_model.sparse_output:
-            meta = cupyx.scipy.sparse.csr_matrix(meta)
-        f = [
-            dask.array.from_delayed(
-                xform_func(internal_model, part),
-                meta=meta,
-                dtype=cp.float32,
-                shape=(cp.nan, len(self.classes_)),
-            )
-            for w, part in parts
-        ]
-
-        arr = dask.array.concatenate(f, axis=0, allow_unknown_chunksizes=True)
-        return arr
+        new_axis = 1 if y.ndim == 1 else None
+        return y.map_blocks(
+            LabelBinarizer._func_xform,
+            model=self._get_internal_model(),
+            dtype=cp.float32,
+            new_axis=new_axis,
+        )
 
     def inverse_transform(self, y, threshold=None):
         """
@@ -216,24 +200,10 @@ class LabelBinarizer(BaseEstimator):
 
         arr : Dask.Array backed by CuPy arrays containing original labels
         """
-
-        parts = self.client.sync(_extract_partitions, y)
-        inv_func = dask.delayed(LabelBinarizer._func_inv_xform)
-
-        dtype = self.classes_.dtype
-        meta = rmm_cupy_ary(cp.zeros, 1, dtype=dtype)
-
-        internal_model = self._get_internal_model()
-
-        f = [
-            dask.array.from_delayed(
-                inv_func(internal_model, part, threshold),
-                dtype=dtype,
-                shape=(cp.nan,),
-                meta=meta,
-            )
-            for w, part in parts
-        ]
-
-        arr = dask.array.concatenate(f, axis=0, allow_unknown_chunksizes=True)
-        return arr
+        return y.map_blocks(
+            LabelBinarizer._func_inv_xform,
+            model=self._get_internal_model(),
+            dtype=y.dtype,
+            threshold=threshold,
+            drop_axis=1,
+        )

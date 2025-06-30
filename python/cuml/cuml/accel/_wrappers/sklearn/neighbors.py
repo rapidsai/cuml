@@ -15,18 +15,20 @@
 #
 
 import cuml.neighbors
-from cuml.accel.estimator_proxy import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
 
 
-class NearestNeighbors(ProxyMixin, cuml.neighbors.NearestNeighbors):
-    pass
+class NearestNeighbors(ProxyBase):
+    _gpu_class = cuml.neighbors.NearestNeighbors
+    # Exposed for use in sklearn test suite
+    _fit_method = "brute"
 
 
-class KNeighborsClassifier(ProxyMixin, cuml.neighbors.KNeighborsClassifier):
-    pass
+class KNeighborsClassifier(ProxyBase):
+    _gpu_class = cuml.neighbors.KNeighborsClassifier
 
 
-class KNeighborsRegressor(ProxyMixin, cuml.neighbors.KNeighborsRegressor):
-    pass
+class KNeighborsRegressor(ProxyBase):
+    _gpu_class = cuml.neighbors.KNeighborsRegressor

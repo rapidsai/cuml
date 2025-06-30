@@ -17,13 +17,11 @@
 # from cuml.internals.array import CumlArray
 # from cuml.internals.array_sparse import SparseCumlArray
 
-from cuml.common.device_selection import using_device_type
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.common.timing_utils import timed
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.import_utils import has_dask
 from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_host_array,
@@ -48,13 +46,11 @@ __all__ = [
     "CumlArray",
     "SparseCumlArray",
     "device_of_gpu_matrix",
-    "has_dask",
     "input_to_cuml_array",
     "input_to_host_array",
     "input_to_host_array_with_sparse_support",
     "rmm_cupy_ary",
     "set_global_output_type",
-    "using_device_type",
     "using_memory_type",
     "using_output_type",
     "with_cupy_rmm",

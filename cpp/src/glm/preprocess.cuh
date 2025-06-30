@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,31 +93,27 @@ void preProcessData(const raft::handle_t& handle,
         norm2_input);
     } else {
       if (sample_weight != nullptr) {
-        raft::stats::weightedMean(
-          mu_input, input, sample_weight, n_cols, n_rows, false, false, stream);
+        raft::stats::weightedMean<false, false>(
+          mu_input, input, sample_weight, n_cols, n_rows, stream);
       } else {
-        raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+        raft::stats::mean<false>(mu_input, input, n_cols, n_rows, false, stream);
       }
       raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
       if (normalize) {
-        raft::linalg::colNorm(norm2_input,
-                              input,
-                              n_cols,
-                              n_rows,
-                              raft::linalg::L2Norm,
-                              false,
-                              stream,
-                              [] __device__(math_t v) { return raft::sqrt(v); });
+        raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
+          norm2_input, input, n_cols, n_rows, stream, [] __device__(math_t v) {
+            return raft::sqrt(v);
+          });
         raft::matrix::matrixVectorBinaryDivSkipZero(
           input, norm2_input, n_rows, n_cols, false, true, stream, true);
       }
     }
 
     if (sample_weight != nullptr) {
-      raft::stats::weightedMean(
-        mu_labels, labels, sample_weight, (size_t)1, n_rows, true, false, stream);
+      raft::stats::weightedMean<true, false>(
+        mu_labels, labels, sample_weight, (size_t)1, n_rows, stream);
     } else {
-      raft::stats::mean(mu_labels, labels, (size_t)1, n_rows, false, false, stream);
+      raft::stats::mean<false>(mu_labels, labels, (size_t)1, n_rows, false, stream);
     }
     raft::stats::meanCenter(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
   }

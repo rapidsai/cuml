@@ -17,6 +17,7 @@ import cupy as cp
 import cupyx
 import numpy as np
 import pytest
+import scipy.sparse
 from sklearn import datasets
 from sklearn.datasets import make_blobs, make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
@@ -35,20 +36,20 @@ from cuml.testing.utils import (
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
 @pytest.mark.parametrize("use_handle", [True, False])
-@pytest.mark.parametrize(
-    "name", [unit_param(None), quality_param("digits"), stress_param("blobs")]
-)
-def test_pca_fit(datatype, input_type, name, use_handle):
-
-    if name == "blobs":
-        pytest.skip("fails when using blobs dataset")
-        X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
-
-    elif name == "digits":
-        X, _ = datasets.load_digits(return_X_y=True)
-
+@pytest.mark.parametrize("sparse", [True, False])
+def test_pca_fit(datatype, input_type, sparse, use_handle):
+    if sparse:
+        X = scipy.sparse.random(
+            200,
+            100,
+            density=0.03,
+            dtype=cp.float32,
+            random_state=10,
+        )
+        tol = 1e-1
     else:
-        X, Y = make_multilabel_classification(
+        tol = 1e-3
+        X, _ = make_multilabel_classification(
             n_samples=500,
             n_classes=2,
             n_labels=1,
@@ -69,7 +70,6 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         "components_",
         "explained_variance_",
         "explained_variance_ratio_",
-        "noise_variance_",
     ]:
         with_sign = False if attr in ["components_"] else True
         print(attr)
@@ -77,7 +77,12 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         print(getattr(skpca, attr))
         cuml_res = getattr(cupca, attr)
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, tol, with_sign=with_sign)
+
+    np.testing.assert_allclose(
+        cupca.noise_variance_, skpca.noise_variance_, tol
+    )
+    assert isinstance(cupca.noise_variance_, float)
 
 
 @pytest.mark.parametrize("n_samples", [200])
@@ -314,7 +319,7 @@ def test_noise_variance_zero(n_samples, n_features):
     )
     cupca = cuPCA(n_components=10)
     cupca.fit(X)
-    assert cupca.noise_variance_.item() == 0
+    assert cupca.noise_variance_ == 0
 
 
 def test_exceptions():

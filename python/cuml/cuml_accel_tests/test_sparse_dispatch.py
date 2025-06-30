@@ -21,6 +21,7 @@ from scipy.sparse import csr_matrix
 from sklearn.base import is_classifier, is_regressor
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.decomposition import TruncatedSVD
+from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import (
     ElasticNet,
     Lasso,
@@ -29,6 +30,7 @@ from sklearn.linear_model import (
     Ridge,
 )
 from sklearn.neighbors import NearestNeighbors
+from sklearn.svm import SVC, SVR
 from umap import UMAP
 
 estimators = {
@@ -43,12 +45,15 @@ estimators = {
     "NearestNeighbors": lambda: NearestNeighbors(n_neighbors=1),
     "UMAP": lambda: UMAP(n_components=1),
     "HDBSCAN": lambda: HDBSCAN(),
+    "SVC": lambda: SVC(),
+    "SVR": lambda: SVR(),
+    "KernelRidge": lambda: KernelRidge(),
 }
 
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
-    X_sparse = csr_matrix([[0, 1], [1, 0]])
+    X_sparse = csr_matrix([[0.0, 1.0], [1.0, 0.0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()

@@ -251,7 +251,7 @@ class LabelBinarizer(Base):
             sparse_output=self.sparse_output,
         )
 
-    def inverse_transform(self, y, threshold=None) -> CumlArray:
+    def inverse_transform(self, y, *, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels
 

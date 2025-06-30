@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "detail/soft_clustering.cuh"
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
@@ -59,7 +60,7 @@ struct FixConnectivitiesRedOp {
 
   DI FixConnectivitiesRedOp() : m(0) {}
 
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_) {};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const
@@ -159,7 +160,7 @@ void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
                    size_t n,
-                   cuvs::distance::DistanceType metric,
+                   ML::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
@@ -183,7 +184,7 @@ void build_linkage(const raft::handle_t& handle,
     raft::make_device_vector_view<value_idx>(mutual_reachability_indptr.data(), m + 1),
     raft::make_device_vector_view<value_t>(core_dists, m),
     mutual_reachability_coo,
-    metric,
+    static_cast<cuvs::distance::DistanceType>(metric),
     params.alpha);
 
   /**
@@ -229,7 +230,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,
                   size_t n,
-                  cuvs::distance::DistanceType metric,
+                  ML::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_t* core_dists,

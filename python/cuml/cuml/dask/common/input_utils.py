@@ -146,9 +146,10 @@ class DistributedDataHandler:
             for idx, wf in enumerate(self.worker_to_parts.items())
         ]
 
-        sizes = self.client.compute(parts, sync=True)
+        wfs, sizes_futures = zip(*parts)
+        all_sizes = self.client.compute(sizes_futures, sync=True)
 
-        for w, sizes_parts in sizes:
+        for w, sizes_parts in zip(wfs, all_sizes):
             sizes, total = sizes_parts
             self.parts_to_sizes[self.worker_info[w]["rank"]] = sizes
 

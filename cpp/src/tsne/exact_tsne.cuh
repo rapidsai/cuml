@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ value_t Exact_TSNE(value_t* VAL,
     }
 
     // Get row norm of Y
-    raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false, stream);
+    raft::linalg::rowNorm<raft::linalg::NormType::L2Norm, false>(norm.data(), Y, dim, n, stream);
 
     bool last_iter = iter == params.max_iter - 1;
 
