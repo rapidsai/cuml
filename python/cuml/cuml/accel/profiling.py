@@ -19,8 +19,8 @@ import inspect
 import json
 import logging
 import time
-import typing
 from datetime import datetime, timezone
+from enum import Enum
 
 from cuml.accel.trace_formatter import ScriptAnnotatedTraceFormatter
 
@@ -30,7 +30,6 @@ _logger = logging.getLogger(__name__)
 # OpenTelemetry imports
 try:
     from opentelemetry import trace
-    from opentelemetry.sdk.trace import ReadableSpan
     from opentelemetry.sdk.trace.export import (
         ConsoleSpanExporter,
         SpanExportResult,
@@ -43,7 +42,18 @@ except ImportError:
     trace = None
     Status = None
     StatusCode = None
-    ConsoleSpanExporter = None
+
+    class SpanExportResult(Enum):
+        SUCCESS = 0
+        FAILURE = 1
+
+    class ConsoleSpanExporter:
+        def __init__(self, formatter):
+            self.formatter = formatter
+
+        def export(self, spans):
+            pass
+
 
 # Get tracer
 if _OTEL_AVAILABLE:
@@ -113,12 +123,10 @@ class AnnotatedConsoleSpanExporter(ConsoleSpanExporter):
     def __init__(self, script_path=None, show_attributes=False):
         self.script_path = script_path
 
-    def export(self, spans: typing.Sequence[ReadableSpan]):
+    def export(self, spans):
         """Export spans with annotated output."""
         if not spans:
             return
-
-        # Import here to avoid circular imports
 
         if self.script_path:
             # Use script annotation formatter

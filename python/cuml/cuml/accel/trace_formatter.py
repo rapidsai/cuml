@@ -17,7 +17,6 @@
 import os
 from datetime import datetime
 
-from opentelemetry.sdk.trace import ReadableSpan
 from tabulate import tabulate
 
 
@@ -171,7 +170,7 @@ class AnnotatedTraceFormatter:
 
         return " ".join(parts)
 
-    def __call__(self, span: ReadableSpan) -> str:
+    def __call__(self, span) -> str:
         """Format a single span for annotated display."""
         return self.format_span(span) + "\n"
 
