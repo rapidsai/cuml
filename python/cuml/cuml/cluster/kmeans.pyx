@@ -204,15 +204,6 @@ class KMeans(Base,
 
     _cpu_class_path = "sklearn.cluster.KMeans"
 
-    _hyperparam_interop_translator = {
-        "init": {
-            # k-means++ would work, but setting it explicitly changes the configuration
-            # of the estimator compared to not specifying it. So we explicitly translate
-            # it to the default value.
-            "k-means++": "scalable-k-means++",
-        },
-    }
-
     @classmethod
     def _get_param_names(cls):
         return [
@@ -292,7 +283,7 @@ class KMeans(Base,
             "inertia_": to_cpu(self.inertia_),
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
-            "_n_features_out": self.n_clusters,
+            "_n_features_out": self._n_features_out,
             "_n_threads": n_threads,
             **super()._attrs_to_cpu(model),
         }
@@ -370,6 +361,12 @@ class KMeans(Base,
                                       else None),
                     check_dtype=[np.float32, np.float64]
                 )
+
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.n_clusters
 
     @generate_docstring()
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":

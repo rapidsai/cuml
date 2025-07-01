@@ -188,19 +188,23 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self.solver_model.coef_ = value
 
     def create_qnparams(self):
+        # TODO: this is effectively identical to how QNParams is created in
+        # `qn.pyx`, we should do some refactoring to avoid duplicating that here
+        solver = self.solver_model
         return QNParams(
             loss=self.loss,
-            penalty_l1=self.l1_strength,
-            penalty_l2=self.l2_strength,
-            grad_tol=self.tol,
-            change_tol=self.delta
-            if self.delta is not None else (self.tol * 0.01),
-            max_iter=self.max_iter,
-            linesearch_max_iter=self.linesearch_max_iter,
-            lbfgs_memory=self.lbfgs_memory,
-            verbose=self.verbose,
-            fit_intercept=self.fit_intercept,
-            penalty_normalized=self.penalty_normalized
+            penalty_l1=solver.l1_strength,
+            penalty_l2=solver.l2_strength,
+            grad_tol=solver.tol,
+            change_tol=(
+                solver.delta if solver.delta is not None else (solver.tol * 0.01)
+            ),
+            max_iter=solver.max_iter,
+            linesearch_max_iter=solver.linesearch_max_iter,
+            lbfgs_memory=solver.lbfgs_memory,
+            verbose=solver.verbose,
+            fit_intercept=solver.fit_intercept,
+            penalty_normalized=solver.penalty_normalized
         )
 
     def prepare_for_fit(self, n_classes):
@@ -245,7 +249,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        if self.coef_ is None or not self.warm_start:
+        if self.coef_ is None or not self.solver_model.warm_start:
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
 
