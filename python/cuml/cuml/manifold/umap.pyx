@@ -747,7 +747,7 @@ class UMAP(Base,
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
 
-        .. deprecated:: 25.06
+        .. deprecated:: 25.08
             The `data_on_host` parameter is deprecated and will be removed in release 25.10.
             Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
             When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
@@ -962,7 +962,7 @@ class UMAP(Base,
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        .. deprecated:: 25.06
+        .. deprecated:: 25.08
             The `data_on_host` parameter is deprecated and will be removed in release 25.10.
             Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
             When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
