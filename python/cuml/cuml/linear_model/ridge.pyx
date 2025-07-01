@@ -215,11 +215,11 @@ class Ridge(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.positive:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`positive=True` is not supported")
 
         solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver)
         if solver is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`solver={model.solver!r}` is not supported")
 
         return {
             "alpha": model.alpha,
@@ -238,7 +238,7 @@ class Ridge(Base,
     def _attrs_from_cpu(self, model):
         solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver_)
         if solver is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`solver={model.solver_!r}` is not supported")
 
         return {
             "intercept_": float(model.intercept_),

@@ -332,10 +332,11 @@ class NearestNeighbors(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not isinstance(model.metric, str):
-            raise UnsupportedOnGPU
-        elif model.metric not in cuml.neighbors.VALID_METRICS["brute"]:
-            raise UnsupportedOnGPU
+        if not (
+            isinstance(model.metric, str) and
+            model.metric in cuml.neighbors.VALID_METRICS["brute"]
+        ):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         return {
             "n_neighbors": model.n_neighbors,

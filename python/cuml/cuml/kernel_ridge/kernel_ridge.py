@@ -247,7 +247,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
     def _attrs_from_cpu(self, model):
         if not isinstance(model.X_fit_, np.ndarray):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         return {
             "dual_coef_": to_gpu(model.dual_coef_),
