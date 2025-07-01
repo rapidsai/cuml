@@ -17,15 +17,12 @@
 import contextlib
 import inspect
 import json
-import logging
 import time
 from datetime import datetime, timezone
 from enum import Enum
 
 from cuml.accel.trace_formatter import ScriptAnnotatedTraceFormatter
-
-# Configure logging for estimator proxy operations
-_logger = logging.getLogger(__name__)
+from cuml.internals import logger
 
 # OpenTelemetry imports
 try:
@@ -301,18 +298,17 @@ class LogOperation:
         """Exit the context, calculate duration, and log the operation."""
         duration = time.time() - self.start_time
         success = exc_type is None
-        exception_details = str(exc_val) if exc_val else ""
 
-        if not _OTEL_AVAILABLE:
-            # Use direct logging fallback
-            self._log_fallback(duration, success, exception_details)
-            return
+        # Emit log message to console
+        self._log_to_console(duration, success, exc_type, exc_val)
 
-        # Use OpenTelemetry span
-        self._log_span(duration, success, exception_details)
+        if _OTEL_AVAILABLE:
+            # Use OpenTelemetry span
+            exception_details = str(exc_val) if exc_val else ""
+            self._log_span(duration, success, exception_details)
 
-    def _log_fallback(
-        self, duration: float, success: bool, exception_details: str
+    def _log_to_console(
+        self, duration: float, success: bool, exc_type, exc_val
     ):
         """Log operation using direct logging fallback."""
         status = "SUCCESS" if success else "FAILED"
@@ -324,6 +320,7 @@ class LogOperation:
         if self.details and success:
             log_msg += f" - {self.details}"
         elif not success:
+            exception_details = str(exc_val) if exc_val else ""
             details_with_exception = (
                 f"{self.details} - Exception: {exception_details}"
                 if self.details
@@ -338,9 +335,9 @@ class LogOperation:
             log_msg += f" - {attr_str}"
 
         if success:
-            _logger.debug(log_msg)
+            logger.info(log_msg)
         else:
-            _logger.warning(log_msg)
+            logger.warn(log_msg)
 
     def _log_span(
         self, duration: float, success: bool, exception_details: str
