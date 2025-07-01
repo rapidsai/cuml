@@ -636,6 +636,8 @@ class UMAP(Base,
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
         self.build_kwds = build_kwds
+        if self.build_kwds.get("nnd_n_clusters", 1) < 1:
+            raise ValueError("nnd_n_clusters should be >= 1")
 
     def validate_hyperparams(self):
 
