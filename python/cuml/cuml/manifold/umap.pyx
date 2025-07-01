@@ -637,7 +637,7 @@ class UMAP(Base,
 
         self.build_kwds = build_kwds
         if self.build_kwds and self.build_kwds.get("nnd_n_clusters", 1) < 1:
-            raise ValueError("nnd_n_clusters should be >= 1")
+            raise ValueError("nnd_n_clusters must be >= 1")
 
     def validate_hyperparams(self):
 
@@ -761,6 +761,23 @@ class UMAP(Base,
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
 
+        # for getting n_rows of the dataset
+        _, self.n_rows, _, _ = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+
+        # Set build_algo based on n_rows
+        if self.build_algo == "auto":
+            if self.n_rows <= 50000 or self.sparse_fit:
+                # brute force is faster for small datasets
+                logger.info("Building knn graph using brute force (configured from build_algo == 'auto')")
+                self.build_algo = "brute_force_knn"
+            else:
+                logger.info("Building knn graph using nn descent (configured from build_algo == 'auto')")
+                self.build_algo = "nn_descent"
+
         # Handle sparse inputs
         if is_sparse(X):
 
@@ -775,30 +792,9 @@ class UMAP(Base,
         # Handle dense inputs
         else:
             self._sparse_data = False
-            # Get nnd_n_clusters value for validation
-            build_kwds = self.build_kwds or {}
-            nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
 
-            # Validate data_on_host parameter
-            if data_on_host in (True, False):
-                if data_on_host is False and nnd_n_clusters > 1:
-                    raise ValueError(
-                        f"nnd_n_clusters > 1 is not supported when data_on_host is False; "
-                        f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                    )
-                elif data_on_host is True and nnd_n_clusters == 1:
-                    raise ValueError(
-                        f"nnd_n_clusters == 1 is not supported when data_on_host is True; "
-                        f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                    )
-                warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
-            elif data_on_host != "auto":
-                raise ValueError(
-                    f"data_on_host must be True, False, or 'auto'; "
-                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                )
-
-            if nnd_n_clusters > 1:
+            # automatically put data on host for nn descent regardless of nnd_n_clusters
+            if self.build_algo == "nn_descent":
                 convert_to_mem_type = MemoryType.host
             else:
                 convert_to_mem_type = MemoryType.device
@@ -810,17 +806,30 @@ class UMAP(Base,
                                                       else None),
                                     convert_to_mem_type=convert_to_mem_type)
 
-        if self.build_algo == "auto":
-            if self.n_rows <= 50000 or self.sparse_fit:
-                # brute force is faster for small datasets
-                logger.info("Building knn graph using brute force")
-                self.build_algo = "brute_force_knn"
-            else:
-                logger.info("Building knn graph using nn descent")
-                self.build_algo = "nn_descent"
+        # Get nnd_n_clusters value for validation
+        build_kwds = self.build_kwds or {}
+        nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
 
-        if self.build_algo == "brute_force_knn" and data_on_host is True:
-            raise ValueError("Data cannot be on host for building with brute force knn")
+        # deprecation notice and raising error for data_on_host parameter
+        if data_on_host is True:
+            if self.build_algo == "brute_force_knn":
+                raise ValueError(
+                    f"build_algo = 'brute_force_knn' is not supported when data_on_host is True; "
+                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host is False:
+            if self.build_algo == "nn_descent" and nnd_n_clusters > 1:
+                raise ValueError(
+                    f"nnd_n_clusters > 1 is not supported for nn_descent build when data_on_host is False; "
+                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host != "auto":
+            raise ValueError(
+                f"data_on_host must be True, False, or 'auto'; "
+                f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+            )
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
