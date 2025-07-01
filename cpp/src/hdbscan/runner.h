@@ -62,7 +62,7 @@ namespace HDBSCAN {
  * @param[in] core_dists buffer for storing core distances (size m)
  * @param[out] out output container object
  */
-template <typename value_idx = int, typename value_t = float>
+template <typename value_idx = int64_t, typename value_t = float>
 void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
@@ -97,7 +97,7 @@ void build_linkage(const raft::handle_t& handle,
       raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
 }
 
-template <typename value_idx = int, typename value_t = float>
+template <typename value_idx = int64_t, typename value_t = float>
 void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,
