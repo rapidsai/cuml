@@ -3,20 +3,20 @@
     "context": "${localWorkspaceFolder}/.devcontainer",
     "dockerfile": "${localWorkspaceFolder}/.devcontainer/Dockerfile",
     "args": {
-      "CUDA": "12.8",
+      "CUDA": "12.9",
       "PYTHON_PACKAGE_MANAGER": "pip",
-      "BASE": "rapidsai/devcontainers:25.08-cpp-cuda12.8-ucx1.18.0-openmpi-ubuntu22.04"
+      "BASE": "rapidsai/devcontainers:25.08-cpp-cuda12.9-ucx1.18.0-openmpi-ubuntu22.04"
     }
   },
   "runArgs": [
     "--rm",
     "--name",
-    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-25.08-cuda12.8-pip"
+    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-25.08-cuda12.9-pip"
   ],
   "hostRequirements": {"gpu": "optional"},
   "features": {
     "ghcr.io/rapidsai/devcontainers/features/cuda:25.8": {
-      "version": "12.8",
+      "version": "12.9",
       "installcuBLAS": true,
       "installcuSOLVER": true,
       "installcuRAND": true,
@@ -28,7 +28,7 @@
     "ghcr.io/rapidsai/devcontainers/features/cuda",
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
   ],
-  "initializeCommand": ["/bin/bash", "-c", "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs}"],
+  "initializeCommand": ["/bin/bash", "-c", "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda12.9-venvs}"],
   "postAttachCommand": ["/bin/bash", "-c", "if [ ${CODESPACES:-false} = 'true' ]; then . devcontainer-utils-post-attach-command; . rapids-post-attach-command; fi"],
   "workspaceFolder": "/home/coder",
   "workspaceMount": "source=${localWorkspaceFolder},target=/home/coder/cuml,type=bind,consistency=consistent",
@@ -36,7 +36,7 @@
     "source=${localWorkspaceFolder}/../.aws,target=/home/coder/.aws,type=bind,consistency=consistent",
     "source=${localWorkspaceFolder}/../.cache,target=/home/coder/.cache,type=bind,consistency=consistent",
     "source=${localWorkspaceFolder}/../.config,target=/home/coder/.config,type=bind,consistency=consistent",
-    "source=${localWorkspaceFolder}/../.local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs,target=/home/coder/.local/share/venvs,type=bind,consistency=consistent"
+    "source=${localWorkspaceFolder}/../.local/share/${localWorkspaceFolderBasename}-cuda12.9-venvs,target=/home/coder/.local/share/venvs,type=bind,consistency=consistent"
   ],
   "customizations": {
     "vscode": {

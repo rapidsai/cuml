@@ -20,6 +20,7 @@ import sys
 from textwrap import dedent
 
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.sparse
 import sklearn
@@ -559,3 +560,72 @@ def test_method_that_only_exists_on_cpu_estimator():
     assert hasattr(model._cpu, "n_features_in_")
     # Method was run on host
     assert scipy.sparse.issparse(model.coef_)
+
+
+@pytest.mark.parametrize(
+    "methods",
+    [
+        "set_output,fit,transform",
+        "fit,set_output,transform",
+        "set_output,fit_transform",
+    ],
+)
+def test_set_output(methods):
+    X, _ = make_classification(n_samples=100, random_state=42)
+
+    model = PCA(n_components=5)
+
+    # Test calling methods in different order
+    for method in methods.split(","):
+        if method == "set_output":
+            # set_output returns self
+            assert model.set_output(transform="pandas") is model
+        elif method == "fit":
+            model.fit(X)
+        elif method == "fit_transform":
+            out = model.fit_transform(X)
+        else:
+            assert method == "transform"
+            out = model.transform(X)
+
+    # Transform outputs a pandas dataframe with the proper columns
+    assert isinstance(out, pd.DataFrame)
+    assert out.columns[0].startswith("pca")
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+    # If input has an index, the output has an aligned index
+    X_df = pd.DataFrame(
+        X,
+        columns=[f"x{i}" for i in range(X.shape[1])],
+        index=[f"row{i}" for i in range(X.shape[0])],
+    )
+    out = model.transform(X_df)
+    assert (out.index == X_df.index).all()
+
+    # Can change back to default without requiring a host transfer either
+    model.set_output(transform="default")
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_get_feature_names_out():
+    model = PCA(n_components=5)
+
+    # Calling on an unfit model raises appropriately
+    with pytest.raises(NotFittedError):
+        model.get_feature_names_out()
+
+    X, _ = make_classification(random_state=42)
+    model.fit(X)
+
+    # Calling on fit model returns appropriate column names
+    res = model.get_feature_names_out()
+    assert isinstance(res, np.ndarray)
+    assert res.dtype == "object"
+    assert res[0].startswith("pca")
+
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")

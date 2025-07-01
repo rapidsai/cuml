@@ -328,25 +328,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 setattr(self, key, value)
         return self
 
-    def __getstate__(self):
-        # getstate and setstate are needed to tell pickle to treat this
-        # as regular python classes instead of triggering __getattr__
-        return self.__dict__
-
-    def __setstate__(self, d):
-        self.__dict__.update(d)
-
-    def __getattr__(self, attr):
-        """
-        Redirects to `solver_model` if the attribute exists.
-        """
-        if attr == "solver_model":
-            return self.__dict__["solver_model"]
-        if "solver_model" in self.__dict__.keys():
-            return getattr(self.solver_model, attr)
-        else:
-            raise AttributeError(attr)
-
     def _set_base_attributes(
         self, output_type=None, target_dtype=None, n_features=None
     ):
