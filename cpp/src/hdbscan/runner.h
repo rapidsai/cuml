@@ -72,17 +72,18 @@ void build_linkage(const raft::handle_t& handle,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
-  auto stream = handle.get_stream();
+  auto stream    = handle.get_stream();
   size_t n_edges = m - 1;
-  cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params linkage_params;
+  cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params
+    linkage_params;
   linkage_params.min_samples = params.min_samples + 1;
-  linkage_params.alpha = params.alpha;
+  linkage_params.alpha       = params.alpha;
 
   cuvs::cluster::agglomerative::helpers::build_linkage(
     handle,
     raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
     linkage_params,
-    metric,
+    static_cast<cuvs::distance::DistanceType>(metric),
     raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
       out.get_mst_weights(),
       raft::make_device_coordinate_structure_view(
@@ -90,7 +91,8 @@ void build_linkage(const raft::handle_t& handle,
     raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
     raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
     raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
-    std::make_optional<raft::device_vector_view<value_t, value_idx>>(raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+    std::make_optional<raft::device_vector_view<value_t, value_idx>>(
+      raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
 }
 
 template <typename value_idx = int, typename value_t = float>
