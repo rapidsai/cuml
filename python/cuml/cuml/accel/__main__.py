@@ -48,6 +48,7 @@ def setup_profiling(
         from opentelemetry.sdk.trace.export import (
             BatchSpanProcessor,
             ConsoleSpanExporter,
+            SimpleSpanProcessor,
         )
     except ImportError:
         raise RuntimeError(
@@ -86,7 +87,10 @@ def setup_profiling(
         tracer_provider = TracerProvider(resource=resource)
 
         # Add console exporter to output spans to stdout
-        span_processor = BatchSpanProcessor(console_exporter)
+        if profiling_kind == ProfilingKind.RAW:
+            span_processor = BatchSpanProcessor(console_exporter)
+        else:
+            span_processor = SimpleSpanProcessor(console_exporter)
         tracer_provider.add_span_processor(span_processor)
 
         # Set the tracer provider as the global default
@@ -147,8 +151,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
               $ python -m cuml.accel --profile myscript.py
 
             This will instrument the code and track which operations are
-            accelerated, and which operations fell back to CPU. After completion,
-            a log of all operations will be printed to the console.
+            accelerated, and which operations fell back to CPU.
 
             Alternatively, you can enable annotated profiling with:
 
