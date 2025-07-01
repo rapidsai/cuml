@@ -76,6 +76,8 @@ void build_linkage(const raft::handle_t& handle,
   size_t n_edges = m - 1;
   cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params
     linkage_params;
+  // (min_samples+1) is used to account for self-loops in the KNN graph
+  // and be consistent with scikit-learn-contrib.
   linkage_params.min_samples = params.min_samples + 1;
   linkage_params.alpha       = params.alpha;
 
