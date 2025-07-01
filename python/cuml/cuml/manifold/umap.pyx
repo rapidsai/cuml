@@ -52,6 +52,7 @@ from cuml.manifold.umap_utils import (
     find_ab_params,
 )
 
+from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from pylibraft.common.handle cimport handle_t
@@ -71,7 +72,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              float * knn_dists,
              UMAPParams * params,
              float * embeddings,
-             host_COO * graph) except +
+             cppHostCOO & graph) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -85,7 +86,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                     float * knn_dists,
                     UMAPParams *params,
                     float *embeddings,
-                    host_COO * graph) except +
+                    cppHostCOO & graph) except +
 
     void transform(handle_t & handle,
                    float * X,
@@ -872,7 +873,7 @@ class UMAP(Base,
                        <float*> _knn_dists_ptr,
                        <UMAPParams*> umap_params,
                        <float*> _embed_raw_ptr,
-                       <host_COO*> fss_graph.get())
+                       dereference(fss_graph.ref()))
         else:
             fit(handle_[0],
                 <float*><uintptr_t> self._raw_data.ptr,
@@ -883,7 +884,7 @@ class UMAP(Base,
                 <float*> _knn_dists_ptr,
                 <UMAPParams*>umap_params,
                 <float*>_embed_raw_ptr,
-                <host_COO*> fss_graph.get())
+                dereference(fss_graph.ref()))
 
         self.graph_ = fss_graph.get_scipy_coo()
 

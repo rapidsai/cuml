@@ -90,12 +90,39 @@ cdef extern from "raft/sparse/coo.hpp" nogil:
         int* rows()
         int* cols()
 
-    cdef cppclass host_COO "raft::sparse::host_COO<float, int>":
-        COO()
-        int nnz
-        float* vals()
+cdef extern from "raft/core/host_coo_matrix.hpp" nogil:
+    """
+    class host_COO : raft::host_coo_matrix<float, int, int, uint64_t>
+    {
+        public:
+            host_COO() : raft::host_coo_matrix<float, int, int, uint64_t>(raft::resources{}, 0, 0, 0) {}
+            uint64_t get_nnz() {
+                return this->structure_view().get_nnz();
+            }
+
+            int* rows() {
+                return this->structure_view().get_rows().data();
+            }
+
+            int* cols() {
+                return this->structure_view().get_cols().data();
+            }
+
+            float* vals() {
+                return this->get_elements().data();
+            }
+    };
+    """
+
+    cdef cppclass host_COO:
+        host_COO()
+        uint64_t get_nnz()
         int* rows()
         int* cols()
+        float* vals()
+
+    cdef cppclass cppHostCOO "raft::host_coo_matrix<float, int, int, uint64_t>":
+        pass
 
 cdef class GraphHolder:
     cdef unique_ptr[COO] c_graph
@@ -110,7 +137,7 @@ cdef class GraphHolder:
     @staticmethod
     cdef GraphHolder from_coo_array(graph, handle, coo_array)
 
-    cdef COO* get(GraphHolder self)
+    cdef COO* get(GraphHolder self) noexcept
     cdef uintptr_t vals(GraphHolder self)
     cdef uintptr_t rows(GraphHolder self)
     cdef uintptr_t cols(GraphHolder self)
@@ -122,7 +149,8 @@ cdef class HostGraphHolder:
     @staticmethod
     cdef HostGraphHolder new_graph()
 
-    cdef host_COO* get(HostGraphHolder self)
+    cdef host_COO* get(HostGraphHolder self) noexcept
+    cdef cppHostCOO* ref(HostGraphHolder self) noexcept
     cdef uintptr_t vals(HostGraphHolder self)
     cdef uintptr_t rows(HostGraphHolder self)
     cdef uintptr_t cols(HostGraphHolder self)

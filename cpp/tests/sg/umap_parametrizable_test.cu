@@ -22,6 +22,7 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/host_coo_matrix.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -158,7 +159,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
-    auto graph = raft::sparse::host_COO<float, int>();
+    auto graph =
+      raft::make_host_coo_matrix<float, int, int, uint64_t>(handle, n_samples, n_samples);
 
     if (test_params.supervised) {
       ML::UMAP::fit(handle,
@@ -170,7 +172,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_dists,
                     &umap_params,
                     model_embedding,
-                    &graph);
+                    graph);
     } else {
       ML::UMAP::fit(handle,
                     X,
@@ -181,7 +183,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_dists,
                     &umap_params,
                     model_embedding,
-                    &graph);
+                    graph);
     }
 
     if (test_params.refine) {

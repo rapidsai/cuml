@@ -18,6 +18,7 @@
 
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/core/host_coo_matrix.hpp>
 #include <raft/sparse/coo.hpp>
 
 #include <cstddef>
@@ -128,7 +129,7 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
-         raft::sparse::host_COO<float, int>* graph);
+         raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**
  * Sparse fit
@@ -159,7 +160,7 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
-                raft::sparse::host_COO<float, int>* graph);
+                raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**
  * Dense transform

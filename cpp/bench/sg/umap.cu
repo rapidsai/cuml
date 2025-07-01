@@ -118,7 +118,8 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::host_COO<float, int>();
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      *this->handle, this->params.nrows, this->params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               yFloat,
@@ -128,7 +129,7 @@ class UmapSupervised : public UmapBase {
               nullptr,
               &uParams,
               embeddings,
-              &graph);
+              graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -140,7 +141,8 @@ class UmapUnsupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::host_COO<float, int>();
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      *this->handle, this->params.nrows, this->params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               nullptr,
@@ -150,7 +152,7 @@ class UmapUnsupervised : public UmapBase {
               nullptr,
               &uParams,
               embeddings,
-              &graph);
+              graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -178,7 +180,8 @@ class UmapTransform : public UmapBase {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    auto graph = raft::sparse::host_COO<float, int>();
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      handle, this->params.nrows, this->params.nrows);
     UMAP::fit(handle,
               this->data.X.data(),
               yFloat,
@@ -188,7 +191,7 @@ class UmapTransform : public UmapBase {
               nullptr,
               &uParams,
               embeddings,
-              &graph);
+              graph);
   }
   void deallocateBuffers(const ::benchmark::State& state)
   {

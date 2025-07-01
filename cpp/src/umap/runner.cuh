@@ -30,6 +30,7 @@
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/host_coo_matrix.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -345,24 +346,30 @@ void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
           value_t* embeddings,
-          raft::sparse::host_COO<float, int>* host_graph)
+          raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
-  cudaStream_t stream = handle.get_stream();
+  auto stream = raft::resource::get_cuda_stream(handle);
   ML::default_logger().set_level(params->verbosity);
 
-  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
+  std::unique_ptr<raft::sparse::COO<value_t>> full_graph =
+    std::make_unique<raft::sparse::COO<value_t>>(stream);
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, &full_graph);
+    handle, inputs, params, full_graph.get());
 
-  host_graph->init(full_graph, stream);
+  host_graph.initialize_sparsity(full_graph->nnz);
+  raft::copy(
+    host_graph.structure_view().get_rows().data(), full_graph->rows(), full_graph->nnz, stream);
+  raft::copy(
+    host_graph.structure_view().get_cols().data(), full_graph->cols(), full_graph->nnz, stream);
+  raft::copy(host_graph.get_elements().data(), full_graph->vals(), full_graph->nnz, stream);
 
-  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  raft::sparse::COO<value_t> trimmed_graph(stream);
   raft::sparse::COO<value_t>* graph =
-    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+    thresholding(handle, *full_graph.get(), trimmed_graph, inputs.n, params->n_epochs);
 
-  if (graph == &trimmed_graph) { full_graph.release(); }
+  if (graph == &trimmed_graph) { full_graph.reset(); }
 
   /**
    * Run initialization method
@@ -392,24 +399,30 @@ void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
                      value_t* embeddings,
-                     raft::sparse::host_COO<float, int>* host_graph)
+                     raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
 
-  cudaStream_t stream = handle.get_stream();
+  auto stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
-  raft::sparse::COO<value_t> full_graph(raft::resource::get_cuda_stream(handle));
+  std::unique_ptr<raft::sparse::COO<value_t>> full_graph =
+    std::make_unique<raft::sparse::COO<value_t>>(stream);
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, &full_graph);
+    handle, inputs, params, full_graph.get());
 
-  host_graph->init(full_graph, stream);
+  host_graph.initialize_sparsity(full_graph->nnz);
+  raft::copy(
+    host_graph.structure_view().get_rows().data(), full_graph->rows(), full_graph->nnz, stream);
+  raft::copy(
+    host_graph.structure_view().get_cols().data(), full_graph->cols(), full_graph->nnz, stream);
+  raft::copy(host_graph.get_elements().data(), full_graph->vals(), full_graph->nnz, stream);
 
-  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
+  raft::sparse::COO<value_t> trimmed_graph(stream);
   raft::sparse::COO<value_t>* graph =
-    thresholding(handle, full_graph, trimmed_graph, inputs.n, params->n_epochs);
+    thresholding(handle, *full_graph.get(), trimmed_graph, inputs.n, params->n_epochs);
 
-  if (graph == &trimmed_graph) { full_graph.release(); }
+  if (graph == &trimmed_graph) { full_graph.reset(); }
 
   /**
    * Initialize embeddings

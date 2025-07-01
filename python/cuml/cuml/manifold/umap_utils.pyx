@@ -79,7 +79,7 @@ cdef class GraphHolder:
         graph.mr = get_current_device_resource()
         return graph
 
-    cdef inline COO* get(self):
+    cdef inline COO* get(self) noexcept:
         return self.c_graph.get()
 
     cdef uintptr_t vals(self):
@@ -130,7 +130,7 @@ cdef class HostGraphHolder:
         return <uintptr_t>self.get().cols()
 
     cdef uint64_t get_nnz(self):
-        return self.get().nnz
+        return self.get().get_nnz()
 
     def get_scipy_coo(self):
         def create_nonowning_numpy_array(ptr, dtype):
@@ -146,8 +146,11 @@ cdef class HostGraphHolder:
         self.c_graph.reset(NULL)
         return graph
 
-    cdef inline host_COO* get(self):
+    cdef inline host_COO* get(self) noexcept:
         return self.c_graph.get()
+
+    cdef inline cppHostCOO* ref(self) noexcept:
+        return <cppHostCOO*>self.c_graph.get()
 
     def __dealloc__(self):
         self.c_graph.reset(NULL)
