@@ -93,7 +93,6 @@ def setup_profiling(
         trace.set_tracer_provider(tracer_provider)
 
         logger.info("Profiling enabled - spans will be output to console ")
-        return True
 
 
 def execute_source(source: str, filename: str = "<stdin>") -> None:
