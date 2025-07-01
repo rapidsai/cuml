@@ -1282,43 +1282,25 @@
   - "sklearn.tests.test_calibration::test_parallel_execution[True-isotonic]"
   - "sklearn.tests.test_calibration::test_parallel_execution[True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dict_unchanged]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_do_not_raise_errors_in_init_or_set_params]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_matrix]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_tags_renamed]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_dtypes]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_unfitted]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit_check_is_fitted]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit_idempotent]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_methods_sample_order_invariance]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_methods_subset_invariance]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_no_attributes_set_in_init]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_parameters_default_constructible]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_no_decision_function]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC1]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
 - reason: metadata routing not yet supported
   marker: cuml_accel_metadata_routing
@@ -1339,13 +1321,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
-  condition: scikit-learn<1.6
-  tests:
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
-- reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
-  marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
@@ -1357,9 +1332,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
 - reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
   condition: scikit-learn>=1.6
