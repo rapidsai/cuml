@@ -247,6 +247,8 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
     def _attrs_from_cpu(self, model):
         if not isinstance(model.X_fit_, np.ndarray):
+            # We only support coercing dense X_fit_ values, but in sklearn
+            # this may also be a sparse matrix
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         return {
