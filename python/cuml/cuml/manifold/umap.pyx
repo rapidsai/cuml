@@ -18,6 +18,11 @@
 
 import warnings
 
+_DATA_ON_HOST_DEPRECATED_MESSAGE = (
+    "The data_on_host option is deprecated and will be removed in release 25.10. "
+    "Whether data is on host or device is now determined by the nnd_n_clusters parameter in build_kwds."
+)
+
 import cupy
 import cupyx.scipy.sparse
 import joblib
@@ -303,8 +308,7 @@ class UMAP(Base,
           but longer runtime.
 
         - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
-          Refer to data_on_host argument for fit_transform function.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, UMAP can process data larger than device memory.
 
         - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
           Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
@@ -724,7 +728,7 @@ class UMAP(Base,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host=False) -> "UMAP":
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host="auto") -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -741,8 +745,10 @@ class UMAP(Base,
         Takes precedence over the precomputed_knn parameter.
 
         .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+            The `data_on_host` parameter is deprecated and will be removed in release 25.10.
+            Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
+            When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
+            When `nnd_n_clusters == 1`, data will automatically be placed on device memory.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -766,19 +772,33 @@ class UMAP(Base,
         # Handle dense inputs
         else:
             self._sparse_data = False
-            if data_on_host:
+            # Get nnd_n_clusters value for validation
+            build_kwds = self.build_kwds or {}
+            nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
+
+            # Validate data_on_host parameter
+            if data_on_host in (True, False):
+                if data_on_host is False and nnd_n_clusters > 1:
+                    raise ValueError(
+                        f"nnd_n_clusters > 1 is not supported when data_on_host is False; "
+                        f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                    )
+                elif data_on_host is True and nnd_n_clusters == 1:
+                    raise ValueError(
+                        f"nnd_n_clusters == 1 is not supported when data_on_host is True; "
+                        f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                    )
+                warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+            elif data_on_host != "auto":
+                raise ValueError(
+                    f"data_on_host must be True, False, or 'auto'; "
+                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+
+            if nnd_n_clusters > 1:
                 convert_to_mem_type = MemoryType.host
             else:
-                build_kwds = self.build_kwds or {}
-                if build_kwds.get("nnd_n_clusters", 1) > 1:
-                    warnings.warn(
-                        ("Using nnd_n_clusters>1 with data on device is deprecated in version 25.06"
-                            " and will be removed in 25.08. Set data_on_host=True when nnd_n_clusters>1."),
-                        FutureWarning,
-                    )
-                    convert_to_mem_type = MemoryType.host
-                else:
-                    convert_to_mem_type = MemoryType.device
+                convert_to_mem_type = MemoryType.device
 
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -796,7 +816,7 @@ class UMAP(Base,
                 logger.info("Building knn graph using nn descent")
                 self.build_algo = "nn_descent"
 
-        if self.build_algo == "brute_force_knn" and data_on_host:
+        if self.build_algo == "brute_force_knn" and data_on_host is True:
             raise ValueError("Data cannot be on host for building with brute force knn")
 
         if self.n_rows <= 1:
@@ -906,7 +926,7 @@ class UMAP(Base,
         *,
         convert_dtype=True,
         knn_graph=None,
-        data_on_host=False,
+        data_on_host="auto",
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -940,8 +960,10 @@ class UMAP(Base,
             CSR/COO preferred other formats will go through conversion to CSR
 
         .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+            The `data_on_host` parameter is deprecated and will be removed in release 25.10.
+            Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
+            When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
+            When `nnd_n_clusters == 1`, data will automatically be placed on device memory.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 
