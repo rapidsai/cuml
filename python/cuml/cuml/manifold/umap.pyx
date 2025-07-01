@@ -308,7 +308,8 @@ class UMAP(Base,
           but longer runtime.
 
         - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, UMAP can process data larger than device memory.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`,
+          UMAP can process data larger than device memory.
 
         - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
           Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
