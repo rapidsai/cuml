@@ -23,6 +23,7 @@ from enum import Enum
 
 from cuml.accel.trace_formatter import ScriptAnnotatedTraceFormatter
 from cuml.internals import logger
+from cuml.internals.interop import UnsupportedOnGPU
 
 # OpenTelemetry imports
 try:
@@ -302,7 +303,7 @@ class LogOperation:
         # Emit log message to console
         self._log_to_console(duration, success, exc_type, exc_val)
 
-        if _OTEL_AVAILABLE:
+        if _OTEL_AVAILABLE and False:
             # Use OpenTelemetry span
             exception_details = str(exc_val) if exc_val else ""
             self._log_span(duration, success, exception_details)
@@ -311,33 +312,70 @@ class LogOperation:
         self, duration: float, success: bool, exc_type, exc_val
     ):
         """Log operation using direct logging fallback."""
-        status = "SUCCESS" if success else "FAILED"
-        log_msg = (
-            f"[{self.operation_type}] {self.method_name} - {status} "
-            f"({duration:.4f}s)"
-        )
+        # Get estimator name from attributes
+        estimator_name = self.attributes.get("estimator_name", "Unknown")
 
-        if self.details and success:
-            log_msg += f" - {self.details}"
-        elif not success:
-            exception_details = str(exc_val) if exc_val else ""
-            details_with_exception = (
-                f"{self.details} - Exception: {exception_details}"
-                if self.details
-                else f"Exception: {exception_details}"
+        # Format the method call
+        method_call = f"{estimator_name}.{self.method_name}()"
+
+        # Analyze the failure reason in case the operation failed
+        if exc_type is UnsupportedOnGPU:
+            # XXX: we should always provide a more specific error message with
+            # this type of exception and not need a fallback message
+            exception_details = (
+                str(exc_val)
+                or "specific input/parameter selection not supported on GPU"
             )
-            log_msg += f" - {details_with_exception}"
+        elif exc_type is not None:
+            exception_details = str(exc_val) or "unknown error"
 
-        if self.attributes:
-            attr_str = ", ".join(
-                f"{k}={v}" for k, v in self.attributes.items()
-            )
-            log_msg += f" - {attr_str}"
-
-        if success:
-            logger.info(log_msg)
+        if self.operation_type == "GPU_INIT":
+            # Initialization messages
+            if success:
+                logger.debug(
+                    f"[cuml.accel] Initialized estimator '{estimator_name}' "
+                    f"for GPU acceleration"
+                )
+            else:
+                logger.warn(
+                    f"[cuml.accel] Failed to initialize '{estimator_name}': "
+                    f"{exception_details}"
+                )
+        elif self.operation_type == "GPU_CALL":
+            # Acceleration attempt messages
+            if success:
+                logger.info(
+                    f"[cuml.accel] Successfully accelerated "
+                    f"'{method_call}' call"
+                )
+            else:
+                logger.debug(
+                    f"[cuml.accel] Unable to accelerate "
+                    f"'{method_call}' call: {exception_details}"
+                )
+        elif self.operation_type == "CPU_CALL":
+            # CPU fallback messages
+            if success:
+                logger.warn(
+                    f"[cuml.accel] Falling back to CPU for "
+                    f"'{method_call}' call"
+                )
+            else:
+                logger.error(
+                    f"[cuml.accel] CPU fallback failed for "
+                    f"'{method_call}' call: {exception_details}"
+                )
         else:
-            logger.warn(log_msg)
+            # Other operation types (SYNC_ATTRS, SYNC_PARAMS, etc.)
+            if success:
+                logger.debug(
+                    f"[cuml.accel] {self.operation_type}: {method_call}"
+                )
+            else:
+                logger.warn(
+                    f"[cuml.accel] {self.operation_type} failed for "
+                    f"'{method_call}': {exception_details}"
+                )
 
     def _log_span(
         self, duration: float, success: bool, exception_details: str
