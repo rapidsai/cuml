@@ -19,9 +19,10 @@ import warnings
 
 import numpy as np
 import pytest
-from statsmodels.tsa import stattools
 
 from cuml.tsa import stationarity
+
+stattools = pytest.importorskip("statsmodels.tsa.stattools")
 
 ###############################################################################
 #                       Helpers and reference functions                       #

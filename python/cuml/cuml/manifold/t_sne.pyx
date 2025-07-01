@@ -500,6 +500,12 @@ class TSNE(Base,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
+
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')

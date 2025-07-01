@@ -19,10 +19,7 @@ from copy import deepcopy
 
 from cuml._thirdparty._sklearn_compat import _to_new_tags
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    api_base_return_any_skipall,
-    enable_device_interop,
-)
+from cuml.internals.api_decorators import api_base_return_any_skipall
 from cuml.internals.base_helpers import _tags_class_and_instance
 
 ###############################################################################
@@ -205,7 +202,6 @@ class RegressorMixin:
         }
     )
     @api_base_return_any_skipall
-    @enable_device_interop
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
@@ -241,7 +237,6 @@ class ClassifierMixin:
         }
     )
     @api_base_return_any_skipall
-    @enable_device_interop
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

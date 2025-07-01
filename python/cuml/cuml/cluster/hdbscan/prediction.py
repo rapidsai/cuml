@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
-from cuml.cluster.agglomerative import AgglomerativeClustering
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.hdbscan import HDBSCAN
-from cuml.cluster.kmeans import KMeans
+__all__ = (  # noqa: F822
+    "all_points_membership_vectors",
+    "approximate_predict",
+    "membership_vector",
+)
 
 
 def __getattr__(name):
     import warnings
 
-    if name in ("all_points_membership_vectors", "approximate_predict"):
+    if name in __all__:
         warnings.warn(
-            f"Accessing {name!r} from the `cuml.cluster` namespace is deprecated "
-            "and will be removed in 25.10. Please access it from the "
-            "`cuml.cluster.hdbscan` namespace instead.",
+            f"The `cuml.cluster.hdbscan.prediction` namespace is deprecated "
+            f"and will be removed in 25.10. Please import {name!r} from "
+            f"`cuml.cluster.hdbscan` directly instead.",
             FutureWarning,
         )
         import cuml.cluster.hdbscan as mod
 
         return getattr(mod, name)
-    raise AttributeError(f"module `cuml.cluster` has no attribute {name!r}")
+    raise AttributeError(
+        f"module `cuml.cluster.hdbscan.prediction` has no attribute {name!r}"
+    )

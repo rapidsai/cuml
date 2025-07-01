@@ -18,20 +18,19 @@ import functools
 from typing import Any
 
 import sklearn
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
+from sklearn.utils._set_output import _wrap_data_with_container
 
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
 
 def is_proxy(instance_or_class) -> bool:
     """Check if an instance or class is a proxy object created by the accelerator."""
-    from cuml.accel.estimator_proxy_mixin import ProxyMixin
-
     if isinstance(instance_or_class, type):
         cls = instance_or_class
     else:
         cls = type(instance_or_class)
-    return issubclass(cls, (ProxyMixin, ProxyBase))
+    return issubclass(cls, ProxyBase)
 
 
 class _ReconstructProxy:
@@ -241,6 +240,11 @@ class ProxyBase(BaseEstimator):
                 raise UnsupportedOnGPU
 
         out = gpu_func(*args, **kwargs)
+
+        if method in ("transform", "fit_transform"):
+            # Ensure transform result is properly wrapped for `set_output`
+            out = _wrap_data_with_container("transform", out, args[0], self)
+
         return self if out is self._gpu else out
 
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
@@ -280,6 +284,40 @@ class ProxyBase(BaseEstimator):
         self._sync_attrs_to_cpu()
         out = getattr(self._cpu, method)(*args, **kwargs)
         return self if out is self._cpu else out
+
+    ############################################################
+    # set_output handling                                      #
+    ############################################################
+
+    def _gpu_set_output(self, *, transform=None):
+        # `set_output` can always call the CPU model (where the output config state
+        # is stored). It's defined as a `_gpu_*` method so it only shows up on the
+        # proxy for models that define `set_output`, and can avoid unnecessary calls
+        # to sync fit attributes to CPU
+        self._cpu.set_output(transform=transform)
+        return self._gpu
+
+    def _gpu_get_feature_names_out(self, input_features=None):
+        # In the common case `get_feature_names_out` doesn't require fitted attributes
+        # on the CPU. Here we detect and special case a common mixin, falling back to
+        # CPU when necessary. This helps avoid unnecessary device -> host transfers.
+        cpu_method = self._cpu_class.get_feature_names_out
+        if cpu_method is ClassNamePrefixFeaturesOutMixin.get_feature_names_out:
+            # Can run cpu method directly on GPU instance, it only references `_n_features_out`
+            return cpu_method(self._gpu, input_features=input_features)
+
+        # Fallback to CPU
+        raise UnsupportedOnGPU
+
+    @property
+    def _sklearn_output_config(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_output_config
+
+    @property
+    def _sklearn_auto_wrap_output_keys(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
     # Standard magic methods                                   #

@@ -4,7 +4,6 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - conda-forge
-- nvidia
 dependencies:
 - c-compiler
 - clang-tools==15.0.7
@@ -13,7 +12,7 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-version=12.8
+- cuda-version=12.9
 - cxx-compiler
 - gcc_linux-64=13.*
 - libcublas-dev
@@ -29,4 +28,4 @@ dependencies:
 - ninja
 - sysroot_linux-64==2.28
 - tomli
-name: clang_tidy_cuda-128_arch-x86_64
+name: clang_tidy_cuda-129_arch-x86_64

@@ -21,11 +21,8 @@ the following general limitations:
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
 
-* The `set_output
-  <https://scikit-learn-enhancement-proposals.readthedocs.io/en/latest/slep018/proposal.html>`__
-  and `Metadata Routing
-  <https://scikit-learn.org/stable/metadata_routing.html>`__ APIs are not
-  currently supported.
+* The `Metadata Routing <https://scikit-learn.org/stable/metadata_routing.html>`__
+  APIs are not currently supported.
 
 * When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified
   memory) is not supported. This means that automatic memory management between
@@ -224,9 +221,11 @@ regression) and Log Loss (for classification). You can use functions from the
 ``sklearn.metrics`` module to obtain these measures.
 
 Some parameters have limited support:
+
 * ``max_samples`` must be float, not integer.
 
 The following parameters are not supported and will trigger a CPU fallback:
+
 * ``min_weight_fraction_leaf``
 * ``monotonic_cst``
 * ``ccp_alpha``
@@ -235,8 +234,21 @@ The following parameters are not supported and will trigger a CPU fallback:
 * ``oob_score``
 
 The following values for ``criterion`` will trigger a CPU fallback:
+
 * ``log_loss``
 * ``friedman_mse``
+
+``sklearn.kernel_ridge.KernelRidge``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``KernelRidge`` results should be almost identical to those of Scikit-Learn
+when running with ``cuml.accel`` enabled. In particular, the fitted
+``dual_coef_`` should be close enough that they may be compared via
+``np.allclose``.
+
+It currently has the following limitations:
+
+* Sparse inputs are not currently supported and will fallback to CPU.
 
 ``sklearn.linear_model.LinearRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -250,7 +262,7 @@ limitations:
   and cuml.accel will not accelerate Linear Regression if the parameter is set to
   ``True``
 * cuML's Linear Regression only implements dense inputs currently, so cuml.accel offers no
-    acceleration for sparse inputs to model training.
+  acceleration for sparse inputs to model training.
 
 Another important consideration is that, unlike more complex models, like manifold
 or clustering algorithms, linear models are quite efficient and fast to run. Even on larger
@@ -280,7 +292,7 @@ Similar to Linear Regression, Elastic Net has the following limitations:
 * ``warm_start`` parameter is not supported for GPU acceleration.
 * ``precompute`` parameter is not supported.
 * cuML's ElasticNet only implements dense inputs currently, so cuml.accel offers no
-    acceleration for sparse inputs to model training.
+  acceleration for sparse inputs to model training.
 
 ``sklearn.linear_model.Ridge``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -300,7 +312,7 @@ Similar to Linear Regression, Elastic Net has the following limitations:
 
 * ``precompute`` parameter is not supported.
 * cuML's Lasso only implements dense inputs currently, so cuml.accel offers no
-    acceleration for sparse inputs to model training.
+  acceleration for sparse inputs to model training.
 
 
 ``sklearn.manifold.TSNE``
@@ -404,10 +416,10 @@ coefficients. To compare results you should compare the performance of the
 model using ``model.score`` or ``sklearn.metrics.accuracy_score``.
 
 * Algorithm Limitations:
-  * ``probability=True`` will fallback to scikit-learn
-  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
-  * Multiclass classification will fallback to scikit-learn
-  * Sparse inputs will fallback to scikit-learn
+    * ``probability=True`` will fallback to scikit-learn
+    * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+    * Multiclass classification will fallback to scikit-learn
+    * Sparse inputs will fallback to scikit-learn
 
 ``sklearn.svm.SVR``
 ^^^^^^^^^^^^^^^^^^^
@@ -418,5 +430,5 @@ coefficients. To compare results you should compare the performance of the
 model using ``model.score`` or ``sklearn.metrics.r2_score``.
 
 * Algorithm Limitations:
-  * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
-  * Sparse inputs will fallback to scikit-learn
+    * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
+    * Sparse inputs will fallback to scikit-learn
