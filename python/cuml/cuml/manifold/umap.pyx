@@ -20,7 +20,7 @@ import warnings
 
 _DATA_ON_HOST_DEPRECATED_MESSAGE = (
     "The data_on_host option is deprecated and will be removed in release 25.10. "
-    "Whether data is on host or device is now determined by the nnd_n_clusters parameter in build_kwds."
+    "Whether data is on host or device is now determined by the build_algo."
 )
 
 import cupy
@@ -750,8 +750,8 @@ class UMAP(Base,
         .. deprecated:: 25.08
             The `data_on_host` parameter is deprecated and will be removed in release 25.10.
             Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
-            When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
-            When `nnd_n_clusters == 1`, data will automatically be placed on device memory.
+            When `build_algo == nn_descent`, data will automatically be placed on host memory.
+            When `build_algo == brute_force_knn`, data will automatically be placed on device memory.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -974,8 +974,8 @@ class UMAP(Base,
         .. deprecated:: 25.08
             The `data_on_host` parameter is deprecated and will be removed in release 25.10.
             Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
-            When `nnd_n_clusters > 1`, data will automatically be placed on host memory.
-            When `nnd_n_clusters == 1`, data will automatically be placed on device memory.
+            When `build_algo == nn_descent`, data will automatically be placed on host memory.
+            When `build_algo == brute_force_knn`, data will automatically be placed on device memory.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 

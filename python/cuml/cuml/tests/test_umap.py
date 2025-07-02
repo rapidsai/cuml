@@ -833,7 +833,7 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 
 
 @pytest.mark.parametrize("data_on_host", [True, False])
-@pytest.mark.parametrize("num_clusters", [0, 1, 3, 5])
+@pytest.mark.parametrize("num_clusters", [0, 3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 @pytest.mark.parametrize("do_snmg", [True, False])
@@ -847,16 +847,16 @@ def test_umap_trustworthiness_on_batch_nnd(
     if do_snmg:
         umap_handle = DeviceResourcesSNMG()
 
-    def run_umap():
-        cuml_model = cuUMAP(
-            handle=umap_handle,
-            n_neighbors=10,
-            min_dist=0.01,
-            build_algo="nn_descent",
-            build_kwds={"nnd_n_clusters": num_clusters},
-            metric=metric,
-        )
+    cuml_model = cuUMAP(
+        handle=umap_handle,
+        n_neighbors=10,
+        min_dist=0.01,
+        build_algo="nn_descent",
+        build_kwds={"nnd_n_clusters": num_clusters},
+        metric=metric,
+    )
 
+    def run_umap():
         if fit_then_transform:
             cuml_model.fit(
                 digits.data, convert_dtype=True, data_on_host=data_on_host
@@ -870,20 +870,90 @@ def test_umap_trustworthiness_on_batch_nnd(
         return cuml_embedding
 
     # num clusters should be >= 1
+    if num_clusters == 0:
+        with pytest.raises(ValueError):
+            run_umap()
+        return
+
+    # data should be on host if batching (num_clusters > 1)
+    if num_clusters > 1 and not data_on_host:
+        with pytest.raises(Exception):
+            run_umap()
+        return
+
+    cuml_embedding = run_umap()
+    cuml_trust = trustworthiness(
+        digits.data, cuml_embedding, n_neighbors=10, metric=metric
+    )
+
+    assert cuml_trust > 0.9
+
+
+@pytest.mark.parametrize("data_on_host", [True, False, "auto", None])
+@pytest.mark.parametrize("num_clusters", [0, 1, 5])
+@pytest.mark.parametrize(
+    "build_algo,n_rows",
+    [
+        ("brute_force_knn", 5000),
+        ("nn_descent", 5000),
+        ("auto", 5000),  # results in brute_force_knn
+        # ("auto", 51000),    # results in nn_descent, passes tests but trustworthiness takes long to run
+    ],
+)
+def test_umap_param_handling(data_on_host, num_clusters, build_algo, n_rows):
+
+    data, _ = make_blobs(
+        n_samples=n_rows, n_features=64, centers=5, random_state=0
+    )
+
+    def run_umap():
+        cuml_model = cuUMAP(
+            n_neighbors=10,
+            min_dist=0.01,
+            build_algo=build_algo,
+            build_kwds={"nnd_n_clusters": num_clusters},
+            metric="l2",
+        )
+
+        if data_on_host is None:
+            cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+        else:
+            cuml_embedding = cuml_model.fit_transform(
+                data, convert_dtype=True, data_on_host=data_on_host
+            )
+        return cuml_embedding
+
+    # eventual build_algo when given auto
+    configured_build_algo = build_algo
+    if configured_build_algo in ["auto", None]:
+        if n_rows <= 50000:
+            configured_build_algo = "brute_force_knn"
+        else:
+            configured_build_algo = "nn_descent"
+
     if (
         num_clusters == 0
-        or (num_clusters > 1 and not data_on_host)
-        or (num_clusters == 1 and data_on_host)
+        or (
+            configured_build_algo == "brute_force_knn" and data_on_host is True
+        )
+        or (
+            configured_build_algo == "nn_descent"
+            and num_clusters > 1
+            and data_on_host is False
+        )
     ):
         with pytest.raises(ValueError):
             run_umap()
         return
 
-    # Futurewarning for usage of data_on_host option
-    with pytest.warns(FutureWarning):
+    if data_on_host in [True, False]:
+        with pytest.warns(FutureWarning):
+            cuml_embedding = run_umap()
+    else:
         cuml_embedding = run_umap()
+
     cuml_trust = trustworthiness(
-        digits.data, cuml_embedding, n_neighbors=10, metric=metric
+        data, cuml_embedding, n_neighbors=10, metric="l2"
     )
 
     assert cuml_trust > 0.9
