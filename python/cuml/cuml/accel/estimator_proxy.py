@@ -258,7 +258,7 @@ class ProxyBase(BaseEstimator):
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             # Sparse inputs not supported
-            logger.debug(
+            logger.warn(
                 f"[cuml.accel] Unable to accelerate "
                 f"'{method_call}' call: Sparse inputs are not supported"
             )
@@ -270,7 +270,7 @@ class ProxyBase(BaseEstimator):
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 # Method is not implemented in cuml
-                logger.debug(
+                logger.warn(
                     f"[cuml.accel] Unable to accelerate "
                     f"'{method_call}' call: Method is not implemented in cuml"
                 )
