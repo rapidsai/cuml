@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import code
-import enum
 import runpy
 import sys
 import warnings
@@ -25,78 +24,6 @@ from textwrap import dedent
 
 from cuml.accel.core import install
 from cuml.internals import logger
-
-
-class ProfilingKind(enum.Enum):
-    """Types of profiling output available."""
-
-    NONE = "none"
-    FORMATTED = "formatted"
-    ANNOTATED = "annotated"
-    RAW = "raw"
-
-
-def setup_profiling(
-    profiling_kind: ProfilingKind,
-    script_path: str | None = None,
-):
-    """Set up console logging for profiling."""
-    try:
-        from opentelemetry import trace
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            BatchSpanProcessor,
-            ConsoleSpanExporter,
-            SimpleSpanProcessor,
-        )
-    except ImportError:
-        raise RuntimeError(
-            "Profiling dependencies not available. "
-            "Install with: pip install opentelemetry-api opentelemetry-sdk"
-        )
-    else:
-        # Import our profiling module for the formatted exporter
-        from cuml.accel.profiling import (
-            AnnotatedConsoleSpanExporter,
-            RawSpanFormatter,
-        )
-        from cuml.accel.trace_formatter import AnnotatedTraceFormatter
-
-        # Choose the appropriate exporter
-        if profiling_kind == ProfilingKind.FORMATTED:
-            console_exporter = ConsoleSpanExporter(
-                formatter=AnnotatedTraceFormatter()
-            )
-        elif profiling_kind == ProfilingKind.ANNOTATED:
-            console_exporter = AnnotatedConsoleSpanExporter(script_path)
-        elif profiling_kind == ProfilingKind.RAW:
-            console_exporter = ConsoleSpanExporter(
-                formatter=RawSpanFormatter()
-            )
-        else:
-            # This should not happen, but provide a fallback
-            console_exporter = ConsoleSpanExporter()
-
-        # Configure the tracer provider
-        resource = Resource.create(
-            {
-                "service.name": "cuml-accel",
-            }
-        )
-        tracer_provider = TracerProvider(resource=resource)
-
-        # Add console exporter to output spans to stdout
-        if profiling_kind == ProfilingKind.RAW:
-            span_processor = BatchSpanProcessor(console_exporter)
-        else:
-            span_processor = SimpleSpanProcessor(console_exporter)
-        tracer_provider.add_span_processor(span_processor)
-
-        # Set the tracer provider as the global default
-        trace.set_tracer_provider(tracer_provider)
-
-        logger.info("Profiling enabled - spans will be output to console ")
 
 
 def execute_source(source: str, filename: str = "<stdin>") -> None:
@@ -146,25 +73,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
               $ python -m cuml.accel -m mymodule --some-option
 
-            Enable profiling with:
-
-              $ python -m cuml.accel --profile myscript.py
-
-            This will instrument the code and track which operations are
-            accelerated, and which operations fell back to CPU.
-
-            Alternatively, you can enable annotated profiling with:
-
-              $ python -m cuml.accel --profile-annotate myscript.py
-
-            The annotated output shows the calling code with information
-            on which lines had accelerated operations, and which lines
-            had CPU fallback operations.
-
-            For raw trace output (JSON format),  use:
-
-              $ python -m cuml.accel --trace myscript.py
-
             If you also wish to use the `cudf.pandas` accelerator, you can invoke both
             as part of a single call like:
 
@@ -187,24 +95,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--disable-uvm",
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
-    )
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        help="Enable profiling with formatted console output for tracing "
-        "cuML acceleration operations.",
-    )
-    parser.add_argument(
-        "--profile-annotate",
-        action="store_true",
-        help="Enable profiling with annotated console output showing calling code "
-        "with acceleration status icons.",
-    )
-    parser.add_argument(
-        "--trace",
-        action="store_true",
-        help="Enable profiling with raw console output for tracing "
-        "cuML acceleration operations.",
     )
     # --convert-to-sklearn, --format, --output, and --cudf-pandas are deprecated
     # and hidden from the CLI --help with `argparse.SUPPRESS
@@ -279,37 +169,6 @@ def main(argv: list[str] | None = None):
     """Run the `cuml.accel` CLI"""
     # Parse arguments
     ns = parse_args(sys.argv[1:] if argv is None else argv)
-
-    # Set up profiling if requested
-    if sum([ns.profile, ns.profile_annotate, ns.trace]) > 1:
-        print("Error: Cannot use multiple profiling options simultaneously")
-        print(
-            "Use --profile for formatted output, --profile-annotate for annotated output, "
-            "or --trace for raw output."
-        )
-        sys.exit(2)
-    elif ns.profile or ns.profile_annotate or ns.trace:
-        # Determine profiling kind
-        if ns.profile:
-            profiling_kind = ProfilingKind.FORMATTED
-        elif ns.profile_annotate:
-            profiling_kind = ProfilingKind.ANNOTATED
-        else:  # ns.trace
-            profiling_kind = ProfilingKind.RAW
-
-        # Get script path for annotated output
-        script_path = None
-        if ns.profile_annotate and ns.script and ns.script != "-":
-            script_path = ns.script
-
-        try:
-            setup_profiling(
-                profiling_kind=profiling_kind,
-                script_path=script_path,
-            )
-        except RuntimeError as e:
-            print(f"Unable to enable profiling: {e}")
-            sys.exit(1)
 
     # If the user requested a conversion, handle it and exit
     if ns.convert_to_sklearn:
