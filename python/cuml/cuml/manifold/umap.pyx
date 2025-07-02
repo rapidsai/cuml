@@ -758,16 +758,9 @@ class UMAP(Base,
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
 
-        # for getting n_rows of the dataset
-        _, self.n_rows, _, _ = \
-            input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
-
         # Set build_algo based on n_rows
         if self.build_algo == "auto":
-            if self.n_rows <= 50000 or self.sparse_fit:
+            if len(X) <= 50000 or self.sparse_fit:
                 # brute force is faster for small datasets
                 logger.info("Building knn graph using brute force (configured from build_algo == 'auto')")
                 self.build_algo = "brute_force_knn"
