@@ -229,7 +229,7 @@ class ProxyBase(BaseEstimator):
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             # Sparse inputs not supported
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
         # falling back to the GPU class method if one exists.
@@ -237,7 +237,7 @@ class ProxyBase(BaseEstimator):
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 # Method is not implemented in cuml
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
 

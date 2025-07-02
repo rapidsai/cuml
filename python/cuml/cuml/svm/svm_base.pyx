@@ -231,7 +231,7 @@ class SVMBase(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.kernel == "precomputed" or callable(model.kernel):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`kernel={model.kernel!r}` is not supported")
 
         if (cache_size := model.cache_size) == 200:
             # XXX: the cache sizes differ between cuml and sklearn, for now we

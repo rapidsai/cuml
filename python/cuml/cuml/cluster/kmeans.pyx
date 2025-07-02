@@ -222,7 +222,7 @@ class KMeans(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if callable(model.init):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         elif isinstance(model.init, str):
             if model.init == "k-means++":
                 init = "scalable-k-means++"
@@ -230,7 +230,7 @@ class KMeans(Base,
                 init = "random"
             else:
                 # Should be unreachable, here in case sklearn adds more init values
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         else:
             init = model.init  # array-like
 
