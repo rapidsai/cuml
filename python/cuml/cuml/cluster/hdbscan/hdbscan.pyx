@@ -650,20 +650,18 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if callable(model.metric):
-            raise UnsupportedOnGPU
-        elif model.metric not in _metrics_mapping:
-            raise UnsupportedOnGPU
+        if callable(model.metric) or model.metric not in _metrics_mapping:
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if isinstance(model.memory, str) or getattr(model.memory, "location", None) is not None:
             # Result caching is unsupported
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`memory={model.memory!r}` is not supported")
 
         if model.match_reference_implementation:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`match_reference_implementation=True` is not supported")
 
         if model.branch_detection_data:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`branch_detection_data=True` is not supported")
 
         return {
             "min_cluster_size": model.min_cluster_size,
@@ -697,11 +695,11 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
     def _attrs_from_cpu(self, model):
         if (raw_data_cpu := getattr(model, "_raw_data", None)) is None:
             # Fit with precomputed metric
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Models fit with a precomputed metric are not supported")
 
         if not isinstance(raw_data_cpu, np.ndarray):
             # Sparse input
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         raw_data = to_gpu(raw_data_cpu, order="C", dtype="float32")
         labels = to_gpu(model.labels_, order="C", dtype="int32")
