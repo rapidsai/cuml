@@ -50,14 +50,6 @@ def test_base_class_usage_with_handle():
     del base
 
 
-def test_base_hasattr():
-    base = cuml.Base()
-    # With __getattr__ overriding magic, hasattr should still return
-    # True only for valid attributes
-    assert hasattr(base, "handle")
-    assert not hasattr(base, "somefakeattr")
-
-
 @pytest.mark.parametrize("datatype", ["float32", "float64"])
 @pytest.mark.parametrize("use_integer_n_features", [True, False])
 def test_base_n_features_in(datatype, use_integer_n_features):

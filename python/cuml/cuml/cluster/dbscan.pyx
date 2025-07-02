@@ -250,13 +250,11 @@ class DBSCAN(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if callable(model.metric):
-            raise UnsupportedOnGPU
-        elif model.metric not in _SUPPORTED_METRICS:
-            raise UnsupportedOnGPU
+        if callable(model.metric) or model.metric not in _SUPPORTED_METRICS:
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if model.algorithm not in ("auto", "brute"):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`algorithm={model.algorithm!r}` is not supported")
 
         return {
             "eps": model.eps,

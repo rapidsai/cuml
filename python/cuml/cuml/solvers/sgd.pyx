@@ -287,8 +287,6 @@ class SGD(Base,
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.intercept_value = 0.0
-        self.coef_ = None
-        self.intercept_ = None
 
     def _check_alpha(self, alpha):
         for el in alpha:

@@ -175,6 +175,8 @@ class LogisticRegression(
         The estimated coefficients for the logistic regression model.
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
+    n_iter_: array, shape (1,)
+        The number of iterations taken for the solvers to converge.
 
     Notes
     -----
@@ -237,6 +239,7 @@ class LogisticRegression(
             "classes_": model.classes_,
             "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -245,6 +248,7 @@ class LogisticRegression(
             "classes_": self.classes_,
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -428,6 +432,8 @@ class LogisticRegression(
         self.solver_model.fit(
             X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
         )
+
+        self.n_iter_ = np.asarray([self.solver_model.num_iters])
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_enum.debug):

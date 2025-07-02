@@ -18,7 +18,8 @@ import functools
 from typing import Any
 
 import sklearn
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
+from sklearn.utils._set_output import _wrap_data_with_container
 
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
@@ -228,7 +229,7 @@ class ProxyBase(BaseEstimator):
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             # Sparse inputs not supported
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
         # falling back to the GPU class method if one exists.
@@ -236,13 +237,24 @@ class ProxyBase(BaseEstimator):
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 # Method is not implemented in cuml
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
+
+        if method in ("transform", "fit_transform"):
+            # Ensure transform result is properly wrapped for `set_output`
+            out = _wrap_data_with_container("transform", out, args[0], self)
+
         return self if out is self._gpu else out
 
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
+
+        if method.startswith("set_") and method.endswith("_request"):
+            # This is a metadata request setter (like `set_{method}_request`),
+            # always dispatch directly to CPU.
+            getattr(self._cpu, method)(*args, **kwargs)
+            return self
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
@@ -278,6 +290,40 @@ class ProxyBase(BaseEstimator):
         self._sync_attrs_to_cpu()
         out = getattr(self._cpu, method)(*args, **kwargs)
         return self if out is self._cpu else out
+
+    ############################################################
+    # set_output handling                                      #
+    ############################################################
+
+    def _gpu_set_output(self, *, transform=None):
+        # `set_output` can always call the CPU model (where the output config state
+        # is stored). It's defined as a `_gpu_*` method so it only shows up on the
+        # proxy for models that define `set_output`, and can avoid unnecessary calls
+        # to sync fit attributes to CPU
+        self._cpu.set_output(transform=transform)
+        return self._gpu
+
+    def _gpu_get_feature_names_out(self, input_features=None):
+        # In the common case `get_feature_names_out` doesn't require fitted attributes
+        # on the CPU. Here we detect and special case a common mixin, falling back to
+        # CPU when necessary. This helps avoid unnecessary device -> host transfers.
+        cpu_method = self._cpu_class.get_feature_names_out
+        if cpu_method is ClassNamePrefixFeaturesOutMixin.get_feature_names_out:
+            # Can run cpu method directly on GPU instance, it only references `_n_features_out`
+            return cpu_method(self._gpu, input_features=input_features)
+
+        # Fallback to CPU
+        raise UnsupportedOnGPU
+
+    @property
+    def _sklearn_output_config(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_output_config
+
+    @property
+    def _sklearn_auto_wrap_output_keys(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
     # Standard magic methods                                   #
@@ -368,6 +414,27 @@ class ProxyBase(BaseEstimator):
         out._gpu = None
         out._synced = False
         return out
+
+    ############################################################
+    # Metadata Routing Methods                                 #
+    ############################################################
+
+    @functools.wraps(BaseEstimator.get_metadata_routing)
+    def get_metadata_routing(self):
+        return self._cpu.get_metadata_routing()
+
+    @functools.wraps(BaseEstimator._get_metadata_request)
+    def _get_metadata_request(self):
+        return self._cpu._get_metadata_request()
+
+    @classmethod
+    @functools.wraps(BaseEstimator._get_default_requests)
+    def _get_default_requests(cls):
+        return cls._cpu_class._get_default_requests()
+
+    @property
+    def _metadata_request(self):
+        return self._cpu._metadata_request
 
     ############################################################
     # Methods on BaseEstimator used internally by sklearn      #

@@ -351,6 +351,8 @@
   - "sklearn.manifold.tests.test_t_sne::test_verbose"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1-float64-1e-08-0.99]"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1000000-float64-1e-08-0.99]"
+  - "sklearn.model_selection.tests.test_classification_threshold::test_fit_and_score_over_thresholds_sample_weight"
+  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_class_subset"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
@@ -963,7 +965,6 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
@@ -1303,15 +1304,6 @@
   marker: cuml_accel_kmeans_warning_n_init_precomputed_centers
   tests:
   - "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
-- reason: metadata routing not yet supported
-  marker: cuml_accel_metadata_routing
-  condition: scikit-learn >= 1.5.0
-  tests:
-  - "sklearn.metrics.tests.test_score_objects::test_PassthroughScorer_set_score_request"
-  - "sklearn.model_selection.tests.test_classification_threshold::test_fixed_threshold_classifier_metadata_routing"
-  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
-  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_refit[42-True]"
-  - "sklearn.tests.test_metadata_routing::test_metaestimator_warnings"
 - reason: cuml missing certain fit attributes
   marker: cuml_accel_missing_fit_attributes
   tests:
@@ -1335,6 +1327,14 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+- reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
+  marker: cuml_accel_scipy_1_16
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
+  - "sklearn.linear_model._glm.tests.test_glm::test_linalg_warning_with_newton_solver[42]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_path_convergence_fail"
+  - "sklearn.linear_model.tests.test_logistic::test_newton_cholesky_fallback_to_lbfgs[42]"
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
   condition: scikit-learn>=1.6

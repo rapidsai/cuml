@@ -390,24 +390,21 @@ class UMAP(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if not (isinstance(model.init, str) and model.init in ("spectral", "random")):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
-        if isinstance(model.metric, str):
-            try:
-                coerce_metric(model.metric)
-            except (ValueError, NotImplementedError):
-                raise UnsupportedOnGPU
-        else:
-            raise UnsupportedOnGPU
+        try:
+            coerce_metric(model.metric)
+        except (ValueError, TypeError, NotImplementedError):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if model.target_metric not in ("categorical", "l2", "euclidean"):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`target_metric={model.target_metric!r}` is not supported")
 
         if model.unique:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`unique=True` is not supported")
 
         if model.densmap:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`densmap=True` is not supported")
 
         precomputed_knn = model.precomputed_knn[:2]
         if all(item is None for item in precomputed_knn):
