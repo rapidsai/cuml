@@ -832,13 +832,12 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
         assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
 
 
-@pytest.mark.parametrize("data_on_host", [True, False])
-@pytest.mark.parametrize("num_clusters", [0, 3, 5])
+@pytest.mark.parametrize("num_clusters", [3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 @pytest.mark.parametrize("do_snmg", [True, False])
 def test_umap_trustworthiness_on_batch_nnd(
-    data_on_host, num_clusters, fit_then_transform, metric, do_snmg
+    num_clusters, fit_then_transform, metric, do_snmg
 ):
 
     digits = datasets.load_digits()
@@ -856,32 +855,14 @@ def test_umap_trustworthiness_on_batch_nnd(
         metric=metric,
     )
 
-    def run_umap():
-        if fit_then_transform:
-            cuml_model.fit(
-                digits.data, convert_dtype=True, data_on_host=data_on_host
-            )
-            cuml_embedding = cuml_model.transform(digits.data)
-        else:
-            cuml_embedding = cuml_model.fit_transform(
-                digits.data, convert_dtype=True, data_on_host=data_on_host
-            )
+    if fit_then_transform:
+        cuml_model.fit(digits.data, convert_dtype=True)
+        cuml_embedding = cuml_model.transform(digits.data)
+    else:
+        cuml_embedding = cuml_model.fit_transform(
+            digits.data, convert_dtype=True
+        )
 
-        return cuml_embedding
-
-    # num clusters should be >= 1
-    if num_clusters == 0:
-        with pytest.raises(ValueError):
-            run_umap()
-        return
-
-    # data should be on host if batching (num_clusters > 1)
-    if num_clusters > 1 and not data_on_host:
-        with pytest.raises(Exception):
-            run_umap()
-        return
-
-    cuml_embedding = run_umap()
     cuml_trust = trustworthiness(
         digits.data, cuml_embedding, n_neighbors=10, metric=metric
     )

@@ -760,7 +760,7 @@ class UMAP(Base,
 
         # Set build_algo based on n_rows
         if self.build_algo == "auto":
-            if len(X) <= 50000 or self.sparse_fit:
+            if X.shape[0] <= 50000 or self.sparse_fit:
                 # brute force is faster for small datasets
                 logger.info("Building knn graph using brute force (configured from build_algo == 'auto')")
                 self.build_algo = "brute_force_knn"
