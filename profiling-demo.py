@@ -21,7 +21,8 @@ Simple demo to test cuML's acceleration profiling capabilities.
 import sys
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
-
+from sklearn.cluster import KMeans
+import numpy as np
 
 def main():
     # Generate synthetic data
@@ -65,6 +66,13 @@ def main():
     print("\nTrying to change parameters after CPU fallback...", file=sys.stderr)
     estimator.alpha = 1.5
     estimator.fit(X, y_2d)
+
+    # Try to initialize estimator with unsupported parameters
+    estimator = KMeans(init=lambda X, n_clusters, random_state: np.random.rand(n_clusters, X.shape[1]))
+    estimator.fit(X)
+    estimator.predict(X)
+
+
 
 
 if __name__ == "__main__":
