@@ -16,6 +16,7 @@
 import cupy as cp
 import hdbscan
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn import datasets
 from sklearn.datasets import make_blobs
@@ -1187,3 +1188,78 @@ def test_prediction_functions_cluster_namespace_deprecated():
     # Unknown attribute errors
     with pytest.raises(AttributeError, match="not_a_real_attr"):
         cuml.cluster.not_a_real_attr
+
+
+def test_all_points_membership_vectors_output_type():
+    X, y = make_blobs(random_state=42)
+    X_df = pd.DataFrame(X, index=[f"row{i}" for i in range(X.shape[0])])
+
+    model = HDBSCAN(prediction_data=True).fit(X_df, y)
+
+    # The model input_type is used if `output_type="input"`
+    out = all_points_membership_vectors(model)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.index == X_df.index).all()
+
+    # The model output_type takes precedence over model input_type
+    model.output_type = "numpy"
+    out = all_points_membership_vectors(model)
+    assert isinstance(out, np.ndarray)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = all_points_membership_vectors(model)
+    assert isinstance(out, cp.ndarray)
+
+
+def test_membership_vector_output_type():
+    X, y = make_blobs(random_state=42)
+    model = HDBSCAN(prediction_data=True).fit(X, y)
+
+    X2 = X[:10]
+    X2_df = pd.DataFrame(X2, index=[f"row{i}" for i in range(X2.shape[0])])
+
+    # The function input_type is used if `output_type="input"`
+    out = membership_vector(model, X2_df)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.index == X2_df.index).all()
+
+    out = membership_vector(model, X2)
+    assert isinstance(out, np.ndarray)
+
+    # The model output_type takes precedence over function input_type
+    model.output_type = "pandas"
+    out = membership_vector(model, X2)
+    assert isinstance(out, pd.DataFrame)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = membership_vector(model, X2_df)
+    assert isinstance(out, cp.ndarray)
+
+
+def test_approximate_predict_output_type():
+    X, y = make_blobs(random_state=42)
+    model = HDBSCAN(prediction_data=True).fit(X, y)
+
+    X2 = X[:10]
+    X2_df = pd.DataFrame(X2, index=[f"row{i}" for i in range(X2.shape[0])])
+
+    # The function input_type is used if `output_type="input"`
+    out = approximate_predict(model, X2_df)
+    for val in out:
+        assert isinstance(val, pd.Series)
+        assert (val.index == X2_df.index).all()
+
+    out = approximate_predict(model, X2)
+    assert all(isinstance(val, np.ndarray) for val in out)
+
+    # The model output_type takes precedence over function input_type
+    model.output_type = "pandas"
+    out = approximate_predict(model, X2)
+    assert all(isinstance(val, pd.Series) for val in out)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = approximate_predict(model, X2_df)
+    assert all(isinstance(val, cp.ndarray) for val in out)
