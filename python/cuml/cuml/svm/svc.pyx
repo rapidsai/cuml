@@ -341,9 +341,7 @@ class SVC(SVMBase,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.probability:
-            raise UnsupportedOnGPU(
-                "SVC with probability=True is not currently supported"
-            )
+            raise UnsupportedOnGPU("`probability=True` is not supported")
         params = super()._params_from_cpu(model)
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -358,9 +356,7 @@ class SVC(SVMBase,
 
     def _params_to_cpu(self):
         if self.probability:
-            raise UnsupportedOnCPU(
-                "SVC with probability=True is not currently supported"
-            )
+            raise UnsupportedOnCPU("`probability=True` is not supported")
 
         params = super()._params_to_cpu()
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
@@ -377,9 +373,7 @@ class SVC(SVMBase,
     def _attrs_from_cpu(self, model):
         n_classes = len(model.classes_)
         if n_classes > 2:
-            raise UnsupportedOnGPU(
-                "Converting multiclass models to GPU is not yet supported"
-            )
+            raise UnsupportedOnGPU("multiclass models are not supported")
 
         return {
             "n_classes_": n_classes,

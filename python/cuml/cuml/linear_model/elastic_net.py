@@ -169,13 +169,13 @@ class ElasticNet(
     @classmethod
     def _params_from_cpu(cls, model):
         if model.positive:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`positive=True` is not supported")
 
         if model.warm_start:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
         if model.precompute is not False:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`precompute` is not supported")
 
         # We use different algorithms than sklearn, adjust tolerance by a
         # factor empirically determined to be ~equivalent.

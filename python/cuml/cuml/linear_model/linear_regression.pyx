@@ -279,7 +279,7 @@ class LinearRegression(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.positive:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`positive=True` is not supported")
 
         return {
             "fit_intercept": model.fit_intercept,
