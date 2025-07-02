@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,10 +64,10 @@ void ridgeSolve(const raft::handle_t& handle,
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  raft::matrix::matrixVectorBinaryDivSkipZero(
-    S, S_nnz, size_t(1), UDesc.N, false, true, streams[0], true);
+  raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+    S, S_nnz, size_t(1), UDesc.N, streams[0], true);
 
-  raft::matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true, streams[0]);
+  raft::matrix::matrixVectorBinaryMult<false, true>(V, S, UDesc.N, UDesc.N, streams[0]);
 
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
