@@ -1,5 +1,5 @@
 Understanding Acceleration and Fallbacks with Logging
-====================================================
+=====================================================
 
 ``cuml.accel`` provides comprehensive logging to help you understand which
 operations are being accelerated on GPU and which are falling back to CPU
@@ -8,7 +8,8 @@ or understanding why certain operations might not be accelerated.
 
 To enable logging, you can set the logging level in several ways:
 
-**Command Line Interface (CLI):**
+Command Line Interface (CLI)
+----------------------------
 
 When running scripts with ``cuml.accel``, you can use the ``-v`` or ``--verbose`` flag:
 
@@ -23,7 +24,8 @@ When running scripts with ``cuml.accel``, you can use the ``-v`` or ``--verbose`
    # Show debug level logs (most verbose)
    python -m cuml.accel -vv myscript.py
 
-**Programmatic Installation:**
+Programmatic Installation
+-------------------------
 
 When using the programmatic installation method, you can set the log level directly:
 
@@ -41,7 +43,8 @@ When using the programmatic installation method, you can set the log level direc
    # Install with warning logging (default)
    install(log_level=logger.level_enum.warn)
 
-**Jupyter Notebooks:**
+Jupyter Notebooks
+-----------------
 
 Since the magic command doesn't accept arguments, use the programmatic installation:
 
@@ -77,7 +80,8 @@ Examples for log messages you might see:
    - ``[cuml.accel] Unable to accelerate 'Ridge.predict()' call: Sparse inputs are not supported``
    - ``[cuml.accel] Executing 'Ridge.predict()' on CPU``
 
-**Programmatic Example:**
+Example
+-------
 
 .. code-block:: python
 
