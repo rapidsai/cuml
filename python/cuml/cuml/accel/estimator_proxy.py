@@ -300,13 +300,13 @@ class ProxyBase(BaseEstimator):
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
+        # Get estimator name for logging
+        estimator_name = self._cpu_class.__qualname__
+
         if is_fit:
             # Attempt to call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
             self._validate_params()
-
-            # Get estimator name for logging
-            estimator_name = self._cpu_class.__qualname__
 
             # Attempt to create a new GPU estimator with the current hyperparameters.
             try:
@@ -353,7 +353,6 @@ class ProxyBase(BaseEstimator):
                     self._gpu = None
 
         # Failed to run on GPU, fallback to CPU
-        estimator_name = self._cpu_class.__qualname__
         method_call = f"{estimator_name}.{method}()"
 
         # Log general CPU execution (is not necessarily a fallback)
