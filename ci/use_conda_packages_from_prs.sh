@@ -3,6 +3,7 @@
 
 # download CI artifacts
 LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1976 cpp)
+LIBCUVS_CHANNEL=$(rapids-get-pr-conda-artifact cuvs 1083 cpp)
 
 # For `rattler` builds:
 #
@@ -11,6 +12,7 @@ LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1976 cpp)
 # the locally-downloaded packages will be preferred to remote packages (e.g. nightlies).
 #
 RAPIDS_PREPENDED_CONDA_CHANNELS=(
+    "${LIBCUVS_CHANNEL}"
     "${LIBRMM_CHANNEL}"
 )
 export RAPIDS_PREPENDED_CONDA_CHANNELS
