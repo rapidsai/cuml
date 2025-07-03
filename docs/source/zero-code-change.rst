@@ -249,22 +249,8 @@ accelerated on GPU and which fall back to CPU execution.
 
 * **CLI**: Use the ``-v`` flag for info level or ``-vv`` for debug level:
   ``python -m cuml.accel -v myscript.py``
-* **Programmatic**: Use the ``install()`` function with a log level:
-  ``install(log_level=logger.level_enum.info)``
-
-**What you'll see:**
-
-* **Successful acceleration**: Messages like ``[cuml.accel] Successfully accelerated 'Ridge.fit()' call``
-* **GPU initialization**: ``[cuml.accel] Initialized estimator 'Ridge' for GPU acceleration``
-* **CPU fallbacks**: Messages explaining why operations couldn't be accelerated
-
-**Common reasons for CPU fallbacks:**
-
-* **Unsupported estimators**: The estimator type isn't implemented in cuML yet
-* **Unsupported parameters**: Certain hyperparameter combinations aren't supported on GPU
-* **Sparse inputs**: Many cuML estimators don't support sparse matrices
-* **Multi-output targets**: Some estimators don't support multi-dimensional target variables
-* **Unsupported methods**: Specific methods might not be implemented in the GPU version
+* **Programmatic**: Use the ``cuml.accel.install()`` function with a log level:
+  ``install(log_level="info")``
 
 For detailed information about logging and troubleshooting, see
-`Understanding Acceleration and Fallbacks with Logging <zero-code-change-logging.rst>`_.
+:doc:`zero-code-change-logging`.
