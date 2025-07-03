@@ -21,6 +21,7 @@ import sklearn
 from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
 from sklearn.utils._set_output import _wrap_data_with_container
 
+from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
 
@@ -187,7 +188,15 @@ class ProxyBase(BaseEstimator):
             try:
                 params = self._gpu_class._params_from_cpu(self._cpu)
                 self._gpu.set_params(**params)
-            except UnsupportedOnGPU:
+                logger.debug(
+                    f"`{self._cpu_class.__name__}` parameters synced to GPU"
+                )
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Hyperparameters not supported"
+                logger.info(
+                    f"`{self._cpu_class.__name__}` parameters failed to sync to GPU, "
+                    f"falling back to CPU: {reason}"
+                )
                 self._sync_attrs_to_cpu()
                 self._gpu = None
 
@@ -199,6 +208,9 @@ class ProxyBase(BaseEstimator):
         if self._gpu is not None and not self._synced:
             self._gpu._sync_attrs_to_cpu(self._cpu)
             self._synced = True
+            logger.debug(
+                f"`{self._cpu_class.__name__}` fitted attributes synced to CPU"
+            )
 
     @classmethod
     def _reconstruct_from_cpu(cls, cpu):
@@ -228,7 +240,6 @@ class ProxyBase(BaseEstimator):
         from cuml.common.sparse_utils import is_sparse
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
-            # Sparse inputs not supported
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
@@ -236,10 +247,10 @@ class ProxyBase(BaseEstimator):
         gpu_func = getattr(self, f"_gpu_{method}", None)
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
-                # Method is not implemented in cuml
                 raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
+        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on GPU")
 
         if method in ("transform", "fit_transform"):
             # Ensure transform result is properly wrapped for `set_output`
@@ -258,6 +269,7 @@ class ProxyBase(BaseEstimator):
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
+        reason = None
         if is_fit:
             # Attempt to call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
@@ -268,8 +280,9 @@ class ProxyBase(BaseEstimator):
                 self._gpu = self._gpu_class(
                     **self._gpu_class._params_from_cpu(self._cpu)
                 )
-            except UnsupportedOnGPU:
+            except UnsupportedOnGPU as exc:
                 # Unsupported, fallback to CPU
+                reason = str(exc) or "Hyperparameters not supported"
                 self._gpu = None
             else:
                 # New estimator successfully initialized on GPU, reset on CPU
@@ -280,15 +293,22 @@ class ProxyBase(BaseEstimator):
             # The hyperparameters are supported, try calling the method
             try:
                 return self._call_gpu_method(method, *args, **kwargs)
-            except UnsupportedOnGPU:
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Method parameters not supported"
                 # Unsupported. If it's a `fit` we need to clear
                 # the GPU state before falling back to CPU.
                 if is_fit:
                     self._gpu = None
 
+        if reason is not None:
+            logger.info(
+                f"`{self._cpu_class.__name__}.{method}` falling back to CPU: {reason}"
+            )
+
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
         out = getattr(self._cpu, method)(*args, **kwargs)
+        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on CPU")
         return self if out is self._cpu else out
 
     ############################################################
