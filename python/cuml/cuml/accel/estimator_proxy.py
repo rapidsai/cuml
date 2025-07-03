@@ -192,7 +192,7 @@ class ProxyBase(BaseEstimator):
                     f"`{self._cpu_class.__name__}` parameters synced to GPU"
                 )
             except UnsupportedOnGPU as exc:
-                reason = str(exc) or "Hyper-parameters not supported"
+                reason = str(exc) or "Hyperparameters not supported"
                 logger.info(
                     f"`{self._cpu_class.__name__}` parameters failed to sync to GPU, "
                     f"falling back to CPU: {reason}"
@@ -282,7 +282,7 @@ class ProxyBase(BaseEstimator):
                 )
             except UnsupportedOnGPU as exc:
                 # Unsupported, fallback to CPU
-                reason = str(exc) or "Hyper-parameters not supported"
+                reason = str(exc) or "Hyperparameters not supported"
                 self._gpu = None
             else:
                 # New estimator successfully initialized on GPU, reset on CPU
