@@ -43,6 +43,7 @@ time.**
 
    zero-code-change-limitations.rst
    zero-code-change-benchmarks.rst
+   zero-code-change-logging.rst
    zero_code_change_examples/plot_kmeans_digits.ipynb
 
 
@@ -237,3 +238,19 @@ sklearn/umap-learn/hdbscan counterpart.
 
 Note that the same serialized model may also be loaded with ``cuml.accel``
 active, in which case they'll be accelerated ``cuml.accel`` backed models.
+
+11. How can I tell which parts of my code are being accelerated and why some operations might not be?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``cuml.accel`` provides comprehensive logging that shows you exactly what's happening
+with your code. You can enable logging to see which operations are successfully
+accelerated on GPU and which fall back to CPU execution.
+
+**To enable logging:**
+
+* **CLI**: Use the ``-v`` flag for info level or ``-vv`` for debug level:
+  ``python -m cuml.accel -v myscript.py``
+* **Programmatic**: Use the ``cuml.accel.install()`` function with a log level:
+  ``install(log_level="info")``
+
+For detailed information about logging and troubleshooting, see
+:doc:`zero-code-change-logging`.
