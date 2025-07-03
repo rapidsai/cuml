@@ -115,7 +115,6 @@ files:
       - depends_on_cuda_python
       - depends_on_libcuml
       - depends_on_libcumlprims
-      - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_pylibraft
@@ -161,7 +160,6 @@ files:
       key: requires
     includes:
       - common_build
-      - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_rapids_logger
@@ -172,7 +170,6 @@ files:
       table: project
     includes:
       - cuda_wheels
-      - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_rapids_logger
 channels:
