@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,8 +69,8 @@ void preProcessData_impl(raft::handle_t& handle,
       Matrix::Data<T> norm2_input_data{norm2_input, size_t(input_desc.N)};
       LinAlg::opg::colNorm2(handle, norm2_input_data, input_data, input_desc, streams, n_streams);
 
-      Matrix::opg::matrixVectorBinaryDivSkipZero(
-        input_data, input_desc, norm2_input_data, false, true, true, comm, streams, n_streams);
+      Matrix::opg::matrixVectorBinaryDivSkipZero<false, true>(
+        input_data, input_desc, norm2_input_data, true, comm, streams, n_streams);
     }
   }
 }
@@ -99,10 +99,10 @@ void postProcessData_impl(raft::handle_t& handle,
 
   if (normalize) {
     Matrix::Data<T> norm2_input_data{norm2_input, input_desc.N};
-    Matrix::opg::matrixVectorBinaryMult(
-      input_data, input_desc, norm2_input_data, false, true, comm, streams, n_streams);
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      coef, norm2_input, size_t(1), input_desc.N, false, true, streams[0], true);
+    Matrix::opg::matrixVectorBinaryMult<false, true>(
+      input_data, input_desc, norm2_input_data, comm, streams, n_streams);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+      coef, norm2_input, size_t(1), input_desc.N, streams[0], true);
   }
 
   raft::linalg::gemm(handle,

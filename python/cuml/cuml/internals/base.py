@@ -376,7 +376,7 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
     def _set_output_mem_type(self, inp):
         self._input_mem_type = determine_array_memtype(inp)
 
-    def _get_output_type(self, inp):
+    def _get_output_type(self, inp=None):
         """
         Method to be called by predict/transform methods of inheriting classes.
         Returns the appropriate output type depending on the type of the input,
@@ -390,9 +390,14 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         if output_type is None or output_type == "mirror":
             output_type = self.output_type
 
-        # If we are input, get the type from the input
+        # If we are input, get the type from the input (if available)
         if output_type == "input":
-            output_type = determine_array_type(inp)
+            if inp is None:
+                # No input value provided, use the estimator input type
+                output_type = self._input_type
+            else:
+                # Determine the output from the input
+                output_type = determine_array_type(inp)
 
         return output_type
 
