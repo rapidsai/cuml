@@ -1,5 +1,5 @@
-Understanding Acceleration and Fallbacks with Logging
-=====================================================
+Logging and Debugging
+=====================
 
 ``cuml.accel`` provides comprehensive logging to help you understand which
 operations are being accelerated on GPU and which are falling back to CPU
@@ -31,17 +31,16 @@ When using the programmatic installation method, you can set the log level direc
 
 .. code-block:: python
 
-   from cuml.accel import install
    from cuml.internals import logger
 
    # Install with debug logging
-   install(log_level=logger.level_enum.debug)
+   install(log_level="debug")
 
    # Install with info logging
-   install(log_level=logger.level_enum.info)
+   install(log_level="info")
 
    # Install with warning logging (default)
-   install(log_level=logger.level_enum.warn)
+   install(log_level="warn")
 
 Jupyter Notebooks
 -----------------
@@ -51,34 +50,16 @@ Since the magic command doesn't accept arguments, use the programmatic installat
 .. code-block::
 
    from cuml.accel import install
-   from cuml.internals import logger
 
    # Install with desired log level before other imports
-   install(log_level=logger.level_enum.debug)
+   install(log_level="debug")
 
 The logging system provides different levels of detail:
 
-* **WARN level**: Shows only warnings about failed accelerations and fallbacks
-* **INFO level**: Shows successful accelerations and important fallbacks
-* **DEBUG level**: Shows detailed information about GPU initialization,
+* **WARN level**: Shows only warnings and errors, the default level
+* **INFO level**: Shows information on where dispatched methods ran (GPU or CPU) and why
+* **DEBUG level**: Shows more detailed information about GPU initialization,
   parameter synchronization, attribute synchronization, and all method calls
-
-Examples for log messages you might see:
-
-**Successful GPU Acceleration:**
-   - ``[cuml.accel] Initialized estimator 'Ridge' for GPU acceleration``
-   - ``[cuml.accel] Successfully accelerated 'Ridge.fit()' call``
-   - ``[cuml.accel] Successfully accelerated 'Ridge.predict()' call``
-
-**Parameter and Attribute Synchronization:**
-   - ``[cuml.accel] Synced parameters from CPU to GPU for 'Ridge'``
-   - ``[cuml.accel] Synced fit attributes from GPU to CPU for 'Ridge'``
-
-**Fallbacks to CPU:**
-   - ``[cuml.accel] Failed to initialize 'KMeans' with GPU acceleration``
-   - ``[cuml.accel] Failed to accelerate 'Ridge.fit()': Multioutput `y` is not supported - falling back to CPU``
-   - ``[cuml.accel] Unable to accelerate 'Ridge.predict()' call: Sparse inputs are not supported``
-   - ``[cuml.accel] Executing 'Ridge.predict()' on CPU``
 
 Example
 -------
@@ -86,26 +67,31 @@ Example
 .. code-block:: python
 
    from sklearn.linear_model import Ridge
-   import numpy as np
+   from sklearn.datasets import make_regression
 
-   # Create and fit a Ridge estimator
+   X, y = make_regression()
+
+   # Fit and predict on GPU
    ridge = Ridge(alpha=1.0)
-   X = np.random.randn(100, 10)
-   y = np.random.randn(100)
-
-   # This will show initialization and successful acceleration logs
    ridge.fit(X, y)
+   ridge.predict(X)
 
-   # This will show successful prediction acceleration
-   predictions = ridge.predict(X)
+   # Retry, using a hyperparameter that isn't supported on GPU
+   ridge = Ridge(positive=True)
+   ridge.fit(X, y)
+   ridge.predict(X)
 
-Executing this with `python -m cuml.accel -v my_ml_script.py` will show the following output:
+
+Executing this with ``python -m cuml.accel -v script.py`` will show the following output:
 
 .. code-block:: console
 
-   [cuml.accel] Initialized estimator 'Ridge' for GPU acceleration
-   [cuml.accel] Successfully accelerated 'Ridge.fit()' call
-   [cuml.accel] Successfully accelerated 'Ridge.predict()' call
+   [cuml.accel] Accelerator installed.
+   [cuml.accel] `Ridge.fit` ran on GPU
+   [cuml.accel] `Ridge.predict` ran on GPU
+   [cuml.accel] `Ridge.fit` falling back to CPU: `positive=True` is not supported
+   [cuml.accel] `Ridge.fit` ran on CPU
+   [cuml.accel] `Ridge.predict` ran on CPU
 
 This logging information can help you:
 
