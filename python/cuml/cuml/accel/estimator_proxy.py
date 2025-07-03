@@ -229,7 +229,7 @@ class ProxyBase(BaseEstimator):
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             # Sparse inputs not supported
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
         # falling back to the GPU class method if one exists.
@@ -237,7 +237,7 @@ class ProxyBase(BaseEstimator):
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 # Method is not implemented in cuml
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
 
@@ -249,6 +249,12 @@ class ProxyBase(BaseEstimator):
 
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
+
+        if method.startswith("set_") and method.endswith("_request"):
+            # This is a metadata request setter (like `set_{method}_request`),
+            # always dispatch directly to CPU.
+            getattr(self._cpu, method)(*args, **kwargs)
+            return self
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
@@ -408,6 +414,27 @@ class ProxyBase(BaseEstimator):
         out._gpu = None
         out._synced = False
         return out
+
+    ############################################################
+    # Metadata Routing Methods                                 #
+    ############################################################
+
+    @functools.wraps(BaseEstimator.get_metadata_routing)
+    def get_metadata_routing(self):
+        return self._cpu.get_metadata_routing()
+
+    @functools.wraps(BaseEstimator._get_metadata_request)
+    def _get_metadata_request(self):
+        return self._cpu._get_metadata_request()
+
+    @classmethod
+    @functools.wraps(BaseEstimator._get_default_requests)
+    def _get_default_requests(cls):
+        return cls._cpu_class._get_default_requests()
+
+    @property
+    def _metadata_request(self):
+        return self._cpu._metadata_request
 
     ############################################################
     # Methods on BaseEstimator used internally by sklearn      #
