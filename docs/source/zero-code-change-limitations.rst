@@ -1,9 +1,10 @@
 Limitations
 ===========
 
-``cuml.accel`` is currently a beta feature. As such, it has a number of known
-limitations and bugs. The team is working to address these, and expect the
-number of limitations to reduce with every release.
+The ``cuml.accel`` zero code change accelerator is currently a beta feature. As
+such, it has a number of known limitations and bugs. The team is working to
+address these, and expect the number of limitations to reduce with every
+release.
 
 These limitations fall into a few categories:
 
@@ -14,11 +15,11 @@ These limitations fall into a few categories:
   any faster than they would under ``sklearn``. If you don't see an estimator on
   listed on this page, we do not provide acceleration for it.
 
-- Estimators that are only partially accelerated. ``cuml.accel`` will fallback
+- Estimators that are only partially accelerated. ``cuml.accel`` will fall back
   to using the CPU implementations for some algorithms in the presence of
-  certain hyper-parameters or input types. These cases are documented below in
+  certain hyperparameters or input types. These cases are documented below in
   estimator-specific sections. See :doc:`zero-code-change-logging` for how to
-  enable logging to gain insight into when ``cuml.accel`` needs to fallback to
+  enable logging to gain insight into when ``cuml.accel`` needs to fall back to
   CPU.
 
 - Missing fitted attributes. ``cuml.accel`` does not currently generate the
@@ -42,6 +43,10 @@ run under ``cuml.accel``, please `open an issue`_.
 
 A few additional general notes:
 
+- Performance improvements will be most apparent when running on larger data.
+  On very small datasets you might see only a small speedup (or even
+  potentially a slowdown).
+
 - For most algorithms, ``y`` must already be converted to numeric values;
   arrays of strings are not supported. Pre-encode string labels into numerical
   or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
@@ -57,7 +62,7 @@ For notes on each algorithm, please refer to its specific section on this file.
 hdbscan
 -------
 
-``HDBSCAN`` will fallback to CPU in the following cases:
+``HDBSCAN`` will fall back to CPU in the following cases:
 
 - If ``metric`` is not ``"l2"`` or ``"euclidean"``.
 - If a ``memory`` location is configured.
@@ -92,7 +97,7 @@ can also visually inspect the resulting cluster assignments.
 KMeans
 ^^^^^^
 
-``KMeans`` will fallback to CPU in the following cases:
+``KMeans`` will fall back to CPU in the following cases:
 
 - If a callable ``init`` is provided.
 - If ``X`` is sparse.
@@ -100,7 +105,7 @@ KMeans
 DBSCAN
 ^^^^^^
 
-``DBSCAN`` will fallback to CPU in the following cases:
+``DBSCAN`` will fall back to CPU in the following cases:
 
 - If ``algorithm`` isn't ``"auto"`` or ``"brute"``.
 - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
@@ -142,7 +147,7 @@ following ``numpy`` function useful for this.
 PCA
 ^^^
 
-``PCA`` will fallback to CPU in the following cases:
+``PCA`` will fall back to CPU in the following cases:
 
 - If ``n_components="mle"``.
 
@@ -154,7 +159,7 @@ Additional notes:
 TruncatedSVD
 ^^^^^^^^^^^^
 
-``TruncatedSVD`` will fallback to CPU in the following cases:
+``TruncatedSVD`` will fall back to CPU in the following cases:
 
 - If ``X`` is sparse.
 
@@ -180,7 +185,7 @@ To compare results between estimators, we recommend comparing scores like
 RandomForestClassifier
 ^^^^^^^^^^^^^^^^^^^^^^
 
-``RandomForestClassifier`` will fallback to CPU in the following cases:
+``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
 - If ``oob_score=True``.
@@ -198,7 +203,7 @@ Additionally, the following fitted attributes are currently not computed:
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
 
-``RandomForestRegressor`` will fallback to CPU in the following cases:
+``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
 - If ``oob_score=True``.
@@ -220,7 +225,7 @@ sklearn.kernel_ridge
 KernelRidge
 ^^^^^^^^^^^
 
-``KernelRidge`` will fallback to CPU in the following cases:
+``KernelRidge`` will fall back to CPU in the following cases:
 
 - If ``X`` is sparse.
 
@@ -246,7 +251,7 @@ scores like ``sklearn.metrics.r2_score`` (for regression) or
 LinearRegression
 ^^^^^^^^^^^^^^^^
 
-``LinearRegression`` will fallback to CPU in the following cases:
+``LinearRegression`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
 - If ``X`` is sparse.
@@ -259,12 +264,12 @@ Additionally, the following fitted attributes are currently not computed:
 LogisticRegression
 ^^^^^^^^^^^^^^^^^^
 
-``LogisticRegression`` currently should never fallback to CPU.
+``LogisticRegression`` currently should never fall back to CPU.
 
 ElasticNet
 ^^^^^^^^^^
 
-``ElasticNet`` will fallback to CPU in the following cases:
+``ElasticNet`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
 - If ``warm_start=True``.
@@ -279,7 +284,7 @@ Additionally, the following fitted attributes are currently not computed:
 Ridge
 ^^^^^
 
-``Ridge`` will fallback to CPU in the following cases:
+``Ridge`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
 - If ``solver="lbfgs"``.
@@ -293,7 +298,7 @@ Additionally, the following fitted attributes are currently not computed:
 Lasso
 ^^^^^
 
-``Lasso`` will fallback to CPU in the following cases:
+``Lasso`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
 - If ``warm_start=True``.
@@ -312,7 +317,7 @@ sklearn.manifold
 TSNE
 ^^^^
 
-``TSNE`` will fallback to CPU in the following cases:
+``TSNE`` will fall back to CPU in the following cases:
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
@@ -327,9 +332,9 @@ Additional notes:
   isn't completely deterministic.
 
 While the exact numerical output for TSNE may differ from that obtained without
-``cuml.accel``, we expect the *quality* of results of results will be
-approximately as good in most cases. Beyond comparing the visual
-representation, you may find comparing the trustworthiness score (computed via
+``cuml.accel``, we expect the *quality* of results will be approximately as
+good in most cases. Beyond comparing the visual representation, you may find
+comparing the trustworthiness score (computed via
 ``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
 attribute useful.
 
@@ -340,7 +345,7 @@ sklearn.neighbors
 NearestNeighbors
 ^^^^^^^^^^^^^^^^
 
-``NearestNeighbors`` will fallback to CPU in the following cases:
+``NearestNeighbors`` will fall back to CPU in the following cases:
 
 - If ``metric`` is not one of the supported metrics ( ``"l2"``,
   ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
@@ -354,12 +359,12 @@ Additional notes:
   implementation in cuml will always be used.
 
 - The ``radius_neighbors`` method isn't implemented in cuml and will always
-  fallback to CPU.
+  fall back to CPU.
 
 KNeighborsClassifier
 ^^^^^^^^^^^^^^^^^^^^
 
-``KNeighborsClassifier`` will fallback to CPU in the following cases:
+``KNeighborsClassifier`` will fall back to CPU in the following cases:
 
 - If ``metric`` is not one of the supported metrics ( ``"l2"``,
   ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
@@ -376,7 +381,7 @@ Additional notes:
 KNeighborsRegressor
 ^^^^^^^^^^^^^^^^^^^
 
-``KNeighborsRegressor`` will fallback to CPU in the following cases:
+``KNeighborsRegressor`` will fall back to CPU in the following cases:
 
 - If ``metric`` is not one of the supported metrics ( ``"l2"``,
   ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
@@ -406,7 +411,7 @@ scores like ``sklearn.metrics.r2_score`` (for regression) or
 SVC
 ^^^
 
-``SVC`` will fallback to CPU in the following cases:
+``SVC`` will fall back to CPU in the following cases:
 
 - If ``probability=True``.
 - If ``kernel="precomputed"`` or is a callable.
@@ -421,7 +426,7 @@ Additionally, the following fitted attributes are currently not computed:
 SVR
 ^^^
 
-``SVR`` will fallback to CPU in the following cases:
+``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``X`` is sparse.
@@ -434,7 +439,7 @@ Additionally, the following fitted attributes are currently not computed:
 umap
 ----
 
-``UMAP`` will fallback to CPU in the following cases:
+``UMAP`` will fall back to CPU in the following cases:
 
 - If ``init`` is not ``"random"`` or ``"spectral"``.
 - If ``metric`` is not one of the supported metrics (``"l1"``, ``"cityblock"``,
@@ -455,10 +460,10 @@ Additional notes:
   which can lead to difference in the results between CPU and GPU in general.
 
 While the exact numerical output for UMAP may differ from that obtained without
-``cuml.accel``, we expect the *quality* of results of results will be
-approximately as good in most cases. Beyond comparing the visual
-representation, you may find comparing the trustworthiness score
-(computed via ``sklearn.manifold.trustworthiness``) useful.
+``cuml.accel``, we expect the *quality* of results will be approximately as
+good in most cases. Beyond comparing the visual representation, you may find
+comparing the trustworthiness score (computed via
+``sklearn.manifold.trustworthiness``) useful.
 
 
 .. _open an issue: https://github.com/rapidsai/cuml/issues
