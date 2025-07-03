@@ -21,7 +21,7 @@ import sklearn
 from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
 from sklearn.utils._set_output import _wrap_data_with_container
 
-from cuml.internals import logger
+from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
 
@@ -189,19 +189,13 @@ class ProxyBase(BaseEstimator):
                 params = self._gpu_class._params_from_cpu(self._cpu)
                 self._gpu.set_params(**params)
                 logger.debug(
-                    f"[cuml.accel] Synced parameters from CPU to GPU "
-                    f"for '{self._cpu_class.__qualname__}'"
+                    f"`{self._cpu_class.__name__}` parameters synced to GPU"
                 )
-            except UnsupportedOnGPU as e:
-                # Log the failure
-                estimator_name = self._cpu_class.__qualname__
-                exception_details = (
-                    str(e)
-                    or "specific input/parameter selection not supported on GPU"
-                )
-                logger.warn(
-                    f"[cuml.accel] Parameter synchronization failed for "
-                    f"'{estimator_name}': {exception_details} - falling back to CPU"
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Hyper-parameters not supported"
+                logger.info(
+                    f"`{self._cpu_class.__name__}` parameters failed to sync to GPU, "
+                    f"falling back to CPU: {reason}"
                 )
                 self._sync_attrs_to_cpu()
                 self._gpu = None
@@ -214,11 +208,8 @@ class ProxyBase(BaseEstimator):
         if self._gpu is not None and not self._synced:
             self._gpu._sync_attrs_to_cpu(self._cpu)
             self._synced = True
-            # Log successful attribute sync
-            estimator_name = self._cpu_class.__qualname__
             logger.debug(
-                f"[cuml.accel] Synced fit attributes from GPU to CPU "
-                f"for '{estimator_name}'"
+                f"`{self._cpu_class.__name__}` fitted attributes synced to CPU"
             )
 
     @classmethod
@@ -242,26 +233,13 @@ class ProxyBase(BaseEstimator):
         else:
             # Estimator is unfit, delay GPU init until needed
             self._gpu = None
-        logger.debug(
-            f"[cuml.accel] Reconstructed GPU estimator from CPU "
-            f"for '{self._cpu_class.__qualname__}'"
-        )
         return self
 
     def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the wrapped GPU estimator."""
         from cuml.common.sparse_utils import is_sparse
 
-        # Get estimator name for logging
-        estimator_name = self._cpu_class.__qualname__
-        method_call = f"{estimator_name}.{method}()"
-
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
-            # Sparse inputs not supported
-            logger.warn(
-                f"[cuml.accel] Unable to accelerate "
-                f"'{method_call}' call: Sparse inputs are not supported"
-            )
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
@@ -269,19 +247,10 @@ class ProxyBase(BaseEstimator):
         gpu_func = getattr(self, f"_gpu_{method}", None)
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
-                # Method is not implemented in cuml
-                logger.warn(
-                    f"[cuml.accel] Unable to accelerate "
-                    f"'{method_call}' call: Method is not implemented in cuml"
-                )
                 raise UnsupportedOnGPU("Method is not implemented in cuml")
 
-        # Log successful GPU acceleration
-        logger.info(
-            f"[cuml.accel] Successfully accelerated " f"'{method_call}' call"
-        )
-
         out = gpu_func(*args, **kwargs)
+        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on GPU")
 
         if method in ("transform", "fit_transform"):
             # Ensure transform result is properly wrapped for `set_output`
@@ -300,9 +269,7 @@ class ProxyBase(BaseEstimator):
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
-        # Get estimator name for logging
-        estimator_name = self._cpu_class.__qualname__
-
+        reason = None
         if is_fit:
             # Attempt to call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
@@ -313,23 +280,11 @@ class ProxyBase(BaseEstimator):
                 self._gpu = self._gpu_class(
                     **self._gpu_class._params_from_cpu(self._cpu)
                 )
-            except UnsupportedOnGPU as e:
+            except UnsupportedOnGPU as exc:
                 # Unsupported, fallback to CPU
-                exception_details = (
-                    str(e)
-                    or "specific input/parameter selection not supported on GPU"
-                )
-                logger.warn(
-                    f"[cuml.accel] Failed to initialize '{estimator_name}' with GPU acceleration: "
-                    f"{exception_details} - falling back to CPU"
-                )
+                reason = str(exc) or "Hyper-parameters not supported"
                 self._gpu = None
             else:
-                # Log successful GPU initialization
-                logger.debug(
-                    f"[cuml.accel] Initialized estimator '{estimator_name}' "
-                    f"for GPU acceleration"
-                )
                 # New estimator successfully initialized on GPU, reset on CPU
                 self._cpu = sklearn.clone(self._cpu)
                 self._synced = False
@@ -338,28 +293,22 @@ class ProxyBase(BaseEstimator):
             # The hyperparameters are supported, try calling the method
             try:
                 return self._call_gpu_method(method, *args, **kwargs)
-            except UnsupportedOnGPU as e:
-                # GPU call failed, log the reason for failure
-                exception_details = str(e) or "unknown error"
-                method_call = f"{estimator_name}.{method}()"
-                logger.warn(
-                    f"[cuml.accel] Failed to accelerate '{method_call}': "
-                    f"{exception_details} - falling back to CPU"
-                )
-
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Method parameters not supported"
                 # Unsupported. If it's a `fit` we need to clear
                 # the GPU state before falling back to CPU.
                 if is_fit:
                     self._gpu = None
 
+        if reason is not None:
+            logger.info(
+                f"`{self._cpu_class.__name__}.{method}` falling back to CPU: {reason}"
+            )
+
         # Failed to run on GPU, fallback to CPU
-        method_call = f"{estimator_name}.{method}()"
-
-        # Log general CPU execution (is not necessarily a fallback)
-        logger.debug(f"[cuml.accel] Executing '{method_call}' on CPU")
-
         self._sync_attrs_to_cpu()
         out = getattr(self._cpu, method)(*args, **kwargs)
+        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on CPU")
         return self if out is self._cpu else out
 
     ############################################################
