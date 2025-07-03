@@ -5,7 +5,7 @@ set -euo pipefail
 
 source rapids-init-pip
 
-source ./use_conda_packages_from_prs.sh
+source ./ci/use_conda_packages_from_prs.sh
 
 package_name="libcuml"
 package_dir="python/libcuml"

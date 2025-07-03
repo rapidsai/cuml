@@ -6,7 +6,7 @@ set -euo pipefail
 package_name=$1
 package_dir=$2
 
-source ./use_conda_packages_from_prs.sh
+source ./ci/use_conda_packages_from_prs.sh
 source rapids-configure-sccache
 source rapids-date-string
 source rapids-init-pip

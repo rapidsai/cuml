@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-source ./use_conda_packages_from_prs.sh
+source ./ci/use_conda_packages_from_prs.sh
 
 source rapids-configure-sccache
 

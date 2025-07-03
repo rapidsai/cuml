@@ -2,7 +2,7 @@
 # Copyright (c) 2023-2025, NVIDIA CORPORATION.
 set -euo pipefail
 
-source ./use_conda_packages_from_prs.sh
+source ./ci/use_conda_packages_from_prs.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
