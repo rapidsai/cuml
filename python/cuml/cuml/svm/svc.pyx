@@ -340,8 +340,6 @@ class SVC(SVMBase,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.probability:
-            raise UnsupportedOnGPU("`probability=True` is not supported")
         params = super()._params_from_cpu(model)
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -387,8 +385,15 @@ class SVC(SVMBase,
                 "Converting multiclass models from GPU is not yet supported"
             )
 
+        if not self.probability:
+            classes_ = self.classes_
+        else:
+            calibrator = self.prob_svc.calibrated_classifiers_[0]
+            estimator = calibrator.estimator
+            classes_ = estimator.classes_
+
         return {
-            "classes_": to_cpu(self.classes_).astype("int64"),
+            "classes_": to_cpu(classes_).astype("int64"),
             **super()._attrs_to_cpu(model),
         }
 

@@ -303,9 +303,22 @@ class SVMBase(Base,
         self._model = self._get_svm_model()
 
     def _attrs_to_cpu(self, model):
-        dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
-        support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
-        intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+        if not self.probability:      # predictions
+            dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
+            support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
+            intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+            n_rows, n_features_in_ = self.n_rows, self.n_features_in_
+            n_support_ = self.n_support_
+            support_ = self.support_
+        else:                         # probability
+            calibrator = self.prob_svc.calibrated_classifiers_[0]
+            estimator = calibrator.estimator
+            dual_coef_ = to_cpu(estimator.dual_coef_, order="C", dtype=np.float64)
+            support_vectors_ = to_cpu(estimator.support_vectors_, order="C", dtype=np.float64)
+            intercept_ = to_cpu(estimator.intercept_, order="C", dtype=np.float64)
+            n_rows, n_features_in_ = estimator.n_rows, estimator.n_features_in_
+            n_support_ = estimator.n_support_
+            support_ = estimator.support_
 
         if self._sparse:
             # sklearn stores dual_coef_ and support_vectors_ as sparse
@@ -314,7 +327,7 @@ class SVMBase(Base,
             dual_coef_ = scipy.sparse.csr_matrix(dual_coef_)
             support_vectors_ = scipy.sparse.csr_matrix(support_vectors_)
 
-        if hasattr(self, "classes_"):
+        if self.n_classes_ == 2:
             # sklearn's binary classification expects inverted
             # _dual_coef_ and _intercept_.
             _dual_coef_ = -dual_coef_
@@ -329,9 +342,9 @@ class SVMBase(Base,
             "fit_status_": 1,
             "intercept_": intercept_,
             "_intercept_": _intercept_,
-            "shape_fit_": (self.n_rows, self.n_features_in_),
-            "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
-            "support_": to_cpu(self.support_, order="C", dtype=np.int32),
+            "shape_fit_": (n_rows, n_features_in_),
+            "_n_support": np.array([n_support_, 0], dtype=np.int32),
+            "support_": to_cpu(support_, order="C", dtype=np.int32),
             "support_vectors_": support_vectors_,
             "_gamma": self._gamma,
             "_probA": np.empty(0),
