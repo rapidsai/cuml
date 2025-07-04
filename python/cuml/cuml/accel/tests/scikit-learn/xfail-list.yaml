@@ -923,6 +923,7 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-400-full]"
   - "sklearn.manifold.tests.test_t_sne::test_max_iter_used"
   - "sklearn.model_selection.tests.test_classification_threshold::test_fit_and_score_over_thresholds_sample_weight"
+  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
