@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.8"]
+      cuda: ["12.9"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -31,7 +31,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.8"]
+      cuda: ["12.9"]
       arch: [x86_64]
     includes:
       - common_build
@@ -49,7 +49,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.8"]
+      cuda: ["12.9"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -478,13 +478,13 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - cupy>=12.0.0,<13.5.0  # upper constraint due to CuPy 13.5.0 memory access issues (https://github.com/rapidsai/cuml/issues/6960)
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: # All CUDA 12 versions
             packages:
-              - cupy-cuda12x>=12.0.0
+              - cupy-cuda12x>=12.0.0,<13.5.0 # upper constraint due to CuPy 13.5.0 memory access issues (https://github.com/rapidsai/cuml/issues/6960)
   depends_on_cuvs:
     common:
       - output_types: conda

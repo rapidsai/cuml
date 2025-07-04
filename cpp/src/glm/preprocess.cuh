@@ -81,12 +81,11 @@ void preProcessData(const raft::handle_t& handle,
         n_cols,
         [] __device__(math_t v) { return raft::sqrt(v); },
         stream);
-      raft::matrix::linewiseOp(
+      raft::matrix::linewiseOp<false>(
         input,
         input,
         n_rows,
         n_cols,
-        false,
         [] __device__(math_t x, math_t m, math_t s) { return s > 1e-10 ? (x - m) / s : 0; },
         stream,
         mu_input,
@@ -98,14 +97,14 @@ void preProcessData(const raft::handle_t& handle,
       } else {
         raft::stats::mean<false>(mu_input, input, n_cols, n_rows, false, stream);
       }
-      raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
+      raft::stats::meanCenter<false, true>(input, input, mu_input, n_cols, n_rows, stream);
       if (normalize) {
         raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
           norm2_input, input, n_cols, n_rows, stream, [] __device__(math_t v) {
             return raft::sqrt(v);
           });
-        raft::matrix::matrixVectorBinaryDivSkipZero(
-          input, norm2_input, n_rows, n_cols, false, true, stream, true);
+        raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+          input, norm2_input, n_rows, n_cols, stream, true);
       }
     }
 
@@ -115,7 +114,7 @@ void preProcessData(const raft::handle_t& handle,
     } else {
       raft::stats::mean<false>(mu_labels, labels, (size_t)1, n_rows, false, stream);
     }
-    raft::stats::meanCenter(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
+    raft::stats::meanCenter<false, true>(labels, labels, mu_labels, (size_t)1, n_rows, stream);
   }
 }
 
@@ -142,8 +141,8 @@ void postProcessData(const raft::handle_t& handle,
   rmm::device_scalar<math_t> d_intercept(stream);
 
   if (normalize) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      coef, norm2_input, (size_t)1, n_cols, false, true, stream, true);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+      coef, norm2_input, (size_t)1, n_cols, stream, true);
   }
 
   raft::linalg::gemm(handle,
@@ -162,20 +161,19 @@ void postProcessData(const raft::handle_t& handle,
   *intercept = d_intercept.value(stream);
 
   if (normalize) {
-    raft::matrix::linewiseOp(
+    raft::matrix::linewiseOp<false>(
       input,
       input,
       n_rows,
       n_cols,
-      false,
       [] __device__(math_t x, math_t m, math_t s) { return s * x + m; },
       stream,
       mu_input,
       norm2_input);
   } else {
-    raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
+    raft::stats::meanAdd<false, true>(input, input, mu_input, n_cols, n_rows, stream);
   }
-  raft::stats::meanAdd(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
+  raft::stats::meanAdd<false, true>(labels, labels, mu_labels, (size_t)1, n_rows, stream);
 }
 
 };  // namespace GLM

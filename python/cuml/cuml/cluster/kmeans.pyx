@@ -222,7 +222,7 @@ class KMeans(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if callable(model.init):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         elif isinstance(model.init, str):
             if model.init == "k-means++":
                 init = "scalable-k-means++"
@@ -230,7 +230,7 @@ class KMeans(Base,
                 init = "random"
             else:
                 # Should be unreachable, here in case sklearn adds more init values
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         else:
             init = model.init  # array-like
 
@@ -283,7 +283,7 @@ class KMeans(Base,
             "inertia_": to_cpu(self.inertia_),
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
-            "_n_features_out": self.n_clusters,
+            "_n_features_out": self._n_features_out,
             "_n_threads": n_threads,
             **super()._attrs_to_cpu(model),
         }
@@ -361,6 +361,12 @@ class KMeans(Base,
                                       else None),
                     check_dtype=[np.float32, np.float64]
                 )
+
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.n_clusters
 
     @generate_docstring()
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":

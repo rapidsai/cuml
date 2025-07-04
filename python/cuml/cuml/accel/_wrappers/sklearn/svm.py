@@ -44,7 +44,7 @@ class SVC(ProxyBase):
     def _gpu_fit(self, X, y, sample_weight=None):
         n_classes = len(np.unique(np.asanyarray(y)))
         if n_classes > 2:
-            raise UnsupportedOnGPU("SVC.fit doesn't support multiclass")
+            raise UnsupportedOnGPU("Multiclass `y` is not supported")
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_decision_function(self, X):

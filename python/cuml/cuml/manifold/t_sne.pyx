@@ -303,16 +303,16 @@ class TSNE(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.n_components != 2:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Only `n_components=2` is supported")
 
         # Our barnes_hut implementation can sometimes hang, see #3865 and #3360.
         # fft should be at least as good, and doesn't have this issue.
         method = {"exact": "exact", "barnes_hut": "fft"}.get(model.method, None)
         if method is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`method={model.method!r}` is not supported")
 
         if not (isinstance(model.init, str) and model.init in ("pca", "random")):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         params = {
             "n_components": model.n_components,
@@ -499,6 +499,12 @@ class TSNE(Base,
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
+
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
 
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',

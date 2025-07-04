@@ -18,6 +18,11 @@
 
 import warnings
 
+_DATA_ON_HOST_DEPRECATED_MESSAGE = (
+    "The data_on_host option is deprecated and will be removed in release 25.10. "
+    "Whether data is on host or device is now determined by the build_algo."
+)
+
 import cupy
 import cupyx.scipy.sparse
 import joblib
@@ -303,8 +308,8 @@ class UMAP(Base,
           but longer runtime.
 
         - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
-          Refer to data_on_host argument for fit_transform function.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`,
+          UMAP can process data larger than device memory.
 
         - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
           Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
@@ -390,24 +395,21 @@ class UMAP(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if not (isinstance(model.init, str) and model.init in ("spectral", "random")):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
-        if isinstance(model.metric, str):
-            try:
-                coerce_metric(model.metric)
-            except (ValueError, NotImplementedError):
-                raise UnsupportedOnGPU
-        else:
-            raise UnsupportedOnGPU
+        try:
+            coerce_metric(model.metric)
+        except (ValueError, TypeError, NotImplementedError):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if model.target_metric not in ("categorical", "l2", "euclidean"):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`target_metric={model.target_metric!r}` is not supported")
 
         if model.unique:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`unique=True` is not supported")
 
         if model.densmap:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`densmap=True` is not supported")
 
         precomputed_knn = model.precomputed_knn[:2]
         if all(item is None for item in precomputed_knn):
@@ -631,6 +633,8 @@ class UMAP(Base,
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
         self.build_kwds = build_kwds
+        if self.build_kwds and self.build_kwds.get("nnd_n_clusters", 1) < 1:
+            raise ValueError("nnd_n_clusters must be >= 1")
 
     def validate_hyperparams(self):
 
@@ -724,7 +728,7 @@ class UMAP(Base,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host=False) -> "UMAP":
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None, data_on_host="auto") -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -740,9 +744,11 @@ class UMAP(Base,
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
 
-        .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+        .. deprecated:: 25.08
+            The `data_on_host` parameter is deprecated and will be removed in release 25.10.
+            Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
+            When `build_algo == nn_descent`, data will automatically be placed on host memory.
+            When `build_algo == brute_force_knn`, data will automatically be placed on device memory.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -751,6 +757,16 @@ class UMAP(Base,
                 and self.target_metric != "categorical":
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
+
+        # Set build_algo based on n_rows
+        if self.build_algo == "auto":
+            if X.shape[0] <= 50000 or self.sparse_fit:
+                # brute force is faster for small datasets
+                logger.info("Building knn graph using brute force (configured from build_algo == 'auto')")
+                self.build_algo = "brute_force_knn"
+            else:
+                logger.info("Building knn graph using nn descent (configured from build_algo == 'auto')")
+                self.build_algo = "nn_descent"
 
         # Handle sparse inputs
         if is_sparse(X):
@@ -766,19 +782,12 @@ class UMAP(Base,
         # Handle dense inputs
         else:
             self._sparse_data = False
-            if data_on_host:
+
+            # automatically put data on host for nn descent regardless of nnd_n_clusters
+            if self.build_algo == "nn_descent":
                 convert_to_mem_type = MemoryType.host
             else:
-                build_kwds = self.build_kwds or {}
-                if build_kwds.get("nnd_n_clusters", 1) > 1:
-                    warnings.warn(
-                        ("Using nnd_n_clusters>1 with data on device is deprecated in version 25.06"
-                            " and will be removed in 25.08. Set data_on_host=True when nnd_n_clusters>1."),
-                        FutureWarning,
-                    )
-                    convert_to_mem_type = MemoryType.host
-                else:
-                    convert_to_mem_type = MemoryType.device
+                convert_to_mem_type = MemoryType.device
 
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -787,17 +796,30 @@ class UMAP(Base,
                                                       else None),
                                     convert_to_mem_type=convert_to_mem_type)
 
-        if self.build_algo == "auto":
-            if self.n_rows <= 50000 or self.sparse_fit:
-                # brute force is faster for small datasets
-                logger.info("Building knn graph using brute force")
-                self.build_algo = "brute_force_knn"
-            else:
-                logger.info("Building knn graph using nn descent")
-                self.build_algo = "nn_descent"
+        # Get nnd_n_clusters value for validation
+        build_kwds = self.build_kwds or {}
+        nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
 
-        if self.build_algo == "brute_force_knn" and data_on_host:
-            raise ValueError("Data cannot be on host for building with brute force knn")
+        # deprecation notice and raising error for data_on_host parameter
+        if data_on_host is True:
+            if self.build_algo == "brute_force_knn":
+                raise ValueError(
+                    f"build_algo = 'brute_force_knn' is not supported when data_on_host is True; "
+                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host is False:
+            if self.build_algo == "nn_descent" and nnd_n_clusters > 1:
+                raise ValueError(
+                    f"nnd_n_clusters > 1 is not supported for nn_descent build when data_on_host is False; "
+                    f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host != "auto":
+            raise ValueError(
+                f"data_on_host must be True, False, or 'auto'; "
+                f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+            )
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -906,7 +928,7 @@ class UMAP(Base,
         *,
         convert_dtype=True,
         knn_graph=None,
-        data_on_host=False,
+        data_on_host="auto",
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -939,9 +961,11 @@ class UMAP(Base,
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+        .. deprecated:: 25.08
+            The `data_on_host` parameter is deprecated and will be removed in release 25.10.
+            Whether data is on host or device is now determined by the `nnd_n_clusters` parameter.
+            When `build_algo == nn_descent`, data will automatically be placed on host memory.
+            When `build_algo == brute_force_knn`, data will automatically be placed on device memory.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 

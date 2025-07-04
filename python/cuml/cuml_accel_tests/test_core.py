@@ -51,7 +51,23 @@ def iter_proxy_class_methods():
             if not name.startswith("_") and callable(
                 getattr(cls._cpu_class, name)
             ):
-                yield cls, name
+                # XXX: xfail umap.UMAP.get_feature_names_out for now
+                if (
+                    cls._cpu_class.__name__ == "UMAP"
+                    and name == "get_feature_names_out"
+                ):
+                    yield pytest.param(
+                        cls,
+                        name,
+                        marks=[
+                            pytest.mark.xfail(
+                                reason="umap-learn <= 0.5.7 doesn't implement `get_feature_names_out` properly",
+                                strict=True,
+                            )
+                        ],
+                    )
+                else:
+                    yield cls, name
 
 
 @pytest.mark.parametrize("cls, name", iter_proxy_class_methods())
