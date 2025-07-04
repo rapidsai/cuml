@@ -94,7 +94,7 @@ requires-python = ">=3.10"
 dependencies = [
     "cuda-python",
     "cudf==25.8.*,>=0.0.0a0",
-    "cupy-cuda12x>=12.0.0",
+    "cupy-cuda12x>=12.0.0,<13.5.0",
     "cuvs==25.8.*,>=0.0.0a0",
     "dask-cuda==25.8.*,>=0.0.0a0",
     "dask-cudf==25.8.*,>=0.0.0a0",
