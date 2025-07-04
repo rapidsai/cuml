@@ -31,6 +31,7 @@ export PIP_NO_BUILD_ISOLATION=0
 #       but it really is intentionally included in 'libcuml' wheels
 EXCLUDE_ARGS=(
   --exclude "libcumlprims_mg.so"
+  --exclude "libcuvs.so"
   --exclude "libraft.so"
   --exclude "libcublas.so.*"
   --exclude "libcublasLt.so.*"
