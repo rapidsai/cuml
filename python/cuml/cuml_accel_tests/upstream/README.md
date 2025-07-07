@@ -1,6 +1,7 @@
-# scikit-learn Acceleration Tests
+# Upstream Acceleration Tests
 
-This suite provides infrastructure to run and analyze tests for scikit-learn with cuML acceleration support.
+This suite provides infrastructure to run and analyze the test suites of
+upstream libraries (scikit-learn, ...) with cuML acceleration support.
 
 ## Components
 
@@ -9,9 +10,9 @@ This suite provides infrastructure to run and analyze tests for scikit-learn wit
 
   Example usage:
   ```bash
-  ./run-tests.sh                     # Run all tests
-  ./run-tests.sh -v -k test_kmeans   # Run specific test with verbosity
-  ./run-tests.sh -x --pdb            # Stop on first failure and debug
+  ./scikit-learn/run-tests.sh                     # Run all tests
+  ./scikit-learn/run-tests.sh -v -k test_kmeans   # Run specific test with verbosity
+  ./scikit-learn/run-tests.sh -x --pdb            # Stop on first failure and debug
   ```
 
 - `summarize-results.py`
@@ -29,12 +30,12 @@ This suite provides infrastructure to run and analyze tests for scikit-learn wit
 ### 1. Run tests and generate report
 Run tests and save the report:
 ```bash
-./run-tests.sh --junitxml=report.xml
+./scikit-learn/run-tests.sh --junitxml=report.xml
 ```
 
 **Tip**: Run tests in parallel with `-n auto` to use all available CPU cores:
 ```bash
-./run-tests.sh --junitxml=report.xml -n auto
+./scikit-learn/run-tests.sh --junitxml=report.xml -n auto
 ```
 
 ### 2. Analyze results
@@ -138,7 +139,7 @@ Start by identifying and categorizing test failures:
 alias gitsha='git rev-parse --short HEAD'
 
 # Run all untriaged tests with --runxfail to actually see all failures
-./run-tests.sh -m cuml_accel_bugs --runxfail --junitxml="report-bugs-$(gitsha).xml" | tee report-bugs-$(gitsha).log
+./scikit-learn/run-tests.sh -m cuml_accel_bugs --runxfail --junitxml="report-bugs-$(gitsha).xml" | tee report-bugs-$(gitsha).log
 ```
 
 ### 2. Analyze and Group Failures
@@ -189,7 +190,7 @@ For each failure group:
 1. Run tests with the specific marker:
 ```bash
 SELECT=cuml_accel_dbscan_missing_interface
-./run-tests.sh -m "${SELECT}" --runxfail --junitxml="report-${SELECT}-$(gitsha).xml" | tee "test-${SELECT}-$(gitsha).log"
+./scikit-learn/run-tests.sh -m "${SELECT}" --runxfail --junitxml="report-${SELECT}-$(gitsha).xml" | tee "test-${SELECT}-$(gitsha).log"
 ```
 
 2. Investigate the root cause.
@@ -200,7 +201,7 @@ After fixing issues and committing them, run
 
 1. Run tests again to verify fixes:
 ```bash
-./run-tests.sh -m "${SELECT}" --junitxml="report-${SELECT}-$(gitsha).xml"
+./scikit-learn/run-tests.sh -m "${SELECT}" --junitxml="report-${SELECT}-$(gitsha).xml"
 ```
 
 2. Update the xfail list:
