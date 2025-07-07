@@ -1088,7 +1088,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
   marker: cuml_accel_bugs
-  condition: scikit-learn<1.7 and scikit-learn>=1.5.0
+  condition: scikit-learn<1.7,>=1.5.0
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
@@ -1314,7 +1314,7 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
-  condition: scikit-learn<1.6 and scikit-learn>=1.5.0
+  condition: scikit-learn<1.6,>=1.5.0
   tests:
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
