@@ -281,8 +281,8 @@ void smooth_knn_dist(nnz_t n,
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   has_found_an_error = error_status.value(stream);
-  RAFT_EXPECTS(!has_found_an_error,
-               "At least one row does not have any neighbor with non-zero distance.");
+  if (has_found_an_error)
+    CUML_LOG_WARN("At least one row does not have any neighbor with non-zero distance.");
 }
 
 template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
