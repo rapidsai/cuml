@@ -417,7 +417,11 @@ class KMeans(Base,
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        int_dtype = np.int32 if np.int64(n_rows) * np.int64(self.n_features_in_) < 2**31-1 else np.int64
+        int_dtype = (
+            np.int32
+            if np.int64(n_rows) * np.int64(self.n_features_in_) < 2**31-1
+            else np.int64
+        )
 
         self.labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype)
         cdef uintptr_t labels_ptr = self.labels_.ptr
@@ -775,7 +779,9 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, y=None, sample_weight=None, *, convert_dtype=False) -> CumlArray:
+    def fit_transform(
+        self, X, y=None, sample_weight=None, *, convert_dtype=False
+    ) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 
