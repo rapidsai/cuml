@@ -110,7 +110,9 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
                                    const math_t *sample_weight) except +
 
 
-def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_type, dtype) -> CumlArray:
+def apply_class_weight(
+    handle, sample_weight, class_weight, y, verbose, output_type, dtype
+) -> CumlArray:
     """
     Scale the sample weights with the class weights.
 
@@ -538,16 +540,30 @@ class SVC(SVMBase,
                                                cv=5,
                                                method='sigmoid')
 
-        # Apply class weights to sample weights, necessary, so it doesn't crash when sample_weight is None
-        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
-                                           self.output_type, self.dtype)
+        # Apply class weights to sample weights, necessary, so it doesn't crash
+        # when sample_weight is None
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y,
+            self.verbose,
+            self.output_type,
+            self.dtype,
+        )
 
-        # If sample_weight is not None, it is a cupy array, and we need to convert it to a numpy array for sklearn
+        # If sample_weight is not None, it is a cupy array, and we need to
+        # convert it to a numpy array for sklearn
         if sample_weight is not None:
-            # Currently, fitting a probabilistic SVC with class weights requires at least 3 classes, otherwise the following,
-            # ambiguous error is raised: ValueError: Buffer dtype mismatch, expected 'const float' but got 'double'
+            # Currently, fitting a probabilistic SVC with class weights
+            # requires at least 3 classes, otherwise the following, ambiguous
+            # error is raised: ValueError: Buffer dtype mismatch, expected
+            # 'const float' but got 'double'
             if len(set(y)) < 3:
-                raise ValueError("At least 3 classes are required to use probabilistic SVC with class weights.")
+                raise ValueError(
+                    "At least 3 classes are required to use probabilistic "
+                    "SVC with class weights."
+                )
 
             # Convert cupy array to numpy array
             sample_weight = sample_weight.get()
@@ -602,7 +618,15 @@ class SVC(SVMBase,
 
         cdef uintptr_t y_ptr = y_m.ptr
 
-        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y_m, self.verbose, self.output_type, self.dtype)
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y_m,
+            self.verbose,
+            self.output_type,
+            self.dtype
+        )
         cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \

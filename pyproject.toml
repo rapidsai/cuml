@@ -11,7 +11,7 @@ builtin = "clear"
 quiet-level = 3
 
 [tool.cython-lint]
-max-line-length = 100
+max-line-length = 95
 
 
 [tool.run-clang-tidy]
