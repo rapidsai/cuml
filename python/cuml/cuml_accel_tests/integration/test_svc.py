@@ -14,6 +14,7 @@
 
 import pytest
 from sklearn.datasets import make_classification
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 
 
@@ -50,9 +51,16 @@ def test_svc(binary):
 def test_svc_probability(binary):
     X, y = binary
     svc = SVC(probability=True).fit(X, y)
+    # Inference and score works
     assert svc.score(X, y) > 0.5
+
+    # probA_ and probB_ exist and are the correct shape
     assert svc.probA_.shape == (1,)
     assert svc.probB_.shape == (1,)
+
+    # predict_proba works
+    y_pred = svc.predict_proba(X).argmax(axis=1)
+    assert accuracy_score(y_pred, y) > 0.5
 
 
 def test_svc_multiclass(multiclass):
@@ -69,3 +77,6 @@ def test_conditional_methods():
     svc.probability = True
     assert hasattr(svc, "predict_proba")
     assert hasattr(svc, "predict_log_proba")
+    # Ensure these methods aren't forwarded CPU attributes
+    assert svc.predict_proba is not svc._cpu.predict_proba
+    assert svc.predict_log_proba is not svc._cpu.predict_log_proba
