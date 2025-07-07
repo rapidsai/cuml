@@ -11,9 +11,7 @@ builtin = "clear"
 quiet-level = 3
 
 [tool.cython-lint]
-# TODO: Re-enable E501 with a reasonable line length
-max-line-length = 999
-ignore = ['E501']
+max-line-length = 100
 
 
 [tool.run-clang-tidy]
