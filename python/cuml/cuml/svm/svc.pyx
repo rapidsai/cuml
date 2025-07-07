@@ -511,32 +511,14 @@ class SVC(SVMBase,
 
     def _fit_proba(self, X, y, sample_weight) -> "SVC":
         from sklearn.calibration import CalibratedClassifierCV
-        from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
-
-        params = self.get_params()
-        params["probability"] = False
-
-        # Ensure it always outputs numpy
-        params["output_type"] = "numpy"
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
 
-        if self.n_classes_ == 2:
-            estimator = SVC(**params)
-        else:
-            if self.decision_function_shape == 'ovr':
-                estimator = OneVsRestClassifier(SVC(**params))
-            elif self.decision_function_shape == 'ovo':
-                estimator = OneVsOneClassifier(SVC(**params))
-            else:
-                raise ValueError
-
-        self.prob_svc = CalibratedClassifierCV(estimator,
-                                               cv=5,
-                                               method='sigmoid')
+        params = {**self.get_params(), "probability": False, "output_type": "numpy"}
+        self.prob_svc = CalibratedClassifierCV(SVC(**params), ensemble=False)
 
         # Apply class weights to sample weights, necessary, so it doesn't crash when sample_weight is None
         sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
@@ -766,20 +748,10 @@ class SVC(SVMBase,
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
-            # Probabilistic SVC is an ensemble of simple SVC classifiers
-            # fitted to different subset of the training data. As such, it
-            # does not have a single decision function. (During prediction
-            # we use the calibrated probabilities to determine the class
-            # label.) Here we average the decision function value. This can
-            # be useful for visualization, but predictions should be made
-            # using the probabilities.
-            df = np.zeros((X.shape[0],))
-
+            # Get the calibrated estimator
+            estimator = self.prob_svc.calibrated_classifiers_[0].estimator
             with cuml.internals.exit_internal_api():
-                for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.estimator.decision_function(X)
-            df = df / len(self.prob_svc.calibrated_classifiers_)
-            return df
+                return estimator.decision_function(X)
         elif self.n_classes_ > 2:
             self._check_is_fitted('multiclass_svc')
             return self.multiclass_svc.decision_function(X)

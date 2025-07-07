@@ -233,11 +233,7 @@ def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
     sklSVC.fit(X_train, y_train)
     df2 = sklSVC.decision_function(X_test)
 
-    if params["probability"]:
-        tol = 2e-2  # See comments in SVC decision_function method
-    else:
-        tol = 1e-5
-    assert mean_squared_error(df1, df2) < tol
+    assert mean_squared_error(df1, df2) < 1e-5
 
 
 @pytest.mark.parametrize(
