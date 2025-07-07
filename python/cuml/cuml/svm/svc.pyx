@@ -340,8 +340,6 @@ class SVC(SVMBase,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.probability:
-            raise UnsupportedOnGPU("`probability=True` is not supported")
         params = super()._params_from_cpu(model)
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -355,9 +353,6 @@ class SVC(SVMBase,
         return params
 
     def _params_to_cpu(self):
-        if self.probability:
-            raise UnsupportedOnCPU("`probability=True` is not supported")
-
         params = super()._params_to_cpu()
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -375,6 +370,44 @@ class SVC(SVMBase,
         if n_classes > 2:
             raise UnsupportedOnGPU("multiclass models are not supported")
 
+        if self.probability:
+            # XXX: Here we recreate a CalibratedClassifier wrapping a fit SVC.
+            # This is gross, since it requires touching several private classes
+            # in sklearn as well as rebuilding a SVC estimator wrapped by
+            # another SVC estimator. This can all be removed once `prob_svc`
+            # goes away.
+            from sklearn.calibration import (
+                CalibratedClassifierCV,
+                _CalibratedClassifier,
+                _SigmoidCalibration,
+            )
+
+            # Construct the nested fit SVC model (fit without probability)
+            params = {**self.get_params(), "probability": False, "output_type": "numpy"}
+            fit_svc = SVC(**params)
+            fit_svc._sync_attrs_from_cpu(model)
+
+            # Construct the calibrators from probA_ & probB_
+            calibrators = []
+            for a, b in zip(model.probA_, model.probB_):
+                cal = _SigmoidCalibration()
+                cal.a_ = np.float64(a)
+                cal.b_ = np.float64(b)
+                calibrators.append(cal)
+
+            # Construct the fit CalibratedClassifierCV
+            prob_svc = CalibratedClassifierCV(estimator=SVC(**params), ensemble=False)
+            prob_svc.calibrated_classifiers_ = [
+                _CalibratedClassifier(fit_svc, calibrators, classes=model.classes_)
+            ]
+            prob_svc.classes_ = model.classes_
+            prob_svc.n_features_in_ = model.n_features_in_
+
+            return {
+                "prob_svc": prob_svc,
+                "n_classes_": n_classes,
+                **super(SVMBase, self)._attrs_from_cpu(model),
+            }
         return {
             "n_classes_": n_classes,
             "_unique_labels_": to_gpu(model.classes_.astype("float64"), order="F"),
@@ -387,10 +420,24 @@ class SVC(SVMBase,
                 "Converting multiclass models from GPU is not yet supported"
             )
 
-        return {
-            "classes_": to_cpu(self.classes_).astype("int64"),
-            **super()._attrs_to_cpu(model),
-        }
+        if self.probability:
+            clf = self.prob_svc.calibrated_classifiers_[0]
+            out = super()._attrs_to_cpu(model, cu_model=clf.estimator)
+            out.update(
+                _probA=np.array([c.a_ for c in clf.calibrators], dtype="float64"),
+                _probB=np.array([c.b_ for c in clf.calibrators], dtype="float64"),
+            )
+        else:
+            out = super()._attrs_to_cpu(model)
+
+        # sklearn's binary classification expects inverted
+        # _dual_coef_ and _intercept_.
+        out.update(
+            _dual_coef_=-out["dual_coef_"],
+            _intercept_=-out["intercept_"],
+            classes_=to_cpu(self.classes_).astype("int64"),
+        )
+        return out
 
     def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
