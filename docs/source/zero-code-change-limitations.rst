@@ -111,10 +111,6 @@ DBSCAN
 - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
 - If ``X`` is sparse.
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``components_``
-
 
 sklearn.decomposition
 ---------------------

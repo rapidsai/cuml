@@ -1245,7 +1245,6 @@
 - reason: cuml missing certain fit attributes
   marker: cuml_accel_missing_fit_attributes
   tests:
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
@@ -1538,7 +1537,3 @@
   strict: false
   tests:
   - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
-- reason: 'cuml.accel bug: Missing components_ attribute'
-  tests:
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
