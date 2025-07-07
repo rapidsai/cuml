@@ -233,11 +233,7 @@ def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
     sklSVC.fit(X_train, y_train)
     df2 = sklSVC.decision_function(X_test)
 
-    if params["probability"]:
-        tol = 2e-2  # See comments in SVC decision_function method
-    else:
-        tol = 1e-5
-    assert mean_squared_error(df1, df2) < tol
+    assert mean_squared_error(df1, df2) < 1e-5
 
 
 @pytest.mark.parametrize(
@@ -309,7 +305,8 @@ def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
 
 @pytest.mark.parametrize("class_weight", [None, {1: 10}, "balanced"])
 @pytest.mark.parametrize("sample_weight", [None, True])
-def test_svc_weights(class_weight, sample_weight):
+@pytest.mark.parametrize("probability", [False, True])
+def test_svc_weights(class_weight, sample_weight, probability):
     # We are using the following example as a test case
     # https://scikit-learn.org/stable/auto_examples/svm/plot_separating_hyperplane_unbalanced.html
     X, y = make_blobs(
@@ -323,7 +320,12 @@ def test_svc_weights(class_weight, sample_weight):
         # Put large weight on class 1
         sample_weight = y * 9 + 1
 
-    params = {"kernel": "linear", "C": 1, "gamma": "scale"}
+    params = {
+        "kernel": "linear",
+        "C": 1,
+        "gamma": "scale",
+        "probability": probability,
+    }
     params["class_weight"] = class_weight
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y, sample_weight)
@@ -338,7 +340,13 @@ def test_svc_weights(class_weight, sample_weight):
 
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X, y, sample_weight)
-    compare_svm(cuSVC, sklSVC, X, y, coef_tol=1e-5, report_summary=True)
+    if not probability:
+        # TODO: SVC estimators with probability=True don't expose all the fitted
+        # attributes properly on the cuml side. This will be best resolved by
+        # changing our internal representation rather than cludging on more
+        # @property definitions. Skipping the attribute equivalence check here
+        # for now.
+        compare_svm(cuSVC, sklSVC, X, y, coef_tol=1e-5, report_summary=True)
 
 
 @pytest.mark.parametrize(

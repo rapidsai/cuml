@@ -302,42 +302,36 @@ class SVMBase(Base,
         # Rebuild _model from new attributes
         self._model = self._get_svm_model()
 
-    def _attrs_to_cpu(self, model):
-        dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
-        support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
-        intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+    def _attrs_to_cpu(self, model, cu_model=None):
+        if cu_model is None:
+            cu_model = self
 
-        if self._sparse:
+        dual_coef_ = to_cpu(cu_model.dual_coef_, order="C", dtype=np.float64)
+        support_vectors_ = to_cpu(cu_model.support_vectors_, order="C", dtype=np.float64)
+        intercept_ = to_cpu(cu_model.intercept_, order="C", dtype=np.float64)
+
+        if cu_model._sparse:
             # sklearn stores dual_coef_ and support_vectors_ as sparse
             # csr_matrix objects when fit on sparse data. cuml always
             # stores them as dense.
             dual_coef_ = scipy.sparse.csr_matrix(dual_coef_)
             support_vectors_ = scipy.sparse.csr_matrix(support_vectors_)
 
-        if hasattr(self, "classes_"):
-            # sklearn's binary classification expects inverted
-            # _dual_coef_ and _intercept_.
-            _dual_coef_ = -dual_coef_
-            _intercept_ = -intercept_
-        else:
-            _dual_coef_ = dual_coef_
-            _intercept_ = intercept_
-
         return {
             "dual_coef_": dual_coef_,
-            "_dual_coef_": _dual_coef_,
+            "_dual_coef_": dual_coef_,
             "fit_status_": 1,
             "intercept_": intercept_,
-            "_intercept_": _intercept_,
-            "shape_fit_": (self.n_rows, self.n_features_in_),
-            "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
-            "support_": to_cpu(self.support_, order="C", dtype=np.int32),
+            "_intercept_": intercept_,
+            "shape_fit_": (cu_model.n_rows, cu_model.n_features_in_),
+            "_n_support": np.array([cu_model.n_support_, 0], dtype=np.int32),
+            "support_": to_cpu(cu_model.support_, order="C", dtype=np.int32),
             "support_vectors_": support_vectors_,
-            "_gamma": self._gamma,
+            "_gamma": cu_model._gamma,
             "_probA": np.empty(0),
             "_probB": np.empty(0),
-            "_sparse": self._sparse,
-            **super()._attrs_to_cpu(model),
+            "_sparse": cu_model._sparse,
+            **super(SVMBase, cu_model)._attrs_to_cpu(model),
         }
 
     def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
