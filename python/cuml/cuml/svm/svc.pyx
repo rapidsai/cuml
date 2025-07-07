@@ -112,7 +112,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
 def apply_class_weight(
     handle, sample_weight, class_weight, y, verbose, output_type, dtype
-) -> CumlArray:
+) -> cp.ndarray | None:
     """
     Scale the sample weights with the class weights.
 
@@ -148,6 +148,13 @@ def apply_class_weight(
     --------
     sample_weight: device array shape = (n_samples, 1) or None
     """
+    n_samples = y.shape[0] if hasattr(y, "shape") else len(y)
+
+    if sample_weight is not None:
+        sample_weight, _, _, _ = input_to_cupy_array(
+            sample_weight, convert_to_dtype=dtype, check_rows=n_samples, check_cols=1,
+        )
+
     if class_weight is None:
         return sample_weight
 
@@ -156,12 +163,9 @@ def apply_class_weight(
     else:
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
 
-    le = LabelEncoder(handle=handle,
-                      verbose=verbose,
-                      output_type=output_type)
+    le = LabelEncoder(handle=handle, verbose=verbose, output_type=output_type)
     labels = y_m.to_output(output_type='series')
     encoded_labels = cp.asarray(le.fit_transform(labels))
-    n_samples = y_m.shape[0]
 
     # Define class weights for the encoded labels
     if class_weight == 'balanced':
@@ -177,10 +181,6 @@ def apply_class_weight(
 
     if sample_weight is None:
         sample_weight = cp.ones(y_m.shape, dtype=dtype)
-    else:
-        sample_weight, _, _, _ = \
-            input_to_cupy_array(sample_weight, convert_to_dtype=dtype,
-                                check_rows=n_samples, check_cols=1)
 
     for label, weight in class_weight.items():
         sample_weight[encoded_labels==label] *= weight
@@ -565,6 +565,7 @@ class SVC(SVMBase,
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
+        self.dtype = X.dtype
 
         params = {**self.get_params(), "probability": False, "output_type": "numpy"}
         self.prob_svc = CalibratedClassifierCV(SVC(**params), ensemble=False)
@@ -581,19 +582,7 @@ class SVC(SVMBase,
             self.dtype,
         )
 
-        # If sample_weight is not None, it is a cupy array, and we need to
-        # convert it to a numpy array for sklearn
         if sample_weight is not None:
-            # Currently, fitting a probabilistic SVC with class weights
-            # requires at least 3 classes, otherwise the following, ambiguous
-            # error is raised: ValueError: Buffer dtype mismatch, expected
-            # 'const float' but got 'double'
-            if len(set(y)) < 3:
-                raise ValueError(
-                    "At least 3 classes are required to use probabilistic "
-                    "SVC with class weights."
-                )
-
             # Convert cupy array to numpy array
             sample_weight = sample_weight.get()
 

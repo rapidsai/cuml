@@ -52,10 +52,7 @@ class SVC(ProxyBase):
             # where all classes have less than 5 examples. To avoid
             # doing a bincount here, we can infer that if n_classes <= 2
             # as long as we have at least 10 samples then things will work.
-            try:
-                n_rows = len(X)
-            except Exception:
-                n_rows = X.shape[0]
+            n_rows = X.shape[0] if hasattr(X, "shape") else len(X)
             if n_rows < 10:
                 raise UnsupportedOnGPU(
                     "`probability=True` requires >= 10 rows"
