@@ -1130,6 +1130,10 @@
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
+  - "sklearn.metrics.tests.test_classification::test_confusion_matrix_binary"
+  - "sklearn.metrics.tests.test_classification::test_multilabel_confusion_matrix_binary"
+  - "sklearn.metrics.tests.test_classification::test_precision_recall_f1_score_binary"
+  - "sklearn.metrics.tests.test_ranking::test_roc_curve_hard"
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: KernelRidge input handling and validation
