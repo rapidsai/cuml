@@ -33,6 +33,7 @@ def _has_probability(model):
         raise AttributeError(
             "predict_proba is not available when probability=False"
         )
+    return True
 
 
 class SVC(ProxyBase):
