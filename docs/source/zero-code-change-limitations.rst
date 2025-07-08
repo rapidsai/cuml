@@ -265,7 +265,11 @@ Additionally, the following fitted attributes are currently not computed:
 LogisticRegression
 ^^^^^^^^^^^^^^^^^^
 
-``LogisticRegression`` currently should never fall back to CPU.
+``LogisticRegression`` will fall back to CPU in the following cases:
+
+- If ``warm_start=True``.
+- If ``intercept_scaling`` is not ``1``.
+- If the deprecated ``multi_class`` parameter is used.
 
 ElasticNet
 ^^^^^^^^^^

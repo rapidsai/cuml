@@ -398,8 +398,6 @@
   - "sklearn.linear_model.tests.test_sag::test_classifier_single_class"
   - "sklearn.linear_model.tests.test_sag::test_sag_classifier_computed_correctly[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_sag_classifier_computed_correctly[csr_matrix]"
-  - "sklearn.linear_model.tests.test_sag::test_sag_classifier_raises_error[sag]"
-  - "sklearn.linear_model.tests.test_sag::test_sag_classifier_raises_error[saga]"
   - "sklearn.linear_model.tests.test_sag::test_sag_multiclass_computed_correctly[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_sag_multiclass_computed_correctly[csr_matrix]"
   - "sklearn.linear_model.tests.test_sag::test_sag_pobj_matches_logistic_regression[csr_array]"
