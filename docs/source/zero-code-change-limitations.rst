@@ -317,6 +317,9 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
+  ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
+  ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
 
 Additionally, the following fitted attributes are currently not computed:
 
