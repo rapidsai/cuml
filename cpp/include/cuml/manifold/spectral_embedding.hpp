@@ -17,7 +17,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-#include <cuvs/preprocessing/spectral/spectral_embedding.hpp>
+#include <cuvs/preprocessing/spectral_embedding.hpp>
 
 namespace ML::SpectralEmbedding {
 

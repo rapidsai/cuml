@@ -45,7 +45,7 @@ from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
 
-cdef extern from "cuvs/preprocessing/spectral/spectral_embedding.hpp" namespace "cuvs::preprocessing::spectral_embedding" nogil:
+cdef extern from "cuvs/preprocessing/spectral_embedding.hpp" namespace "cuvs::preprocessing::spectral_embedding" nogil:
     cdef cppclass params:
         int n_components
         int n_neighbors
@@ -72,11 +72,6 @@ def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, nor
     A, n_rows, n_cols, _ = \
                 input_to_cuml_array(A, order='C', check_dtype=np.float32,
                                     convert_to_dtype=cp.float32)
-
-    # print(A.shape)
-    # print(type(A), A.dtype)
-
-    # A = cai_wrapper(A)
     A_ptr = <uintptr_t>A.ptr
 
     config.n_components = n_components

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuvs/preprocessing/spectral/spectral_embedding.hpp>
+#include <cuvs/preprocessing/spectral_embedding.hpp>
 
 namespace ML::SpectralEmbedding {
 
