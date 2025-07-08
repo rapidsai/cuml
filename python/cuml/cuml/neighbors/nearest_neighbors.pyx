@@ -766,14 +766,22 @@ class NearestNeighbors(Base,
             zero_found = cp.zeros(1, dtype=cp.int32)
 
             # Run the kernel to check for zeros
-            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
+            check_zero_kernel(
+                (blocks,),
+                (threads_per_block,),
+                (D_ndarr.ravel(), rows, cols, zero_found.ravel())
+            )
 
             threads_per_block = 32
             blocks = (rows + threads_per_block - 1) // threads_per_block
 
             # only run kernel if there are multiple zero distances
             if zero_found:
-                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+                swap_kernel(
+                    (blocks,),
+                    (threads_per_block,),
+                    (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols)
+                )
 
             # slicing does not copy
             I_ndarr = I_ndarr[:, 1:]

@@ -308,7 +308,8 @@ def test_svr(random_state, sparse):
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-def test_svc(random_state, sparse):
+@pytest.mark.parametrize("probability", [False, True])
+def test_svc(random_state, sparse, probability):
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=random_state
     )
@@ -318,14 +319,31 @@ def test_svc(random_state, sparse):
     assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
     # Check inference works after conversion
-    cu_model = cuml.SVC().fit(X, y)
-    sk_model = sklearn.svm.SVC().fit(X, y)
+    cu_model = cuml.SVC(probability=probability).fit(X, y)
+    sk_model = sklearn.svm.SVC(probability=probability).fit(X, y)
 
-    sk_score = cu_model.as_sklearn().score(X, y)
+    cu_model2 = cuml.SVC.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    cu_score = cu_model2.score(X, y)
+    assert cu_score > 0.7
+
+    sk_score = sk_model2.score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVC.from_sklearn(sk_model).score(X, y)
-    assert cu_score > 0.7
+    if probability:
+        # Check that predict_proba works
+        cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
+        assert accuracy_score(cu_pred_prob, y) > 0.7
+        sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
+        assert accuracy_score(sk_pred_prob, y) > 0.7
+
+        # Check that probA_, probB_ are wired up properly
+        for attr in ["probA_", "probB_"]:
+            val = getattr(sk_model2, attr)
+            assert isinstance(val, np.ndarray)
+            assert val.dtype == "float64"
+            assert val.shape == (1,)
 
 
 def test_svc_multiclass_unsupported(random_state):
@@ -338,19 +356,6 @@ def test_svc_multiclass_unsupported(random_state):
     )
     cu_model = cuml.SVC().fit(X, y)
     sk_model = sklearn.svm.SVC().fit(X, y)
-
-    with pytest.raises(UnsupportedOnGPU):
-        cuml.SVC.from_sklearn(sk_model)
-
-    with pytest.raises(UnsupportedOnCPU):
-        cu_model.as_sklearn()
-
-
-def test_svc_probability_true_unsupported(random_state):
-    X, y = make_classification(n_samples=50, random_state=random_state)
-
-    cu_model = cuml.SVC(probability=True).fit(X, y)
-    sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
 
     with pytest.raises(UnsupportedOnGPU):
         cuml.SVC.from_sklearn(sk_model)

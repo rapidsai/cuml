@@ -172,7 +172,9 @@ cdef class _HDBSCANState:
         self.n_clusters = mapping["n_clusters"]
         self.core_dists = mapping["core_dists"]
         self.inverse_label_map = mapping["inverse_label_map"]
-        self._init_from_condensed_tree_array(handle, mapping["condensed_tree"], mapping["n_leaves"])
+        self._init_from_condensed_tree_array(
+            handle, mapping["condensed_tree"], mapping["n_leaves"]
+        )
         return self
 
     @staticmethod
@@ -653,7 +655,10 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         if callable(model.metric) or model.metric not in _metrics_mapping:
             raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
-        if isinstance(model.memory, str) or getattr(model.memory, "location", None) is not None:
+        if (
+            isinstance(model.memory, str)
+            or getattr(model.memory, "location", None) is not None
+        ):
             # Result caching is unsupported
             raise UnsupportedOnGPU(f"`memory={model.memory!r}` is not supported")
 

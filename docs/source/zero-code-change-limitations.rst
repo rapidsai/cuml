@@ -111,10 +111,6 @@ DBSCAN
 - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
 - If ``X`` is sparse.
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``components_``
-
 
 sklearn.decomposition
 ---------------------
@@ -413,7 +409,6 @@ SVC
 
 ``SVC`` will fall back to CPU in the following cases:
 
-- If ``probability=True``.
 - If ``kernel="precomputed"`` or is a callable.
 - If ``X`` is sparse.
 - If ``y`` is multiclass.
