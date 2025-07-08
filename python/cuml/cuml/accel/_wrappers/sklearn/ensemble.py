@@ -26,12 +26,12 @@ class RandomForestRegressor(ProxyBase):
 
     def _gpu_fit(self, X, y, sample_weight=None):
         if sample_weight is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.fit(X, y)
 
     def _gpu_score(self, X, y, sample_weight=None):
         if sample_weight is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.score(X, y)
 
     def __len__(self):
@@ -49,12 +49,12 @@ class RandomForestClassifier(ProxyBase):
 
     def _gpu_fit(self, X, y, sample_weight=None):
         if sample_weight is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.fit(X, y)
 
     def _gpu_score(self, X, y, sample_weight=None):
         if sample_weight is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.score(X, y)
 
     def __len__(self):

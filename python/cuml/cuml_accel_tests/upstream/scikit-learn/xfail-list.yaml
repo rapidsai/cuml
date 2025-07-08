@@ -475,6 +475,7 @@
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1-float64-1e-08-0.99]"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1000000-float64-1e-08-0.99]"
   - "sklearn.model_selection.tests.test_classification_threshold::test_fit_and_score_over_thresholds_sample_weight"
+  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_class_subset"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
@@ -1129,6 +1130,10 @@
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
+  - "sklearn.metrics.tests.test_classification::test_confusion_matrix_binary"
+  - "sklearn.metrics.tests.test_classification::test_multilabel_confusion_matrix_binary"
+  - "sklearn.metrics.tests.test_classification::test_precision_recall_f1_score_binary"
+  - "sklearn.metrics.tests.test_ranking::test_roc_curve_hard"
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: KernelRidge input handling and validation
@@ -1313,7 +1318,6 @@
 - reason: cuml missing certain fit attributes
   marker: cuml_accel_missing_fit_attributes
   tests:
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[DBSCAN-DBSCAN]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"

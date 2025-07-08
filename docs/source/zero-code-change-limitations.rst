@@ -1,152 +1,126 @@
-Known Limitations
------------------
+Limitations
+===========
 
-General Limitations
-~~~~~~~~~~~~~~~~~~~
+The ``cuml.accel`` zero code change accelerator is currently a beta feature. As
+such, it has a number of known limitations and bugs. The team is working to
+address these, and expect the number of limitations to reduce with every
+release.
 
-The cuML Accelerator present in RAPIDS release 25.02.01 is a beta version, with
-the following general limitations:
+These limitations fall into a few categories:
 
-* Ingestion of lists of numbers by estimator functions is unsupported. Convert
-  lists to structured formats (e.g., NumPy arrays or Pandas DataFrames) to
-  ensure compatibility. This limitation will be removed in the next version of
-  the cuML Accelerator.
+- Estimators that are fully unaccelerated. For example, while we currently
+  provide GPU acceleration for models like ``sklearn.linear_model.Ridge``, we
+  don't accelerate other models like ``sklearn.linear_model.BayesianRidge``.
+  Unaccelerated estimators won't result in bugs or failures, but also won't run
+  any faster than they would under ``sklearn``. If you don't see an estimator on
+  listed on this page, we do not provide acceleration for it.
 
-* Labels provided as arrays of strings are not supported. Pre-encode string
-  labels into numerical or categorical formats (e.g., using scikit-learn's
-  LabelEncoder) prior to processing. This limitation will be removed in the
-  next version of the cuML Accelerator.
+- Estimators that are only partially accelerated. ``cuml.accel`` will fall back
+  to using the CPU implementations for some algorithms in the presence of
+  certain hyperparameters or input types. These cases are documented below in
+  estimator-specific sections. See :doc:`zero-code-change-logging` for how to
+  enable logging to gain insight into when ``cuml.accel`` needs to fall back to
+  CPU.
 
-* The accelerator is compatible with scikit-learn version 1.5 or higher. This
+- Missing fitted attributes. ``cuml.accel`` does not currently generate the
+  full set of fitted attributes that ``sklearn`` does. In _most_ cases this is
+  not a problem, the missing attributes are usually minor things like
+  ``n_iters_`` that are useful for inspecting a model fit but not necessary for
+  inference. Like unsupported parameters, missing fitted attributes are
+  documented in algorithm-specific sections below.
+
+- Differences between fit models. The algorithms and implementations used in
+  ``cuml`` naturally differ from those used in ``sklearn``, this may result in
+  differences between fit models. This is to be expected. To compare results
+  between models fit with ``cuml.accel`` and those fit without, you should
+  compare the model *quality* (using e.g. ``model.score``) and not the numeric
+  values of the fitted coefficients.
+
+None of the above should result in bugs (exceptions, failures, poor model
+quality, ...). That said, as a beta feature there are likely bugs. If you find
+a case that errors or results in a model with measurably worse quality when
+run under ``cuml.accel``, please `open an issue`_.
+
+A few additional general notes:
+
+- Performance improvements will be most apparent when running on larger data.
+  On very small datasets you might see only a small speedup (or even
+  potentially a slowdown).
+
+- For most algorithms, ``y`` must already be converted to numeric values;
+  arrays of strings are not supported. Pre-encode string labels into numerical
+  or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
+  processing.
+
+- The accelerator is compatible with scikit-learn version 1.5 or higher. This
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
 
-* The `Metadata Routing <https://scikit-learn.org/stable/metadata_routing.html>`__
-  APIs are not currently supported.
-
-* When running in Windows Subsystem for Linux 2 (WSL2), managed memory (unified
-  memory) is not supported. This means that automatic memory management between
-  host and device memory is not available. Users may need to be more careful
-  about memory management and consider using the ``--disable-uvm`` flag if
-  experiencing memory-related issues.
-
 For notes on each algorithm, please refer to its specific section on this file.
 
-Algorithm-Specific Limitations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``umap.UMAP``
-^^^^^^^^^^^^^
+hdbscan
+-------
 
-* Algorithm Limitations:
-    * There may be cases where cuML's UMAP may not achieve the same level of quality as the reference implementation. The trustworthiness score can be used to assess to what extent the local structure is retained in embedding. The upcoming 25.04 and 25.06 will contain significant improvements to both performance and numerical accuracy for cuML's UMAP.
-    * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
-    * Parallelism during the optimization stage implies numerical imprecisions, which can lead to difference in the results between CPU and GPU in general.
-    * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
+``HDBSCAN`` will fall back to CPU in the following cases:
 
-* Distance Metrics:
-    * Only the following metrics are supported : "l1", "cityblock", "taxicab", "manhattan", "euclidean", "l2", "sqeuclidean", "canberra", "minkowski", "chebyshev", "linf", "cosine", "correlation", "hellinger", "hamming", "jaccard".
-    * Other metrics will trigger a CPU fallback, namely : "sokalsneath", "rogerstanimoto", "sokalmichener", "yule", "ll_dirichlet", "russellrao", "kulsinski", "dice", "wminkowski", "mahalanobis", "haversine".
+- If ``metric`` is not ``"l2"`` or ``"euclidean"``.
+- If a ``memory`` location is configured.
+- If ``match_reference_implementation=True``.
+- If ``branch_detection_data=True``.
 
-* Embeddings initialization methods :
-    * Only the following initialization methods are supported : "spectral" and "random".
-    * Other initialization methods will trigger a CPU fallback, namely : "pca", "tswspectral".
+Additionally, the following fitted attributes are currently not computed:
 
-While the exact numerical output for UMAP may differ from that obtained without cuml.accel,
-we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
-than that obtained without cuml.accel in most cases. A common measure of results quality for UMAP is the trustworthiness score.
-You can obtain the trustworthiness by doing the following :
+- ``exemplars_``
+- ``outlier_scores_``
+- ``relative_validity_``
 
-.. code-block:: python
+Additional notes:
 
-    from umap import UMAP as refUMAP  #  with cuml.accel off
-    from cuml.manifold import UMAP
-    from cuml.metrics import trustworthiness
-
-    n_neighbors = 15
-
-    ref_model = refUMAP(n_neighbors=n_neighbors)
-    ref_embeddings = ref_model.fit_transform(X)
-
-    model = UMAP(n_neighbors=n_neighbors)
-    embeddings = model.fit_transform(X)
-
-    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
-    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
-
-    tol = 0.1
-    assert score >= (ref_score - tol)
+- The ``HDBSCAN`` in ``cuml`` uses a parallel MST implementation, which means
+  the results are not deterministic when there are duplicates in the mutual
+  reachability graph.
 
 
-``hdbscan.HDBSCAN``
-^^^^^^^^^^^^^^^^^^^
-* Algorithm Limitations:
-    * GPU HDBSCAN uses a parallel MST implementation, which means the results are not deterministic when there are duplicates in the mutual reachability graph.
-    * CPU HDBSCAN offers many choices of different algorithms whereas GPU HDBSCAN uses a single implementation. Everything except `algorithm="auto"` will fallback to the CPU.
-    * GPU HDBSCAN supports all functions in the CPU `hdbscan.prediction` module except `approximate_predict_score`.
-    * CPU HDBSCAN offers a `hdbscan.branches` module that GPU HDBCAN does not.
+sklearn.cluster
+---------------
 
-* Distance Metrics
-    * Only euclidean distance is GPU-accelerated.
-    * precompute distance matrix is not supported on GPU.
-    * Custom metric functions (callable metrics) are not supported on GPU.
+The algorithms used in ``cuml`` differ from those in ``sklearn``. As such, you
+shouldn't expect the fitted attributes (e.g. ``labels_``) to numerically match
+an estimator fitted without ``cuml.accel``.
 
-* Learned Attributes Limitations:
-    * GPU HDBSCAN does not learn attributes `branch_detection_data_`, `examplers_`, and `relative_validity_`.
-
-
-``sklearn.cluster.KMeans``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The default initialization algorithm used by ``cuml.accel`` is similar, but different.
-``cuml.accel`` uses the ``"scalable-k-means++"`` algorithm, for more details refer to
-:class:`cuml.KMeans`.
-
-This means that the ``cluster_centers_`` attribute will not be exactly the same as for
-the scikit-learn implementation. The ID of each cluster (``labels_`` attribute) might
-change, this means samples labelled to be in cluster zero for scikit-learn might be
-labelled to be in cluster one for ``cuml.accel``. The ``inertia_`` attribute might
-differ as well if different cluster centers are used. The algorithm might converge
-in a different number of iterations, this means the ``n_iter_`` attribute might differ.
-
-To check that the resulting trained estimator is equivalent to the scikit-learn
-estimator, you can evaluate the similarity of the clustering result on samples
-not used to train the estimator. Both ``adjusted_rand_score`` and ``adjusted_mutual_info_score``
-give a single score that should be above ``0.9``. For low dimensional data you
+To compare results between estimators, we recommend comparing scores like
+``sklearn.metrics.adjusted_rand_score`` or
+``sklearn.metrics.adjusted_mutual_info_score``. For low dimensional data you
 can also visually inspect the resulting cluster assignments.
 
-``cuml.accel`` will not fall back to scikit-learn.
+KMeans
+^^^^^^
+
+``KMeans`` will fall back to CPU in the following cases:
+
+- If a callable ``init`` is provided.
+- If ``X`` is sparse.
+
+DBSCAN
+^^^^^^
+
+``DBSCAN`` will fall back to CPU in the following cases:
+
+- If ``algorithm`` isn't ``"auto"`` or ``"brute"``.
+- If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
+- If ``X`` is sparse.
 
 
-``sklearn.cluster.DBSCAN``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+sklearn.decomposition
+---------------------
 
-The ``DBSCAN`` implementation used by ``cuml.accel`` uses a brute force algorithm
-for the epsilon-neighborhood search. By default scikit-learn determines the
-algorithm to use based on the shape of the data and which metric is used. All algorithms
-are exact, this means the choice is a question of computational efficiency.
-
-To check that the resulting trained estimator is equivalent to the scikit-learn
-estimator, you can evaluate the similarity of the clustering result on samples
-not used to train the estimator. Both ``adjusted_rand_score`` and ``adjusted_mutual_info_score``
-give a single score that should be above ``0.9``. For low dimensional data you
-can also visually inspect the resulting cluster assignments.
-
-``cuml.accel`` will fallback to scikit-learn for the following parameters:
-
-* The ``"manhattan"``, ``"chebyshev"`` and ``"minkowski"`` metrics.
-* The ``"ball_tree"`` and ``"kd_tree"`` algorithms.
-
-
-``sklearn.decomposition.PCA``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``PCA`` implementation used by ``cuml.accel`` uses different SVD solvers
-than the ones in Scikit-Learn, which may result in numeric differences in the
-``components_`` and ``explained_variance_`` values. These differences should be
-small for ``svd_solver`` values of ``"auto"``, ``"full"``, or ``"arpack"``, but
-may be larger for randomized or less-numerically-stable solvers like
-``"randomized"`` or ``"covariance_eigh"``.
+The ``sklearn.decomposition`` implementations used by ``cuml.accel`` uses
+different SVD solvers than the ones in Scikit-Learn, which may result in
+numeric differences in the ``components_`` and ``explained_variance_`` values.
+These differences should be small for most algorithms, but may be larger for
+randomized or less-numerically-stable solvers like ``"randomized"`` or
+``"covariance_eigh"``.
 
 Likewise, note that the implementation in ``cuml.accel`` currently may result
 in some of the vectors in ``components_`` having inverted signs. This result is
@@ -166,269 +140,325 @@ following ``numpy`` function useful for this.
         first_nonzero = np.take_along_axis(components, inds, 1)
         return np.sign(first_nonzero) * components
 
-For more algorithmic details, see :class:`cuml.PCA`.
+PCA
+^^^
 
-* Algorithm Limitation:
-    * ``n_components="mle"`` will fallback to Scikit-Learn.
-    * Parameters for the ``"randomized"`` solver like ``random_state``,
-      ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+``PCA`` will fall back to CPU in the following cases:
 
-``sklearn.decomposition.TruncatedSVD``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- If ``n_components="mle"``.
 
-The ``TruncatedSVD`` implementation used by ``cuml.accel`` uses different SVD
-solvers than the ones in Scikit-Learn, which may result in numeric differences
-in the ``components_`` and ``explained_variance_`` values. These differences
-should be small for ``algorithm="arpack"``, but may be larger for
-``algorithm="randomized"``.
+Additional notes:
 
-Likewise, note that the implementation in ``cuml.accel`` currently may result
-in some of the vectors in ``components_`` having inverted signs. This result is
-not incorrect, but can make it harder to do direct numeric comparisons without
-first normalizing the signs. One common way of handling this is by normalizing
-the first non-zero values in each vector to be positive. You might find the
-following ``numpy`` function useful for this.
+- Parameters for the ``"randomized"`` solver like ``random_state``,
+  ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
-.. code-block:: python
+TruncatedSVD
+^^^^^^^^^^^^
 
-    import numpy as np
+``TruncatedSVD`` will fall back to CPU in the following cases:
 
-    def normalize(components):
-        """Normalize the sign of components for easier numeric comparison"""
-        nonzero = components != 0
-        inds = np.where(nonzero.any(axis=1), nonzero.argmax(axis=1), 0)[:, None]
-        first_nonzero = np.take_along_axis(components, inds, 1)
-        return np.sign(first_nonzero) * components
+- If ``X`` is sparse.
 
-For more algorithmic details, see :class:`cuml.TruncatedSVD`.
 
-* Algorithm Limitation:
-    * Parameters for the ``"randomized"`` solver like ``random_state``,
-      ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+Additional notes:
 
-``sklearn.ensemble.RandomForestClassifier`` / ``sklearn.ensemble.RandomForestRegressor``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The random forest in ``cuml.accel`` uses a different algorithm to find tree node splits.
-When choosing split thresholds, the ``cuml.accel`` random forest considers only quantiles
-as threshold candidates, whereas the scikit-learn random forest considers all possible
-feature values from the training data. As a result, the ``cuml.accel`` random forest
-may choose different split thresholds from the scikit-learn counterpart, leading to
-different tree structure. Nevertheless, we expect the output to be
-*equivalent* in the sense that the quality of results will be approximately
-as good or better than that obtained without ``cuml.accel``. Common
-measures of quality for random forests include RMSE (Root Mean Squared Error, for
-regression) and Log Loss (for classification). You can use functions from the
-``sklearn.metrics`` module to obtain these measures.
+- Parameters for the ``"randomized"`` solver like ``random_state``,
+  ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
-Some parameters have limited support:
 
-* ``max_samples`` must be float, not integer.
+sklearn.ensemble
+----------------
 
-The following parameters are not supported and will trigger a CPU fallback:
+The random forest implementation used by ``cuml.accel`` algorithmically
+differs from the one in ``sklearn``. As such, you
+shouldn't expect the fitted attributes (e.g. ``estimators_``) to numerically match
+an estimator fitted without ``cuml.accel``.
 
-* ``min_weight_fraction_leaf``
-* ``monotonic_cst``
-* ``ccp_alpha``
-* ``class_weight``
-* ``warm_start``
-* ``oob_score``
+To compare results between estimators, we recommend comparing scores like
+``sklearn.metrics.root_mean_squared_error`` (for regression) or
+``sklearn.metrics.log_loss`` (for classification).
 
-The following values for ``criterion`` will trigger a CPU fallback:
+RandomForestClassifier
+^^^^^^^^^^^^^^^^^^^^^^
 
-* ``log_loss``
-* ``friedman_mse``
+``RandomForestClassifier`` will fall back to CPU in the following cases:
 
-``sklearn.kernel_ridge.KernelRidge``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- If ``criterion`` is ``"log_loss"``.
+- If ``oob_score=True``.
+- If ``warm_start=True``.
+- If ``monotonic_cst`` is not ``None``.
+- If ``max_values`` is an integer.
+- If ``sample_weight`` is passed to ``fit`` or ``score``.
+- If ``X`` is sparse.
+
+Additionally, the following fitted attributes are currently not computed:
+
+- ``feature_importances_``
+- ``estimators_samples_``
+
+RandomForestRegressor
+^^^^^^^^^^^^^^^^^^^^^
+
+``RandomForestRegressor`` will fall back to CPU in the following cases:
+
+- If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
+- If ``oob_score=True``.
+- If ``warm_start=True``.
+- If ``monotonic_cst`` is not ``None``.
+- If ``max_values`` is an integer.
+- If ``sample_weight`` is passed to ``fit`` or ``score``.
+- If ``X`` is sparse.
+
+Additionally, the following fitted attributes are currently not computed:
+
+- ``feature_importances_``
+- ``estimators_samples_``
+
+
+sklearn.kernel_ridge
+--------------------
+
+KernelRidge
+^^^^^^^^^^^
+
+``KernelRidge`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
 
 ``KernelRidge`` results should be almost identical to those of Scikit-Learn
 when running with ``cuml.accel`` enabled. In particular, the fitted
 ``dual_coef_`` should be close enough that they may be compared via
 ``np.allclose``.
 
-It currently has the following limitations:
 
-* Sparse inputs are not currently supported and will fallback to CPU.
+sklearn.linear_model
+--------------------
 
-``sklearn.linear_model.LinearRegression``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The linear model solvers used by ``cuml.accel`` differ from those used in
+``sklearn``. As such, you shouldn't expect the fitted attributes (e.g.
+``coef_``) to numerically match an estimator fitted without ``cuml.accel``. For
+some estimators (e.g. ``LinearRegression``) you might get a close match, but
+for others there may larger numeric differences.
 
-Linear Regression is one of the simpler estimators, where functionality and results
-between cuML.accel and Scikit-learn will be quite close, with the following
-limitations:
+To compare results between estimators, we recommend comparing model quality
+scores like ``sklearn.metrics.r2_score`` (for regression) or
+``sklearn.metrics.accuracy_score`` (for classification).
 
-* multi-output target is not currently supported.
-* ``positive`` parameter to force positive coefficients is not currently supported,
-  and cuml.accel will not accelerate Linear Regression if the parameter is set to
-  ``True``
-* cuML's Linear Regression only implements dense inputs currently, so cuml.accel offers no
-  acceleration for sparse inputs to model training.
+LinearRegression
+^^^^^^^^^^^^^^^^
 
-Another important consideration is that, unlike more complex models, like manifold
-or clustering algorithms, linear models are quite efficient and fast to run. Even on larger
-datasets, the execution time can many times be measured in seconds, so taking that
-into consideration will be important for example when evaluating results as seen
-in `Zero Code Change Benchmarks <zero-code-change-benchmarks.rst>`_
+``LinearRegression`` will fall back to CPU in the following cases:
 
-``sklearn.linear_model.LogisticRegression``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- If ``positive=True``.
+- If ``X`` is sparse.
 
-cuML's Logistic Regression main difference from Scikit-learn is the solver that is
-used to train the model. cuML using a Quasi-Newton set of solvers (L-BFGS or OWL-QN)
-which themselves have algorithmic differences from the solvers of sklearn. Even then,
-the results should be comparible between implementations.
+Additionally, the following fitted attributes are currently not computed:
 
-* Regardless of which `solver` the original Logist Regression model uses, cuml.accel
-  will use `qn` as described above.
+- ``rank_``
+- ``singular_``
 
-``sklearn.linear_model.ElasticNet``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+LogisticRegression
+^^^^^^^^^^^^^^^^^^
 
-Similar to Linear Regression, Elastic Net has the following limitations:
+``LogisticRegression`` currently should never fall back to CPU.
 
-* ``positive`` parameter to force positive coefficients is not currently supported,
-  and cuml.accel will not accelerate Elastic Net if the parameter is set to
-  ``True``
-* ``warm_start`` parameter is not supported for GPU acceleration.
-* ``precompute`` parameter is not supported.
-* cuML's ElasticNet only implements dense inputs currently, so cuml.accel offers no
-  acceleration for sparse inputs to model training.
+ElasticNet
+^^^^^^^^^^
 
-``sklearn.linear_model.Ridge``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``ElasticNet`` will fall back to CPU in the following cases:
 
-Similar to Linear Regression, Elastic Net has the following limitations:
+- If ``positive=True``.
+- If ``warm_start=True``.
+- If ``precompute`` is not ``False``.
+- If ``X`` is sparse.
 
-* ``positive`` parameter to force positive coefficients is not currently supported,
-  and cuml.accel will not accelerate Elastic Net if the parameter is set to
-  ``True``
-* ``solver`` all solver parameter values are translated to `eig` to use the
-  eigendecomposition of the covariance matrix.
-* cuML's Ridge only implements dense inputs currently, so cuml.accel offers no
-  acceleration for sparse inputs to model training.
+Additionally, the following fitted attributes are currently not computed:
 
-``sklearn.linear_model.Lasso``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- ``dual_gap_``
+- ``n_iter_``
 
-* ``precompute`` parameter is not supported.
-* cuML's Lasso only implements dense inputs currently, so cuml.accel offers no
-  acceleration for sparse inputs to model training.
+Ridge
+^^^^^
 
+``Ridge`` will fall back to CPU in the following cases:
 
-``sklearn.manifold.TSNE``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+- If ``positive=True``.
+- If ``solver="lbfgs"``.
+- If ``X`` is sparse.
+- If ``y`` is multioutput.
 
-* Algorithm Limitations:
-    * The "learning_rate" parameter cannot be used with value "auto", and will default to 200.0.
+Additionally, the following fitted attributes are currently not computed:
 
+- ``n_iter_``
 
-* Distance Metrics:
-    * Only the following metrics are supported : "l1", "cityblock", "manhattan", "euclidean", "l2", "sqeuclidean", "minkowski", "chebyshev", "cosine", "correlation".
-    * The "precomputed" option, or the use of function as metric is not supported
+Lasso
+^^^^^
+
+``Lasso`` will fall back to CPU in the following cases:
+
+- If ``positive=True``.
+- If ``warm_start=True``.
+- If ``precompute`` is not ``False``.
+- If ``X`` is sparse.
+
+Additionally, the following fitted attributes are currently not computed:
+
+- ``dual_gap_``
+- ``n_iter_``
 
 
-While the exact numerical output for TSNE may differ from that obtained without cuml.accel,
-we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
-than that obtained without cuml.accel in most cases. Common measure of results quality for TSNE are the KL divergence and the trustworthiness score.
-You can obtain it by doing the following :
+sklearn.manifold
+----------------
 
-.. code-block:: python
+TSNE
+^^^^
 
-    from sklearn.manifold import TSNE as refTSNE  #  with cuml.accel off
-    from cuml.manifold import TSNE
-    from cuml.metrics import trustworthiness
+``TSNE`` will fall back to CPU in the following cases:
 
-    n_neighbors = 90
+- If ``n_components`` is not ``2``.
+- If ``init`` is an array.
 
-    ref_model = refTSNE() #  with perplexity == 30.0
-    ref_embeddings = ref_model.fit_transform(X)
+Additionally, the following fitted attributes are currently not computed:
 
-    model = TSNE(n_neighbors=n_neighbors)
-    embeddings = model.fit_transform(X)
+- ``n_iter_``
 
-    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
-    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+Additional notes:
 
-    tol = 0.1
-    assert score >= (ref_score - tol)
-    assert model.kl_divergence_ <= ref_model.kl_divergence_ + tol
+- Even with a ``random_state``, the TSNE implementation used by ``cuml.accel``
+  isn't completely deterministic.
+
+While the exact numerical output for TSNE may differ from that obtained without
+``cuml.accel``, we expect the *quality* of results will be approximately as
+good in most cases. Beyond comparing the visual representation, you may find
+comparing the trustworthiness score (computed via
+``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
+attribute useful.
 
 
-``sklearn.neighbors.NearestNeighbors``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sklearn.neighbors
+-----------------
 
-* Algorithm Limitations:
-    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+NearestNeighbors
+^^^^^^^^^^^^^^^^
 
-* Distance Metrics:
-    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
-    * Not all metrics are supported for algorithms.
-    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
-    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
-    * Custom metric functions (callable metrics) are not supported on GPU.
+``NearestNeighbors`` will fall back to CPU in the following cases:
 
-* Other Limitations:
-    * Only the "uniform" weighting strategy is supported. Other weighting schemes will cause fallback to CPU
-    * The "radius" parameter for radius-based neighbor searches is not implemented and will be ignored
+- If ``metric`` is not one of the supported metrics ( ``"l2"``,
+  ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
+  ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
+  ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
+  ``"sqeuclidean"``, ``"haversine"``).
 
-``sklearn.neighbors.KNeighborsClassifier``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Additional notes:
 
-* Algorithm Limitations:
-    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+- The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
+  implementation in cuml will always be used.
 
-* Distance Metrics:
-    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
-    * Not all metrics are supported for algorithms.
-    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
-    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
-    * Custom metric functions (callable metrics) are not supported on GPU.
+- The ``radius_neighbors`` method isn't implemented in cuml and will always
+  fall back to CPU.
 
-* Other Limitations:
-    * Only the "uniform" weighting strategy is supported for vote counting.
-    * Distance-based weights ("distance" option) will trigger CPU fallback.
-    * Custom weight functions are not supported on GPU.
+KNeighborsClassifier
+^^^^^^^^^^^^^^^^^^^^
 
-``sklearn.neighbors.KNeighborsRegressor``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``KNeighborsClassifier`` will fall back to CPU in the following cases:
 
-* Algorithm Limitations:
-    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+- If ``metric`` is not one of the supported metrics ( ``"l2"``,
+  ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
+  ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
+  ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
+  ``"sqeuclidean"``, ``"haversine"``).
+- If ``weights`` is not ``"uniform"``.
 
-* Distance Metrics:
-    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
-    * Not all metrics are supported for algorithms.
-    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
-    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
-    * Custom metric functions (callable metrics) are not supported on GPU.
+Additional notes:
 
-* Regression-Specific Limitations:
-    * Only the "uniform" weighting strategy is supported for prediction averaging.
-    * Distance-based prediction weights ("distance" option) will trigger CPU fallback.
-    * Custom weight functions are not supported on GPU.
+- The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
+  implementation in cuml will always be used.
 
-``sklearn.svm.SVC``
+KNeighborsRegressor
 ^^^^^^^^^^^^^^^^^^^
 
-The ``SVC`` implementation in ``cuml.accel`` uses a different solver than that
-in scikit-learn. As such, you shouldn't expect equivalent support vectors or
-coefficients. To compare results you should compare the performance of the
-model using ``model.score`` or ``sklearn.metrics.accuracy_score``.
+``KNeighborsRegressor`` will fall back to CPU in the following cases:
 
-* Algorithm Limitations:
-    * ``probability=True`` will fallback to scikit-learn
-    * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
-    * Multiclass classification will fallback to scikit-learn
-    * Sparse inputs will fallback to scikit-learn
+- If ``metric`` is not one of the supported metrics ( ``"l2"``,
+  ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
+  ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
+  ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
+  ``"sqeuclidean"``, ``"haversine"``).
+- If ``weights`` is not ``"uniform"``.
 
-``sklearn.svm.SVR``
-^^^^^^^^^^^^^^^^^^^
+Additional notes:
 
-The ``SVR`` implementation in ``cuml.accel`` uses a different solver than that
-in scikit-learn. As such, you shouldn't expect equivalent support vectors or
-coefficients. To compare results you should compare the performance of the
-model using ``model.score`` or ``sklearn.metrics.r2_score``.
+- The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
+  implementation in cuml will always be used.
 
-* Algorithm Limitations:
-    * ``kernel="precomputed"`` or callable kernels will fallback to scikit-learn
-    * Sparse inputs will fallback to scikit-learn
+
+sklearn.svm
+-----------
+
+The SVM used by ``cuml.accel`` differ from those used in ``sklearn``. As such,
+you shouldn't expect the fitted attributes (e.g. ``coef_`` or
+``support_vectors_``) to numerically match an estimator fitted without
+``cuml.accel``.
+
+To compare results between estimators, we recommend comparing model quality
+scores like ``sklearn.metrics.r2_score`` (for regression) or
+``sklearn.metrics.accuracy_score`` (for classification).
+
+SVC
+^^^
+
+``SVC`` will fall back to CPU in the following cases:
+
+- If ``kernel="precomputed"`` or is a callable.
+- If ``X`` is sparse.
+- If ``y`` is multiclass.
+
+Additionally, the following fitted attributes are currently not computed:
+
+- ``class_weight_``
+- ``n_iter_``
+
+SVR
+^^^
+
+``SVR`` will fall back to CPU in the following cases:
+
+- If ``kernel="precomputed"`` or is a callable.
+- If ``X`` is sparse.
+
+Additionally, the following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+
+umap
+----
+
+``UMAP`` will fall back to CPU in the following cases:
+
+- If ``init`` is not ``"random"`` or ``"spectral"``.
+- If ``metric`` is not one of the supported metrics (``"l1"``, ``"cityblock"``,
+  ``"taxicab"``, ``"manhattan"``, ``"euclidean"``, ``"l2"``, ``"sqeuclidean"``,
+  ``"canberra"``, ``"minkowski"``, ``"chebyshev"``, ``"linf"``, ``"cosine"``,
+  ``"correlation"``, ``"hellinger"``, ``"hamming"``, ``"jaccard"``).
+- If ``target_metric`` is not one of the supported metrics (``"categorical"``,
+  ``"l2"``, ``"euclidean"``).
+- If ``unique=True``.
+- If ``densmap=True``.
+
+Additional notes:
+
+- Reproducibility with the use of a seed (the ``random_state`` parameter) comes
+  at the relative expense of performance.
+
+- Parallelism during the optimization stage implies numerical imprecisions,
+  which can lead to difference in the results between CPU and GPU in general.
+
+While the exact numerical output for UMAP may differ from that obtained without
+``cuml.accel``, we expect the *quality* of results will be approximately as
+good in most cases. Beyond comparing the visual representation, you may find
+comparing the trustworthiness score (computed via
+``sklearn.manifold.trustworthiness``) useful.
+
+
+.. _open an issue: https://github.com/rapidsai/cuml/issues

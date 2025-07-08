@@ -329,6 +329,7 @@ def test_core_point_prop1():
     assert array_equal(
         cuml_dbscan.core_sample_indices_, sk_dbscan.core_sample_indices_
     )
+    assert array_equal(cuml_dbscan.components_, sk_dbscan.components_)
 
     # Check the labels are correct
     assert_dbscan_equal(
@@ -376,6 +377,7 @@ def test_core_point_prop2():
     assert array_equal(
         cuml_dbscan.core_sample_indices_, sk_dbscan.core_sample_indices_
     )
+    assert array_equal(cuml_dbscan.components_, sk_dbscan.components_)
 
     # Check the labels are correct
     assert_dbscan_equal(
@@ -429,6 +431,7 @@ def test_core_point_prop3():
     assert array_equal(
         cuml_dbscan.core_sample_indices_, sk_dbscan.core_sample_indices_
     )
+    assert array_equal(cuml_dbscan.components_, sk_dbscan.components_)
 
     # Check the labels are correct
     assert_dbscan_equal(
@@ -507,6 +510,7 @@ def test_dbscan_no_calc_core_point_indices():
 
     # Make sure we are None
     assert cuml_dbscan.core_sample_indices_ is None
+    assert cuml_dbscan.components_ is None
 
 
 def test_dbscan_on_empty_array():

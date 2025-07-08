@@ -144,7 +144,7 @@ class KNeighborsRegressor(RegressorMixin,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.weights != "uniform":
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Only `weights='uniform'` is supported")
 
         return {
             "weights": "uniform",

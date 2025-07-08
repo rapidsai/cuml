@@ -14,14 +14,14 @@ rapids-logger "Running scikit-learn tests with cuML acceleration"
 set +e
 
 # Run the tests and capture the exit code
-timeout 1h ./python/cuml/cuml/accel/tests/scikit-learn/run-tests.sh \
+timeout 1h ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 TEST_EXITCODE=$?
 
 # Analyze results and check pass rate threshold
 rapids-logger "Analyzing test results"
-./python/cuml/cuml/accel/tests/scikit-learn/summarize-results.py \
-    --config ./python/cuml/cuml/accel/tests/scikit-learn/test_config.yaml \
+./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
+    --config ./python/cuml/cuml_accel_tests/upstream/scikit-learn/test_config.yaml \
     "${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 THRESHOLD_EXITCODE=$?
 

@@ -35,6 +35,7 @@ def _has_probability(model):
         raise AttributeError(
             "predict_proba is not available when probability=False"
         )
+    return True
 
 
 class SVC(ProxyBase):
@@ -46,7 +47,19 @@ class SVC(ProxyBase):
     def _gpu_fit(self, X, y, sample_weight=None):
         n_classes = len(np.unique(np.asanyarray(y)))
         if n_classes > 2:
-            raise UnsupportedOnGPU("SVC.fit doesn't support multiclass")
+            raise UnsupportedOnGPU("Multiclass `y` is not supported")
+
+        if self.probability:
+            # CalibratedClassifierCV doesn't like working with cases
+            # where all classes have less than 5 examples. To avoid
+            # doing a bincount here, we can infer that if n_classes <= 2
+            # as long as we have at least 10 samples then things will work.
+            n_rows = X.shape[0] if hasattr(X, "shape") else len(X)
+            if n_rows < 10:
+                raise UnsupportedOnGPU(
+                    "`probability=True` requires >= 10 rows"
+                )
+
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_decision_function(self, X):
