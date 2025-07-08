@@ -1042,6 +1042,7 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelRidge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Lasso()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[PCA()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[RandomForestClassifier()]"
@@ -1249,12 +1250,8 @@
 - reason: Issues related to LinearSVM
   marker: cuml_accel_linear_svm
   tests:
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
-  - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"
-  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
-  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
   - "sklearn.model_selection.tests.test_search::test_grid_search_no_score"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-multi-class-squared_hinge-array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-two-classes-squared_hinge-array]"
@@ -1293,15 +1290,12 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
@@ -1310,11 +1304,7 @@
 - reason: metadata routing not yet supported
   marker: cuml_accel_metadata_routing
   tests:
-  - "sklearn.metrics.tests.test_score_objects::test_PassthroughScorer_set_score_request"
-  - "sklearn.model_selection.tests.test_classification_threshold::test_fixed_threshold_classifier_metadata_routing"
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
-  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_refit[42-True]"
-  - "sklearn.tests.test_metadata_routing::test_metaestimator_warnings"
 - reason: cuml missing certain fit attributes
   marker: cuml_accel_missing_fit_attributes
   tests:
@@ -1330,13 +1320,10 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
+  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
-  marker: cuml_accel_neighbors_metric_errors
-  tests:
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
-- reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
   condition: scikit-learn>=1.6
   strict: false
@@ -1600,6 +1587,21 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
+- reason: sokalmichener metric deprecation
+  marker: sokalmichener_metric_deprecation
+  condition: scipy >= 1.15.0
+  tests:
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool0-Y_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool1-Y_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool0-Y_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool1-Y_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool0-sokalmichener]"
+  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool1-sokalmichener]"
+  - "sklearn.metrics.tests.test_pairwise::test_pairwise_boolean_distance[sokalmichener]"
+  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_brute_backend[float64-42-sokalmichener]"
+  - "sklearn.neighbors.tests.test_neighbors::test_radius_neighbors_brute_backend[42-float64-sokalmichener]"
 - reason: Flaky deviations in n_iter_ values in cuml.accel
   strict: false
   tests:
@@ -1625,7 +1627,5 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
