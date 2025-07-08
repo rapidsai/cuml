@@ -224,7 +224,7 @@ class LogisticRegression(
                 f"`intercept_scaling={model.intercept_scaling}` is not supported"
             )
 
-        # `multi_class` was deprecated in 1.5 and will be removed in 1.8
+        # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8
         if getattr(model, "multi_class", "deprecated") != "deprecated":
             raise UnsupportedOnGPU("`multi_class` is not supported")
 
