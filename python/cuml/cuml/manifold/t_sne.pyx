@@ -118,6 +118,20 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float* kl_div) except +
 
 
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded
+}
+
+
 class TSNE(Base,
            InteropMixin,
            CMajorInputTagMixin,
@@ -313,6 +327,9 @@ class TSNE(Base,
 
         if not (isinstance(model.init, str) and model.init in ("pca", "random")):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
+
+        if not (isinstance(model.metric, str) and model.metric in _SUPPORTED_METRICS):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         params = {
             "n_components": model.n_components,
@@ -719,25 +736,10 @@ class TSNE(Base,
         elif self.init.lower() == 'pca':
             params.init = TSNE_INIT.PCA
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded
-        }
-
-        if self.metric.lower() in metric_parsing:
-            params.metric = metric_parsing[self.metric.lower()]
+        if (metric := _SUPPORTED_METRICS.get(self.metric, None)) is not None:
+            params.metric = metric
         else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
+            raise ValueError(f"Invalid value for metric: {self.metric}")
 
         if self.metric_params is None:
             params.p = <float> 2.0

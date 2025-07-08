@@ -150,6 +150,14 @@ class BaseRandomForestModel(Base, InteropMixin):
         if model.monotonic_cst is not None:
             raise UnsupportedOnGPU(f"`monotonic_cst={model.monotonic_cst!r} is not supported")
 
+        if model.ccp_alpha != 0:
+            raise UnsupportedOnGPU(f"`ccp_alpha={model.ccp_alpha}` is not supported")
+
+        if model.min_weight_fraction_leaf != 0:
+            raise UnsupportedOnGPU(
+                f"`min_weight_fraction_leaf={model.min_weight_fraction_leaf}` is not supported"
+            )
+
         if (split_criterion := _criterion_to_split_criterion.get(model.criterion)) is None:
             raise UnsupportedOnGPU(f"`criterion={model.criterion!r}` is not supported")
 
