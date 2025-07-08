@@ -177,7 +177,7 @@ jobs:
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
   # XXX Only here to get some testing while developing, should be removed before merging
-  # Not newest or oldest but "intermediatet" dependencies
+  # Not newest or oldest but "intermediate" dependencies
   conda-python-scikit-learn-accel-tests-intermediate:
     needs: [conda-python-build, changed-files]
     secrets: inherit
