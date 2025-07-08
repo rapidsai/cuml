@@ -74,7 +74,7 @@ repos:
           - id: xfail-format
             name: Format xfail lists
             description: 'Ensure xfail lists are properly formatted according to standards'
-            entry: python python/cuml/cuml/accel/tests/xfail_manager.py
+            entry: python python/cuml/cuml_accel_tests/upstream/xfail_manager.py
             language: python
             files: '.*xfail.*\.yaml$'
             args: ['format', '--cleanup']
