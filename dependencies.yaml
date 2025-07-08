@@ -393,10 +393,10 @@ dependencies:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.4.2
+              - scikit-learn==1.5.2
           - matrix: {dependencies: "intermediate"}
             packages:
-              - scikit-learn==1.5.2
+              - scikit-learn==1.6.1
           - matrix:
             packages:
     common:
