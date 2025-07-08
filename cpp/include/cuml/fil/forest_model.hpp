@@ -300,8 +300,10 @@ struct forest_model {
     // TODO(wphicks): Make sure buffer lands on same device as model
     int current_device_id;
     raft_proto::cuda_check(cudaGetDevice(&current_device_id));
-    auto out_buffer = raft_proto::buffer{output, num_rows * num_outputs(), out_mem_type, current_device_id};
-    auto in_buffer  = raft_proto::buffer{input, num_rows * num_features(), in_mem_type, current_device_id};
+    auto out_buffer =
+      raft_proto::buffer{output, num_rows * num_outputs(), out_mem_type, current_device_id};
+    auto in_buffer =
+      raft_proto::buffer{input, num_rows * num_features(), in_mem_type, current_device_id};
     predict(handle, out_buffer, in_buffer, predict_type, specified_chunk_size);
   }
 
