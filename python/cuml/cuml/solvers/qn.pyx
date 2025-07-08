@@ -535,7 +535,9 @@ class QN(Base,
                 f" more than 2 classes ({self._num_classes} discovered).")
 
         if qnpams.loss == qn_loss_type.QN_LOSS_SOFTMAX and self._num_classes <= 2:
-            raise ValueError("Two classes or less cannot be trained with softmax (multinomial).")
+            raise ValueError(
+                "Two classes or less cannot be trained with softmax (multinomial)."
+            )
 
         if solves_classification and not solves_multiclass:
             self._num_classes_dim = self._num_classes - 1
