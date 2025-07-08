@@ -188,6 +188,9 @@ RandomForestClassifier
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
+- If ``min_weight_fraction_leaf`` is not ``0``.
+- If ``ccp_alpha`` is not ``0``.
+- If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 
@@ -206,6 +209,8 @@ RandomForestRegressor
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
+- If ``min_weight_fraction_leaf`` is not ``0``.
+- If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 

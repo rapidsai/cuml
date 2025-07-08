@@ -27,7 +27,7 @@ from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.fil.fil import ForestInference
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import to_cpu, to_gpu
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 from cuml.prims.label.classlabels import check_labels, invert_labels
@@ -241,6 +241,12 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
     RF_type = CLASSIFICATION
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.class_weight is not None:
+            raise UnsupportedOnGPU("`class_weight` is not supported")
+        return super()._params_from_cpu(model)
 
     def _attrs_from_cpu(self, model):
         return {
