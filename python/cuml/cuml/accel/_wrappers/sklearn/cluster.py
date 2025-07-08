@@ -24,25 +24,6 @@ from cuml.internals.interop import UnsupportedOnGPU
 __all__ = ("KMeans", "DBSCAN")
 
 
-# XXX Do we need to do this or is the signature actually never visible to the outside?
-def _create_kmeans_predict():
-    if Version(sklearn.__version__) >= Version("1.5.0"):
-
-        def _gpu_predict(self, X):
-            return self._gpu.predict(X)
-
-    else:
-
-        def _gpu_predict(self, X, sample_weight="deprecated"):
-            # `sample_weight` was deprecated in 1.3 and removed in 1.5.
-            if sample_weight == "deprecated":
-                return self._gpu.predict(X)
-            else:
-                raise UnsupportedOnGPU
-
-    return _gpu_predict
-
-
 class KMeans(ProxyBase):
     _gpu_class = cuml.cluster.KMeans
 
@@ -50,7 +31,14 @@ class KMeans(ProxyBase):
         # Fixes signature mismatch with cuml.KMeans. Can be removed after #6741.
         return self._gpu.fit_transform(X, y=y, sample_weight=sample_weight)
 
-    _gpu_predict = _create_kmeans_predict()
+    if Version(sklearn.__version__) < Version("1.5.0"):
+
+        def _gpu_predict(self, X, sample_weight="deprecated"):
+            # `sample_weight` was deprecated in 1.3 and removed in 1.5.
+            if sample_weight == "deprecated":
+                return self._gpu.predict(X)
+            else:
+                raise UnsupportedOnGPU("`sample_weight` is unsupported")
 
     def _init_centroids(self, *args, **kwargs):
         # Exposed for use by the sklearn test suite
