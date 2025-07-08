@@ -24,6 +24,7 @@ jobs:
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
       - conda-python-scikit-learn-accel-tests
+      - conda-python-scikit-learn-accel-tests-intermediate
       - conda-notebook-tests
       - docs-build
       - telemetry-setup
@@ -178,6 +179,7 @@ jobs:
   # XXX Only here to get some testing while developing, should be removed before merging
   # Not newest or oldest but "intermediatet" dependencies
   conda-python-scikit-learn-accel-tests-intermediate:
+    needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.08
     with:
