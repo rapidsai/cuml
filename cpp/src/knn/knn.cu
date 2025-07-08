@@ -221,13 +221,12 @@ void approx_knn_build_index(raft::handle_t& handle,
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
   auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
 
-  index->metric_processor =
-    raft::spatial::knn::create_processor<float>(static_cast<raft::distance::DistanceType>(metric),
-                                                n,
-                                                D,
-                                                0,
-                                                false,
-                                                raft::resource::get_cuda_stream(handle));
+  index->metric_processor = raft::spatial::knn::create_processor<false, float>(
+    static_cast<raft::distance::DistanceType>(metric),
+    n,
+    D,
+    0,
+    raft::resource::get_cuda_stream(handle));
   // For cosine/correlation distance, the metric processor translates distance
   // to inner product via pre/post processing - pass the translated metric to
   // ANN index

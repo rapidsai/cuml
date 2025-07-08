@@ -322,10 +322,9 @@ def test_cli_cudf_pandas():
 def test_cli_verbose(args, level):
     script = dedent(
         f"""
-        from cuml.internals.logger import get_level, level_enum
-        level = get_level()
-        expected = level_enum.{level}
-        assert level == expected
+        from cuml.accel.core import logger
+        level = logger.level.name.lower()
+        assert level == {level!r}
         """
     )
     run(["-m", "cuml.accel", *args], stdin=script)

@@ -193,10 +193,6 @@ def _make_decorator_function(
                         if self_val is None:
                             assert input_val is not None
                             out_type = iu.determine_array_type(input_val)
-                        elif input_val is None or input_val is inspect._empty:
-                            out_type = self_val.output_type
-                            if out_type == "input":
-                                out_type = self_val._input_type
                         else:
                             out_type = self_val._get_output_type(input_val)
 
