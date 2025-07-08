@@ -38,7 +38,16 @@ from cuml.internals.array_sparse import SparseCumlArray
 class MGFitMixin(object):
 
     @cuml.internals.api_base_return_any_skipall
-    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank, order='F', convert_index=np.int32):
+    def fit(
+        self,
+        input_data,
+        n_rows,
+        n_cols,
+        partsToSizes,
+        rank,
+        order='F',
+        convert_index=np.int32,
+    ):
         """
         Fit function for MNMG linear regression classes
         This not meant to be used as
