@@ -70,6 +70,18 @@ jobs:
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+  # Not newest or oldest but "intermediatet" dependencies
+  conda-python-scikit-learn-accel-tests-intermediate:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.08
+    with:
+      build_type: ${{ inputs.build_type }}
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
+      script: "ci/test_python_scikit_learn_tests.sh"
+      # Select amd64 and the oldest deps entry, then rewrite the dependencies value to "intermediate"
+      matrix_filter: map(select(.ARCH == "amd64")) | map(select(.DEPENDENCIES == "oldest")) | sort_by(.PY_VER) | map(.DEPENDENCIES = "intermediate")
   wheel-tests-cuml:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.08
