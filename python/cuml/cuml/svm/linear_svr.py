@@ -142,39 +142,26 @@ class LinearSVR(LinearSVM, RegressorMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-
-        params = {
+        return {
             "loss": model.loss,
             "epsilon": model.epsilon,
             **super()._params_from_cpu(model),
         }
 
-        if hasattr(model, "dual") and model.dual is True:
+    def _params_to_cpu(self):
+        return {
+            "loss": self.loss,
+            "epsilon": self.epsilon,
+            "dual": False,  # cuML LinearSVR is primal
+            **super()._params_to_cpu(),
+        }
+
+    def _attrs_from_cpu(self, model):
+        if hasattr(model, "dual") and model.dual:
             raise UnsupportedOnGPU(
                 "sklearn LinearSVR has 'dual' (default True) but cuML LinearSVR is primal"
             )
 
-        params.pop("dual", None)
-        params.pop("intercept_scaling", None)
-        return params
-
-    def _params_to_cpu(self):
-        params = {
-            "loss": self.loss,
-            "epsilon": self.epsilon,
-            **super()._params_to_cpu(),
-        }
-        params.pop("penalized_intercept", None)
-        params.pop("probability", None)
-        params.pop("linesearch_max_iter", None)
-        params.pop("lbfgs_memory", None)
-        params.pop("grad_tol", None)
-        params.pop("change_tol", None)
-        params.setdefault("dual", True)
-        params.setdefault("intercept_scaling", 1.0)
-        return params
-
-    def _attrs_from_cpu(self, model):
         return super()._attrs_from_cpu(model)
 
     def _attrs_to_cpu(self, model):

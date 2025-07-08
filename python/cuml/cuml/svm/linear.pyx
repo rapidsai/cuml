@@ -669,27 +669,25 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
             "fit_intercept": model.fit_intercept,
             "max_iter": model.max_iter,
             "tol": model.tol,
-            "verbose": model.verbose
         }
-
-        if hasattr(model, "penalty"):
-            params["penalty"] = model.penalty
 
         return params
 
     def _params_to_cpu(self):
-        return {
-            "penalty": self.penalty,
+        params = {
             "C": self.C,
             "fit_intercept": self.fit_intercept,
             "max_iter": self.max_iter,
-            "tol": self.grad_tol,  # Map grad_tol back to tol
-            "verbose": self.verbose
+            "tol": self.grad_tol,
         }
 
+        return params
+
     def _attrs_from_cpu(self, model):
+        coef_ = model.coef_.reshape(1, -1)
+
         attrs = {
-            "coef_": to_gpu(model.coef_, order="F"),
+            "coef_": to_gpu(coef_, order="F", dtype=np.float64),
             "n_features_in_": model.n_features_in_,
             **super()._attrs_from_cpu(model)
         }
@@ -698,7 +696,7 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
             attrs["feature_names_in_"] = model.feature_names_in_
 
         if hasattr(model, 'intercept_'):
-            attrs["intercept_"] = to_gpu(model.intercept_, order="F")
+            attrs["intercept_"] = to_gpu(model.intercept_, order="F", dtype=np.float64)
 
         return attrs
 

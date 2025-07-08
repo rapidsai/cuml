@@ -180,8 +180,8 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 "sklearn LinearSVC has 'dual' (default True) but cuML LinearSVC is primal"
             )
 
-        params.pop("dual", None)
-        params.pop("intercept_scaling", None)
+        if hasattr(model, "penalty"):
+            params["penalty"] = model.penalty
 
         return params
 
@@ -193,29 +193,24 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             **super()._params_to_cpu(),
         }
 
-        params.pop("penalized_intercept", None)
-        params.pop("probability", None)
-        params.pop("linesearch_max_iter", None)
-        params.pop("lbfgs_memory", None)
-        params.pop("grad_tol", None)
-        params.pop("change_tol", None)
-
-        params.setdefault("dual", "auto")
-        params.setdefault("intercept_scaling", 1.0)
+        if hasattr(self, "penalty"):
+            params["penalty"] = self.penalty
 
         return params
 
     def _attrs_from_cpu(self, model):
         attrs = super()._attrs_from_cpu(model)
         if hasattr(model, "classes_"):
-            attrs["classes_"] = to_gpu(model.classes_, order="F")
+            attrs["classes_"] = to_gpu(
+                model.classes_, order="F", dtype=np.float64
+            )
         return attrs
 
     def _attrs_to_cpu(self, model):
         attrs = super()._attrs_to_cpu(model)
         if hasattr(self, "classes_"):
-            attrs["classes_"] = to_cpu(self.classes_, order="C").astype(
-                np.int64
+            attrs["classes_"] = to_cpu(
+                self.classes_, order="C", dtype=np.float64
             )
         return attrs
 
