@@ -348,10 +348,14 @@ def test_typeerror_input():
     clf.fit(X, y)
     exp = KernelExplainer(model=clf.predict, data=X, nsamples=10)
     try:
-        _ = exp.shap_values(X)
-        assert True
-    except TypeError:
-        assert False
+        exp.shap_values(X)
+    except ValueError as error:
+        if "operands could not be broadcast together" in str(error):
+            pytest.xfail(
+                "Known sklearn LARS broadcasting bug - see scikit-learn#9603"
+            )
+        else:
+            raise error
 
 
 ###############################################################################

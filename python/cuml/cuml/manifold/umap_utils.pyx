@@ -153,7 +153,11 @@ _METRICS = {
 _SUPPORTED_METRICS = {
     "nn_descent": {
         "sparse": frozenset(),
-        "dense": frozenset((DistanceType.L2SqrtExpanded, DistanceType.L2Expanded, DistanceType.CosineExpanded))
+        "dense": frozenset((
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.CosineExpanded,
+        ))
     },
     "brute_force_knn": {
         "sparse": frozenset((
