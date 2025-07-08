@@ -3,8 +3,6 @@
 
 set -euo pipefail
 
-source ./ci/use_conda_packages_from_prs.sh
-
 source rapids-configure-sccache
 
 source rapids-date-string
