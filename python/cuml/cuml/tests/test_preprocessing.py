@@ -927,12 +927,14 @@ def test_quantile_transformer(
     ignore_implicit_zeros,
     subsample,
 ):
-    # The exact way the subsampling works in QuantileTransformer changed
-    # and means we do not get exactly the same quantiles for older versions.
-    # This is Ok, we do not need to get the exact same quantiles.
-    if Version(sklearn.__version__) < Version("1.5.0"):
-        pytest.skip("Skipping test for sklearn < 1.5.0")
-
+    pytest.importorskip(
+        "sklearn",
+        minversion="1.5.0",
+        reason=(
+            "subsampling in QuantileTransformer is different pre-1.5.0, this test checks "
+            "that we implement the post-1.5.0 behavior"
+        ),
+    )
     X_np, X = nan_filled_positive
 
     transformer = cuQuantileTransformer(

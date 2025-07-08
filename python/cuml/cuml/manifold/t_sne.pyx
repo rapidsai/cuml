@@ -120,6 +120,13 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float* kl_div) except +
 
 
+# Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+if Version(sklearn.__version__) >= Version("1.5.0"):
+    _SKLEARN_N_ITER_PARAM = "max_iter"
+else:
+    _SKLEARN_N_ITER_PARAM = "n_iter"
+
+
 class TSNE(Base,
            InteropMixin,
            CMajorInputTagMixin,
@@ -332,12 +339,8 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        # Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
-        max_iter = getattr(model, "max_iter", None)
-        if max_iter is not None:
+        if (max_iter := getattr(model, _SKLEARN_N_ITER_PARAM, None)) is not None:
             params["n_iter"] = max_iter
-        else:
-            params["n_iter"] = model.n_iter
 
         return params
 
@@ -356,11 +359,8 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
+            _SKLEARN_N_ITER_PARAM: self.n_iter,
         }
-        if Version(sklearn.__version__) >= Version("1.5.0"):
-            params["max_iter"] = self.n_iter
-        else:
-            params["n_iter"] = self.n_iter
         return params
 
     def _attrs_from_cpu(self, model):
