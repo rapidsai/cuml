@@ -51,7 +51,8 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
         )
         tol = 1e-1
         if Version(sklearn.__version__) < Version("1.5.0"):
-            solver = "arpack"
+            # solver = "arpack"
+            pass
     else:
         tol = 1e-3
         X, _ = make_multilabel_classification(
