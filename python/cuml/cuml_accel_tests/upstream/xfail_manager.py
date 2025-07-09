@@ -232,14 +232,13 @@ class XfailManager:
         errors = []
         for i, group in enumerate(self.groups):
             if group.condition:
-                for condition in group.condition.split(" and "):
-                    try:
-                        Requirement(condition)
-                    except Exception as e:
-                        errors.append(
-                            f"Group {i} has invalid condition "
-                            f"'{group.condition}': {e}"
-                        )
+                try:
+                    Requirement(group.condition)
+                except Exception as e:
+                    errors.append(
+                        f"Group {i} has invalid condition "
+                        f"'{group.condition}': {e}"
+                    )
         return errors
 
     def _merge_identical_groups(self) -> int:
