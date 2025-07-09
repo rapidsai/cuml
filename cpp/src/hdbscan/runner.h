@@ -113,11 +113,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
-  bool data_on_device = attr.devicePointer;
-  RAFT_LOG_INFO("dataset is device accessible %d", data_on_device);
-
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
