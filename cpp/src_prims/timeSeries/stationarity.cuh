@@ -218,14 +218,12 @@ static void _kpss_test(const DataT* d_y,
 
   // Center the data around its mean
   rmm::device_uvector<DataT> y_cent(batch_size * n_obs, stream);
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, true>(
     y_cent.data(),
     d_y,
     y_means.data(),
     batch_size,
     n_obs,
-    false,
-    true,
     [] __device__(DataT a, DataT b) { return a - b; },
     stream);
 

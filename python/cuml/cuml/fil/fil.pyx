@@ -461,10 +461,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. For CPU execution, this value is currently ignored.
     """
-    _param_names = [
-        "treelite_model", "handle", "output_type", "verbose", "is_classifier",
-        "default_threshold", "layout", "default_chunk_size", "align_bytes", "precision", "device_id",
-    ]
 
     def _reload_model(self):
         """Reload model on any device (CPU/GPU) where model has already been
@@ -625,7 +621,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-        # TODO(hcho3): 25.10: Remove this parameter; direct users to set `threshold` in predict()
+        # TODO(hcho3): 25.10: Remove this parameter; direct users to set `threshold`
+        # in predict()
         self.default_threshold = default_threshold if default_threshold else 0.5
         self.is_classifier = is_classifier
         self.default_chunk_size = default_chunk_size
@@ -1389,7 +1386,20 @@ class ForestInference(Base, CMajorInputTagMixin):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + ForestInference._param_names
+        return [
+            *super()._get_param_names(),
+            "treelite_model",
+            "handle",
+            "output_type",
+            "verbose",
+            "is_classifier",
+            "default_threshold",
+            "layout",
+            "default_chunk_size",
+            "align_bytes",
+            "precision",
+            "device_id",
+        ]
 
     def set_params(self, **params):
         super().set_params(**params)

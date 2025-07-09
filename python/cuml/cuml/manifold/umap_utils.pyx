@@ -198,7 +198,11 @@ _METRICS = {
 _SUPPORTED_METRICS = {
     "nn_descent": {
         "sparse": frozenset(),
-        "dense": frozenset((DistanceType.L2SqrtExpanded, DistanceType.L2Expanded, DistanceType.CosineExpanded))
+        "dense": frozenset((
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.CosineExpanded,
+        ))
     },
     "brute_force_knn": {
         "sparse": frozenset((
@@ -240,6 +244,9 @@ def coerce_metric(
 
     Also checks that the metric is valid and supported.
     """
+    if not isinstance(metric, str):
+        raise TypeError(f"Expected `metric` to be a str, got {type(metric).__name__}")
+
     try:
         out = _METRICS[metric.lower()]
     except KeyError:

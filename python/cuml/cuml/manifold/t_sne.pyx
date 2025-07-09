@@ -118,6 +118,20 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float* kl_div) except +
 
 
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded
+}
+
+
 class TSNE(Base,
            InteropMixin,
            CMajorInputTagMixin,
@@ -303,16 +317,19 @@ class TSNE(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.n_components != 2:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Only `n_components=2` is supported")
 
         # Our barnes_hut implementation can sometimes hang, see #3865 and #3360.
         # fft should be at least as good, and doesn't have this issue.
         method = {"exact": "exact", "barnes_hut": "fft"}.get(model.method, None)
         if method is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`method={model.method!r}` is not supported")
 
         if not (isinstance(model.init, str) and model.init in ("pca", "random")):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
+
+        if not (isinstance(model.metric, str) and model.metric in _SUPPORTED_METRICS):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         params = {
             "n_components": model.n_components,
@@ -499,6 +516,12 @@ class TSNE(Base,
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
+
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
 
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
@@ -713,25 +736,10 @@ class TSNE(Base,
         elif self.init.lower() == 'pca':
             params.init = TSNE_INIT.PCA
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded
-        }
-
-        if self.metric.lower() in metric_parsing:
-            params.metric = metric_parsing[self.metric.lower()]
+        if (metric := _SUPPORTED_METRICS.get(self.metric, None)) is not None:
+            params.metric = metric
         else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
+            raise ValueError(f"Invalid value for metric: {self.metric}")
 
         if self.metric_params is None:
             params.p = <float> 2.0
