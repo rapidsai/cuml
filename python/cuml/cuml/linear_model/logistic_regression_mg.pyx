@@ -38,7 +38,8 @@ from cuml.common.opg_data_utils_mg cimport *
 # the cdef was copied from cuml.linear_model.qn
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
-    # TODO: Use single-GPU version qn_loss_type and qn_params https://github.com/rapidsai/cuml/issues/5502
+    # TODO: Use single-GPU version qn_loss_type and qn_params
+    # https://github.com/rapidsai/cuml/issues/5502
     cdef enum qn_loss_type "ML::GLM::qn_loss_type":
         QN_LOSS_LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
         QN_LOSS_SQUARED  "ML::GLM::QN_LOSS_SQUARED"
@@ -177,30 +178,35 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     @coef_.setter
     def coef_(self, value):
-        # convert 1-D value to 2-D (to inherit MGFitMixin which sets self.coef_ to a 1-D array of length self.n_cols)
+        # convert 1-D value to 2-D (to inherit MGFitMixin which sets self.coef_
+        # to a 1-D array of length self.n_cols)
         if len(value.shape) == 1:
             new_shape=(1, value.shape[0])
             cp_array = value.to_output('array').reshape(new_shape)
             value, _, _, _ = input_to_cuml_array(cp_array, order='K')
             if (self.fit_intercept) and (self.solver_model.intercept_ is None):
-                self.solver_model.intercept_ = CumlArray.zeros(shape=(1, 1), dtype = value.dtype)
+                self.solver_model.intercept_ = CumlArray.zeros(shape=(1, 1), dtype=value.dtype)
 
         self.solver_model.coef_ = value
 
     def create_qnparams(self):
+        # TODO: this is effectively identical to how QNParams is created in
+        # `qn.pyx`, we should do some refactoring to avoid duplicating that here
+        solver = self.solver_model
         return QNParams(
             loss=self.loss,
-            penalty_l1=self.l1_strength,
-            penalty_l2=self.l2_strength,
-            grad_tol=self.tol,
-            change_tol=self.delta
-            if self.delta is not None else (self.tol * 0.01),
-            max_iter=self.max_iter,
-            linesearch_max_iter=self.linesearch_max_iter,
-            lbfgs_memory=self.lbfgs_memory,
-            verbose=self.verbose,
-            fit_intercept=self.fit_intercept,
-            penalty_normalized=self.penalty_normalized
+            penalty_l1=solver.l1_strength,
+            penalty_l2=solver.l2_strength,
+            grad_tol=solver.tol,
+            change_tol=(
+                solver.delta if solver.delta is not None else (solver.tol * 0.01)
+            ),
+            max_iter=solver.max_iter,
+            linesearch_max_iter=solver.linesearch_max_iter,
+            lbfgs_memory=solver.lbfgs_memory,
+            verbose=solver.verbose,
+            fit_intercept=solver.fit_intercept,
+            penalty_normalized=solver.penalty_normalized
         )
 
     def prepare_for_fit(self, n_classes):
@@ -245,17 +251,30 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        if self.coef_ is None or not self.warm_start:
+        if self.coef_ is None or not self.solver_model.warm_start:
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
 
     def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False):
 
-        assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
+        if len(input_data) != 1:
+            raise ValueError(
+                f"Currently support only one (X, y) pair in the list. "
+                f"Received {len(input_data)} pairs."
+            )
+
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
 
-        super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order, convert_index=self._convert_index)
+        super().fit(
+            input_data,
+            n_rows,
+            n_cols,
+            parts_rank_size,
+            rank,
+            order=order,
+            convert_index=self._convert_index,
+        )
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
@@ -280,7 +299,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 deref(<vector[doubleData_t*]*><uintptr_t>y))
             self.classes_ = np.sort(list(c_classes_64))
         else:
-            assert False, "dtypes other than float32 and float64 are currently not supported yet."
+            raise ValueError(
+                "dtypes other than float32 and float64 are currently not supported yet."
+            )
 
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
@@ -332,7 +353,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         <int*> &num_iters)
 
                 else:
-                    assert self.index_dtype == np.int64, f"unsupported index dtype: {self.index_dtype}"
+                    assert self.index_dtype == np.int64, (
+                        f"unsupported index dtype: {self.index_dtype}"
+                    )
                     qnFitSparse(
                         handle_[0],
                         deref(<vector[floatData_t*]*><uintptr_t>X_values),
@@ -389,7 +412,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         <double*> &objective64,
                         <int*> &num_iters)
                 else:
-                    assert self.index_dtype == np.int64, f"unsupported index dtype: {self.index_dtype}"
+                    assert self.index_dtype == np.int64, (
+                        f"unsupported index dtype: {self.index_dtype}"
+                    )
                     qnFitSparse(
                         handle_[0],
                         deref(<vector[doubleData_t*]*><uintptr_t>X_values),
@@ -408,7 +433,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             self.solver_model.objective = objective64
 
         else:
-            assert False, "dtypes other than float32 and float64 are currently not supported yet."
+            raise ValueError(
+                "dtypes other than float32 and float64 are currently not supported yet."
+            )
 
         self.solver_model.num_iters = num_iters
 

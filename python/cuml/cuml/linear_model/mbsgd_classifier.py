@@ -84,17 +84,13 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
 
        'squared_loss' uses linear regression
 
-    penalty : {'none', 'l1', 'l2', 'elasticnet'} (default = 'l2')
-       'none' does not perform any regularization
+    penalty : {'l1', 'l2', 'elasticnet', None} (default = 'l2')
+        The penalty (aka regularization term) to apply.
 
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+        - 'l1': L1 norm (Lasso) regularization
+        - 'l2': L2 norm (Ridge) regularization (the default)
+        - 'elasticnet': Elastic Net regularization, a weighted average of L1 and L2
+        - None: no penalty is added
 
     alpha : float (default = 0.0001)
         The constant value which decides the degree of regularization
@@ -201,6 +197,34 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
+
+    @property
+    def dtype(self):
+        return self.solver_model.dtype
+
+    @property
+    def coef_(self) -> CumlArray:
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self.solver_model.coef_ = value
+
+    @property
+    def intercept_(self) -> float:
+        return self.solver_model.intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self.solver_model.intercept_ = value
+
+    @property
+    def classes_(self) -> CumlArray:
+        return self.solver_model.classes_
+
+    @classes_.setter
+    def classes_(self, value):
+        self.solver_model.classes_ = value
 
     @generate_docstring(
         return_values={

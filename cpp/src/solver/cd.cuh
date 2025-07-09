@@ -197,8 +197,8 @@ void cdFit(const raft::handle_t& handle,
   }
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryMult<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -289,8 +289,8 @@ void cdFit(const raft::handle_t& handle,
   }
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,

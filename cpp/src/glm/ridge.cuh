@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,10 +65,10 @@ void ridgeSolve(const raft::handle_t& handle,
   raft::copy(S_nnz, S, n_cols, stream);
   raft::matrix::power(S_nnz, n_cols, stream);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
-  raft::matrix::matrixVectorBinaryDivSkipZero(
-    S, S_nnz, (size_t)1, n_cols, false, true, stream, true);
+  raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+    S, S_nnz, (size_t)1, n_cols, stream, true);
 
-  raft::matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
+  raft::matrix::matrixVectorBinaryMult<false, true>(V, S, n_cols, n_cols, stream);
   raft::linalg::gemm(
     handle, U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta, stream);
 
@@ -196,8 +196,8 @@ void ridgeFit(const raft::handle_t& handle,
   }
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryMult<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -218,8 +218,8 @@ void ridgeFit(const raft::handle_t& handle,
   }
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
