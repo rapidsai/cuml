@@ -42,8 +42,6 @@ from cuml.prims.label.classlabels import check_labels, make_monotonic
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.internals.treelite cimport *
 
-from cuda.bindings import runtime
-
 _split_criterion_lookup = {
     "0": GINI,
     "gini": GINI,
@@ -446,11 +444,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         align_bytes = None,
     ) -> CumlArray:
         treelite_bytes = self._serialize_treelite_bytes()
-        status, current_device_id = runtime.cudaGetDevice()
-        if status != runtime.cudaError_t.cudaSuccess:
-            _, name = runtime.cudaGetErrorName(status)
-            _, msg = runtime.cudaGetErrorString(status)
-            raise RuntimeError(f"Failed to run cudaGetDevice(). {name}: {msg}")
         fil_model = ForestInference(
             treelite_model=treelite_bytes,
             handle=self.handle,
@@ -460,7 +453,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
-            device_id=current_device_id,
         )
         if predict_proba:
             return fil_model.predict_proba(X)
