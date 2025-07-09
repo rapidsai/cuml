@@ -115,8 +115,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
-  bool data_on_device = attr.type == cudaMemoryTypeDevice;
-  RAFT_LOG_INFO("dataset on device %d", data_on_device);
+  bool data_on_device = attr.devicePointer;
+  RAFT_LOG_INFO("dataset is device accessible %d", data_on_device);
 
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
