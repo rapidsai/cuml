@@ -24,7 +24,6 @@ jobs:
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
       - conda-python-scikit-learn-accel-tests
-      - conda-python-scikit-learn-accel-tests-intermediate
       - conda-notebook-tests
       - docs-build
       - telemetry-setup
