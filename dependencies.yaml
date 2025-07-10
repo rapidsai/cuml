@@ -258,7 +258,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
-          - &scikit_learn scikit-learn>=1.5
+          - &scikit_learn scikit-learn>=1.4
           - *treelite
       - output_types: requirements
         packages:
@@ -393,10 +393,10 @@ dependencies:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.5.2
+              - scikit-learn==1.4.2
           - matrix: {dependencies: "intermediate"}
             packages:
-              - scikit-learn==1.6.1
+              - scikit-learn==1.5.2
           - matrix:
             packages:
     common:
