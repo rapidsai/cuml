@@ -98,3 +98,6 @@ class LinearSVC(ProxyBase):
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
     _gpu_supports_sparse = False
+
+
+sklearn.svm.LinearSVC = LinearSVC
