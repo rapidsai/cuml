@@ -188,6 +188,9 @@ RandomForestClassifier
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
+- If ``min_weight_fraction_leaf`` is not ``0``.
+- If ``ccp_alpha`` is not ``0``.
+- If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 
@@ -206,6 +209,8 @@ RandomForestRegressor
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
+- If ``min_weight_fraction_leaf`` is not ``0``.
+- If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 
@@ -260,7 +265,11 @@ Additionally, the following fitted attributes are currently not computed:
 LogisticRegression
 ^^^^^^^^^^^^^^^^^^
 
-``LogisticRegression`` currently should never fall back to CPU.
+``LogisticRegression`` will fall back to CPU in the following cases:
+
+- If ``warm_start=True``.
+- If ``intercept_scaling`` is not ``1``.
+- If the deprecated ``multi_class`` parameter is used.
 
 ElasticNet
 ^^^^^^^^^^
@@ -317,6 +326,9 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
+  ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
+  ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
 
 Additionally, the following fitted attributes are currently not computed:
 
