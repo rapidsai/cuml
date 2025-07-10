@@ -154,12 +154,12 @@ def test_spectral_embedding_trustworthiness_mnist(n_samples):
     print(f"  cuML trustworthiness: {trust_cuml:.4f}")
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
 
-    # Both should have reasonable trustworthiness (> 0.7 for MNIST)
+    # Both should have reasonable trustworthiness (> 0.8 for MNIST)
     assert (
-        trust_sklearn > 0.7
+        trust_sklearn > 0.8
     ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
     assert (
-        trust_cuml > 0.7
+        trust_cuml > 0.8
     ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
 
 
@@ -196,12 +196,12 @@ def test_spectral_embedding_trustworthiness_fashion_mnist(n_samples):
     print(f"  cuML trustworthiness: {trust_cuml:.4f}")
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
 
-    # Both should have reasonable trustworthiness (> 0.7 for Fashion-MNIST)
+    # Both should have reasonable trustworthiness (> 0.8 for Fashion-MNIST)
     assert (
-        trust_sklearn > 0.7
+        trust_sklearn > 0.8
     ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
     assert (
-        trust_cuml > 0.7
+        trust_cuml > 0.8
     ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
 
 
