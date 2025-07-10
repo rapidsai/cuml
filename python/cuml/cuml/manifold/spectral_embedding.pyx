@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,30 +22,27 @@ import cupy as cp
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int64_t, uint32_t, uint64_t, uintptr_t
+from libc.stdint cimport uint64_t, uintptr_t
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
 from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
-    device_vector_view,
     make_device_matrix_view,
-    make_device_vector_view,
     row_major,
 )
-from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
-from pylibraft.random.cpp.rng_state cimport RngState
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
 
-cdef extern from "cuvs/preprocessing/spectral_embedding.hpp" namespace "cuvs::preprocessing::spectral_embedding" nogil:
+cdef extern from "cuvs/preprocessing/spectral_embedding.hpp" namespace \
+        "cuvs::preprocessing::spectral_embedding" nogil:
     cdef cppclass params:
         int n_components
         int n_neighbors
@@ -65,13 +62,19 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
 
 
 @auto_sync_handle
-def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
+def spectral_embedding(A,
+                       n_components,
+                       random_state=None,
+                       n_neighbors=None,
+                       norm_laplacian=True,
+                       drop_first=True,
+                       handle=None):
 
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    A, n_rows, n_cols, _ = \
-                input_to_cuml_array(A, order='C', check_dtype=np.float32,
-                                    convert_to_dtype=cp.float32)
+    A, _n_rows, _n_cols, _ = \
+        input_to_cuml_array(A, order="C", check_dtype=np.float32,
+                            convert_to_dtype=cp.float32)
     A_ptr = <uintptr_t>A.ptr
 
     config.n_components = n_components
@@ -89,21 +92,27 @@ def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, nor
     if config.drop_first:
         config.n_components += 1
 
-
     eigenvectors = device_ndarray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
 
     eigenvectors_cai = cai_wrapper(eigenvectors)
     eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
 
-    cdef int result = spectral_embedding_cuvs(deref(h), config, make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components))
+    cdef int _result = spectral_embedding_cuvs(
+        deref(h), config,
+        make_device_matrix_view[float, int, row_major](
+            <float *>A_ptr, <int> A.shape[0], <int> A.shape[1]),
+        make_device_matrix_view[float, int, col_major](
+            <float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components))
 
     return cp.asarray(eigenvectors)
+
 
 class SpectralEmbedding(Base,
                         CMajorInputTagMixin,
                         SparseInputTagMixin):
 
-    def __init__(self, n_components=2, random_state=None, n_neighbors=None, handle=None):
+    def __init__(self, n_components=2, random_state=None, n_neighbors=None,
+                 handle=None):
         super().__init__(handle=handle)
         self.n_components = n_components
         self.random_state = random_state
@@ -114,8 +123,12 @@ class SpectralEmbedding(Base,
         return self.embedding_
 
     def fit(self, X, y=None):
-        self.embedding_ = self._fit(X, self.n_components, random_state=self.random_state, n_neighbors=self.n_neighbors)
+        self.embedding_ = self._fit(X, self.n_components,
+                                    random_state=self.random_state,
+                                    n_neighbors=self.n_neighbors)
         return self
 
     def _fit(self, A, n_components, random_state=None, n_neighbors=None):
-        return spectral_embedding(A, n_components, random_state=random_state, n_neighbors=n_neighbors)
+        return spectral_embedding(A, n_components,
+                                  random_state=random_state,
+                                  n_neighbors=n_neighbors)
