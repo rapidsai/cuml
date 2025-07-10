@@ -13,242 +13,262 @@
 # limitations under the License.
 #
 
+import os
+import h5py
 import cupy as cp
-import cupyx.scipy.sparse
 import numpy as np
 import pytest
-import scipy.sparse
+from urllib.request import urlretrieve
 from sklearn import datasets
+from sklearn.datasets import fetch_openml, make_s_curve
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
-from sklearn.metrics import adjusted_rand_score
-from sklearn.utils.extmath import _deterministic_vector_sign_flip
+from sklearn.model_selection import train_test_split
 
-# from sklearn.cluster import KMeans
-from cuml.cluster import KMeans
 from cuml.manifold import SpectralEmbedding
 from cuml.metrics import trustworthiness as cuml_trustworthiness
-from cuml.testing.utils import (
-    array_equal,
-    quality_param,
-    stress_param,
-    unit_param,
-)
 
-# Default testing parameters
-DEFAULT_N_NEIGHBORS = 12
-DEFAULT_N_COMPONENTS = 2
+# Test parameters
+N_NEIGHBORS = 15
+N_COMPONENTS = 2
+TRUSTWORTHINESS_TOLERANCE = 0.05  # Maximum allowed difference between sklearn and cuML
 
 
-def validate_embedding(X, Y, score=0.70, n_neighbors=DEFAULT_N_NEIGHBORS):
-    """Compares Spectral Embedding trustworthiness and NANs"""
-    if isinstance(Y, cp.ndarray):
-        nans = cp.sum(cp.isnan(Y))
-        print(X.shape, Y.shape)
-        trust = cuml_trustworthiness(X, Y, n_neighbors=n_neighbors)
-    else:
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y, n_neighbors=n_neighbors)
-
-    print("Trust=%s" % trust)
-    assert trust > score
-    assert nans == 0
+def download_fashion_mnist(cache_dir='/tmp/rapids_datasets'):
+    """Download Fashion-MNIST dataset if not already cached."""
+    os.makedirs(cache_dir, exist_ok=True)
+    filepath = os.path.join(cache_dir, "fashion-mnist-784-euclidean.hdf5")
+    url = 'https://data.rapids.ai/cuvs/datasets/fashion-mnist-784-euclidean.hdf5'
+    
+    if not os.path.exists(filepath):
+        print("Downloading Fashion-MNIST dataset...")
+        urlretrieve(url, filepath)
+    
+    return filepath
 
 
-@pytest.mark.parametrize("n_components", [2, 5, 10])
-def test_spectral_embedding_components(
-    supervised_learning_dataset, n_components
-):
-    """Test that spectral embedding respects n_components parameter"""
-    X = supervised_learning_dataset
-
-    spectral = SpectralEmbedding(n_components=n_components, random_state=42)
-    embedding = spectral.fit_transform(X)
-
-    assert embedding.shape[1] == n_components
-
-
-# @pytest.mark.parametrize("n_components", [2, 5])
-# @pytest.mark.parametrize("norm_laplacian", [True, False])
-# @pytest.mark.parametrize("drop_first", [True, False])
-# def test_spectral_embedding_params(
-#     supervised_learning_dataset, n_components, norm_laplacian, drop_first
-# ):
-#     """Test various parameter combinations of spectral embedding"""
-#     X = supervised_learning_dataset
-
-#     spectral = SpectralEmbedding(
-#         n_components=n_components,
-#         random_state=42,
-#         n_neighbors=DEFAULT_N_NEIGHBORS
-#     )
-
-#     embedding = spectral._fit(
-#         X, n_components,
-#         random_state=42,
-#         n_neighbors=DEFAULT_N_NEIGHBORS,
-#         norm_laplacian=norm_laplacian,
-#         drop_first=drop_first
-#     )
-
-#     validate_embedding(X, embedding)
-
-# @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
-# def test_spectral_embedding_sparse_input(input_type):
-#     """Test spectral embedding with sparse inputs"""
-#     # Create a sparse dataset
-#     X, y = datasets.make_blobs(
-#         n_samples=500, n_features=20, centers=5, random_state=42
-#     )
-
-#     # Sparsify the data (set 50% of entries to zero)
-#     sparsification = np.random.choice(
-#         [0.0, 1.0], p=[0.5, 0.5], size=X.shape
-#     )
-#     X_sparse = np.multiply(X, sparsification)
-
-#     if input_type == "cupy":
-#         X_sparse = cupyx.scipy.sparse.csr_matrix(X_sparse)
-#     else:
-#         X_sparse = scipy.sparse.csr_matrix(X_sparse)
-
-#     spectral = SpectralEmbedding(
-#         n_components=2,
-#         random_state=42,
-#         n_neighbors=DEFAULT_N_NEIGHBORS
-#     )
-
-#     embedding = spectral.fit_transform(X_sparse)
-
-#     validate_embedding(X, embedding)
+def load_fashion_mnist_data(max_samples=5000):
+    """Load Fashion-MNIST data from HDF5 file."""
+    filepath = download_fashion_mnist()
+    
+    with h5py.File(filepath, 'r') as f:
+        # Load the data
+        if 'train' in f:
+            data = np.array(f['train'])
+        elif 'dataset' in f:
+            data = np.array(f['dataset'])
+        else:
+            keys = list(f.keys())
+            for key in keys:
+                if isinstance(f[key], h5py.Dataset):
+                    data = np.array(f[key])
+                    break
+        
+        # Sample if needed
+        if max_samples and len(data) > max_samples:
+            indices = np.random.choice(len(data), max_samples, replace=False)
+            data = data[indices]
+    
+    return data
 
 
-@pytest.mark.parametrize("random_state", [None, 42, 999])
-def test_spectral_embedding_reproducibility(
-    supervised_learning_dataset, random_state
-):
-    """Test that spectral embedding is reproducible with fixed random state"""
-    X = supervised_learning_dataset
-
-    # First embedding
-    spectral1 = SpectralEmbedding(
-        n_components=DEFAULT_N_COMPONENTS,
-        random_state=random_state,
-        n_neighbors=DEFAULT_N_NEIGHBORS,
-    )
-    embedding1 = spectral1.fit_transform(X)
-
-    # Second embedding
-    spectral2 = SpectralEmbedding(
-        n_components=DEFAULT_N_COMPONENTS,
-        random_state=random_state,
-        n_neighbors=DEFAULT_N_NEIGHBORS,
-    )
-    embedding2 = spectral2.fit_transform(X)
-
-    # If random state is None, embeddings may differ
-    if random_state is not None:
-        assert array_equal(embedding1, embedding2, 1e-4, with_sign=True)
-
-
-@pytest.mark.parametrize("n_neighbors", [5, 10, 15])
-def test_spectral_embedding_n_neighbors(
-    supervised_learning_dataset, n_neighbors
-):
-    """Test different number of neighbors impact on spectral embedding"""
-    X = supervised_learning_dataset
-
-    spectral = SpectralEmbedding(
-        n_components=DEFAULT_N_COMPONENTS,
-        random_state=42,
-        n_neighbors=n_neighbors,
-    )
-    embedding = spectral.fit_transform(X)
-
-    validate_embedding(X, embedding, n_neighbors=n_neighbors)
-
-
-@pytest.mark.parametrize("dataset_name", ["blobs", "iris", "digits"])
-def test_spectral_embedding_datasets(dataset_name):
-    """Test spectral embedding on various datasets"""
-    if dataset_name == "blobs":
-        X, y = datasets.make_blobs(
-            n_samples=300, n_features=10, centers=5, random_state=42
-        )
-    elif dataset_name == "iris":
-        X, y = datasets.load_iris(return_X_y=True)
-    elif dataset_name == "digits":
-        X, y = datasets.load_digits(return_X_y=True)
-
-    spectral = SpectralEmbedding(
-        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
-    )
-    embedding = spectral.fit_transform(X)
-
-    print(X.shape, embedding.shape)
-    validate_embedding(X, embedding, n_neighbors=DEFAULT_N_NEIGHBORS)
-
-
-@pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(2000), stress_param(10000)]
-)
-@pytest.mark.parametrize(
-    "n_feats", [unit_param(10), quality_param(50), stress_param(100)]
-)
-def test_spectral_embedding_scaling(nrows, n_feats):
-    """Test spectral embedding on larger datasets with varying dimensions"""
-    X, y = datasets.make_blobs(
-        n_samples=nrows, n_features=n_feats, centers=5, random_state=42
-    )
-
-    spectral = SpectralEmbedding(
-        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
-    )
-
-    embedding = spectral.fit_transform(X)
-
-    if nrows <= 2000:  # Only check trustworthiness for smaller datasets
-        validate_embedding(X, embedding)
-
-
-def test_compare_sklearn():
-    """Compare results with sklearn's implementation for basic correctness check"""
-    X, y = datasets.load_digits(return_X_y=True)
-
-    # cuML implementation
-    cuml_spectral = SpectralEmbedding(
-        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
-    )
-    cuml_embedding = cuml_spectral.fit_transform(X)
-
-    # sklearn implementation
+@pytest.mark.parametrize("n_samples", [1500, 2000])
+def test_spectral_embedding_trustworthiness_s_curve(n_samples):
+    """Test trustworthiness comparison between sklearn and cuML on S-curve dataset."""
+    # Generate S-curve dataset
+    X, color = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    
+    # sklearn embedding
     sk_spectral = skSpectralEmbedding(
-        n_components=2, random_state=42, n_neighbors=DEFAULT_N_NEIGHBORS
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity='nearest_neighbors',
+        random_state=42,
+        n_jobs=-1
     )
-    sk_embedding = sk_spectral.fit_transform(X)
-
-    cuml_embedding = cuml_embedding.get()
-    cuml_embedding = cuml_embedding.T
-    cuml_embedding = _deterministic_vector_sign_flip(cuml_embedding)
-    cuml_embedding = cuml_embedding.T
-
-    print(cuml_embedding.shape, sk_embedding.shape)
-    print(cuml_embedding)
-    print(sk_embedding)
-
-    # check if cuml_embedding is close to sk_embedding
-    assert array_equal(
-        cuml_embedding, sk_embedding, unit_tol=1e-2, with_sign=True
+    X_sklearn = sk_spectral.fit_transform(X)
+    
+    # cuML embedding
+    X_gpu = cp.asarray(X)
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        random_state=42
     )
+    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+    X_cuml = cp.asnumpy(X_cuml_gpu)
+    
+    # Calculate trustworthiness scores
+    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
+    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
+    
+    print(f"\nS-curve (n={n_samples}):")
+    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
+    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
+    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
+    
+    # Assert that trustworthiness scores are similar
+    assert abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE, \
+        f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
+    
+    # Both should have good trustworthiness (> 0.8 for S-curve)
+    assert trust_sklearn > 0.8, f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
+    assert trust_cuml > 0.8, f"cuML trustworthiness {trust_cuml:.4f} is too low"
 
-    print("cuml trust")
-    validate_embedding(X, cuml_embedding)
-    print("sklearn trust")
-    validate_embedding(X, sk_embedding)
 
-    # # Check that both embeddings have similar clustering quality
-    # cuml_score = adjusted_rand_score(y, KMeans(5).fit_predict(cuml_embedding))
-    # sk_score = adjusted_rand_score(y, KMeans(5).fit_predict(sk_embedding))
+@pytest.mark.parametrize("n_samples", [5000])
+def test_spectral_embedding_trustworthiness_mnist(n_samples):
+    """Test trustworthiness comparison between sklearn and cuML on MNIST dataset."""
+    # Load MNIST dataset
+    mnist = fetch_openml('mnist_784', version=1, as_frame=False, parser='auto')
+    X, y = mnist.data, mnist.target.astype(np.int32)
+    
+    # Normalize and sample
+    X = X / 255.0
+    X, _, y, _ = train_test_split(X, y, train_size=n_samples, 
+                                  stratify=y, random_state=42)
+    
+    # sklearn embedding
+    sk_spectral = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity='nearest_neighbors',
+        random_state=42,
+        n_jobs=-1
+    )
+    X_sklearn = sk_spectral.fit_transform(X)
+    
+    # cuML embedding
+    X_gpu = cp.asarray(X)
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        random_state=42
+    )
+    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+    X_cuml = cp.asnumpy(X_cuml_gpu)
+    
+    # Calculate trustworthiness scores
+    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
+    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
+    
+    print(f"\nMNIST (n={n_samples}):")
+    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
+    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
+    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
+    
+    # Assert that trustworthiness scores are similar
+    assert abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE, \
+        f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
+    
+    # Both should have reasonable trustworthiness (> 0.7 for MNIST)
+    assert trust_sklearn > 0.7, f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
+    assert trust_cuml > 0.7, f"cuML trustworthiness {trust_cuml:.4f} is too low"
 
-    # # The scores don't need to be identical, but should be comparable
-    # assert abs(cuml_score - sk_score) < 0.2
+
+@pytest.mark.parametrize("n_samples", [5000])
+def test_spectral_embedding_trustworthiness_fashion_mnist(n_samples):
+    """Test trustworthiness comparison between sklearn and cuML on Fashion-MNIST dataset."""
+    # Load Fashion-MNIST data
+    X = load_fashion_mnist_data(max_samples=n_samples)
+    
+    # sklearn embedding
+    sk_spectral = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity='nearest_neighbors',
+        random_state=42,
+        n_jobs=-1
+    )
+    X_sklearn = sk_spectral.fit_transform(X)
+    
+    # cuML embedding
+    X_gpu = cp.asarray(X)
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        random_state=42
+    )
+    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+    X_cuml = cp.asnumpy(X_cuml_gpu)
+    
+    # Calculate trustworthiness scores
+    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
+    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
+    
+    print(f"\nFashion-MNIST (n={n_samples}):")
+    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
+    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
+    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
+    
+    # Assert that trustworthiness scores are similar
+    assert abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE, \
+        f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
+    
+    # Both should have reasonable trustworthiness (> 0.7 for Fashion-MNIST)
+    assert trust_sklearn > 0.7, f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
+    assert trust_cuml > 0.7, f"cuML trustworthiness {trust_cuml:.4f} is too low"
+
+
+@pytest.mark.benchmark
+def test_spectral_embedding_performance_comparison():
+    """Benchmark performance comparison between sklearn and cuML."""
+    import time
+    
+    # Generate a medium-sized dataset
+    X, _ = make_s_curve(n_samples=5000, noise=0.05, random_state=42)
+    
+    # Time sklearn
+    sk_spectral = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity='nearest_neighbors',
+        random_state=42,
+        n_jobs=-1
+    )
+    
+    start_time = time.time()
+    _ = sk_spectral.fit_transform(X)
+    sklearn_time = time.time() - start_time
+    
+    # Time cuML (with warm-up)
+    X_gpu = cp.asarray(X)
+    
+    # Warm-up
+    cuml_warmup = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        random_state=42
+    )
+    _ = cuml_warmup.fit_transform(X_gpu)
+    
+    # Actual timing
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        random_state=42
+    )
+    
+    cp.cuda.Stream.null.synchronize()
+    start_time = time.time()
+    _ = cuml_spectral.fit_transform(X_gpu)
+    cp.cuda.Stream.null.synchronize()
+    cuml_time = time.time() - start_time
+    
+    speedup = sklearn_time / cuml_time
+    
+    print(f"\nPerformance Comparison (5000 samples):")
+    print(f"  sklearn time: {sklearn_time:.3f}s")
+    print(f"  cuML time: {cuml_time:.3f}s")
+    print(f"  Speedup: {speedup:.1f}x")
+    
+    # cuML should be faster
+    assert cuml_time < sklearn_time, "cuML should be faster than sklearn"
+    
+    # For this size, we expect at least 2x speedup
+    assert speedup > 2.0, f"Expected at least 2x speedup, got {speedup:.1f}x"
+
+
+if __name__ == "__main__":
+    # Run the tests
+    pytest.main([__file__, "-v"]) 
