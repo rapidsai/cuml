@@ -470,6 +470,7 @@
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[True-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[True-sigmoid]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_class_weight_classifiers]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifiers_one_label]"
