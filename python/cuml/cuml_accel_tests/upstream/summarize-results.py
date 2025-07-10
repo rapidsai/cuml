@@ -259,10 +259,7 @@ def get_test_results(testsuite):
     """
     results = {}
     for testcase in testsuite.findall(".//testcase"):
-        classname = testcase.get("classname", "")
-        if not classname.startswith("sklearn."):
-            classname = f"sklearn.{classname}"
-        test_id = QuoteTestID(f"{classname}::{testcase.get('name')}")
+        test_id = QuoteTestID(get_test_id(testcase))
 
         failure = testcase.find("failure")
         error = testcase.find("error")
@@ -331,6 +328,12 @@ def format_table(rows, col_sep="  "):
     return formatted_rows
 
 
+def get_test_id(testcase) -> str:
+    classname = testcase.get("classname", "")
+    name = testcase.get("name")
+    return f"{classname}::{name}" if classname else name
+
+
 def format_traceback_output(testsuite, limit=None):
     """Format test results showing tracebacks of failed tests.
 
@@ -355,10 +358,7 @@ def format_traceback_output(testsuite, limit=None):
         error = testcase.find("error")
 
         if failure is not None or error is not None:
-            classname = testcase.get("classname", "")
-            if not classname.startswith("sklearn."):
-                classname = f"sklearn.{classname}"
-            test_id = f"{classname}::{testcase.get('name')}"
+            test_id = get_test_id(testcase)
 
             msg = ""
             details = ""
@@ -546,6 +546,7 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
+                test_id = get_test_id(testcase)
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
@@ -554,9 +555,9 @@ def main():
                 if "XPASS" in msg:
                     continue  # Skip xpassed tests in failure list
                 elif msg == "xfail":
-                    print(f"  {testcase.get('name')} (xfail)")
+                    print(f"  {test_id} (xfail)")
                 else:
-                    print(f"  {testcase.get('name')}")
+                    print(f"  {test_id}")
                 count += 1
 
     # List strict xpasses in verbose mode
@@ -576,7 +577,8 @@ def main():
                 elif error is not None and error.get("message") is not None:
                     msg = error.get("message")
                 if "XPASS(strict)" in msg:
-                    print(f"  {testcase.get('name')}")
+                    test_id = get_test_id(testcase)
+                    print(f"  {test_id}")
                     count += 1
 
     # Check threshold
