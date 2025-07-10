@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,7 @@
 namespace ML {
 
 //! Thread-local Matrix-Vector multiplication.
-template <int n>
-DI void Mv_l(const double* A, const double* v, double* out)
+DI void Mv_l(int n, const double* A, const double* v, double* out)
 {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
@@ -53,8 +52,7 @@ DI void Mv_l(const double* A, const double* v, double* out)
   }
 }
 
-template <int n>
-DI void Mv_l(double alpha, const double* A, const double* v, double* out)
+DI void Mv_l(int n, double alpha, const double* A, const double* v, double* out)
 {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
@@ -66,8 +64,8 @@ DI void Mv_l(double alpha, const double* A, const double* v, double* out)
 }
 
 //! Thread-local Matrix-Matrix multiplication.
-template <int n, bool aT = false, bool bT = false>
-DI void MM_l(const double* A, const double* B, double* out)
+template <bool aT = false, bool bT = false>
+DI void MM_l(int n, const double* A, const double* B, double* out)
 {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
@@ -85,8 +83,7 @@ DI void MM_l(const double* A, const double* B, double* out)
 /** Improve stability by making a covariance matrix symmetric and forcing
  * diagonal elements to be positive
  */
-template <int n>
-DI void numerical_stability(double* A)
+DI void numerical_stability(int n, double* A)
 {
   // A = 0.5 * (A + A')
   for (int i = 0; i < n - 1; i++) {
@@ -106,7 +103,7 @@ DI void numerical_stability(double* A)
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
  *
- * @tparam     rd              Dimension of the state vector
+ * @param[in]  rd              Dimension of the state vector
  * @param[in]  ys              Batched time series
  * @param[in]  nobs            Number of observation per series
  * @param[in]  T               Batched transition matrix.            (r x r)
@@ -127,8 +124,8 @@ DI void numerical_stability(double* A)
  * @param[in]  conf_int        Whether to compute confidence intervals
  * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
-template <int rd>
-CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
+CUML_KERNEL void batched_kalman_loop_kernel(int rd,
+                                            const double* ys,
                                             int nobs,
                                             const double* T,
                                             const double* Z,
@@ -148,15 +145,17 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
                                             bool conf_int  = false,
                                             double* d_F_fc = nullptr)
 {
-  constexpr int rd2 = rd * rd;
-  double l_RQR[rd2];
-  double l_T[rd2];
-  double l_Z[rd];
-  double l_P[rd2];
-  double l_alpha[rd];
-  double l_K[rd];
-  double l_tmp[rd2];
-  double l_TP[rd2];
+  constexpr int rd_max  = 8;
+  constexpr int rd2_max = rd_max * rd_max;
+  int rd2               = rd * rd;
+  double l_RQR[rd2_max];
+  double l_T[rd2_max];
+  double l_Z[rd_max];
+  double l_P[rd2_max];
+  double l_alpha[rd_max];
+  double l_K[rd_max];
+  double l_tmp[rd2_max];
+  double l_TP[rd2_max];
 
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -226,7 +225,7 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P
-      MM_l<rd>(l_T, l_P, l_TP);
+      MM_l(rd, l_T, l_P, l_TP);
       if (!missing) {
         // K = 1/Fs[it] * TP*Z'
         double _1_Fs = 1.0 / _Fs;
@@ -235,13 +234,13 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
             l_K[i] = _1_Fs * l_TP[i];
           }
         } else {
-          Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
+          Mv_l(rd, _1_Fs, l_TP, l_Z, l_K);
         }
       }
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha
-      Mv_l<rd>(l_T, l_alpha, l_tmp);
+      Mv_l(rd, l_T, l_alpha, l_tmp);
       // alpha = tmp + K*vs[it]
       for (int i = 0; i < rd; i++) {
         l_alpha[i] = l_tmp[i] + (missing ? 0.0 : l_K[i] * vs_it);
@@ -271,14 +270,14 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
 
       // 6. P = T*P*L' + R*Q*R'
       // P = TP*L'
-      MM_l<rd, false, true>(l_TP, l_tmp, l_P);
+      MM_l<false, true>(rd, l_TP, l_tmp, l_P);
       // P = P + RQR
       for (int i = 0; i < rd2; i++) {
         l_P[i] += l_RQR[i];
       }
 
       // Numerical stability: enforce symmetry of P and positivity of diagonal
-      numerical_stability<rd>(l_P);
+      numerical_stability(rd, l_P);
     }
 
     // Compute log-likelihood
@@ -305,7 +304,7 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
         b_fc[it] = pred;
 
         // alpha = T*alpha + c
-        Mv_l<rd>(l_T, l_alpha, l_tmp);
+        Mv_l(rd, l_T, l_alpha, l_tmp);
         for (int i = 0; i < rd; i++) {
           l_alpha[i] = l_tmp[i];
         }
@@ -326,16 +325,16 @@ CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
 
           // P = T*P*T' + RR'
           // TP = T*P
-          MM_l<rd>(l_T, l_P, l_TP);
+          MM_l(rd, l_T, l_P, l_TP);
           // P = TP*T'
-          MM_l<rd, false, true>(l_TP, l_T, l_P);
+          MM_l<false, true>(rd, l_TP, l_T, l_P);
           // P = P + RR'
           for (int i = 0; i < rd2; i++) {
             l_P[i] += l_RQR[i];
           }
 
           // Numerical stability: enforce symmetry of P and positivity of diagonal
-          numerical_stability<rd>(l_P);
+          numerical_stability(rd, l_P);
         }
       }
     }
@@ -782,184 +781,26 @@ void batched_kalman_loop(raft::handle_t& handle,
   dim3 numThreadsPerBlock(32, 1);
   dim3 numBlocks(raft::ceildiv<int>(batch_size, numThreadsPerBlock.x), 1);
   if (rd <= 8) {
-    switch (rd) {
-      case 1:
-        batched_kalman_loop_kernel<1>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 2:
-        batched_kalman_loop_kernel<2>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 3:
-        batched_kalman_loop_kernel<3>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 4:
-        batched_kalman_loop_kernel<4>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 5:
-        batched_kalman_loop_kernel<5>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 6:
-        batched_kalman_loop_kernel<6>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 7:
-        batched_kalman_loop_kernel<7>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-      case 8:
-        batched_kalman_loop_kernel<8>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
-                                                         nobs,
-                                                         T.raw_data(),
-                                                         Z.raw_data(),
-                                                         RQR.raw_data(),
-                                                         P0.raw_data(),
-                                                         alpha.raw_data(),
-                                                         intercept,
-                                                         d_mu,
-                                                         batch_size,
-                                                         d_obs_inter,
-                                                         d_obs_inter_fut,
-                                                         d_pred,
-                                                         d_loglike,
-                                                         n_diff,
-                                                         fc_steps,
-                                                         d_fc,
-                                                         conf_int,
-                                                         d_F_fc);
-        break;
-    }
+    batched_kalman_loop_kernel<<<numBlocks, numThreadsPerBlock, 0, stream>>>(rd,
+                                                                             ys,
+                                                                             nobs,
+                                                                             T.raw_data(),
+                                                                             Z.raw_data(),
+                                                                             RQR.raw_data(),
+                                                                             P0.raw_data(),
+                                                                             alpha.raw_data(),
+                                                                             intercept,
+                                                                             d_mu,
+                                                                             batch_size,
+                                                                             d_obs_inter,
+                                                                             d_obs_inter_fut,
+                                                                             d_pred,
+                                                                             d_loglike,
+                                                                             n_diff,
+                                                                             fc_steps,
+                                                                             d_fc,
+                                                                             conf_int,
+                                                                             d_F_fc);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   } else {
     int num_sm;
