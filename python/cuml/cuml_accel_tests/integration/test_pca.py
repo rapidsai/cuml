@@ -16,6 +16,8 @@
 
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_classification
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -60,6 +62,14 @@ def test_pca_n_components(pca_data, n_components):
     "svd_solver", ["auto", "full", "arpack", "randomized", "covariance_eigh"]
 )
 def test_pca_svd_solver(pca_data, svd_solver):
+    if (
+        Version(sklearn.__version__) < Version("1.5.0")
+        and svd_solver == "covariance_eigh"
+    ):
+        pytest.skip(
+            "svd_solver 'covariance_eigh' is not supported in scikit-learn < 1.5.0"
+        )
+
     X, _ = pca_data
     pca = PCA(n_components=5, svd_solver=svd_solver, random_state=42).fit(X)
     X_transformed = pca.transform(X)
