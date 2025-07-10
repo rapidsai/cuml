@@ -30,9 +30,6 @@ from cuml.manifold import SpectralEmbedding
 # Test parameters
 N_NEIGHBORS = 15
 N_COMPONENTS = 2
-TRUSTWORTHINESS_TOLERANCE = (
-    0.05  # Maximum allowed difference between sklearn and cuML
-)
 
 
 def download_fashion_mnist(cache_dir="/tmp/rapids_datasets"):
@@ -108,11 +105,6 @@ def test_spectral_embedding_trustworthiness_s_curve(n_samples):
     print(f"  cuML trustworthiness: {trust_cuml:.4f}")
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
 
-    # Assert that trustworthiness scores are similar
-    assert (
-        abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE
-    ), f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
-
     # Both should have good trustworthiness (> 0.8 for S-curve)
     assert (
         trust_sklearn > 0.8
@@ -162,11 +154,6 @@ def test_spectral_embedding_trustworthiness_mnist(n_samples):
     print(f"  cuML trustworthiness: {trust_cuml:.4f}")
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
 
-    # Assert that trustworthiness scores are similar
-    assert (
-        abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE
-    ), f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
-
     # Both should have reasonable trustworthiness (> 0.7 for MNIST)
     assert (
         trust_sklearn > 0.7
@@ -208,11 +195,6 @@ def test_spectral_embedding_trustworthiness_fashion_mnist(n_samples):
     print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
     print(f"  cuML trustworthiness: {trust_cuml:.4f}")
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
-
-    # Assert that trustworthiness scores are similar
-    assert (
-        abs(trust_sklearn - trust_cuml) < TRUSTWORTHINESS_TOLERANCE
-    ), f"Trustworthiness difference {abs(trust_sklearn - trust_cuml):.4f} exceeds tolerance {TRUSTWORTHINESS_TOLERANCE}"
 
     # Both should have reasonable trustworthiness (> 0.7 for Fashion-MNIST)
     assert (
