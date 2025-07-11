@@ -14,16 +14,35 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/spectral_embedding.hpp>
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resources.hpp>
+
 #include <cuvs/preprocessing/spectral_embedding.hpp>
 
 namespace ML::SpectralEmbedding {
 
+cuvs::preprocessing::spectral_embedding::params SpectralEmbedding::params::to_cuvs() const
+{
+  cuvs::preprocessing::spectral_embedding::params params;
+
+  params.n_components   = this->n_components;
+  params.n_neighbors    = this->n_neighbors;
+  params.norm_laplacian = this->norm_laplacian;
+  params.drop_first     = this->drop_first;
+  params.seed           = this->seed;
+
+  return params;
+}
+
 auto spectral_embedding_cuvs(raft::resources const& handle,
-                             cuvs::preprocessing::spectral_embedding::params config,
+                             ML::SpectralEmbedding::params config,
                              raft::device_matrix_view<float, int, raft::row_major> dataset,
                              raft::device_matrix_view<float, int, raft::col_major> embedding) -> int
 {
-  return cuvs::preprocessing::spectral_embedding::transform(handle, config, dataset, embedding);
+  return cuvs::preprocessing::spectral_embedding::transform(
+    handle, config.to_cuvs(), dataset, embedding);
 }
 
 }  // namespace ML::SpectralEmbedding

@@ -17,12 +17,41 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-#include <cuvs/preprocessing/spectral_embedding.hpp>
+// #include <cuvs/preprocessing/spectral_embedding.hpp>
+
+namespace cuvs::preprocessing::spectral_embedding {
+
+struct params;
+
+}  // end namespace cuvs::preprocessing::spectral_embedding
 
 namespace ML::SpectralEmbedding {
 
+/**
+ * @brief Parameters for spectral embedding algorithm
+ */
+struct params {
+  /** @brief The number of components to reduce the data to. */
+  int n_components;
+
+  /** @brief The number of neighbors to use for the nearest neighbors graph. */
+  int n_neighbors;
+
+  /** @brief Whether to normalize the Laplacian matrix. */
+  bool norm_laplacian;
+
+  /** @brief Whether to drop the first eigenvector. */
+  bool drop_first;
+
+  /** @brief Random seed for reproducibility */
+  uint64_t seed;
+
+  // convert to cuvs
+  cuvs::preprocessing::spectral_embedding::params to_cuvs() const;
+};
+
 auto spectral_embedding_cuvs(raft::resources const& handle,
-                             cuvs::preprocessing::spectral_embedding::params config,
+                             ML::SpectralEmbedding::params config,
                              raft::device_matrix_view<float, int, raft::row_major> dataset,
                              raft::device_matrix_view<float, int, raft::col_major> embedding)
   -> int;

@@ -41,8 +41,8 @@ from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
 
-cdef extern from "cuvs/preprocessing/spectral_embedding.hpp" namespace \
-        "cuvs::preprocessing::spectral_embedding" nogil:
+cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
+
     cdef cppclass params:
         int n_components
         int n_neighbors
@@ -50,15 +50,13 @@ cdef extern from "cuvs/preprocessing/spectral_embedding.hpp" namespace \
         bool drop_first
         uint64_t seed
 
-cdef params config
-
-cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
-
     cdef int spectral_embedding_cuvs(
         const device_resources &handle,
         params config,
         device_matrix_view[float, int, row_major] dataset,
         device_matrix_view[float, int, col_major] embedding) except +
+
+cdef params config
 
 
 @auto_sync_handle
