@@ -103,13 +103,6 @@ def spectral_embedding(A,
         connected graph, but for spectral clustering, this should be kept as
         False to retain the first eigenvector.
 
-    handle : cuml.Handle or None, default=None
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams by
-        creating handles in several streams.
-
     Returns
     -------
     embedding : cupy.ndarray of shape (n_samples, n_components)
