@@ -404,12 +404,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-manhattan]"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_kneighbors_regressor"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_tsne"
-  - "sklearn.tests.test_common::test_estimators[NuSVC()-check_class_weight_classifiers]"
-  - "sklearn.tests.test_common::test_estimators[NuSVC()-check_classifiers_one_label_sample_weights]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_dont_overwrite_parameters]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_overwrite_params]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_dont_overwrite_parameters]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_overwrite_params]"
   - "sklearn.tests.test_docstrings::test_docstring[GridSearchCV-None]"
   - "sklearn.tests.test_multioutput::test_multi_output_classes_[estimator0]"
   - "sklearn.tests.test_multioutput::test_multi_output_classification_sample_weights"
@@ -471,31 +465,6 @@
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[True-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[True-sigmoid]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_class_weight_classifiers]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifiers_regression_target]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weights_invariance(kind=zeros)]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_regression_target]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[GridSearchCV(cv=2,estimator=LogisticRegression(),param_grid={'C':[0.1,1.0]})]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)0]"
@@ -917,22 +886,6 @@
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-sigmoid]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_class_weight_classifiers]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifiers_regression_target]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Pipeline(steps=[('logisticregression',LogisticRegression(C=1))])]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
@@ -976,10 +929,6 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[k_best-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
 - reason: Test should fail with cuml.accel (scikit-learn 1.7)
   marker: cuml_accel_bugs
@@ -1092,19 +1041,19 @@
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed2-20-float64-0.2-sparse_cg-csr_matrix]"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
   marker: cuml_accel_bugs
-  condition: scikit-learn<1.7
+  condition: scikit-learn<1.7,>=1.5.0
+  tests:
+  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
+  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
+- reason: Test should fail with cuml.accel (scikit-learn<1.7)
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.6,<1.7
   tests:
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-auto]"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
-- reason: Test should fail with cuml.accel (scikit-learn<1.7)
-  marker: cuml_accel_bugs
-  condition: scikit-learn<1.7,>=1.5.0
-  tests:
-  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
-  - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
@@ -1116,8 +1065,6 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelRidge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Lasso()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[PCA()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[RandomForestClassifier()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[RandomForestRegressor()]"
@@ -1127,7 +1074,7 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
-  condition: scikit-learn>=1.6
+  condition: scikit-learn>=1.6,<1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_n_features_in_after_fitting]"
@@ -1144,11 +1091,6 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
-- reason: Test crashes with cuml.accel
-  marker: cuml_accel_crashes
-  run: false
-  tests:
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
@@ -1212,6 +1154,7 @@
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: KernelRidge input handling and validation
   marker: cuml_accel_kernel_ridge_estimator_checks
+  condition: scikit-learn<1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_dtype_object]"
@@ -1320,97 +1263,6 @@
   marker: cuml_accel_kmeans_warning_n_init_precomputed_centers
   tests:
   - "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
-- reason: Issues related to LinearSVM
-  marker: cuml_accel_linear_svm
-  tests:
-  - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
-  - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"
-  - "sklearn.model_selection.tests.test_search::test_grid_search_no_score"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-multi-class-squared_hinge-array]"
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-two-classes-squared_hinge-array]"
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-squared_hinge-array]"
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-squared_hinge-array]"
-  - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_array-dok_array]"
-  - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_matrix-dok_matrix]"
-  - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_array]"
-  - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_matrix]"
-  - "sklearn.svm.tests.test_sparse::test_sparse_liblinear_intercept_handling"
-  - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
-  - "sklearn.svm.tests.test_svm::test_liblinear_set_coef"
-  - "sklearn.svm.tests.test_svm::test_linear_svm_convergence_warnings"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_crammer_singer"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_iris"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l1-hinge]"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l2-hinge]"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-hinge]"
-  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-squared_hinge]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params0]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params1]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params2]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params3]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params5]"
-  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params6]"
-  - "sklearn.svm.tests.test_svm::test_linearsvr"
-  - "sklearn.svm.tests.test_svm::test_lsvc_intercept_scaling_zero"
-  - "sklearn.svm.tests.test_svm::test_svr"
-  - "sklearn.tests.test_calibration::test_calibration_inconsistent_prefit_n_features_in"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
-  - "sklearn.tests.test_calibration::test_error_less_class_samples_than_folds"
-  - "sklearn.tests.test_calibration::test_parallel_execution[False-isotonic]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[False-sigmoid]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[True-isotonic]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[True-sigmoid]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_regression_target]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_train]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_pickle(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_pickle]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
-  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
-- reason: metadata routing not yet supported
-  marker: cuml_accel_metadata_routing
-  tests:
-  - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
 - reason: cuml missing certain fit attributes
   marker: cuml_accel_missing_fit_attributes
   tests:
@@ -1433,10 +1285,7 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-canberra]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-haversine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-42-minkowski]"
-- reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
+- reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
   condition: scikit-learn>=1.6
   strict: false
@@ -1446,29 +1295,10 @@
   - "sklearn.linear_model.tests.test_logistic::test_newton_cholesky_fallback_to_lbfgs[42]"
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVC input handling and validation
-  marker: cuml_accel_svc_estimator_checks
   tests:
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
   - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
 - reason: SVM missing certain fit attributes
   marker: cuml_accel_svm_missing_fit_attributes
   tests:
@@ -1486,43 +1316,9 @@
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
   - "sklearn.svm.tests.test_svm::test_weight"
-- reason: SVR input handling and validation
-  marker: cuml_accel_svr_estimator_checks
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVR input handling and validation
-  marker: cuml_accel_svr_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
-- reason: test_estimators checks fail
-  marker: cuml_accel_test_estimators
+  condition: scikit-learn>=1.6,<1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_dtype_object]"
@@ -1548,6 +1344,8 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_shape]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
@@ -1559,6 +1357,7 @@
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifiers_train]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_fit2d_predict1d]"
@@ -1566,6 +1365,7 @@
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_fit2d_predict1d]"
@@ -1602,6 +1402,7 @@
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[PCA()-check_complex_data]"
@@ -1629,6 +1430,8 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
@@ -1639,6 +1442,8 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_multioutput]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_dtype_object]"
@@ -1653,6 +1458,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_complex_data]"
@@ -1664,58 +1470,104 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
+- reason: test_estimators checks fail
+  marker: cuml_accel_test_estimators2
+  condition: scikit-learn>=1.6
+  tests:
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dict_unchanged]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_do_not_raise_errors_in_init_or_set_params]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_array]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_matrix]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_sparse_tag]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimator_tags_renamed]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_dtypes]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_pickle]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_unfitted]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit_check_is_fitted]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit_idempotent]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_methods_subset_invariance]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_no_attributes_set_in_init]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_parameters_default_constructible]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_no_decision_function]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressors_train]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_2d]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
 - reason: TSNE isn't deterministic, even with random_state
   marker: cuml_accel_tsne_nondeterministic
   condition: scikit-learn<1.6
   tests:
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_pipeline_consistency]"
-- reason: TSNE does validation on __init__, which causes these tests to fail only on certain sklearn versions
-  marker: cuml_accel_tsne_validation_on_init
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_dont_overwrite_parameters]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-- reason: sokalmichener metric deprecation
-  marker: sokalmichener_metric_deprecation
-  condition: scipy >= 1.15.0
-  tests:
-  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool0-Y_bool0-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_array-X_bool1-Y_bool1-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool0-Y_bool0-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_cdist_bool_metric[csr_matrix-X_bool1-Y_bool1-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool0-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_array-X_bool1-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool0-sokalmichener]"
-  - "sklearn.metrics.tests.test_dist_metrics::test_pdist_bool_metrics[csr_matrix-X_bool1-sokalmichener]"
-  - "sklearn.metrics.tests.test_pairwise::test_pairwise_boolean_distance[sokalmichener]"
-  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_brute_backend[float64-42-sokalmichener]"
-  - "sklearn.neighbors.tests.test_neighbors::test_radius_neighbors_brute_backend[42-float64-sokalmichener]"
 - reason: Flaky deviations in n_iter_ values in cuml.accel
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+- reason: LinearSVM
+  tests:
+  - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
+  - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"
+  - "sklearn.model_selection.tests.test_search::test_grid_search_no_score"
+  - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-multi-class-squared_hinge-array]"
+  - "sklearn.svm.tests.test_bounds::test_l1_min_c[fit-intercept-two-classes-squared_hinge-array]"
+  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-squared_hinge-array]"
+  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-squared_hinge-array]"
+  - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_array-dok_array]"
+  - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_matrix-dok_matrix]"
+  - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_array]"
+  - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_matrix]"
+  - "sklearn.svm.tests.test_sparse::test_sparse_liblinear_intercept_handling"
+  - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
+  - "sklearn.svm.tests.test_svm::test_liblinear_set_coef"
+  - "sklearn.svm.tests.test_svm::test_linear_svm_convergence_warnings"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_crammer_singer"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_iris"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l1-hinge]"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[False-l2-hinge]"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-hinge]"
+  - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-squared_hinge]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params0]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params1]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params2]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVC-params3]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params5]"
+  - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params6]"
+  - "sklearn.svm.tests.test_svm::test_linearsvr"
+  - "sklearn.svm.tests.test_svm::test_lsvc_intercept_scaling_zero"
+  - "sklearn.svm.tests.test_svm::test_svr"
+  - "sklearn.tests.test_calibration::test_calibration_default_estimator"
+  - "sklearn.tests.test_calibration::test_calibration_inconsistent_prefit_n_features_in"
+  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
+  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
+  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
+  - "sklearn.tests.test_calibration::test_parallel_execution[False-isotonic]"
+  - "sklearn.tests.test_calibration::test_parallel_execution[False-sigmoid]"
+  - "sklearn.tests.test_calibration::test_parallel_execution[True-isotonic]"
+  - "sklearn.tests.test_calibration::test_parallel_execution[True-sigmoid]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
+- reason: LinearSVM2
+  condition: scikit-learn>=1.6
+  tests:
+  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
+  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
 - reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
   strict: false
   tests:
   - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
-- reason: 'cuml.accel bug: Missing components_ attribute'
-  tests:
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
-  - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
