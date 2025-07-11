@@ -70,6 +70,11 @@ def _preprocess(
     doc: cudf.Series[str]
         preprocessed string
     """
+    if not isinstance(doc, (cudf.Series, pd.Series)):
+    raise TypeError(
+        f"Expected `cudf.Series` or `pd.Series`, "
+        f"but got `{type(doc).__name__}` instead."
+    )
     if isinstance(doc, pd.Series):
         doc = Series(doc)
     if lower:
