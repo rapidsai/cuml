@@ -37,6 +37,7 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.utils import check_random_seed
 
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
