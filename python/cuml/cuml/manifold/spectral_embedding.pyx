@@ -99,7 +99,7 @@ def spectral_embedding(A,
         make_device_matrix_view[float, int, col_major](
             <float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components))
 
-    return cp.asarray(eigenvectors)
+    return eigenvectors
 
 
 class SpectralEmbedding(Base,
