@@ -1056,7 +1056,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_used"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
-  condition: scikit-learn<1.6
+  condition: scikit-learn>1.5.2,<1.6
   tests:
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[ElasticNet()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KMeans()]"
@@ -1517,6 +1517,10 @@
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+- reason: LinearSVC
+  condition: scikit-learn<1.7
+  tests:
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
 - reason: LinearSVM
   tests:
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
@@ -1566,7 +1570,6 @@
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
 - reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
   strict: false
   tests:
