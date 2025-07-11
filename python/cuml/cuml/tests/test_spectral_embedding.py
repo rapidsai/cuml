@@ -20,7 +20,12 @@ import cupy as cp
 import h5py
 import numpy as np
 import pytest
-from sklearn.datasets import fetch_openml, make_s_curve
+from sklearn.datasets import (
+    fetch_openml,
+    load_digits,
+    make_s_curve,
+    make_swiss_roll,
+)
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
@@ -202,4 +207,89 @@ def test_spectral_embedding_trustworthiness_fashion_mnist(n_samples):
     ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
     assert (
         trust_cuml > 0.8
+    ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
+
+
+@pytest.mark.parametrize("n_samples", [2000, 3000])
+def test_spectral_embedding_trustworthiness_swiss_roll(n_samples):
+    """Test trustworthiness comparison between sklearn and cuML on Swiss Roll dataset."""
+    # Generate Swiss Roll dataset
+    X, color = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
+
+    # sklearn embedding
+    sk_spectral = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity="nearest_neighbors",
+        random_state=42,
+        n_jobs=-1,
+    )
+    X_sklearn = sk_spectral.fit_transform(X)
+
+    # cuML embedding
+    X_gpu = cp.asarray(X)
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS, n_neighbors=N_NEIGHBORS, random_state=42
+    )
+    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+    X_cuml = cp.asnumpy(X_cuml_gpu)
+
+    # Calculate trustworthiness scores
+    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
+    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
+
+    print(f"\nSwiss Roll (n={n_samples}):")
+    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
+    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
+    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
+
+    # Both should have good trustworthiness (> 0.75 for Swiss Roll)
+    assert (
+        trust_sklearn > 0.75
+    ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
+    assert (
+        trust_cuml > 0.75
+    ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
+
+
+def test_spectral_embedding_trustworthiness_digits():
+    """Test trustworthiness comparison between sklearn and cuML on digits dataset."""
+    # Load digits dataset (8x8 images of digits)
+    digits = load_digits()
+    X = digits.data
+    # y = digits.target
+
+    # sklearn embedding
+    sk_spectral = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        n_neighbors=N_NEIGHBORS,
+        affinity="nearest_neighbors",
+        random_state=42,
+        n_jobs=-1,
+    )
+    X_sklearn = sk_spectral.fit_transform(X)
+
+    # cuML embedding
+    X_gpu = cp.asarray(X)
+    cuml_spectral = SpectralEmbedding(
+        n_components=N_COMPONENTS, n_neighbors=N_NEIGHBORS, random_state=42
+    )
+    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+    X_cuml = cp.asnumpy(X_cuml_gpu)
+
+    # Calculate trustworthiness scores
+    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
+    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
+
+    print(f"\nDigits dataset (n={len(X)}):")
+    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
+    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
+    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
+
+    # Both should have reasonable trustworthiness (> 0.85 for digits)
+    assert (
+        trust_sklearn > 0.85
+    ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
+    assert (
+        trust_cuml > 0.85
     ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
