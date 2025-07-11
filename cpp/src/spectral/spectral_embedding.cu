@@ -36,13 +36,12 @@ cuvs::preprocessing::spectral_embedding::params SpectralEmbedding::params::to_cu
   return params;
 }
 
-auto spectral_embedding_cuvs(raft::resources const& handle,
+void spectral_embedding_cuvs(raft::resources const& handle,
                              ML::SpectralEmbedding::params config,
                              raft::device_matrix_view<float, int, raft::row_major> dataset,
-                             raft::device_matrix_view<float, int, raft::col_major> embedding) -> int
+                             raft::device_matrix_view<float, int, raft::col_major> embedding)
 {
-  return cuvs::preprocessing::spectral_embedding::transform(
-    handle, config.to_cuvs(), dataset, embedding);
+  cuvs::preprocessing::spectral_embedding::transform(handle, config.to_cuvs(), dataset, embedding);
 }
 
 }  // namespace ML::SpectralEmbedding

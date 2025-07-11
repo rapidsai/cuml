@@ -47,10 +47,9 @@ struct params {
   cuvs::preprocessing::spectral_embedding::params to_cuvs() const;
 };
 
-auto spectral_embedding_cuvs(raft::resources const& handle,
+void spectral_embedding_cuvs(raft::resources const& handle,
                              ML::SpectralEmbedding::params config,
                              raft::device_matrix_view<float, int, raft::row_major> dataset,
-                             raft::device_matrix_view<float, int, raft::col_major> embedding)
-  -> int;
+                             raft::device_matrix_view<float, int, raft::col_major> embedding);
 
 }  // namespace ML::SpectralEmbedding
