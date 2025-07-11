@@ -22,6 +22,8 @@ import warnings
 
 import cupy
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -116,6 +118,26 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float* knn_dists,
         TSNEParams &params,
         float* kl_div) except +
+
+
+# Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+if Version(sklearn.__version__) >= Version("1.5.0"):
+    _SKLEARN_N_ITER_PARAM = "max_iter"
+else:
+    _SKLEARN_N_ITER_PARAM = "n_iter"
+
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded
+}
 
 
 class TSNE(Base,
@@ -314,6 +336,9 @@ class TSNE(Base,
         if not (isinstance(model.init, str) and model.init in ("pca", "random")):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
+        if not (isinstance(model.metric, str) and model.metric in _SUPPORTED_METRICS):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
+
         params = {
             "n_components": model.n_components,
             "perplexity": model.perplexity,
@@ -330,21 +355,19 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if model.max_iter is not None:
-            # max_iter may be None, in that case use cuml's default
-            params["n_iter"] = model.max_iter
+        if (max_iter := getattr(model, _SKLEARN_N_ITER_PARAM, None)) is not None:
+            params["n_iter"] = max_iter
 
         return params
 
     def _params_to_cpu(self):
         method = "exact" if self.method == "Exact" else "barnes_hut"
 
-        return {
+        params = {
             "n_components": self.n_components,
             "perplexity": self.perplexity,
             "early_exaggeration": self.early_exaggeration,
             "learning_rate": self.learning_rate,
-            "max_iter": self.n_iter,
             "n_iter_without_progress": self.n_iter_without_progress,
             "min_grad_norm": self.min_grad_norm,
             "metric": self.metric,
@@ -352,7 +375,9 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
+            _SKLEARN_N_ITER_PARAM: self.n_iter,
         }
+        return params
 
     def _attrs_from_cpu(self, model):
         return {
@@ -719,25 +744,10 @@ class TSNE(Base,
         elif self.init.lower() == 'pca':
             params.init = TSNE_INIT.PCA
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded
-        }
-
-        if self.metric.lower() in metric_parsing:
-            params.metric = metric_parsing[self.metric.lower()]
+        if (metric := _SUPPORTED_METRICS.get(self.metric, None)) is not None:
+            params.metric = metric
         else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
+            raise ValueError(f"Invalid value for metric: {self.metric}")
 
         if self.metric_params is None:
             params.p = <float> 2.0
