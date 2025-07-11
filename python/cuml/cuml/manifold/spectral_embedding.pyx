@@ -125,6 +125,7 @@ class SpectralEmbedding(Base,
         return self
 
     def _fit(self, A, n_components, random_state=None, n_neighbors=None):
-        return spectral_embedding(A, n_components,
+        return spectral_embedding(A,
+                                  n_components=n_components,
                                   random_state=random_state,
                                   n_neighbors=n_neighbors)
