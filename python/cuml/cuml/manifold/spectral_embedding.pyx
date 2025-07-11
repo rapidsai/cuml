@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
+
 
 import cupy as cp
 import numpy as np
@@ -25,7 +22,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uint64_t, uintptr_t
 
 from pylibraft.common import cai_wrapper, device_ndarray
-from pylibraft.common.handle import auto_sync_handle
+from pylibraft.common.handle import Handle
 
 from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
@@ -59,7 +56,6 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
 cdef params config
 
 
-@auto_sync_handle
 def spectral_embedding(A,
                        n_components,
                        random_state=None,
@@ -68,6 +64,8 @@ def spectral_embedding(A,
                        drop_first=True,
                        handle=None):
 
+    if handle is None:
+        handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     A, _n_rows, _n_cols, _ = \
