@@ -21,7 +21,6 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint64_t, uintptr_t
 
-from pylibraft.common import cai_wrapper, device_ndarray
 from pylibraft.common.handle import Handle
 
 from libcpp cimport bool
@@ -34,6 +33,7 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 
 from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
@@ -90,7 +90,7 @@ def spectral_embedding(A,
 
     eigenvectors = CumlArray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
 
-    eigenvectors_ptr = <uintptr_t>eigenvectors_cai.ptr
+    eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
 
     cdef int _result = spectral_embedding_cuvs(
         deref(h), config,
