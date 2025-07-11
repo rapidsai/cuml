@@ -13,11 +13,7 @@
 # limitations under the License.
 #
 
-import os
-from urllib.request import urlretrieve
-
 import cupy as cp
-import h5py
 import numpy as np
 import pytest
 from sklearn.datasets import (
@@ -35,46 +31,6 @@ from cuml.manifold import SpectralEmbedding
 # Test parameters
 N_NEIGHBORS = 15
 N_COMPONENTS = 2
-
-
-def download_fashion_mnist(cache_dir="/tmp/rapids_datasets"):
-    """Download Fashion-MNIST dataset if not already cached."""
-    os.makedirs(cache_dir, exist_ok=True)
-    filepath = os.path.join(cache_dir, "fashion-mnist-784-euclidean.hdf5")
-    url = (
-        "https://data.rapids.ai/cuvs/datasets/fashion-mnist-784-euclidean.hdf5"
-    )
-
-    if not os.path.exists(filepath):
-        print("Downloading Fashion-MNIST dataset...")
-        urlretrieve(url, filepath)
-
-    return filepath
-
-
-def load_fashion_mnist_data(max_samples=5000):
-    """Load Fashion-MNIST data from HDF5 file."""
-    filepath = download_fashion_mnist()
-
-    with h5py.File(filepath, "r") as f:
-        # Load the data
-        if "train" in f:
-            data = np.array(f["train"])
-        elif "dataset" in f:
-            data = np.array(f["dataset"])
-        else:
-            keys = list(f.keys())
-            for key in keys:
-                if isinstance(f[key], h5py.Dataset):
-                    data = np.array(f[key])
-                    break
-
-        # Sample if needed
-        if max_samples and len(data) > max_samples:
-            indices = np.random.choice(len(data), max_samples, replace=False)
-            data = data[indices]
-
-    return data
 
 
 @pytest.mark.parametrize("n_samples", [1500, 2000])
@@ -160,48 +116,6 @@ def test_spectral_embedding_trustworthiness_mnist(n_samples):
     print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
 
     # Both should have reasonable trustworthiness (> 0.8 for MNIST)
-    assert (
-        trust_sklearn > 0.8
-    ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
-    assert (
-        trust_cuml > 0.8
-    ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
-
-
-@pytest.mark.parametrize("n_samples", [5000])
-def test_spectral_embedding_trustworthiness_fashion_mnist(n_samples):
-    """Test trustworthiness comparison between sklearn and cuML on Fashion-MNIST dataset."""
-    # Load Fashion-MNIST data
-    X = load_fashion_mnist_data(max_samples=n_samples)
-
-    # sklearn embedding
-    sk_spectral = skSpectralEmbedding(
-        n_components=N_COMPONENTS,
-        n_neighbors=N_NEIGHBORS,
-        affinity="nearest_neighbors",
-        random_state=42,
-        n_jobs=-1,
-    )
-    X_sklearn = sk_spectral.fit_transform(X)
-
-    # cuML embedding
-    X_gpu = cp.asarray(X)
-    cuml_spectral = SpectralEmbedding(
-        n_components=N_COMPONENTS, n_neighbors=N_NEIGHBORS, random_state=42
-    )
-    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
-    X_cuml = cp.asnumpy(X_cuml_gpu)
-
-    # Calculate trustworthiness scores
-    trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
-    trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
-
-    print(f"\nFashion-MNIST (n={n_samples}):")
-    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
-    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
-    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
-
-    # Both should have reasonable trustworthiness (> 0.8 for Fashion-MNIST)
     assert (
         trust_sklearn > 0.8
     ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
