@@ -106,20 +106,9 @@ def test_spectral_embedding_trustworthiness(
     trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
     trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
 
-    # Display results
-    display_n = n_samples if n_samples else len(X)
-    print(f"\n{dataset_name} (n={display_n}):")
-    print(f"  sklearn trustworthiness: {trust_sklearn:.4f}")
-    print(f"  cuML trustworthiness: {trust_cuml:.4f}")
-    print(f"  Difference: {abs(trust_sklearn - trust_cuml):.4f}")
-
     # Assertions
-    assert (
-        trust_sklearn > min_trustworthiness
-    ), f"sklearn trustworthiness {trust_sklearn:.4f} is too low"
-    assert (
-        trust_cuml > min_trustworthiness
-    ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
+    assert trust_sklearn > min_trustworthiness
+    assert trust_cuml > min_trustworthiness
 
 
 def test_spectral_embedding_function_api():
@@ -138,17 +127,11 @@ def test_spectral_embedding_function_api():
         assert embedding.shape == (
             n_samples,
             n_components,
-        ), f"Expected shape ({n_samples}, {n_components}), got {embedding.shape}"
+        )
 
     # Test 2: Reproducibility with seed
     seed = 123
     embedding1 = spectral_embedding(X_gpu, n_components=2, random_state=seed)
     embedding2 = spectral_embedding(X_gpu, n_components=2, random_state=seed)
 
-    assert cp.allclose(
-        embedding1, embedding2
-    ), "Same seed should produce identical results"
-
-    print(
-        "\n✓ spectral_embedding function API tests passed (shape & reproducibility)"
-    )
+    assert cp.allclose(embedding1, embedding2)
