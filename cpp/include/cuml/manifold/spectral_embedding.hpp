@@ -17,8 +17,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-// #include <cuvs/preprocessing/spectral_embedding.hpp>
-
 namespace cuvs::preprocessing::spectral_embedding {
 
 struct params;
@@ -46,7 +44,6 @@ struct params {
   /** @brief Random seed for reproducibility */
   uint64_t seed;
 
-  // convert to cuvs
   cuvs::preprocessing::spectral_embedding::params to_cuvs() const;
 };
 
