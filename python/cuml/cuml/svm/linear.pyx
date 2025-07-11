@@ -685,35 +685,20 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
 
     def _attrs_from_cpu(self, model):
         coef_ = model.coef_.reshape(1, -1)
-
-        attrs = {
+        return {
             "coef_": to_gpu(coef_, order="F", dtype=np.float64),
+            "intercept_": to_gpu(model.intercept_, order="F", dtype=np.float64),
             "n_features_in_": model.n_features_in_,
             **super()._attrs_from_cpu(model)
         }
 
-        if hasattr(model, 'feature_names_in_'):
-            attrs["feature_names_in_"] = model.feature_names_in_
-
-        if hasattr(model, 'intercept_'):
-            attrs["intercept_"] = to_gpu(model.intercept_, order="F", dtype=np.float64)
-
-        return attrs
-
     def _attrs_to_cpu(self, model):
-        attrs = {
+        return {
             "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
+            "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
             "n_features_in_": self.n_features_in_,
             **super()._attrs_to_cpu(model)
         }
-
-        if hasattr(self, 'feature_names_in_'):
-            attrs["feature_names_in_"] = self.feature_names_in_
-
-        if hasattr(self, 'intercept_'):
-            attrs["intercept_"] = to_cpu(self.intercept_, order="C", dtype=np.float64)
-
-        return attrs
 
     def _sync_attrs_from_cpu(self, model):
         super()._sync_attrs_from_cpu(model)
@@ -728,7 +713,7 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> 'LinearSVM':
         X_m, n_rows, self.n_features_in_, dtype = input_to_cuml_array(
             X,
-            convert_to_dtype=(np.float64 if convert_dtype else None),
+            convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order='F')
         if hasattr(X_m, "index"):

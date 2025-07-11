@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
@@ -155,17 +154,6 @@ class LinearSVR(LinearSVM, RegressorMixin):
             "dual": False,  # cuML LinearSVR is primal
             **super()._params_to_cpu(),
         }
-
-    def _attrs_from_cpu(self, model):
-        if hasattr(model, "dual") and model.dual:
-            raise UnsupportedOnGPU(
-                "sklearn LinearSVR has 'dual' (default True) but cuML LinearSVR is primal"
-            )
-
-        return super()._attrs_from_cpu(model)
-
-    def _attrs_to_cpu(self, model):
-        return super()._attrs_to_cpu(model)
 
     @property
     def loss(self):

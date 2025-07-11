@@ -17,7 +17,7 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.interop import to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -166,53 +166,36 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        params = {"loss": model.loss, **super()._params_from_cpu(model)}
-        if hasattr(model, "multi_class"):
-            params["multi_class"] = model.multi_class
-        else:
-            params["multi_class"] = "ovr"
-
-        if hasattr(model, "class_weight"):
-            params["class_weight"] = model.class_weight
-
-        if hasattr(model, "dual") and model.dual is True:
-            raise UnsupportedOnGPU(
-                "sklearn LinearSVC has 'dual' (default True) but cuML LinearSVC is primal"
-            )
-
-        if hasattr(model, "penalty"):
-            params["penalty"] = model.penalty
+        params = {
+            "loss": model.loss,
+            "multi_class": model.multi_class,
+            "class_weight": model.class_weight,
+            "penalty": model.penalty,
+            **super()._params_from_cpu(model),
+        }
 
         return params
 
     def _params_to_cpu(self):
-        params = {
+        return {
             "loss": self.loss,
             "multi_class": self.multi_class,
             "class_weight": self.class_weight,
+            "penalty": self.penalty,
             **super()._params_to_cpu(),
         }
 
-        if hasattr(self, "penalty"):
-            params["penalty"] = self.penalty
-
-        return params
-
     def _attrs_from_cpu(self, model):
-        attrs = super()._attrs_from_cpu(model)
-        if hasattr(model, "classes_"):
-            attrs["classes_"] = to_gpu(
-                model.classes_, order="F", dtype=np.float64
-            )
-        return attrs
+        return {
+            "classes_": to_gpu(model.classes_, order="F", dtype=np.float64),
+            **super()._attrs_from_cpu(model),
+        }
 
     def _attrs_to_cpu(self, model):
-        attrs = super()._attrs_to_cpu(model)
-        if hasattr(self, "classes_"):
-            attrs["classes_"] = to_cpu(
-                self.classes_, order="C", dtype=np.float64
-            )
-        return attrs
+        return {
+            "classes_": to_cpu(self.classes_, order="C"),
+            **super()._attrs_to_cpu(model),
+        }
 
     @property
     def loss(self):
@@ -255,12 +238,10 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     ) -> "LinearSVM":
         X, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
             X,
-            convert_to_dtype=(np.float64 if convert_dtype else None),
+            convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
         )
-        if hasattr(X, "index"):
-            self.feature_names_in_ = X.index
 
         convert_to_dtype = self.dtype if convert_dtype else None
         y = input_to_cuml_array(
