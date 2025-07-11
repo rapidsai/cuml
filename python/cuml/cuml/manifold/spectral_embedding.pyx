@@ -88,10 +88,9 @@ def spectral_embedding(A,
     if config.drop_first:
         config.n_components += 1
 
-    eigenvectors = device_ndarray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
+    eigenvectors = CumlArray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
 
-    eigenvectors_cai = cai_wrapper(eigenvectors)
-    eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
+    eigenvectors_ptr = <uintptr_t>eigenvectors_cai.ptr
 
     cdef int _result = spectral_embedding_cuvs(
         deref(h), config,
