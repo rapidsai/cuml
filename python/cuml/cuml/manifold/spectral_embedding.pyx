@@ -77,7 +77,7 @@ def spectral_embedding(A,
     A_ptr = <uintptr_t>A.ptr
 
     config.n_components = n_components
-    config.seed = random_state if random_state is not None else 42
+    config.seed = check_random_seed(random_state)
 
     config.n_neighbors = (
         n_neighbors
