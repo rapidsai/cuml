@@ -32,6 +32,7 @@ from pylibraft.common.cpp.mdspan cimport (
 )
 from pylibraft.common.handle cimport device_resources
 
+import cuml
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
