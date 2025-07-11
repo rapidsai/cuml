@@ -56,6 +56,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
 cdef params config
 
 
+@cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
                        n_components=8,
