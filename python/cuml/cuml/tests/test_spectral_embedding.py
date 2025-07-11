@@ -26,7 +26,7 @@ from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
-from cuml.manifold import SpectralEmbedding
+from cuml.manifold import SpectralEmbedding, spectral_embedding
 
 # Test parameters
 N_NEIGHBORS = 15
@@ -120,3 +120,35 @@ def test_spectral_embedding_trustworthiness(
     assert (
         trust_cuml > min_trustworthiness
     ), f"cuML trustworthiness {trust_cuml:.4f} is too low"
+
+
+def test_spectral_embedding_function_api():
+    """Smoke test for spectral_embedding function: reproducibility and output shape."""
+    # Generate S-curve dataset
+    n_samples = 500
+    X, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    X = X.astype(np.float32)
+    X_gpu = cp.asarray(X)
+
+    # Test 1: Output shape validation
+    for n_components in [1, 2, 3]:
+        embedding = spectral_embedding(
+            X_gpu, n_components=n_components, random_state=42
+        )
+        assert embedding.shape == (
+            n_samples,
+            n_components,
+        ), f"Expected shape ({n_samples}, {n_components}), got {embedding.shape}"
+
+    # Test 2: Reproducibility with seed
+    seed = 123
+    embedding1 = spectral_embedding(X_gpu, n_components=2, random_state=seed)
+    embedding2 = spectral_embedding(X_gpu, n_components=2, random_state=seed)
+
+    assert cp.allclose(
+        embedding1, embedding2
+    ), "Same seed should produce identical results"
+
+    print(
+        "\n✓ spectral_embedding function API tests passed (shape & reproducibility)"
+    )
