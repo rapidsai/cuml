@@ -14,16 +14,15 @@
 # limitations under the License.
 #
 
-
 import cupy as cp
 import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
 
 from pylibraft.common.handle import Handle
 
-from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
@@ -54,6 +53,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
         params config,
         device_matrix_view[float, int, row_major] dataset,
         device_matrix_view[float, int, col_major] embedding) except +
+
 
 cdef params config
 
