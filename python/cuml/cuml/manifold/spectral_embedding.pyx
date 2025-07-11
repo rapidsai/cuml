@@ -57,7 +57,8 @@ cdef params config
 
 
 def spectral_embedding(A,
-                       n_components,
+                       *,
+                       n_components=8,
                        random_state=None,
                        n_neighbors=None,
                        norm_laplacian=True,
