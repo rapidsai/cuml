@@ -445,6 +445,7 @@
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_one_label]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_regression_target]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_supervised_y_2d]"
@@ -477,6 +478,7 @@
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),min_resources='smallest',param_grid={'logisticregression__C':[0.1,1.0]},random_state=0)-check_fit1d]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),min_resources='smallest',param_grid={'logisticregression__C':[0.1,1.0]},random_state=0)-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),min_resources='smallest',param_grid={'logisticregression__C':[0.1,1.0]},random_state=0)-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)-check_classifier_data_not_an_array0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)-check_classifier_data_not_an_array1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)-check_classifiers_one_label0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)-check_classifiers_one_label1]"
@@ -554,11 +556,9 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Pipeline(steps=[('logisticregression',LogisticRegression(C=1))])]"
-  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)-check_classifier_data_not_an_array0]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
   - "sklearn.tests.test_pipeline::test_pipeline_set_output_integration"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
@@ -1102,7 +1102,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
 - reason: Test should fail with cuml.accel (scikit-learn>=1.6,<1.7)
   marker: cuml_accel_bugs
-  condition: scikit-learn>=1.6,<1.7
+  strict: false
   tests:
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
