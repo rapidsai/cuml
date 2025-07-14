@@ -1102,7 +1102,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
 - reason: Test should fail with cuml.accel (scikit-learn>=1.6,<1.7)
   marker: cuml_accel_bugs
-  strict: false
+  condition: scikit-learn>=1.6,<1.7
   tests:
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_array-auto]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csc_matrix-auto]"
