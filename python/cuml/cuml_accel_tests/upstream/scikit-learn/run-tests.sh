@@ -13,6 +13,14 @@ set -eu
 
 THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
+PYTHON_SITE_PACKAGES="$CONDA_PREFIX/lib/python$(python -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')/site-packages"
+file=$PYTHON_SITE_PACKAGES/sklearn/utils/discovery.py
+if ! grep -qF 'estimators = {name: est for name, est in estimators}' "$file"; then
+  sed -i "/return sorted(set(estimators), key=itemgetter(0))/i\\
+    estimators = {name: est for name, est in estimators}\\
+    estimators = [(name, est) for name, est in estimators.items()]" "$file"
+fi
+
 # Run the sklearn test suite
 pytest -p cuml.accel \
     --pyargs sklearn \
