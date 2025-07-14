@@ -225,7 +225,10 @@ class LogisticRegression(
             )
 
         # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8
-        if getattr(model, "multi_class", "deprecated") != "deprecated":
+        if getattr(model, "multi_class", "deprecated") not in (
+            "deprecated",
+            "auto",
+        ):
             raise UnsupportedOnGPU("`multi_class` is not supported")
 
         return {

@@ -22,6 +22,8 @@ import warnings
 
 import cupy
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -117,6 +119,12 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         TSNEParams &params,
         float* kl_div) except +
 
+
+# Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+if Version(sklearn.__version__) >= Version("1.5.0"):
+    _SKLEARN_N_ITER_PARAM = "max_iter"
+else:
+    _SKLEARN_N_ITER_PARAM = "n_iter"
 
 _SUPPORTED_METRICS = {
     "l2": DistanceType.L2SqrtExpanded,
@@ -347,21 +355,19 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if model.max_iter is not None:
-            # max_iter may be None, in that case use cuml's default
-            params["n_iter"] = model.max_iter
+        if (max_iter := getattr(model, _SKLEARN_N_ITER_PARAM, None)) is not None:
+            params["n_iter"] = max_iter
 
         return params
 
     def _params_to_cpu(self):
         method = "exact" if self.method == "Exact" else "barnes_hut"
 
-        return {
+        params = {
             "n_components": self.n_components,
             "perplexity": self.perplexity,
             "early_exaggeration": self.early_exaggeration,
             "learning_rate": self.learning_rate,
-            "max_iter": self.n_iter,
             "n_iter_without_progress": self.n_iter_without_progress,
             "min_grad_norm": self.min_grad_norm,
             "metric": self.metric,
@@ -369,7 +375,9 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
+            _SKLEARN_N_ITER_PARAM: self.n_iter,
         }
+        return params
 
     def _attrs_from_cpu(self, model):
         return {

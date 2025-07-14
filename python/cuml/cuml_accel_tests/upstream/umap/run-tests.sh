@@ -13,17 +13,18 @@ set -eu
 
 UMAP_TAG="release-0.5.7"
 
-# cd into this directory so we can use relative paths
 THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-cd "$THIS_DIRECTORY"
+UMAP_REPO="${THIS_DIRECTORY}/umap-upstream"
 
 # Shallow clone the tag if not already cloned
-if [ ! -d umap-upstream ]; then
-    git clone --branch $UMAP_TAG --depth 1 "https://github.com/lmcinnes/umap.git" umap-upstream
+if [ ! -d "$UMAP_REPO" ]; then
+    git clone --branch $UMAP_TAG --depth 1 "https://github.com/lmcinnes/umap.git" "$UMAP_REPO"
 fi
 
 # Run upstream tests
-pytest -p cuml.accel umap-upstream/umap/tests/ \
-    --xfail-list=xfail-list.yaml \
-    -W "error::cuml.accel.pytest_plugin.UnmatchedXfailTests" \
+pytest -p cuml.accel \
+    "${UMAP_REPO}/umap/tests/" \
+    --rootdir="${THIS_DIRECTORY}" \
+    --config-file="${THIS_DIRECTORY}/../pytest.ini" \
+    --xfail-list="${THIS_DIRECTORY}/xfail-list.yaml" \
     "$@"

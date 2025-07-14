@@ -11,10 +11,12 @@
 
 set -eu
 
-# Base arguments
-PYTEST_ARGS=("-p" "cuml.accel" "--pyargs" "sklearn" "--xfail-list=$(dirname "$0")/xfail-list.yaml")
-# Fail on unmatched xfail tests
-PYTEST_ARGS+=("-W" "error::cuml.accel.pytest_plugin.UnmatchedXfailTests")
+THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
-# Run pytest with all arguments
-pytest "${PYTEST_ARGS[@]}" "$@"
+# Run the sklearn test suite
+pytest -p cuml.accel \
+    --pyargs sklearn \
+    --rootdir="${THIS_DIRECTORY}" \
+    --config-file="${THIS_DIRECTORY}/../pytest.ini" \
+    --xfail-list="${THIS_DIRECTORY}/xfail-list.yaml" \
+    "$@"
