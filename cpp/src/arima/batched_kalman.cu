@@ -803,157 +803,29 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              d_F_fc);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   } else {
-    int num_sm;
-    cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
-    if (rd <= 16) {
-      if (batch_size <= 2 * num_sm) {
-        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 1, 16, 16>;
-        using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 16>;
-        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 1, 16, 16>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                             ys,
-                                                                             nobs,
-                                                                             T,
-                                                                             Z,
-                                                                             RQR,
-                                                                             P0,
-                                                                             alpha,
-                                                                             intercept,
-                                                                             d_mu,
-                                                                             rd,
-                                                                             d_obs_inter,
-                                                                             d_obs_inter_fut,
-                                                                             d_pred,
-                                                                             d_loglike,
-                                                                             n_diff,
-                                                                             fc_steps,
-                                                                             d_fc,
-                                                                             conf_int,
-                                                                             d_F_fc);
-      } else {
-        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
-        using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 4>;
-        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 4, 16, 4>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                             ys,
-                                                                             nobs,
-                                                                             T,
-                                                                             Z,
-                                                                             RQR,
-                                                                             P0,
-                                                                             alpha,
-                                                                             intercept,
-                                                                             d_mu,
-                                                                             rd,
-                                                                             d_obs_inter,
-                                                                             d_obs_inter_fut,
-                                                                             d_pred,
-                                                                             d_loglike,
-                                                                             n_diff,
-                                                                             fc_steps,
-                                                                             d_fc,
-                                                                             conf_int,
-                                                                             d_F_fc);
-      }
-    } else if (rd <= 32) {
-      if (batch_size <= 2 * num_sm) {
-        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
-        using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
-        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 4, 32, 8>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                             ys,
-                                                                             nobs,
-                                                                             T,
-                                                                             Z,
-                                                                             RQR,
-                                                                             P0,
-                                                                             alpha,
-                                                                             intercept,
-                                                                             d_mu,
-                                                                             rd,
-                                                                             d_obs_inter,
-                                                                             d_obs_inter_fut,
-                                                                             d_pred,
-                                                                             d_loglike,
-                                                                             n_diff,
-                                                                             fc_steps,
-                                                                             d_fc,
-                                                                             conf_int,
-                                                                             d_F_fc);
-      } else {
-        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 8, 32, 4>;
-        using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 4>;
-        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 8, 32, 4>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                             ys,
-                                                                             nobs,
-                                                                             T,
-                                                                             Z,
-                                                                             RQR,
-                                                                             P0,
-                                                                             alpha,
-                                                                             intercept,
-                                                                             d_mu,
-                                                                             rd,
-                                                                             d_obs_inter,
-                                                                             d_obs_inter_fut,
-                                                                             d_pred,
-                                                                             d_loglike,
-                                                                             n_diff,
-                                                                             fc_steps,
-                                                                             d_fc,
-                                                                             conf_int,
-                                                                             d_F_fc);
-      }
-    } else if (rd > 64 && rd <= 128) {
-      using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 16, 128, 2>;
-      using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<128, 2>;
-      using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 8, 64, 4>;
-      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                           ys,
-                                                                           nobs,
-                                                                           T,
-                                                                           Z,
-                                                                           RQR,
-                                                                           P0,
-                                                                           alpha,
-                                                                           intercept,
-                                                                           d_mu,
-                                                                           rd,
-                                                                           d_obs_inter,
-                                                                           d_obs_inter_fut,
-                                                                           d_pred,
-                                                                           d_loglike,
-                                                                           n_diff,
-                                                                           fc_steps,
-                                                                           d_fc,
-                                                                           conf_int,
-                                                                           d_F_fc);
-    } else {
-      using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 16, 64, 4>;
-      using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<64, 4>;
-      using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 16, 64, 4>;
-      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
-                                                                           ys,
-                                                                           nobs,
-                                                                           T,
-                                                                           Z,
-                                                                           RQR,
-                                                                           P0,
-                                                                           alpha,
-                                                                           intercept,
-                                                                           d_mu,
-                                                                           rd,
-                                                                           d_obs_inter,
-                                                                           d_obs_inter_fut,
-                                                                           d_pred,
-                                                                           d_loglike,
-                                                                           n_diff,
-                                                                           fc_steps,
-                                                                           d_fc,
-                                                                           conf_int,
-                                                                           d_F_fc);
-    }
+    using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
+    using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
+    using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 4, 32, 8>;
+    _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
+                                                                         ys,
+                                                                         nobs,
+                                                                         T,
+                                                                         Z,
+                                                                         RQR,
+                                                                         P0,
+                                                                         alpha,
+                                                                         intercept,
+                                                                         d_mu,
+                                                                         rd,
+                                                                         d_obs_inter,
+                                                                         d_obs_inter_fut,
+                                                                         d_pred,
+                                                                         d_loglike,
+                                                                         n_diff,
+                                                                         fc_steps,
+                                                                         d_fc,
+                                                                         conf_int,
+                                                                         d_F_fc);
   }
 }
 
