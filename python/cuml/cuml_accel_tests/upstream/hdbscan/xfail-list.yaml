@@ -1,4 +1,4 @@
-- reason: These tests always fail, and leave some lingering state that causes downstream tests to fail
+- reason: These tests always fail, and leave some lingering state that causes downstream tests to fail.
   marker: cuml_accel_bad_failures
   run: false
   tests:
@@ -6,6 +6,8 @@
   - "hdbscan.tests.test_hdbscan::test_hdbscan_approximate_predict_score"
   - "hdbscan.tests.test_hdbscan::test_hdbscan_min_cluster_size"
   - "hdbscan.tests.test_hdbscan::test_hdbscan_no_clusters"
+  - "hdbscan.tests.test_hdbscan::test_min_span_tree_plot"
+  - "hdbscan.tests.test_hdbscan::test_missing_data"
 - reason: Test fails with cuml.accel
   marker: cuml_accel_bugs
   tests:
@@ -34,13 +36,3 @@
   - "hdbscan.tests.test_branches::test_trees_networkx_output_formats"
   - "hdbscan.tests.test_branches::test_trees_numpy_output_formats"
   - "hdbscan.tests.test_branches::test_trees_pandas_output_formats"
-- reason: These tests _sometimes_ fail, but when they do they break downstream tests
-  marker: cuml_accel_sometimes_bad_failures
-  run: false
-  tests:
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_boruvka_balltree"
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_boruvka_balltree_matches"
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_boruvka_kdtree"
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_feature_vector"
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_outliers"
-  - "hdbscan.tests.test_hdbscan::test_hdbscan_prims_balltree"
