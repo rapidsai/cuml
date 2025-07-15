@@ -51,6 +51,10 @@ class Ridge(ProxyBase):
         y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         if len(y.shape) > 1:
             raise UnsupportedOnGPU("Multioutput `y` is not supported")
+
+        if X.shape[0] < X.shape[1]:
+            raise UnsupportedOnGPU("Underdetermined `X` is not supported")
+
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 
