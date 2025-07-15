@@ -14,11 +14,12 @@ set -eu
 THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
 PYTHON_SITE_PACKAGES="$CONDA_PREFIX/lib/python$(python -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')/site-packages"
-file=$PYTHON_SITE_PACKAGES/sklearn/utils/discovery.py
-if ! grep -qF 'estimators = {name: est for name, est in estimators}' "$file"; then
-  sed -i "/return sorted(set(estimators), key=itemgetter(0))/i\\
-    estimators = {name: est for name, est in estimators}\\
-    estimators = [(name, est) for name, est in estimators.items()]" "$file"
+file=$PYTHON_SITE_PACKAGES/sklearn/calibration.py
+if ! grep -qF "from sklearn.svm import LinearSVC" "$file"; then
+  echo "editing"
+  sed -i '/from \.svm import LinearSVC/d' "$file"
+  sed -i "/estimator = LinearSVC(random_state=0)/i\\
+            from sklearn.svm import LinearSVC\\" "$file"
 fi
 
 # Run the sklearn test suite
