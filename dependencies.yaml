@@ -83,6 +83,7 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
+      - test_python_xgboost
   test_notebooks:
     output: none
     includes:
@@ -146,6 +147,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_python_xgboost
   py_build_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml
@@ -415,11 +417,19 @@ dependencies:
           - pytest-xdist
           - seaborn
           - *scikit_learn
-          - &xgboost xgboost>=2.1.0
           - statsmodels
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+  test_python_xgboost:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          # We must separate xgboost into its own list so that it is not
+          # included in the "all" key. The libxgboost package depends on librmm
+          # but we do not want to have a package depending on librmm in
+          # devcontainers since it should be built from source.
+          - &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
