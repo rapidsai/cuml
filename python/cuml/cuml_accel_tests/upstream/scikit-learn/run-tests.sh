@@ -18,7 +18,7 @@ file=$PYTHON_SITE_PACKAGES/sklearn/calibration.py
 if ! grep -qF "from sklearn.svm import LinearSVC" "$file"; then
   echo "editing"
   sed -i '/from \.svm import LinearSVC/d' "$file"
-  sed -i "/estimator = LinearSVC(random_state=0)/i\\
+  sed -i "/estimator = LinearSVC(random_state=0/i\\
             from sklearn.svm import LinearSVC\\" "$file"
 fi
 
