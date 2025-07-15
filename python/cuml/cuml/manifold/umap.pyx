@@ -879,6 +879,10 @@ class UMAP(Base,
                 "using nn_descent as build_algo on a small dataset (< 150 samples) is unstable"
             )
 
+        if self.n_rows <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
+
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1097,6 +1101,10 @@ class UMAP(Base,
         if self.build_algo == "nn_descent" or self.build_algo == "auto":
             self.build_algo = "brute_force_knn"
             logger.info("Transform can only be run with brute force. Using brute force.")
+
+        if n_rows <= 300 and self.n_rows <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
 
         cdef UMAPParams* umap_params = (
             <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
