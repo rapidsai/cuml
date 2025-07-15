@@ -343,7 +343,7 @@ dependencies:
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
-          - sphinx<8.2.0
+          - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda

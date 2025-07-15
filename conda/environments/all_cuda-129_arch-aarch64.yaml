@@ -67,9 +67,9 @@ dependencies:
 - scikit-learn>=1.4
 - scipy>=1.8.0
 - seaborn
+- sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
-- sphinx<8.2.0
 - statsmodels
 - sysroot_linux-aarch64==2.28
 - tenacity
