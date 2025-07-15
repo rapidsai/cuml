@@ -442,6 +442,28 @@ Additionally, the following fitted attributes are currently not computed:
 
 - ``n_iter_``
 
+LinearSVC
+^^^
+
+``LinearSVC``will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+LinearSVR
+^^^
+
+``LinearSVR``will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
 
 umap
 ----

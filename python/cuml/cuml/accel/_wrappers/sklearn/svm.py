@@ -90,9 +90,6 @@ class SVR(ProxyBase):
 class LinearSVC(ProxyBase):
     _gpu_class = cuml.svm.LinearSVC
 
-    def _gpu_decision_function(self, X):
-        return self._gpu.decision_function(X).astype("float64", copy=False)
-
 
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
