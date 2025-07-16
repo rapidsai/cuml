@@ -604,7 +604,7 @@ class UMAP(Base,
         self.target_n_neighbors = target_n_neighbors
         self.target_weight = target_weight
 
-        self.deterministic = random_state is not None
+        self._deterministic = random_state is not None
 
         self.random_state = random_state
 
@@ -624,7 +624,7 @@ class UMAP(Base,
         self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
 
         if build_algo in {"auto", "brute_force_knn", "nn_descent"}:
-            if self.deterministic and build_algo == "auto":
+            if self._deterministic and build_algo == "auto":
                 # TODO: for now, users should be able to see the same results
                 # as previous version (i.e. running brute force knn) when they
                 # explicitly pass random_state
@@ -671,7 +671,7 @@ class UMAP(Base,
         params.target_n_neighbors = <int> self.target_n_neighbors
         params.target_weight = <float> self.target_weight
         params.random_state = <uint64_t> check_random_seed(self.random_state)
-        params.deterministic = <bool> self.deterministic
+        params.deterministic = <bool> self._deterministic
 
         if self.init == "spectral":
             params.init = <int> 1
@@ -881,7 +881,7 @@ class UMAP(Base,
 
         if self.n_rows <= 300:
             # non-deterministic calculations do not work with limited number of samples
-            self.deterministic = True
+            self._deterministic = True
 
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
@@ -1104,7 +1104,7 @@ class UMAP(Base,
 
         if n_rows <= 300 and self.n_rows <= 300:
             # non-deterministic calculations do not work with limited number of samples
-            self.deterministic = True
+            self._deterministic = True
 
         cdef UMAPParams* umap_params = (
             <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
