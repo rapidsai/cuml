@@ -453,9 +453,9 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           # We must separate xgboost into its own list so that it is not
-          # included in the "all" key. The libxgboost package depends on librmm
-          # but we do not want to have a package depending on librmm in
-          # devcontainers since it should be built from source.
+          # included in the "devcontainers" key. The libxgboost package depends
+          # on librmm but we do not want to have a package depending on librmm
+          # in devcontainers since it should be built from source.
           - &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
