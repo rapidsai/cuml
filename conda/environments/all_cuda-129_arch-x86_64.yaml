@@ -42,7 +42,6 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba-cuda==0.14.0
 - numba>=0.59.1,<0.62.0a0
 - numpy>=1.23,<3.0a0
 - numpydoc
