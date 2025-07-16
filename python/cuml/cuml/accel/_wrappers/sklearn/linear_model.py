@@ -54,7 +54,9 @@ class Ridge(ProxyBase):
             raise UnsupportedOnGPU("Multioutput `y` is not supported")
 
         if X.shape[0] < X.shape[1]:
-            raise UnsupportedOnGPU("Underdetermined `X` is not supported")
+            raise UnsupportedOnGPU(
+                "`X` with more columns than rows is not supported"
+            )
 
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
