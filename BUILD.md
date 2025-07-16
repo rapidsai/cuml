@@ -94,7 +94,7 @@ If you want a list of the available Python tests:
 $ pytest cuML/tests --collect-only
 ```
 
-Note: To run tests requiring `xgboost` in devcontainers, users must install the `xgboost` conda package manually.
+Note: To run tests requiring `xgboost` in conda devcontainers, users must install the `xgboost` conda package manually.
 See `dependencies.yaml` for more information.
 
 ### Manual Process
