@@ -254,6 +254,7 @@ dependencies:
           - dask-cuda==25.8.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.59.1,<0.62.0a0
+          - numba-cuda==0.14.0
           - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
