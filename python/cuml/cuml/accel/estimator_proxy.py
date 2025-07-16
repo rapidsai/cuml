@@ -21,6 +21,7 @@ import sklearn
 from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
 from sklearn.utils._set_output import _wrap_data_with_container
 
+from cuml.accel import profilers
 from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 
@@ -250,7 +251,6 @@ class ProxyBase(BaseEstimator):
                 raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
-        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on GPU")
 
         if method in ("transform", "fit_transform"):
             # Ensure transform result is properly wrapped for `set_output`
@@ -266,6 +266,8 @@ class ProxyBase(BaseEstimator):
             # always dispatch directly to CPU.
             getattr(self._cpu, method)(*args, **kwargs)
             return self
+
+        qualname = f"{self._cpu_class.__name__}.{method}"
 
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
@@ -292,7 +294,10 @@ class ProxyBase(BaseEstimator):
         if self._gpu is not None:
             # The hyperparameters are supported, try calling the method
             try:
-                return self._call_gpu_method(method, *args, **kwargs)
+                with profilers.track_gpu_call(qualname):
+                    out = self._call_gpu_method(method, *args, **kwargs)
+                logger.info(f"`{qualname}` ran on GPU")
+                return out
             except UnsupportedOnGPU as exc:
                 reason = str(exc) or "Method parameters not supported"
                 # Unsupported. If it's a `fit` we need to clear
@@ -307,8 +312,9 @@ class ProxyBase(BaseEstimator):
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
-        out = getattr(self._cpu, method)(*args, **kwargs)
-        logger.info(f"`{self._cpu_class.__name__}.{method}` ran on CPU")
+        with profilers.track_cpu_call(qualname, reason=reason):
+            out = getattr(self._cpu, method)(*args, **kwargs)
+        logger.info(f"`{qualname}` ran on CPU")
         return self if out is self._cpu else out
 
     ############################################################
