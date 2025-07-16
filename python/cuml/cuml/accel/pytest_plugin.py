@@ -22,6 +22,7 @@ from pathlib import Path
 import yaml
 from packaging.requirements import Requirement
 
+from cuml.accel._sklearn_patch import apply_sklearn_patches
 from cuml.accel.core import install
 
 
@@ -82,6 +83,10 @@ def create_version_condition(condition_str: str) -> bool:
         return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
+
+
+def pytest_load_initial_conftests(early_config, parser, args):
+    apply_sklearn_patches()
 
 
 def pytest_collection_modifyitems(config, items):
