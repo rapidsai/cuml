@@ -294,6 +294,7 @@ Ridge
 - If ``positive=True``.
 - If ``solver="lbfgs"``.
 - If ``X`` is sparse.
+- If ``X`` has more columns than rows.
 - If ``y`` is multioutput.
 
 Additionally, the following fitted attributes are currently not computed:
