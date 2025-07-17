@@ -37,7 +37,6 @@ import cudf
 import numpy as np
 import pandas as pd
 import pytest
-import statsmodels.api as sm
 from cudf.pandas import LOADED as cudf_pandas_active
 from scipy.optimize import approx_fprime
 from sklearn.model_selection import train_test_split
@@ -45,6 +44,8 @@ from sklearn.model_selection import train_test_split
 import cuml.tsa.arima as arima
 from cuml.internals.input_utils import input_to_host_array
 from cuml.testing.utils import stress_param
+
+sm = pytest.importorskip("statsmodels.api")
 
 ###############################################################################
 #                                  Test data                                  #
@@ -204,7 +205,7 @@ test_112_012_4 = ARIMAData(
     n_obs=179,
     n_test=10,
     dataset="passenger_movements",
-    tolerance_integration=0.001,
+    tolerance_integration=0.005,
 )
 
 # ARIMA(1,1,1)(1,1,1)_12

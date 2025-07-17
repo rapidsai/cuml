@@ -533,7 +533,6 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
         model_path,
         model_type=model_type,
         is_classifier=True,
-        threshold=0.50,
     )
 
     fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
@@ -555,13 +554,20 @@ def test_thresholding(is_classifier, small_classifier_and_preds):
         model_path,
         model_type=model_type,
         is_classifier=is_classifier,
-        threshold=0.50,
     )
-    fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.asarray(fm.predict(X, threshold=0.5))
     if is_classifier:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() == 0
     else:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
+
+    with pytest.warns(FutureWarning):
+        _ = ForestInference.load(
+            model_path,
+            model_type=model_type,
+            is_classifier=is_classifier,
+            threshold=0.5,
+        )
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
@@ -844,7 +850,8 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         np.testing.assert_equal(pred_leaf, expected_pred_leaf)
 
 
-def test_missing_categorical():
+@pytest.mark.parametrize("category_list", [[], [0, 2]])
+def test_missing_categorical(category_list):
     builder = treelite.model_builder.ModelBuilder(
         threshold_type="float32",
         leaf_output_type="float32",
@@ -868,7 +875,7 @@ def test_missing_categorical():
     builder.start_node(0)
     builder.categorical_test(
         feature_id=0,
-        category_list=[0, 2],
+        category_list=category_list,
         default_left=False,
         category_list_right_child=False,
         left_child_key=1,

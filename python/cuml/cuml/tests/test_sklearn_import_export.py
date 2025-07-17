@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 import scipy.sparse
+import sklearn.kernel_ridge
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
@@ -34,6 +36,7 @@ from sklearn.linear_model import LinearRegression as SkLinearRegression
 from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
 from sklearn.manifold import trustworthiness
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
@@ -249,6 +252,42 @@ def test_tsne(random_state):
     assert array_equal(original_embedding, roundtrip_embedding)
 
 
+@pytest.mark.parametrize("alpha_kind", ["scalar", "numpy", "cupy"])
+def test_kernel_ridge(random_state, alpha_kind):
+    X, y = make_regression(
+        n_samples=50,
+        n_features=10,
+        n_targets=2,
+        noise=0.1,
+        random_state=random_state,
+    )
+    if alpha_kind == "scalar":
+        cu_alpha = sk_alpha = 1
+    elif alpha_kind == "numpy":
+        cu_alpha = sk_alpha = np.array([1.0, 2.0])
+    elif alpha_kind == "cupy":
+        cu_alpha = cp.array([1.0, 2.0])
+        sk_alpha = cu_alpha.get()
+
+    cu_model = cuml.KernelRidge(alpha=cu_alpha).fit(X, y)
+    sk_model = sklearn.kernel_ridge.KernelRidge(alpha=sk_alpha).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KernelRidge.from_sklearn(sk_model)
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+
 @pytest.mark.parametrize("sparse", [False, True])
 def test_svr(random_state, sparse):
     X, y = make_regression(n_samples=100, random_state=random_state)
@@ -269,7 +308,8 @@ def test_svr(random_state, sparse):
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-def test_svc(random_state, sparse):
+@pytest.mark.parametrize("probability", [False, True])
+def test_svc(random_state, sparse, probability):
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=random_state
     )
@@ -279,14 +319,31 @@ def test_svc(random_state, sparse):
     assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
     # Check inference works after conversion
-    cu_model = cuml.SVC().fit(X, y)
-    sk_model = sklearn.svm.SVC().fit(X, y)
+    cu_model = cuml.SVC(probability=probability).fit(X, y)
+    sk_model = sklearn.svm.SVC(probability=probability).fit(X, y)
 
-    sk_score = cu_model.as_sklearn().score(X, y)
+    cu_model2 = cuml.SVC.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    cu_score = cu_model2.score(X, y)
+    assert cu_score > 0.7
+
+    sk_score = sk_model2.score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVC.from_sklearn(sk_model).score(X, y)
-    assert cu_score > 0.7
+    if probability:
+        # Check that predict_proba works
+        cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
+        assert accuracy_score(cu_pred_prob, y) > 0.7
+        sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
+        assert accuracy_score(sk_pred_prob, y) > 0.7
+
+        # Check that probA_, probB_ are wired up properly
+        for attr in ["probA_", "probB_"]:
+            val = getattr(sk_model2, attr)
+            assert isinstance(val, np.ndarray)
+            assert val.dtype == "float64"
+            assert val.shape == (1,)
 
 
 def test_svc_multiclass_unsupported(random_state):
@@ -299,19 +356,6 @@ def test_svc_multiclass_unsupported(random_state):
     )
     cu_model = cuml.SVC().fit(X, y)
     sk_model = sklearn.svm.SVC().fit(X, y)
-
-    with pytest.raises(UnsupportedOnGPU):
-        cuml.SVC.from_sklearn(sk_model)
-
-    with pytest.raises(UnsupportedOnCPU):
-        cu_model.as_sklearn()
-
-
-def test_svc_probability_true_unsupported(random_state):
-    X, y = make_classification(n_samples=50, random_state=random_state)
-
-    cu_model = cuml.SVC(probability=True).fit(X, y)
-    sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
 
     with pytest.raises(UnsupportedOnGPU):
         cuml.SVC.from_sklearn(sk_model)
@@ -505,3 +549,116 @@ def test_kneighbors_classifier(random_state, sparse, n_labels):
     # Refit models have similar results
     np.testing.assert_array_equal(sk_model.predict(X), sk_model2.predict(X))
     np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))
+
+
+def test_random_forest_classifier(random_state):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state
+    )
+
+    cu_model = cuml.RandomForestClassifier().fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier().fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.RandomForestClassifier.from_sklearn(sk_model)
+
+    # `classes_` attribute transfers properly
+    assert isinstance(sk_model2.classes_, np.ndarray)
+    assert isinstance(cu_model2.classes_, np.ndarray)
+    assert (sk_model2.classes_ == cu_model2.classes_).all()
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+
+def test_random_forest_regressor(random_state):
+    X, y = make_regression(n_samples=200, random_state=random_state)
+    X = X.astype("float32")
+
+    cu_model = cuml.RandomForestRegressor().fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor().fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # Can infer on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+    # Refit models have similar results
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+
+
+@pytest.mark.parametrize("prediction_data", [False, True])
+@pytest.mark.parametrize("gen_min_span_tree", [False, True])
+def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
+    hdbscan = pytest.importorskip("hdbscan")
+
+    X, y = make_blobs(random_state=random_state)
+
+    cu_model = cuml.HDBSCAN(
+        prediction_data=prediction_data, gen_min_span_tree=gen_min_span_tree
+    ).fit(X, y)
+    sk_model = hdbscan.HDBSCAN(
+        prediction_data=prediction_data, gen_min_span_tree=gen_min_span_tree
+    ).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.HDBSCAN.from_sklearn(sk_model)
+
+    # Ensure parameters roundtrip
+    assert_params_equal(cu_model, cu_model2)
+
+    # tree attributes all available
+    for attr in ["single_linkage_tree_", "condensed_tree_"]:
+        assert getattr(cu_model2, attr) is not None
+        assert getattr(sk_model2, attr) is not None
+
+    # minimum_spanning_tree_ available if generated
+    if gen_min_span_tree:
+        assert getattr(cu_model2, "minimum_spanning_tree_") is not None
+        assert getattr(sk_model2, "minimum_spanning_tree_") is not None
+    else:
+        assert not hasattr(cu_model2, "minimum_spanning_tree_")
+        assert not hasattr(sk_model2, "minimum_spanning_tree_")
+
+    # prediction data available if generated
+    if prediction_data:
+        assert getattr(cu_model2, "prediction_data_") is not None
+        assert getattr(sk_model2, "prediction_data_") is not None
+    else:
+        assert not hasattr(cu_model2, "prediction_data_")
+        assert not hasattr(sk_model2, "prediction_data_")
+
+        # Generate prediction data
+        cu_model2.generate_prediction_data()
+        sk_model2.generate_prediction_data()
+
+    # Can infer on converted models
+    cu_labels, cu_probs = cuml.cluster.hdbscan.approximate_predict(
+        cu_model2, X
+    )
+    sk_labels, sk_probs = hdbscan.approximate_predict(sk_model2, X)
+    assert accuracy_score(cu_labels, cu_model2.labels_) > 0.9
+    assert accuracy_score(sk_labels, sk_model2.labels_) > 0.9
+
+    # Can refit on converted models
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)

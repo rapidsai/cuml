@@ -18,7 +18,6 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import rmm
 import sklearn
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
@@ -54,15 +53,6 @@ from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_difference, array_equal
 
 ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
-
-
-# TODO(25.08): remove this test
-def test_logreg_penalty_deprecation():
-    with pytest.warns(
-        FutureWarning,
-        match="The 'none' option was deprecated in version 24.06",
-    ):
-        cuLog(penalty="none")
 
 
 @given(

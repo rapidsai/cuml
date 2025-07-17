@@ -66,6 +66,7 @@ function(ConfigureTest)
     $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
     $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
     ${TREELITE_LIBS}
+    ${CUVS_LIB}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
@@ -116,11 +117,11 @@ if(all_algo OR explainer_algo)
 endif()
 
 if(all_algo OR fil_algo)
-  ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/experimental/forest/traversal_forest.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/experimental/forest/treelite_traversal.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/experimental/fil/treelite_importer.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/fil/raft_proto/buffer.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/fil/raft_proto/buffer.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/forest/traversal_forest.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/forest/treelite_traversal.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/fil/treelite_importer.cpp ML_INCLUDE)
 endif()
 
 # todo: organize linear models better

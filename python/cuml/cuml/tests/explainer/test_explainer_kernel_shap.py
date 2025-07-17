@@ -219,7 +219,9 @@ def test_kernel_housing_dataset(housing_dataset):
     y_train = y_train.astype(np.float32)
     y_test = y_test.astype(np.float32)
 
-    cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
+    cumodel = cuml.RandomForestRegressor(max_features="sqrt").fit(
+        X_train, y_train
+    )
 
     explainer = KernelExplainer(
         model=cumodel.predict, data=X_train[:100], output_type="numpy"
@@ -346,10 +348,14 @@ def test_typeerror_input():
     clf.fit(X, y)
     exp = KernelExplainer(model=clf.predict, data=X, nsamples=10)
     try:
-        _ = exp.shap_values(X)
-        assert True
-    except TypeError:
-        assert False
+        exp.shap_values(X)
+    except ValueError as error:
+        if "operands could not be broadcast together" in str(error):
+            pytest.xfail(
+                "Known sklearn LARS broadcasting bug - see scikit-learn#9603"
+            )
+        else:
+            raise error
 
 
 ###############################################################################

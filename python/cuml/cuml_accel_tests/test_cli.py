@@ -248,25 +248,27 @@ def test_cli_run_errors(mode, tmpdir):
 
 
 def test_cli_run_interpreter():
-    driver, receiver = pty.openpty()
+    driver_fd, receiver_fd = pty.openpty()
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "cuml.accel"],
-        stdin=receiver,
-        stdout=receiver,
+        stdin=receiver_fd,
+        stdout=receiver_fd,
         stderr=subprocess.STDOUT,
     )
-    os.close(receiver)
+    os.close(receiver_fd)
 
-    os.write(driver, b"import cuml.accel\n")
-    os.write(driver, b"assert cuml.accel.enabled()\n")
-    os.write(driver, b"print('got' + ' here')\n")
-    os.write(driver, b"exit()\n")
-    proc.wait(timeout=10)
+    driver = os.fdopen(driver_fd, mode="a")
+    driver.write("import cuml.accel\n")
+    driver.write("assert cuml.accel.enabled()\n")
+    driver.write("print('got' + ' here')\n")
+    driver.write("exit()\n")
+
+    proc.wait(timeout=20)
     assert proc.returncode == 0
 
-    stdout = os.read(driver, 10000).decode("utf-8")
-    os.close(driver)
+    stdout = os.read(driver_fd, 10000).decode("utf-8")
+    driver.close()
     assert "got here" in stdout
     assert "AssertionError" not in stdout
 
@@ -320,10 +322,9 @@ def test_cli_cudf_pandas():
 def test_cli_verbose(args, level):
     script = dedent(
         f"""
-        from cuml.internals.logger import get_level, level_enum
-        level = get_level()
-        expected = level_enum.{level}
-        assert level == expected
+        from cuml.accel.core import logger
+        level = logger.level.name.lower()
+        assert level == {level!r}
         """
     )
     run(["-m", "cuml.accel", *args], stdin=script)

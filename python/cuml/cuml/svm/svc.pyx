@@ -51,20 +51,8 @@ from libcpp cimport nullptr
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
+from cuml.svm.kernel_params cimport KernelParams
 
-
-cdef extern from "cuvs/distance/distance.hpp"  namespace "cuvs::distance::kernels" nogil:
-    enum KernelType:
-        LINEAR,
-        POLYNOMIAL,
-        RBF,
-        TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     enum SvmType:
@@ -122,7 +110,9 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
                                    const math_t *sample_weight) except +
 
 
-def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_type, dtype) -> CumlArray:
+def apply_class_weight(
+    handle, sample_weight, class_weight, y, verbose, output_type, dtype
+) -> cp.ndarray | None:
     """
     Scale the sample weights with the class weights.
 
@@ -158,6 +148,13 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
     --------
     sample_weight: device array shape = (n_samples, 1) or None
     """
+    n_samples = y.shape[0] if hasattr(y, "shape") else len(y)
+
+    if sample_weight is not None:
+        sample_weight, _, _, _ = input_to_cupy_array(
+            sample_weight, convert_to_dtype=dtype, check_rows=n_samples, check_cols=1,
+        )
+
     if class_weight is None:
         return sample_weight
 
@@ -166,12 +163,9 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
     else:
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
 
-    le = LabelEncoder(handle=handle,
-                      verbose=verbose,
-                      output_type=output_type)
+    le = LabelEncoder(handle=handle, verbose=verbose, output_type=output_type)
     labels = y_m.to_output(output_type='series')
     encoded_labels = cp.asarray(le.fit_transform(labels))
-    n_samples = y_m.shape[0]
 
     # Define class weights for the encoded labels
     if class_weight == 'balanced':
@@ -187,10 +181,6 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
 
     if sample_weight is None:
         sample_weight = cp.ones(y_m.shape, dtype=dtype)
-    else:
-        sample_weight, _, _, _ = \
-            input_to_cupy_array(sample_weight, convert_to_dtype=dtype,
-                                check_rows=n_samples, check_cols=1)
 
     for label, weight in class_weight.items():
         sample_weight[encoded_labels==label] *= weight
@@ -352,10 +342,6 @@ class SVC(SVMBase,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.probability:
-            raise UnsupportedOnGPU(
-                "SVC with probability=True is not currently supported"
-            )
         params = super()._params_from_cpu(model)
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -369,11 +355,6 @@ class SVC(SVMBase,
         return params
 
     def _params_to_cpu(self):
-        if self.probability:
-            raise UnsupportedOnCPU(
-                "SVC with probability=True is not currently supported"
-            )
-
         params = super()._params_to_cpu()
         params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
         params.update(
@@ -389,10 +370,46 @@ class SVC(SVMBase,
     def _attrs_from_cpu(self, model):
         n_classes = len(model.classes_)
         if n_classes > 2:
-            raise UnsupportedOnGPU(
-                "Converting multiclass models to GPU is not yet supported"
+            raise UnsupportedOnGPU("multiclass models are not supported")
+
+        if self.probability:
+            # XXX: Here we recreate a CalibratedClassifier wrapping a fit SVC.
+            # This is gross, since it requires touching several private classes
+            # in sklearn as well as rebuilding a SVC estimator wrapped by
+            # another SVC estimator. This can all be removed once `prob_svc`
+            # goes away.
+            from sklearn.calibration import (
+                CalibratedClassifierCV,
+                _CalibratedClassifier,
+                _SigmoidCalibration,
             )
 
+            # Construct the nested fit SVC model (fit without probability)
+            params = {**self.get_params(), "probability": False, "output_type": "numpy"}
+            fit_svc = SVC(**params)
+            fit_svc._sync_attrs_from_cpu(model)
+
+            # Construct the calibrators from probA_ & probB_
+            calibrators = []
+            for a, b in zip(model.probA_, model.probB_):
+                cal = _SigmoidCalibration()
+                cal.a_ = np.float64(a)
+                cal.b_ = np.float64(b)
+                calibrators.append(cal)
+
+            # Construct the fit CalibratedClassifierCV
+            prob_svc = CalibratedClassifierCV(estimator=SVC(**params), ensemble=False)
+            prob_svc.calibrated_classifiers_ = [
+                _CalibratedClassifier(fit_svc, calibrators, classes=model.classes_)
+            ]
+            prob_svc.classes_ = model.classes_
+            prob_svc.n_features_in_ = model.n_features_in_
+
+            return {
+                "prob_svc": prob_svc,
+                "n_classes_": n_classes,
+                **super(SVMBase, self)._attrs_from_cpu(model),
+            }
         return {
             "n_classes_": n_classes,
             "_unique_labels_": to_gpu(model.classes_.astype("float64"), order="F"),
@@ -405,10 +422,24 @@ class SVC(SVMBase,
                 "Converting multiclass models from GPU is not yet supported"
             )
 
-        return {
-            "classes_": to_cpu(self.classes_).astype("int64"),
-            **super()._attrs_to_cpu(model),
-        }
+        if self.probability:
+            clf = self.prob_svc.calibrated_classifiers_[0]
+            out = super()._attrs_to_cpu(model, cu_model=clf.estimator)
+            out.update(
+                _probA=np.array([c.a_ for c in clf.calibrators], dtype="float64"),
+                _probB=np.array([c.b_ for c in clf.calibrators], dtype="float64"),
+            )
+        else:
+            out = super()._attrs_to_cpu(model)
+
+        # sklearn's binary classification expects inverted
+        # _dual_coef_ and _intercept_.
+        out.update(
+            _dual_coef_=-out["dual_coef_"],
+            _intercept_=-out["intercept_"],
+            classes_=to_cpu(self.classes_).astype("int64"),
+        )
+        return out
 
     def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
@@ -529,44 +560,29 @@ class SVC(SVMBase,
 
     def _fit_proba(self, X, y, sample_weight) -> "SVC":
         from sklearn.calibration import CalibratedClassifierCV
-        from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
-
-        params = self.get_params()
-        params["probability"] = False
-
-        # Ensure it always outputs numpy
-        params["output_type"] = "numpy"
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
+        self.dtype = X.dtype
 
-        if self.n_classes_ == 2:
-            estimator = SVC(**params)
-        else:
-            if self.decision_function_shape == 'ovr':
-                estimator = OneVsRestClassifier(SVC(**params))
-            elif self.decision_function_shape == 'ovo':
-                estimator = OneVsOneClassifier(SVC(**params))
-            else:
-                raise ValueError
+        params = {**self.get_params(), "probability": False, "output_type": "numpy"}
+        self.prob_svc = CalibratedClassifierCV(SVC(**params), ensemble=False)
 
-        self.prob_svc = CalibratedClassifierCV(estimator,
-                                               cv=5,
-                                               method='sigmoid')
+        # Apply class weights to sample weights, necessary, so it doesn't crash
+        # when sample_weight is None
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y,
+            self.verbose,
+            self.output_type,
+            self.dtype,
+        )
 
-        # Apply class weights to sample weights, necessary, so it doesn't crash when sample_weight is None
-        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
-                                           self.output_type, self.dtype)
-
-        # If sample_weight is not None, it is a cupy array, and we need to convert it to a numpy array for sklearn
         if sample_weight is not None:
-            # Currently, fitting a probabilistic SVC with class weights requires at least 3 classes, otherwise the following,
-            # ambiguous error is raised: ValueError: Buffer dtype mismatch, expected 'const float' but got 'double'
-            if len(set(y)) < 3:
-                raise ValueError("At least 3 classes are required to use probabilistic SVC with class weights.")
-
             # Convert cupy array to numpy array
             sample_weight = sample_weight.get()
 
@@ -620,7 +636,15 @@ class SVC(SVMBase,
 
         cdef uintptr_t y_ptr = y_m.ptr
 
-        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y_m, self.verbose, self.output_type, self.dtype)
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y_m,
+            self.verbose,
+            self.output_type,
+            self.dtype
+        )
         cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
@@ -784,20 +808,10 @@ class SVC(SVMBase,
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
-            # Probabilistic SVC is an ensemble of simple SVC classifiers
-            # fitted to different subset of the training data. As such, it
-            # does not have a single decision function. (During prediction
-            # we use the calibrated probabilities to determine the class
-            # label.) Here we average the decision function value. This can
-            # be useful for visualization, but predictions should be made
-            # using the probabilities.
-            df = np.zeros((X.shape[0],))
-
+            # Get the calibrated estimator
+            estimator = self.prob_svc.calibrated_classifiers_[0].estimator
             with cuml.internals.exit_internal_api():
-                for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.estimator.decision_function(X)
-            df = df / len(self.prob_svc.calibrated_classifiers_)
-            return df
+                return estimator.decision_function(X)
         elif self.n_classes_ > 2:
             self._check_is_fitted('multiclass_svc')
             return self.multiclass_svc.decision_function(X)

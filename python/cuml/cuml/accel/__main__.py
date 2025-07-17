@@ -23,8 +23,6 @@ import warnings
 from textwrap import dedent
 
 from cuml.accel.core import install
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
-from cuml.internals import logger
 
 
 def execute_source(source: str, filename: str = "<stdin>") -> None:
@@ -187,12 +185,6 @@ def main(argv: list[str] | None = None):
                 import joblib as serializer
             estimator = serializer.load(f)
 
-        # Conversion is only necessary for estimators built on `ProxyMixin`,
-        # estimators built with `ProxyBase` pickle transparently as their
-        # non-accelerated versions.
-        if isinstance(estimator, ProxyMixin):
-            estimator = estimator.as_sklearn()
-
         with open(ns.output, "wb") as f:
             serializer.dump(estimator, f)
         sys.exit()
@@ -210,12 +202,7 @@ def main(argv: list[str] | None = None):
         cudf.pandas.install()
 
     # Parse verbose into log_level
-    default_logger_level_index = list(logger.level_enum).index(
-        logger.level_enum.warn
-    )
-    log_level = list(logger.level_enum)[
-        max(0, default_logger_level_index - ns.verbose)
-    ]
+    log_level = {0: "warn", 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
 
     # Enable acceleration
     install(disable_uvm=ns.disable_uvm, log_level=log_level)

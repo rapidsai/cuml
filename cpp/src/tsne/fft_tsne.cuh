@@ -152,7 +152,8 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
 }
 
 /**
- * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
+ * @brief Fast Dimensionality reduction via TSNE using the fast Fourier transform interpolation
+ * approximation.
  * @param[in] VAL: The values in the attractive forces COO matrix.
  * @param[in] COL: The column indices in the attractive forces COO matrix.
  * @param[in] ROW: The row indices in the attractive forces COO matrix.
