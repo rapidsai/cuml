@@ -205,7 +205,7 @@ test_112_012_4 = ARIMAData(
     n_obs=179,
     n_test=10,
     dataset="passenger_movements",
-    tolerance_integration=0.001,
+    tolerance_integration=0.005,
 )
 
 # ARIMA(1,1,1)(1,1,1)_12

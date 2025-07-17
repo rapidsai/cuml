@@ -28,6 +28,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/neighbors/knn_merge_parts.hpp>
 #include <selection/knn.cuh>
 
 #include <cstddef>
@@ -724,15 +725,15 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   }
 
   // Merge all KNN local results
-  raft::spatial::knn::knn_merge_parts(work.res_D.data(),
-                                      work.res_I.data(),
-                                      distances,
-                                      indices,
-                                      batch_size,
-                                      work.idxRanks.size(),
-                                      params.k,
-                                      handle.get_stream(),
-                                      trans.data());
+  cuvs::neighbors::knn_merge_parts(
+    handle,
+    raft::make_device_matrix_view<const dist_t, int64_t>(
+      work.res_D.data(), batch_size * work.idxRanks.size(), params.k),
+    raft::make_device_matrix_view<const ind_t, int64_t>(
+      work.res_I.data(), batch_size * work.idxRanks.size(), params.k),
+    raft::make_device_matrix_view<dist_t, int64_t>(distances, batch_size, params.k),
+    raft::make_device_matrix_view<ind_t, int64_t>(indices, batch_size, params.k),
+    raft::make_device_vector_view<trans_t>(trans.data(), trans.size()));
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
