@@ -68,6 +68,7 @@ cache:
       - libcurand-dev
       - libcusolver-dev
       - libcusparse-dev
+      - rapids-pin
 
 outputs:
   - package:
@@ -102,6 +103,7 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
+        - rapids-pin
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - cuda-cudart
@@ -148,6 +150,7 @@ outputs:
         - rapids-logger =0.1
         - ${{ pin_subpackage("libcuml", exact=True) }}
         - cuda-cudart-dev
+        - rapids-pin
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libcuml", exact=True) }}

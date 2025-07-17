@@ -20,6 +20,7 @@ export RAPIDS_PACKAGE_VERSION
 
 # populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
 source rapids-rattler-channel-string
+RATTLER_CHANNELS+=("-c" "msarahan")
 
 # --no-build-id allows for caching with `sccache`
 # more info is available at

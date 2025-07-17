@@ -71,6 +71,7 @@ requirements:
     - treelite ${{ treelite_version }}
     - cuda-cudart-dev
     - cuda-python >=12.6.2,<13.0a0
+    - rapids-pin
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
