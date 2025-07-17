@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-import platform
-
 import cudf
-import cupy as cp
 import dask_cudf
 import numpy as np
 import pandas as pd

@@ -690,14 +690,8 @@ class LarsTestFitPredict : public ::testing::Test {
 
 TYPED_TEST_CASE(LarsTestFitPredict, FloatTypes);
 
-TYPED_TEST(LarsTestFitPredict, fitGram)
-{
-  this->testFitGram();
-}
-TYPED_TEST(LarsTestFitPredict, fitX)
-{
-  this->testFitX();
-}
+TYPED_TEST(LarsTestFitPredict, fitGram) { this->testFitGram(); }
+TYPED_TEST(LarsTestFitPredict, fitX) { this->testFitX(); }
 TYPED_TEST(LarsTestFitPredict, fitLarge) { this->testFitLarge(); }
 TYPED_TEST(LarsTestFitPredict, predictV1) { this->testPredictV1(); }
 TYPED_TEST(LarsTestFitPredict, predictV2) { this->testPredictV2(); }
