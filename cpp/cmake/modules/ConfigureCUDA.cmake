@@ -24,7 +24,11 @@ endif()
 
 list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
-list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations,-Wno-error=sign-compare,-Werror=all-warnings)
+# set warnings as errors
+if(CUDA_WARNINGS_AS_ERRORS)
+    list(APPEND CUML_CUDA_FLAGS -Werror=all-warnings)
+endif()
+list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations,-Wno-error=sign-compare)
 
 if(DISABLE_DEPRECATION_WARNINGS)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
