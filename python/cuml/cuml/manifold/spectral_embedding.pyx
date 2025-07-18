@@ -212,7 +212,7 @@ class SpectralEmbedding(Base,
         self.random_state = random_state
         self.n_neighbors = n_neighbors
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
         Parameters
