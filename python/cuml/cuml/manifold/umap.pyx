@@ -280,6 +280,21 @@ class UMAP(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
+        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
+        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
+        `nnd_n_clusters > 1`.
+
+        .. code-block:: python
+
+            from pylibraft.common import DeviceResourcesSNMG
+
+            device_ids = [0,1,2,3]
+            multigpu_handle = DeviceResourcesSNMG(device_ids)
+            umap_nnd = UMAP(handle = multigpu_handle,
+                 build_algo="nn_descent",
+                 build_kwds={"nnd_n_clusters": 8}
+                 )
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
