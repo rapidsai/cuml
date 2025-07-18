@@ -959,6 +959,8 @@ def test_device_selection(device_id, model_kind, tmp_path):
         )
 
         with device_context:
+            # TODO(hcho3): Remove n_streams=1 argument once the bug
+            # https://github.com/rapidsai/cuml/issues/5983 is resolved
             cuml_model = cumlRandomForestClassifier(
                 max_depth=3,
                 random_state=0,
