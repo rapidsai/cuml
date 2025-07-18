@@ -87,6 +87,7 @@ requirements:
     - raft-dask =${{ minor_version }}
     - rapids-dask-dependency =${{ minor_version }}
     - rapids-logger =0.1
+    - rich
     - treelite ${{ treelite_version }}
     - cuda-cudart
     - cuda-python >=12.6.2,<13.0a0
