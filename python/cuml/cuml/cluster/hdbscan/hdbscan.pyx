@@ -194,8 +194,12 @@ cdef class _HDBSCANState:
         self._init_from_condensed_tree_array(handle, model._condensed_tree, n_rows)
 
         self.core_dists = CumlArray.empty(n_rows, dtype=np.float32)
-
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+        cdef device_uvector[int] *temp_buffer = new device_uvector[int](
+            0,
+            handle_[0].get_stream(),
+        )
+
         lib.compute_core_dists(
             handle_[0],
             <float*><uintptr_t>(X.ptr),
@@ -205,12 +209,6 @@ cdef class _HDBSCANState:
             metric,
             (model.min_samples or model.min_cluster_size),
         )
-
-        cdef device_uvector[int] *temp_buffer = new device_uvector[int](
-            0,
-            handle_[0].get_stream(),
-        )
-
         lib.compute_inverse_label_map(
             handle_[0],
             deref(self.condensed_tree),
@@ -221,6 +219,7 @@ cdef class _HDBSCANState:
             <int> model.max_cluster_size,
             <float> model.cluster_selection_epsilon
         )
+        handle.sync()
 
         self.n_clusters = temp_buffer.size()
 
