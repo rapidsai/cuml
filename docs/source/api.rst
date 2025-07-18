@@ -476,6 +476,12 @@ TSNE
 .. autoclass:: cuml.TSNE
     :members:
 
+Spectral Embedding
+------------------
+
+.. autoclass:: cuml.SpectralEmbedding
+    :members:
+
 Neighbors
 ==========
 

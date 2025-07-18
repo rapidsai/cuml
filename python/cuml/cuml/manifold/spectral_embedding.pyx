@@ -81,22 +81,17 @@ def spectral_embedding(A,
     ----------
     A : array-like of shape (n_samples, n_features)
         The input data. A k-NN graph will be constructed.
-
     n_components : int, default=8
         The dimension of the projection subspace.
-
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
-
     n_neighbors : int or None, default=None
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
         Only used when A has shape (n_samples, n_features).
-
     norm_laplacian : bool, default=True
         If True, then compute symmetric normalized Laplacian.
-
     drop_first : bool, default=True
         Whether to drop the first eigenvector. For spectral embedding, this
         should be True as the first eigenvector should be constant vector for
@@ -178,11 +173,9 @@ class SpectralEmbedding(Base,
     ----------
     n_components : int, default=2
         The dimension of the projected subspace.
-
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
-
     n_neighbors : int or None, default=None
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
@@ -227,7 +220,6 @@ class SpectralEmbedding(Base,
         X : array-like of shape (n_samples, n_features)
             Training vector, where `n_samples` is the number of samples
             and `n_features` is the number of features.
-
         y : Ignored
             Not used, present for API consistency by convention.
 
@@ -247,7 +239,6 @@ class SpectralEmbedding(Base,
         X : array-like of shape (n_samples, n_features)
             Training vector, where `n_samples` is the number of samples
             and `n_features` is the number of features.
-
         y : Ignored
             Not used, present for API consistency by convention.
 
