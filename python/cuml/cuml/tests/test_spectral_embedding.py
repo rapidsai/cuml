@@ -135,3 +135,39 @@ def test_spectral_embedding_function_api():
     embedding2 = spectral_embedding(X_gpu, n_components=2, random_state=seed)
 
     assert cp.allclose(embedding1, embedding2)
+
+
+@pytest.mark.parametrize(
+    "input_type,expected_type",
+    [
+        ("numpy", np.ndarray),
+        ("cupy", cp.ndarray),
+    ],
+)
+def test_output_type_handling(input_type, expected_type):
+    """Test that output types are properly handled for different input types."""
+    # Generate test data
+    n_samples = 500
+    X_np, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    X_np = X_np.astype(np.float32)
+
+    # Convert to appropriate type
+    X = X_np if input_type == "numpy" else cp.asarray(X_np)
+
+    # Test spectral_embedding function
+    embedding = spectral_embedding(X, n_components=2, random_state=42)
+    assert isinstance(embedding, expected_type)
+    assert embedding.shape == (n_samples, 2)
+
+    # Test SpectralEmbedding class with fit
+    model = SpectralEmbedding(n_components=2, n_neighbors=15, random_state=42)
+    model.fit(X)
+    assert isinstance(model.embedding_, expected_type)
+    assert model.embedding_.shape == (n_samples, 2)
+
+    # Test fit_transform
+    out = SpectralEmbedding(
+        n_components=2, n_neighbors=15, random_state=42
+    ).fit_transform(X)
+    assert isinstance(out, expected_type)
+    assert out.shape == (n_samples, 2)
