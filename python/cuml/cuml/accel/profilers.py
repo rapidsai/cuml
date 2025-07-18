@@ -111,7 +111,7 @@ def track_cpu_call(qualname: str, reason: str | None = None) -> Iterator[None]:
 
 
 @contextmanager
-def profile(print_report: bool = True) -> Iterator[ProfileResults]:
+def profile(quiet: bool = False) -> Iterator[ProfileResults]:
     """Profile a section of code.
 
     This will collect stats on all accelerated (or potentially-accelerated)
@@ -119,9 +119,8 @@ def profile(print_report: bool = True) -> Iterator[ProfileResults]:
 
     Parameters
     ----------
-    print_report : bool, optional
-        Whether to print the report automatically upon exiting the context.
-        Defaults to True.
+    quiet : bool, optional
+        Set to True to skip printing the report automatically upon exiting the context.
 
     Returns
     -------
@@ -134,7 +133,7 @@ def profile(print_report: bool = True) -> Iterator[ProfileResults]:
         yield results
     finally:
         _CALLBACKS.remove(results)
-        if print_report:
+        if not quiet:
             results.print_report()
 
 
@@ -296,6 +295,8 @@ class LineProfiler(Callback):
         The script's executing namespace. When executing source that lacks a unique path,
         the namespace is needed to temporarily inject a value so the profiler can know
         which frames to trace.
+    quiet : bool, optional
+        Set to True to skip printing the report automatically upon exiting the context.
     """
 
     FLAG = "__cuml_accel_line_profiler_enabled__"
@@ -305,6 +306,7 @@ class LineProfiler(Callback):
         source: str | None = None,
         path: str | None = None,
         namespace: dict | None = None,
+        quiet: bool = False,
     ):
         if path is not None:
             self._should_trace = lambda frame: frame.f_code.co_filename == path
@@ -321,23 +323,24 @@ class LineProfiler(Callback):
         self.source = source
         self.path = path
         self.namespace = namespace
+        self.quiet = quiet
 
-        self._total_time = 0.0
-        self._total_gpu_time = 0.0
-        self._stats = defaultdict(LineStats)
+        self.total_time = 0.0
+        self.total_gpu_time = 0.0
+        self.line_stats = defaultdict(LineStats)
         self._timers = []
         self._new_frame = False
 
     def _on_gpu_call(self, qualname: str, duration: float) -> None:
         for lineno, _ in self._timers:
-            self._stats[lineno].gpu_time += duration
-        self._total_gpu_time += duration
+            self.line_stats[lineno].gpu_time += duration
+        self.total_gpu_time += duration
 
     def _on_cpu_call(
         self, qualname: str, duration: float, reason: str | None = None
     ) -> None:
         for lineno, _ in self._timers:
-            self._stats[lineno].cpu_fallback = True
+            self.line_stats[lineno].cpu_fallback = True
 
     def __enter__(self) -> LineProfiler:
         self._old_trace = sys.gettrace()
@@ -352,13 +355,14 @@ class LineProfiler(Callback):
 
     def __exit__(self, *args) -> None:
         _CALLBACKS.remove(self)
-        self._total_time += perf_counter() - self._start_time
+        self.total_time += perf_counter() - self._start_time
 
         if self.namespace is not None:
             self.namespace.pop(self.FLAG, None)
         sys.settrace(self._old_trace)
 
-        self.print_report()
+        if not self.quiet:
+            self.print_report()
 
     def _maybe_pop_timer(self):
         if self._new_frame:
@@ -366,7 +370,7 @@ class LineProfiler(Callback):
         else:
             lineno, start = self._timers.pop()
             duration = perf_counter() - start
-            stats = self._stats[lineno]
+            stats = self.line_stats[lineno]
             stats.count += 1
             stats.total_time += duration
 
@@ -395,13 +399,13 @@ class LineProfiler(Callback):
         from rich.syntax import Syntax
         from rich.table import Table
 
-        gpu_percent = 100 * self._total_gpu_time / self._total_time
+        gpu_percent = 100 * self.total_gpu_time / self.total_time
 
         table = Table(
             title="cuml.accel line profile",
             title_justify="left",
             title_style=Style(bold=True),
-            caption=f"Ran in {format_duration(self._total_time)}, {gpu_percent:.1f}% on GPU",
+            caption=f"Ran in {format_duration(self.total_time)}, {gpu_percent:.1f}% on GPU",
             caption_style=Style(),
             caption_justify="left",
         )
@@ -412,7 +416,7 @@ class LineProfiler(Callback):
         table.add_column("Source", justify="left")
 
         for lineno, line in enumerate(self.source.splitlines(), 1):
-            stats = self._stats[lineno]
+            stats = self.line_stats[lineno]
 
             if stats.count == 0:
                 row = ("", "", "")

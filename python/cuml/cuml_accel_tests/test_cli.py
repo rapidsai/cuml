@@ -367,3 +367,102 @@ def test_cli_convert_to_sklearn(tmpdir):
 
     # Check in a new process if the reloaded estimator is a proxy estimator
     run(stdin=script)
+
+
+@pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
+@pytest.mark.parametrize(
+    "options",
+    [
+        ("--profile",),
+        ("--line-profile",),
+        (
+            "--profile",
+            "--line-profile",
+        ),
+    ],
+)
+def test_cli_profilers(mode, options, tmpdir):
+    """Check that the --profile and --line-profile options work across execution modes."""
+    script = dedent(
+        """
+        from sklearn.datasets import make_regression
+        from sklearn.linear_model import Ridge
+
+        X, y = make_regression()
+        model = Ridge().fit(X, y)
+        model.predict(X)
+        """
+    ).strip()
+
+    stdin = None
+    if mode == "script":
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = [path, "--foo"]
+    elif mode == "module":
+        args = ["-m", "code", "-q"]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-c", script, "--foo"]
+    else:
+        args = ["-", "--foo"]
+        stdin = script
+
+    if "--line-profile" in options and mode == "module":
+        # Check the case where --line-profile isn't supported
+        stdout = run(
+            ["-m", "cuml.accel", *options, *args],
+            stdin=stdin,
+            expected_returncode=1,
+        )
+        assert "--line-profile is not supported with -m" in stdout
+        return
+
+    stdout = run(["-m", "cuml.accel", *options, *args], stdin=stdin)
+
+    if "--line-profile" in options:
+        assert "cuml.accel line profile" in stdout
+        assert script.splitlines()[0] in stdout
+
+    if "--profile" in options:
+        if "--line-profile" in options:
+            # Check that there's a blank line between the reports
+            assert "\n\ncuml.accel profile" in stdout
+        else:
+            assert "cuml.accel profile" in stdout
+        assert "Ridge.fit" in stdout
+        assert "Ridge.predict" in stdout
+
+
+@pytest.mark.parametrize("mode", ["script", "cmd", "stdin"])
+@pytest.mark.parametrize("option", ["--profile", "--line-profile"])
+def test_cli_profilers_errors(mode, option, tmpdir):
+    """Test that the profile output is still rendered if the script errors"""
+    script = dedent(
+        """
+        print("got" + " here")
+        assert False
+        print("but" + " not here")
+        """
+    ).strip()
+    if mode == "stdin":
+        args = ["-m", "cuml.accel", option]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-m", "cuml.accel", option, "-c", script]
+        stdin = None
+    else:
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = ["-m", "cuml.accel", option, path]
+        stdin = None
+
+    stdout = run(args, stdin=stdin, expected_returncode=1)
+    assert "got here" in stdout
+    if option == "--profile":
+        assert "cuml.accel profile" in stdout
+    if option == "--line-profile":
+        assert "cuml.accel line profile" in stdout
+    assert "but not here" not in stdout
+    if mode in ("stdin", "cmd"):
+        assert "exec" not in stdout  # our exec not in traceback
