@@ -135,7 +135,7 @@ struct MembershipVectorInputs {
   std::vector<T> expected_probabilities;
 };
 
-const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
+const std::vector<HDBSCANInputs<float, int64_t>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
    5,

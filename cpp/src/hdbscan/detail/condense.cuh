@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   auto exec_policy    = handle.get_thrust_policy();
 
   // Root is the last edge in the dendrogram
-  int root = 2 * (n_leaves - 1);
+  value_idx root = 2 * (n_leaves - 1);
 
   auto d_ptr           = thrust::device_pointer_cast(children);
   value_idx n_vertices = *(thrust::max_element(exec_policy, d_ptr, d_ptr + root)) + 1;
@@ -87,7 +87,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                "Multiple components found in MST or MST is invalid. "
                "Cannot find single-linkage solution. Found %d vertices "
                "total.",
-               n_vertices);
+               (int)n_vertices);
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
   rmm::device_uvector<bool> next_frontier(root + 1, stream);
@@ -121,7 +121,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   thrust::fill(exec_policy, ignore.begin(), ignore.end(), -1);
 
   // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(root + 1, (int)tpb);
+  size_t grid = raft::ceildiv(root + 1, (value_idx)tpb);
 
   value_idx n_elements_to_traverse =
     thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
@@ -147,7 +147,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
     n_elements_to_traverse =
-      thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
+      thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, (value_idx)0);
 
     handle.sync_stream(stream);
   }

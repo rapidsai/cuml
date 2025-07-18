@@ -32,10 +32,10 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              ML::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             HDBSCAN::Common::hdbscan_output<int64_t, float>& out,
              float* core_dists)
 {
-  rmm::device_uvector<int> labels(m, handle.get_stream());
+  rmm::device_uvector<int64_t> labels(m, handle.get_stream());
   HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), core_dists, out);
 }
 

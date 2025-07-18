@@ -427,7 +427,7 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              ML::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             HDBSCAN::Common::hdbscan_output<int64_t, float>& out,
              float* core_dists);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,

@@ -133,7 +133,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
   double score;
 };
 
-typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
+typedef HDBSCANTest<float, int64_t> HDBSCANTestF_Int;
 TEST_P(HDBSCANTestF_Int, Result) { EXPECT_TRUE(score >= 0.85); }
 
 INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int, ::testing::ValuesIn(hdbscan_inputsf2));
