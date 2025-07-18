@@ -37,6 +37,9 @@ from sklearn.ensemble import (  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 from cuml import ForestInference  # noqa: E402
+from cuml.ensemble import (  # noqa: E402
+    RandomForestClassifier as cumlRandomForestClassifier,
+)
 from cuml.fil import get_fil_device_type, set_fil_device_type  # noqa: E402
 from cuml.internals.device_type import DeviceType  # noqa: E402
 from cuml.internals.global_settings import GlobalSettings  # noqa: E402
@@ -897,3 +900,17 @@ def test_missing_categorical(category_list):
     fm = ForestInference.load_from_treelite_model(model)
     fil_preds = np.asarray(fm.predict(input))
     np.testing.assert_equal(fil_preds.flatten(), gtil_preds.flatten())
+
+
+def test_wide_data():
+    n_rows = 50
+    n_features = 100000
+    X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
+    y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
+
+    cuml_model = cumlRandomForestClassifier(
+        max_features="sqrt", n_estimators=10
+    )
+    cuml_model.fit(X, y)
+    # Inference should run without crashing
+    _ = cuml_model.predict(X)
