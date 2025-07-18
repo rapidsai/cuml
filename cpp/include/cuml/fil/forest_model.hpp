@@ -297,7 +297,6 @@ struct forest_model {
                infer_kind predict_type                        = infer_kind::default_kind,
                std::optional<index_type> specified_chunk_size = std::nullopt)
   {
-    // TODO(wphicks): Make sure buffer lands on same device as model
     int current_device_id;
     raft_proto::cuda_check(cudaGetDevice(&current_device_id));
     auto out_buffer =
