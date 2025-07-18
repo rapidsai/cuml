@@ -199,15 +199,13 @@ cdef class ForestInference_impl():
         else:
             raise RuntimeError(f"Unrecognized tree layout {layout}")
 
-        if device_id is None:
-            # If no device ID is explicitly given, use the currently
-            # active device
-            status, current_device_id = runtime.cudaGetDevice()
-            if status != runtime.cudaError_t.cudaSuccess:
-                _, name = runtime.cudaGetErrorName(status)
-                _, msg = runtime.cudaGetErrorString(status)
-                raise RuntimeError(f"Failed to run cudaGetDevice(). {name}: {msg}")
-            device_id = current_device_id
+        # Use assertion here, since device_id being None would indicate
+        # a bug, not a user error. The outer ForestInference object
+        # should set an integer device_id before passing it to
+        # ForestInference_impl.
+        assert device_id is not None, (
+            "device_id should be set before building ForestInference_impl"
+        )
 
         self.model = import_from_treelite_handle(
             tl_handle,
@@ -650,6 +648,16 @@ class ForestInference(Base, CMajorInputTagMixin):
             mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
+
+        if device_id is None:
+            # If no device ID is explicitly given, use the currently
+            # active device
+            status, current_device_id = runtime.cudaGetDevice()
+            if status != runtime.cudaError_t.cudaSuccess:
+                _, name = runtime.cudaGetErrorName(status)
+                _, msg = runtime.cudaGetErrorString(status)
+                raise RuntimeError(f"Failed to run cudaGetDevice(). {name}: {msg}")
+            device_id = current_device_id
 
         if mem_type.is_device_accessible:
             self.device_id = device_id
