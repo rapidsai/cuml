@@ -181,7 +181,7 @@ def test_weighted_linear_regression(
 
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
-    46340 rows (a limitation on CUDA <11)"""
+    46340 rows"""
     model = cuLinearRegression()
     with pytest.warns(UserWarning):
         model.fit(cp.random.rand(46341), cp.random.rand(46341))
