@@ -61,27 +61,37 @@ _CALLBACKS: list[Callback] = []
 
 
 def format_duration(duration: float) -> str:
-    """Format a duration as a concise, human-readable string."""
+    """Format a duration as a concise, human-readable string.
 
-    def format_float(x):
-        return f"{x:.3f}".rstrip("0").rstrip(".")
+    Examples
+    --------
+    >>> format_duration(0)
+    '0s'
+    >>> format_duration(0.1234)
+    '123.4ms'
+    >>> format_duration(65.2)
+    '1m5.2s'
+    >>> format_duration(3612.3)
+    '1h0m12.3s'
+    """
+    h, rem = divmod(duration, 3600)
+    m, frac = divmod(rem, 60)
+    unit = "s"
+    if not h and not m and frac:
+        if frac < 0.001:
+            frac *= 1_000_000
+            unit = "µs"
+        elif frac < 1:
+            frac *= 1000
+            unit = "ms"
 
-    if 0 < duration < 0.001:
-        return f"{format_float(duration * 1000)}ms"
-    elif duration < 1:
-        return f"{format_float(duration)}s"
-    elif duration < 60:
-        return f"{duration:.1f}s"
-    elif duration < 3600:
-        m = int(duration // 60)
-        s = format_float(duration % 60)
-        return f"{m}m{s}s"
-    else:
-        h = int(duration // 3600)
-        r = duration % 3600
-        m = int(r // 60)
-        s = format_float(r % 60)
-        return f"{h}h{m}m{s}s"
+    frac_str = f"{frac:.1f}".rstrip("0").rstrip(".")
+
+    if h:
+        return f"{int(h)}h{int(m)}m{frac_str}s"
+    elif m:
+        return f"{int(m)}m{frac_str}s"
+    return f"{frac_str}{unit}"
 
 
 @contextmanager
@@ -115,7 +125,14 @@ def profile(quiet: bool = False) -> Iterator[ProfileResults]:
     """Profile a section of code.
 
     This will collect stats on all accelerated (or potentially-accelerated)
-    method and function calls within the context.
+    method and function calls within the context, and output a report summarizing
+    what methods ``cuml.accel`` was able to accelerate, and what methods required
+    a CPU fallback.
+
+    ``cuml.accel.profile`` provides programmatic access to this profiler.
+    Alternatively, you may use the ``--profile`` flag when running under the CLI,
+    or the ``%cuml.accel.profile`` IPython magic when running in IPython or a
+    notebook environment.
 
     Parameters
     ----------
@@ -126,6 +143,42 @@ def profile(quiet: bool = False) -> Iterator[ProfileResults]:
     -------
     results : ProfileResults
         A record of the profile results within the context.
+
+    Examples
+    --------
+    As part of ``cuml.accel``, the profiler only works if the accelerator is
+    installed. You may accomplish this programmatically with `cuml.accel.install`,
+    or through an alternative method like the CLI (``python -m cuml.accel``) or the
+    IPython magic (``%load_ext cuml.accel``).
+
+    >>> import cuml
+    >>> cuml.accel.install()  # doctest: +SKIP
+
+    Once The accelerator is active, you're free to start running some scikit-learn
+    code. The profiler helps you understand when ``cuml.accel`` was able to accelerate
+    your code, and when it needed to fallback to CPU.
+
+    >>> from sklearn.datasets import make_regression
+    >>> from sklearn.linear_model import Ridge
+
+    To profile only certain sections of your code, wrap them in a ``profile``
+    contextmanager.
+
+    >>> with cuml.accel.profile():  # doctest: +SKIP
+    ...     X, y = make_regression()
+    ...     model = Ridge()
+    ...     model.fit(X, y)
+    ...     model.predict(X)
+    ...
+    cuml.accel profile
+    ┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓
+    ┃ Function      ┃ GPU calls ┃ GPU time ┃ CPU calls ┃ CPU time ┃
+    ┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩
+    │ Ridge.fit     │         1 │    167ms │         0 │       0s │
+    │ Ridge.predict │         1 │    1.2ms │         0 │       0s │
+    ├───────────────┼───────────┼──────────┼───────────┼──────────┤
+    │ Total         │         2 │  168.2ms │         0 │       0s │
+    └───────────────┴───────────┴──────────┴───────────┴──────────┘
     """
     results = ProfileResults()
     _CALLBACKS.append(results)
@@ -220,7 +273,7 @@ class ProfileResults(Callback):
             gpu_total_time += stats.gpu_time
             cpu_calls += stats.cpu_calls
             cpu_total_time += stats.cpu_time
-            if stats.fallback_reasons:
+            if stats.cpu_calls:
                 fallbacks.append((function, stats.fallback_reasons))
 
             table.add_row(
@@ -430,8 +483,13 @@ class LineProfiler(Callback):
                 else:
                     gpu_percent = "0.0"
 
-                if stats.total_time < 0.001:
-                    # Too short, not worth displaying
+                if (
+                    not stats.gpu_time
+                    and not stats.cpu_fallback
+                    and stats.total_time < 0.001
+                ):
+                    # Time is very short and not a method relevant to the accelerator,
+                    # not worth displaying
                     time = "-"
                 else:
                     time = format_duration(stats.total_time)

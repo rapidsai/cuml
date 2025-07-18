@@ -312,7 +312,9 @@ class ProxyBase(BaseEstimator):
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
-        with profilers.track_cpu_call(qualname, reason=reason):
+        with profilers.track_cpu_call(
+            qualname, reason=reason or "Estimator not fit on GPU"
+        ):
             out = getattr(self._cpu, method)(*args, **kwargs)
         logger.info(f"`{qualname}` ran on CPU")
         return self if out is self._cpu else out

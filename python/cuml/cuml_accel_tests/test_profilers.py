@@ -18,7 +18,7 @@ import pytest
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
 
-from cuml.accel.profilers import LineProfiler, profile
+from cuml.accel.profilers import LineProfiler, format_duration, profile
 
 
 @pytest.fixture
@@ -34,6 +34,23 @@ def line_profile(source: str) -> LineProfiler:
         exec(code, namespace)
 
     return lprof
+
+
+def test_format_duration():
+    assert format_duration(0) == "0s"
+    assert format_duration(0.0001201) == "120.1µs"
+    assert format_duration(0.0001) == "100µs"
+    assert format_duration(0.0012) == "1.2ms"
+    assert format_duration(0.01) == "10ms"
+    assert format_duration(0.1) == "100ms"
+    assert format_duration(0.1234) == "123.4ms"
+    assert format_duration(12.3456) == "12.3s"
+    assert format_duration(12.0) == "12s"
+    assert format_duration(65) == "1m5s"
+    assert format_duration(65.2345) == "1m5.2s"
+    assert format_duration(3600) == "1h0m0s"
+    assert format_duration(3601.234) == "1h0m1.2s"
+    assert format_duration(3661.234) == "1h1m1.2s"
 
 
 def test_line_profile(capsys, wide_terminal):
