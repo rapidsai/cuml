@@ -182,7 +182,7 @@ void get_stability_scores(const raft::handle_t& handle,
 
   value_idx* sizes = cluster_sizes.data();
   thrust::for_each(exec_policy, labels, labels + n_leaves, [=] __device__(value_idx v) {
-    if (v > -1) atomicAdd(sizes + v, 1);
+    if (v > -1) atomicAdd(sizes + v, (value_idx)1);
   });
 
   /**
