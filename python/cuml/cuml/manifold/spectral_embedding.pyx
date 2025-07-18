@@ -204,6 +204,7 @@ class SpectralEmbedding(Base,
     >>> X_transformed.shape
     (100, 2)
     """
+    embedding_ = CumlArrayDescriptor()
 
     def __init__(self, n_components=2, random_state=None, n_neighbors=None,
                  handle=None):
