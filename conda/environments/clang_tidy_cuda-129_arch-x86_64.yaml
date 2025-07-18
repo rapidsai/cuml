@@ -4,6 +4,7 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - conda-forge
+- msarahan
 dependencies:
 - c-compiler
 - clang-tools==15.0.7

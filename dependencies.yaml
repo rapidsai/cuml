@@ -29,6 +29,7 @@ files:
       - rapids_build_backend
       - test_python
       - test_python_xgboost
+      - rapids_conda_pinning
   devcontainers:
     output: none
     includes:
@@ -55,6 +56,7 @@ files:
       - py_version
       - rapids_build_backend
       - test_python
+      - rapids_conda_pinning
   cpp_all:
     output: conda
     matrix:
@@ -208,6 +210,7 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
+  - msarahan
 dependencies:
   rapids_build_backend:
     common:
@@ -295,6 +298,11 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+  rapids_conda_pinning:
+    common:
+      - output_types: [conda]
+        packages:
+          - rapids-pin
   cuda_version:
     specific:
       - output_types: conda
