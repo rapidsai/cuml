@@ -64,21 +64,21 @@ def load_digits_dataset(n_samples=None):
 
 # Dataset configurations: (dataset_loader, dataset_name, n_samples, min_trustworthiness)
 dataset_configs = [
-    (generate_s_curve, "S-curve", 1500, 0.8),
-    (generate_s_curve, "S-curve", 2000, 0.8),
-    (generate_swiss_roll, "Swiss Roll", 2000, 0.8),
-    (generate_swiss_roll, "Swiss Roll", 3000, 0.8),
-    (load_mnist, "MNIST", 5000, 0.8),
-    (load_digits_dataset, "Digits dataset", None, 0.8),
+    (generate_s_curve, 1500, 0.8),
+    (generate_s_curve, 2000, 0.8),
+    (generate_swiss_roll, 2000, 0.8),
+    (generate_swiss_roll, 3000, 0.8),
+    (load_mnist, 5000, 0.8),
+    (load_digits_dataset, None, 0.8),
 ]
 
 
 @pytest.mark.parametrize(
-    "dataset_loader,dataset_name,n_samples,min_trustworthiness",
+    "dataset_loader,n_samples,min_trustworthiness",
     dataset_configs,
 )
 def test_spectral_embedding_trustworthiness(
-    dataset_loader, dataset_name, n_samples, min_trustworthiness
+    dataset_loader, n_samples, min_trustworthiness
 ):
     """Test trustworthiness comparison between sklearn and cuML on various datasets."""
     # Load/generate dataset
