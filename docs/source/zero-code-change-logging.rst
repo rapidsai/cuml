@@ -215,6 +215,13 @@ The line profiler collects per-line statistics on your script. It can show:
 - Which lines (if any) were able to benefit from acceleration.
 - The percentage of each line's runtime that was spent on GPU through ``cuml.accel``.
 
+.. warning::
+
+   The line profiler can add non-negligible overhead. It can be useful to
+   gather information on what parts of your code were accelerated, but you
+   shouldn't compare runtimes when run with the line profiler enabled to
+   other runs.
+
 **Command Line Interface (CLI)**
 
 If running using the CLI, you may add the ``--line-profile`` flag to run the
@@ -298,7 +305,7 @@ From this you can see that:
 - The time taken by the GPU accelerated calls is *much higher* than the time
   taken by the equivalent CPU calls. This is because we're running on very
   small data here, where the overhead of CPU <-> GPU transfer dominates the
-  runtime. So while we had a high percentage of utilization (sometimes good!),
-  the runtimes indicate that this particular script would be better run without
-  ``cuml.accel``. Larger problems (like increasing ``n_samples=10000``) result
-  in ``cuml.accel`` being a bit more useful here.
+  runtime. So while we had a high percentage of utilization (usually good!),
+  the runtimes indicate that this particular script may be better run without
+  ``cuml.accel``. For this estimator, acceleration does become more beneficial
+  once run on larger problems (try increasing to ``n_samples=10_000``).

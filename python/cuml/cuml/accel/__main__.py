@@ -73,12 +73,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         action="store_true",
-        help="Whether to enable the profiler.",
+        help="Enable the profiler.",
     )
     parser.add_argument(
         "--line-profile",
         action="store_true",
-        help="Whether to enable the line profiler.",
+        help="Enable the line profiler.",
     )
     parser.add_argument(
         "--disable-uvm",
