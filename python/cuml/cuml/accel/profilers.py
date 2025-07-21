@@ -468,6 +468,11 @@ class LineProfiler(Callback):
         table.add_column("GPU %", justify="right", no_wrap=True)
         table.add_column("Source", justify="left")
 
+        # We always display the time for GPU/CPU fallback lines. For non-accel-related
+        # lines, we only display the time if it was "long enough". By default this is
+        # 1 ms, except for very short runs.
+        min_non_accel_time = min(self.total_time / 1000, 0.001)
+
         for lineno, line in enumerate(self.source.splitlines(), 1):
             stats = self.line_stats[lineno]
 
@@ -486,7 +491,7 @@ class LineProfiler(Callback):
                 if (
                     not stats.gpu_time
                     and not stats.cpu_fallback
-                    and stats.total_time < 0.001
+                    and stats.total_time < min_non_accel_time
                 ):
                     # Time is very short and not a method relevant to the accelerator,
                     # not worth displaying
