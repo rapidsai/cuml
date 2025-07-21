@@ -1102,7 +1102,7 @@ class UMAP(Base,
             self.build_algo = "brute_force_knn"
             logger.info("Transform can only be run with brute force. Using brute force.")
 
-        if n_rows <= 300 and self.n_rows <= 300:
+        if n_rows <= 300 and self._raw_data.shape[0] <= 300:
             # non-deterministic calculations do not work with limited number of samples
             self.deterministic = True
 
