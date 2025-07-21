@@ -56,9 +56,6 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-cdef params config
-
-
 @cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
@@ -128,6 +125,8 @@ def spectral_embedding(A,
         input_to_cuml_array(A, order="C", check_dtype=np.float32,
                             convert_to_dtype=cp.float32)
     A_ptr = <uintptr_t>A.ptr
+
+    cdef params config
 
     config.n_components = n_components
     config.seed = check_random_seed(random_state)
