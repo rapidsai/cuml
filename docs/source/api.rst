@@ -479,7 +479,7 @@ TSNE
 Spectral Embedding
 ------------------
 
-.. autoclass:: cuml.SpectralEmbedding
+.. autoclass:: cuml.manifold.SpectralEmbedding
     :members:
 
 Neighbors
