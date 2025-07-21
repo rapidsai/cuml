@@ -152,6 +152,7 @@ def run(args=None, stdin=None, expected_returncode=0):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
     )
     stdout, _ = proc.communicate(stdin)
     assert proc.returncode == expected_returncode, f"stdout:\n\n{stdout}"

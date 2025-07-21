@@ -19,13 +19,12 @@ import argparse
 import sys
 import warnings
 from textwrap import dedent
-from typing import Never
 
 import cuml.accel.runners as runners
 from cuml.accel.core import install
 
 
-def error(msg: str, exit_code: int = 1) -> Never:
+def error(msg: str, exit_code: int = 1) -> None:
     """Print an error message to stderr and exit."""
     print(f"error: {msg}", file=sys.stderr)
     sys.exit(exit_code)
