@@ -233,7 +233,7 @@ class SpectralEmbedding(Base,
         self.fit(X, y)
         return self.embedding_
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 
         Parameters
@@ -249,13 +249,10 @@ class SpectralEmbedding(Base,
         self : object
             Returns the instance itself.
         """
-        self.embedding_ = self._fit(X, self.n_components,
-                                    random_state=self.random_state,
-                                    n_neighbors=self.n_neighbors)
+        self.embedding_ = spectral_embedding(
+            X,
+            n_components=self.n_components,
+            random_state=self.random_state,
+            n_neighbors=self.n_neighbors
+        )
         return self
-
-    def _fit(self, A, n_components, random_state=None, n_neighbors=None):
-        return spectral_embedding(A,
-                                  n_components=n_components,
-                                  random_state=random_state,
-                                  n_neighbors=n_neighbors)
