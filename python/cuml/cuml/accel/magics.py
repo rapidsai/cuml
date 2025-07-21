@@ -15,7 +15,25 @@
 #
 
 from cuml.accel.core import install
+from cuml.accel.runners import exec_source
 
 
 def load_ipython_extension(ip):
+    from IPython.core.magic import Magics, cell_magic, magics_class
+
+    @magics_class
+    class CumlAccelMagics(Magics):
+        @cell_magic("cuml.accel.profile")
+        def profile(self, _, cell):
+            """Run a cell with the cuml.accel profiler."""
+            cell = self.shell.transform_cell(cell)
+            exec_source(cell, self.shell.user_ns, profile=True)
+
+        @cell_magic("cuml.accel.line_profile")
+        def line_profile(self, _, cell):
+            """Run a cell with the cuml.accel line profiler."""
+            cell = self.shell.transform_cell(cell)
+            exec_source(cell, self.shell.user_ns, line_profile=True)
+
     install()
+    ip.register_magics(CumlAccelMagics)
