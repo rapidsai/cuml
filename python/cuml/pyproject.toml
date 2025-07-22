@@ -111,6 +111,7 @@ dependencies = [
     "pylibraft==25.10.*,>=0.0.0a0",
     "raft-dask==25.10.*,>=0.0.0a0",
     "rapids-dask-dependency==25.10.*,>=0.0.0a0",
+    "rich",
     "rmm==25.10.*,>=0.0.0a0",
     "scikit-learn>=1.4",
     "scipy>=1.8.0",
