@@ -65,5 +65,5 @@ def apply_sklearn_patches():
     # multiple classes with the same name exist, ensuring test collection
     # succeeds.
     import sklearn.utils
-    
+
     sklearn.utils.all_estimators = _patched_all_estimators

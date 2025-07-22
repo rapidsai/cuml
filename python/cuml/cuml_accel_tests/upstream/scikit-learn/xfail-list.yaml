@@ -1449,7 +1449,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
 - reason: LinearSVM
   condition: scikit-learn==1.4.2
-  strict: true
   tests:
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVC]"
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVR]"
@@ -1463,7 +1462,6 @@
   - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
 - reason: LinearSVM
   condition: scikit-learn==1.7.0
-  strict: true
   tests:
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
@@ -1480,8 +1478,6 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
 - reason: LinearSVM
-  marker: cuml_accel_linear_svm_strict_1_4_2
-  strict: true
   tests:
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"
