@@ -62,14 +62,15 @@ dependencies:
 - rapids-dask-dependency==25.10.*,>=0.0.0a0
 - rapids-logger==0.1.*,>=0.0.0a0
 - recommonmark
+- rich
 - rmm==25.10.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - scikit-learn>=1.4
 - scipy>=1.8.0
 - seaborn
+- sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
-- sphinx<8.2.0
 - statsmodels
 - sysroot_linux-64==2.28
 - tenacity
