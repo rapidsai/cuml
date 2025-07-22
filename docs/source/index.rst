@@ -16,20 +16,11 @@ contributors, users and hobbyists! Thank you for your wonderful support!
 cuML is only supported on Linux operating systems.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :hidden:
 
    cuml_intro.rst
-   api.rst
    user_guide.rst
-   zero-code-change.rst
+   cuml-accel/index.rst
+   api.rst
    FIL.rst
    cuml_blogs.rst
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
