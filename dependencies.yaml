@@ -287,6 +287,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
+          - rich
           - &scikit_learn scikit-learn>=1.4
           - *treelite
       - output_types: requirements
@@ -372,7 +373,7 @@ dependencies:
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
-          - sphinx<8.2.0
+          - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda
