@@ -1449,19 +1449,22 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
 - reason: LinearSVM
   condition: scikit-learn==1.4.2
-  strict: false
+  strict: true
   tests:
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVC]"
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVR]"
   - "sklearn.tests.test_calibration::test_calibration_less_classes[False]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
 - reason: LinearSVM
-  condition: scikit-learn==1.7.0
+  condition: scikit-learn==1.4.2
   strict: false
   tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
+  - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
+- reason: LinearSVM
+  condition: scikit-learn==1.7.0
+  strict: true
+  tests:
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_n_features_in_after_fitting]"
@@ -1472,7 +1475,13 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_sparse_data]"
 - reason: LinearSVM
+  condition: scikit-learn==1.7.0
   strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
+- reason: LinearSVM
+  marker: cuml_accel_linear_svm_strict_1_4_2
+  strict: true
   tests:
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"

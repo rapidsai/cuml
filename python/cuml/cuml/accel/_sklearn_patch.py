@@ -64,6 +64,6 @@ def apply_sklearn_patches():
     # The patch filters out duplicates by keeping only proxy estimators when
     # multiple classes with the same name exist, ensuring test collection
     # succeeds.
-    import sklearn.utils.discovery
-
-    sklearn.utils.discovery.all_estimators = _patched_all_estimators
+    import sklearn.utils
+    
+    sklearn.utils.all_estimators = _patched_all_estimators

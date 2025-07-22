@@ -44,6 +44,10 @@ class UnmatchedXfailTests(UserWarning):
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
+    
+    # Apply sklearn patches BEFORE installing cuml.accel to prevent duplicates
+    apply_sklearn_patches()
+    
     try:
         install()
     except RuntimeError:
@@ -83,10 +87,6 @@ def create_version_condition(condition_str: str) -> bool:
         return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
-
-
-def pytest_load_initial_conftests(early_config, parser, args):
-    apply_sklearn_patches()
 
 
 def pytest_collection_modifyitems(config, items):
