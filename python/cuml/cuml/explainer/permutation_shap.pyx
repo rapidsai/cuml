@@ -37,27 +37,10 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
         int* idx,
         bool rowMajor) except +
 
-    void permutation_shap_dataset "ML::Explainer::permutation_shap_dataset"(
-        const handle_t& handle,
-        double* dataset,
-        const double* background,
-        int n_rows,
-        int n_cols,
-        const double* row,
-        int* idx,
-        bool rowMajor) except +
-
     void update_perm_shap_values "ML::Explainer::update_perm_shap_values"(
         const handle_t& handle,
         float* shap_values,
         const float* y_hat,
-        const int ncols,
-        const int* idx) except +
-
-    void update_perm_shap_values "ML::Explainer::update_perm_shap_values"(
-        const handle_t& handle,
-        double* shap_values,
-        const double* y_hat,
         const int ncols,
         const int* idx) except +
 
@@ -264,6 +247,8 @@ class PermutationExplainer(SHAPBase):
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, ds_ptr, shap_ptr, y_hat_ptr
+        cdef uintptr_t bg_ptr_f32, row_ptr_f32, ds_ptr_f32
+        cdef uintptr_t shap_ptr_f32, y_hat_ptr_f32
 
         if self.random_state is not None:
             cp.random.seed(seed=self.random_state)
@@ -289,14 +274,26 @@ class PermutationExplainer(SHAPBase):
                                          <int*> idx_ptr,
                                          <bool> row_major)
             else:
+                # Convert float64 inputs to float32 for kernel call
+                bg_f32 = self.background.astype(cp.float32)
+                row_f32 = row.astype(cp.float32)
+                ds_f32 = cp.zeros(self._synth_data.shape, dtype=cp.float32)
+
+                bg_ptr_f32 = get_cai_ptr(bg_f32)
+                row_ptr_f32 = get_cai_ptr(row_f32)
+                ds_ptr_f32 = get_cai_ptr(ds_f32)
+
                 permutation_shap_dataset(handle_[0],
-                                         <double*> ds_ptr,
-                                         <double*> bg_ptr,
+                                         <float*> ds_ptr_f32,
+                                         <float*> bg_ptr_f32,
                                          <int> self.nrows,
                                          <int> self.ncols,
-                                         <double*> row_ptr,
+                                         <float*> row_ptr_f32,
                                          <int*> idx_ptr,
                                          <bool> row_major)
+
+                # Convert result back to float64
+                self._synth_data[:] = ds_f32.astype(cp.float64)
 
             self.handle.sync()
 
@@ -332,11 +329,21 @@ class PermutationExplainer(SHAPBase):
                                             <int> self.ncols,
                                             <int*> idx_ptr)
                 else:
+                    # Convert float64 inputs to float32 for kernel call
+                    shap_vals_f32 = shap_values[i][idx].astype(cp.float32)
+                    y_hat_f32 = y_hat.astype(cp.float32)
+
+                    shap_ptr_f32 = get_cai_ptr(shap_vals_f32)
+                    y_hat_ptr_f32 = get_cai_ptr(y_hat_f32)
+
                     update_perm_shap_values(handle_[0],
-                                            <double*> shap_ptr,
-                                            <double*> y_hat_ptr,
+                                            <float*> shap_ptr_f32,
+                                            <float*> y_hat_ptr_f32,
                                             <int> self.ncols,
                                             <int*> idx_ptr)
+
+                    # Convert result back to float64
+                    shap_values[i][idx] = shap_vals_f32.astype(cp.float64)
 
                 self.handle.sync()
 

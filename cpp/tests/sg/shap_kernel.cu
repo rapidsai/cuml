@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,16 +27,28 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+#include <thrust/transform.h>
 
+#include <gtest/gtest.h>
 #include <test_utils.h>
 
-namespace MLCommon {
-}
-#include <gtest/gtest.h>
+#include <cstddef>
+#include <iostream>
+#include <type_traits>
 
 namespace ML {
-
 namespace Explainer {
+
+// Helper functions for type conversion
+template <typename T>
+struct ConvertToFloat {
+  __device__ float operator()(T val) const { return static_cast<float>(val); }
+};
+
+template <typename T>
+struct ConvertFromFloat {
+  __device__ T operator()(float val) const { return static_cast<T>(val); }
+};
 
 struct MakeKSHAPDatasetInputs {
   int nrows_exact;
@@ -101,18 +113,60 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
       n_ptr[i] = params.max_samples - i % 2;
     }
 
-    kernel_dataset(handle,
-                   X.data(),
-                   nrows_X,
-                   params.ncols,
-                   background.data(),
-                   params.nrows_background,
-                   dataset.data(),
-                   observation.data(),
-                   nsamples.data(),
-                   params.nrows_sampled,
-                   params.max_samples,
-                   params.seed);
+    // kernel_dataset now only supports float, so convert if needed
+    if constexpr (std::is_same_v<T, double>) {
+      // Convert double inputs to float
+      rmm::device_uvector<float> background_f32(params.nrows_background * params.ncols, stream);
+      rmm::device_uvector<float> observation_f32(params.ncols, stream);
+      rmm::device_uvector<float> dataset_f32(nrows_X * params.nrows_background * params.ncols,
+                                             stream);
+
+      // Use thrust::transform for conversion
+      thrust::transform(thrust::cuda::par.on(stream),
+                        background.data(),
+                        background.data() + background.size(),
+                        background_f32.data(),
+                        ConvertToFloat<T>());
+
+      thrust::transform(thrust::cuda::par.on(stream),
+                        observation.data(),
+                        observation.data() + observation.size(),
+                        observation_f32.data(),
+                        ConvertToFloat<T>());
+
+      kernel_dataset(handle,
+                     X.data(),
+                     nrows_X,
+                     params.ncols,
+                     background_f32.data(),
+                     params.nrows_background,
+                     dataset_f32.data(),
+                     observation_f32.data(),
+                     nsamples.data(),
+                     params.nrows_sampled,
+                     params.max_samples,
+                     params.seed);
+
+      // Convert float results back to double
+      thrust::transform(thrust::cuda::par.on(stream),
+                        dataset_f32.data(),
+                        dataset_f32.data() + dataset_f32.size(),
+                        dataset.data(),
+                        ConvertFromFloat<T>());
+    } else {
+      kernel_dataset(handle,
+                     X.data(),
+                     nrows_X,
+                     params.ncols,
+                     background.data(),
+                     params.nrows_background,
+                     dataset.data(),
+                     observation.data(),
+                     nsamples.data(),
+                     params.nrows_sampled,
+                     params.max_samples,
+                     params.seed);
+    }
 
     handle.sync_stream(stream);
 
