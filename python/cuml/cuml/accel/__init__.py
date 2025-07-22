@@ -17,6 +17,7 @@
 from cuml.accel.core import enabled, install
 from cuml.accel.estimator_proxy import is_proxy
 from cuml.accel.magics import load_ipython_extension
+from cuml.accel.profilers import profile
 from cuml.accel.pytest_plugin import (
     pytest_addoption,
     pytest_collection_modifyitems,
@@ -28,7 +29,8 @@ __all__ = (
     "install",
     "is_proxy",
     "load_ipython_extension",
-    "pytest_load_initial_conftests",
-    "pytest_collection_modifyitems",
+    "profile",
     "pytest_addoption",
+    "pytest_collection_modifyitems",
+    "pytest_load_initial_conftests",
 )

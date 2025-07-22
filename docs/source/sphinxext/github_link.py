@@ -21,7 +21,6 @@ import os
 import re
 import subprocess
 import sys
-from functools import partial
 from operator import attrgetter
 
 orig = inspect.isfunction
@@ -154,7 +153,9 @@ def make_linkcode_resolve(package, url_fmt):
                                    '{path}#L{lineno}')
     """
     revision = _get_git_revision()
-    return partial(_linkcode_resolve,
-                   revision=revision,
-                   package=package,
-                   url_fmt=url_fmt)
+
+    # Using a partial function doesn't work with sphinx.ext.linkcode.
+    def linkcode_resolve(domain, info):
+        return _linkcode_resolve(domain, info, package, url_fmt, revision)
+
+    return linkcode_resolve
