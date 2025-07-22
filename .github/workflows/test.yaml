@@ -69,7 +69,7 @@ jobs:
       sha: ${{ inputs.sha }}
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
-      # Add to it a "intermediate" entry based on the "oldest" entry
+      # Add an "intermediate" entry based on the "oldest" entry
       matrix_filter: '(
         map(select(.ARCH == "amd64"))
         | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0])
