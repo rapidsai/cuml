@@ -179,7 +179,7 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
     rows_per_block_iteration = index_type{32};
   }
 
-  if (row_output_size != 0) {
+  if (row_output_size != 0 && rows_per_block_iteration > 1) {
     do {
       output_workspace_size = compute_output_size(
         row_output_size, threads_per_block, rows_per_block_iteration, infer_type);
