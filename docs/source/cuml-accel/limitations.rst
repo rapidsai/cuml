@@ -18,7 +18,7 @@ These limitations fall into a few categories:
 - Estimators that are only partially accelerated. ``cuml.accel`` will fall back
   to using the CPU implementations for some algorithms in the presence of
   certain hyperparameters or input types. These cases are documented below in
-  estimator-specific sections. See :doc:`zero-code-change-logging` for how to
+  estimator-specific sections. See :doc:`logging-and-profiling` for how to
   enable logging to gain insight into when ``cuml.accel`` needs to fall back to
   CPU.
 
@@ -294,6 +294,7 @@ Ridge
 - If ``positive=True``.
 - If ``solver="lbfgs"``.
 - If ``X`` is sparse.
+- If ``X`` has more columns than rows.
 - If ``y`` is multioutput.
 
 Additionally, the following fitted attributes are currently not computed:

@@ -635,6 +635,17 @@ Dask Base Classes and Mixins
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
    :members:
 
+cuml.accel
+==========
+
+.. autofunction:: cuml.accel.install
+
+.. autofunction:: cuml.accel.enabled
+
+.. autofunction:: cuml.accel.profile
+
+.. autofunction:: cuml.accel.is_proxy
+
 Experimental
 ============
 
