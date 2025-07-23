@@ -1474,8 +1474,6 @@
 - reason: LinearSVM
   condition: scikit-learn>=1.7
   tests:
-  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
-  - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_dense_data]"

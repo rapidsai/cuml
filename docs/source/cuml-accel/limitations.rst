@@ -476,7 +476,6 @@ The following fitted attributes are currently not computed:
 
 Additional notes:
 
-- The ``coef_`` attribute returns a 2D array with shape ``(1, n_features)`` instead of the expected 1D array with shape ``(n_features,)``.
 - Sample weight functionality may not produce equivalent results to replicating data according to weights.
 - Models may not be picklable under certain conditions; pickling or unpickling may fail.
 
