@@ -424,6 +424,9 @@ dependencies:
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.4.2
+          - matrix: {dependencies: "intermediate"}
+            packages:
+              - scikit-learn==1.5.2
           - matrix:
             packages:
     common:

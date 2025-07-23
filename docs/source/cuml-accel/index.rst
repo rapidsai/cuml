@@ -1,5 +1,5 @@
-cuml.accel
-==========
+Zero Code Change Acceleration
+=============================
 
 The ``cuml.accel`` zero code change accelerator provides a mechanism to
 accelerate existing python machine learning code on the GPU, *without requiring
