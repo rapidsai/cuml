@@ -95,6 +95,13 @@ def spectral_embedding(A,
         should be True as the first eigenvector should be constant vector for
         connected graph, but for spectral clustering, this should be kept as
         False to retain the first eigenvector.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
@@ -176,9 +183,25 @@ class SpectralEmbedding(Base,
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
-    n_neighbors : int or None, default=None
+    n_neighbors : int or None, default=2
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -207,11 +230,19 @@ class SpectralEmbedding(Base,
     embedding_ = CumlArrayDescriptor()
 
     def __init__(self, n_components=2, random_state=None, n_neighbors=None,
-                 handle=None):
-        super().__init__(handle=handle)
+                 handle=None, verbose=False, output_type=None):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.random_state = random_state
         self.n_neighbors = n_neighbors
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
+            "n_components",
+            "random_state",
+            "n_neighbors"
+        ]
 
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
