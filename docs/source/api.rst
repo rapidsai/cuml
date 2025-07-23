@@ -482,6 +482,8 @@ Spectral Embedding
 .. autoclass:: cuml.manifold.SpectralEmbedding
     :members:
 
+.. autofunction:: cuml.manifold.spectral_embedding
+
 Neighbors
 ==========
 
