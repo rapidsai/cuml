@@ -688,7 +688,6 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
         return {
             "coef_": to_gpu(coef_, order="F", dtype=np.float64),
             "intercept_": to_gpu(model.intercept_, order="F", dtype=np.float64),
-            "n_features_in_": model.n_features_in_,
             **super()._attrs_from_cpu(model)
         }
 
@@ -696,7 +695,6 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
         return {
             "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
             "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
-            "n_features_in_": self.n_features_in_,
             **super()._attrs_to_cpu(model)
         }
 
