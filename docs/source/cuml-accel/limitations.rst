@@ -452,6 +452,7 @@ LinearSVC
 ``LinearSVC`` will fall back to CPU in the following cases:
 
 - If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
 
 The following fitted attributes are currently not computed:
 
@@ -469,6 +470,7 @@ LinearSVR
 ``LinearSVR`` will fall back to CPU in the following cases:
 
 - If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
 
 The following fitted attributes are currently not computed:
 

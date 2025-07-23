@@ -22,7 +22,12 @@ import typing
 import numpy as np
 
 import cuml
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
@@ -664,6 +669,10 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.intercept_scaling != 1:
+            raise UnsupportedOnGPU(
+                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+            )
         params = {
             "C": model.C,
             "fit_intercept": model.fit_intercept,
