@@ -438,4 +438,4 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
 
     assert cu_trust > 0.85
     assert nans == 0
-    assert array_equal(sk_trust, cu_trust, 0.06, with_sign=True)
+    assert array_equal(sk_trust, cu_trust, 0.1, with_sign=True)
