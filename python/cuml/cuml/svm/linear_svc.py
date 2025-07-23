@@ -17,7 +17,7 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import to_cpu, to_gpu
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -166,6 +166,11 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.multi_class != "ovr":
+            raise UnsupportedOnGPU(
+                f"`multi_class={model.multi_class}` is not supported"
+            )
+
         params = {
             "loss": model.loss,
             "multi_class": model.multi_class,

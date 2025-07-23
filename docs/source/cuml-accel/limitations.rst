@@ -453,6 +453,7 @@ LinearSVC
 
 - If ``X`` is sparse.
 - If ``intercept_scaling`` is not ``1``.
+- If ``multi_class`` is not ``"ovr"``.
 
 The following fitted attributes are currently not computed:
 
