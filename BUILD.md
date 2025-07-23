@@ -7,9 +7,9 @@ To install cuML from source, ensure the following dependencies are met:
 1. [cuDF](https://github.com/rapidsai/cudf) (Same as cuML Version)
 2. zlib
 3. cmake (>= 3.26.4)
-4. CUDA (>= 11+)
+4. CUDA (>= 12+)
 5. Cython (>= 0.29)
-6. gcc (>= 9.0)
+6. gcc (>= 13.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
@@ -19,7 +19,7 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.13
-conda env update -n cuml_dev --file=conda/environments/all_cuda-118_arch-x86_64.yaml
+conda env update -n cuml_dev --file=conda/environments/all_cuda-129_arch-x86_64.yaml
 conda activate cuml_dev
 ```
 
