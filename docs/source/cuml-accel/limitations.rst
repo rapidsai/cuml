@@ -56,6 +56,9 @@ A few additional general notes:
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
 
+- Error and warning messages and formats may differ from scikit-learn. Some
+  errors might present as C++ stacktraces instead of python errors.
+
 For notes on each algorithm, please refer to its specific section on this file.
 
 
@@ -458,7 +461,6 @@ Additional notes:
 
 - Sample weight functionality may not produce equivalent results to replicating data according to weights.
 - Models may not be picklable; pickling or unpickling may fail.
-- Error messages and formats may differ from scikit-learn, including C++ stack traces.
 - Multi-class models may have coefficient shape differences that cause pickling failures.
 
 LinearSVR
