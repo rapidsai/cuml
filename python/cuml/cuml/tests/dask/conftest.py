@@ -46,7 +46,7 @@ def ucx_cluster():
     from dask_cuda import LocalCUDACluster
 
     cluster = LocalCUDACluster(
-        protocol="ucx",
+        protocol="ucx-old",
     )
     yield cluster
     cluster.close()
