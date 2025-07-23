@@ -152,7 +152,6 @@ class LinearSVR(LinearSVM, RegressorMixin):
         return {
             "loss": self.loss,
             "epsilon": self.epsilon,
-            "dual": False,  # cuML LinearSVR is primal
             **super()._params_to_cpu(),
         }
 
