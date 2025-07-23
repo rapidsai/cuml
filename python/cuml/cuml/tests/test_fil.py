@@ -996,3 +996,17 @@ def test_device_selection(device_id, model_kind, tmp_path):
 
     # 7. The section above didn't corrupt current device context
     assert cp.cuda.runtime.getDevice() == current_device
+
+
+def test_wide_data():
+    n_rows = 50
+    n_features = 100000
+    X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
+    y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
+
+    clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
+    clf.fit(X, y)
+
+    # Inference should run without crashing
+    fm = ForestInference.load_from_sklearn(clf, is_classifier=True)
+    _ = fm.predict(X)
