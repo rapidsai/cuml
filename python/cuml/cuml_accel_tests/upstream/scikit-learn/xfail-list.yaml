@@ -1037,6 +1037,12 @@
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
+  condition: scikit-learn>=1.7
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
@@ -1044,6 +1050,7 @@
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
   - "sklearn.ensemble.tests.test_forest::test_max_samples_boundary_regressors[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
@@ -1456,12 +1463,7 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
 - reason: LinearSVM
-  condition: scikit-learn==1.4.2
-  strict: false
-  tests:
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
-- reason: LinearSVM
-  condition: scikit-learn==1.7.0
+  condition: scikit-learn>=1.7
   tests:
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[1-LinearSVR]"
   - "sklearn.linear_model.tests.test_common::test_linear_model_regressor_coef_shape[2-LinearSVR]"
@@ -1472,11 +1474,6 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: LinearSVM
-  condition: scikit-learn==1.7.0
-  strict: false
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
 - reason: LinearSVM
   tests:
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
