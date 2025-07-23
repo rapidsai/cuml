@@ -175,7 +175,18 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
-      matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+      matrix_filter: '(
+        map(select(.ARCH == "amd64"))
+        | sort_by(.PY_VER)
+        | unique_by(.DEPENDENCIES)
+      )
+        +
+      (
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "oldest"))
+        | sort_by(.PY_VER)
+        | map(.DEPENDENCIES = "intermediate")
+      )'
   conda-python-cuml-accel-upstream-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
