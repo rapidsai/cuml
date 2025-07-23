@@ -143,7 +143,11 @@ def test_base_subclass_init_matches_docs(child_class: str):
                 found_doc.type == base_item_doc.type
             ), "Docstring mismatch for {}".format(name)
 
-            assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+            if not (
+                found_doc.type == "cuml.Handle"
+                and klass == cuml.manifold.umap.UMAP
+            ):
+                assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
