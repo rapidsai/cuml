@@ -462,6 +462,7 @@ The following fitted attributes are currently not computed:
 Additional notes:
 
 - Sample weight functionality may not produce equivalent results to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
 - Models may not be picklable; pickling or unpickling may fail.
 - Multi-class models may have coefficient shape differences that cause pickling failures.
 
@@ -479,7 +480,7 @@ The following fitted attributes are currently not computed:
 
 Additional notes:
 
-- Sample weight functionality may not produce equivalent results to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
 - Models may not be picklable under certain conditions; pickling or unpickling may fail.
 
 umap
