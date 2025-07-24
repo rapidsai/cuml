@@ -337,6 +337,8 @@ def test_svc_weights(class_weight, sample_weight, probability):
         y_1 = np.ones(X_1.shape[0])
         cu_score = cuSVC.score(X_1, y_1)
         assert cu_score > 0.9
+    
+    assert hasattr(cuSVC, "class_weight_")
 
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X, y, sample_weight)
@@ -347,6 +349,8 @@ def test_svc_weights(class_weight, sample_weight, probability):
         # @property definitions. Skipping the attribute equivalence check here
         # for now.
         compare_svm(cuSVC, sklSVC, X, y, coef_tol=1e-5, report_summary=True)
+
+    assert hasattr(sklSVC, "class_weight_")
 
 
 @pytest.mark.parametrize(

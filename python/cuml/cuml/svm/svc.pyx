@@ -582,6 +582,8 @@ class SVC(SVMBase,
             self.dtype,
         )
 
+        self.class_weight_ = sample_weight
+
         if sample_weight is not None:
             # Convert cupy array to numpy array
             sample_weight = sample_weight.get()
@@ -645,6 +647,8 @@ class SVC(SVMBase,
             self.output_type,
             self.dtype
         )
+
+        self.class_weight_ = sample_weight
         cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
