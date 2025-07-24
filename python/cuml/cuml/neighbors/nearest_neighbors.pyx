@@ -332,10 +332,11 @@ class NearestNeighbors(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not isinstance(model.metric, str):
-            raise UnsupportedOnGPU
-        elif model.metric not in cuml.neighbors.VALID_METRICS["brute"]:
-            raise UnsupportedOnGPU
+        if not (
+            isinstance(model.metric, str) and
+            model.metric in cuml.neighbors.VALID_METRICS["brute"]
+        ):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         return {
             "n_neighbors": model.n_neighbors,
@@ -765,14 +766,22 @@ class NearestNeighbors(Base,
             zero_found = cp.zeros(1, dtype=cp.int32)
 
             # Run the kernel to check for zeros
-            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
+            check_zero_kernel(
+                (blocks,),
+                (threads_per_block,),
+                (D_ndarr.ravel(), rows, cols, zero_found.ravel())
+            )
 
             threads_per_block = 32
             blocks = (rows + threads_per_block - 1) // threads_per_block
 
             # only run kernel if there are multiple zero distances
             if zero_found:
-                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+                swap_kernel(
+                    (blocks,),
+                    (threads_per_block,),
+                    (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols)
+                )
 
             # slicing does not copy
             I_ndarr = I_ndarr[:, 1:]

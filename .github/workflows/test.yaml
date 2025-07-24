@@ -4,32 +4,37 @@ on:
   workflow_dispatch:
     inputs:
       branch:
+        description: |
+          branch: git branch the workflow run targets.
+          Required even when 'sha' is provided because it is also used for organizing artifacts.
         required: true
         type: string
       date:
+        description: "date: Date (YYYY-MM-DD) this run is for. Used to organize artifacts produced by nightly builds"
         required: true
         type: string
       sha:
+        description: "sha: full git commit SHA to check out"
         required: true
         type: string
       build_type:
+        description: "build_type: one of [branch, nightly, pull-request]"
         type: string
         default: nightly
 
 jobs:
   conda-cpp-checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      enable_check_symbols: true
       symbol_exclusions: raft_cutlass
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -38,7 +43,7 @@ jobs:
       sha: ${{ inputs.sha }}
   conda-python-tests-singlegpu:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -47,7 +52,7 @@ jobs:
       script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -56,7 +61,7 @@ jobs:
       script: "ci/test_python_dask.sh"
   conda-python-scikit-learn-accel-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -64,10 +69,33 @@ jobs:
       sha: ${{ inputs.sha }}
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
+      # Add an "intermediate" entry based on the "oldest" entry
+      matrix_filter: '(
+        map(select(.ARCH == "amd64"))
+        | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0])
+        | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+        )
+      +
+      (
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "oldest"))
+        | sort_by(.PY_VER)
+        | map(.DEPENDENCIES = "intermediate")
+      )'
+  conda-python-cuml-accel-upstream-tests:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.10
+    with:
+      build_type: ${{ inputs.build_type }}
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
+      script: "ci/test_python_cuml_accel_upstream.sh"
+      # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
   wheel-tests-cuml:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -76,7 +104,7 @@ jobs:
       script: ci/test_wheel.sh
   wheel-tests-cuml-dask:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.10
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}

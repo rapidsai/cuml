@@ -48,9 +48,16 @@ class Ridge(ProxyBase):
     _gpu_class = cuml.linear_model.Ridge
 
     def _gpu_fit(self, X, y, sample_weight=None):
+        X = input_to_cuml_array(X, convert_to_mem_type=False)[0]
         y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         if len(y.shape) > 1:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Multioutput `y` is not supported")
+
+        if X.shape[0] < X.shape[1]:
+            raise UnsupportedOnGPU(
+                "`X` with more columns than rows is not supported"
+            )
+
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
 

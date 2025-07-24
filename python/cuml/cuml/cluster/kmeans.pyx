@@ -204,15 +204,6 @@ class KMeans(Base,
 
     _cpu_class_path = "sklearn.cluster.KMeans"
 
-    _hyperparam_interop_translator = {
-        "init": {
-            # k-means++ would work, but setting it explicitly changes the configuration
-            # of the estimator compared to not specifying it. So we explicitly translate
-            # it to the default value.
-            "k-means++": "scalable-k-means++",
-        },
-    }
-
     @classmethod
     def _get_param_names(cls):
         return [
@@ -231,7 +222,7 @@ class KMeans(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if callable(model.init):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         elif isinstance(model.init, str):
             if model.init == "k-means++":
                 init = "scalable-k-means++"
@@ -239,7 +230,7 @@ class KMeans(Base,
                 init = "random"
             else:
                 # Should be unreachable, here in case sklearn adds more init values
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         else:
             init = model.init  # array-like
 
@@ -292,7 +283,7 @@ class KMeans(Base,
             "inertia_": to_cpu(self.inertia_),
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
-            "_n_features_out": self.n_clusters,
+            "_n_features_out": self._n_features_out,
             "_n_threads": n_threads,
             **super()._attrs_to_cpu(model),
         }
@@ -371,6 +362,12 @@ class KMeans(Base,
                     check_dtype=[np.float32, np.float64]
                 )
 
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.n_clusters
+
     @generate_docstring()
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
@@ -420,7 +417,11 @@ class KMeans(Base,
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        int_dtype = np.int32 if np.int64(n_rows) * np.int64(self.n_features_in_) < 2**31-1 else np.int64
+        int_dtype = (
+            np.int32
+            if np.int64(n_rows) * np.int64(self.n_features_in_) < 2**31-1
+            else np.int64
+        )
 
         self.labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype)
         cdef uintptr_t labels_ptr = self.labels_.ptr
@@ -778,7 +779,9 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, y=None, sample_weight=None, *, convert_dtype=False) -> CumlArray:
+    def fit_transform(
+        self, X, y=None, sample_weight=None, *, convert_dtype=False
+    ) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 

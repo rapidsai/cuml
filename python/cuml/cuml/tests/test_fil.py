@@ -14,8 +14,10 @@
 #
 
 import os
+from contextlib import nullcontext
 from math import ceil
 
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
@@ -37,6 +39,9 @@ from sklearn.ensemble import (  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 from cuml import ForestInference  # noqa: E402
+from cuml.ensemble import (  # noqa: E402
+    RandomForestClassifier as cumlRandomForestClassifier,
+)
 from cuml.fil import get_fil_device_type, set_fil_device_type  # noqa: E402
 from cuml.internals.device_type import DeviceType  # noqa: E402
 from cuml.internals.global_settings import GlobalSettings  # noqa: E402
@@ -533,7 +538,6 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
         model_path,
         model_type=model_type,
         is_classifier=True,
-        threshold=0.50,
     )
 
     fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
@@ -555,13 +559,20 @@ def test_thresholding(is_classifier, small_classifier_and_preds):
         model_path,
         model_type=model_type,
         is_classifier=is_classifier,
-        threshold=0.50,
     )
-    fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.asarray(fm.predict(X, threshold=0.5))
     if is_classifier:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() == 0
     else:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
+
+    with pytest.warns(FutureWarning):
+        _ = ForestInference.load(
+            model_path,
+            model_type=model_type,
+            is_classifier=is_classifier,
+            threshold=0.5,
+        )
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
@@ -844,7 +855,8 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         np.testing.assert_equal(pred_leaf, expected_pred_leaf)
 
 
-def test_missing_categorical():
+@pytest.mark.parametrize("category_list", [[], [0, 2]])
+def test_missing_categorical(category_list):
     builder = treelite.model_builder.ModelBuilder(
         threshold_type="float32",
         leaf_output_type="float32",
@@ -868,7 +880,7 @@ def test_missing_categorical():
     builder.start_node(0)
     builder.categorical_test(
         feature_id=0,
-        category_list=[0, 2],
+        category_list=category_list,
         default_left=False,
         category_list_right_child=False,
         left_child_key=1,
@@ -890,3 +902,111 @@ def test_missing_categorical():
     fm = ForestInference.load_from_treelite_model(model)
     fil_preds = np.asarray(fm.predict(input))
     np.testing.assert_equal(fil_preds.flatten(), gtil_preds.flatten())
+
+
+@pytest.mark.parametrize("device_id", [None, 0, 1, 2])
+@pytest.mark.parametrize("model_kind", ["sklearn", "xgboost", "cuml"])
+def test_device_selection(device_id, model_kind, tmp_path):
+    current_device = cp.cuda.runtime.getDevice()
+
+    if device_id is not None and device_id >= cp.cuda.runtime.getDeviceCount():
+        pytest.skip(
+            reason="device_id larger than the number of available GPU devices"
+        )
+
+    n_rows = 1000
+    n_columns = 30
+    n_classes = 3
+    n_estimators = 10
+
+    X, y = simulate_data(
+        n_rows,
+        n_columns,
+        n_classes,
+        random_state=0,
+        classification=True,
+    )
+
+    # 1. Model can be loaded with device_id set
+    if model_kind == "sklearn":
+        skl_model = RandomForestClassifier(
+            max_depth=3, random_state=0, n_estimators=n_estimators
+        )
+        skl_model.fit(X, y)
+        fm = ForestInference.load_from_sklearn(
+            skl_model,
+            precision="native",
+            is_classifier=True,
+            device_id=device_id,
+        )
+    elif model_kind == "xgboost":
+        xgb_model = xgb.XGBClassifier(
+            max_depth=3, random_state=0, n_estimators=n_estimators
+        )
+        xgb_model.fit(X, y)
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
+        xgb_model.save_model(model_path)
+        fm = ForestInference.load(
+            model_path,
+            model_type="xgboost_ubj",
+            precision="native",
+            is_classifier=True,
+            device_id=device_id,
+        )
+    elif model_kind == "cuml":
+        device_context = (
+            cp.cuda.Device(device_id) if device_id else nullcontext()
+        )
+
+        with device_context:
+            # TODO(hcho3): Remove n_streams=1 argument once the bug
+            # https://github.com/rapidsai/cuml/issues/5983 is resolved
+            cuml_model = cumlRandomForestClassifier(
+                max_depth=3,
+                random_state=0,
+                n_estimators=n_estimators,
+                n_streams=1,
+            )
+            cuml_model.fit(cp.array(X), cp.array(y))
+            fm = cuml_model.convert_to_fil_model()
+    else:
+        raise NotImplementedError()
+
+    # 2. The section above didn't corrupt current device context
+    assert cp.cuda.runtime.getDevice() == current_device
+
+    # 3. Device selection is correctly saved to device_id property
+    assert fm.device_id == (device_id if device_id else 0)
+
+    # 4. Inference can run on an input with the selected device
+    device_context = cp.cuda.Device(device_id) if device_id else nullcontext()
+    with device_context:
+        _ = fm.predict_proba(cp.array(X))
+
+    # 5. The section above didn't corrupt current device context
+    assert cp.cuda.runtime.getDevice() == current_device
+
+    # 6. Attempting to run inference with an input from a different device
+    #    is an error
+    if device_id is not None and device_id != 0:
+        with cp.cuda.Device(0), pytest.raises(
+            RuntimeError, match=r".*I/O data on different device than model.*"
+        ):
+            _ = fm.predict_proba(cp.array(X))
+
+    # 7. The section above didn't corrupt current device context
+    assert cp.cuda.runtime.getDevice() == current_device
+
+
+def test_wide_data():
+    n_rows = 50
+    n_features = 100000
+    X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
+    y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
+
+    clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
+    clf.fit(X, y)
+
+    # Inference should run without crashing
+    fm = ForestInference.load_from_sklearn(clf, is_classifier=True)
+    _ = fm.predict(X)

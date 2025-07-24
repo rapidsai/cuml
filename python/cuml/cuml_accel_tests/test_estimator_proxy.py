@@ -20,6 +20,7 @@ import sys
 from textwrap import dedent
 
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.sparse
 import sklearn
@@ -33,6 +34,7 @@ from sklearn.linear_model import (
     LinearRegression,
     LogisticRegression,
 )
+from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
 from cuml.accel import is_proxy
@@ -559,3 +561,125 @@ def test_method_that_only_exists_on_cpu_estimator():
     assert hasattr(model._cpu, "n_features_in_")
     # Method was run on host
     assert scipy.sparse.issparse(model.coef_)
+
+
+@pytest.mark.parametrize(
+    "methods",
+    [
+        "set_output,fit,transform",
+        "fit,set_output,transform",
+        "set_output,fit_transform",
+    ],
+)
+def test_set_output(methods):
+    X, _ = make_classification(n_samples=100, random_state=42)
+
+    model = PCA(n_components=5)
+
+    # Test calling methods in different order
+    for method in methods.split(","):
+        if method == "set_output":
+            # set_output returns self
+            assert model.set_output(transform="pandas") is model
+        elif method == "fit":
+            model.fit(X)
+        elif method == "fit_transform":
+            out = model.fit_transform(X)
+        else:
+            assert method == "transform"
+            out = model.transform(X)
+
+    # Transform outputs a pandas dataframe with the proper columns
+    assert isinstance(out, pd.DataFrame)
+    assert out.columns[0].startswith("pca")
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+    # If input has an index, the output has an aligned index
+    X_df = pd.DataFrame(
+        X,
+        columns=[f"x{i}" for i in range(X.shape[1])],
+        index=[f"row{i}" for i in range(X.shape[0])],
+    )
+    out = model.transform(X_df)
+    assert (out.index == X_df.index).all()
+
+    # Can change back to default without requiring a host transfer either
+    model.set_output(transform="default")
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_get_feature_names_out():
+    model = PCA(n_components=5)
+
+    # Calling on an unfit model raises appropriately
+    with pytest.raises(NotFittedError):
+        model.get_feature_names_out()
+
+    X, _ = make_classification(random_state=42)
+    model.fit(X)
+
+    # Calling on fit model returns appropriate column names
+    res = model.get_feature_names_out()
+    assert isinstance(res, np.ndarray)
+    assert res.dtype == "object"
+    assert res[0].startswith("pca")
+
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+@pytest.fixture
+def metadata_routing():
+    with sklearn.config_context(enable_metadata_routing=True):
+        yield
+
+
+@pytest.mark.parametrize("fitted", [False, True])
+def test_metadata_routing(metadata_routing, fitted):
+    model = LogisticRegression()
+
+    if fitted:
+        X, y = make_classification(n_samples=10)
+        model.fit(X, y)
+
+    # Check default metadata
+    routing = model.get_metadata_routing()
+    assert routing.fit.requests.get("sample_weight") is None
+    assert routing.score.requests.get("sample_weight") is None
+
+    # Check can set and get metadata
+    assert model.set_fit_request(sample_weight=True) is model
+    assert model.set_score_request(sample_weight=False) is model
+
+    # Check all different ways sklearn accesses metadata report the same
+    def check(routing):
+        assert routing.fit.requests["sample_weight"] is True
+        assert routing.score.requests["sample_weight"] is False
+
+    check(model.get_metadata_routing())
+    check(model._get_metadata_request())
+    check(model._metadata_request)
+
+    # Smoketest _get_default_requests
+    defaults = LogisticRegression._get_default_requests()
+    assert defaults.fit.requests.get("sample_weight") is None
+
+    # No method caused host transfer
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_metadata_routing_consumed(metadata_routing):
+    """Test that a proxy estimator is a valid consumer of metadata"""
+    X, y = make_classification(random_state=42)
+    weights = np.random.default_rng(42).uniform(low=0.5, size=y.shape)
+
+    lr = LogisticRegression()
+    lr.set_fit_request(sample_weight=True)
+    lr.set_score_request(sample_weight=False)
+
+    search = GridSearchCV(estimator=lr, param_grid={"C": [0.9, 1]})
+    search.fit(X, y, sample_weight=weights)

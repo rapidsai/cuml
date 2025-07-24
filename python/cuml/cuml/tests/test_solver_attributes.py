@@ -31,7 +31,6 @@ def test_mbsgd_regressor_attributes():
         "coef_",
         "intercept_",
         "l1_ratio",
-        "n_cols",
         "loss",
         "eta0",
         "batch_size",
@@ -51,7 +50,6 @@ def test_logistic_regression_attributes():
         "coef_",
         "intercept_",
         "l1_ratio",
-        "n_cols",
         "C",
         "penalty",
         "fit_intercept",
@@ -73,7 +71,6 @@ def test_mbsgd_classifier_attributes():
         "coef_",
         "intercept_",
         "l1_ratio",
-        "n_cols",
         "eta0",
         "batch_size",
         "fit_intercept",
@@ -94,7 +91,6 @@ def test_elastic_net_attributes():
         "coef_",
         "intercept_",
         "l1_ratio",
-        "n_cols",
         "alpha",
         "max_iter",
         "fit_intercept",
@@ -115,7 +111,6 @@ def test_lasso_attributes():
         "intercept_",
         "solver_model",
         "l1_ratio",
-        "n_cols",
     ]
     for attr in attrs:
         assert hasattr(clf, attr)

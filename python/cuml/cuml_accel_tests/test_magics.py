@@ -18,6 +18,8 @@ from textwrap import dedent
 
 import pytest
 
+from cuml.accel.profilers import LineProfiler
+
 pytest.importorskip("IPython")
 
 
@@ -43,6 +45,7 @@ def run_script(body):
     returncode = res.returncode
     stdout = res.stdout
     assert returncode == 0, stdout
+    return stdout
 
 
 def test_magic():
@@ -96,3 +99,40 @@ def test_magic_cudf_pandas_after():
         result = ip.run_cell("assert is_proxy(LinearRegression)").raise_error()
         """
     )
+
+
+@pytest.mark.parametrize(
+    "magic", ["cuml.accel.profile", "cuml.accel.line_profile"]
+)
+def test_profiler_magics(magic):
+    profiled_script = dedent(
+        """
+        from sklearn.datasets import make_regression
+        from sklearn.linear_model import Ridge
+        X, y = make_regression()
+        model = Ridge().fit(X, y)
+        """
+    ).strip()
+
+    stdout = run_script(
+        f"""
+        ip.run_line_magic("load_ext", "cuml.accel")
+
+        script = {profiled_script!r}
+        ip.run_cell_magic("{magic}", "", script)
+
+        # Check that variables defined in the cell persist outside the cell
+        ip.run_cell("assert isinstance(model, Ridge)").raise_error()
+
+        # Check that the cell ran under cuml.accel
+        ip.run_cell("from cuml.accel import is_proxy; assert is_proxy(model)").raise_error()
+
+        # Check that the namespace modifications in LineProfiler don't persist
+        ip.run_cell("assert {LineProfiler.FLAG!r} not in globals()").raise_error()
+        """
+    )
+    if magic == "cuml.accel.profile":
+        assert "cuml.accel profile" in stdout
+    else:
+        assert "cuml.accel line profile" in stdout
+        assert profiled_script.splitlines()[0] in stdout

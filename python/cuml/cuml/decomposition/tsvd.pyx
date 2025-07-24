@@ -318,6 +318,12 @@ class TruncatedSVD(Base,
 
         self.singular_values_ = None
 
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.components_.shape[0]
+
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,

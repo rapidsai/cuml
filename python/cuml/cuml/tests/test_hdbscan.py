@@ -16,6 +16,7 @@
 import cupy as cp
 import hdbscan
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn import datasets
 from sklearn.datasets import make_blobs
@@ -154,12 +155,10 @@ def assert_membership_vectors(cu_vecs, sk_vecs):
 @pytest.mark.parametrize("cluster_selection_epsilon", [0.0])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_blobs(
     nrows,
     ncols,
     nclusters,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     allow_single_cluster,
@@ -215,20 +214,14 @@ def test_hdbscan_blobs(
     )
 
 
-@pytest.mark.skipif(
-    cp.cuda.driver.get_build_version() <= 11020,
-    reason="Test failing on driver 11.2",
-)
 @pytest.mark.parametrize("cluster_selection_epsilon", [0.0, 50.0, 150.0])
 @pytest.mark.parametrize(
     "min_samples_cluster_size_bounds", [(150, 150, 0), (50, 25, 0)]
 )
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_datasets(
     supervised_learning_dataset,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_samples_cluster_size_bounds,
@@ -289,10 +282,8 @@ def test_hdbscan_sklearn_datasets(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_extract_clusters(
     supervised_learning_dataset,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_samples,
@@ -333,11 +324,9 @@ def test_hdbscan_sklearn_extract_clusters(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_cluster_patterns(
     dataset,
     nrows,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_cluster_size,
@@ -396,11 +385,9 @@ def test_hdbscan_cluster_patterns(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_cluster_patterns_extract_clusters(
     dataset,
     nrows,
-    connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
     min_cluster_size,
@@ -493,7 +480,6 @@ def test_hdbscan_empty_cluster_tree():
 
 
 def test_hdbscan_plots():
-
     X, y = make_blobs(
         n_samples=int(100),
         n_features=100,
@@ -502,19 +488,26 @@ def test_hdbscan_plots():
         shuffle=False,
         random_state=42,
     )
+    model = HDBSCAN(gen_min_span_tree=True)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=True)
-    cuml_agg.fit(X)
+    # All attributes not available before fit
+    attrs = [
+        "condensed_tree_",
+        "minimum_spanning_tree_",
+        "single_linkage_tree_",
+    ]
+    for name in attrs:
+        assert not hasattr(model, name)
 
-    assert cuml_agg.condensed_tree_ is not None
-    assert cuml_agg.minimum_spanning_tree_ is not None
-    assert cuml_agg.single_linkage_tree_ is not None
+    model.fit(X)
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=False)
-    cuml_agg.fit(X)
+    # All attributes available after fit
+    for name in attrs:
+        assert getattr(model, name) is not None
 
-    with pytest.raises(AttributeError):
-        assert cuml_agg.minimum_spanning_tree_
+    # minimum_spanning_tree_ not available if not requested
+    model = HDBSCAN(gen_min_span_tree=False).fit(X)
+    assert not hasattr(model, "minimum_spanning_tree_")
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -583,7 +576,6 @@ def test_all_points_membership_vectors_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [128, 1000])
 def test_all_points_membership_vectors_moons(
     nrows,
@@ -593,7 +585,6 @@ def test_all_points_membership_vectors_moons(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
 
@@ -640,7 +631,6 @@ def test_all_points_membership_vectors_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [128, 1000])
 def test_all_points_membership_vectors_circles(
     nrows,
@@ -650,7 +640,6 @@ def test_all_points_membership_vectors_circles(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
     X, y = datasets.make_circles(
@@ -691,10 +680,6 @@ def test_all_points_membership_vectors_circles(
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
 
 
-@pytest.mark.skipif(
-    cp.cuda.driver.get_build_version() <= 11020,
-    reason="Test failing on driver 11.2",
-)
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("n_points_to_predict", [200, 500])
 @pytest.mark.parametrize("ncols", [10, 25])
@@ -774,7 +759,6 @@ def test_approximate_predict_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_moons(
     nrows,
     n_points_to_predict,
@@ -784,7 +768,6 @@ def test_approximate_predict_moons(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
 
     X, y = datasets.make_moons(
@@ -839,7 +822,6 @@ def test_approximate_predict_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_circles(
     nrows,
     n_points_to_predict,
@@ -849,7 +831,6 @@ def test_approximate_predict_circles(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
     X, y = datasets.make_circles(
         n_samples=nrows + n_points_to_predict,
@@ -905,7 +886,6 @@ def test_approximate_predict_circles(
 @pytest.mark.parametrize("allow_single_cluster", [False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 def test_approximate_predict_digits(
     n_points_to_predict,
     min_samples,
@@ -914,7 +894,6 @@ def test_approximate_predict_digits(
     allow_single_cluster,
     max_cluster_size,
     cluster_selection_method,
-    connectivity,
 ):
     digits = datasets.load_digits()
     X, y = digits.data, digits.target
@@ -1047,7 +1026,6 @@ def test_membership_vector_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [16])
 def test_membership_vector_moons(
     nrows,
@@ -1058,7 +1036,6 @@ def test_membership_vector_moons(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
 
@@ -1111,7 +1088,6 @@ def test_membership_vector_moons(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [16])
 def test_membership_vector_circles(
     nrows,
@@ -1122,7 +1098,6 @@ def test_membership_vector_circles(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
-    connectivity,
     batch_size,
 ):
     X, y = datasets.make_circles(
@@ -1183,3 +1158,100 @@ def test_prediction_namespace_deprecated():
         )
 
     assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Unknown attribute errors
+    with pytest.raises(AttributeError, match="not_a_real_attr"):
+        cuml.cluster.hdbscan.prediction.not_a_real_attr
+
+
+def test_prediction_functions_cluster_namespace_deprecated():
+    # Attribute access warns
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        func = cuml.cluster.all_points_membership_vectors
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Imports warn
+    with pytest.warns(FutureWarning, match="all_points_membership_vectors"):
+        from cuml.cluster import all_points_membership_vectors as func
+
+    assert func is cuml.cluster.hdbscan.all_points_membership_vectors
+
+    # Unknown attribute errors
+    with pytest.raises(AttributeError, match="not_a_real_attr"):
+        cuml.cluster.not_a_real_attr
+
+
+def test_all_points_membership_vectors_output_type():
+    X, y = make_blobs(random_state=42)
+    X_df = pd.DataFrame(X, index=[f"row{i}" for i in range(X.shape[0])])
+
+    model = HDBSCAN(prediction_data=True).fit(X_df, y)
+
+    # The model input_type is used if `output_type="input"`
+    out = all_points_membership_vectors(model)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.index == X_df.index).all()
+
+    # The model output_type takes precedence over model input_type
+    model.output_type = "numpy"
+    out = all_points_membership_vectors(model)
+    assert isinstance(out, np.ndarray)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = all_points_membership_vectors(model)
+    assert isinstance(out, cp.ndarray)
+
+
+def test_membership_vector_output_type():
+    X, y = make_blobs(random_state=42)
+    model = HDBSCAN(prediction_data=True).fit(X, y)
+
+    X2 = X[:10]
+    X2_df = pd.DataFrame(X2, index=[f"row{i}" for i in range(X2.shape[0])])
+
+    # The function input_type is used if `output_type="input"`
+    out = membership_vector(model, X2_df)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.index == X2_df.index).all()
+
+    out = membership_vector(model, X2)
+    assert isinstance(out, np.ndarray)
+
+    # The model output_type takes precedence over function input_type
+    model.output_type = "pandas"
+    out = membership_vector(model, X2)
+    assert isinstance(out, pd.DataFrame)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = membership_vector(model, X2_df)
+    assert isinstance(out, cp.ndarray)
+
+
+def test_approximate_predict_output_type():
+    X, y = make_blobs(random_state=42)
+    model = HDBSCAN(prediction_data=True).fit(X, y)
+
+    X2 = X[:10]
+    X2_df = pd.DataFrame(X2, index=[f"row{i}" for i in range(X2.shape[0])])
+
+    # The function input_type is used if `output_type="input"`
+    out = approximate_predict(model, X2_df)
+    for val in out:
+        assert isinstance(val, pd.Series)
+        assert (val.index == X2_df.index).all()
+
+    out = approximate_predict(model, X2)
+    assert all(isinstance(val, np.ndarray) for val in out)
+
+    # The model output_type takes precedence over function input_type
+    model.output_type = "pandas"
+    out = approximate_predict(model, X2)
+    assert all(isinstance(val, pd.Series) for val in out)
+
+    # The global output type takes precedence over model output_type
+    with cuml.using_output_type("cupy"):
+        out = approximate_predict(model, X2_df)
+    assert all(isinstance(val, cp.ndarray) for val in out)

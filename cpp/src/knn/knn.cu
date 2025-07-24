@@ -32,6 +32,7 @@
 #include <cuvs/neighbors/brute_force.hpp>
 #include <cuvs/neighbors/ivf_flat.hpp>
 #include <cuvs/neighbors/ivf_pq.hpp>
+#include <cuvs/neighbors/knn_merge_parts.hpp>
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
 
@@ -158,8 +159,13 @@ void brute_force_knn(const raft::handle_t& handle,
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
     // TODO: sort out where this knn_merge_parts should live
-    raft::spatial::knn::knn_merge_parts(
-      out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
+    cuvs::neighbors::knn_merge_parts(
+      handle,
+      raft::make_device_matrix_view<const float, int64_t>(out_D, n * input.size(), k),
+      raft::make_device_matrix_view<const int64_t, int64_t>(out_I, n * input.size(), k),
+      raft::make_device_matrix_view<float, int64_t>(res_D, n, k),
+      raft::make_device_matrix_view<int64_t, int64_t>(res_I, n, k),
+      raft::make_device_vector_view<int64_t>(trans.data(), trans.size()));
   }
 
   if (translations == nullptr) delete id_ranges;
@@ -221,13 +227,12 @@ void approx_knn_build_index(raft::handle_t& handle,
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
   auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
 
-  index->metric_processor =
-    raft::spatial::knn::create_processor<float>(static_cast<raft::distance::DistanceType>(metric),
-                                                n,
-                                                D,
-                                                0,
-                                                false,
-                                                raft::resource::get_cuda_stream(handle));
+  index->metric_processor = raft::spatial::knn::create_processor<false, float>(
+    static_cast<raft::distance::DistanceType>(metric),
+    n,
+    D,
+    0,
+    raft::resource::get_cuda_stream(handle));
   // For cosine/correlation distance, the metric processor translates distance
   // to inner product via pre/post processing - pass the translated metric to
   // ANN index

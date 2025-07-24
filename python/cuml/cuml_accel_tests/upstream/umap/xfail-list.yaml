@@ -1,0 +1,51 @@
+- reason: Test fails with cuml.accel
+  marker: cuml_accel_bugs
+  tests:
+  - "umap.tests.test_composite_models::test_composite_trustworthiness"
+  - "umap.tests.test_composite_models::test_composite_trustworthiness_on_iris"
+  - "umap.tests.test_composite_models::test_contrastive_trustworthiness_on_iris"
+  - "umap.tests.test_spectral::test_tsw_spectral_init"
+  - "umap.tests.test_umap_on_iris::test_precomputed_knn_on_iris"
+  - "umap.tests.test_umap_on_iris::test_umap_inverse_transform_on_iris"
+  - "umap.tests.test_umap_on_iris::test_umap_transform_on_iris_modified_dtype"
+  - "umap.tests.test_umap_ops::test_bad_transform_data"
+  - "umap.tests.test_umap_ops::test_disconnected_data[False-hellinger-1]"
+  - "umap.tests.test_umap_ops::test_disconnected_data[False-hellinger-5]"
+  - "umap.tests.test_umap_ops::test_disconnected_data[True-hellinger-1]"
+  - "umap.tests.test_umap_ops::test_disconnected_data[True-hellinger-5]"
+  - "umap.tests.test_umap_ops::test_umap_graph_layout"
+  - "umap.tests.test_umap_ops::test_umap_update"
+  - "umap.tests.test_umap_ops::test_umap_update_large"
+  - "umap.tests.test_umap_repeated_data::test_repeated_points_large_n"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_hellinger_data"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_metrics"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_n_components"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_n_jobs"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_output_metric"
+  - "umap.tests.test_umap_validation_params::test_umap_bad_output_metric_no_grad"
+  - "umap.tests.test_umap_validation_params::test_umap_fit_data_and_targets_compliant"
+  - "umap.tests.test_umap_validation_params::test_umap_haversine_embed_to_highd"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_learning_rate"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_min_dist"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_n_epochs"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_n_neighbours"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_op"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_repulsion"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_sample_rate"
+  - "umap.tests.test_umap_validation_params::test_umap_negative_target_n_neighbours"
+  - "umap.tests.test_umap_validation_params::test_umap_non_integer_n_components"
+  - "umap.tests.test_umap_validation_params::test_umap_too_large_op"
+  - "umap.tests.test_umap_validation_params::test_umap_too_many_neighbors_warns"
+  - "umap.tests.test_umap_validation_params::test_umap_too_small_n_neighbours"
+- reason: Tests are flaky
+  marker: cuml_accel_flaky
+  strict: false
+  tests:
+  - "umap.tests.test_umap_on_iris::test_umap_sparse_transform_on_iris"
+  - "umap.tests.test_umap_on_iris::test_umap_transform_on_iris_w_pynndescent"
+  - "umap.tests.test_umap_ops::test_umap_transform_embedding_stability"
+- reason: Test fails with newer sklearn
+  marker: cuml_accel_sklearn_pin
+  condition: scikit-learn>=1.6
+  tests:
+  - "umap.tests.test_umap_validation_params::test_umap_custom_distance_w_grad"

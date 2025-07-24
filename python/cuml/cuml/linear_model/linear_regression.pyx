@@ -279,7 +279,7 @@ class LinearRegression(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.positive:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`positive=True` is not supported")
 
         return {
             "fit_intercept": model.fit_intercept,
@@ -509,9 +509,6 @@ class LinearRegression(Base,
     def _predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.features_in_ = self.coef_.shape[0]
-        # Adding UniversalBase here skips it in the Method Resolution Order
-        # (MRO) Since UniversalBase and LinearPredictMixin now both have a
-        # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
 
     @staticmethod
