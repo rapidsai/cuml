@@ -107,10 +107,23 @@ def get_xfails(estimator):
     return PER_ESTIMATOR_XFAIL_CHECKS.get(type(estimator), {})
 
 
-@estimator_checks.parametrize_with_checks(
-    [KMeans(), LogisticRegression()], expected_failed_checks=get_xfails
-)
-def test_sklearn_compatible_estimator(estimator, check):
-    # Check that all estimators pass the "common estimator" checks
-    # provided by scikit-learn
-    check(estimator)
+def _check_sklearn_version():
+    """Check if scikit-learn version is >= 1.7"""
+    import sklearn
+    from packaging import version
+
+    return version.parse(sklearn.__version__) >= version.parse("1.7")
+
+
+# Conditionally define the test, older versions of `parametrize_with_checks`
+# do not support the `expected_failed_checks` parameter.
+if _check_sklearn_version():
+
+    @estimator_checks.parametrize_with_checks(
+        [KMeans(), LogisticRegression()], expected_failed_checks=get_xfails
+    )
+    def test_sklearn_compatible_estimator(estimator, check):
+        # Check that all estimators pass the "common estimator" checks
+        # provided by scikit-learn
+
+        check(estimator)
