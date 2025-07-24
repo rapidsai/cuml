@@ -39,6 +39,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.base_helpers import BaseMetaClass
+from cuml.internals.mixins import RegressorMixin
 
 from cuml.internals.logger cimport level_enum
 
@@ -702,7 +703,8 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
 
     def _attrs_to_cpu(self, model):
         coef = self.coef_
-        if coef is not None and coef.ndim == 2 and coef.shape[0] == 1:
+        if (coef is not None and coef.ndim == 2 and coef.shape[0] == 1 and
+                isinstance(self, RegressorMixin)):
             coef = self.coef_[0]
 
         return {
