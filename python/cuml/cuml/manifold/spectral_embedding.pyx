@@ -49,7 +49,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
         bool drop_first
         uint64_t seed
 
-    cdef void spectral_embedding_cuvs(
+    cdef void transform(
         const device_resources &handle,
         params config,
         device_matrix_view[float, int, row_major] dataset,
@@ -154,7 +154,7 @@ def spectral_embedding(A,
 
     eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
 
-    spectral_embedding_cuvs(
+    transform(
         deref(h), config,
         make_device_matrix_view[float, int, row_major](
             <float *>A_ptr, <int> A.shape[0], <int> A.shape[1]),
