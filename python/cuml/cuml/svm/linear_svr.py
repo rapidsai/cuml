@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from cuml.internals.interop import to_cpu
 from cuml.internals.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
@@ -153,17 +152,6 @@ class LinearSVR(LinearSVM, RegressorMixin):
             "loss": self.loss,
             "epsilon": self.epsilon,
             **super()._params_to_cpu(),
-        }
-
-    def _attrs_to_cpu(self, model):
-        def coef_to_cpu(x):
-            if x is not None and x.ndim == 2 and x.shape[0] == 1:
-                return to_cpu(x[0])
-            return to_cpu(x)
-
-        return {
-            "coef_": coef_to_cpu(self.coef_),
-            **super()._attrs_to_cpu(model),
         }
 
     @property

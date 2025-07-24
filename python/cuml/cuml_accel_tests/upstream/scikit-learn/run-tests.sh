@@ -19,5 +19,4 @@ pytest -p cuml.accel \
     --rootdir="${THIS_DIRECTORY}" \
     --config-file="${THIS_DIRECTORY}/../pytest.ini" \
     --xfail-list="${THIS_DIRECTORY}/xfail-list.yaml" \
-    -k "not test_estimators[RandomForestClassifier" \
     "$@"

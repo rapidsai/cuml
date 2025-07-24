@@ -701,8 +701,12 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
         }
 
     def _attrs_to_cpu(self, model):
+        coef = self.coef_
+        if coef is not None and coef.ndim == 2 and coef.shape[0] == 1:
+            coef = self.coef_[0]
+
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
+            "coef_": to_cpu(coef, order="C", dtype=np.float64),
             "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
             **super()._attrs_to_cpu(model)
         }
@@ -723,8 +727,6 @@ class LinearSVM(Base, InteropMixin, metaclass=WithReexportedParams):
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order='F')
-        if hasattr(X_m, "index"):
-            self.feature_names_in_ = X_m.index
 
         convert_to_dtype = dtype if convert_dtype else None
         y_m = input_to_cuml_array(

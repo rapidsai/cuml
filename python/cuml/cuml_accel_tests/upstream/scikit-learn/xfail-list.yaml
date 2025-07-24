@@ -1464,13 +1464,16 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
 - reason: LinearSVM
+  condition: scikit-learn<=1.6
+  tests:
+  - "sklearn.tests.test_calibration::test_calibration_less_classes[False]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
+- reason: LinearSVM
   condition: scikit-learn==1.4.2
   tests:
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVC]"
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVR]"
-  - "sklearn.tests.test_calibration::test_calibration_less_classes[False]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
 - reason: LinearSVM
   condition: scikit-learn>=1.7
   tests:
