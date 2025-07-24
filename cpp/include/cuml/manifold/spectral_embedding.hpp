@@ -43,9 +43,9 @@ struct params {
 
   /** @brief Random seed for reproducibility */
   uint64_t seed;
-
-  cuvs::preprocessing::spectral_embedding::params to_cuvs() const;
 };
+
+cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::params& config);
 
 void spectral_embedding_cuvs(raft::resources const& handle,
                              ML::SpectralEmbedding::params config,

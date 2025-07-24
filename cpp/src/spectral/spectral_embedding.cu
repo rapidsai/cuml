@@ -23,15 +23,15 @@
 
 namespace ML::SpectralEmbedding {
 
-cuvs::preprocessing::spectral_embedding::params SpectralEmbedding::params::to_cuvs() const
+cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::params& config)
 {
   cuvs::preprocessing::spectral_embedding::params params;
 
-  params.n_components   = this->n_components;
-  params.n_neighbors    = this->n_neighbors;
-  params.norm_laplacian = this->norm_laplacian;
-  params.drop_first     = this->drop_first;
-  params.seed           = this->seed;
+  params.n_components   = config.n_components;
+  params.n_neighbors    = config.n_neighbors;
+  params.norm_laplacian = config.norm_laplacian;
+  params.drop_first     = config.drop_first;
+  params.seed           = config.seed;
 
   return params;
 }
@@ -41,7 +41,7 @@ void spectral_embedding_cuvs(raft::resources const& handle,
                              raft::device_matrix_view<float, int, raft::row_major> dataset,
                              raft::device_matrix_view<float, int, raft::col_major> embedding)
 {
-  cuvs::preprocessing::spectral_embedding::transform(handle, config.to_cuvs(), dataset, embedding);
+  cuvs::preprocessing::spectral_embedding::transform(handle, to_cuvs(config), dataset, embedding);
 }
 
 }  // namespace ML::SpectralEmbedding
