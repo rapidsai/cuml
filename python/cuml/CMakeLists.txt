@@ -112,3 +112,6 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
+
+# Include the pth file in the built wheel
+install(FILES "_cuml_accel.pth" DESTINATION ".")
