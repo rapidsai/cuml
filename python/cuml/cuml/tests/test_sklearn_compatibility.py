@@ -13,10 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
 from sklearn.utils import estimator_checks
 
 from cuml.cluster import KMeans
 from cuml.linear_model import LogisticRegression
+
+# Skip these tests as parameterize_with_checks has a different signature in
+# older versions of scikit-learn.
+pytest.importorskip("sklearn", minversion="1.7")
+
 
 PER_ESTIMATOR_XFAIL_CHECKS = {
     KMeans: {
@@ -81,23 +87,11 @@ def get_xfails(estimator):
     return PER_ESTIMATOR_XFAIL_CHECKS.get(type(estimator), {})
 
 
-def _check_sklearn_version():
-    """Check if scikit-learn version is >= 1.7"""
-    import sklearn
-    from packaging import version
+@estimator_checks.parametrize_with_checks(
+    [KMeans(), LogisticRegression()], expected_failed_checks=get_xfails
+)
+def test_sklearn_compatible_estimator(estimator, check):
+    # Check that all estimators pass the "common estimator" checks
+    # provided by scikit-learn
 
-    return version.parse(sklearn.__version__) >= version.parse("1.7")
-
-
-# Conditionally define the test, older versions of `parametrize_with_checks`
-# do not support the `expected_failed_checks` parameter.
-if _check_sklearn_version():
-
-    @estimator_checks.parametrize_with_checks(
-        [KMeans(), LogisticRegression()], expected_failed_checks=get_xfails
-    )
-    def test_sklearn_compatible_estimator(estimator, check):
-        # Check that all estimators pass the "common estimator" checks
-        # provided by scikit-learn
-
-        check(estimator)
+    check(estimator)
