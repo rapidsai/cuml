@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,11 +132,11 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_y.data(),
-                            y.data(),
-                            params.n_obs * params.batch_size,
-                            MLCommon::CompareApprox<T>(params.tolerance),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_y.data(),
+                                y.data(),
+                                params.n_obs * params.batch_size,
+                                MLCommon::CompareApprox<T>(params.tolerance),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -145,8 +145,6 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
 
  protected:
   FillnaInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<FillnaInputs<float>> inputsf = {
@@ -162,10 +160,10 @@ const std::vector<FillnaInputs<double>> inputsd = {
 };
 
 typedef FillnaTest<float> FillnaTestF;
-TEST_P(FillnaTestF, Result) { EXPECT_TRUE(match); }
+TEST_P(FillnaTestF, Result) {}
 
 typedef FillnaTest<double> FillnaTestD;
-TEST_P(FillnaTestD, Result) { EXPECT_TRUE(match); }
+TEST_P(FillnaTestD, Result) {}
 
 INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestF, ::testing::ValuesIn(inputsf));
 

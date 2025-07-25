@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,11 +136,11 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_c_ref.data(),
-                            c.data(),
-                            params.m * params.n * params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_c_ref.data(),
+                                c.data(),
+                                params.m * params.n * params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -149,8 +149,6 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
 
  protected:
   BlockGemmInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockGemmInputs<float>> gemm_inputsf = {
@@ -182,34 +180,34 @@ const std::vector<BlockGemmInputs<double>> gemm_inputsd_vec2 = {
 };
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 4, 16, 4>, float> BlockGemmTestF_1_16_1_4_16_4;
-TEST_P(BlockGemmTestF_1_16_1_4_16_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestF_1_16_1_4_16_4, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 4, 16, 4>, double> BlockGemmTestD_1_16_1_4_16_4;
-TEST_P(BlockGemmTestD_1_16_1_4_16_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestD_1_16_1_4_16_4, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 4, 32, 8>, float> BlockGemmTestF_1_32_1_4_32_8;
-TEST_P(BlockGemmTestF_1_32_1_4_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestF_1_32_1_4_32_8, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 4, 32, 8>, double> BlockGemmTestD_1_32_1_4_32_8;
-TEST_P(BlockGemmTestD_1_32_1_4_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestD_1_32_1_4_32_8, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 16, 64, 4>, float> BlockGemmTestF_1_32_1_16_64_4;
-TEST_P(BlockGemmTestF_1_32_1_16_64_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestF_1_32_1_16_64_4, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 16, 64, 4>, double> BlockGemmTestD_1_32_1_16_64_4;
-TEST_P(BlockGemmTestD_1_32_1_16_64_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestD_1_32_1_16_64_4, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 16, 128, 2>, float> BlockGemmTestF_1_16_1_16_128_2;
-TEST_P(BlockGemmTestF_1_16_1_16_128_2, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestF_1_16_1_16_128_2, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 16, 128, 2>, double> BlockGemmTestD_1_16_1_16_128_2;
-TEST_P(BlockGemmTestD_1_16_1_16_128_2, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestD_1_16_1_16_128_2, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<2, 32, 2, 2, 16, 16>, float> BlockGemmTestF_2_32_2_2_16_16;
-TEST_P(BlockGemmTestF_2_32_2_2_16_16, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestF_2_32_2_2_16_16, Result) {}
 
 typedef BlockGemmTest<BlockGemmPolicy<2, 32, 2, 2, 16, 16>, double> BlockGemmTestD_2_32_2_2_16_16;
-TEST_P(BlockGemmTestD_2_32_2_2_16_16, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemmTestD_2_32_2_2_16_16, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockGemmTests,
                         BlockGemmTestF_1_16_1_4_16_4,
@@ -348,11 +346,11 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_y_ref.data(),
-                            y.data(),
-                            params.m * params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_y_ref.data(),
+                                y.data(),
+                                params.m * params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -361,8 +359,6 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
 
  protected:
   BlockGemvInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockGemvInputs<float>> gemv_inputsf = {{true, 42, 42, 20, 1e-4, 12345U},
@@ -374,22 +370,22 @@ const std::vector<BlockGemvInputs<double>> gemv_inputsd = {{true, 42, 42, 20, 1e
                                                            {false, 5, 80, 100, 1e-4, 12345U}};
 
 typedef BlockGemvTest<BlockGemvPolicy<16, 4>, float> BlockGemvTestF_16_4;
-TEST_P(BlockGemvTestF_16_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestF_16_4, Result) {}
 
 typedef BlockGemvTest<BlockGemvPolicy<16, 4>, double> BlockGemvTestD_16_4;
-TEST_P(BlockGemvTestD_16_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestD_16_4, Result) {}
 
 typedef BlockGemvTest<BlockGemvPolicy<32, 8>, float> BlockGemvTestF_32_8;
-TEST_P(BlockGemvTestF_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestF_32_8, Result) {}
 
 typedef BlockGemvTest<BlockGemvPolicy<32, 8>, double> BlockGemvTestD_32_8;
-TEST_P(BlockGemvTestD_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestD_32_8, Result) {}
 
 typedef BlockGemvTest<BlockGemvPolicy<128, 2>, float> BlockGemvTestF_128_2;
-TEST_P(BlockGemvTestF_128_2, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestF_128_2, Result) {}
 
 typedef BlockGemvTest<BlockGemvPolicy<128, 2>, double> BlockGemvTestD_128_2;
-TEST_P(BlockGemvTestD_128_2, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockGemvTestD_128_2, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF_16_4, ::testing::ValuesIn(gemv_inputsf));
 
@@ -480,11 +476,11 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_dot_ref.data(),
-                            dot_dev.data(),
-                            params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_dot_ref.data(),
+                                dot_dev.data(),
+                                params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -493,8 +489,6 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
 
  protected:
   BlockDotInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockDotInputs<float>> dot_inputsf = {{true, 9, 20, 1e-4, 12345U},
@@ -508,10 +502,10 @@ const std::vector<BlockDotInputs<double>> dot_inputsd = {{true, 9, 20, 1e-4, 123
                                                          {false, 200, 100, 1e-4, 12345U}};
 
 typedef BlockDotTest<float> BlockDotTestF;
-TEST_P(BlockDotTestF, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockDotTestF, Result) {}
 
 typedef BlockDotTest<double> BlockDotTestD;
-TEST_P(BlockDotTestD, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockDotTestD, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockDotTests, BlockDotTestF, ::testing::ValuesIn(dot_inputsf));
 
@@ -614,11 +608,11 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_res_ref.data(),
-                            res_dev.data(),
-                            params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_res_ref.data(),
+                                res_dev.data(),
+                                params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -627,8 +621,6 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
 
  protected:
   BlockXaxtInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockXaxtInputs<float>> xAxt_inputsf = {{true, true, 9, 20, 1e-2, 12345U},
@@ -644,10 +636,10 @@ const std::vector<BlockXaxtInputs<double>> xAxt_inputsd = {{true, true, 9, 20, 1
                                                            {true, false, 200, 100, 1e-2, 12345U}};
 
 typedef BlockXaxtTest<float> BlockXaxtTestF;
-TEST_P(BlockXaxtTestF, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockXaxtTestF, Result) {}
 
 typedef BlockXaxtTest<double> BlockXaxtTestD;
-TEST_P(BlockXaxtTestD, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockXaxtTestD, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockXaxtTests, BlockXaxtTestF, ::testing::ValuesIn(xAxt_inputsf));
 
@@ -716,11 +708,11 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
     }
 
     /* Check results */
-    match = devArrMatchHost(h_y_ref.data(),
-                            y.data(),
-                            params.n * params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_y_ref.data(),
+                                y.data(),
+                                params.n * params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -729,8 +721,6 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
 
  protected:
   BlockAxInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockAxInputs<float>> ax_inputsf = {
@@ -740,10 +730,10 @@ const std::vector<BlockAxInputs<double>> ax_inputsd = {
   {9, 20, 1e-4, 12345U}, {65, 50, 1e-4, 12345U}, {200, 100, 1e-4, 12345U}};
 
 typedef BlockAxTest<float> BlockAxTestF;
-TEST_P(BlockAxTestF, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockAxTestF, Result) {}
 
 typedef BlockAxTest<double> BlockAxTestD;
-TEST_P(BlockAxTestD, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockAxTestD, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestF, ::testing::ValuesIn(ax_inputsf));
 
@@ -820,11 +810,11 @@ class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityI
     }
 
     /* Check results */
-    match = devArrMatchHost(h_out.data(),
-                            d_out.data(),
-                            params.n * params.n * params.batch_size,
-                            MLCommon::CompareApprox<T>(params.eps),
-                            handle.get_stream());
+    EXPECT_TRUE(devArrMatchHost(h_out.data(),
+                                d_out.data(),
+                                params.n * params.n * params.batch_size,
+                                MLCommon::CompareApprox<T>(params.eps),
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -833,8 +823,6 @@ class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityI
 
  protected:
   BlockCovStabilityInputs<T> params;
-
-  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockCovStabilityInputs<float>> cs_inputsf = {
@@ -850,16 +838,16 @@ const std::vector<BlockCovStabilityInputs<double>> cs_inputsd = {
 };
 
 typedef BlockCovStabilityTest<BlockPolicy<1, 1, 8, 4>, float> BlockCovStabilityTestF_1_1_8_4;
-TEST_P(BlockCovStabilityTestF_1_1_8_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockCovStabilityTestF_1_1_8_4, Result) {}
 
 typedef BlockCovStabilityTest<BlockPolicy<1, 1, 8, 4>, double> BlockCovStabilityTestD_1_1_8_4;
-TEST_P(BlockCovStabilityTestD_1_1_8_4, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockCovStabilityTestD_1_1_8_4, Result) {}
 
 typedef BlockCovStabilityTest<BlockPolicy<1, 4, 32, 8>, float> BlockCovStabilityTestF_1_4_32_8;
-TEST_P(BlockCovStabilityTestF_1_4_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockCovStabilityTestF_1_4_32_8, Result) {}
 
 typedef BlockCovStabilityTest<BlockPolicy<1, 4, 32, 8>, double> BlockCovStabilityTestD_1_4_32_8;
-TEST_P(BlockCovStabilityTestD_1_4_32_8, Result) { EXPECT_TRUE(match); }
+TEST_P(BlockCovStabilityTestD_1_4_32_8, Result) {}
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
                         BlockCovStabilityTestF_1_1_8_4,
