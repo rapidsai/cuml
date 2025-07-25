@@ -140,22 +140,30 @@ class BaseRandomForestModel(Base, InteropMixin):
     @classmethod
     def _params_from_cpu(cls, model):
         if model.oob_score:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`oob_score=True` is not supported")
 
         if model.warm_start:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
         if model.monotonic_cst is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`monotonic_cst={model.monotonic_cst!r} is not supported")
+
+        if model.ccp_alpha != 0:
+            raise UnsupportedOnGPU(f"`ccp_alpha={model.ccp_alpha}` is not supported")
+
+        if model.min_weight_fraction_leaf != 0:
+            raise UnsupportedOnGPU(
+                f"`min_weight_fraction_leaf={model.min_weight_fraction_leaf}` is not supported"
+            )
 
         if (split_criterion := _criterion_to_split_criterion.get(model.criterion)) is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`criterion={model.criterion!r}` is not supported")
 
         # We only forward some parameters, falling back to cuml defaults otherwise
         conditional_params = {}
 
         if isinstance(model.max_samples, int):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`int` values for `max_samples` are not supported")
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
@@ -181,7 +189,9 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     def _params_to_cpu(self):
         if (criterion := _split_criterion_to_criterion.get(self.split_criterion)) is None:
-            raise UnsupportedOnCPU
+            raise UnsupportedOnCPU(
+                f"`split_criterion={self.split_criterion!r}` is not supported"
+            )
 
         return {
             "n_estimators": self.n_estimators,

@@ -1,53 +1,5 @@
-cuml.accel: Zero Code Change Acceleration for Scikit-Learn, UMAP and HDBSCAN
-============================================================================
-
-Starting in RAPIDS 25.02.01, cuML offers a new way to accelerate existing code
-based on Scikit-Learn, UMAP-Learn, and HDBSCAN. Instead of rewriting that code
-to import equivalent cuML functionality, simply invoke your existing,
-unaltered Python script as follows, and cuML will accelerate as much of the
-code as possible with NVIDIA GPUs, falling back to CPU where necessary:
-
-.. code-block:: console
-
-    python -m cuml.accel unchanged_script.py
-
-The same functionality is available in Jupyter notebooks using the
-following magic at the beginning of the notebook (before other imports):
-
-.. code-block::
-
-   %load_ext cuml.accel
-   import sklearn
-
-You can see an example of this in
-`KMeans Digits Notebook <zero_code_change_examples/plot_kmeans_digits.ipynb>`_, where an unmodified
-Scikit-Learn example notebook is used to demonstrate how ``cuml.accel`` can be
-used in Jupyter.
-
-In any Python environment, the following code snippet can also be used to
-activate ``cuml.accel`` if it is run prior to importing the module you wish to
-accelerate:
-
-.. code-block:: python
-
-   from cuml.accel import install
-   install()
-   import sklearn
-
-**``cuml.accel`` is currently a beta feature and will continue to improve over
-time.**
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   zero-code-change-limitations.rst
-   zero-code-change-benchmarks.rst
-   zero_code_change_examples/plot_kmeans_digits.ipynb
-
-
-FAQs
-----
+FAQ
+---
 
 1. Why use cuml.accel instead of using cuML directly?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -237,3 +189,19 @@ sklearn/umap-learn/hdbscan counterpart.
 
 Note that the same serialized model may also be loaded with ``cuml.accel``
 active, in which case they'll be accelerated ``cuml.accel`` backed models.
+
+11. How can I tell which parts of my code are being accelerated and why some operations might not be?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``cuml.accel`` provides comprehensive logging that shows you exactly what's happening
+with your code. You can enable logging to see which operations are successfully
+accelerated on GPU and which fall back to CPU execution.
+
+**To enable logging:**
+
+* **CLI**: Use the ``-v`` flag for info level or ``-vv`` for debug level:
+  ``python -m cuml.accel -v myscript.py``
+* **Programmatic**: Use the ``cuml.accel.install()`` function with a log level:
+  ``install(log_level="info")``
+
+For detailed information about logging and troubleshooting, see
+:doc:`logging-and-profiling`.

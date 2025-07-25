@@ -16,39 +16,18 @@
 from __future__ import annotations
 
 import argparse
-import code
-import runpy
 import sys
 import warnings
 from textwrap import dedent
 
+import cuml.accel.runners as runners
 from cuml.accel.core import install
-from cuml.internals import logger
 
 
-def execute_source(source: str, filename: str = "<stdin>") -> None:
-    """Execute source the same way python's interpreter would.
-
-    source: str
-        The source code to execute.
-    filename: str, optional
-        The filename to execute it as. Defaults to `"<stdin>"`
-    """
-    try:
-        exec(compile(source, filename, "exec"))
-    except SystemExit:
-        raise
-    except BaseException:
-        typ, value, tb = sys.exc_info()
-        # Drop our frame from the traceback before formatting
-        sys.__excepthook__(
-            typ,
-            value.with_traceback(tb.tb_next),
-            tb.tb_next,
-        )
-        # Exit on error with the proper code
-        code = 130 if typ is KeyboardInterrupt else 1
-        sys.exit(code)
+def error(msg: str, exit_code: int = 1) -> None:
+    """Print an error message to stderr and exit."""
+    print(f"error: {msg}", file=sys.stderr)
+    sys.exit(exit_code)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -90,6 +69,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "Increase output verbosity (can be used multiple times, e.g. -vv). "
             "Default shows warnings only."
         ),
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Enable the profiler.",
+    )
+    parser.add_argument(
+        "--line-profile",
+        action="store_true",
+        help="Enable the line profiler.",
     )
     parser.add_argument(
         "--disable-uvm",
@@ -203,43 +192,43 @@ def main(argv: list[str] | None = None):
         cudf.pandas.install()
 
     # Parse verbose into log_level
-    default_logger_level_index = list(logger.level_enum).index(
-        logger.level_enum.warn
-    )
-    log_level = list(logger.level_enum)[
-        max(0, default_logger_level_index - ns.verbose)
-    ]
+    log_level = {0: "warn", 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
 
     # Enable acceleration
     install(disable_uvm=ns.disable_uvm, log_level=log_level)
 
     if ns.module is not None:
+        if ns.line_profile:
+            error("--line-profile is not supported with -m")
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
-        runpy.run_module(ns.module, run_name="__main__", alter_sys=True)
+        runners.run_module(ns.module, profile=ns.profile)
     elif ns.cmd is not None:
         # Execute a cmd
         sys.argv[:] = ["-c", *ns.args]
-        execute_source(ns.cmd, "<stdin>")
+        runners.run_source(
+            ns.cmd, profile=ns.profile, line_profile=ns.line_profile
+        )
     elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
-        runpy.run_path(ns.script, run_name="__main__")
+        runners.run_path(
+            ns.script, profile=ns.profile, line_profile=ns.line_profile
+        )
     else:
         sys.argv[:] = ["-", *ns.args]
         if sys.stdin.isatty():
-            # Start an interpreter as similar to `python` as possible
-            if sys.flags.quiet:
-                banner = ""
-            else:
-                banner = f"Python {sys.version} on {sys.platform}"
-                if not sys.flags.no_site:
-                    cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
-                    banner += "\n" + cprt
-            code.interact(banner=banner, exitmsg="")
+            if ns.line_profile:
+                error("--line-profile requires a script or cmd")
+            # Start an interpreter
+            runners.run_interpreter(profile=ns.profile)
         else:
             # Execute stdin
-            execute_source(sys.stdin.read(), "<stdin>")
+            runners.run_source(
+                sys.stdin.read(),
+                profile=ns.profile,
+                line_profile=ns.line_profile,
+            )
 
 
 if __name__ == "__main__":

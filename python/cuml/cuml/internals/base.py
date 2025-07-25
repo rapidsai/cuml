@@ -328,25 +328,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 setattr(self, key, value)
         return self
 
-    def __getstate__(self):
-        # getstate and setstate are needed to tell pickle to treat this
-        # as regular python classes instead of triggering __getattr__
-        return self.__dict__
-
-    def __setstate__(self, d):
-        self.__dict__.update(d)
-
-    def __getattr__(self, attr):
-        """
-        Redirects to `solver_model` if the attribute exists.
-        """
-        if attr == "solver_model":
-            return self.__dict__["solver_model"]
-        if "solver_model" in self.__dict__.keys():
-            return getattr(self.solver_model, attr)
-        else:
-            raise AttributeError(attr)
-
     def _set_base_attributes(
         self, output_type=None, target_dtype=None, n_features=None
     ):
@@ -395,7 +376,7 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
     def _set_output_mem_type(self, inp):
         self._input_mem_type = determine_array_memtype(inp)
 
-    def _get_output_type(self, inp):
+    def _get_output_type(self, inp=None):
         """
         Method to be called by predict/transform methods of inheriting classes.
         Returns the appropriate output type depending on the type of the input,
@@ -409,9 +390,14 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         if output_type is None or output_type == "mirror":
             output_type = self.output_type
 
-        # If we are input, get the type from the input
+        # If we are input, get the type from the input (if available)
         if output_type == "input":
-            output_type = determine_array_type(inp)
+            if inp is None:
+                # No input value provided, use the estimator input type
+                output_type = self._input_type
+            else:
+                # Determine the output from the input
+                output_type = determine_array_type(inp)
 
         return output_type
 

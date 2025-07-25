@@ -28,7 +28,12 @@ from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import (
     ClassifierMixin,
     FMajorInputTagMixin,
@@ -175,6 +180,8 @@ class LogisticRegression(
         The estimated coefficients for the logistic regression model.
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
+    n_iter_: array, shape (1,)
+        The number of iterations taken for the solvers to converge.
 
     Notes
     -----
@@ -209,6 +216,21 @@ class LogisticRegression(
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.warm_start:
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
+
+        if model.intercept_scaling != 1:
+            raise UnsupportedOnGPU(
+                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+            )
+
+        # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8
+        if getattr(model, "multi_class", "deprecated") not in (
+            "deprecated",
+            "auto",
+        ):
+            raise UnsupportedOnGPU("`multi_class` is not supported")
+
         return {
             "penalty": model.penalty,
             "tol": model.tol,
@@ -237,6 +259,7 @@ class LogisticRegression(
             "classes_": model.classes_,
             "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -245,6 +268,7 @@ class LogisticRegression(
             "classes_": self.classes_,
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -428,6 +452,8 @@ class LogisticRegression(
         self.solver_model.fit(
             X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
         )
+
+        self.n_iter_ = np.asarray([self.solver_model.num_iters])
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_enum.debug):
