@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import enum
+import os
 from typing import Literal
 
 from cuda.bindings import runtime
@@ -160,6 +161,9 @@ def install(
         `cuml.accel` accelerated for a given run.
     """
     logger.set_level(log_level)
+    # Set the environment variable if not already set so cuml.accel will
+    # be automatically enabled in subprocesses
+    os.environ.setdefault("CUML_ACCEL_ENABLED", "1")
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():

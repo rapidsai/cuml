@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import importlib
+import multiprocessing
 from inspect import Parameter, signature
 
 import pytest
@@ -40,6 +41,33 @@ def test_multiple_import_styles_work():
 
 def test_enabled():
     assert cuml.accel.enabled()
+
+
+@pytest.mark.parametrize("method", ["spawn", "fork"])
+def test_enabled_in_subprocesses(method):
+    ctx = multiprocessing.get_context(method)
+    with ctx.Pool(processes=1) as pool:
+        enabled = pool.apply(cuml.accel.enabled)
+    assert enabled
+
+
+def test_enabled_in_loky_executor():
+    try:
+        # Recent versions of joblib vendor loky
+        from joblib.externals import loky
+    except ImportError:
+        loky = pytest.importorskip("loky")
+
+    from sklearn.datasets import make_classification
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = make_classification()
+
+    with loky.get_reusable_executor(max_workers=1) as executor:
+        enabled = executor.submit(cuml.accel.enabled).result()
+        assert enabled
+        remote = executor.submit(LogisticRegression().fit, X, y).result()
+        assert cuml.accel.is_proxy(remote)
 
 
 def iter_proxy_class_methods():
