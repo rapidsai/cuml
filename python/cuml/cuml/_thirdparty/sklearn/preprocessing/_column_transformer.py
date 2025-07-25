@@ -291,6 +291,16 @@ def _list_indexing(X, key, key_dtype):
 
 def _transform_one(transformer, X, y, weight, **fit_params):
     res = transformer.transform(X)
+
+    if isinstance(res, cpu_np.ndarray):
+        res = np.asarray(res)
+    elif hasattr(res, 'to_output'):
+        res = res.to_output('cupy')
+    elif not isinstance(res, np.ndarray):
+        raise TypeError(
+            f"Transformer '{type(transformer).__name__}' returned an unsupported type: "
+            f"{type(res).__name__}"
+        )
     # if we have a weight for this transformer, multiply output
     if weight is None:
         return res
