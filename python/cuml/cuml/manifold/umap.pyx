@@ -273,13 +273,16 @@ class UMAP(Base,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle
+    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
+        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
+        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
+        `nnd_n_clusters > 1`.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
