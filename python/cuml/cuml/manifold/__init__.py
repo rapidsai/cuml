@@ -14,5 +14,9 @@
 # limitations under the License.
 #
 
+from cuml.manifold.spectral_embedding import (
+    SpectralEmbedding,
+    spectral_embedding,
+)
 from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
