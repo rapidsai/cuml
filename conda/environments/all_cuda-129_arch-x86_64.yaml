@@ -22,7 +22,7 @@ dependencies:
 - dask-cudf==25.10.*,>=0.0.0a0
 - dask-ml
 - doxygen=1.9.1
-- gcc_linux-64=13.*
+- gcc_linux-64=14.*
 - graphviz
 - hdbscan>=0.8.39,<0.8.40
 - hypothesis>=6.0,<7
