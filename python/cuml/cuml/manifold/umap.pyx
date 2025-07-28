@@ -273,7 +273,7 @@ class UMAP(Base,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle or pylibraft.common import DeviceResourcesSNMG
+    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
