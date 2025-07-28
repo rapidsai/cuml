@@ -21,7 +21,7 @@ function(find_and_configure_cuvs)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "${${rapids-cmake-checkout-tag}")
+    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "${rapids-cmake-checkout-tag}")
         message(STATUS "CUML: CUVS pinned tag found: ${PKG_PINNED_TAG}. Cloning cuvs locally.")
         set(CPM_DOWNLOAD_cuvs ON)
     elseif(PKG_USE_CUVS_STATIC AND (NOT CPM_cuvs_SOURCE))
