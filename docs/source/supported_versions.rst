@@ -6,7 +6,7 @@ Please see https://docs.rapids.ai/install/ for RAPIDS-wide version support.
 We aim to meet the `SPEC 0 guidelines <https://scientific-python.org/specs/spec-0000/>`_ for minimal supported versions.
 
 Required Runtime Dependencies
----------------------------
+-----------------------------
 
 The following dependencies are required for the cuML library:
 
@@ -19,7 +19,7 @@ The following dependencies are required for the cuML library:
 
 
 Optional Runtime Dependencies
----------------------------
+-----------------------------
 
 The following dependencies are optional and provide additional functionality:
 
@@ -29,6 +29,6 @@ The following dependencies are optional and provide additional functionality:
 * **pynndescent**: (for approximate nearest neighbor search)
 
 RAPIDS Dependencies
-------------------
+-------------------
 
 cuML dependencies within the RAPIDS ecosystem are pinned to the same version. For example, cuML 25.08 is compatible with and only with cuDF 25.08, cuVS 25.08, and other RAPIDS libraries at version 25.08.
