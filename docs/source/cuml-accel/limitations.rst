@@ -56,6 +56,9 @@ A few additional general notes:
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
 
+- Error and warning messages and formats may differ from scikit-learn. Some
+  errors might present as C++ stacktraces instead of python errors.
+
 For notes on each algorithm, please refer to its specific section on this file.
 
 
@@ -443,6 +446,42 @@ Additionally, the following fitted attributes are currently not computed:
 
 - ``n_iter_``
 
+LinearSVC
+^^^^^^^^^
+
+``LinearSVC`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
+- If ``multi_class`` is not ``"ovr"``.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+Additional notes:
+
+- Sample weight functionality may not produce equivalent results to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Models may not be picklable; pickling or unpickling may fail.
+- Multi-class models may have coefficient shape differences that cause pickling failures.
+
+LinearSVR
+^^^^^^^^^
+
+``LinearSVR`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+Additional notes:
+
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Models may not be picklable under certain conditions; pickling or unpickling may fail.
 
 umap
 ----
