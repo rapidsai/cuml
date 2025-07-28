@@ -22,6 +22,7 @@ from pathlib import Path
 import yaml
 from packaging.requirements import Requirement
 
+from cuml.accel._sklearn_patch import apply_sklearn_patches
 from cuml.accel.core import install
 
 
@@ -43,6 +44,10 @@ class UnmatchedXfailTests(UserWarning):
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
+
+    # Apply sklearn patches BEFORE installing cuml.accel to prevent duplicates
+    apply_sklearn_patches()
+
     try:
         install()
     except RuntimeError:
