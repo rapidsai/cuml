@@ -313,3 +313,18 @@ def test_column_transformer_index(clf_dataset):  # noqa: F811
 
     transformer = cuColumnTransformer(cu_transformers)
     transformer.fit_transform(X)
+
+
+def test_column_transform_correct_output_dtype():
+    df = pd.DataFrame({"Sex": ["male", "female", "male"]})
+    cdf = cudf.from_pandas(df)
+
+    transformer = cuColumnTransformer(
+        [
+            ("sex_encoder", cuOneHotEncoder(sparse_output=False), ["Sex"]),
+        ]
+    )
+
+    transformer.fit(cdf)
+
+    transformer.transform(df)
