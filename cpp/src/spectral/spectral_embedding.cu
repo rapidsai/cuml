@@ -44,12 +44,12 @@ void transform(raft::resources const& handle,
   cuvs::preprocessing::spectral_embedding::transform(handle, to_cuvs(config), dataset, embedding);
 }
 
-void transform_precomputed(raft::resources const& handle,
-                           ML::SpectralEmbedding::params config,
-                           raft::device_coo_matrix<float, int, int, int>& connectivity_graph,
-                           raft::device_matrix_view<float, int, raft::col_major> embedding)
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
+               raft::device_coo_matrix<float, int, int, int>& connectivity_graph,
+               raft::device_matrix_view<float, int, raft::col_major> embedding)
 {
-  cuvs::preprocessing::spectral_embedding::transform_precomputed(
+  cuvs::preprocessing::spectral_embedding::transform(
     handle, to_cuvs(config), connectivity_graph, embedding);
 }
 

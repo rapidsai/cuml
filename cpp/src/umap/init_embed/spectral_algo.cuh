@@ -62,23 +62,12 @@ void launcher(const raft::handle_t& handle,
   ASSERT(n > static_cast<nnz_t>(params->n_components),
          "Spectral layout requires n_samples > n_components");
 
-  std::cout << "SpectralInit: n=" << (int)n << ", d=" << d << ", coo->n_rows=" << coo->n_rows
-            << ", coo->n_cols=" << coo->n_cols << ", coo->nnz=" << (int)coo->nnz
-            << ", n_components=" << params->n_components << std::endl;
-
   auto connectivity_graph =
     raft::make_device_coo_matrix<float, int, int, int>(handle, n, n, coo->nnz);
 
   raft::copy(connectivity_graph.structure_view().get_rows().data(), coo->rows(), coo->nnz, stream);
   raft::copy(connectivity_graph.structure_view().get_cols().data(), coo->cols(), coo->nnz, stream);
   raft::copy(connectivity_graph.get_elements().data(), coo->vals(), coo->nnz, stream);
-
-  // raft::print_device_vector("connectivity_graph.elements",
-  // connectivity_graph.get_elements().data(), coo->nnz, std::cout);
-  // raft::print_device_vector("connectivity_graph.rows",
-  // connectivity_graph.structure_view().get_rows().data(), coo->nnz, std::cout);
-  // raft::print_device_vector("connectivity_graph.cols",
-  // connectivity_graph.structure_view().get_cols().data(), coo->nnz, std::cout);
 
   ML::SpectralEmbedding::params spectral_params;
   spectral_params.n_neighbors    = params->n_neighbors;
@@ -92,8 +81,7 @@ void launcher(const raft::handle_t& handle,
   auto tmp_embedding_view = raft::make_device_matrix_view<float, int, raft::col_major>(
     tmp_embedding.data_handle(), n, params->n_components);
 
-  ML::SpectralEmbedding::transform_precomputed(
-    handle, spectral_params, connectivity_graph, tmp_embedding_view);
+  ML::SpectralEmbedding::transform(handle, spectral_params, connectivity_graph, tmp_embedding_view);
 
   raft::linalg::transpose(
     handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
