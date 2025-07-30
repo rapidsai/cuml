@@ -46,7 +46,7 @@ void transform(raft::resources const& handle,
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
-               raft::device_coo_matrix<float, int, int, int>& connectivity_graph,
+               raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
                raft::device_matrix_view<float, int, raft::col_major> embedding)
 {
   cuvs::preprocessing::spectral_embedding::transform(
