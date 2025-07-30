@@ -16,12 +16,26 @@
 from functools import partial
 
 import pytest
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.naive_bayes import (
+    BernoulliNB,
+    CategoricalNB,
+    ComplementNB,
+    GaussianNB,
+    MultinomialNB,
+)
 from sklearn.utils import estimator_checks
 
 from cuml.cluster import DBSCAN, HDBSCAN, KMeans
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
-from cuml.linear_model import LinearRegression, LogisticRegression, Ridge
+from cuml.linear_model import (
+    ElasticNet,
+    Lasso,
+    LinearRegression,
+    LogisticRegression,
+    Ridge,
+)
 from cuml.manifold import TSNE, UMAP
 from cuml.neighbors import (
     KernelDensity,
@@ -506,6 +520,66 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_parameters_default_constructible": "UMAP parameters are mutated on init",
         "check_fit_check_is_fitted": "UMAP passes check_is_fitted before being fit",
     },
+    Lasso: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "Lasso sets attributes during init",
+        "check_dont_overwrite_parameters": "Lasso overwrites parameters during fit",
+        "check_estimators_unfitted": "Lasso does not raise NotFittedError before fit",
+        "check_do_not_raise_errors_in_init_or_set_params": "Lasso raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "Lasso does not check n_features_in consistency",
+        "check_sample_weights_not_an_array": "Lasso does not handle non-array sample weights",
+        "check_sample_weights_list": "Lasso does not handle list sample weights",
+        "check_complex_data": "Lasso does not handle complex data",
+        "check_dtype_object": "Lasso does not handle object dtype",
+        "check_estimators_empty_data_messages": "Lasso does not handle empty data",
+        "check_estimators_nan_inf": "Lasso does not check for NaN and inf",
+        "check_estimator_sparse_tag": "Lasso does not support sparse data",
+        "check_estimator_sparse_array": "Lasso does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "Lasso does not handle sparse matrices gracefully",
+        "check_regressors_train": "Lasso does not handle list inputs",
+        "check_regressors_train(readonly_memmap=True)": "Lasso does not handle readonly memmap",
+        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "Lasso does not handle readonly memmap with float32",
+        "check_regressor_data_not_an_array": "Lasso does not handle non-array data",
+        "check_supervised_y_2d": "Lasso does not handle 2D y",
+        "check_supervised_y_no_nan": "Lasso does not check for NaN in y",
+        "check_non_transformer_estimators_n_iter": "Lasso does not have n_iter_ attribute",
+        "check_parameters_default_constructible": "Lasso parameters are mutated on init",
+        "check_fit2d_1sample": "Lasso does not handle single sample",
+        "check_set_params": "Lasso does not handle set_params properly",
+        "check_fit1d": "Lasso does not raise ValueError for 1D input",
+        "check_fit2d_predict1d": "Lasso does not handle 1D prediction input gracefully",
+        "check_requires_y_none": "Lasso does not handle y=None",
+    },
+    ElasticNet: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "ElasticNet sets attributes during init",
+        "check_dont_overwrite_parameters": "ElasticNet overwrites parameters during fit",
+        "check_estimators_unfitted": "ElasticNet does not raise NotFittedError before fit",
+        "check_do_not_raise_errors_in_init_or_set_params": "ElasticNet raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "ElasticNet does not check n_features_in consistency",
+        "check_sample_weights_not_an_array": "ElasticNet does not handle non-array sample weights",
+        "check_sample_weights_list": "ElasticNet does not handle list sample weights",
+        "check_complex_data": "ElasticNet does not handle complex data",
+        "check_dtype_object": "ElasticNet does not handle object dtype",
+        "check_estimators_empty_data_messages": "ElasticNet does not handle empty data",
+        "check_estimators_nan_inf": "ElasticNet does not check for NaN and inf",
+        "check_estimator_sparse_tag": "ElasticNet does not support sparse data",
+        "check_estimator_sparse_array": "ElasticNet does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "ElasticNet does not handle sparse matrices gracefully",
+        "check_regressors_train": "ElasticNet does not handle list inputs",
+        "check_regressors_train(readonly_memmap=True)": "ElasticNet does not handle readonly memmap",
+        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "ElasticNet does not handle readonly memmap with float32",
+        "check_regressor_data_not_an_array": "ElasticNet does not handle non-array data",
+        "check_supervised_y_2d": "ElasticNet does not handle 2D y",
+        "check_supervised_y_no_nan": "ElasticNet does not check for NaN in y",
+        "check_non_transformer_estimators_n_iter": "ElasticNet does not have n_iter_ attribute",
+        "check_parameters_default_constructible": "ElasticNet parameters are mutated on init",
+        "check_fit2d_1sample": "ElasticNet does not handle single sample",
+        "check_set_params": "ElasticNet does not handle set_params properly",
+        "check_fit1d": "ElasticNet does not raise ValueError for 1D input",
+        "check_fit2d_predict1d": "ElasticNet does not handle 1D prediction input gracefully",
+        "check_requires_y_none": "ElasticNet does not handle y=None",
+    },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "KernelDensity sets attributes during init",
@@ -589,6 +663,12 @@ def _check_name(check):
 
 @estimator_checks.parametrize_with_checks(
     [
+        KernelRidge(),
+        GaussianNB(),
+        ComplementNB(),
+        CategoricalNB(),
+        BernoulliNB(),
+        MultinomialNB(),
         UMAP(),
         TSNE(),
         TruncatedSVD(),
@@ -603,6 +683,8 @@ def _check_name(check):
         KNeighborsClassifier(),
         KernelDensity(),
         Ridge(),
+        ElasticNet(),
+        Lasso(),
         LinearRegression(),
         RandomForestClassifier(),
         RandomForestRegressor(),
