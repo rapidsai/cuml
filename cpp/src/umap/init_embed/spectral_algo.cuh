@@ -16,24 +16,15 @@
 
 #pragma once
 
-#include <cuml/cluster/spectral.hpp>
 #include <cuml/manifold/spectral_embedding.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/linalg/add.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/random/rng.cuh>
 #include <raft/sparse/coo.hpp>
 
-#include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
-#include <thrust/extrema.h>
-
 #include <stdint.h>
-
-#include <iostream>
 
 namespace UMAPAlgo {
 
