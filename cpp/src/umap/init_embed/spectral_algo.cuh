@@ -20,7 +20,6 @@
 #include <cuml/manifold/spectral_embedding.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/core/copy.hpp>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -35,8 +34,6 @@
 #include <stdint.h>
 
 #include <iostream>
-#include <type_traits>
-#include <typeinfo>
 
 namespace UMAPAlgo {
 
