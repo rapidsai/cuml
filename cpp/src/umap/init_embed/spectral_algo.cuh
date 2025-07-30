@@ -17,8 +17,11 @@
 #pragma once
 
 #include <cuml/cluster/spectral.hpp>
+#include <cuml/manifold/spectral_embedding.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/core/copy.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/transpose.cuh>
@@ -32,6 +35,8 @@
 #include <stdint.h>
 
 #include <iostream>
+#include <type_traits>
+#include <typeinfo>
 
 namespace UMAPAlgo {
 
@@ -57,45 +62,41 @@ void launcher(const raft::handle_t& handle,
   ASSERT(n > static_cast<nnz_t>(params->n_components),
          "Spectral layout requires n_samples > n_components");
 
-  rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);
+  std::cout << "SpectralInit: n=" << (int)n << ", d=" << d << ", coo->n_rows=" << coo->n_rows
+            << ", coo->n_cols=" << coo->n_cols << ", coo->nnz=" << (int)coo->nnz
+            << ", n_components=" << params->n_components << std::endl;
 
-  uint64_t seed = params->random_state;
+  auto connectivity_graph =
+    raft::make_device_coo_matrix<float, int, int, int>(handle, n, n, coo->nnz);
 
-  Spectral::fit_embedding(handle,
-                          coo->rows(),
-                          coo->cols(),
-                          coo->vals(),
-                          coo->nnz,
-                          n,
-                          params->n_components,
-                          tmp_storage.data(),
-                          seed);
+  raft::copy(connectivity_graph.structure_view().get_rows().data(), coo->rows(), coo->nnz, stream);
+  raft::copy(connectivity_graph.structure_view().get_cols().data(), coo->cols(), coo->nnz, stream);
+  raft::copy(connectivity_graph.get_elements().data(), coo->vals(), coo->nnz, stream);
 
-  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n, params->n_components, stream);
+  // raft::print_device_vector("connectivity_graph.elements",
+  // connectivity_graph.get_elements().data(), coo->nnz, std::cout);
+  // raft::print_device_vector("connectivity_graph.rows",
+  // connectivity_graph.structure_view().get_rows().data(), coo->nnz, std::cout);
+  // raft::print_device_vector("connectivity_graph.cols",
+  // connectivity_graph.structure_view().get_cols().data(), coo->nnz, std::cout);
 
-  raft::linalg::unaryOp<T>(
-    tmp_storage.data(),
-    tmp_storage.data(),
-    n * params->n_components,
-    [=] __device__(T input) { return fabsf(input); },
-    stream);
+  ML::SpectralEmbedding::params spectral_params;
+  spectral_params.n_neighbors    = params->n_neighbors;
+  spectral_params.norm_laplacian = true;
+  spectral_params.drop_first     = true;
+  spectral_params.seed           = params->random_state;
+  spectral_params.n_components =
+    spectral_params.drop_first ? params->n_components + 1 : params->n_components;
 
-  thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data());
-  T max =
-    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * params->n_components)));
+  auto tmp_embedding      = raft::make_device_vector<float, int>(handle, n * params->n_components);
+  auto tmp_embedding_view = raft::make_device_matrix_view<float, int, raft::col_major>(
+    tmp_embedding.data_handle(), n, params->n_components);
 
-  // Reuse tmp_storage to add random noise
-  raft::random::Rng r(seed);
-  r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
+  ML::SpectralEmbedding::transform_precomputed(
+    handle, spectral_params, connectivity_graph, tmp_embedding_view);
 
-  raft::linalg::unaryOp<T>(
-    embedding,
-    embedding,
-    n * params->n_components,
-    [=] __device__(T input) { return (10.0f / max) * input; },
-    stream);
-
-  raft::linalg::add(embedding, embedding, tmp_storage.data(), n * params->n_components, stream);
+  raft::linalg::transpose(
+    handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
