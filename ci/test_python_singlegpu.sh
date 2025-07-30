@@ -16,7 +16,7 @@ rapids-logger "pytest cuml single GPU"
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
-  --cov-config=../../.coveragerc \
+  --cov-config=../.coveragerc \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
