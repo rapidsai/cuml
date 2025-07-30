@@ -6,3 +6,4 @@ User Guide
 
    estimator_intro.ipynb
    pickling_cuml_models.ipynb
+   supported_versions.rst
