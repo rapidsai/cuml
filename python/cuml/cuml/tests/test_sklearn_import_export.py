@@ -662,3 +662,43 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
     # Can refit on converted models
     cu_model2.fit(X, y)
     sk_model2.fit(X, y)
+
+
+def test_linear_svr(random_state):
+    X, y = make_regression(n_samples=100, random_state=random_state)
+    # For `dual=False`, scikit-learn only supports the squared epsilon-insensitive loss
+    original = cuml.LinearSVR(loss="squared_epsilon_insensitive")
+    assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.LinearSVR(loss="squared_epsilon_insensitive").fit(X, y)
+    sk_model = sklearn.svm.LinearSVR(
+        loss="squared_epsilon_insensitive", dual=False
+    ).fit(X, y)
+
+    sk_score = cu_model.as_sklearn().score(X, y)
+    assert sk_score > 0.7
+
+    cu_score = cuml.LinearSVR.from_sklearn(sk_model).score(X, y)
+    assert cu_score > 0.7
+
+
+def test_linear_svc(random_state):
+    X, y = make_classification(
+        n_samples=100, n_features=5, n_informative=3, random_state=random_state
+    )
+    original = cuml.LinearSVC()
+    assert_estimator_roundtrip(original, sklearn.svm.LinearSVC, X, y)
+
+    # Check inference works after conversion
+    cu_model = cuml.LinearSVC().fit(X, y)
+    sk_model = sklearn.svm.LinearSVC().fit(X, y)
+
+    cu_model2 = cuml.LinearSVC.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    cu_score = cu_model2.score(X, y)
+    assert cu_score > 0.7
+
+    sk_score = sk_model2.score(X, y)
+    assert sk_score > 0.7

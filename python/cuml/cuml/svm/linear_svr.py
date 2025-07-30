@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,6 +124,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVR.html>`_.
     """
 
+    _cpu_class_path = "sklearn.svm.LinearSVR"
     REGISTERED_LOSSES = set(
         ["epsilon_insensitive", "squared_epsilon_insensitive"]
     )
@@ -137,6 +138,21 @@ class LinearSVR(LinearSVM, RegressorMixin):
             kwargs["loss"] = "epsilon_insensitive"
 
         super().__init__(**kwargs)
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {
+            "loss": model.loss,
+            "epsilon": model.epsilon,
+            **super()._params_from_cpu(model),
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "loss": self.loss,
+            "epsilon": self.epsilon,
+            **super()._params_to_cpu(),
+        }
 
     @property
     def loss(self):
