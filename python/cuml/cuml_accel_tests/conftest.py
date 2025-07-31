@@ -12,5 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This conftest is only used by the integration tests, not by the upstream
+# tests. The upstream tests use the cuml.accel plugin explicitly.
+
+from cuml.accel import install
+
+# Install the accelerator
+install()
+
 # Ignore the upstream directory, those tests need to be invoked separately
 collect_ignore = ["upstream"]
