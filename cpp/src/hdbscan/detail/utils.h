@@ -136,11 +136,6 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
                     cluster_parents.end(),
                     cluster_parents.begin(),
                     [n_leaves] __device__(value_idx a) { return a - n_leaves; });
-  thrust::transform(thrust_policy,
-                    cluster_children.begin(),
-                    cluster_children.end(),
-                    cluster_children.begin(),
-                    [n_leaves] __device__(value_idx a) { return a - n_leaves; });
 
   return Common::CondensedHierarchy<value_idx, value_t>(handle,
                                                         condensed_tree.get_n_leaves(),
