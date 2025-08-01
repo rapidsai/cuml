@@ -290,7 +290,9 @@ def _list_indexing(X, key, key_dtype):
 
 
 def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X).to_output('cupy')
+    with cuml.using_output_type("cupy"):
+        res = transformer.transform(X)
+
     # if we have a weight for this transformer, multiply output
     if weight is None:
         return res
