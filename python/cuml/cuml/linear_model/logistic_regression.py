@@ -28,7 +28,12 @@ from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import (
     ClassifierMixin,
     FMajorInputTagMixin,
@@ -211,6 +216,21 @@ class LogisticRegression(
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.warm_start:
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
+
+        if model.intercept_scaling != 1:
+            raise UnsupportedOnGPU(
+                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+            )
+
+        # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8
+        if getattr(model, "multi_class", "deprecated") not in (
+            "deprecated",
+            "auto",
+        ):
+            raise UnsupportedOnGPU("`multi_class` is not supported")
+
         return {
             "penalty": model.penalty,
             "tol": model.tol,

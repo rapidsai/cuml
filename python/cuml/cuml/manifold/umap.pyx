@@ -273,13 +273,16 @@ class UMAP(Base,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle
+    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
+        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
+        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
+        `nnd_n_clusters > 1`.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -879,6 +882,10 @@ class UMAP(Base,
                 "using nn_descent as build_algo on a small dataset (< 150 samples) is unstable"
             )
 
+        if self.n_rows <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
+
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1097,6 +1104,10 @@ class UMAP(Base,
         if self.build_algo == "nn_descent" or self.build_algo == "auto":
             self.build_algo = "brute_force_knn"
             logger.info("Transform can only be run with brute force. Using brute force.")
+
+        if n_rows <= 300 and self._raw_data.shape[0] <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
 
         cdef UMAPParams* umap_params = (
             <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
