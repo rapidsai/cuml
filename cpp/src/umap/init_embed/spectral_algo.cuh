@@ -88,26 +88,26 @@ void launcher(const raft::handle_t& handle,
 
   uint64_t seed    = params->random_state;
   auto tmp_storage = tmp_embedding;
-  raft::linalg::unaryOp<float>(
+  raft::linalg::unaryOp<T>(
     tmp_storage.data_handle(),
     tmp_storage.data_handle(),
     n * params->n_components,
-    [=] __device__(float input) { return fabsf(input); },
+    [=] __device__(T input) { return fabsf(input); },
     stream);
 
-  thrust::device_ptr<float> d_ptr = thrust::device_pointer_cast(tmp_storage.data_handle());
-  float max =
+  thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data_handle());
+  T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * params->n_components)));
 
   // Reuse tmp_storage to add random noise
   raft::random::Rng r(seed);
   r.normal(tmp_storage.data_handle(), n * params->n_components, 0.0f, 0.0001f, stream);
 
-  raft::linalg::unaryOp<float>(
+  raft::linalg::unaryOp<T>(
     embedding,
     embedding,
     n * params->n_components,
-    [=] __device__(float input) { return (10.0f / max) * input; },
+    [=] __device__(T input) { return (10.0f / max) * input; },
     stream);
 
   raft::linalg::add(
