@@ -69,6 +69,7 @@ void launcher(const raft::handle_t& handle,
   spectral_params.n_components =
     spectral_params.drop_first ? params->n_components + 1 : params->n_components;
 
+  uint64_t seed           = params->random_state;
   auto tmp_embedding      = raft::make_device_vector<float, int>(handle, n * params->n_components);
   auto tmp_embedding_view = raft::make_device_matrix_view<float, int, raft::col_major>(
     tmp_embedding.data_handle(), n, params->n_components);
@@ -79,22 +80,20 @@ void launcher(const raft::handle_t& handle,
   raft::linalg::transpose(
     handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
 
-  uint64_t seed    = params->random_state;
-  auto tmp_storage = tmp_embedding;
   raft::linalg::unaryOp<T>(
-    tmp_storage.data_handle(),
-    tmp_storage.data_handle(),
+    tmp_embedding.data_handle(),
+    tmp_embedding.data_handle(),
     n * params->n_components,
     [=] __device__(T input) { return fabsf(input); },
     stream);
 
-  thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data_handle());
+  thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_embedding.data_handle());
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * params->n_components)));
 
   // Reuse tmp_storage to add random noise
   raft::random::Rng r(seed);
-  r.normal(tmp_storage.data_handle(), n * params->n_components, 0.0f, 0.0001f, stream);
+  r.normal(tmp_embedding.data_handle(), n * params->n_components, 0.0f, 0.0001f, stream);
 
   raft::linalg::unaryOp<T>(
     embedding,
@@ -104,7 +103,7 @@ void launcher(const raft::handle_t& handle,
     stream);
 
   raft::linalg::add(
-    embedding, embedding, tmp_storage.data_handle(), n * params->n_components, stream);
+    embedding, embedding, tmp_embedding.data_handle(), n * params->n_components, stream);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
