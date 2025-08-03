@@ -56,6 +56,9 @@ void launcher(const raft::handle_t& handle,
   ASSERT(n > static_cast<nnz_t>(params->n_components),
          "Spectral layout requires n_samples > n_components");
 
+  auto tmp_embedding =
+    raft::make_device_matrix<float, int, raft::col_major>(handle, n, params->n_components);
+
   auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int>(
     coo->vals(),
     raft::make_device_coordinate_structure_view<int, int, int>(
@@ -71,12 +74,8 @@ void launcher(const raft::handle_t& handle,
 
   uint64_t seed = params->random_state;
 
-  auto tmp_embedding      = raft::make_device_vector<float, int>(handle, n * params->n_components);
-  auto tmp_embedding_view = raft::make_device_matrix_view<float, int, raft::col_major>(
-    tmp_embedding.data_handle(), n, params->n_components);
-
   ML::SpectralEmbedding::transform(
-    handle, spectral_params, connectivity_graph_view, tmp_embedding_view);
+    handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
 
   raft::linalg::transpose(
     handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
