@@ -69,7 +69,8 @@ void launcher(const raft::handle_t& handle,
   spectral_params.n_components =
     spectral_params.drop_first ? params->n_components + 1 : params->n_components;
 
-  uint64_t seed           = params->random_state;
+  uint64_t seed = params->random_state;
+
   auto tmp_embedding      = raft::make_device_vector<float, int>(handle, n * params->n_components);
   auto tmp_embedding_view = raft::make_device_matrix_view<float, int, raft::col_major>(
     tmp_embedding.data_handle(), n, params->n_components);
