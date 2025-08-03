@@ -61,13 +61,6 @@ void launcher(const raft::handle_t& handle,
     raft::make_device_coordinate_structure_view<int, int, int>(
       coo->rows(), coo->cols(), n, n, coo->nnz));
 
-  // raft::print_device_vector("connectivity_graph.elements",
-  // connectivity_graph_view.get_elements().data(), coo->nnz, std::cout);
-  // raft::print_device_vector("connectivity_graph.rows",
-  // connectivity_graph_view.structure_view().get_rows().data(), coo->nnz, std::cout);
-  // raft::print_device_vector("connectivity_graph.cols",
-  // connectivity_graph_view.structure_view().get_cols().data(), coo->nnz, std::cout);
-
   ML::SpectralEmbedding::params spectral_params;
   spectral_params.n_neighbors    = params->n_neighbors;
   spectral_params.norm_laplacian = true;
