@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ void cdFit(const raft::handle_t& handle,
 
   if (sample_weight != nullptr) {
     rmm::device_scalar<math_t> sum_sw(stream);
-    raft::stats::sum(sum_sw.data(), sample_weight, 1, n_rows, true, stream);
+    raft::stats::sum<true>(sum_sw.data(), sample_weight, 1, n_rows, stream);
     raft::update_host(&h_sum_sw, sum_sw.data(), 1, stream);
 
     raft::linalg::multiplyScalar(
@@ -197,8 +197,8 @@ void cdFit(const raft::handle_t& handle,
   }
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryMult<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -222,8 +222,8 @@ void cdFit(const raft::handle_t& handle,
     math_t scalar = math_t(n_rows) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
-    raft::linalg::colNorm(
-      squared.data(), input, n_cols, n_rows, raft::linalg::L2Norm, false, stream);
+    raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
+      squared.data(), input, n_cols, n_rows, stream);
     raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
   }
 
@@ -289,8 +289,8 @@ void cdFit(const raft::handle_t& handle,
   }
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,

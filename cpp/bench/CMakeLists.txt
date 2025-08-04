@@ -33,7 +33,6 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
-    sg/filex.cu
   )
   if (CUML_ENABLE_GPU)
     target_compile_definitions(${CUML_CPP_BENCH_TARGET} PUBLIC CUML_ENABLE_GPU)
@@ -49,6 +48,7 @@ if(BUILD_CUML_BENCH)
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       ${TREELITE_LIBS}
+      ${CUVS_LIB}
       raft::raft
   )
 

@@ -290,8 +290,8 @@ void predictLinear(const raft::handle_t& handle,
                         stream);
 
   if (fitIntercept)
-    raft::linalg::matrixVectorOp(
-      out, out, w + nCols * coefCols, coefCols, nRows, true, true, cuda::std::plus{}, stream);
+    raft::linalg::matrixVectorOp<true, true>(
+      out, out, w + nCols * coefCols, coefCols, nRows, cuda::std::plus{}, stream);
 }
 
 /** A helper struct for selecting handle/stream depending on whether omp parallel is active. */
@@ -581,15 +581,13 @@ void LinearSVMModel<T>::predictProba(const raft::handle_t& handle,
   predictLinear(handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, out, stream);
 
   // probability calibration
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, true>(
     temp.data(),
     out,
     model.probScale,
     model.probScale + coefCols,
     coefCols,
     nRows,
-    true,
-    true,
     [] __device__(const T x, const T a, const T b) { return a * x + b; },
     stream);
 

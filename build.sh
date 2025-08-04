@@ -16,7 +16,7 @@ ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
 # script, and that this script resides in the repo dir!
-REPODIR=$(cd "$(dirname $0)"; pwd)
+REPODIR=$(cd "$(dirname "$0")"; pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only --build-metrics --incl-cache-stats -h --help "
@@ -47,7 +47,6 @@ HELP="$0 [<target> ...] [<flag> ...]
                         and profiling enabled (WARNING: Impacts performance)
    --ccache           - Use ccache to cache previous compilations
    --configure-only   - Invoke CMake without actually building
-   --nocloneraft      - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-treelite  - Force CMake to use the Treelite static libs, cloning and building them if necessary
    --build-metrics    - filename for generating build metrics report for libcuml
    --incl-cache-stats - include cache statistics in build metrics report
@@ -67,17 +66,14 @@ PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
-VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
-CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
 CCACHE=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
-BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_TREELITE=OFF
@@ -87,7 +83,7 @@ BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 # Set defaults for vars that may not have been defined externally
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBCUML_BUILD_DIR/install}}}
-PARALLEL_LEVEL=${PARALLEL_LEVEL:=`nproc`}
+PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
 
 # Default to Ninja if generator is not specified
 export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
@@ -97,6 +93,12 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 # CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
 # Will disable building the C library even though it is hard coded to ON
 CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
+
+read -ra CUML_EXTRA_CMAKE_ARGS <<< "$CUML_EXTRA_CMAKE_ARGS"
+
+CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
+
+read -ra CUML_EXTRA_PYTHON_ARGS <<< "$CUML_EXTRA_PYTHON_ARGS"
 
 function hasArg {
     (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -147,7 +149,6 @@ LONG_ARGUMENT_LIST=(
     "codecov"
     "ccache"
     "nolibcumltest"
-    "nocloneraft"
     "configure-only"
     "build-metrics"
     "incl-cache-stats"
@@ -168,6 +169,7 @@ opts=$(getopt \
     -- "$@"
 )
 
+# shellcheck disable=SC2181
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
 eval set -- "$opts"
@@ -192,7 +194,7 @@ while true; do
             BUILD_ALL_GPU_ARCH=1
             ;;
         --singlegpu )
-            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
+            CUML_EXTRA_PYTHON_ARGS+=("--singlegpu")
             SINGLEGPU_CPP_FLAG=ON
             ;;
         --nvtx )
@@ -202,16 +204,13 @@ while true; do
             BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
             ;;
         --codecov )
-            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
+            CUML_EXTRA_PYTHON_ARGS+=("--linetrace=1" "--profile")
             ;;
         --ccache )
             CCACHE=ON
             ;;
         --nolibcumltest )
             BUILD_CUML_TESTS=OFF
-            ;;
-        --nocloneraft )
-            DISABLE_FORCE_CLONE_RAFT=ON
             ;;
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
@@ -231,33 +230,33 @@ while true; do
 done
 
 # If clean given, run it prior to any other steps
-if (( ${CLEAN} == 1 )); then
+if (( CLEAN == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
     # contents should be removed but the mounted dirs will remain.
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-        if [ -d ${bd} ]; then
-            find ${bd} -mindepth 1 -delete
-            rmdir ${bd} || true
+        if [ -d "${bd}" ]; then
+            find "${bd}" -mindepth 1 -delete
+            rmdir "${bd}" || true
         fi
     done
 
     # Clean up python artifacts
-    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild)$"  | xargs rm -rf
+    find "${REPODIR}"/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild)$"  | xargs rm -rf
 
     # Remove Doxyfile
-    rm -rf ${REPODIR}/cpp/Doxyfile
+    rm -rf "${REPODIR}"/cpp/Doxyfile
 
     # Remove .benchmark dirs and .pytest_cache
-    find ${REPODIR}/ | grep -E "(\.pytest_cache|\.benchmarks)$"  | xargs rm -rf
+    find "${REPODIR}"/ | grep -E "(\.pytest_cache|\.benchmarks)$"  | xargs rm -rf
 fi
 
 
 ################################################################################
 # Configure for building all C++ targets
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
-    if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
+    if (( BUILD_ALL_GPU_ARCH == 0 )); then
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
@@ -265,10 +264,10 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p ${LIBCUML_BUILD_DIR}
-    cd ${LIBCUML_BUILD_DIR}
+    mkdir -p "${LIBCUML_BUILD_DIR}"
+    cd "${LIBCUML_BUILD_DIR}"
 
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+    cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
@@ -281,9 +280,9 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
-          -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
+          -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}" \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          ${CUML_EXTRA_CMAKE_ARGS} \
+          "${CUML_EXTRA_CMAKE_ARGS[@]}" \
           ..
 fi
 
@@ -291,15 +290,15 @@ fi
 if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
     # get the current count before the compile starts
     CACHE_TOOL=${CACHE_TOOL:-sccache}
-    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v "${CACHE_TOOL}")" ]]; then
         "${CACHE_TOOL}" --zero-stats
     fi
 
-    cd ${LIBCUML_BUILD_DIR}
+    cd "${LIBCUML_BUILD_DIR}"
     if [ -n "${INSTALL_TARGET}" ]; then
-      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+      cmake --build "${LIBCUML_BUILD_DIR}" -j"${PARALLEL_LEVEL}" --target ${INSTALL_TARGET} "${VERBOSE_FLAG}"
     else
-      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
+      cmake --build "${LIBCUML_BUILD_DIR}" -j"${PARALLEL_LEVEL}" "${VERBOSE_FLAG}"
     fi
 
     if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBCUML_BUILD_DIR}/.ninja_log" ]]; then
@@ -319,7 +318,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
               MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
           elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
               CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
-              if [[ ! -z "$CACHE_STATS_LINE" ]]; then
+              if [[ -n "$CACHE_STATS_LINE" ]]; then
                   CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
                   COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
                   HIT_RATE=$(COMPILE_REQUESTS="${COMPILE_REQUESTS}" CACHE_HITS="${CACHE_HITS}" python3 -c "import os; print(f'{int(os.getenv(\"CACHE_HITS\")) / int(os.getenv(\"COMPILE_REQUESTS\")):.2f}' if int(os.getenv(\"COMPILE_REQUESTS\")) else 'nan')")
@@ -328,9 +327,8 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
           fi
         fi
         MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
-        MSG="${MSG}<br/>parallel build time: $compile_total seconds"
         if [[ -f "${LIBCUML_BUILD_DIR}/libcuml++.so" ]]; then
-            LIBCUML_FS=$(ls -lh ${LIBCUML_BUILD_DIR}/libcuml++.so | awk '{print $5}')
+            LIBCUML_FS=$(find "${LIBCUML_BUILD_DIR}" -name libcuml++.so -printf '%s'| awk '{printf "%.2f MB", $1/1024/1024}')
             MSG="${MSG}<br/>libcuml++.so size: $LIBCUML_FS"
         fi
         BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
@@ -338,30 +336,30 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
         echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/cuml/, and"
         echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
         echo "Metrics output dir: [$BMR_DIR]"
-        mkdir -p ${BMR_DIR}
+        mkdir -p "${BMR_DIR}"
         MSG_OUTFILE="$(mktemp)"
         echo "$MSG" > "${MSG_OUTFILE}"
-        PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBCUML_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
-        cp ${LIBCUML_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
+        PATH=".:$PATH" python rapids-build-metrics-reporter.py "${LIBCUML_BUILD_DIR}"/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > "${BMR_DIR}"/ninja_log.html
+        cp "${LIBCUML_BUILD_DIR}"/.ninja_log "${BMR_DIR}"/ninja.log
       fi
 fi
 
 if (! hasArg --configure-only) && hasArg cppdocs; then
-    cd ${LIBCUML_BUILD_DIR}
-    cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
+    cd "${LIBCUML_BUILD_DIR}"
+    cmake --build "${LIBCUML_BUILD_DIR}" --target docs_cuml
 fi
 
 
 # Build and (optionally) install the cuml Python package
 if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
     # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
-    SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+    SKBUILD_EXTRA_CMAKE_ARGS=${SKBUILD_EXTRA_CMAKE_ARGS// /;}
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true "${REPODIR}"/python/cuml
 
     if hasArg pydocs; then
-        cd ${REPODIR}/docs
+        cd "${REPODIR}"/docs
         make html
     fi
 fi

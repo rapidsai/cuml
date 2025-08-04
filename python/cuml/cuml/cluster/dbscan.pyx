@@ -23,7 +23,7 @@ from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -199,8 +199,9 @@ class DBSCAN(Base,
         :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
-        The the attribute `core_sample_indices_` will not be used, setting this
-        to False will avoid unnecessary kernel launches
+        If True (the default), ``core_sample_indices_`` and ``components_`` will
+        be computed and stored as fitted attributes. Set to False to avoid
+        computing these attributes, removing a small amount of overhead.
 
     Attributes
     ----------
@@ -210,7 +211,10 @@ class DBSCAN(Base,
         output_type.
     core_sample_indices_ : array-like or cuDF series
         The indices of the core samples. Only calculated if
-        calc_core_sample_indices==True
+        ``calc_core_sample_indices=True``.
+    components_ : array-like or cuDF series
+        Copy of each core sample found by training. Only calculated if
+        ``calc_core_sample_indices=True``.
 
     Notes
     -----
@@ -232,6 +236,7 @@ class DBSCAN(Base,
     """
 
     core_sample_indices_ = CumlArrayDescriptor(order="C")
+    components_ = CumlArrayDescriptor(order="C")
     labels_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.cluster.DBSCAN"
@@ -250,13 +255,11 @@ class DBSCAN(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if callable(model.metric):
-            raise UnsupportedOnGPU
-        elif model.metric not in _SUPPORTED_METRICS:
-            raise UnsupportedOnGPU
+        if callable(model.metric) or model.metric not in _SUPPORTED_METRICS:
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if model.algorithm not in ("auto", "brute"):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`algorithm={model.algorithm!r}` is not supported")
 
         return {
             "eps": model.eps,
@@ -276,6 +279,7 @@ class DBSCAN(Base,
     def _attrs_from_cpu(self, model):
         return {
             "core_sample_indices_": to_gpu(model.core_sample_indices_, order="C"),
+            "components_": to_gpu(model.components_, order="C"),
             "labels_": to_gpu(model.labels_, order="C"),
             **super()._attrs_from_cpu(model),
         }
@@ -283,6 +287,7 @@ class DBSCAN(Base,
     def _attrs_to_cpu(self, model):
         return {
             "core_sample_indices_": to_cpu(self.core_sample_indices_, order="C"),
+            "components_": to_cpu(self.components_, order="C"),
             "labels_": to_cpu(self.labels_, order="C"),
             **super()._attrs_to_cpu(model),
         }
@@ -306,12 +311,6 @@ class DBSCAN(Base,
         self.calc_core_sample_indices = calc_core_sample_indices
         self.metric = metric
         self.algorithm = algorithm
-
-        # internal array attributes
-        self.labels_ = None
-
-        # One used when `self.calc_core_sample_indices == True`
-        self.core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -380,8 +379,7 @@ class DBSCAN(Base,
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
-            self.core_sample_indices_ = \
-                CumlArray.empty(n_rows, dtype=out_dtype)
+            self.core_sample_indices_ = CumlArray.empty(n_rows, dtype=out_dtype)
             core_sample_indices_ptr = self.core_sample_indices_.ptr
 
         if self.dtype == np.float32:
@@ -451,7 +449,6 @@ class DBSCAN(Base,
         # make sure that the `fit` is complete before the following
         # delete call happens
         self.handle.sync()
-        del X_m
 
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:
@@ -461,20 +458,29 @@ class DBSCAN(Base,
                 # increasing, so the min index should be the first returned -1
                 min_index = cp.argmin(self.core_sample_indices_).item()
                 # Check for the case where there are no -1's
-                if ((min_index == 0 and
-                        self.core_sample_indices_[min_index].item() != -1)):
+                if ((min_index == 0 and self.core_sample_indices_[min_index].item() != -1)):
                     # Nothing to delete. The array has no -1's
                     pass
                 else:
-                    self.core_sample_indices_ = \
-                        self.core_sample_indices_[:min_index]
+                    self.core_sample_indices_ = self.core_sample_indices_[:min_index]
+
+                self.components_ = X_m.to_output("cupy")[self.core_sample_indices_]
+        else:
+            self.core_sample_indices_ = None
+            self.components_ = None
 
         return self
 
     @generate_docstring(skip_parameters_heading=True)
-    @deprecate_non_keyword_only("out_dtype", "convert_dtype")
-    def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
-            convert_dtype=True) -> "DBSCAN":
+    def fit(
+        self,
+        X,
+        y=None,
+        sample_weight=None,
+        *,
+        out_dtype="int32",
+        convert_dtype=True
+    ) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -497,8 +503,7 @@ class DBSCAN(Base,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    @deprecate_non_keyword_only("out_dtype")
-    def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 

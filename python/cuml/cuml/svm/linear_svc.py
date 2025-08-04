@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import numpy as np
+
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -143,6 +145,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html>`_.
     """
 
+    _cpu_class_path = "sklearn.svm.LinearSVC"
     REGISTERED_LOSSES = set(["hinge", "squared_hinge"])
 
     def __init__(self, **kwargs):
@@ -160,6 +163,44 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             kwargs["multi_class"] = kwargs.pop("multiclass_strategy", "ovr")
 
         super().__init__(**kwargs)
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.multi_class != "ovr":
+            raise UnsupportedOnGPU(
+                f"`multi_class={model.multi_class}` is not supported"
+            )
+
+        params = {
+            "loss": model.loss,
+            "multi_class": model.multi_class,
+            "class_weight": model.class_weight,
+            "penalty": model.penalty,
+            **super()._params_from_cpu(model),
+        }
+
+        return params
+
+    def _params_to_cpu(self):
+        return {
+            "loss": self.loss,
+            "multi_class": self.multi_class,
+            "class_weight": self.class_weight,
+            "penalty": self.penalty,
+            **super()._params_to_cpu(),
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "classes_": to_gpu(model.classes_, order="F", dtype=np.float64),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "classes_": to_cpu(self.classes_, order="C"),
+            **super()._attrs_to_cpu(model),
+        }
 
     @property
     def loss(self):
@@ -197,9 +238,28 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             }.union(super()._get_param_names())
         )
 
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
-        X = input_to_cuml_array(X, order="F").array
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "LinearSVM":
+        X, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+            order="F",
+        )
+
+        convert_to_dtype = self.dtype if convert_dtype else None
+        y = input_to_cuml_array(
+            y,
+            check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype,
+            check_rows=n_rows,
+            check_cols=1,
+        ).array
+
+        if X.size == 0 or y.size == 0:
+            raise ValueError("empty data")
+
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,
@@ -213,8 +273,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             X, y, sample_weight, convert_dtype=convert_dtype
         )
 
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         y_pred = super().predict(X, convert_dtype=convert_dtype)
         # Cast to int64 to match expected classifier interface
         return y_pred.to_output("cupy", output_dtype="int64")

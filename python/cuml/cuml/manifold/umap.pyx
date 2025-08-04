@@ -18,10 +18,16 @@
 
 import warnings
 
+_DATA_ON_HOST_DEPRECATED_MESSAGE = (
+    "The data_on_host option is deprecated and will be removed in release 25.10. "
+    "Whether data is on host or device is now determined by the build_algo."
+)
+
 import cupy
-import cupyx
+import cupyx.scipy.sparse
 import joblib
 import numpy as np
+import scipy.sparse
 
 import cuml.accel
 import cuml.internals
@@ -30,14 +36,16 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals import logger
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
@@ -109,7 +117,20 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                           float *transformed) except +
 
 
-class UMAP(UniversalBase,
+def _joblib_hash(X):
+    """A thin shim around joblib.hash"""
+    if scipy.sparse.issparse(X):
+        # XXX: joblib.hash doesn't special case sparse inputs, meaning that
+        # it's sensitive to what should be irrelevant internal state. For now
+        # we trigger a cached attribute to ensure state is always fully filled
+        # in so hashing is consistent. This is a relatively cheap operation and
+        # has no measurable impact on performance.
+        X.has_sorted_indices
+    return joblib.hash(X)
+
+
+class UMAP(Base,
+           InteropMixin,
            CMajorInputTagMixin,
            SparseInputTagMixin):
     """
@@ -252,13 +273,16 @@ class UMAP(UniversalBase,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle
+    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
+        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
+        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
+        `nnd_n_clusters > 1`.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -278,17 +302,17 @@ class UMAP(UniversalBase,
         - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent.
           Must be ≥ `n_neighbors`.
 
-        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for NN Descent.
-          Must be > `nnd_graph_degree`.
+        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for
+          NN Descent. Must be > `nnd_graph_degree`.
 
         - `nnd_max_iterations` (int, default=20): Max NN Descent iterations.
 
-        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to better convergence
-          but longer runtime.
+        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to
+          better convergence but longer runtime.
 
         - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`, data must be on host memory.
-          Refer to data_on_host argument for fit_transform function.
+          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`,
+          UMAP can process data larger than device memory.
 
         - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
           Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
@@ -298,17 +322,21 @@ class UMAP(UniversalBase,
         - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
 
         - The ratio `nnd_overlap_factor / nnd_n_clusters` impacts memory usage.
-          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data` rows
-          will be loaded onto device memory at once.  E.g., 2/20 uses less device memory than 2/10.
+          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data`
+          rows will be loaded onto device memory at once.  E.g., 2/20 uses less device
+          memory than 2/10.
 
         - Larger `nnd_overlap_factor` results in better accuracy of the final knn graph.
-          E.g. While using similar amount of device memory, `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
+          E.g. While using similar amount of device memory,
+          `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
           than 2/10 at the cost of performance.
 
-        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...) for better accuracy.
+        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...)
+          for better accuracy.
 
-        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU memory usage.
-          This is independent from nnd_overlap_factor as long as 'nnd_overlap_factor' < 'nnd_n_clusters'.
+        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
+          memory usage. This is independent from nnd_overlap_factor as long as
+          'nnd_overlap_factor' < 'nnd_n_clusters'.
 
     Notes
     -----
@@ -336,33 +364,185 @@ class UMAP(UniversalBase,
        <https://arxiv.org/abs/2008.00325>`_
     """
 
-    _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
 
-    _hyperparam_interop_translator = {
-        "metric": {
-            "sokalsneath": "NotImplemented",
-            "rogerstanimoto": "NotImplemented",
-            "sokalmichener": "NotImplemented",
-            "yule": "NotImplemented",
-            "ll_dirichlet": "NotImplemented",
-            "russellrao": "NotImplemented",
-            "kulsinski": "NotImplemented",
-            "dice": "NotImplemented",
-            "wminkowski": "NotImplemented",
-            "mahalanobis": "NotImplemented",
-            "haversine": "NotImplemented",
-        },
-        "init": {
-            "pca": "NotImplemented",
-            "tswspectral": "NotImplemented"
-        },
-        "target_metric": {
-            "l2": "euclidean"
-        }
-    }
+    _cpu_class_path = "umap.UMAP"
 
-    @device_interop_preparation
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_neighbors",
+            "n_components",
+            "n_epochs",
+            "learning_rate",
+            "min_dist",
+            "spread",
+            "set_op_mix_ratio",
+            "local_connectivity",
+            "repulsion_strength",
+            "negative_sample_rate",
+            "transform_queue_size",
+            "init",
+            "a",
+            "b",
+            "target_n_neighbors",
+            "target_weight",
+            "target_metric",
+            "hash_input",
+            "random_state",
+            "callback",
+            "metric",
+            "metric_kwds",
+            "precomputed_knn",
+            "build_algo",
+            "build_kwds"
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if not (isinstance(model.init, str) and model.init in ("spectral", "random")):
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
+
+        try:
+            coerce_metric(model.metric)
+        except (ValueError, TypeError, NotImplementedError):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
+
+        if model.target_metric not in ("categorical", "l2", "euclidean"):
+            raise UnsupportedOnGPU(f"`target_metric={model.target_metric!r}` is not supported")
+
+        if model.unique:
+            raise UnsupportedOnGPU("`unique=True` is not supported")
+
+        if model.densmap:
+            raise UnsupportedOnGPU("`densmap=True` is not supported")
+
+        precomputed_knn = model.precomputed_knn[:2]
+        if all(item is None for item in precomputed_knn):
+            precomputed_knn = None
+
+        return {
+            "n_neighbors": model.n_neighbors,
+            "n_components": model.n_components,
+            "metric": model.metric,
+            "metric_kwds": model.metric_kwds,
+            "n_epochs": model.n_epochs,
+            "learning_rate": model.learning_rate,
+            "min_dist": model.min_dist,
+            "spread": model.spread,
+            "set_op_mix_ratio": model.set_op_mix_ratio,
+            "local_connectivity": model.local_connectivity,
+            "repulsion_strength": model.repulsion_strength,
+            "negative_sample_rate": model.negative_sample_rate,
+            "transform_queue_size": model.transform_queue_size,
+            "init": model.init,
+            "a": model.a,
+            "b": model.b,
+            "target_n_neighbors": model.target_n_neighbors,
+            "target_weight": model.target_weight,
+            "target_metric": model.target_metric,
+            "hash_input": True,
+            "random_state": model.random_state,
+            "precomputed_knn": precomputed_knn,
+        }
+
+    def _params_to_cpu(self):
+        if (precomputed_knn := self.precomputed_knn) is None:
+            precomputed_knn = (None, None, None)
+
+        return {
+            "n_neighbors": self.n_neighbors,
+            "n_components": self.n_components,
+            "metric": self.metric,
+            "metric_kwds": self.metric_kwds,
+            "n_epochs": self.n_epochs,
+            "learning_rate": self.learning_rate,
+            "min_dist": self.min_dist,
+            "spread": self.spread,
+            "set_op_mix_ratio": self.set_op_mix_ratio,
+            "local_connectivity": self.local_connectivity,
+            "repulsion_strength": self.repulsion_strength,
+            "negative_sample_rate": self.negative_sample_rate,
+            "transform_queue_size": self.transform_queue_size,
+            "init": self.init,
+            "a": self.a,
+            "b": self.b,
+            "target_n_neighbors": self.target_n_neighbors,
+            "target_weight": self.target_weight,
+            "target_metric": self.target_metric,
+            "random_state": self.random_state,
+            "precomputed_knn": precomputed_knn,
+        }
+
+    def _attrs_from_cpu(self, model):
+        if scipy.sparse.issparse(model._raw_data):
+            raw_data = SparseCumlArray(
+                model._raw_data,
+                convert_to_dtype=cupy.float32,
+                convert_format=True
+            )
+        else:
+            raw_data = to_gpu(model._raw_data)
+
+        return {
+            "embedding_": to_gpu(model.embedding_, order="C"),
+            "graph_": cupyx.scipy.sparse.coo_matrix(model.graph_),
+            "_raw_data": raw_data,
+            "_input_hash": model._input_hash,
+            "sparse_fit": model._sparse_data,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        from umap.umap_ import DISCONNECTION_DISTANCES
+
+        disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+
+        raw_data = self._raw_data.to_output("numpy")
+
+        if (input_hash := getattr(self, "_input_hash", None)) is None:
+            input_hash = _joblib_hash(raw_data)
+
+        if (knn_dists := getattr(self, "_knn_dists", None)) is not None:
+            knn_dists = to_cpu(knn_dists)
+
+        if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
+            knn_indices = to_cpu(knn_indices)
+
+        return {
+            "embedding_": to_cpu(self.embedding_),
+            "graph_": self.graph_.get().tocsr(),
+            "graph_dists_": None,
+            "_raw_data": raw_data,
+            "_input_hash": input_hash,
+            "_sparse_data": self.sparse_fit,
+            "_a": self.a,
+            "_b": self.b,
+            "_disconnection_distance": disconnection_distance,
+            "_initial_alpha": self.learning_rate,
+            "_n_neighbors": self.n_neighbors,
+            "_supervised": self._supervised,
+            "_small_data": False,
+            "_knn_dists": knn_dists,
+            "_knn_indices": knn_indices,
+            # XXX: umap.UMAP requires _knn_search_index to transform on new data.
+            # This is an instance of pynndescent.NNDescent, which can _currently_
+            # only be recreated by rerunning the nndescent algorithm, effectively
+            # repeating any work already done on GPU. Instead, we opt to set
+            # _knn_search_index to None (which is allowed). In this case
+            # calling umap.UMAP.transform on _new_ data will result in
+            # a nicer NotImplementedError being raised informing the user
+            # that that's not supported on the instance.
+            "_knn_search_index": None,
+            **super()._attrs_to_cpu(model),
+        }
+
+    def _sync_attrs_to_cpu(self, model):
+        super()._sync_attrs_to_cpu(model)
+        # _validate_parameters constructs the rest of umap.UMAP's internal state
+        model._validate_parameters()
+
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
@@ -407,7 +587,7 @@ class UMAP(UniversalBase,
 
         if init == "spectral" or init == "random":
             self.init = init
-        elif not cuml.accel.enabled():
+        else:
             raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
@@ -431,9 +611,9 @@ class UMAP(UniversalBase,
 
         self.random_state = random_state
 
-        if target_metric == "euclidean" or target_metric == "categorical":
+        if target_metric in {"euclidean", "l2", "categorical"}:
             self.target_metric = target_metric
-        elif not cuml.accel.enabled():
+        else:
             raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
@@ -443,24 +623,31 @@ class UMAP(UniversalBase,
 
         self.sparse_fit = False
         self._input_hash = None
-        self._small_data = False
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
 
-        if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
+        if build_algo in {"auto", "brute_force_knn", "nn_descent"}:
             if self.deterministic and build_algo == "auto":
-                # TODO: for now, users should be able to see the same results as previous version
-                # (i.e. running brute force knn) when they explicitly pass random_state
+                # TODO: for now, users should be able to see the same results
+                # as previous version (i.e. running brute force knn) when they
+                # explicitly pass random_state
                 # https://github.com/rapidsai/cuml/issues/5985
                 with logger.set_level(logger._verbose_to_level(verbose)):
-                    logger.info("build_algo set to brute_force_knn because random_state is given")
+                    logger.info(
+                        "build_algo set to brute_force_knn because random_state is given"
+                    )
                 self.build_algo ="brute_force_knn"
             else:
                 self.build_algo = build_algo
         else:
-            raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
+            raise Exception(
+                f"Invalid build algo: {build_algo}. Only support 'auto', "
+                "'brute_force_knn' and 'nn_descent'"
+            )
 
         self.build_kwds = build_kwds
+        if self.build_kwds and self.build_kwds.get("nnd_n_clusters", 1) < 1:
+            raise ValueError("nnd_n_clusters must be >= 1")
 
     def validate_hyperparams(self):
 
@@ -468,79 +655,104 @@ class UMAP(UniversalBase,
             raise ValueError("min_dist should be <= spread")
 
     def _build_umap_params(self, sparse):
-        cdef UMAPParams* umap_params = new UMAPParams()
-        umap_params.n_neighbors = <int> self.n_neighbors
-        umap_params.n_components = <int> self.n_components
-        umap_params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
-        umap_params.learning_rate = <float> self.learning_rate
-        umap_params.initial_alpha = <float> self.learning_rate
-        umap_params.min_dist = <float> self.min_dist
-        umap_params.spread = <float> self.spread
-        umap_params.set_op_mix_ratio = <float> self.set_op_mix_ratio
-        umap_params.local_connectivity = <float> self.local_connectivity
-        umap_params.repulsion_strength = <float> self.repulsion_strength
-        umap_params.negative_sample_rate = <int> self.negative_sample_rate
-        umap_params.transform_queue_size = <int> self.transform_queue_size
-        umap_params.verbosity = <level_enum> self.verbose
-        umap_params.a = <float> self.a
-        umap_params.b = <float> self.b
-        umap_params.target_n_neighbors = <int> self.target_n_neighbors
-        umap_params.target_weight = <float> self.target_weight
-        umap_params.random_state = <uint64_t> check_random_seed(self.random_state)
-        umap_params.deterministic = <bool> self.deterministic
+        cdef UMAPParams* params = new UMAPParams()
+        params.n_neighbors = <int> self.n_neighbors
+        params.n_components = <int> self.n_components
+        params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
+        params.learning_rate = <float> self.learning_rate
+        params.initial_alpha = <float> self.learning_rate
+        params.min_dist = <float> self.min_dist
+        params.spread = <float> self.spread
+        params.set_op_mix_ratio = <float> self.set_op_mix_ratio
+        params.local_connectivity = <float> self.local_connectivity
+        params.repulsion_strength = <float> self.repulsion_strength
+        params.negative_sample_rate = <int> self.negative_sample_rate
+        params.transform_queue_size = <int> self.transform_queue_size
+        params.verbosity = <level_enum> self.verbose
+        params.a = <float> self.a
+        params.b = <float> self.b
+        params.target_n_neighbors = <int> self.target_n_neighbors
+        params.target_weight = <float> self.target_weight
+        params.random_state = <uint64_t> check_random_seed(self.random_state)
+        params.deterministic = <bool> self.deterministic
 
         if self.init == "spectral":
-            umap_params.init = <int> 1
+            params.init = <int> 1
         else:  # self.init == "random"
-            umap_params.init = <int> 0
+            params.init = <int> 0
 
-        if self.target_metric == "euclidean":
-            umap_params.target_metric = MetricType.EUCLIDEAN
+        if self.target_metric in {"euclidean", "l2"}:
+            params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
-            umap_params.target_metric = MetricType.CATEGORICAL
+            params.target_metric = MetricType.CATEGORICAL
 
-        umap_params.metric = coerce_metric(
+        params.metric = coerce_metric(
             self.metric, sparse=sparse, build_algo=self.build_algo
         )
 
         if self.metric_kwds is None:
-            umap_params.p = <float> 2.0
+            params.p = <float> 2.0
         else:
-            umap_params.p = <float>self.metric_kwds.get('p')
+            params.p = <float>self.metric_kwds.get('p')
 
         if self.build_algo == "brute_force_knn":
-            umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
         elif self.build_algo == "nn_descent":
-            build_kwds = self.build_kwds or {}
-            umap_params.build_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
-            umap_params.build_params.overlap_factor = <uint64_t> build_kwds.get("nnd_overlap_factor", 2)
-            if umap_params.build_params.n_clusters > 1 and umap_params.build_params.overlap_factor >= umap_params.build_params.n_clusters:
-                raise ValueError("If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly smaller than n_clusters.")
-            if umap_params.build_params.n_clusters < 1:
+            kwds = self.build_kwds or {}
+            params.build_params.n_clusters = <uint64_t> kwds.get("nnd_n_clusters", 1)
+            params.build_params.overlap_factor = <uint64_t> kwds.get("nnd_overlap_factor", 2)
+            if (
+                params.build_params.n_clusters > 1
+                and params.build_params.overlap_factor >= params.build_params.n_clusters
+            ):
+                raise ValueError(
+                    "If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly "
+                    "smaller than n_clusters."
+                )
+            if params.build_params.n_clusters < 1:
                 raise ValueError("nnd_n_clusters must be >= 1")
-            umap_params.build_algo = graph_build_algo.NN_DESCENT
+            params.build_algo = graph_build_algo.NN_DESCENT
 
-            umap_params.build_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
-            umap_params.build_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
-            umap_params.build_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
-            umap_params.build_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
+            params.build_params.nn_descent_params.graph_degree = (
+                <uint64_t> kwds.get("nnd_graph_degree", 64)
+            )
+            params.build_params.nn_descent_params.intermediate_graph_degree = (
+                <uint64_t> kwds.get("nnd_intermediate_graph_degree", 128)
+            )
+            params.build_params.nn_descent_params.max_iterations = (
+                <uint64_t> kwds.get("nnd_max_iterations", 20)
+            )
+            params.build_params.nn_descent_params.termination_threshold = (
+                <float> kwds.get("nnd_termination_threshold", 0.0001)
+            )
 
-            if umap_params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
-                logger.warn("to use nn descent as the build algo, nnd_graph_degree should be larger than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors.")
-                umap_params.build_params.nn_descent_params.graph_degree = self.n_neighbors
-            if umap_params.build_params.nn_descent_params.intermediate_graph_degree < umap_params.build_params.nn_descent_params.graph_degree:
-                logger.warn("to use nn descent as the build algo, nnd_intermediate_graph_degree should be larger than or equal to nnd_graph_degree. \
-                setting nnd_intermediate_graph_degree to nnd_graph_degree")
-                umap_params.build_params.nn_descent_params.intermediate_graph_degree = umap_params.build_params.nn_descent_params.graph_degree
+            if params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_graph_degree should be larger "
+                    "than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors."
+                )
+                params.build_params.nn_descent_params.graph_degree = self.n_neighbors
+            if (
+                params.build_params.nn_descent_params.intermediate_graph_degree
+                < params.build_params.nn_descent_params.graph_degree
+            ):
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_intermediate_graph_degree "
+                    "should be larger than or equal to nnd_graph_degree. setting "
+                    "nnd_intermediate_graph_degree to nnd_graph_degree"
+                )
+                params.build_params.nn_descent_params.intermediate_graph_degree = (
+                    params.build_params.nn_descent_params.graph_degree
+                )
         else:
             raise ValueError(f"Unsupported value for `build_algo`: {self.build_algo}")
 
         cdef uintptr_t callback_ptr = 0
         if self.callback:
             callback_ptr = self.callback.get_native_callback()
-            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
+            params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        return <size_t>umap_params
+        return <size_t>params
 
     @staticmethod
     def _destroy_umap_params(ptr):
@@ -554,10 +766,15 @@ class UMAP(UniversalBase,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit(self, X, y=None, convert_dtype=True,
-            knn_graph=None, data_on_host=False) -> "UMAP":
+    def fit(
+        self,
+        X,
+        y=None,
+        *,
+        convert_dtype=True,
+        knn_graph=None,
+        data_on_host="auto"
+    ) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -573,9 +790,13 @@ class UMAP(UniversalBase,
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
 
-        .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+        .. deprecated:: 25.08
+            The `data_on_host` parameter is deprecated and will be removed in
+            release 25.10. Whether data is on host or device is now determined
+            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
+            data will automatically be placed on host memory. When
+            `build_algo == brute_force_knn`, data will automatically be placed
+            on device memory.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -584,6 +805,20 @@ class UMAP(UniversalBase,
                 and self.target_metric != "categorical":
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
+
+        # Set build_algo based on n_rows
+        if self.build_algo == "auto":
+            if X.shape[0] <= 50000 or self.sparse_fit:
+                # brute force is faster for small datasets
+                logger.info(
+                    "Building knn graph using brute force (configured from build_algo='auto')"
+                )
+                self.build_algo = "brute_force_knn"
+            else:
+                logger.info(
+                    "Building knn graph using nn descent (configured from build_algo='auto')"
+                )
+                self.build_algo = "nn_descent"
 
         # Handle sparse inputs
         if is_sparse(X):
@@ -599,19 +834,12 @@ class UMAP(UniversalBase,
         # Handle dense inputs
         else:
             self._sparse_data = False
-            if data_on_host:
+
+            # automatically put data on host for nn descent regardless of nnd_n_clusters
+            if self.build_algo == "nn_descent":
                 convert_to_mem_type = MemoryType.host
             else:
-                build_kwds = self.build_kwds or {}
-                if build_kwds.get("nnd_n_clusters", 1) > 1:
-                    warnings.warn(
-                        ("Using nnd_n_clusters>1 with data on device is deprecated in version 25.06"
-                            " and will be removed in 25.08. Set data_on_host=True when nnd_n_clusters>1."),
-                        FutureWarning,
-                    )
-                    convert_to_mem_type = MemoryType.host
-                else:
-                    convert_to_mem_type = MemoryType.device
+                convert_to_mem_type = MemoryType.device
 
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -620,24 +848,43 @@ class UMAP(UniversalBase,
                                                       else None),
                                     convert_to_mem_type=convert_to_mem_type)
 
-        if self.build_algo == "auto":
-            if self.n_rows <= 50000 or self.sparse_fit:
-                # brute force is faster for small datasets
-                logger.info("Building knn graph using brute force")
-                self.build_algo = "brute_force_knn"
-            else:
-                logger.info("Building knn graph using nn descent")
-                self.build_algo = "nn_descent"
+        # Get nnd_n_clusters value for validation
+        build_kwds = self.build_kwds or {}
+        nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
 
-        if self.build_algo == "brute_force_knn" and data_on_host:
-            raise ValueError("Data cannot be on host for building with brute force knn")
+        # deprecation notice and raising error for data_on_host parameter
+        if data_on_host is True:
+            if self.build_algo == "brute_force_knn":
+                raise ValueError(
+                    f"build_algo = 'brute_force_knn' is not supported when data_on_host "
+                    f"is True; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host is False:
+            if self.build_algo == "nn_descent" and nnd_n_clusters > 1:
+                raise ValueError(
+                    f"nnd_n_clusters > 1 is not supported for nn_descent build when "
+                    f"data_on_host is False; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+                )
+            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
+        elif data_on_host != "auto":
+            raise ValueError(
+                f"data_on_host must be True, False, or 'auto'; "
+                f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
+            )
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
         if self.build_algo == "nn_descent" and self.n_rows < 150:
             # https://github.com/rapidsai/cuvs/issues/184
-            warnings.warn("using nn_descent as build_algo on a small dataset (< 150 samples) is unstable")
+            warnings.warn(
+                "using nn_descent as build_algo on a small dataset (< 150 samples) is unstable"
+            )
+
+        if self.n_rows <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
 
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
@@ -665,7 +912,7 @@ class UMAP(UniversalBase,
                                           index=self._raw_data.index)
 
         if self.hash_input:
-            self._input_hash = joblib.hash(self._raw_data.to_output('numpy'))
+            self._input_hash = _joblib_hash(self._raw_data.to_output('numpy'))
 
         cdef uintptr_t _embed_raw_ptr = self.embedding_.ptr
 
@@ -678,6 +925,9 @@ class UMAP(UniversalBase,
                                                       if convert_dtype
                                                       else None))
             _y_raw_ptr = y_m.ptr
+            self._supervised = True
+        else:
+            self._supervised = False
 
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
@@ -729,10 +979,15 @@ class UMAP(UniversalBase,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype", "knn_graph", "data_on_host")
-    def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None, data_on_host=False) -> CumlArray:
+    def fit_transform(
+        self,
+        X,
+        y=None,
+        *,
+        convert_dtype=True,
+        knn_graph=None,
+        data_on_host="auto",
+    ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -764,12 +1019,21 @@ class UMAP(UniversalBase,
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        .. deprecated:: 25.06
-            Using `nnd_n_clusters>1` with data on device is deprecated in version 25.06
-            and will be removed in 25.08. Set `data_on_host=True` when `nnd_n_clusters>1`."
+        .. deprecated:: 25.08
+            The `data_on_host` parameter is deprecated and will be removed in
+            release 25.10. Whether data is on host or device is now determined
+            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
+            data will automatically be placed on host memory. When
+            `build_algo == brute_force_knn`, data will automatically be placed
+            on device memory.
         """
-        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
-
+        self.fit(
+            X,
+            y,
+            convert_dtype=convert_dtype,
+            knn_graph=knn_graph,
+            data_on_host=data_on_host
+        )
         return self.embedding_
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -779,9 +1043,7 @@ class UMAP(UniversalBase,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -828,8 +1090,7 @@ class UMAP(UniversalBase,
                              "training data")
 
         if self.hash_input:
-            if joblib.hash(X_m.to_output('numpy')) == self._input_hash:
-                del X_m
+            if _joblib_hash(X_m.to_output('numpy')) == self._input_hash:
                 return self.embedding_
 
         embedding = CumlArray.zeros((n_rows, self.n_components),
@@ -844,7 +1105,13 @@ class UMAP(UniversalBase,
             self.build_algo = "brute_force_knn"
             logger.info("Transform can only be run with brute force. Using brute force.")
 
-        cdef UMAPParams* umap_params = <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
+        if n_rows <= 300 and self._raw_data.shape[0] <= 300:
+            # non-deterministic calculations do not work with limited number of samples
+            self.deterministic = True
+
+        cdef UMAPParams* umap_params = (
+            <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
+        )
         cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
         if self.sparse_fit:
             transform_sparse(handle_[0],
@@ -880,95 +1147,3 @@ class UMAP(UniversalBase,
 
         del X_m
         return embedding
-
-    @property
-    def _n_neighbors(self):
-        return self.n_neighbors
-
-    @_n_neighbors.setter
-    def _n_neighbors(self, value):
-        self.n_neighbors = value
-
-    @property
-    def _a(self):
-        return self.a
-
-    @_a.setter
-    def _a(self, value):
-        self.a = value
-
-    @property
-    def _b(self):
-        return self.b
-
-    @_b.setter
-    def _b(self, value):
-        self.b = value
-
-    @property
-    def _initial_alpha(self):
-        return self.learning_rate
-
-    @_initial_alpha.setter
-    def _initial_alpha(self, value):
-        self.learning_rate = value
-
-    @property
-    def _disconnection_distance(self):
-        from umap.umap_ import DISCONNECTION_DISTANCES
-        self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
-        return self.disconnection_distance
-
-    @_disconnection_distance.setter
-    def _disconnection_distance(self, value):
-        self.disconnection_distance = value
-
-    def gpu_to_cpu(self):
-        from umap.umap_ import nearest_neighbors
-        if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
-            self._knn_dists = self.knn_dists
-            self._knn_indices = self.knn_indices
-            self._knn_search_index = None
-        if hasattr(self, '_raw_data'):
-            self._knn_dists, self._knn_indices, self._knn_search_index = \
-                nearest_neighbors(self._raw_data.to_output('numpy'), self.n_neighbors, self.metric,
-                                  self.metric_kwds, False, self.random_state)
-
-        super().gpu_to_cpu()
-        self._cpu_model._validate_parameters()
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "n_neighbors",
-            "n_components",
-            "n_epochs",
-            "learning_rate",
-            "min_dist",
-            "spread",
-            "set_op_mix_ratio",
-            "local_connectivity",
-            "repulsion_strength",
-            "negative_sample_rate",
-            "transform_queue_size",
-            "init",
-            "a",
-            "b",
-            "target_n_neighbors",
-            "target_weight",
-            "target_metric",
-            "hash_input",
-            "random_state",
-            "callback",
-            "metric",
-            "metric_kwds",
-            "precomputed_knn",
-            "build_algo",
-            "build_kwds"
-        ]
-
-    def get_attr_names(self):
-        return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
-                '_knn_dists', '_knn_indices', '_knn_search_index',
-                '_disconnection_distance', '_n_neighbors', '_a', '_b',
-                '_initial_alpha', '_sparse_data']

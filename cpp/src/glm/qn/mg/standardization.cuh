@@ -71,7 +71,11 @@ void vars(const raft::handle_t& handle,
   zero_vec.fill(0., stream);
 
   // get sum of squares on every column
-  raft::stats::vars(var_vector, input_data, zero.data(), D, num_rows, false, !col_major, stream);
+  if (col_major) {
+    raft::stats::vars<false>(var_vector, input_data, zero.data(), D, num_rows, false, stream);
+  } else {
+    raft::stats::vars<true>(var_vector, input_data, zero.data(), D, num_rows, false, stream);
+  }
   T weight = n_samples < 1 ? T(0) : T(1) * num_rows / T(n_samples - 1);
   raft::linalg::multiplyScalar(var_vector, var_vector, weight, D, stream);
   comm.allreduce(var_vector, var_vector, D, raft::comms::op_t::SUM, stream);
@@ -107,7 +111,11 @@ void mean_stddev(const raft::handle_t& handle,
   auto stream         = handle.get_stream();
   auto& comm          = handle.get_comms();
 
-  raft::stats::sum(mean_vector, input_data, D, num_rows, !col_major, stream);
+  if (col_major) {
+    raft::stats::sum<false>(mean_vector, input_data, D, num_rows, stream);
+  } else {
+    raft::stats::sum<true>(mean_vector, input_data, D, num_rows, stream);
+  }
   T weight = T(1) / T(n_samples);
   raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
   comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
@@ -326,15 +334,13 @@ struct Standardizer {
     col_slice(W, Wweights, 0, D);
 
     auto mul_lambda = [] __device__(const T a, const T b) { return a * b; };
-    raft::linalg::matrixVectorOp(Wweights.data,
-                                 Wweights.data,
-                                 std_inv.data,
-                                 Wweights.n,
-                                 Wweights.m,
-                                 false,
-                                 true,
-                                 mul_lambda,
-                                 handle.get_stream());
+    raft::linalg::matrixVectorOp<false, true>(Wweights.data,
+                                              Wweights.data,
+                                              std_inv.data,
+                                              Wweights.n,
+                                              Wweights.m,
+                                              mul_lambda,
+                                              handle.get_stream());
 
     if (has_bias) {
       SimpleVec<T> Wbias;
@@ -359,8 +365,8 @@ struct Standardizer {
     SimpleDenseMat<T> Gweights;
     col_slice(G, Gweights, 0, D);
 
-    raft::matrix::matrixVectorBinaryMult(
-      Gweights.data, std_inv.data, Gweights.m, D, false, true, stream);
+    raft::matrix::matrixVectorBinaryMult<false, true>(
+      Gweights.data, std_inv.data, Gweights.m, D, stream);
 
     if (has_bias) {
       SimpleVec<T> Gbias;

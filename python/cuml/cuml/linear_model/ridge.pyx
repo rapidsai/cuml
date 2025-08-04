@@ -26,7 +26,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
@@ -215,11 +215,11 @@ class Ridge(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.positive:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`positive=True` is not supported")
 
         solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver)
         if solver is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`solver={model.solver!r}` is not supported")
 
         return {
             "alpha": model.alpha,
@@ -238,7 +238,7 @@ class Ridge(Base,
     def _attrs_from_cpu(self, model):
         solver = _SOLVER_SKLEARN_TO_CUML.get(model.solver_)
         if solver is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`solver={model.solver_!r}` is not supported")
 
         return {
             "intercept_": float(model.intercept_),
@@ -312,8 +312,7 @@ class Ridge(Base,
         self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
 
     @generate_docstring()
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """
