@@ -40,7 +40,7 @@ def generate_swiss_roll(n_samples):
     return X
 
 
-def load_mnist(n_samples):
+def generate_mnist_like_dataset(n_samples):
     """Load and sample dataset using cuML's testing infrastructure."""
 
     # Generate a classification dataset with similar characteristics to MNIST
