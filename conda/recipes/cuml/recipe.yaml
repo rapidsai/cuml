@@ -10,7 +10,7 @@ context:
   py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: '${{ git.head_rev(".")[:8] }}'
-  pin_version: '${{ minor_version }}'
+  pin_version: '${{ minor_version }}.*'
   pin_build_wildcard: '*_0'
 
 package:
