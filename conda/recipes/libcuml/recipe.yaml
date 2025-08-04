@@ -8,7 +8,7 @@ context:
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
-  pin_version: {{ minor_version }}
+  pin_version: '${{ minor_version }}'
   pin_build_wildcard: '*_0'
 
 recipe:
