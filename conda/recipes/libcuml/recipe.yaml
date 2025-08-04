@@ -8,6 +8,8 @@ context:
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
+  pin_version: {{ minor_version }}
+  pin_build_wildcard: '*_0'
 
 recipe:
   name: libcuml-split
@@ -54,6 +56,7 @@ cache:
       - cmake ${{ cmake_version }}
       - ninja
       - ${{ stdlib("c") }}
+      - cuml-rapids-pins-build ${{ pin_version }} ${{ pin_build_wildcard }}
     host:
       - cuda-version =${{ cuda_version }}
       - libcumlprims =${{ minor_version }}
@@ -68,7 +71,7 @@ cache:
       - libcurand-dev
       - libcusolver-dev
       - libcusparse-dev
-      - rapids-pin
+      - cuml-rapids-pins-host ${{ pin_version }} ${{ pin_build_wildcard }}
 
 outputs:
   - package:
@@ -90,6 +93,7 @@ outputs:
       build:
         - cmake ${{ cmake_version }}
         - ${{ stdlib("c") }}
+        - cuml-rapids-pins-build ${{ pin_version }} ${{ pin_build_wildcard }}
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.1
@@ -103,7 +107,7 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
-        - rapids-pin
+        - cuml-rapids-pins-host ${{ pin_version }} ${{ pin_build_wildcard }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - cuda-cudart
@@ -117,6 +121,7 @@ outputs:
         - librmm =${{ minor_version }}
         - rapids-logger =0.1
         - treelite ${{ treelite_version }}
+
       ignore_run_exports:
         by_name:
           - cuda-cudart
@@ -145,12 +150,13 @@ outputs:
       build:
         - cmake ${{ cmake_version }}
         - ${{ stdlib("c") }}
+        - cuml-rapids-pins-build ${{ pin_version }} ${{ pin_build_wildcard }}
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.1
         - ${{ pin_subpackage("libcuml", exact=True) }}
         - cuda-cudart-dev
-        - rapids-pin
+        - cuml-rapids-pins-host ${{ pin_version }} ${{ pin_build_wildcard }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libcuml", exact=True) }}

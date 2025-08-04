@@ -10,6 +10,8 @@ context:
   py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: '${{ git.head_rev(".")[:8] }}'
+  pin_version: ${{ minor_version }}
+  pin_build_wildcard: '*_0'
 
 package:
   name: cuml
@@ -55,6 +57,7 @@ requirements:
     - ${{ compiler("cuda") }}
     - cuda-version =${{ cuda_version }}
     - ${{ stdlib("c") }}
+    - cuml-rapids-pins-build ${{ pin_version }} ${{ pin_build_wildcard }}
   host:
     - cuda-version =${{ cuda_version }}
     - cudf =${{ minor_version }}
@@ -71,7 +74,7 @@ requirements:
     - treelite ${{ treelite_version }}
     - cuda-cudart-dev
     - cuda-python >=12.6.2,<13.0a0
-    - rapids-pin
+    - cuml-rapids-pins-host ${{ pin_version }} ${{ pin_build_wildcard }}
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
