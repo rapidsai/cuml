@@ -45,13 +45,12 @@ from cuml.testing.utils import quality_param, stress_param, unit_param
 )
 def make_dataset(request):
     nrows, ncols, n_info, datatype = request.param
-    if (
-        nrows == 500000
-        and datatype == np.float64
-        and pytest.max_gpu_memory < 32
-    ):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+
+    if nrows == 500000 and datatype == np.float64 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = nrows * pytest.max_gpu_memory // 32
+            nrows = nrows * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
