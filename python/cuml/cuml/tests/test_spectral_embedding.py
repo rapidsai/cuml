@@ -72,7 +72,7 @@ dataset_configs = [
     (generate_s_curve, 2000, 0.8),
     (generate_swiss_roll, 2000, 0.8),
     (generate_swiss_roll, 3000, 0.8),
-    (load_mnist, 5000, 0.8),
+    (generate_mnist_like_dataset, 5000, 0.8),
     (load_digits_dataset, None, 0.8),
 ]
 
