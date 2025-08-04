@@ -133,7 +133,7 @@ test = [
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",
     "nltk",
-    "numpydoc<1.",
+    "numpydoc<1.9",
     "pynndescent",
     "pynvml>=12.0.0,<13.0.0a0",
     "pytest",
