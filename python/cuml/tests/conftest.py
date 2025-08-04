@@ -333,7 +333,7 @@ def _get_gpu_memory(device_index=0):
     handle = get_gpu_handle(device_index)
 
     try:
-        return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 1024)
+        return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
     except pynvml.NVMLError_NotSupported:
         return None
 
