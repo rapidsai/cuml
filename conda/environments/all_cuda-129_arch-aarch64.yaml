@@ -45,11 +45,12 @@ dependencies:
 - numba>=0.59.1,<0.62.0a0
 - numpy>=1.23,<3.0a0
 - numpydoc
-- numpydoc<1.9
+- numpydoc<1.
 - packaging
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==25.10.*,>=0.0.0a0
 - pynndescent
+- pynvml>=12.0.0,<13.0.0a0
 - pytest
 - pytest-benchmark
 - pytest-cases
