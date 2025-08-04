@@ -75,6 +75,12 @@ environment variable to ``1`` or ``true`` (case insensitive).
 Note that any python program running with the environment defined this way
 will load the accelerator, which may result in a measurable startup overhead.
 
+Additionally, if ``cuml`` is not installed properly in your environment, the
+``CUML_ACCEL_ENABLED`` environment variable will be silently ignored (and
+normal CPU execution will occur). For this reason one of the other methods
+listed here may be preferred, as failure to invoke the accelerator will result
+in a detectable error.
+
 Enabling Programmatically
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
