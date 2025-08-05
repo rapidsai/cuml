@@ -17,7 +17,11 @@
 import cuml.manifold
 from cuml.accel.estimator_proxy import ProxyBase
 
-__all__ = ("TSNE",)
+__all__ = ("SpectralEmbedding", "TSNE")
+
+
+class SpectralEmbedding(ProxyBase):
+    _gpu_class = cuml.manifold.SpectralEmbedding
 
 
 class TSNE(ProxyBase):

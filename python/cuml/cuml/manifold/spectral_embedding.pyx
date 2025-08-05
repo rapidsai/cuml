@@ -36,6 +36,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -165,6 +166,7 @@ def spectral_embedding(A,
 
 
 class SpectralEmbedding(Base,
+                        InteropMixin,
                         CMajorInputTagMixin,
                         SparseInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
@@ -227,6 +229,7 @@ class SpectralEmbedding(Base,
     >>> X_transformed.shape
     (100, 2)
     """
+    _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
     embedding_ = CumlArrayDescriptor()
 
     def __init__(self, n_components=2, random_state=None, n_neighbors=None,
@@ -243,6 +246,51 @@ class SpectralEmbedding(Base,
             "random_state",
             "n_neighbors"
         ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        """Get parameters to use to instantiate a GPU model from a CPU model.
+
+        Parameters
+        ----------
+        model : sklearn.manifold.SpectralEmbedding
+            The CPU model to get parameters from
+
+        Returns
+        -------
+        dict
+            Parameters to pass to the GPU model constructor
+        """
+        affinity = getattr(model, 'affinity', 'nearest_neighbors')
+        if affinity != 'nearest_neighbors':
+            raise UnsupportedOnGPU(
+                f"`affinity={affinity!r}` is not supported. "
+                "Only 'nearest_neighbors' affinity is currently supported."
+            )
+
+        eigen_solver = getattr(model, 'eigen_solver', None)
+        if eigen_solver is not None and eigen_solver not in [None, 'arpack', 'lobpcg', 'amg']:
+            raise UnsupportedOnGPU(
+                f"`eigen_solver={eigen_solver!r}` is not supported."
+            )
+
+        if hasattr(model, 'gamma') and model.gamma is not None:
+            raise UnsupportedOnGPU(
+                "`gamma` parameter is not supported since only 'nearest_neighbors' "
+                "affinity is supported."
+            )
+
+        if hasattr(model, 'eigen_tol') and model.eigen_tol != 'auto':
+            # cuML might not support custom eigen_tol, but we'll pass it through
+            # and let cuML handle it
+            pass
+
+        params = {
+            "n_components": model.n_components,
+            "random_state": model.random_state,
+            "n_neighbors": model.n_neighbors
+        }
+        return params
 
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
