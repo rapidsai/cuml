@@ -281,8 +281,6 @@ class SpectralEmbedding(Base,
             )
 
         if hasattr(model, 'eigen_tol') and model.eigen_tol != 'auto':
-            # cuML might not support custom eigen_tol, but we'll pass it through
-            # and let cuML handle it
             pass
 
         params = {
