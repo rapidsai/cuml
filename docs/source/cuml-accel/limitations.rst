@@ -18,7 +18,7 @@ These limitations fall into a few categories:
 - Estimators that are only partially accelerated. ``cuml.accel`` will fall back
   to using the CPU implementations for some algorithms in the presence of
   certain hyperparameters or input types. These cases are documented below in
-  estimator-specific sections. See :doc:`zero-code-change-logging` for how to
+  estimator-specific sections. See :doc:`logging-and-profiling` for how to
   enable logging to gain insight into when ``cuml.accel`` needs to fall back to
   CPU.
 
@@ -52,9 +52,12 @@ A few additional general notes:
   or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
   processing.
 
-- The accelerator is compatible with scikit-learn version 1.5 or higher. This
+- The accelerator is compatible with scikit-learn version 1.4 or higher. This
   compatibility ensures that cuML's implementation of scikit-learn compatible
   APIs works as expected.
+
+- Error and warning messages and formats may differ from scikit-learn. Some
+  errors might present as C++ stacktraces instead of python errors.
 
 For notes on each algorithm, please refer to its specific section on this file.
 
@@ -443,6 +446,42 @@ Additionally, the following fitted attributes are currently not computed:
 
 - ``n_iter_``
 
+LinearSVC
+^^^^^^^^^
+
+``LinearSVC`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
+- If ``multi_class`` is not ``"ovr"``.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+Additional notes:
+
+- Sample weight functionality may not produce equivalent results to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Models may not be picklable; pickling or unpickling may fail.
+- Multi-class models may have coefficient shape differences that cause pickling failures.
+
+LinearSVR
+^^^^^^^^^
+
+``LinearSVR`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- If ``intercept_scaling`` is not ``1``.
+
+The following fitted attributes are currently not computed:
+
+- ``n_iter_``
+
+Additional notes:
+
+- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Models may not be picklable under certain conditions; pickling or unpickling may fail.
 
 umap
 ----
