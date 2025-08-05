@@ -16,19 +16,12 @@
 from functools import partial
 
 import pytest
-from sklearn.kernel_ridge import KernelRidge
-from sklearn.naive_bayes import (
-    BernoulliNB,
-    CategoricalNB,
-    ComplementNB,
-    GaussianNB,
-    MultinomialNB,
-)
 from sklearn.utils import estimator_checks
 
 from cuml.cluster import DBSCAN, HDBSCAN, KMeans
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -37,6 +30,13 @@ from cuml.linear_model import (
     Ridge,
 )
 from cuml.manifold import TSNE, UMAP
+from cuml.naive_bayes import (
+    BernoulliNB,
+    CategoricalNB,
+    ComplementNB,
+    GaussianNB,
+    MultinomialNB,
+)
 from cuml.neighbors import (
     KernelDensity,
     KNeighborsClassifier,
@@ -73,6 +73,34 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_fit_check_is_fitted": "KMeans passes check_is_fitted before being fit",
         "check_fit1d": "KMeans does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "KMeans does not handle 1D prediction input gracefully",
+    },
+    KernelRidge: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "KernelRidge sets attributes during init",
+        "check_dont_overwrite_parameters": "KernelRidge overwrites parameters during fit",
+        "check_estimators_unfitted": "KernelRidge does not raise NotFittedError before fit",
+        "check_do_not_raise_errors_in_init_or_set_params": "KernelRidge raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "KernelRidge does not check n_features_in consistency",
+        "check_estimators_dtypes": "KernelRidge does not handle dtypes properly",
+        "check_sample_weights_pandas_series": "KernelRidge does not handle pandas Series sample weights",
+        "check_sample_weights_not_an_array": "KernelRidge does not handle non-array sample weights",
+        "check_complex_data": "KernelRidge does not handle complex data",
+        "check_dtype_object": "KernelRidge does not handle object dtype",
+        "check_estimators_empty_data_messages": "KernelRidge does not handle empty data",
+        "check_estimators_nan_inf": "KernelRidge does not check for NaN and inf",
+        "check_estimator_sparse_tag": "KernelRidge does not support sparse data",
+        "check_estimator_sparse_array": "KernelRidge does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "KernelRidge does not handle sparse matrices gracefully",
+        "check_regressors_train": "KernelRidge does not handle list inputs",
+        "check_regressors_train(readonly_memmap=True)": "KernelRidge does not handle readonly memmap",
+        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "KernelRidge does not handle readonly memmap with float32",
+        "check_regressor_data_not_an_array": "KernelRidge does not handle non-array data",
+        "check_supervised_y_2d": "KernelRidge does not handle 2D y",
+        "check_supervised_y_no_nan": "KernelRidge does not check for NaN in y",
+        "check_parameters_default_constructible": "KernelRidge parameters are mutated on init",
+        "check_fit1d": "KernelRidge does not raise ValueError for 1D input",
+        "check_fit2d_predict1d": "KernelRidge does not handle 1D prediction input gracefully",
+        "check_requires_y_none": "KernelRidge does not handle y=None",
     },
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -323,7 +351,7 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearSVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "LinearSVR sets attributes during init",
-        "check_dont_overwrite_parameters": "LinearSVR overwrites parameters during fit",
+        # "check_dont_overwrite_parameters": "LinearSVR overwrites parameters during fit",
         "check_estimators_unfitted": "LinearSVR does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "LinearSVR raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearSVR does not check n_features_in consistency",
@@ -415,7 +443,7 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_nan_inf": "SVR does not check for NaN and inf",
         "check_estimator_sparse_tag": "SVR does not support sparse data",
         "check_estimator_sparse_array": "SVR does not handle sparse arrays gracefully",
-        "check_estimator_sparse_matrix": "SVR does not handle sparse matrices gracefully",
+        # "check_estimator_sparse_matrix": "SVR does not handle sparse matrices gracefully",
         "check_regressors_train": "SVR does not handle list inputs",
         "check_regressors_train(readonly_memmap=True)": "SVR does not handle readonly memmap",
         "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "SVR does not handle readonly memmap with float32",
@@ -514,9 +542,9 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_dtype_object": "UMAP does not handle object dtype",
         "check_estimators_nan_inf": "UMAP does not check for NaN and inf",
         "check_estimator_sparse_tag": "UMAP does not support sparse data",
-        "check_estimator_sparse_matrix": "UMAP does not handle sparse matrices gracefully",
+        # "check_estimator_sparse_matrix": "UMAP does not handle sparse matrices gracefully",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
-        "check_transformers_unfitted": "UMAP does not raise error when transform called before fit",
+        # "check_transformers_unfitted": "UMAP does not raise error when transform called before fit",
         "check_parameters_default_constructible": "UMAP parameters are mutated on init",
         "check_fit_check_is_fitted": "UMAP passes check_is_fitted before being fit",
     },
@@ -696,6 +724,16 @@ def _check_name(check):
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
+
+    # These estimators lead to additional MemoryErrors in the other
+    # estimators. As a result they are currently skipped.
+    if isinstance(
+        estimator,
+        (GaussianNB, ComplementNB, CategoricalNB, BernoulliNB, MultinomialNB),
+    ):
+        pytest.skip(
+            "Estimator leads to additional MemoryErrors in other estimators"
+        )
 
     check_name = _check_name(check)
 
