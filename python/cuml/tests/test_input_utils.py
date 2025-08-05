@@ -182,13 +182,13 @@ def test_input_to_host_array(dtype, input_type, num_rows, num_cols, order):
     if input_type == "cupy" and input_data is None:
         pytest.skip("cupy not installed")
 
-    X, n_rows, n_cols, dtype = input_to_host_array(input_data, order=order)
+    X, n_rows, n_cols, out_dtype = input_to_host_array(input_data, order=order)
 
     np.testing.assert_equal(X, real_data)
 
     assert n_rows == num_rows
     assert n_cols == num_cols
-    assert dtype == dtype
+    assert out_dtype == dtype
 
     del input_data
     del real_data
