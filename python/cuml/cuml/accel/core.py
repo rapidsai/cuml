@@ -186,14 +186,3 @@ def install(
     set_global_output_type("numpy")
 
     logger.info("Accelerator installed.")
-
-
-def pytest_load_initial_conftests(early_config, parser, args):
-    # https://docs.pytest.org/en/7.1.x/reference/\
-    # reference.html#pytest.hookspec.pytest_load_initial_conftests
-    try:
-        install()
-    except RuntimeError:
-        raise RuntimeError(
-            "An existing plugin has already loaded sklearn. Interposing failed."
-        )

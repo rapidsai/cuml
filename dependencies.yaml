@@ -213,7 +213,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - rapids-build-backend>=0.4.0,<0.5.0.dev0
       - output_types: [conda]
         packages:
           - scikit-build-core>=0.10.0
@@ -441,7 +441,7 @@ dependencies:
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
           - pyyaml
-          - pytest==7.*
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
