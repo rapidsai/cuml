@@ -131,18 +131,16 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
                   [=] __device__(value_idx a) { return a > 1; });
 
   auto n_leaves = condensed_tree.get_n_leaves();
-  raft::linalg::map_offset(
-    handle,
-    raft::make_device_vector_view<value_idx>(cluster_parents.data(), cluster_tree_edges),
-    [cluster_parents = cluster_parents.data(), n_leaves] __device__(auto idx) {
-      return cluster_parents[idx] - n_leaves;
-    });
-  raft::linalg::map_offset(
-    handle,
-    raft::make_device_vector_view<value_idx>(cluster_children.data(), cluster_tree_edges),
-    [cluster_children = cluster_children.data(), n_leaves] __device__(auto idx) {
-      return cluster_children[idx] - n_leaves;
-    });
+  thrust::transform(thrust_policy,
+                    cluster_parents.begin(),
+                    cluster_parents.end(),
+                    cluster_parents.begin(),
+                    [n_leaves] __device__(value_idx a) { return a - n_leaves; });
+  thrust::transform(thrust_policy,
+                    cluster_children.begin(),
+                    cluster_children.end(),
+                    cluster_children.begin(),
+                    [n_leaves] __device__(value_idx a) { return a - n_leaves; });
 
   return Common::CondensedHierarchy<value_idx, value_t>(handle,
                                                         condensed_tree.get_n_leaves(),
