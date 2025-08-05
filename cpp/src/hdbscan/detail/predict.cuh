@@ -78,7 +78,7 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
                                                                knn_dists,
                                                                knn_inds,
                                                                n_prediction_points,
-                                                               (value_idx)neighborhood,
+                                                               static_cast<value_idx>(neighborhood),
                                                                min_mr_dists.data(),
                                                                min_mr_inds);
 

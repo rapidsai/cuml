@@ -179,7 +179,7 @@ void all_points_outlier_membership_vector(
                                                     index_into_children,
                                                     parents,
                                                     m,
-                                                    (value_idx)n_selected_clusters,
+                                                    static_cast<value_idx>(n_selected_clusters),
                                                     raft::util::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
@@ -195,8 +195,8 @@ void all_points_outlier_membership_vector(
     outlier_membership_vec,
     merge_heights,
     leaf_max_lambdas.data_handle(),
-    (value_idx)n_selected_clusters,
-    (value_idx)m,
+    static_cast<value_idx>(n_selected_clusters),
+    static_cast<value_idx>(m),
     [] __device__(value_t mat_in, value_t vec_in) {
       return exp(-(vec_in + 1e-8) / mat_in);
     },  //+ 1e-8 to avoid zero lambda
@@ -286,7 +286,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
                                                     index_into_children,
                                                     parents,
                                                     n_prediction_points,
-                                                    (value_idx)n_selected_clusters,
+                                                    static_cast<value_idx>(n_selected_clusters),
                                                     raft::util::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
@@ -307,7 +307,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
     merge_heights,
     nearest_cluster_max_lambda.data_handle(),
     n_selected_clusters,
-    (int)n_prediction_points,
+    static_cast<int>(n_prediction_points),
     [] __device__(value_t mat_in, value_t vec_in) {
       value_t denominator = vec_in - mat_in;
       if (denominator <= 0) { denominator = 1e-8; }
