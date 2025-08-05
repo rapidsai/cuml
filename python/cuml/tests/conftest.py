@@ -275,7 +275,7 @@ def pytest_pyfunc_call(pyfuncitem):
         pytest.skip("Test requires cudf.pandas accelerator")
 
 
-def get_gpu_handle(device_id=0):
+def _get_pynvml_device_handle(device_id=0):
     """Get GPU handle from device index or UUID.
 
     Parameters
@@ -290,11 +290,15 @@ def get_gpu_handle(device_id=0):
     pynvml.NVMLError
         If any NVML error occurred while initializing.
 
+    Returns
+    -------
+    A pynvml handle to the device.
+
     Examples
     --------
-    >>> get_gpu_handle(device_id=0)
+    >>> _get_pynvml_device_handle(device_id=0)
 
-    >>> get_gpu_handle(device_id="GPU-9fb42d6f-7d6b-368f-f79c-3c3e784c93f6")
+    >>> _get_pynvml_device_handle(device_id="GPU-9fb42d6f-7d6b-368f-f79c-3c3e784c93f6")
     """
     pynvml.nvmlInit()
 
@@ -330,9 +334,10 @@ def _get_gpu_memory(device_index=0):
     have a dedicated memory resource, as is usually the case for system on a chip (SoC)
     devices.
     """
-    handle = get_gpu_handle(device_index)
+    handle = _get_pynvml_device_handle(device_index)
 
     try:
+        # Return total memory in GB
         return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
     except pynvml.NVMLError_NotSupported:
         return None

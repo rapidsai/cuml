@@ -141,7 +141,7 @@ def test_pca_defaults(n_samples, n_features, sparse):
 )
 def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     blobs_n_samples = 500000
     if name == "blobs" and max_gpu_memory < 32:
@@ -197,7 +197,7 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
 )
 def test_pca_fit_transform(datatype, input_type, name, use_handle):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     blobs_n_samples = 500000
 
@@ -280,7 +280,7 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
 @pytest.mark.parametrize("cupy_input", [True, False])
 def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if ncols == 20000 and max_gpu_memory < 48:
         if pytest.adapt_stress_test:

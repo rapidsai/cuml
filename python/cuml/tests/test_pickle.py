@@ -225,7 +225,7 @@ def test_rf_regression_pickle(
 @pytest.mark.parametrize("fit_intercept", [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if (
         data_size[0] == 500000
@@ -441,7 +441,7 @@ def test_unfit_clone(model_name):
 )
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if (
         data_info[0] == 500000
@@ -493,7 +493,7 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 @pytest.mark.parametrize("keys", k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if (
         data_info[0] == 500000
@@ -571,7 +571,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 )
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if data_size[0] == 500000 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:

@@ -29,7 +29,7 @@ from cuml.testing.utils import array_equal, stress_param, unit_param
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_pca_fit(data_info, input_type, client):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     nrows, ncols, n_parts = data_info
     if nrows == int(9e6) and max_gpu_memory < 48:

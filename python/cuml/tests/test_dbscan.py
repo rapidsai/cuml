@@ -63,7 +63,7 @@ def test_dbscan(
     algorithm,
 ):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if algorithm == "rbc":
         if datatype == np.float64 or out_dtype in ["int32", np.int32]:
@@ -217,7 +217,7 @@ def test_dbscan_cosine(nrows, max_mbytes_per_batch, out_dtype):
 @pytest.mark.parametrize("eps", [0.05, 0.1, 0.5])
 def test_dbscan_sklearn_comparison(name, nrows, eps):
     # Assume at least 4GB memory
-    max_gpu_memory = pytest.max_gpu_memory if pytest.max_gpu_memory else 4
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     if nrows == 500000 and name == "blobs" and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
