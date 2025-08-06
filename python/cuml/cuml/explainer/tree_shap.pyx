@@ -206,41 +206,36 @@ cdef class TreeExplainer:
         # Process Treelite model to extract path info
         self.path_info = extract_path_info(tl_handle)
 
-    def _prepare_input(self, X, convert_dtype):
-        try:
-            return input_to_cuml_array(
-                X,
-                order='C',
-                convert_to_dtype=(np.float32 if convert_dtype
-                                  else None),
-                check_dtype=[np.float32, np.float64])
-        except ValueError:
-            # input can be a DataFrame with mixed types
-            # in this case coerce to 64-bit
-            return input_to_cuml_array(
-                X,
-                order='C',
-                convert_to_dtype=np.float64)
+    def _prepare_input(self, X, convert_dtype=True):
+        """
+        Prepare input data for SHAP computation.
+        Always converts float64 to float32 to reduce kernel instantiations.
+        """
+        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+            X, order='C', convert_to_dtype=(np.float32 if convert_dtype
+                                            else None),
+            check_dtype=[np.float32, np.float64])
+
+        # Force float32 to reduce kernel instantiations
+        if dtype == np.float64 and convert_dtype:
+            X_m = X_m.astype(np.float32)
+            dtype = np.float32
+
+        return X_m, n_rows, n_cols, dtype
 
     def _determine_output_type(self, X):
         X_type = determine_array_type(X)
         # Coerce to CuPy / NumPy because we may need to return 3D array
         return 'numpy' if X_type == 'numpy' else 'cupy'
 
-    def shap_values(self, X, convert_dtype=True) -> CumlArray:
+    def shap_values(self, X, convert_dtype=True):
         """
-        Estimate the SHAP values for a set of samples. For a given row, the
-        SHAP values plus the `expected_value` attribute sum up to the raw
-        model prediction. 'Raw model prediction' means before the application
-        of a link function, for example, the SHAP values of an XGBoost binary
-        classification will be in the additive logit space as opposed to
-        probability space.
-
         Parameters
         ----------
-        X :
-            A matrix of samples (# samples x # features) on which to explain
-            the model's output.
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Zeroth-order Taylor expansion point.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the method will convert the input to np.float32.
 
         Returns
         -------
@@ -248,6 +243,9 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features).
         """
+        # Check original dtype before conversion
+        original_dtype = determine_array_type(X)[1]
+
         X_m, n_rows, n_cols, dtype = self._prepare_input(X, convert_dtype)
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
@@ -280,6 +278,11 @@ cdef class TreeExplainer:
         #       in version 0.45.0. We use the changed layout.
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
+
+        # Convert back to original dtype if needed
+        if convert_dtype and original_dtype == np.float64 and dtype == np.float32:
+            preds = preds.astype(np.float64)
+
         if self.num_class[0] > 1:
             preds = preds.reshape(
                 (n_rows, self.num_class[0], n_cols + 1))
@@ -287,15 +290,11 @@ cdef class TreeExplainer:
             self.expected_value = preds[0, -1, :]
             return preds[:, :-1, :]
         else:
-            assert self.num_class[0] == 1
             self.expected_value = preds[0, -1]
             return preds[:, :-1]
 
-    def shap_interaction_values(
-            self,
-            X,
-            method='shapley-interactions',
-            convert_dtype=True) -> CumlArray:
+    def shap_interaction_values(self, X, method='shapley-interactions',
+                                convert_dtype=True) -> CumlArray:
         """
         Estimate the SHAP interaction values for a set of samples. For a
         given row, the SHAP values plus the `expected_value` attribute sum
@@ -320,6 +319,9 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features x # features).
         """
+        # Check original dtype before conversion
+        original_dtype = determine_array_type(X)[1]
+
         X_m, n_rows, n_cols, dtype = self._prepare_input(X, convert_dtype)
 
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
@@ -346,19 +348,27 @@ cdef class TreeExplainer:
         else:
             raise ValueError(
                 "Interventional algorithm not supported for interactions."
-                " Please specify data as None in constructor.")
+            )
 
+        # Reshape to 4D as appropriate
+        # To follow the convention of the SHAP package:
+        # 1. Store the bias term in the 'expected_value' attribute.
+        # 2. Transpose SHAP values in dimension (row_id, feature_id, feature_id, group_id)
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
+
+        # Convert back to original dtype if needed
+        if convert_dtype and original_dtype == np.float64 and dtype == np.float32:
+            preds = preds.astype(np.float64)
+
         if self.num_class[0] > 1:
             preds = preds.reshape(
                 (n_rows, self.num_class[0], n_cols + 1, n_cols + 1))
-            preds = preds.transpose((1, 0, 2, 3))
-            self.expected_value = preds[:, 0, -1, -1]
-            return preds[:, :, :-1, :-1]
+            preds = preds.transpose((0, 2, 3, 1))
+            self.expected_value = preds[0, -1, -1, :]
+            return preds[:, :-1, :-1, :]
         else:
             assert self.num_class[0] == 1
-            preds = preds.reshape(
-                (n_rows,  n_cols + 1, n_cols + 1))
+            preds = preds.reshape((n_rows, n_cols + 1, n_cols + 1))
             self.expected_value = preds[0, -1, -1]
             return preds[:, :-1, :-1]
