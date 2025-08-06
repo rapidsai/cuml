@@ -23,20 +23,18 @@ import warnings
 import cupy as cp
 import cupyx
 import numpy as np
+import scipy.sparse
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import UniversalBase, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 
 from cython.operator cimport dereference as deref
@@ -178,7 +176,8 @@ void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
 ''', 'swap_kernel')
 
 
-class NearestNeighbors(UniversalBase,
+class NearestNeighbors(Base,
+                       InteropMixin,
                        CMajorInputTagMixin,
                        SparseInputTagMixin):
     """
@@ -248,15 +247,10 @@ class NearestNeighbors(UniversalBase,
             - M: (int) number of subquantizers
             - n_bits: (int) bits allocated per subquantizer
             - usePrecomputedTables : (bool) whether to use precomputed tables
-
-    metric_expanded : bool
-        Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
-        by using the expanded form and not computing the n-th roots.
-        This is currently ignored.
-
     metric_params : dict, optional (default = None)
         This is currently ignored.
-
+    n_jobs : int (default = None)
+        Ignored, here for scikit-learn API compatibility.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -311,10 +305,6 @@ class NearestNeighbors(UniversalBase,
     the FAISS release that this cuML version is linked to.
     (see cuML issue #4020)
 
-    Warning: For compatibility with libraries that rely on scikit-learn,
-    kwargs allows for passing of arguments that are not explicit in the
-    class constructor, such as 'n_jobs', but they have no effect on behavior.
-
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/nearest_neighbors_demo.ipynb>`_.
 
@@ -323,35 +313,91 @@ class NearestNeighbors(UniversalBase,
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.neighbors.NearestNeighbors'
     _fit_X = CumlArrayDescriptor(order='C')
 
-    _hyperparam_interop_translator = {
-        "weights": {
-            "distance": "NotImplemented",
-        },
-        "algorithm": {
-            "auto": "brute",
-            "ball_tree": "brute",
-            "kd_tree": "brute",
-        },
-        "metric": {
-            "mahalanobis": "NotImplemented"
-        }
-    }
+    _cpu_class_path = "sklearn.neighbors.NearestNeighbors"
 
-    @device_interop_preparation
-    def __init__(self, *,
-                 n_neighbors=5,
-                 verbose=False,
-                 handle=None,
-                 algorithm="auto",
-                 metric="euclidean",
-                 p=2,
-                 algo_params=None,
-                 metric_params=None,
-                 output_type=None,
-                 **kwargs):
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_neighbors",
+            "algorithm",
+            "metric",
+            "p",
+            "metric_params",
+            "algo_params",
+            "n_jobs",  # Ignored, here for sklearn API compatibility
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if not (
+            isinstance(model.metric, str) and
+            model.metric in cuml.neighbors.VALID_METRICS["brute"]
+        ):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
+
+        return {
+            "n_neighbors": model.n_neighbors,
+            "algorithm": "auto" if model.algorithm == "auto" else "brute",
+            "metric": model.metric,
+            "p": model.p,
+            "metric_params": model.metric_params,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "n_neighbors": self.n_neighbors,
+            "algorithm": "auto" if self.algorithm == "auto" else "brute",
+            "metric": self.metric,
+            "p": self.p,
+            "metric_params": self.metric_params,
+        }
+
+    def _attrs_from_cpu(self, model):
+        if scipy.sparse.issparse(model._fit_X):
+            fit_X = SparseCumlArray(
+                model._fit_X,
+                convert_to_dtype=np.float32,
+                convert_format=True
+            )
+        else:
+            fit_X = to_gpu(model._fit_X, order="C", dtype=np.float32)
+
+        return {
+            "n_samples_fit_": model.n_samples_fit_,
+            "effective_metric_": model.effective_metric_,
+            "_fit_X": fit_X,
+            "_fit_method": "brute",
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "n_samples_fit_": self.n_samples_fit_,
+            "effective_metric_": self.effective_metric_,
+            "effective_metric_params_": self.effective_metric_params_,
+            "_fit_X": self._fit_X.to_output("numpy"),
+            "_fit_method": "brute",
+            "_tree": None,
+            **super()._attrs_to_cpu(model),
+        }
+
+    def __init__(
+        self,
+        *,
+        n_neighbors=5,
+        verbose=False,
+        handle=None,
+        algorithm="auto",
+        metric="euclidean",
+        p=2,
+        algo_params=None,
+        metric_params=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
+        output_type=None,
+    ):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -367,12 +413,11 @@ class NearestNeighbors(UniversalBase,
         self._fit_method = self.algorithm
         self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
+        self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
         self.knn_index = None
 
     @generate_docstring(X='dense_sparse')
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y=None, convert_dtype=True) -> "NearestNeighbors":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -472,17 +517,6 @@ class NearestNeighbors(UniversalBase,
         self.n_indices = 1
         return self
 
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params", "n_jobs"]
-
-    def get_attr_names(self):
-        return ['_fit_X', 'effective_metric_', 'effective_metric_params_',
-                'n_samples_fit_', 'n_features_in_', 'feature_names_in_',
-                '_fit_method']
-
     @staticmethod
     def _build_metric_type(metric):
         if metric == "euclidean" or metric == "l2":
@@ -522,13 +556,12 @@ class NearestNeighbors(UniversalBase,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype", "two_pass_precision")
     def kneighbors(
         self,
         X=None,
         n_neighbors=None,
         return_distance=True,
+        *,
         convert_dtype=True,
         two_pass_precision=False
     ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
@@ -733,14 +766,22 @@ class NearestNeighbors(UniversalBase,
             zero_found = cp.zeros(1, dtype=cp.int32)
 
             # Run the kernel to check for zeros
-            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
+            check_zero_kernel(
+                (blocks,),
+                (threads_per_block,),
+                (D_ndarr.ravel(), rows, cols, zero_found.ravel())
+            )
 
             threads_per_block = 32
             blocks = (rows + threads_per_block - 1) // threads_per_block
 
             # only run kernel if there are multiple zero distances
             if zero_found:
-                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
+                swap_kernel(
+                    (blocks,),
+                    (threads_per_block,),
+                    (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols)
+                )
 
             # slicing does not copy
             I_ndarr = I_ndarr[:, 1:]
@@ -900,7 +941,6 @@ class NearestNeighbors(UniversalBase,
         return D_ndarr, I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @enable_device_interop
     def kneighbors_graph(self,
                          X=None,
                          n_neighbors=None,
@@ -982,12 +1022,7 @@ class NearestNeighbors(UniversalBase,
 
     @property
     def effective_metric_params_(self):
-        metric_params = self.metric_params
-        return metric_params if metric_params else {}
-
-    @effective_metric_params_.setter
-    def effective_metric_params_(self, val):
-        self.metric_params = val
+        return self.metric_params or {}
 
     def __del__(self):
         cdef knnIndex* knn_index = <knnIndex*>0

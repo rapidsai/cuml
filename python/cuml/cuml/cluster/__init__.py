@@ -17,10 +17,20 @@
 from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
-
-# TODO: These need to be deprecated and moved to hdbscan namespace
-from cuml.cluster.hdbscan.prediction import (
-    all_points_membership_vectors,
-    approximate_predict,
-)
 from cuml.cluster.kmeans import KMeans
+
+
+def __getattr__(name):
+    import warnings
+
+    if name in ("all_points_membership_vectors", "approximate_predict"):
+        warnings.warn(
+            f"Accessing {name!r} from the `cuml.cluster` namespace is deprecated "
+            "and will be removed in 25.10. Please access it from the "
+            "`cuml.cluster.hdbscan` namespace instead.",
+            FutureWarning,
+        )
+        import cuml.cluster.hdbscan as mod
+
+        return getattr(mod, name)
+    raise AttributeError(f"module `cuml.cluster` has no attribute {name!r}")

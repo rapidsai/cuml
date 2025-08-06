@@ -26,7 +26,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, deprecate_non_keyword_only
+from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
@@ -318,6 +318,12 @@ class TruncatedSVD(Base,
 
         self.singular_values_ = None
 
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.components_.shape[0]
+
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,
@@ -367,8 +373,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit_transform(self, X, y=None, convert_dtype=True) -> CumlArray:
+    def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
@@ -434,8 +439,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
+    def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
@@ -483,8 +487,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @deprecate_non_keyword_only("convert_dtype")
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 

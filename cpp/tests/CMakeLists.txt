@@ -66,6 +66,7 @@ function(ConfigureTest)
     $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
     $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
     ${TREELITE_LIBS}
+    ${CUVS_LIB}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
@@ -116,15 +117,11 @@ if(all_algo OR explainer_algo)
 endif()
 
 if(all_algo OR fil_algo)
-  ConfigureTest(PREFIX SG NAME FIL_CHILD_INDEX_TEST  sg/fil_child_index_test.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME FIL_TEST  sg/fil_test.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME FNV_HASH_TEST  sg/fnv_hash_test.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST  sg/multi_sum_test.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/experimental/forest/traversal_forest.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/experimental/forest/treelite_traversal.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/experimental/fil/treelite_importer.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/fil/raft_proto/buffer.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/fil/raft_proto/buffer.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/forest/traversal_forest.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/forest/treelite_traversal.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/fil/treelite_importer.cpp ML_INCLUDE)
 endif()
 
 # todo: organize linear models better
@@ -138,21 +135,17 @@ if(all_algo OR genetic_algo)
   ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST  sg/genetic/param_test.cu ML_INCLUDE)
 endif()
 
-if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_GREATER_EQUAL "11.2")
-    # An HDBSCAN gtest is failing w/ CUDA 11.2 for some reason.
-    if(all_algo OR hdbscan_algo)
-      ConfigureTest(PREFIX SG NAME HDBSCAN_TEST  sg/hdbscan_test.cu ML_INCLUDE)
-      # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
-      # See this issue: https://github.com/rapidsai/cuml/issues/6225
-      set_property(
-        SOURCE sg/hdbscan_test.cu
-        APPEND_STRING
-        PROPERTY COMPILE_FLAGS
-        " -Xcompiler=-Wno-maybe-uninitialized"
-      )
-    endif()
-endif()
-
+  if(all_algo OR hdbscan_algo)
+    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST  sg/hdbscan_test.cu ML_INCLUDE)
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+    set_property(
+      SOURCE sg/hdbscan_test.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+  endif()
 
 if(all_algo OR holtwinters_algo)
   ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST  sg/holtwinters_test.cu ML_INCLUDE)

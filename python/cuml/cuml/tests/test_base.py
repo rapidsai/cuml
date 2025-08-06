@@ -50,14 +50,6 @@ def test_base_class_usage_with_handle():
     del base
 
 
-def test_base_hasattr():
-    base = cuml.Base()
-    # With __getattr__ overriding magic, hasattr should still return
-    # True only for valid attributes
-    assert hasattr(base, "handle")
-    assert not hasattr(base, "somefakeattr")
-
-
 @pytest.mark.parametrize("datatype", ["float32", "float64"])
 @pytest.mark.parametrize("use_integer_n_features", [True, False])
 def test_base_n_features_in(datatype, use_integer_n_features):
@@ -146,12 +138,16 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
-            # Ensure the docstring is identical
-            assert (
-                found_doc.type == base_item_doc.type
-            ), "Docstring mismatch for {}".format(name)
+            if not (
+                found_doc.type.startswith("cuml.Handle")
+                and klass == cuml.manifold.umap.UMAP
+            ):
+                # Ensure the docstring is identical
+                assert (
+                    found_doc.type == base_item_doc.type
+                ), "Docstring mismatch for {}".format(name)
 
-            assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+                assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
@@ -196,46 +192,113 @@ def test_base_children__get_param_names(child_class: str):
             assert name in param_names
 
 
-# We explicitly skip the models in `cuml.tsa` since they match the statsmodels
-# interface rather than the sklearn interface (https://github.com/rapidsai/cuml/issues/6258).
-# Also skip a few classes that don't match this interface intentionally, since their sklearn
-# equivalents are also exceptions.
-@pytest.mark.parametrize(
-    "cls",
-    [
-        cls
-        for cls in all_base_children.values()
-        if not cls.__module__.startswith("cuml.tsa.")
-        and cls
-        not in {
-            cuml.preprocessing.LabelBinarizer,
-            cuml.preprocessing.LabelEncoder,
-        }
-    ],
-)
-def test_sklearn_methods_with_required_y_parameter(cls):
-    optional_params = {
-        inspect.Parameter.KEYWORD_ONLY,
-        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        inspect.Parameter.VAR_KEYWORD,
-    }
-    for name in [
-        "fit",
-        "partial_fit",
-        "score",
-        "fit_transform",
-        "fit_predict",
-    ]:
-        if (method := getattr(cls, name, None)) is None:
-            # Method not defined, skip
+FIT_LIKE_METHODS = [
+    "fit",
+    "fit_transform",
+    "fit_predict",
+    "score",
+]
+
+PREDICT_LIKE_METHODS = [
+    "transform",
+    "predict",
+    "predict_proba",
+    "predict_log_proba",
+    "decision_function",
+    "decision_path",
+]
+
+
+# Methods that don't match the sklearn convention, these are exceptions within sklearn itself
+EXCEPTIONS = {
+    "KernelCenterer.fit": ["self", "K", "y"],
+    "KernelCenterer.transform": ["self", "K"],
+    "LabelEncoder.fit": ["self", "y"],
+    "LabelEncoder.fit_transform": ["self", "y"],
+    "LabelEncoder.transform": ["self", "y"],
+    "LabelBinarizer.fit": ["self", "y"],
+    "LabelBinarizer.fit_transform": ["self", "y"],
+    "LabelBinarizer.transform": ["self", "y"],
+}
+
+
+def generate_test_common_signatures_cases():
+    methods = [
+        *FIT_LIKE_METHODS,
+        *PREDICT_LIKE_METHODS,
+        "get_params",
+        "set_params",
+    ]
+    for cls in sorted(
+        get_all_base_subclasses().values(), key=lambda cls: cls.__name__
+    ):
+        if cls.__module__.startswith(("cuml.tsa", "cuml.solvers")):
+            # These classes aren't expected to match the sklearn interface
             continue
-        params = list(inspect.signature(method).parameters.values())
-        # Assert method has a 2nd parameter named y, which is required by sklearn
+        elif "Base" in cls.__name__:
+            continue
+
+        for method in methods:
+            if hasattr(cls, method):
+                yield (cls, method)
+
+
+@pytest.mark.parametrize(
+    "cls, method", generate_test_common_signatures_cases()
+)
+def test_common_signatures(cls, method):
+    sig = inspect.signature(getattr(cls, method))
+
+    if method == "get_params":
+        assert list(sig.parameters) == ["self", "deep"]
         assert (
-            len(params) > 2 and params[2].name == "y"
-        ), f"`{name}` requires a `y` parameter, even if it's ignored"
-        # Check that all remaining parameters are optional
-        for param in params[3:]:
+            sig.parameters["deep"].kind
+            is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        )
+        assert sig.parameters["deep"].default is True
+        return
+
+    elif method == "set_params":
+        assert len(sig.parameters) == 2
+        # Most methods use `**params` here, but we don't actually care what it's called
+        assert (
+            list(sig.parameters.values())[-1].kind
+            is inspect.Parameter.VAR_KEYWORD
+        )
+        return
+
+    if method in FIT_LIKE_METHODS:
+        if (first := EXCEPTIONS.get(f"{cls.__name__}.{method}")) is None:
+            first = ["self", "X", "y"]
+        if "sample_weight" in sig.parameters:
+            first.append("sample_weight")
+            assert sig.parameters["sample_weight"].default is None
+        if "copy" in sig.parameters:
+            first.append("copy")
             assert (
-                param.kind in optional_params
-            ), f"`{name}` parameter `{param.name}` must be optional"
+                sig.parameters["copy"].default is not inspect.Parameter.empty
+            )
+
+        assert sig.parameters["y"].default in {inspect.Parameter.empty, None}
+
+    elif method in PREDICT_LIKE_METHODS:
+        if (first := EXCEPTIONS.get(f"{cls.__name__}.{method}")) is None:
+            first = ["self", "X"]
+        if "copy" in sig.parameters:
+            first.append("copy")
+
+    assert list(sig.parameters)[: len(first)] == first
+    rest = list(sig.parameters.values())[len(first) :]
+
+    for name in first:
+        assert (
+            sig.parameters[name].kind
+            is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        )
+
+    for param in rest:
+        assert param.kind in {
+            inspect.Parameter.KEYWORD_ONLY,
+            inspect.Parameter.VAR_KEYWORD,
+        }
+        assert param.name not in {"X", "y", "sample_weight"}

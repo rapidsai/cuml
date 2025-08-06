@@ -15,6 +15,7 @@
 #
 import tempfile
 import warnings
+from importlib import import_module
 
 import numpy as np
 import sklearn
@@ -29,7 +30,6 @@ from sklearn.impute import SimpleImputer as skSimpleImputer
 
 import cuml
 import cuml.decomposition
-import cuml.experimental
 import cuml.metrics
 import cuml.naive_bayes
 from cuml.benchmark.bench_helper_funcs import (
@@ -451,11 +451,10 @@ def all_algorithms():
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo="AUTO",
-                output_class=False,
+                is_classifier=False,
                 threshold=0.5,
-                storage_type="auto",
                 precision="float32",
+                layout="depth_first",
             ),
             name="FIL",
             accepts_labels=False,
@@ -470,11 +469,10 @@ def all_algorithms():
             cuml.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
-                fil_algo="AUTO",
-                output_class=False,
+                is_classifier=False,
                 threshold=0.5,
-                storage_type=True,
                 precision="float32",
+                layout="depth_first",
             ),
             name="Sparse-FIL-SKL",
             accepts_labels=False,
@@ -485,85 +483,19 @@ def all_algorithms():
         ),
         AlgorithmPair(
             treelite,
-            cuml.experimental.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(output_class=False),
-            name="FILEX",
-            accepts_labels=False,
-            setup_cpu_func=_build_gtil_classifier,
-            setup_cuml_func=_build_fil_classifier,
-            cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.experimental.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(
-                fil_algo="NAIVE",
-                storage_type="DENSE",
-                output_class=False,
-                precision="float32",
-                infer_type="default",
-                model_type="xgboost_ubj",
-            ),
-            name="FILEX-Optimized",
-            accepts_labels=False,
-            setup_cpu_func=_build_gtil_classifier,
-            setup_cuml_func=_build_optimized_fil_classifier,
-            cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo="NAIVE",
-                storage_type="DENSE",
-                output_class=False,
+                is_classifier=False,
                 threshold=0.5,
                 precision="float32",
+                layout="depth_first",
             ),
             name="FIL-Optimized",
             accepts_labels=False,
             setup_cpu_func=_build_gtil_classifier,
             setup_cuml_func=_build_optimized_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.experimental.ForestInference,
-            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
-            cuml_args=dict(output_class=False),
-            name="Sparse-FILEX-SKL",
-            accepts_labels=False,
-            setup_cpu_func=_build_cpu_skl_classifier,
-            setup_cuml_func=_build_fil_skl_classifier,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.experimental.ForestInference,
-            shared_args=dict(
-                num_rounds=100, max_depth=10, infer_type="per_tree"
-            ),
-            cuml_args=dict(
-                fil_algo="NAIVE",
-                storage_type="DENSE",
-                output_class=False,
-                precision="float32",
-            ),
-            name="FILEX-PerTree",
-            accepts_labels=False,
-            setup_cpu_func=_build_gtil_classifier,
-            setup_cuml_func=_build_optimized_fil_classifier,
-            cpu_data_prep_hook=_numpy_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
@@ -697,7 +629,16 @@ def all_algorithms():
         ),
     ]
     try:
-        import cuml.dask
+        # Importing via import_module avoids rebinding the name `cuml`, which
+        # would otherwise make it a *local* variable and break earlier
+        # references inside this function (see Python's scoping rules) and
+        # causes an error like:
+        #   File "algorithms.py", line 227, in all_algorithms
+        #   cuml.cluster.KMeans,
+        #     ^^^^
+        # UnboundLocalError: cannot access local variable 'cuml' where it is
+        # not associated with a value
+        import_module("cuml.dask")
     except ImportError:
         warnings.warn(
             "Not all dependencies required for `cuml.dask` are installed, the "

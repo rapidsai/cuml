@@ -21,12 +21,9 @@ import numpy as np
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import (
-    api_base_return_array,
-    enable_device_interop,
-)
+from cuml.internals.api_decorators import api_base_return_array
 from cuml.internals.array import CumlArray
-from cuml.internals.base import deprecate_non_keyword_only
+from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -136,20 +133,41 @@ class KNeighborsRegressor(RegressorMixin,
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
 
-    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsRegressor"
+    y = CumlArrayDescriptor(order="F")
 
-    y = CumlArrayDescriptor()
+    _cpu_class_path = "sklearn.neighbors.KNeighborsRegressor"
 
-    _hyperparam_interop_translator = {
-        "weights": {
-            "distance": "NotImplemented",
-        },
-        "algorithm": {
-            "auto": "brute",
-            "ball_tree": "brute",
-            "kd_tree": "brute",
-        },
-    }
+    @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "weights"]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.weights != "uniform":
+            raise UnsupportedOnGPU("Only `weights='uniform'` is supported")
+
+        return {
+            "weights": "uniform",
+            **super()._params_from_cpu(model),
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "weights": self.weights,
+            **super()._params_to_cpu(),
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "y": to_gpu(model._y, order="F", dtype=np.float32),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "_y": to_cpu(self.y),
+            **super()._attrs_to_cpu(model),
+        }
 
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
@@ -162,9 +180,7 @@ class KNeighborsRegressor(RegressorMixin,
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
+    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
@@ -188,9 +204,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
     @api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
-    @deprecate_non_keyword_only("convert_dtype")
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
@@ -236,7 +250,3 @@ class KNeighborsRegressor(RegressorMixin,
 
         self.handle.sync()
         return results
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + ["weights"]

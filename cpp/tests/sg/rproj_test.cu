@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/random_projection/rproj_c.h>
 
@@ -147,7 +148,7 @@ class RPROJTest : public ::testing::Test {
   void epsilon_check()
   {
     int D                        = johnson_lindenstrauss_min_dim(N, epsilon);
-    constexpr auto distance_type = cuvs::distance::DistanceType::L2SqrtUnexpanded;
+    constexpr auto distance_type = ML::distance::DistanceType::L2SqrtUnexpanded;
 
     rmm::device_uvector<T> d_pdist(N * N, stream);
     ML::Metrics::pairwise_distance(

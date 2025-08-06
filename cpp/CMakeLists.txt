@@ -69,6 +69,7 @@ option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+option(CUDA_WARNINGS_AS_ERRORS "Enable -Werror=all-warnings for all CUDA compilation" ON)
 
 # The options below allow incorporating libcuml into another build process
 # without installing all its components. This is useful if total file size is
@@ -187,7 +188,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 set(CUML_USE_RAFT_NN OFF)
-set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
@@ -370,39 +370,33 @@ if(BUILD_CUML_CPP_LIBRARY)
     if(CUML_ENABLE_GPU)
       target_sources(${CUML_CPP_TARGET}
         PRIVATE
-          # Current FIL
-          src/fil/fil.cu
-          src/fil/infer.cu
-          src/fil/treelite_import.cu
-          # Experimental FIL
-          src/experimental/fil/infer0.cu
-          src/experimental/fil/infer1.cu
-          src/experimental/fil/infer2.cu
-          src/experimental/fil/infer3.cu
-          src/experimental/fil/infer4.cu
-          src/experimental/fil/infer5.cu
-          src/experimental/fil/infer6.cu
-          src/experimental/fil/infer7.cu
-          src/experimental/fil/infer8.cu
-          src/experimental/fil/infer9.cu
-          src/experimental/fil/infer10.cu
-          src/experimental/fil/infer11.cu)
+          src/fil/infer0.cu
+          src/fil/infer1.cu
+          src/fil/infer2.cu
+          src/fil/infer3.cu
+          src/fil/infer4.cu
+          src/fil/infer5.cu
+          src/fil/infer6.cu
+          src/fil/infer7.cu
+          src/fil/infer8.cu
+          src/fil/infer9.cu
+          src/fil/infer10.cu
+          src/fil/infer11.cu)
     endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        # Experimental FIL
-        src/experimental/fil/infer0.cpp
-        src/experimental/fil/infer1.cpp
-        src/experimental/fil/infer2.cpp
-        src/experimental/fil/infer3.cpp
-        src/experimental/fil/infer4.cpp
-        src/experimental/fil/infer5.cpp
-        src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer7.cpp
-        src/experimental/fil/infer8.cpp
-        src/experimental/fil/infer9.cpp
-        src/experimental/fil/infer10.cpp
-        src/experimental/fil/infer11.cpp)
+        src/fil/infer0.cpp
+        src/fil/infer1.cpp
+        src/fil/infer2.cpp
+        src/fil/infer3.cpp
+        src/fil/infer4.cpp
+        src/fil/infer5.cpp
+        src/fil/infer6.cpp
+        src/fil/infer7.cpp
+        src/fil/infer8.cpp
+        src/fil/infer9.cpp
+        src/fil/infer10.cpp
+        src/fil/infer11.cpp)
   endif()
 
   # todo: organize linear models better
@@ -462,6 +456,7 @@ if(BUILD_CUML_CPP_LIBRARY)
             src/kmeans/kmeans_transform.cu
             src/kmeans/kmeans_fit_predict.cu
             src/kmeans/kmeans_predict.cu
+            src/kmeans/kmeans_params.cpp
             )
   endif()
 
@@ -527,7 +522,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR spectralclustering_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/spectral/spectral.cu)
+        src/spectral/spectral.cu
+        src/spectral/spectral_embedding.cu)
   endif()
 
   if(all_algo OR svm_algo)
@@ -535,7 +531,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu)
+        src/svm/linear.cu
+        src/matrix/kernel_params.cpp)
   endif()
 
   if(all_algo OR autoarima_algo)
@@ -647,7 +644,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
-    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -667,14 +663,13 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    $<$<BOOL:${CUML_RAFT_COMPILED}>:${RAFT_COMPILED_LIB}>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
-            ${_cuml_cpp_public_libs}
-    PRIVATE ${_cuml_cpp_private_libs}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm
+            raft::raft ${_cuml_cpp_public_libs}
+    PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

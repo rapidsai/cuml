@@ -31,7 +31,7 @@ repos:
             exclude: thirdparty
             additional_dependencies: [flake8-force]
     - repo: https://github.com/MarcoGorelli/cython-lint
-      rev: v0.15.0
+      rev: v0.16.6
       hooks:
           - id: cython-lint
     - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -71,6 +71,14 @@ repos:
                 - cpp/test
             pass_filenames: false
             language: python
+          - id: xfail-format
+            name: Format xfail lists
+            description: 'Ensure xfail lists are properly formatted according to standards'
+            entry: python python/cuml/cuml_accel_tests/upstream/xfail_manager.py
+            language: python
+            files: '.*xfail.*\.yaml$'
+            args: ['format', '--cleanup']
+            additional_dependencies: ['pyyaml>=6.0', 'packaging>=21.0']
     - repo: https://github.com/rapidsai/pre-commit-hooks
       rev: v0.6.0
       hooks:
@@ -89,7 +97,7 @@ repos:
         - id: verify-alpha-spec
           args: ["--fix", "--mode=release"]
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.17.1
+      rev: v1.19.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
@@ -98,7 +106,6 @@ repos:
       hooks:
         - id: shellcheck
           args: ["--severity=warning"]
-          files: ^ci/
 
 default_language_version:
     python: python3

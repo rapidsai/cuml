@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,15 +43,13 @@ void hingeLossGradMult(math_t* data,
                        idx_type n_col,
                        cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     data,
     data,
     vec1,
     vec2,
     n_col,
     n_row,
-    false,
-    false,
     [] __device__(math_t a, math_t b, math_t c) {
       if (c < math_t(1))
         return -a * b;
@@ -125,7 +123,7 @@ void hingeLossGrads(const raft::handle_t& handle,
 
   raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
-  raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
+  raft::stats::mean<false>(grads, input, n_cols, n_rows, false, stream);
 
   rmm::device_uvector<math_t> pen_grads(0, stream);
 
@@ -173,7 +171,7 @@ void hingeLoss(const raft::handle_t& handle,
 
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows, stream);
 
-  raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
+  raft::stats::sum<false>(loss, labels_pred.data(), 1, n_rows, stream);
 
   rmm::device_uvector<math_t> pen_val(0, stream);
 

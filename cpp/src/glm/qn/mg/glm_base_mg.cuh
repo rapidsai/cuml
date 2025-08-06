@@ -63,7 +63,7 @@ inline void linearBwdMG(const raft::handle_t& handle,
     // TODO can this be fused somehow?
     Gweights.assign_gemm(handle, 1.0 / n_samples, dZ, false, X, false, beta / n_ranks, stream);
 
-    raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+    raft::stats::mean<true>(Gbias.data, dZ.data, dZ.m, dZ.n, false, stream);
     T bias_factor = 1.0 * dZ.n / n_samples;
     raft::linalg::multiplyScalar(Gbias.data, Gbias.data, bias_factor, dZ.m, stream);
 
@@ -150,15 +150,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
         *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n);
 
       // scale reg part of the gradient for the upcoming adapt_gradient_for_linearBwd
-      raft::linalg::matrixVectorOp(G.data,
-                                   G.data,
-                                   stder_p->std.data,
-                                   stder_p->std.len,
-                                   G.m,
-                                   false,
-                                   true,
-                                   raft::mul_op(),
-                                   stream);
+      raft::linalg::matrixVectorOp<false, true>(
+        G.data, G.data, stder_p->std.data, stder_p->std.len, G.m, raft::mul_op(), stream);
     }
 
     // apply linearFwd, getLossAndDz, linearBwd

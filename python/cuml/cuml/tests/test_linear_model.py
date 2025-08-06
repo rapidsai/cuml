@@ -18,7 +18,6 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import rmm
 import sklearn
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
@@ -54,15 +53,6 @@ from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_difference, array_equal
 
 ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
-
-
-# TODO(25.08): remove this test
-def test_logreg_penalty_deprecation():
-    with pytest.warns(
-        FutureWarning,
-        match="The 'none' option was deprecated in version 24.06",
-    ):
-        cuLog(penalty="none")
 
 
 @given(
@@ -189,14 +179,9 @@ def test_weighted_linear_regression(
     np.testing.assert_almost_equal(cu_score, sk_score)
 
 
-@pytest.mark.skipif(
-    rmm._cuda.gpu.runtimeGetVersion() < 11000,
-    reason="svd solver does not support more than 46340 rows or columns for"
-    " CUDA<11 and other solvers do not support single-column input",
-)
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
-    46340 rows (a limitation on CUDA <11)"""
+    46340 rows"""
     model = cuLinearRegression()
     with pytest.warns(UserWarning):
         model.fit(cp.random.rand(46341), cp.random.rand(46341))

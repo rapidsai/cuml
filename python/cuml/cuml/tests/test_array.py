@@ -732,8 +732,7 @@ def test_sliced_array_owner(order, mem_type):
     gc.collect()
 
     # Calling `to_output` forces use of the pointer. This can fail with a cuda
-    # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
-    # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
+    # error on cudaErrorInvalidDevice in CUDA > 12.0 (unclear why it changed)
     assert xpy.all(
         cuml_slice.to_output("array", output_mem_type=mem_type) == arr_slice
     )

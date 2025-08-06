@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/distance_type.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
@@ -27,6 +28,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -239,7 +241,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components, stream));
 
     double trustworthiness =
-      trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
+      trustworthiness_score<float, ML::distance::DistanceType::L2SqrtUnexpanded>(
         handle,
         X,
         embedding_ptr,
@@ -300,31 +302,20 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     float* e1 = embeddings1.data();
 
-#if CUDART_VERSION >= 11020
-    // Always use random init w/ CUDA 11.2. For some reason the
-    // spectral solver doesn't always converge w/ this CUDA version.
     umap_params.init         = 0;
     umap_params.random_state = 43;
     umap_params.n_epochs     = 500;
-#endif
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params, umap_params);
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
-    // v21.08: Reproducibility looks to be busted for CTK 11.4. Need to figure out
-    // why this is happening and re-enable this.
-#if CUDART_VERSION == 11040
-    return;
-#else
     // Disable reproducibility tests after transformation
     if (!test_params.fit_transform) { return; }
-#endif
 
     rmm::device_uvector<float> embeddings2(n_samples * umap_params.n_components, stream);
     float* e2 = embeddings2.data();
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params, umap_params);
 
-#if CUDART_VERSION >= 11020
     auto equal = are_equal(e1, e2, n_samples * umap_params.n_components, stream);
 
     if (!equal) {
@@ -333,10 +324,6 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
 
     ASSERT_TRUE(equal);
-#else
-    ASSERT_TRUE(MLCommon::devArrMatch(
-      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
-#endif
   }
 
   void SetUp() override
