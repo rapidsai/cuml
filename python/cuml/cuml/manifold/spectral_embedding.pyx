@@ -124,6 +124,113 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
+    if n_components <= 0:
+        raise ValueError(f"n_components must be > 0. Got {n_components}")
+
+    # Check for sparse input (not supported)
+    try:
+        import scipy.sparse as sp
+        if sp.issparse(A):
+            raise TypeError(
+                "A sparse matrix was passed, but dense data is required. "
+                "Use X.toarray() to convert to a dense numpy array."
+            )
+    except ImportError:
+        pass
+
+    # Check for 1D arrays
+    if hasattr(A, 'ndim'):
+        if A.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead:\n"
+                f"array={A}.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+    elif hasattr(A, 'shape') and len(A.shape) == 1:
+        raise ValueError(
+            "Expected 2D array, got 1D array instead:\n"
+            f"array shape={A.shape}.\n"
+            "Reshape your data either using array.reshape(-1, 1) if "
+            "your data has a single feature or array.reshape(1, -1) "
+            "if it contains a single sample."
+        )
+
+    # Check for empty data
+    if hasattr(A, 'shape'):
+        if len(A.shape) >= 2:
+            if A.shape[0] == 0:
+                raise ValueError(
+                    f"Found array with 0 sample(s) (shape={A.shape}) while a "
+                    f"minimum of 1 is required."
+                )
+            if A.shape[1] == 0:
+                raise ValueError(
+                    f"Found array with 0 feature(s) (shape={A.shape}) while a "
+                    f"minimum of 1 is required."
+                )
+            # SpectralEmbedding requires at least 2 samples
+            if A.shape[0] < 2:
+                raise ValueError(
+                    f"SpectralEmbedding requires at least 2 samples, but got "
+                    f"only {A.shape[0]} sample(s)."
+                )
+            # SpectralEmbedding requires at least 2 features for meaningful embedding
+            if A.shape[1] < 2:
+                raise ValueError(
+                    f"SpectralEmbedding requires at least 2 features for meaningful "
+                    f"results, but got only {A.shape[1]} feature(s)."
+                )
+
+    # Check for NaN and Inf values
+    if hasattr(A, 'dtype'):
+        # Check if it's a numeric dtype (not object)
+        if A.dtype != object and not (hasattr(A.dtype, 'name') and A.dtype.name == 'object'):
+            # Convert to numpy array if needed for checking
+            A_check = A
+            if hasattr(A, 'to_numpy'):  # cudf DataFrame
+                A_check = A.to_numpy()
+            elif hasattr(A, 'values'):  # pandas DataFrame
+                A_check = A.values
+            elif hasattr(A, '__cuda_array_interface__'):  # cupy array
+                A_check = cp.asnumpy(A)
+
+            # Check for NaN and Inf
+            A_np = np.asarray(A_check)
+            if np.any(np.isnan(A_np)):
+                raise ValueError(
+                    "Input contains NaN"
+                )
+            if np.any(np.isinf(A_np)):
+                raise ValueError(
+                    "Input contains infinity or a value too large for dtype('float64')."
+                )
+
+    # Check for object dtype and validate contents
+    if hasattr(A, 'dtype'):
+        if A.dtype == object or (hasattr(A.dtype, 'name') and A.dtype.name == 'object'):
+            # Try to convert to numeric array
+            try:
+                # First check if any element is not numeric
+                flat_A = np.asarray(A).ravel()
+                for elem in flat_A:
+                    # Check if element is a dict, list, or other non-numeric type
+                    if isinstance(elem, (dict, list, tuple, str)) or not np.isscalar(elem):
+                        raise TypeError(
+                            "argument must be a string or a real number, not "
+                            f"'{type(elem).__name__}'"
+                        )
+                # If all elements are numeric, convert to float32
+                A = np.asarray(A, dtype=np.float32)
+            except (ValueError, TypeError) as e:
+                # Re-raise with proper message format
+                if "argument must be" not in str(e):
+                    raise TypeError(
+                        "argument must be a string or a real number"
+                    ) from None
+                else:
+                    raise
 
     if handle is None:
         handle = Handle()
@@ -209,6 +316,16 @@ class SpectralEmbedding(Base,
     ----------
     embedding_ : cupy.ndarray of shape (n_samples, n_components)
         Spectral embedding of the training matrix.
+    affinity_matrix_ : None
+        Not implemented in cuML. Always None to save memory.
+        The affinity matrix is not stored after computing the embedding.
+    n_neighbors_ : int
+        Number of nearest neighbors effectively used.
+    n_features_in_ : int
+        Number of features seen during fit.
+    feature_names_in_ : ndarray of shape (n_features_in_,)
+        Names of features seen during fit. Defined only when X has feature
+        names that are all strings.
 
     Notes
     -----
@@ -290,6 +407,36 @@ class SpectralEmbedding(Base,
         }
         return params
 
+    def _attrs_to_cpu(self, model):
+        """Get attributes to set on CPU model from GPU model.
+
+        Override the base implementation to include feature_names_in_.
+        """
+        # Get base attributes (n_features_in_)
+        out = super()._attrs_to_cpu(model)
+
+        # Add embedding_ attribute
+        if hasattr(self, 'embedding_'):
+            # Convert to numpy if it's a cupy array
+            embedding = self.embedding_
+            if hasattr(embedding, '__cuda_array_interface__'):
+                embedding = cp.asnumpy(embedding)
+            out['embedding_'] = embedding
+
+        # Add feature_names_in_ if it exists
+        if hasattr(self, 'feature_names_in_'):
+            out['feature_names_in_'] = self.feature_names_in_
+
+        # Add n_neighbors_ if it exists
+        if hasattr(self, 'n_neighbors_'):
+            out['n_neighbors_'] = self.n_neighbors_
+
+        # Add affinity_matrix_ (always None in cuML)
+        if hasattr(self, 'affinity_matrix_'):
+            out['affinity_matrix_'] = self.affinity_matrix_
+
+        return out
+
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
@@ -325,10 +472,143 @@ class SpectralEmbedding(Base,
         self : object
             Returns the instance itself.
         """
+        # Check for sparse input (not supported)
+        try:
+            import scipy.sparse as sp
+            if sp.issparse(X):
+                raise TypeError(
+                    "A sparse matrix was passed, but dense data is required. "
+                    "Use X.toarray() to convert to a dense numpy array."
+                )
+        except ImportError:
+            pass
+
+        # Check for 1D arrays first
+        if hasattr(X, 'ndim'):
+            if X.ndim == 1:
+                raise ValueError(
+                    "Expected 2D array, got 1D array instead:\n"
+                    f"array={X}.\n"
+                    "Reshape your data either using array.reshape(-1, 1) if "
+                    "your data has a single feature or array.reshape(1, -1) "
+                    "if it contains a single sample."
+                )
+        elif hasattr(X, 'shape') and len(X.shape) == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead:\n"
+                f"array shape={X.shape}.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
+        # Check for empty data
+        if hasattr(X, 'shape'):
+            if len(X.shape) >= 2:
+                if X.shape[0] == 0:
+                    raise ValueError(
+                        f"Found array with 0 sample(s) (shape={X.shape}) while a "
+                        f"minimum of 1 is required."
+                    )
+                if X.shape[1] == 0:
+                    raise ValueError(
+                        f"Found array with 0 feature(s) (shape={X.shape}) while a "
+                        f"minimum of 1 is required."
+                    )
+                # SpectralEmbedding requires at least 2 samples
+                if X.shape[0] < 2:
+                    raise ValueError(
+                        f"SpectralEmbedding requires at least 2 samples, but got "
+                        f"only {X.shape[0]} sample(s)."
+                    )
+                # SpectralEmbedding requires at least 2 features for meaningful embedding
+                if X.shape[1] < 2:
+                    raise ValueError(
+                        f"SpectralEmbedding requires at least 2 features for meaningful "
+                        f"results, but got only {X.shape[1]} feature(s)."
+                    )
+
+        # Check for NaN and Inf values
+        if hasattr(X, 'dtype'):
+            # Check if it's a numeric dtype (not object)
+            if (X.dtype != object and
+                    not (hasattr(X.dtype, 'name') and X.dtype.name == 'object')):
+                # Convert to numpy array if needed for checking
+                X_check = X
+                if hasattr(X, 'to_numpy'):  # cudf DataFrame
+                    X_check = X.to_numpy()
+                elif hasattr(X, 'values'):  # pandas DataFrame
+                    X_check = X.values
+                elif hasattr(X, '__cuda_array_interface__'):  # cupy array
+                    X_check = cp.asnumpy(X)
+
+                # Check for NaN and Inf
+                X_np = np.asarray(X_check)
+                if np.any(np.isnan(X_np)):
+                    raise ValueError(
+                        "Input contains NaN"
+                    )
+                if np.any(np.isinf(X_np)):
+                    raise ValueError(
+                        "Input contains infinity or a value too large for dtype('float64')."
+                    )
+
+        # Check for object dtype and validate contents
+        if hasattr(X, 'dtype'):
+            if X.dtype == object or (hasattr(X.dtype, 'name') and X.dtype.name == 'object'):
+                # Try to convert to numeric array
+                try:
+                    # First check if any element is not numeric
+                    flat_X = np.asarray(X).ravel()
+                    for elem in flat_X:
+                        # Check if element is a dict, list, or other non-numeric type
+                        if isinstance(elem, (dict, list, tuple, str)) or not np.isscalar(elem):
+                            raise TypeError(
+                                "argument must be a string or a real number, not "
+                                f"'{type(elem).__name__}'"
+                            )
+                    # If all elements are numeric, convert to float32
+                    X = np.asarray(X, dtype=np.float32)
+                except (ValueError, TypeError) as e:
+                    # Re-raise with proper message format
+                    if "argument must be" not in str(e):
+                        raise TypeError(
+                            "argument must be a string or a real number"
+                        ) from None
+                    else:
+                        raise
+
+        # Store feature names if X is a pandas DataFrame
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.asarray(X.columns)
+
+        # Store the number of features
+        X_for_shape = X
+        if hasattr(X, "values"):  # pandas DataFrame
+            X_for_shape = X.values
+        elif hasattr(X, "to_cupy"):  # cudf DataFrame
+            X_for_shape = X.to_cupy()
+
+        if hasattr(X_for_shape, "shape") and len(X_for_shape.shape) >= 2:
+            self.n_features_in_ = X_for_shape.shape[1]
+
+        # Store n_neighbors_ for sklearn compatibility
+        self.n_neighbors_ = (
+            self.n_neighbors
+            if self.n_neighbors is not None
+            else max(int(X_for_shape.shape[0] / 10), 1)
+        )
+
         self.embedding_ = spectral_embedding(
             X,
             n_components=self.n_components,
             random_state=self.random_state,
-            n_neighbors=self.n_neighbors
+            n_neighbors=self.n_neighbors,
+            handle=self.handle
         )
+
+        # Set affinity_matrix_ to None for sklearn compatibility
+        # cuML doesn't store the affinity matrix to save memory
+        self.affinity_matrix_ = None
+
         return self
