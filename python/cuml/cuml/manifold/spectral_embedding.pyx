@@ -157,6 +157,11 @@ def spectral_embedding(A,
             "if it contains a single sample."
         )
 
+    # Check for complex data
+    if hasattr(A, 'dtype'):
+        if np.iscomplexobj(A):
+            raise ValueError("Complex data not supported")
+
     # Check for empty data
     if hasattr(A, 'shape'):
         if len(A.shape) >= 2:
@@ -501,6 +506,11 @@ class SpectralEmbedding(Base,
                 "your data has a single feature or array.reshape(1, -1) "
                 "if it contains a single sample."
             )
+
+        # Check for complex data
+        if hasattr(X, 'dtype'):
+            if np.iscomplexobj(X):
+                raise ValueError("Complex data not supported")
 
         # Check for empty data
         if hasattr(X, 'shape'):
