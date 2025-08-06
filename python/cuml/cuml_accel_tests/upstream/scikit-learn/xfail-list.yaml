@@ -1015,6 +1015,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
 - reason: Test crashes with cuml.accel
   marker: cuml_accel_crashes

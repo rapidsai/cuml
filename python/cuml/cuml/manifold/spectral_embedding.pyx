@@ -127,27 +127,24 @@ def spectral_embedding(A,
     if n_components <= 0:
         raise ValueError(f"n_components must be > 0. Got {n_components}")
 
-    # Check for sparse input (not supported)
+    # Convert sparse input to dense (cuML doesn't support sparse directly)
     try:
         import scipy.sparse as sp
         if sp.issparse(A):
-            raise TypeError(
-                "A sparse matrix was passed, but dense data is required. "
-                "Use X.toarray() to convert to a dense numpy array."
-            )
+            # Convert sparse to dense automatically
+            A = A.toarray()
     except ImportError:
         pass
 
-    # Check for 1D arrays
-    if hasattr(A, 'ndim'):
-        if A.ndim == 1:
-            raise ValueError(
-                "Expected 2D array, got 1D array instead:\n"
-                f"array={A}.\n"
-                "Reshape your data either using array.reshape(-1, 1) if "
-                "your data has a single feature or array.reshape(1, -1) "
-                "if it contains a single sample."
-            )
+    # Check for 1D input
+    if hasattr(A, 'ndim') and A.ndim == 1:
+        raise ValueError(
+            "Expected 2D array, got 1D array instead:\n"
+            f"array={A}.\n"
+            "Reshape your data either using array.reshape(-1, 1) if "
+            "your data has a single feature or array.reshape(1, -1) "
+            "if it contains a single sample."
+        )
     elif hasattr(A, 'shape') and len(A.shape) == 1:
         raise ValueError(
             "Expected 2D array, got 1D array instead:\n"
@@ -477,18 +474,16 @@ class SpectralEmbedding(Base,
         self : object
             Returns the instance itself.
         """
-        # Check for sparse input (not supported)
+        # Convert sparse input to dense (cuML doesn't support sparse directly)
         try:
             import scipy.sparse as sp
             if sp.issparse(X):
-                raise TypeError(
-                    "A sparse matrix was passed, but dense data is required. "
-                    "Use X.toarray() to convert to a dense numpy array."
-                )
+                # Convert sparse to dense automatically
+                X = X.toarray()
         except ImportError:
             pass
 
-        # Check for 1D arrays first
+        # Check for 1D input
         if hasattr(X, 'ndim'):
             if X.ndim == 1:
                 raise ValueError(
