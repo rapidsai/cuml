@@ -126,8 +126,13 @@ void parent_csr(const raft::handle_t& handle,
   auto n_clusters         = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
-    raft::sparse::op::coo_sort(
-      (value_idx)0, (value_idx)0, cluster_tree_edges, parents, children, sizes, stream);
+    raft::sparse::op::coo_sort(static_cast<value_idx>(0),
+                               static_cast<value_idx>(0),
+                               cluster_tree_edges,
+                               parents,
+                               children,
+                               sizes,
+                               stream);
 
     raft::sparse::convert::sorted_coo_to_csr(
       parents, cluster_tree_edges, indptr, n_clusters + 1, stream);
