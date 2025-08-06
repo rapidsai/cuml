@@ -58,6 +58,29 @@ executing the following cell magic at the top (before other imports):
 You can see an example of this in :doc:`this example
 <examples/plot_kmeans_digits>`.
 
+Environment Variable
+~~~~~~~~~~~~~~~~~~~~
+
+The accelerator may also be enabled by setting the ``CUML_ACCEL_ENABLED``
+environment variable to ``1`` or ``true`` (case insensitive).
+
+.. code-block:: console
+
+   # Define it just for a single command
+   CUML_ACCEL_ENABLED=1 python script.py
+
+   # Or set it to persist in your current shell session
+   export CUML_ACCEL_ENABLED=1
+
+Note that any python program running with the environment defined this way
+will load the accelerator, which may result in a measurable startup overhead.
+
+Additionally, if ``cuml`` is not installed properly in your environment, the
+``CUML_ACCEL_ENABLED`` environment variable will be silently ignored (and
+normal CPU execution will occur). For this reason one of the other methods
+listed here may be preferred, as failure to invoke the accelerator will result
+in a detectable error.
+
 Enabling Programmatically
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
