@@ -62,12 +62,15 @@ def test_dbscan(
     out_dtype,
     algorithm,
 ):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if algorithm == "rbc":
         if datatype == np.float64 or out_dtype in ["int32", np.int32]:
             pytest.skip("RBC does not support float64 dtype or int32 labels")
-    if nrows == 500000 and pytest.max_gpu_memory < 32:
+    if nrows == 500000 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = nrows * pytest.max_gpu_memory // 32
+            nrows = nrows * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test. "
@@ -213,9 +216,12 @@ def test_dbscan_cosine(nrows, max_mbytes_per_batch, out_dtype):
 # Vary the eps to get a range of core point counts
 @pytest.mark.parametrize("eps", [0.05, 0.1, 0.5])
 def test_dbscan_sklearn_comparison(name, nrows, eps):
-    if nrows == 500000 and name == "blobs" and pytest.max_gpu_memory < 32:
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
+    if nrows == 500000 and name == "blobs" and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = nrows * pytest.max_gpu_memory // 32
+            nrows = nrows * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
