@@ -160,6 +160,10 @@ def install(
         set to `"info"` or `"debug"` to get more information about what methods
         `cuml.accel` accelerated for a given run.
     """
+    if enabled():
+        # Already enabled, no-op
+        return
+
     logger.set_level(log_level)
     # Set the environment variable if not already set so cuml.accel will
     # be automatically enabled in subprocesses
