@@ -28,7 +28,7 @@ select = [
 max_allowed_size_compressed = '75MB'
 
 [tool.pytest.ini_options]
-addopts = "--tb=native"
+addopts = "--tb=native --import-mode=append"
 
 markers = [
   "unit: Quickest tests focused on accuracy and correctness",
