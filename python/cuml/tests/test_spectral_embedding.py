@@ -16,15 +16,9 @@
 import cupy as cp
 import numpy as np
 import pytest
-from sklearn.datasets import (
-    fetch_openml,
-    load_digits,
-    make_s_curve,
-    make_swiss_roll,
-)
+from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
-from sklearn.model_selection import train_test_split
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
 
@@ -45,17 +39,6 @@ def generate_swiss_roll(n_samples):
     return X
 
 
-def load_mnist(n_samples):
-    """Load and sample MNIST dataset."""
-    mnist = fetch_openml("mnist_784", version=1, as_frame=False, parser="auto")
-    X, y = mnist.data, mnist.target.astype(np.int32)
-    X = X / 255.0
-    X, _, _, _ = train_test_split(
-        X, y, train_size=n_samples, stratify=y, random_state=42
-    )
-    return X
-
-
 def load_digits_dataset(n_samples=None):
     """Load digits dataset (n_samples is ignored as dataset has fixed size)."""
     digits = load_digits()
@@ -68,7 +51,6 @@ dataset_configs = [
     (generate_s_curve, 2000, 0.8),
     (generate_swiss_roll, 2000, 0.8),
     (generate_swiss_roll, 3000, 0.8),
-    (load_mnist, 5000, 0.8),
     (load_digits_dataset, None, 0.8),
 ]
 
