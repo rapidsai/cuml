@@ -87,7 +87,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                "Multiple components found in MST or MST is invalid. "
                "Cannot find single-linkage solution. Found %d vertices "
                "total.",
-               (int)n_vertices);
+               static_cast<int>(n_vertices));
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
   rmm::device_uvector<bool> next_frontier(root + 1, stream);
@@ -121,7 +121,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   thrust::fill(exec_policy, ignore.begin(), ignore.end(), -1);
 
   // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(root + 1, (value_idx)tpb);
+  size_t grid = raft::ceildiv(root + 1, static_cast<value_idx>(tpb));
 
   value_idx n_elements_to_traverse =
     thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
@@ -146,8 +146,8 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     thrust::copy(exec_policy, next_frontier.begin(), next_frontier.end(), frontier.begin());
     thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
-    n_elements_to_traverse =
-      thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, (value_idx)0);
+    n_elements_to_traverse = thrust::reduce(
+      exec_policy, frontier.data(), frontier.data() + root + 1, static_cast<value_idx>(0));
 
     handle.sync_stream(stream);
   }
