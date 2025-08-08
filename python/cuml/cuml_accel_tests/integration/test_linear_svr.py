@@ -12,13 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This conftest is only used by the integration tests, not by the upstream
-# tests. The upstream tests use the cuml.accel plugin explicitly.
+import pytest
+from sklearn.datasets import make_regression
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVR
 
-from cuml.accel import install
 
-# Install the accelerator
-install()
+@pytest.fixture(scope="module")
+def linear_X_y():
+    X, y = make_regression(
+        n_samples=200,
+        n_features=20,
+        n_informative=10,
+        noise=0.1,
+        random_state=42,
+    )
+    # Standardize features
+    X = StandardScaler().fit_transform(X)
+    return X, y
 
-# Ignore the upstream directory, those tests need to be invoked separately
-collect_ignore = ["upstream"]
+
+def test_svr_linear(linear_X_y):
+    X, y = linear_X_y
+    svr = LinearSVR().fit(X, y)
+    assert svr.score(X, y) > 0.5

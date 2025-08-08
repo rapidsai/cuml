@@ -40,7 +40,6 @@
 
 #include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
-#include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
 
@@ -124,26 +123,29 @@ void dist_membership_vector(const raft::handle_t& handle,
 
     // Softmax computation is ignored in distance membership
     if (softmax) {
-      thrust::transform(exec_policy,
-                        min_dist.data_handle(),
-                        min_dist.data_handle() + samples_per_batch * n_selected_clusters,
-                        dist_membership_vec + batch_offset * n_selected_clusters,
-                        [=] __device__(value_t val) {
-                          if (val != 0) { return value_t(exp(1.0 / val)); }
-                          return std::numeric_limits<value_t>::max();
-                        });
+      raft::linalg::map_offset(handle,
+                               raft::make_device_vector_view<value_t, value_idx>(
+                                 dist_membership_vec + batch_offset * n_selected_clusters,
+                                 samples_per_batch * n_selected_clusters),
+                               [min_dist = min_dist.data_handle()] __device__(auto idx) {
+                                 value_t val = min_dist[idx];
+                                 if (val != 0) { return value_t(exp(1.0 / val)); }
+                                 return std::numeric_limits<value_t>::max();
+                               });
     }
 
     // Transform the distances to obtain membership based on proximity to exemplars
     else {
-      thrust::transform(exec_policy,
-                        min_dist.data_handle(),
-                        min_dist.data_handle() + samples_per_batch * n_selected_clusters,
-                        dist_membership_vec + batch_offset * n_selected_clusters,
-                        [=] __device__(value_t val) {
-                          if (val > 0) { return value_t(1.0 / val); }
-                          return std::numeric_limits<value_t>::max() / n_selected_clusters;
-                        });
+      raft::linalg::map_offset(
+        handle,
+        raft::make_device_vector_view<value_t, value_idx>(
+          dist_membership_vec + batch_offset * n_selected_clusters,
+          samples_per_batch * n_selected_clusters),
+        [min_dist = min_dist.data_handle(), n_selected_clusters] __device__(auto idx) {
+          value_t val = min_dist[idx];
+          if (val > 0) { return value_t(1.0 / val); }
+          return std::numeric_limits<value_t>::max() / n_selected_clusters;
+        });
     }
   }
   // Normalize the obtained result to sum to 1.0
@@ -458,12 +460,12 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     merge_heights.data(),
                                     prob_in_some_cluster.data());
 
-    thrust::transform(exec_policy,
-                      dist_membership_vec.begin(),
-                      dist_membership_vec.end(),
-                      membership_vec,
-                      membership_vec,
-                      thrust::multiplies<value_t>());
+    raft::linalg::map_offset(
+      handle,
+      raft::make_device_vector_view<value_t, value_idx>(membership_vec, m * n_selected_clusters),
+      [dist_membership_vec = dist_membership_vec.data(), membership_vec] __device__(auto idx) {
+        return dist_membership_vec[idx] * membership_vec[idx];
+      });
 
     // Normalize to obtain probabilities conditioned on points belonging to some cluster
     Utils::normalize(membership_vec, n_selected_clusters, m, stream);
