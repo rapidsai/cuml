@@ -314,7 +314,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    params.cluster_selection_method,
                                                    inverse_label_map,
                                                    params.allow_single_cluster,
-                                                   (IdxT)0,
+                                                   static_cast<IdxT>(0),
                                                    params.cluster_selection_epsilon);
 
     handle.sync_stream(handle.get_stream());
@@ -354,7 +354,7 @@ void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map
   thrust::transform(
     handle.get_thrust_policy(), labels, labels + m, labels, [label_map] __device__(IdxT label) {
       if (label != -1) return label_map[label];
-      return (IdxT)-1;
+      return static_cast<IdxT>(-1);
     });
 }
 
@@ -442,7 +442,7 @@ class AllPointsMembershipVectorsTest
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     (IdxT)0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
@@ -562,7 +562,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     (IdxT)0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> core_dists{static_cast<size_t>(params.n_row), handle.get_stream()};
@@ -573,16 +573,6 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
-
-    // cuvs::neighbors::reachability::mutual_reachability_graph(
-    //   handle,
-    //   raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-    //   params.min_samples + 1,
-    //   raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
-    //   raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-    //   mutual_reachability_coo,
-    //   cuvs::distance::DistanceType::L2SqrtExpanded,
-    //   1.0);
 
     auto exec_policy     = raft::resource::get_thrust_policy(handle);
     auto new_min_samples = params.min_samples + 1;
@@ -627,7 +617,6 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                              (int)params.n_row + 1,
                                              stream);
 
-    // self-loops get max distance
     auto transform_in =
       thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
                                                    mutual_reachability_coo.cols(),
@@ -772,7 +761,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     (IdxT)0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> membership_vec(params.n_points_to_predict * n_selected_clusters,
@@ -786,16 +775,6 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
     rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
-
-    // cuvs::neighbors::reachability::mutual_reachability_graph(
-    //   handle,
-    //   raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-    //   params.min_samples + 1,
-    //   raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
-    //   raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-    //   mutual_reachability_coo,
-    //   cuvs::distance::DistanceType::L2SqrtExpanded,
-    //   1.0);
 
     auto exec_policy     = raft::resource::get_thrust_policy(handle);
     auto new_min_samples = params.min_samples + 1;
@@ -840,7 +819,6 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                              (int)params.n_row + 1,
                                              stream);
 
-    // self-loops get max distance
     auto transform_in =
       thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
                                                    mutual_reachability_coo.cols(),
