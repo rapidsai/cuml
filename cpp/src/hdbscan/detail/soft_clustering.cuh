@@ -160,7 +160,7 @@ void all_points_outlier_membership_vector(
   value_idx* selected_clusters,
   value_idx* index_into_children,
   size_t m,
-  int n_selected_clusters,
+  size_t n_selected_clusters,
   value_t* merge_heights,
   value_t* outlier_membership_vec,
   bool softmax)
@@ -264,7 +264,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
                                value_idx* selected_clusters,
                                value_idx* index_into_children,
                                size_t n_prediction_points,
-                               int n_selected_clusters,
+                               size_t n_selected_clusters,
                                value_t* merge_heights,
                                value_t* outlier_membership_vec,
                                bool softmax)
@@ -309,7 +309,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
     merge_heights,
     nearest_cluster_max_lambda.data_handle(),
     n_selected_clusters,
-    static_cast<int>(n_prediction_points),
+    n_prediction_points,
     [] __device__(value_t mat_in, value_t vec_in) {
       value_t denominator = vec_in - mat_in;
       if (denominator <= 0) { denominator = 1e-8; }
