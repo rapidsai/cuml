@@ -1,0 +1,2 @@
+# Enable cuml.accel if CUML_ACCEL_ENABLED is 1 or true (case insensitive)
+import os, importlib; os.environ.get("CUML_ACCEL_ENABLED", "").lower() in ("1", "true") and importlib.import_module("cuml.accel").install()
