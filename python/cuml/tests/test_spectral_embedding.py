@@ -16,17 +16,12 @@
 import cupy as cp
 import numpy as np
 import pytest
-from sklearn.datasets import (
-    fetch_openml,
-    load_digits,
-    make_s_curve,
-    make_swiss_roll,
-)
+from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
-from sklearn.model_selection import train_test_split
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
+from cuml.testing.datasets import make_classification_dataset
 
 # Test parameters
 N_NEIGHBORS = 15
@@ -45,15 +40,24 @@ def generate_swiss_roll(n_samples):
     return X
 
 
-def load_mnist(n_samples):
-    """Load and sample MNIST dataset."""
-    mnist = fetch_openml("mnist_784", version=1, as_frame=False, parser="auto")
-    X, y = mnist.data, mnist.target.astype(np.int32)
-    X = X / 255.0
-    X, _, _, _ = train_test_split(
-        X, y, train_size=n_samples, stratify=y, random_state=42
+def generate_mnist_like_dataset(n_samples):
+    """Load and sample dataset using cuML's testing infrastructure."""
+
+    # Generate a classification dataset with similar characteristics to MNIST
+    # MNIST has 784 features (28x28 pixels) and 10 classes
+    X_train, X_test, y_train, y_test = make_classification_dataset(
+        datatype=np.float32,
+        nrows=n_samples,
+        ncols=784,  # Same as MNIST features
+        n_info=100,  # Number of informative features
+        num_classes=10,  # Same as MNIST classes
     )
-    return X
+
+    # Normalize to [0, 1] range like MNIST
+    X_train = (X_train - X_train.min()) / (X_train.max() - X_train.min())
+    X_test = (X_test - X_test.min()) / (X_test.max() - X_test.min())
+
+    return X_train
 
 
 def load_digits_dataset(n_samples=None):
@@ -68,7 +72,7 @@ dataset_configs = [
     (generate_s_curve, 2000, 0.8),
     (generate_swiss_roll, 2000, 0.8),
     (generate_swiss_roll, 3000, 0.8),
-    (load_mnist, 5000, 0.8),
+    (generate_mnist_like_dataset, 5000, 0.8),
     (load_digits_dataset, None, 0.8),
 ]
 
