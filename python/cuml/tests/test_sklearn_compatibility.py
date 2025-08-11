@@ -732,7 +732,7 @@ def test_sklearn_compatible_estimator(estimator, check):
         (GaussianNB, ComplementNB, CategoricalNB, BernoulliNB, MultinomialNB),
     ):
         pytest.skip(
-            "Estimator leads to additional MemoryErrors in other estimators"
+            "Estimator leads to additional MemoryErrors in other estimators (gh-7100)"
         )
 
     check_name = _check_name(check)
