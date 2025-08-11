@@ -97,15 +97,18 @@ def format_duration(duration: float) -> str:
 @contextmanager
 def track_gpu_call(qualname: str) -> Iterator[None]:
     """A contextmanager for tracking a potential GPU method call in the profilers."""
+    supported = True
     start = perf_counter()
     try:
         yield
     except UnsupportedOnGPU:
+        supported = False
         raise
     finally:
-        duration = perf_counter() - start
-        for callback in _CALLBACKS:
-            callback._on_gpu_call(qualname, duration)
+        if supported:
+            duration = perf_counter() - start
+            for callback in _CALLBACKS:
+                callback._on_gpu_call(qualname, duration)
 
 
 @contextmanager
