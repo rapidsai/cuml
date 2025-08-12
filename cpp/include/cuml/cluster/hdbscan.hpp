@@ -135,6 +135,7 @@ class CondensedHierarchy {
 };
 
 enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
+enum GRAPH_BUILD_ALGO { BRUTE_FORCE_KNN, NN_DESCENT };
 
 class RobustSingleLinkageParams {
  public:
@@ -149,9 +150,54 @@ class RobustSingleLinkageParams {
   float alpha = 1.0;
 };
 
+namespace graph_build_params {
+
+/**
+ * Arguments for using nn descent as the knn build algorithm.
+ * graph_degree must be larger than or equal to n_neighbors.
+ * Increasing graph_degree and max_iterations may result in better accuracy.
+ */
+struct nn_descent_params_hdbscan {
+  // not directly using cuvs::neighbors::nn_descent::index_params to distinguish HDBSCAN-exposed NN
+  // Descent parameters
+  size_t graph_degree   = 64;
+  size_t max_iterations = 20;
+};
+
+/**
+ * Parameters for knn graph building in HDBSCAN.
+ * - the ratio of overlap_factor / n_clusters determines device memory usage. Approximately
+ * (overlap_factor / n_clusters) * num_rows_in_entire_data number of rows will be put on device
+ * memory at once. E.g. between (overlap_factor / n_clusters) = 2/10 and 2/20, the latter will use
+ * less device memory.
+ * - larger overlap_factor results in better accuracy of the final all-neighbors knn graph. E.g.
+ * While using similar amount of device memory, (overlap_factor / n_clusters) = 4/20 will have
+ * better accuracy than 2/10 at the cost of performance.
+ * - for overlap_factor, start with 2, and gradually increase (2->3->4 ...) for better accuracy
+ * - for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage.
+ * This is independent from overlap_factor as long as overlap_factor < n_clusters
+ */
+struct graph_build_params {
+  /**
+   * Number of clusters each data point is assigned to. Only valid when n_clusters > 1.
+   */
+  size_t overlap_factor = 2;
+  /**
+   * Number of clusters to split the data into when building the knn graph. Increasing this will use
+   * less device memory at the cost of accuracy. When using n_clusters > 1, is is required that the
+   * data is put on host (refer to data_on_host argument for fit_transform). The default value
+   * (n_clusters=1) will place the entire data on device memory.
+   */
+  size_t n_clusters = 1;
+  nn_descent_params_hdbscan nn_descent_params;
+};
+}  // namespace graph_build_params
+
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
+  GRAPH_BUILD_ALGO build_algo                       = GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN;
+  graph_build_params::graph_build_params build_params;
 };
 
 /**

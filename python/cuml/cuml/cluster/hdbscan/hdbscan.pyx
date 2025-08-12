@@ -33,10 +33,11 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_uvector cimport device_uvector
@@ -756,7 +757,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  verbose=False,
                  connectivity='deprecated',
                  output_type=None,
-                 prediction_data=False):
+                 prediction_data=False,
+                 build_algo='brute_force',
+                 build_kwds=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -787,6 +790,8 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
         self.gen_min_span_tree = gen_min_span_tree
         self.prediction_data = prediction_data
+        self.build_algo = build_algo
+        self.build_kwds = build_kwds
 
         self._single_linkage_tree = None
         self._min_spanning_tree = None
@@ -877,11 +882,21 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         """
         Fit HDBSCAN model from features.
         """
+
+        kwds = self.build_kwds or {}
+        if kwds.get("knn_n_clusters", 1) > 1:
+            print("converting to host mem type")
+            convert_to_mem_type = MemoryType.host
+        else:
+            print("converting to device mem type")
+            convert_to_mem_type = MemoryType.device
+
         self._raw_data = input_to_cuml_array(
             X,
             order='C',
             check_dtype=[np.float32],
             convert_to_dtype=np.float32 if convert_dtype else None,
+            convert_to_mem_type=convert_to_mem_type
         )[0]
         self._raw_data_cpu = None
 
@@ -902,6 +917,49 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             raise ValueError(
                 "`cluster_selection_method` must be one of {'eom', 'leaf'}, "
                 f"got {self.cluster_selection_method!r}"
+            )
+
+        if self.build_algo == 'brute_force':
+            params.build_algo = lib.GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
+            kwds = self.build_kwds or {}
+            params.build_params.n_clusters = <uint64_t> kwds.get("knn_n_clusters", 1)
+            params.build_params.overlap_factor = <uint64_t> kwds.get("knn_overlap_factor", 2)
+        elif self.build_algo == 'nn_descent':
+            params.build_algo = lib.GRAPH_BUILD_ALGO.NN_DESCENT
+
+            kwds = self.build_kwds or {}
+            params.build_params.n_clusters = <uint64_t> kwds.get("knn_n_clusters", 1)
+            params.build_params.overlap_factor = <uint64_t> kwds.get("knn_overlap_factor", 2)
+            if (
+                params.build_params.n_clusters > 1
+                and params.build_params.overlap_factor >= params.build_params.n_clusters
+            ):
+                raise ValueError(
+                    "If nnd_n_clusters > 1, then knn_overlap_factor must be strictly "
+                    "smaller than n_clusters."
+                )
+            if params.build_params.n_clusters < 1:
+                raise ValueError("nnd_n_clusters must be >= 1")
+
+            params.build_params.nn_descent_params.graph_degree = (
+                <uint64_t> kwds.get("nnd_graph_degree", 64)
+            )
+            params.build_params.nn_descent_params.max_iterations = (
+                <uint64_t> kwds.get("nnd_max_iterations", 20)
+            )
+
+            if params.build_params.nn_descent_params.graph_degree < self.min_samples+1:
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_graph_degree should be larger "
+                    "than or equal to min_samples + 1. setting nnd_graph_degree to "
+                    "min_samples + 1."
+                )
+                params.build_params.nn_descent_params.graph_degree = self.min_samples+1
+
+        else:
+            raise ValueError(
+                "`build_algo` must be one of {'brute_force', 'nn_descent'}, "
+                f"got {self.build_algo!r}"
             )
 
         cdef DistanceType metric
