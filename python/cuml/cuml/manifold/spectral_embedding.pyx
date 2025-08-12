@@ -37,7 +37,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
-from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
 
@@ -126,15 +126,6 @@ def spectral_embedding(A,
     """
     if n_components <= 0:
         raise ValueError(f"n_components must be > 0. Got {n_components}")
-
-    # Convert sparse input to dense (cuML doesn't support sparse directly)
-    try:
-        import scipy.sparse as sp
-        if sp.issparse(A):
-            # Convert sparse to dense automatically
-            A = A.toarray()
-    except ImportError:
-        pass
 
     # Check for 1D input
     if hasattr(A, 'ndim') and A.ndim == 1:
@@ -276,8 +267,7 @@ def spectral_embedding(A,
 
 class SpectralEmbedding(Base,
                         InteropMixin,
-                        CMajorInputTagMixin,
-                        SparseInputTagMixin):
+                        CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -387,9 +377,6 @@ class SpectralEmbedding(Base,
                 "Only 'nearest_neighbors' affinity is currently supported."
             )
 
-
-
-
         params = {
             "n_components": model.n_components,
             "random_state": model.random_state,
@@ -412,7 +399,6 @@ class SpectralEmbedding(Base,
             if hasattr(embedding, '__cuda_array_interface__'):
                 embedding = cp.asnumpy(embedding)
             out['embedding_'] = embedding
-
 
         # Add n_neighbors_ if it exists
         if hasattr(self, 'n_neighbors_'):
