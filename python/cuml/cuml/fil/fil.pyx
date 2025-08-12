@@ -15,7 +15,6 @@
 #
 import itertools
 import pathlib
-import warnings
 from time import perf_counter
 
 import numpy as np
@@ -621,7 +620,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         output_type=None,
         verbose=False,
         is_classifier=False,
-        default_threshold=None,
         layout='depth_first',
         default_chunk_size=None,
         align_bytes=None,
@@ -631,9 +629,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-        # TODO(hcho3): 25.10: Remove this parameter; direct users to set `threshold`
-        # in predict()
-        self.default_threshold = default_threshold if default_threshold else 0.5
         self.is_classifier = is_classifier
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
@@ -727,7 +722,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         path,
         *,
         is_classifier=False,
-        threshold=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -749,8 +743,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             made to load the file based on its extension.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            Deprecated in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -791,12 +783,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if threshold is not None:
-            warnings.warn(
-                "The `threshold` parameter of `load()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
-                FutureWarning
-            )
         if model_type is None:
             extension = pathlib.Path(path).suffix
             if extension == '.json':
@@ -827,7 +813,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
-            default_threshold=threshold,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
@@ -841,7 +826,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             skl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -859,8 +843,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Scikit-Learn forest model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            Deprecated in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -911,12 +893,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if threshold is not None:
-            warnings.warn(
-                "The `threshold` parameter of `load_from_sklearn()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
-                FutureWarning
-            )
         tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
             treelite_model=tl_model,
@@ -924,7 +900,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
-            default_threshold=threshold,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
@@ -939,7 +914,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             tl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -957,8 +931,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Treelite model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            Deprecated in 25.08. Please set `threshold` in `predict()` instead.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -1009,19 +981,12 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        if threshold is not None:
-            warnings.warn(
-                "The `threshold` parameter of `load_from_treelite_model()` is deprecated and "
-                "will be removed in 25.10. Please set `threshold` in `predict()` instead.",
-                FutureWarning
-            )
         return cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
-            default_threshold=threshold,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
@@ -1156,7 +1121,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             proba = self.forest.predict(X, chunk_size=chunk_size)
             if len(proba.shape) < 2 or proba.shape[1] == 1:
                 if threshold is None:
-                    threshold = self.default_threshold
+                    threshold = 0.5
                 result = (
                     proba.to_output(output_type='array') > threshold
                 ).astype('int')
@@ -1413,7 +1378,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             "output_type",
             "verbose",
             "is_classifier",
-            "default_threshold",
             "layout",
             "default_chunk_size",
             "align_bytes",
