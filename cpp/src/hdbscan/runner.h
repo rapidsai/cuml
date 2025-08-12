@@ -146,7 +146,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       params.cluster_selection_method,
                                       out._get_inverse_label_map(),
                                       params.allow_single_cluster,
-                                      params.max_cluster_size,
+                                      static_cast<value_idx>(params.max_cluster_size),
                                       params.cluster_selection_epsilon);
 
   out.set_n_clusters(n_selected_clusters);
@@ -175,7 +175,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                     out.get_labels(),
                     [label_map = label_map.data()] __device__(value_idx label) {
                       if (label != -1) return label_map[label];
-                      return -1;
+                      return static_cast<value_idx>(-1);
                     });
 }
 
