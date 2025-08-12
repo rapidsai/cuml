@@ -876,6 +876,11 @@ class UMAP(Base,
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
+
+        if self.n_dims < 1:
+            raise ValueError("There needs to be at least one feature to "
+                             "build nearest the neighbors graph")
+
         if self.build_algo == "nn_descent" and self.n_rows < 150:
             # https://github.com/rapidsai/cuvs/issues/184
             warnings.warn(
