@@ -234,9 +234,6 @@ class SpectralEmbedding(Base,
     ----------
     embedding_ : cupy.ndarray of shape (n_samples, n_components)
         Spectral embedding of the training matrix.
-    affinity_matrix_ : None
-        Not implemented in cuML. Always None to save memory.
-        The affinity matrix is not stored after computing the embedding.
     n_neighbors_ : int
         Number of nearest neighbors effectively used.
     n_features_in_ : int
@@ -329,10 +326,6 @@ class SpectralEmbedding(Base,
         # Add n_neighbors_ if it exists
         if hasattr(self, 'n_neighbors_'):
             out['n_neighbors_'] = self.n_neighbors_
-
-        # Add affinity_matrix_ (always None in cuML)
-        if hasattr(self, 'affinity_matrix_'):
-            out['affinity_matrix_'] = self.affinity_matrix_
 
         return out
 
@@ -508,9 +501,5 @@ class SpectralEmbedding(Base,
             n_neighbors=self.n_neighbors,
             handle=self.handle
         )
-
-        # Set affinity_matrix_ to None for sklearn compatibility
-        # cuML doesn't store the affinity matrix to save memory
-        self.affinity_matrix_ = None
 
         return self
