@@ -387,11 +387,6 @@ class SpectralEmbedding(Base,
                 "Only 'nearest_neighbors' affinity is currently supported."
             )
 
-        eigen_solver = getattr(model, 'eigen_solver', None)
-        if eigen_solver is not None and eigen_solver not in [None, 'arpack', 'lobpcg', 'amg']:
-            raise UnsupportedOnGPU(
-                f"`eigen_solver={eigen_solver!r}` is not supported."
-            )
 
         if hasattr(model, 'gamma') and model.gamma is not None:
             raise UnsupportedOnGPU(
