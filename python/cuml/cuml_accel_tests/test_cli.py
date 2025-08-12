@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import pickle
 import pty
 import re
 import subprocess
@@ -130,19 +129,6 @@ def test_parse_script():
 def test_parse_verbose():
     ns = parse_args(["-vvv"])
     assert ns.verbose == 3
-
-
-def test_parse_format():
-    ns = parse_args(["--format", "pickle"])
-    assert ns.format == "pickle"
-
-    ns = parse_args(["--format", "JOBLIB"])
-    assert ns.format == "joblib"
-
-    # Invalid formats error
-    with pytest.raises(SystemExit) as exc:
-        parse_args(["--format", "invalid"])
-    assert exc.value.code != 0
 
 
 def run(args=None, stdin=None, env=None, expected_returncode=0):
@@ -331,23 +317,6 @@ def test_cli_mix_cuml_accel_and_cudf_pandas(first, second, tmpdir):
     assert "ok\n" in stdout
 
 
-def test_cli_cudf_pandas():
-    script = dedent(
-        """
-        import cuml.accel
-        import cudf.pandas
-
-        assert cuml.accel.enabled()
-        assert cudf.pandas.LOADED
-
-        # Print here to assert the script actually ran by checking the output
-        print("ok")
-        """
-    )
-    stdout = run(["-m", "cuml.accel", "--cudf-pandas"], stdin=script)
-    assert "ok\n" in stdout
-
-
 @pytest.mark.parametrize(
     "args, level", [([], "warn"), (["-v"], "info"), (["-vv"], "debug")]
 )
@@ -360,45 +329,6 @@ def test_cli_verbose(args, level):
         """
     )
     run(["-m", "cuml.accel", *args], stdin=script)
-
-
-def test_cli_convert_to_sklearn(tmpdir):
-    from sklearn.datasets import make_classification
-    from sklearn.linear_model import LogisticRegression
-
-    X, y = make_classification(random_state=42)
-    lr = LogisticRegression().fit(X, y)
-
-    original = tmpdir.join("original.pkl")
-    original.write(pickle.dumps(lr), mode="wb")
-    output = tmpdir.join("output.pkl")
-
-    script = dedent(
-        f"""
-        import cuml.accel
-        import pickle
-
-        with open({str(output)!r}, "rb") as f:
-            new = pickle.load(f)
-
-        assert not cuml.accel.is_proxy(new)
-        """
-    )
-
-    # Run the conversion script
-    run(
-        [
-            "-m",
-            "cuml.accel",
-            "--convert-to-sklearn",
-            original,
-            "--output",
-            output,
-        ]
-    )
-
-    # Check in a new process if the reloaded estimator is a proxy estimator
-    run(stdin=script)
 
 
 @pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
