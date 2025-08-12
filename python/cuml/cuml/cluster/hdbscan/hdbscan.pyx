@@ -688,7 +688,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "allow_single_cluster",
             "gen_min_span_tree",
             "connectivity",
-            "prediction_data"
+            "prediction_data",
+            "build_algo",
+            "build_kwds"
         ]
 
     @classmethod
@@ -721,6 +723,8 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "allow_single_cluster": model.allow_single_cluster,
             "gen_min_span_tree": model.gen_min_span_tree,
             "prediction_data": model.prediction_data,
+            "build_algo": model.build_algo,
+            "build_kwds": model.build_kwds
         }
 
     def _params_to_cpu(self):
@@ -736,6 +740,8 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "allow_single_cluster": self.allow_single_cluster,
             "gen_min_span_tree": self.gen_min_span_tree,
             "prediction_data": self.prediction_data,
+            "build_algo": self.build_algo,
+            "build_kwds": self.build_kwds
         }
 
     def _attrs_from_cpu(self, model):
