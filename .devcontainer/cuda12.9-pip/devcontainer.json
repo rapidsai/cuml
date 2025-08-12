@@ -5,7 +5,7 @@
     "args": {
       "CUDA": "12.9",
       "PYTHON_PACKAGE_MANAGER": "pip",
-      "BASE": "rapidsai/devcontainers:25.10-cpp-cuda12.9-ucx1.18.0-openmpi5.0.7"
+      "BASE": "rapidsai/devcontainers:25.10-cpp-cuda12.9-ucx1.19.0-openmpi5.0.7"
     }
   },
   "runArgs": [
