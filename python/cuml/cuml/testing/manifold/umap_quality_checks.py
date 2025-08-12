@@ -79,6 +79,13 @@ def compute_fuzzy_cross_entropy(g_high, g_low, eps=1e-8):
     p_vals = np.array([h_dict.get(edge, 0.0) for edge in all_edges])
     q_vals = np.array([l_dict.get(edge, 0.0) for edge in all_edges])
 
+    # Filter out any non-finite entries to avoid NaNs propagating in calculations
+    finite_mask = np.isfinite(p_vals) & np.isfinite(q_vals)
+    if not np.any(finite_mask):
+        return 0.0
+    p_vals = p_vals[finite_mask]
+    q_vals = q_vals[finite_mask]
+
     # Simple but robust clipping
     p_vals = np.clip(p_vals, eps, 1 - eps)
     q_vals = np.clip(q_vals, eps, 1 - eps)
@@ -87,18 +94,134 @@ def compute_fuzzy_cross_entropy(g_high, g_low, eps=1e-8):
     if np.allclose(p_vals, q_vals, rtol=1e-10, atol=1e-12):
         return 0.0
 
-    # Cross-entropy computation with NaN protection
-    with np.errstate(divide="ignore", invalid="ignore"):
-        ce = np.sum(
-            p_vals * np.log(p_vals / q_vals)
-            + (1.0 - p_vals) * np.log((1.0 - p_vals) / (1.0 - q_vals))
+    # Cross-entropy computation in float64 with per-edge masking for stability
+    p64 = p_vals.astype(np.float64, copy=False)
+    q64 = q_vals.astype(np.float64, copy=False)
+    logp = np.log(p64)
+    logq = np.log(q64)
+    log1mp = np.log1p(-p64)
+    log1mq = np.log1p(-q64)
+    per_edge = p64 * (logp - logq) + (1.0 - p64) * (log1mp - log1mq)
+    per_edge = per_edge[np.isfinite(per_edge)]
+    if per_edge.size == 0:
+        return 0.0
+    return float(np.sum(per_edge))
+
+
+def _align_edge_weights(g1, g2, reduce: str = "max"):
+    """Align undirected edge weights of two fuzzy graphs and return arrays (p, q).
+
+    For each graph, build a mapping from an undirected edge (min(i,j), max(i,j))
+    to a single weight. If both directions exist, combine them via `reduce`:
+    - "max": take the maximum of the two directed weights (UMAP-style fuzzy union)
+    - any other value: sum the directed weights
+    """
+
+    def to_coo(m):
+        if hasattr(m, "get"):
+            m = m.get()
+        return m.tocoo()
+
+    c1, c2 = to_coo(g1), to_coo(g2)
+
+    def build_dict(c):
+        d = {}
+        for i, j, v in zip(c.row, c.col, c.data):
+            if i == j:
+                continue
+            a, b = int(i), int(j)
+            k = (min(a, b), max(a, b))
+            if reduce == "max":
+                d[k] = max(float(v), d.get(k, 0.0))
+            else:
+                d[k] = float(v) + d.get(k, 0.0)
+        return d
+
+    d1, d2 = build_dict(c1), build_dict(c2)
+    edges = d1.keys() | d2.keys()
+    p = np.array([d1.get(e, 0.0) for e in edges])
+    q = np.array([d2.get(e, 0.0) for e in edges])
+    mask = np.isfinite(p) & np.isfinite(q)
+    return p[mask], q[mask]
+
+
+def compute_fuzzy_kl_divergence(
+    g1, g2, eps: float = 1e-8, average: bool = False
+) -> float:
+    """KL divergence KL(P||Q) between aligned Bernoulli edge weights of g1 and g2.
+
+    Returns the sum over edges by default; set average=True for mean per-edge KL.
+    """
+    p, q = _align_edge_weights(g1, g2)
+    if p.size == 0:
+        return 0.0
+    p = np.clip(p, eps, 1 - eps).astype(np.float64, copy=False)
+    q = np.clip(q, eps, 1 - eps).astype(np.float64, copy=False)
+    per_edge = p * (np.log(p) - np.log(q)) + (1.0 - p) * (
+        np.log1p(-p) - np.log1p(-q)
+    )
+    per_edge = per_edge[np.isfinite(per_edge)]
+    if per_edge.size == 0:
+        return 0.0
+    return float(np.mean(per_edge) if average else np.sum(per_edge))
+
+
+def compute_fuzzy_kl_sym(
+    g1, g2, eps: float = 1e-8, average: bool = False
+) -> float:
+    """Symmetric KL divergence: KL(P||Q) + KL(Q||P)."""
+    return compute_fuzzy_kl_divergence(
+        g1, g2, eps=eps, average=average
+    ) + compute_fuzzy_kl_divergence(g2, g1, eps=eps, average=average)
+
+
+def compute_fuzzy_js_divergence(
+    g1, g2, eps: float = 1e-8, average: bool = False
+) -> float:
+    """Jensen–Shannon divergence between aligned Bernoulli edge weights.
+
+    Returns the sum over edges by default; set average=True for mean per-edge JSD.
+    """
+    p, q = _align_edge_weights(g1, g2)
+    if p.size == 0:
+        return 0.0
+    p = np.clip(p, eps, 1 - eps).astype(np.float64, copy=False)
+    q = np.clip(q, eps, 1 - eps).astype(np.float64, copy=False)
+    m = 0.5 * (p + q)
+
+    def kl(a, b):
+        return np.sum(
+            a * (np.log(a) - np.log(b))
+            + (1.0 - a) * (np.log1p(-a) - np.log1p(-b))
         )
 
-    # Handle NaN result
-    if np.isnan(ce) or np.isinf(ce):
-        return 0.0
+    js = 0.5 * (kl(p, m) + kl(q, m))
+    return float(js / p.size) if average else float(js)
 
-    return ce
+
+def compute_edge_jaccard(g1, g2, eps: float = 0.0) -> float:
+    """Jaccard index over undirected edges with weight > eps in g1 and g2."""
+
+    def to_edge_set(m):
+        if hasattr(m, "get"):
+            m = m.get()
+        c = m.tocoo()
+        s = set()
+        for i, j, v in zip(c.row, c.col, c.data):
+            if i == j or float(v) <= eps:
+                continue
+            a, b = int(i), int(j)
+            s.add((min(a, b), max(a, b)))
+        return s
+
+    e1, e2 = to_edge_set(g1), to_edge_set(g2)
+    if not e1 and not e2:
+        return 1.0
+    union = len(e1 | e2)
+    if union == 0:
+        return 0.0
+    inter = len(e1 & e2)
+    return inter / union
 
 
 def evaluate_umap_embeddings(high_dim_data, embedding, k=15):
