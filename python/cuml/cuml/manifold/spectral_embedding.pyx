@@ -413,9 +413,6 @@ class SpectralEmbedding(Base,
                 embedding = cp.asnumpy(embedding)
             out['embedding_'] = embedding
 
-        # Add feature_names_in_ if it exists
-        if hasattr(self, 'feature_names_in_'):
-            out['feature_names_in_'] = self.feature_names_in_
 
         # Add n_neighbors_ if it exists
         if hasattr(self, 'n_neighbors_'):
