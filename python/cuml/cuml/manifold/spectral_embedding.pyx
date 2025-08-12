@@ -388,11 +388,6 @@ class SpectralEmbedding(Base,
             )
 
 
-        if hasattr(model, 'gamma') and model.gamma is not None:
-            raise UnsupportedOnGPU(
-                "`gamma` parameter is not supported since only 'nearest_neighbors' "
-                "affinity is supported."
-            )
 
         if hasattr(model, 'eigen_tol') and model.eigen_tol != 'auto':
             pass
