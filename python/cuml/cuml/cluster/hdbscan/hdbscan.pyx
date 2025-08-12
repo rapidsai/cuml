@@ -592,6 +592,47 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         persist the clustering object for later re-use you probably want
         to set this to True.
 
+    build_algo: string (default='brute_force')
+        How to build the knn graph. Supported build algorithms are ['brute_force',
+        'nn_descent'].
+
+    build_kwds: dict (optional, default=None)
+        Dictionary of parameters to configure the build algorithm. Default values:
+
+        - `knn_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `knn_n_clusters > 1`,
+          HDBSCAN can process data larger than device memory.
+
+        - `knn_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `knn_n_clusters > 1`. Must be < 'knn_n_clusters'.
+
+        - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent when
+          `build_algo=nn_descent`. Must be ≥ `n_neighbors`.
+
+        - `nnd_max_iterations` (int, default=20): Max NN Descent iterations when
+          `build_algo=nn_descent`.
+
+        Hints:
+
+        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
+
+        - The ratio `knn_overlap_factor / knn_n_clusters` impacts memory usage.
+          Approximately `(knn_overlap_factor / knn_n_clusters) * num_rows_in_entire_data`
+          rows will be loaded onto device memory at once.  E.g., 2/20 uses less device
+          memory than 2/10.
+
+        - Larger `knn_overlap_factor` results in better accuracy of the final knn graph.
+          E.g. While using similar amount of device memory,
+          `(knn_overlap_factor / knn_n_clusters)` = 4/20 will have better accuracy
+          than 2/10 at the cost of performance.
+
+        - Start with `knn_overlap_factor = 2` and gradually increase (2->3->4 ...)
+          for better accuracy.
+
+        - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
+          memory usage. This is independent from knn_overlap_factor as long as
+          'knn_overlap_factor' < 'knn_n_clusters'.
+
     Attributes
     ----------
     labels_ : ndarray, shape (n_samples, )
