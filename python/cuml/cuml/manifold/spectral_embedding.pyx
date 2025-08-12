@@ -124,31 +124,6 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-    if n_components <= 0:
-        raise ValueError(f"n_components must be > 0. Got {n_components}")
-
-    # Check for 1D input
-    if hasattr(A, 'ndim') and A.ndim == 1:
-        raise ValueError(
-            "Expected 2D array, got 1D array instead:\n"
-            f"array={A}.\n"
-            "Reshape your data either using array.reshape(-1, 1) if "
-            "your data has a single feature or array.reshape(1, -1) "
-            "if it contains a single sample."
-        )
-    elif hasattr(A, 'shape') and len(A.shape) == 1:
-        raise ValueError(
-            "Expected 2D array, got 1D array instead:\n"
-            f"array shape={A.shape}.\n"
-            "Reshape your data either using array.reshape(-1, 1) if "
-            "your data has a single feature or array.reshape(1, -1) "
-            "if it contains a single sample."
-        )
-
-    # Check for complex data
-    if hasattr(A, 'dtype'):
-        if np.iscomplexobj(A):
-            raise ValueError("Complex data not supported")
 
     # Check for empty data
     if hasattr(A, 'shape'):
@@ -175,55 +150,6 @@ def spectral_embedding(A,
                     f"SpectralEmbedding requires at least 2 features for meaningful "
                     f"results, but got only {A.shape[1]} feature(s)."
                 )
-
-    # Check for NaN and Inf values
-    if hasattr(A, 'dtype'):
-        # Check if it's a numeric dtype (not object)
-        if A.dtype != object and not (hasattr(A.dtype, 'name') and A.dtype.name == 'object'):
-            # Convert to numpy array if needed for checking
-            A_check = A
-            if hasattr(A, 'to_numpy'):  # cudf DataFrame
-                A_check = A.to_numpy()
-            elif hasattr(A, 'values'):  # pandas DataFrame
-                A_check = A.values
-            elif hasattr(A, '__cuda_array_interface__'):  # cupy array
-                A_check = cp.asnumpy(A)
-
-            # Check for NaN and Inf
-            A_np = np.asarray(A_check)
-            if np.any(np.isnan(A_np)):
-                raise ValueError(
-                    "Input contains NaN"
-                )
-            if np.any(np.isinf(A_np)):
-                raise ValueError(
-                    "Input contains infinity or a value too large for dtype('float64')."
-                )
-
-    # Check for object dtype and validate contents
-    if hasattr(A, 'dtype'):
-        if A.dtype == object or (hasattr(A.dtype, 'name') and A.dtype.name == 'object'):
-            # Try to convert to numeric array
-            try:
-                # First check if any element is not numeric
-                flat_A = np.asarray(A).ravel()
-                for elem in flat_A:
-                    # Check if element is a dict, list, or other non-numeric type
-                    if isinstance(elem, (dict, list, tuple, str)) or not np.isscalar(elem):
-                        raise TypeError(
-                            "argument must be a string or a real number, not "
-                            f"'{type(elem).__name__}'"
-                        )
-                # If all elements are numeric, convert to float32
-                A = np.asarray(A, dtype=np.float32)
-            except (ValueError, TypeError) as e:
-                # Re-raise with proper message format
-                if "argument must be" not in str(e):
-                    raise TypeError(
-                        "argument must be a string or a real number"
-                    ) from None
-                else:
-                    raise
 
     if handle is None:
         handle = Handle()
