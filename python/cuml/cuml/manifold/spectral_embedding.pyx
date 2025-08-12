@@ -389,8 +389,6 @@ class SpectralEmbedding(Base,
 
 
 
-        if hasattr(model, 'eigen_tol') and model.eigen_tol != 'auto':
-            pass
 
         params = {
             "n_components": model.n_components,
