@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import textwrap
 
 import pytest
@@ -29,11 +30,10 @@ def wide_terminal(monkeypatch):
 
 
 def line_profile(source: str) -> LineProfiler:
-    code = compile(source, "<stdin>", "exec")
-    namespace = {"__name__": "__main__"}
-    with LineProfiler(source=source, namespace=namespace, quiet=True) as lprof:
-        exec(code, namespace)
-
+    filename = f"<cuml-accel-input-{os.urandom(6).hex()}>"
+    code = compile(source, filename, "exec")
+    with LineProfiler(source=source, filename=filename, quiet=True) as lprof:
+        exec(code, {"__name__": "__main__"})
     return lprof
 
 
@@ -150,14 +150,13 @@ def test_line_profile_errors():
         """
     ).strip()
 
-    code = compile(script, "<stdin>", "exec")
-    ns = {"__name__": "__main__"}
+    filename = f"<cuml-accel-input-{os.urandom(6).hex()}>"
+    code = compile(script, filename, "exec")
     with pytest.raises(ValueError, match="Oh no!"):
-        with LineProfiler(source=script, namespace=ns, quiet=True) as lprof:
-            exec(code, ns)
-
-    # FLAG removed from namespace
-    assert lprof.FLAG not in ns
+        with LineProfiler(
+            source=script, filename=filename, quiet=True
+        ) as lprof:
+            exec(code, {"__name__": "__main__"})
 
     # Timers properly unwound
     assert not lprof._timers
