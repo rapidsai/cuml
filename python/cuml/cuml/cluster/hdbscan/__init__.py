@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import cuml.cluster.hdbscan.prediction as prediction
 from cuml.cluster.hdbscan.hdbscan import (
     HDBSCAN,
     all_points_membership_vectors,
