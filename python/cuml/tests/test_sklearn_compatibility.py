@@ -547,6 +547,11 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         # "check_transformers_unfitted": "UMAP does not raise error when transform called before fit",
         "check_parameters_default_constructible": "UMAP parameters are mutated on init",
         "check_fit_check_is_fitted": "UMAP passes check_is_fitted before being fit",
+        "check_estimators_empty_data_messages": "UMAP does not handle empty data",
+        "check_methods_sample_order_invariance": "UMAP results depend on sample order",
+        "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
+        "check_methods_subset_invariance": "UMAP results depend on data subset",
+        "check_fit2d_predict1d": "UMAP does not handle 1D prediction input gracefully",
     },
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -749,26 +754,5 @@ def test_sklearn_compatible_estimator(estimator, check):
         pytest.skip(
             "Regression targets for RandomForestClassifier crash the test suite"
         )
-
-    # We skip running these checks because they lead to memory errors which doesn't crash the test suite
-    # but it does lead to lots of other checks on other estimators failing.
-    if isinstance(estimator, UMAP) and check_name in (
-        "check_estimators_empty_data_messages",
-        "check_methods_sample_order_invariance",
-        "check_transformer_general",
-        "check_estimators_pickle",
-        "check_f_contiguous_array_estimator",
-        "check_methods_subset_invariance",
-        "check_fit2d_1sample",
-        "check_fit2d_1feature",
-        "check_dict_unchanged",
-        "check_fit_idempotent",
-        "check_n_features_in",
-        "check_transformer_data_not_an_array",
-        "check_estimators_nan_inf",
-        "check_estimator_sparse_matrix",
-        "check_fit2d_predict1d",
-    ):
-        pytest.skip("Check leads to a MemoryError")
 
     check(estimator)
