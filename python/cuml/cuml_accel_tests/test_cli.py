@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import pickle
 import pty
 import re
 import subprocess
@@ -132,20 +131,14 @@ def test_parse_verbose():
     assert ns.verbose == 3
 
 
-def test_parse_format():
-    ns = parse_args(["--format", "pickle"])
-    assert ns.format == "pickle"
+def run(args=None, stdin=None, env=None, expected_returncode=0):
+    # Run without `CUML_ACCEL_ENABLED` defined by default to test
+    # the other accelerator loading mechanisms
+    orig_env = os.environ.copy()
+    orig_env.pop("CUML_ACCEL_ENABLED", None)
+    if env is not None:
+        orig_env.update(env)
 
-    ns = parse_args(["--format", "JOBLIB"])
-    assert ns.format == "joblib"
-
-    # Invalid formats error
-    with pytest.raises(SystemExit) as exc:
-        parse_args(["--format", "invalid"])
-    assert exc.value.code != 0
-
-
-def run(args=None, stdin=None, expected_returncode=0):
     proc = subprocess.Popen(
         [sys.executable, *map(str, args or [])],
         stdin=subprocess.PIPE,
@@ -153,6 +146,7 @@ def run(args=None, stdin=None, expected_returncode=0):
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
+        env=env,
     )
     stdout, _ = proc.communicate(stdin)
     assert proc.returncode == expected_returncode, f"stdout:\n\n{stdout}"
@@ -192,6 +186,26 @@ def test_cli_run_stdin(pass_hyphen):
         args.append("-")
     stdout = run(args, stdin=SCRIPT)
     assert "ok\n" in stdout
+
+
+@pytest.mark.parametrize("value", ["1", "TrUe", "0", "", None])
+def test_cuml_accel_enabled_environ(value):
+    script = dedent(
+        """
+        import cuml
+        import os
+        print(os.environ)
+        print("ENABLED" if cuml.accel.enabled() else "DISABLED")
+        """
+    )
+    env = {}
+    if value is not None:
+        env["CUML_ACCEL_ENABLED"] = value
+    expected = (
+        "ENABLED" if (value or "").lower() in ("1", "true") else "DISABLED"
+    )
+    stdout = run([], stdin=script, env=env)
+    assert expected in stdout
 
 
 @pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
@@ -251,11 +265,14 @@ def test_cli_run_errors(mode, tmpdir):
 def test_cli_run_interpreter():
     driver_fd, receiver_fd = pty.openpty()
 
+    env = os.environ.copy()
+    env.pop("CUML_ACCEL_ENABLED", None)
     proc = subprocess.Popen(
         [sys.executable, "-m", "cuml.accel"],
         stdin=receiver_fd,
         stdout=receiver_fd,
         stderr=subprocess.STDOUT,
+        env=env,
     )
     os.close(receiver_fd)
 
@@ -300,23 +317,6 @@ def test_cli_mix_cuml_accel_and_cudf_pandas(first, second, tmpdir):
     assert "ok\n" in stdout
 
 
-def test_cli_cudf_pandas():
-    script = dedent(
-        """
-        import cuml.accel
-        import cudf.pandas
-
-        assert cuml.accel.enabled()
-        assert cudf.pandas.LOADED
-
-        # Print here to assert the script actually ran by checking the output
-        print("ok")
-        """
-    )
-    stdout = run(["-m", "cuml.accel", "--cudf-pandas"], stdin=script)
-    assert "ok\n" in stdout
-
-
 @pytest.mark.parametrize(
     "args, level", [([], "warn"), (["-v"], "info"), (["-vv"], "debug")]
 )
@@ -329,45 +329,6 @@ def test_cli_verbose(args, level):
         """
     )
     run(["-m", "cuml.accel", *args], stdin=script)
-
-
-def test_cli_convert_to_sklearn(tmpdir):
-    from sklearn.datasets import make_classification
-    from sklearn.linear_model import LogisticRegression
-
-    X, y = make_classification(random_state=42)
-    lr = LogisticRegression().fit(X, y)
-
-    original = tmpdir.join("original.pkl")
-    original.write(pickle.dumps(lr), mode="wb")
-    output = tmpdir.join("output.pkl")
-
-    script = dedent(
-        f"""
-        import cuml.accel
-        import pickle
-
-        with open({str(output)!r}, "rb") as f:
-            new = pickle.load(f)
-
-        assert not cuml.accel.is_proxy(new)
-        """
-    )
-
-    # Run the conversion script
-    run(
-        [
-            "-m",
-            "cuml.accel",
-            "--convert-to-sklearn",
-            original,
-            "--output",
-            output,
-        ]
-    )
-
-    # Check in a new process if the reloaded estimator is a proxy estimator
-    run(stdin=script)
 
 
 @pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])

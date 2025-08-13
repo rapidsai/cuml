@@ -22,6 +22,7 @@ files:
       - depends_on_raft_dask
       - depends_on_rapids_logger
       - depends_on_rmm
+      - develop
       - docs
       - py_build_cuml
       - py_run_cuml
@@ -213,7 +214,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - rapids-build-backend>=0.4.0,<0.5.0.dev0
       - output_types: [conda]
         packages:
           - scikit-build-core>=0.10.0
@@ -270,6 +271,14 @@ dependencies:
             packages:
               - cuda-nvcc
               - gcc_linux-aarch64=14.*
+  develop:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - pre-commit
+      - output_types: conda
+        packages:
+          - ccache
   py_build_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -441,7 +450,7 @@ dependencies:
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
           - pyyaml
-          - pytest==7.*
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
