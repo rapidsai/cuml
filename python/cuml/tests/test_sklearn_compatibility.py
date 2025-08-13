@@ -770,12 +770,6 @@ def test_sklearn_compatible_estimator(estimator, check):
 
     check_name = _check_name(check)
 
-    if check_name == "check_estimators_pickle" and isinstance(
-        estimator,
-        (KNeighborsClassifier, KNeighborsRegressor, NearestNeighbors),
-    ):
-        pytest.skip("Pickling KNeighborsClassifier crashes the test suite")
-
     if check_name == "check_classifiers_regression_target" and isinstance(
         estimator, RandomForestClassifier
     ):
