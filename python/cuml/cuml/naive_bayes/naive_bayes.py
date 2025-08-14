@@ -368,6 +368,7 @@ class GaussianNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -408,6 +409,12 @@ class GaussianNB(_BaseNB):
             convert_to_dtype=(expected_y_dtype if convert_dtype else False),
             check_dtype=expected_y_dtype,
         ).array
+
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(
+                "X and y must have the same number of samples. "
+                f"Got {X.shape[0]} and {y.shape[0]}."
+            )
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
