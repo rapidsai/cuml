@@ -26,7 +26,9 @@ from pylibraft.common.handle import Handle
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
+    device_vector_view,
     make_device_matrix_view,
+    make_device_vector_view,
     row_major,
 )
 from pylibraft.common.handle cimport device_resources
@@ -55,11 +57,20 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
         device_matrix_view[float, int, row_major] dataset,
         device_matrix_view[float, int, col_major] embedding) except +
 
+    cdef void transform(
+        const device_resources &handle,
+        params config,
+        device_vector_view[int, int] rows,
+        device_vector_view[int, int] cols,
+        device_vector_view[float, int] vals,
+        device_matrix_view[float, int, col_major] embedding) except +
+
 
 @cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
                        n_components=8,
+                       affinity="nearest_neighbors",
                        random_state=None,
                        n_neighbors=None,
                        norm_laplacian=True,
@@ -81,6 +92,12 @@ def spectral_embedding(A,
         The input data. A k-NN graph will be constructed.
     n_components : int, default=8
         The dimension of the projection subspace.
+    affinity : {'nearest_neighbors', 'precomputed'} or callable, \
+                default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``X`` as a precomputed affinity matrix.
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
@@ -128,10 +145,33 @@ def spectral_embedding(A,
         handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    A, _n_rows, _n_cols, _ = \
-        input_to_cuml_array(A, order="C", check_dtype=np.float32,
-                            convert_to_dtype=cp.float32)
-    A_ptr = <uintptr_t>A.ptr
+    cdef int n_samples
+    cdef int nnz
+
+    if affinity == "precomputed":
+        rows = A.row
+        cols = A.col
+        vals = A.data
+        n_samples = A.shape[0]
+        nnz = A.nnz
+
+        rows = input_to_cuml_array(rows, order="C",
+                                   check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
+        cols = input_to_cuml_array(cols, order="C",
+                                   check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
+        vals = input_to_cuml_array(vals, order="C",
+                                   check_dtype=np.float32, convert_to_dtype=cp.float32)[0]
+
+        rows_ptr = <uintptr_t>rows.ptr
+        cols_ptr = <uintptr_t>cols.ptr
+        vals_ptr = <uintptr_t>vals.ptr
+
+    else:
+        A, _n_rows, _n_cols, _ = \
+            input_to_cuml_array(A, order="C", check_dtype=np.float32,
+                                convert_to_dtype=cp.float32)
+        A_ptr = <uintptr_t>A.ptr
+        n_samples = A.shape[0]
 
     cdef params config
 
@@ -141,7 +181,7 @@ def spectral_embedding(A,
     config.n_neighbors = (
         n_neighbors
         if n_neighbors is not None
-        else max(int(A.shape[0] / 10), 1)
+        else max(int(n_samples / 10), 1)
     )
 
     config.norm_laplacian = norm_laplacian
@@ -150,16 +190,25 @@ def spectral_embedding(A,
     if config.drop_first:
         config.n_components += 1
 
-    eigenvectors = CumlArray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
+    eigenvectors = CumlArray.empty((n_samples, n_components), dtype=np.float32, order='F')
 
     eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
 
-    transform(
-        deref(h), config,
-        make_device_matrix_view[float, int, row_major](
-            <float *>A_ptr, <int> A.shape[0], <int> A.shape[1]),
-        make_device_matrix_view[float, int, col_major](
-            <float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components))
+    if affinity == "precomputed":
+        transform(
+            deref(h), config,
+            make_device_vector_view(<int *>rows_ptr, <int> nnz),
+            make_device_vector_view(<int *>cols_ptr, <int> nnz),
+            make_device_vector_view(<float *>vals_ptr, <int> nnz),
+            make_device_matrix_view[float, int, col_major](
+                <float *>eigenvectors_ptr, <int> n_samples, <int> n_components))
+    else:
+        transform(
+            deref(h), config,
+            make_device_matrix_view[float, int, row_major](
+                <float *>A_ptr, <int> n_samples, <int> A.shape[1]),
+            make_device_matrix_view[float, int, col_major](
+                <float *>eigenvectors_ptr, <int> n_samples, <int> n_components))
 
     return eigenvectors
 
@@ -180,6 +229,12 @@ class SpectralEmbedding(Base,
     ----------
     n_components : int, default=2
         The dimension of the projected subspace.
+    affinity : {'nearest_neighbors', 'precomputed'} or callable, \
+                default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``X`` as a precomputed affinity matrix.
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
@@ -210,9 +265,6 @@ class SpectralEmbedding(Base,
 
     Notes
     -----
-    Currently, cuML's SpectralEmbedding only supports the 'nearest_neighbors'
-    affinity mode, where a k-NN graph is constructed from the input data.
-
     Spectral Embedding (Laplacian Eigenmaps) is most useful when the graph
     has one connected component. If there graph has many components, the first
     few eigenvectors will simply uncover the connected components of the graph.
@@ -229,10 +281,12 @@ class SpectralEmbedding(Base,
     """
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self, n_components=2, random_state=None, n_neighbors=None,
+    def __init__(self, n_components=2, affinity="nearest_neighbors",
+                 random_state=None, n_neighbors=None,
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_components = n_components
+        self.affinity = affinity
         self.random_state = random_state
         self.n_neighbors = n_neighbors
 
@@ -240,6 +294,7 @@ class SpectralEmbedding(Base,
     def _get_param_names(cls):
         return super()._get_param_names() + [
             "n_components",
+            "affinity",
             "random_state",
             "n_neighbors"
         ]
@@ -282,6 +337,7 @@ class SpectralEmbedding(Base,
         self.embedding_ = spectral_embedding(
             X,
             n_components=self.n_components,
+            affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors
         )

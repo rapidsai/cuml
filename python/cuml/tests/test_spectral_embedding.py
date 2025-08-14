@@ -19,6 +19,7 @@ import pytest
 from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
+from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
 from cuml.testing.datasets import make_classification_dataset
@@ -175,3 +176,112 @@ def test_output_type_handling(input_type, expected_type):
     ).fit_transform(X)
     assert isinstance(out, expected_type)
     assert out.shape == (n_samples, 2)
+
+
+def test_spectral_embedding_precomputed_affinity():
+    """Test SpectralEmbedding comparing precomputed and non-precomputed for cuML and sklearn."""
+    # Generate S-curve dataset
+    n_samples = 500
+    X, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    X = X.astype(np.float32)
+
+    # Create k-neighbors graph using sklearn for precomputed tests
+    n_neighbors = 15
+    knn_graph = kneighbors_graph(
+        X,
+        n_neighbors=n_neighbors,
+        mode="connectivity",  # Binary connectivity matrix
+        include_self=True,
+    )
+
+    knn_graph = 0.5 * (knn_graph + knn_graph.T)
+
+    # Convert to COO format for cuML (sklearn returns CSR by default)
+    knn_coo = knn_graph.tocoo()
+
+    # Test 1: cuML with precomputed affinity
+    cuml_model_precomputed = SpectralEmbedding(
+        n_components=N_COMPONENTS, affinity="precomputed", random_state=42
+    )
+    X_cuml_precomputed = cuml_model_precomputed.fit_transform(knn_coo)
+    X_cuml_precomputed_np = cp.asnumpy(X_cuml_precomputed)
+
+    # Test 2: sklearn with precomputed affinity
+    sk_model_precomputed = skSpectralEmbedding(
+        n_components=N_COMPONENTS, affinity="precomputed", random_state=42
+    )
+    X_sklearn_precomputed = sk_model_precomputed.fit_transform(
+        knn_coo
+    )  # sklearn can use CSR directly
+
+    # Test 3: cuML without precomputed (direct from data)
+    X_gpu = cp.asarray(X)
+    cuml_model_direct = SpectralEmbedding(
+        n_components=N_COMPONENTS,
+        affinity="nearest_neighbors",
+        n_neighbors=n_neighbors,
+        random_state=42,
+    )
+    X_cuml_direct = cuml_model_direct.fit_transform(X_gpu)
+    X_cuml_direct_np = cp.asnumpy(X_cuml_direct)
+
+    # Test 4: sklearn without precomputed (direct from data)
+    sk_model_direct = skSpectralEmbedding(
+        n_components=N_COMPONENTS,
+        affinity="nearest_neighbors",
+        n_neighbors=n_neighbors,
+        random_state=42,
+        n_jobs=-1,
+    )
+    X_sklearn_direct = sk_model_direct.fit_transform(X)
+
+    # Verify output shapes
+    assert X_cuml_precomputed.shape == (n_samples, N_COMPONENTS)
+    assert X_sklearn_precomputed.shape == (n_samples, N_COMPONENTS)
+    assert X_cuml_direct.shape == (n_samples, N_COMPONENTS)
+    assert X_sklearn_direct.shape == (n_samples, N_COMPONENTS)
+
+    # Calculate trustworthiness scores for all methods
+    trust_cuml_precomputed = trustworthiness(
+        X, X_cuml_precomputed_np, n_neighbors=n_neighbors
+    )
+    trust_sklearn_precomputed = trustworthiness(
+        X, X_sklearn_precomputed, n_neighbors=n_neighbors
+    )
+    trust_cuml_direct = trustworthiness(
+        X, X_cuml_direct_np, n_neighbors=n_neighbors
+    )
+    trust_sklearn_direct = trustworthiness(
+        X, X_sklearn_direct, n_neighbors=n_neighbors
+    )
+
+    # Print all trustworthiness scores for comparison
+    print(f"cuML precomputed trustworthiness: {trust_cuml_precomputed}")
+    print(f"sklearn precomputed trustworthiness: {trust_sklearn_precomputed}")
+    print(f"cuML direct trustworthiness: {trust_cuml_direct}")
+    print(f"sklearn direct trustworthiness: {trust_sklearn_direct}")
+
+    # All methods should produce good quality embeddings
+    assert (
+        trust_cuml_precomputed > 0.8
+    ), f"cuML precomputed trustworthiness {trust_cuml_precomputed} is too low"
+    assert (
+        trust_sklearn_precomputed > 0.8
+    ), f"sklearn precomputed trustworthiness {trust_sklearn_precomputed} is too low"
+    assert (
+        trust_cuml_direct > 0.8
+    ), f"cuML direct trustworthiness {trust_cuml_direct} is too low"
+    assert (
+        trust_sklearn_direct > 0.8
+    ), f"sklearn direct trustworthiness {trust_sklearn_direct} is too low"
+
+    # The trustworthiness scores should be reasonably similar within each library
+    # (allowing for some variation due to different graph construction)
+    trust_diff_cuml = abs(trust_cuml_precomputed - trust_cuml_direct)
+    trust_diff_sklearn = abs(trust_sklearn_precomputed - trust_sklearn_direct)
+    assert (
+        trust_diff_cuml < 0.2
+    ), f"cuML trustworthiness difference {trust_diff_cuml} is too large"
+    assert (
+        trust_diff_sklearn < 0.2
+    ), f"sklearn trustworthiness difference {trust_diff_sklearn} is too large"
