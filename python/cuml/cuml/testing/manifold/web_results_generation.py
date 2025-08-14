@@ -212,6 +212,7 @@ def create_plotly_plots(datasets, embeddings, all_metrics, spectral_inits):
             metrics_data.append(
                 ["KNN Recall (vs Ref)", f"{metrics['knn_recall']:.4f}"]
             )
+
         if "fuzzy_cross_entropy_refwise" in metrics:
             metrics_data.append(
                 [
@@ -1064,15 +1065,6 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
                     else knn_recall
                 )
 
-                fuzzy_ce_ref = metrics.get(
-                    "fuzzy_cross_entropy_refwise", "N/A"
-                )
-                fuzzy_ce_ref_str = (
-                    f"{fuzzy_ce_ref:.4f}"
-                    if isinstance(fuzzy_ce_ref, (int, float))
-                    else fuzzy_ce_ref
-                )
-
                 html += f"""
                             <tr>
                                 <td><strong>{name} ({impl_name})</strong></td>
@@ -1080,9 +1072,7 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
                                 <td>{metrics.get('trustworthiness', 'N/A'):.4f}</td>
                                 <td>{metrics.get('continuity', 'N/A'):.4f}</td>
                                 <td>{metrics.get('geodesic_spearman_correlation', 'N/A'):.4f}</td>
-                                <td>{metrics.get('fuzzy_cross_entropy', 'N/A'):.4f}</td>
                                 <td>{knn_recall_str}</td>
-                                <td>{fuzzy_ce_ref_str}</td>
                             </tr>
                 """
         else:

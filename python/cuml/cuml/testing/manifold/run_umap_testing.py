@@ -16,7 +16,7 @@
 import argparse
 
 from toy_datasets import generate_datasets
-from umap_quality_checks import compare_implementations, run_implementation
+from umap_metrics import compare_implementations, run_implementation
 from web_results_generation import generate_web_report
 
 
