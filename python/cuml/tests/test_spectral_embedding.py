@@ -67,26 +67,20 @@ def load_digits_dataset(n_samples=None):
     return digits.data
 
 
-# Dataset configurations: (dataset_loader, n_samples, affinity, min_trustworthiness)
-dataset_configs = [
-    (generate_s_curve, 1500, "nearest_neighbors", 0.8),
-    (generate_s_curve, 2000, "nearest_neighbors", 0.8),
-    (generate_s_curve, 1500, "precomputed", 0.8),
-    (generate_swiss_roll, 2000, "nearest_neighbors", 0.8),
-    (generate_swiss_roll, 3000, "nearest_neighbors", 0.8),
-    (generate_swiss_roll, 2000, "precomputed", 0.8),
-    (generate_mnist_like_dataset, 5000, "nearest_neighbors", 0.8),
-    (load_digits_dataset, None, "nearest_neighbors", 0.8),
-    (load_digits_dataset, None, "precomputed", 0.8),
-]
-
-
+@pytest.mark.parametrize("affinity", ["nearest_neighbors", "precomputed"])
 @pytest.mark.parametrize(
-    "dataset_loader,n_samples,affinity,min_trustworthiness",
-    dataset_configs,
+    "dataset_loader,n_samples",
+    [
+        (generate_s_curve, 1500),
+        (generate_s_curve, 2000),
+        (generate_swiss_roll, 2000),
+        (generate_swiss_roll, 3000),
+        (generate_mnist_like_dataset, 5000),
+        (load_digits_dataset, None),
+    ],
 )
 def test_spectral_embedding_trustworthiness(
-    dataset_loader, n_samples, affinity, min_trustworthiness
+    dataset_loader, n_samples, affinity
 ):
     """Test trustworthiness comparison between sklearn and cuML on various datasets."""
     # Load/generate dataset
@@ -145,6 +139,7 @@ def test_spectral_embedding_trustworthiness(
     trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
 
     # Assertions
+    min_trustworthiness = 0.8
     assert trust_sklearn > min_trustworthiness
     assert trust_cuml > min_trustworthiness
 
