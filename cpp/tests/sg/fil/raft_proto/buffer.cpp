@@ -126,7 +126,7 @@ TEST(Buffer, host_buffer_from_iters)
     ASSERT_EQ(buf.size(), data.size());
     ASSERT_NE(buf.data(), nullptr);
 
-    std::memcpy(
+    memcpy(
       static_cast<void*>(buf.data()), static_cast<void*>(data.data()), data.size() * sizeof(int));
 
     auto data_out = std::vector<int>(buf.data(), buf.data() + buf.size());
