@@ -703,11 +703,3 @@ class LogisticRegression(
     @intercept_.setter
     def intercept_(self, value):
         self.solver_model.intercept_ = value
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        return state
-
-    def __setstate__(self, state):
-        super().__init__(handle=None, verbose=state["_verbose"])
-        self.__dict__.update(state)
