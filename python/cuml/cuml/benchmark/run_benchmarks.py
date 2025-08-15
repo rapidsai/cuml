@@ -16,6 +16,7 @@
 """Command-line ML benchmark runner"""
 
 import json
+import rmm
 
 import numpy as np
 
@@ -211,7 +212,31 @@ if __name__ == "__main__":
         default="fp32",
         help="Precision of the dataset to benchmark with",
     )
+    parser.add_argument(
+        "--rmm-allocator",
+        choices=["cuda", "managed", "prefetched"],
+        default="cuda",
+        help="RMM memory resource to use (default: CUDA)",
+    )
     args = parser.parse_args()
+
+    # Define RMM allocator options
+    RMM_ALLOCATOR_TYPES = ["cuda", "managed", "prefetched"]
+
+    # Setup RMM allocator based on command line option
+    if args.rmm_allocator == "cuda":
+        dev_resource = rmm.mr.CudaMemoryResource()
+        rmm.mr.set_current_device_resource(dev_resource)
+        print("Using CUDA Memory Resource...")
+    elif args.rmm_allocator == "managed":
+        managed_resource = rmm.mr.ManagedMemoryResource()
+        rmm.mr.set_current_device_resource(managed_resource)
+        print("Using Managed Memory Resource...")
+    elif args.rmm_allocator == "prefetched":
+        upstream_mr = rmm.mr.ManagedMemoryResource()
+        prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
+        rmm.mr.set_current_device_resource(prefetch_mr)
+        print("Using Prefetched Managed Memory Resource...")
 
     args.dtype = PrecisionMap[args.dtype]
 
