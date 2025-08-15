@@ -55,8 +55,8 @@ cluster_models = cluster_config.get_models()
 decomposition_config = ClassEnumerator(module=cuml.decomposition)
 decomposition_models = decomposition_config.get_models()
 
-decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
-decomposition_models_xfail = decomposition_config_xfail.get_models()
+random_projection_config = ClassEnumerator(module=cuml.random_projection)
+random_projection_models = random_projection_config.get_models()
 
 neighbor_config = ClassEnumerator(
     module=cuml.neighbors, exclude_classes=[cuml.neighbors.KernelDensity]
@@ -97,11 +97,9 @@ unfit_clone_xfail = [
     "AutoARIMA",
     "ARIMA",
     "BaseRandomForestModel",
-    "GaussianRandomProjection",
     "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
-    "SparseRandomProjection",
     "UMAP",
 ]
 
@@ -112,7 +110,7 @@ all_models.update(
         **solver_models,
         **cluster_models,
         **decomposition_models,
-        **decomposition_models_xfail,
+        **random_projection_models,
         **neighbor_models,
         **dbscan_model,
         **hdbscan_model,
@@ -314,18 +312,17 @@ def test_cluster_pickle(tmpdir, datatype, keys, data_size):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("keys", decomposition_models_xfail.values())
+@pytest.mark.parametrize("keys", random_projection_models.keys())
 @pytest.mark.parametrize(
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
-@pytest.mark.xfail
-def test_decomposition_pickle(tmpdir, datatype, keys, data_size):
+def test_random_projection_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
-        model = decomposition_models_xfail[keys]()
+        model = random_projection_models[keys](n_components=5)
         result["decomposition"] = model.fit_transform(X_train)
         return model, X_train
 
@@ -370,30 +367,6 @@ def test_umap_pickle(tmpdir, datatype, keys):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("keys", decomposition_models.keys())
-@pytest.mark.parametrize(
-    "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
-)
-@pytest.mark.xfail
-def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
-    result = {}
-
-    def create_mod():
-        nrows, ncols, n_info = data_size
-        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
-        model = decomposition_models[keys]()
-        result["decomposition"] = model.fit_transform(X_train)
-        return model, X_train
-
-    def assert_model(pickled_model, X_test):
-        assert array_equal(
-            result["decomposition"], pickled_model.transform(X_test)
-        )
-
-    pickle_save_load(tmpdir, create_mod, assert_model)
-
-
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
@@ -401,10 +374,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
-    if (
-        model_name in decomposition_models_xfail.keys()
-        or model_name in unfit_pickle_xfail
-    ):
+    if model_name in unfit_pickle_xfail:
         pytest.xfail()
 
     # Pickling should work even if fit has not been called
