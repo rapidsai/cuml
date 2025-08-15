@@ -215,7 +215,6 @@ def test_mro(model):
 def test_fit_function(dataset, model_name):
     # This test ensures that our estimators return self after a call to fit
     if model_name in [
-        "SparseRandomProjection",
         "TSNE",
         "TruncatedSVD",
         "AutoARIMA",
