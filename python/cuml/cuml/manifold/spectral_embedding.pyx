@@ -171,7 +171,7 @@ def spectral_embedding(A,
             input_to_cuml_array(A, order="C", check_dtype=np.float32,
                                 convert_to_dtype=cp.float32)
         A_ptr = <uintptr_t>A.ptr
-        n_samples = A.shape[0]
+        n_samples = _n_rows
 
     cdef params config
 
@@ -206,9 +206,9 @@ def spectral_embedding(A,
         transform(
             deref(h), config,
             make_device_matrix_view[float, int, row_major](
-                <float *>A_ptr, <int> n_samples, <int> A.shape[1]),
+                <float *>A_ptr, <int> _n_rows, <int> _n_cols),
             make_device_matrix_view[float, int, col_major](
-                <float *>eigenvectors_ptr, <int> n_samples, <int> n_components))
+                <float *>eigenvectors_ptr, <int> _n_rows, <int> n_components))
 
     return eigenvectors
 
