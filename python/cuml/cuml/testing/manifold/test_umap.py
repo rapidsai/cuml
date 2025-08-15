@@ -21,8 +21,6 @@ import typing as t
 import cupy as cp
 import numpy as np
 import pytest
-import umap
-from cuvs.neighbors import brute_force, nn_descent
 from scipy.sparse import csr_matrix
 
 # Reference UMAP implementation
@@ -38,6 +36,8 @@ from cuml.manifold.simpl_set import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
 from cuml.testing.manifold.umap_metrics import (
+    _build_knn_with_cuvs,
+    _build_knn_with_umap,
     compute_fuzzy_simplicial_set_metrics,
     compute_knn_metrics,
     compute_simplicial_set_embedding_metrics,
@@ -97,59 +97,12 @@ def _load_dataset(name: str) -> np.ndarray:
         arr = read_fbin(fbin_path)
         if arr.dtype != np.float32:
             arr = arr.astype(np.float32, copy=False)
-        arr = arr[:10000]
         return arr
 
     raise ValueError(
         f"Dataset '{name}' not found. Looked under: {fbin_path}\n"
         f"Please run `python -m cuvs_bench.get_dataset --dataset {name} --normalize`"
     )
-
-
-def _build_knn_with_cuvs(
-    X: cp.ndarray, k: int, metric: str, backend: str
-) -> t.Tuple[np.ndarray, np.ndarray]:
-    if backend == "bruteforce":
-        index = brute_force.build(X, metric=metric)
-        knn_dists, knn_indices = brute_force.search(index, X, k)
-        return cp.asnumpy(knn_dists), cp.asnumpy(knn_indices)
-
-    if backend == "nn_descent":
-        params = nn_descent.IndexParams(metric=metric)
-        index = nn_descent.build(params, X)
-        knn_indices = cp.asarray(index.graph[:, :k])
-        knn_dists = cp.asarray(index.distances[:, :k])
-        return cp.asnumpy(knn_dists), cp.asnumpy(knn_indices)
-
-    raise ValueError(f"Unknown backend: {backend}")
-
-
-def _build_knn_with_umap(
-    X: t.Union[np.ndarray, cp.ndarray],
-    k: int,
-    metric: str,
-    backend: str,
-) -> t.Tuple[np.ndarray, np.ndarray]:
-    """Compute kNN using UMAP's nearest_neighbors.
-
-    Returns (knn_dists, knn_indices) as NumPy arrays.
-    """
-    X_np = cp.asnumpy(X) if isinstance(X, cp.ndarray) else np.asarray(X)
-    angular = metric in ("cosine", "angular")
-    use_pynndescent = backend == "nn_descent"
-    knn_indices, knn_dists, _ = umap.umap_.nearest_neighbors(
-        X_np,
-        n_neighbors=k,
-        metric=metric,
-        metric_kwds={},
-        angular=angular,
-        random_state=np.random.RandomState(42),
-        low_memory=True,
-        use_pynndescent=use_pynndescent,
-        n_jobs=-1,
-        verbose=False,
-    )
-    return knn_dists, knn_indices
 
 
 # Precompute parameters and human-readable ids for the parametrized fixture
@@ -250,7 +203,7 @@ def test_knn(cu_knn_graph_fixture):
 
     # Compute KNN metrics via helper
     avg_recall, mae_dist = compute_knn_metrics(
-        inds_cuvs, dists_cuvs, inds_umap, dists_umap, n_neighbors
+        (inds_cuvs, dists_cuvs), (inds_umap, dists_umap), n_neighbors
     )
 
     # Tolerances: stricter for bruteforce, looser for NN-descent approx

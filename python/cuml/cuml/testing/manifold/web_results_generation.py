@@ -180,22 +180,24 @@ def create_plotly_plots(datasets, embeddings, all_metrics, spectral_inits):
 
         # Metrics table
         metrics_data = [
-            [
-                "Trustworthiness",
-                f"{metrics.get('trustworthiness', 'N/A'):.4f}",
-            ],
-            ["Continuity", f"{metrics.get('continuity', 'N/A'):.4f}"],
+            ["Trustworthiness", f"{metrics.get('trustworthiness', 0):.4f}"],
+            ["Continuity", f"{metrics.get('continuity', 0):.4f}"],
             [
                 "Geodesic Spearman Corr",
-                f"{metrics.get('geodesic_spearman_correlation', 'N/A'):.4f}",
+                f"{metrics.get('geodesic_spearman_correlation', 0):.4f}",
             ],
             [
                 "Geodesic Pearson Corr",
-                f"{metrics.get('geodesic_pearson_correlation', 'N/A'):.4f}",
+                f"{metrics.get('geodesic_pearson_correlation', 0):.4f}",
+            ],
+            ["DEMaP", f"{metrics.get('demap', 0):.4f}"],
+            [
+                "Fuzzy KL (high vs low)",
+                f"{metrics.get('fuzzy_kl_divergence', 0):.4f}",
             ],
             [
-                "Cross-entropy",
-                f"{metrics.get('fuzzy_cross_entropy', 'N/A'):.4f}",
+                "Fuzzy Sym KL (high vs low)",
+                f"{metrics.get('fuzzy_sym_kl_divergence', 0):.4f}",
             ],
             [
                 "Betti H0 (high→low)",
@@ -207,17 +209,34 @@ def create_plotly_plots(datasets, embeddings, all_metrics, spectral_inits):
             ],
         ]
 
-        # Add comparison metrics if available (when comparing with reference implementation)
-        if "knn_recall" in metrics:
+        # Add comparison metrics if available
+        if "avg_knn_recall" in metrics:
             metrics_data.append(
-                ["KNN Recall (vs Ref)", f"{metrics['knn_recall']:.4f}"]
+                ["Avg KNN Recall (vs Ref)", f"{metrics['avg_knn_recall']:.4f}"]
             )
-
-        if "fuzzy_cross_entropy_refwise" in metrics:
+        if "mae_knn_dist" in metrics:
+            metrics_data.append(
+                ["KNN Distance MAE (vs Ref)", f"{metrics['mae_knn_dist']:.4f}"]
+            )
+        if "kl_sym" in metrics:
             metrics_data.append(
                 [
-                    "Fuzzy CE (vs Ref)",
-                    f"{metrics['fuzzy_cross_entropy_refwise']:.4f}",
+                    "Fuzzy Graph Sym KL (ref vs cuML)",
+                    f"{metrics['kl_sym']:.4f}",
+                ]
+            )
+        if "jacc" in metrics:
+            metrics_data.append(
+                [
+                    "Fuzzy Graph Edge Jaccard (ref vs cuML)",
+                    f"{metrics['jacc']:.4f}",
+                ]
+            )
+        if "row_l1" in metrics:
+            metrics_data.append(
+                [
+                    "Fuzzy Graph Row-sum L1 (ref vs cuML)",
+                    f"{metrics['row_l1']:.4f}",
                 ]
             )
 
@@ -453,20 +472,25 @@ def create_plotly_plots(datasets, embeddings, all_metrics, spectral_inits):
             metrics_data_cuml = [
                 [
                     "Trustworthiness",
-                    f"{metrics_cuml.get('trustworthiness', 'N/A'):.4f}",
+                    f"{metrics_cuml.get('trustworthiness', 0):.4f}",
                 ],
-                ["Continuity", f"{metrics_cuml.get('continuity', 'N/A'):.4f}"],
+                ["Continuity", f"{metrics_cuml.get('continuity', 0):.4f}"],
                 [
                     "Geodesic Spearman Corr",
-                    f"{metrics_cuml.get('geodesic_spearman_correlation', 'N/A'):.4f}",
+                    f"{metrics_cuml.get('geodesic_spearman_correlation', 0):.4f}",
                 ],
                 [
                     "Geodesic Pearson Corr",
-                    f"{metrics_cuml.get('geodesic_pearson_correlation', 'N/A'):.4f}",
+                    f"{metrics_cuml.get('geodesic_pearson_correlation', 0):.4f}",
+                ],
+                ["DEMaP", f"{metrics_cuml.get('demap', 0):.4f}"],
+                [
+                    "Fuzzy KL (high vs low)",
+                    f"{metrics_cuml.get('fuzzy_kl_divergence', 0):.4f}",
                 ],
                 [
-                    "Cross-entropy",
-                    f"{metrics_cuml.get('fuzzy_cross_entropy', 'N/A'):.4f}",
+                    "Fuzzy Sym KL (high vs low)",
+                    f"{metrics_cuml.get('fuzzy_sym_kl_divergence', 0):.4f}",
                 ],
                 [
                     "Betti H0 (high→low)",
@@ -479,18 +503,39 @@ def create_plotly_plots(datasets, embeddings, all_metrics, spectral_inits):
             ]
 
             # Add comparison metrics if available
-            if "knn_recall" in metrics_cuml:
+            if "avg_knn_recall" in metrics_cuml:
                 metrics_data_cuml.append(
                     [
-                        "KNN Recall (vs Ref)",
-                        f"{metrics_cuml['knn_recall']:.4f}",
+                        "Avg KNN Recall (vs Ref)",
+                        f"{metrics_cuml['avg_knn_recall']:.4f}",
                     ]
                 )
-            if "fuzzy_cross_entropy_refwise" in metrics_cuml:
+            if "mae_knn_dist" in metrics_cuml:
                 metrics_data_cuml.append(
                     [
-                        "Fuzzy CE (vs Ref)",
-                        f"{metrics_cuml['fuzzy_cross_entropy_refwise']:.4f}",
+                        "KNN Distance MAE (vs Ref)",
+                        f"{metrics_cuml['mae_knn_dist']:.4f}",
+                    ]
+                )
+            if "kl_sym" in metrics_cuml:
+                metrics_data_cuml.append(
+                    [
+                        "Fuzzy Graph Sym KL (ref vs cuML)",
+                        f"{metrics_cuml['kl_sym']:.4f}",
+                    ]
+                )
+            if "jacc" in metrics_cuml:
+                metrics_data_cuml.append(
+                    [
+                        "Fuzzy Graph Edge Jaccard (ref vs cuML)",
+                        f"{metrics_cuml['jacc']:.4f}",
+                    ]
+                )
+            if "row_l1" in metrics_cuml:
+                metrics_data_cuml.append(
+                    [
+                        "Fuzzy Graph Row-sum L1 (ref vs cuML)",
+                        f"{metrics_cuml['row_l1']:.4f}",
                     ]
                 )
 
@@ -1037,10 +1082,16 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
                         <th>Input Shape</th>
                         <th>Trustworthiness</th>
                         <th>Continuity</th>
-                        <th>Geodesic Correlation</th>
-                        <th>Cross-entropy</th>
-                        <th>KNN Recall</th>
-                        <th>Fuzzy Cross-entropy (vs Ref)</th>
+                        <th>Geo Spearman</th>
+                        <th>Geo Pearson</th>
+                        <th>DEMaP</th>
+                        <th>Fuzzy KL</th>
+                        <th>Fuzzy Sym KL</th>
+                        <th>Avg KNN Recall</th>
+                        <th>KNN Dist MAE</th>
+                        <th>Fuzzy Graph Sym KL (ref vs cuML)</th>
+                        <th>Edge Jaccard (ref vs cuML)</th>
+                        <th>Row-sum L1 (ref vs cuML)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1057,53 +1108,108 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
             ]:
                 metrics = impl_data["metrics"]
 
-                # Extract KNN recall and fuzzy cross-entropy comparison if available
-                knn_recall = metrics.get("knn_recall", "N/A")
-                knn_recall_str = (
-                    f"{knn_recall:.4f}"
-                    if isinstance(knn_recall, (int, float))
-                    else knn_recall
+                # Extract comparison metrics if available and format safely
+                avg_knn_recall = metrics.get("avg_knn_recall")
+                avg_knn_recall_str = (
+                    f"{avg_knn_recall:.4f}"
+                    if isinstance(avg_knn_recall, (int, float))
+                    else "N/A"
+                )
+                mae_knn_dist = metrics.get("mae_knn_dist")
+                mae_knn_dist_str = (
+                    f"{mae_knn_dist:.4f}"
+                    if isinstance(mae_knn_dist, (int, float))
+                    else "N/A"
+                )
+                kl_sym_val = metrics.get("kl_sym")
+                kl_sym_str = (
+                    f"{kl_sym_val:.4f}"
+                    if isinstance(kl_sym_val, (int, float))
+                    else "N/A"
+                )
+                jacc_val = metrics.get("jacc")
+                jacc_str = (
+                    f"{jacc_val:.4f}"
+                    if isinstance(jacc_val, (int, float))
+                    else "N/A"
+                )
+                row_l1_val = metrics.get("row_l1")
+                row_l1_str = (
+                    f"{row_l1_val:.4f}"
+                    if isinstance(row_l1_val, (int, float))
+                    else "N/A"
                 )
 
                 html += f"""
                             <tr>
                                 <td><strong>{name} ({impl_name})</strong></td>
                                 <td>{X.shape}</td>
-                                <td>{metrics.get('trustworthiness', 'N/A'):.4f}</td>
-                                <td>{metrics.get('continuity', 'N/A'):.4f}</td>
-                                <td>{metrics.get('geodesic_spearman_correlation', 'N/A'):.4f}</td>
-                                <td>{knn_recall_str}</td>
+                                <td>{metrics.get('trustworthiness', 0):.4f}</td>
+                                <td>{metrics.get('continuity', 0):.4f}</td>
+                                <td>{metrics.get('geodesic_spearman_correlation', 0):.4f}</td>
+                                <td>{metrics.get('geodesic_pearson_correlation', 0):.4f}</td>
+                                <td>{metrics.get('demap', 0):.4f}</td>
+                                <td>{metrics.get('fuzzy_kl_divergence', 0):.4f}</td>
+                                <td>{metrics.get('fuzzy_sym_kl_divergence', 0):.4f}</td>
+                                <td>{avg_knn_recall_str}</td>
+                                <td>{mae_knn_dist_str}</td>
+                                <td>{kl_sym_str}</td>
+                                <td>{jacc_str}</td>
+                                <td>{row_l1_str}</td>
                             </tr>
                 """
         else:
             # Single implementation mode
             metrics = all_metrics[name]
 
-            # Extract KNN recall and fuzzy cross-entropy comparison if available
-            knn_recall = metrics.get("knn_recall", "N/A")
-            knn_recall_str = (
-                f"{knn_recall:.4f}"
-                if isinstance(knn_recall, (int, float))
-                else knn_recall
+            # Extract comparison metrics if available and format safely
+            avg_knn_recall = metrics.get("avg_knn_recall")
+            avg_knn_recall_str = (
+                f"{avg_knn_recall:.4f}"
+                if isinstance(avg_knn_recall, (int, float))
+                else "N/A"
             )
-
-            fuzzy_ce_ref = metrics.get("fuzzy_cross_entropy_refwise", "N/A")
-            fuzzy_ce_ref_str = (
-                f"{fuzzy_ce_ref:.4f}"
-                if isinstance(fuzzy_ce_ref, (int, float))
-                else fuzzy_ce_ref
+            mae_knn_dist = metrics.get("mae_knn_dist")
+            mae_knn_dist_str = (
+                f"{mae_knn_dist:.4f}"
+                if isinstance(mae_knn_dist, (int, float))
+                else "N/A"
+            )
+            kl_sym_val = metrics.get("kl_sym")
+            kl_sym_str = (
+                f"{kl_sym_val:.4f}"
+                if isinstance(kl_sym_val, (int, float))
+                else "N/A"
+            )
+            jacc_val = metrics.get("jacc")
+            jacc_str = (
+                f"{jacc_val:.4f}"
+                if isinstance(jacc_val, (int, float))
+                else "N/A"
+            )
+            row_l1_val = metrics.get("row_l1")
+            row_l1_str = (
+                f"{row_l1_val:.4f}"
+                if isinstance(row_l1_val, (int, float))
+                else "N/A"
             )
 
             html += f"""
                         <tr>
                             <td><strong>{name}</strong></td>
                             <td>{X.shape}</td>
-                            <td>{metrics.get('trustworthiness', 'N/A'):.4f}</td>
-                            <td>{metrics.get('continuity', 'N/A'):.4f}</td>
-                            <td>{metrics.get('geodesic_spearman_correlation', 'N/A'):.4f}</td>
-                            <td>{metrics.get('fuzzy_cross_entropy', 'N/A'):.4f}</td>
-                            <td>{knn_recall_str}</td>
-                            <td>{fuzzy_ce_ref_str}</td>
+                            <td>{metrics.get('trustworthiness', 0):.4f}</td>
+                            <td>{metrics.get('continuity', 0):.4f}</td>
+                            <td>{metrics.get('geodesic_spearman_correlation', 0):.4f}</td>
+                            <td>{metrics.get('geodesic_pearson_correlation', 0):.4f}</td>
+                            <td>{metrics.get('demap', 0):.4f}</td>
+                            <td>{metrics.get('fuzzy_kl_divergence', 0):.4f}</td>
+                            <td>{metrics.get('fuzzy_sym_kl_divergence', 0):.4f}</td>
+                            <td>{avg_knn_recall_str}</td>
+                            <td>{mae_knn_dist_str}</td>
+                            <td>{kl_sym_str}</td>
+                            <td>{jacc_str}</td>
+                            <td>{row_l1_str}</td>
                         </tr>
             """
 

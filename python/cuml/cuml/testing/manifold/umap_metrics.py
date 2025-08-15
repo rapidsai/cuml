@@ -23,8 +23,12 @@ from scipy.linalg import orthogonal_procrustes
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import shortest_path
 from scipy.stats import pearsonr, spearmanr
-from umap.umap_ import find_ab_params
+from sklearn.neighbors import NearestNeighbors
 
+# Reference UMAP implementation
+from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
+
+# cuML implementation
 from cuml.manifold.simpl_set import (
     fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
 )
@@ -32,10 +36,8 @@ from cuml.metrics import trustworthiness
 
 
 def compute_knn_metrics(
-    inds_a: np.ndarray,
-    dists_a: np.ndarray,
-    inds_b: np.ndarray,
-    dists_b: np.ndarray,
+    knn_graph_a,
+    knn_graph_b,
     n_neighbors: int,
 ) -> t.Tuple[float, float]:
     """
@@ -43,37 +45,57 @@ def compute_knn_metrics(
 
     Parameters
     ----------
-    inds_a, dists_a : np.ndarray
-        Neighbor indices and distances for method A with shape (n_samples, n_neighbors).
-    inds_b, dists_b : np.ndarray
-        Neighbor indices and distances for method B with shape (n_samples, n_neighbors).
+    knn_graph_a : Tuple[np.ndarray, np.ndarray]
+        Tuple of (distances, indices) for method A, each with shape (n_samples, n_neighbors).
+    knn_graph_b : Tuple[np.ndarray, np.ndarray]
+        Tuple of (distances, indices) for method B, each with shape (n_samples, n_neighbors).
     n_neighbors : int
         Number of neighbors per sample (k).
 
     Returns
     -------
-    (avg_recall, mae_dist) : Tuple[float, float]
-        Average recall across rows and mean absolute error of distances for intersecting neighbors.
+    avg_recall : float
+        Average recall across all samples, i.e., the fraction of shared neighbors per row.
+    mae_dist : float
+        Mean absolute error of distances for intersecting neighbors across all samples.
     """
     recalls: t.List[float] = []
     distance_abs_errors: t.List[float] = []
 
-    for i in range(inds_a.shape[0]):
-        row_inds_a = inds_a[i]
-        row_inds_b = inds_b[i]
+    dists_a, inds_a = knn_graph_a
+    dists_b, inds_b = knn_graph_b
 
-        set_a = set(int(x) for x in row_inds_a)
-        set_b = set(int(x) for x in row_inds_b)
+    for i in range(inds_a.shape[0]):
+        # Full neighbor rows (possibly including self)
+        row_inds_a_full = inds_a[i]
+        row_inds_b_full = inds_b[i]
+
+        # Exclude self from both neighbor lists for fair comparison
+        row_inds_a = [int(x) for x in row_inds_a_full if int(x) != i]
+        row_inds_b = [int(x) for x in row_inds_b_full if int(x) != i]
+
+        set_a = set(row_inds_a)
+        set_b = set(row_inds_b)
         intersect = set_a & set_b
 
-        recalls.append(len(intersect) / float(n_neighbors))
+        # Use the size of A's neighborhood (after removing self) as denominator
+        denom = max(1, len(row_inds_a))
+        recalls.append(len(intersect) / float(denom))
 
         if not intersect:
             continue
 
-        # Map index -> distance position for matched neighbors in both results
-        pos_a = {int(idx): j for j, idx in enumerate(row_inds_a)}
-        pos_b = {int(idx): j for j, idx in enumerate(row_inds_b)}
+        # Map index -> original distance position (in the unfiltered rows)
+        pos_a = {
+            int(idx): j
+            for j, idx in enumerate(row_inds_a_full)
+            if int(idx) != i
+        }
+        pos_b = {
+            int(idx): j
+            for j, idx in enumerate(row_inds_b_full)
+            if int(idx) != i
+        }
         for idx in intersect:
             da = float(dists_a[i, pos_a[idx]])
             db = float(dists_b[i, pos_b[idx]])
@@ -114,9 +136,8 @@ def continuity_score(
         missing_in_low = hr_topk_excl - lr_topk_excl
         for j in missing_in_low:
             r_excl = lr_rank_map.get(j, n_total)
-            penalty_sum += (r_excl - k_excluding_self) / (
-                n_total - k_excluding_self - 1
-            )
+            # Accumulate raw penalties; global normalization is applied below
+            penalty_sum += r_excl - k_excluding_self
 
     norm = 2.0 / (
         n_total * k_excluding_self * (2 * n_total - 3 * k_excluding_self - 1)
@@ -271,6 +292,43 @@ def procrustes_rmse(A, B):
     return float(err)
 
 
+def _build_knn_with_umap(
+    X: t.Union[np.ndarray, cp.ndarray],
+    k: int,
+    metric: str,
+    backend: str,
+) -> t.Tuple[np.ndarray, np.ndarray]:
+    """Compute kNN using UMAP's nearest_neighbors.
+
+    Returns (knn_dists, knn_indices) as NumPy arrays.
+    """
+    X_np = cp.asnumpy(X) if isinstance(X, cp.ndarray) else np.asarray(X)
+
+    if backend == "bruteforce":
+        nn = NearestNeighbors(n_neighbors=k, metric=metric, algorithm="brute")
+        nn.fit(X_np)
+        knn_dists, knn_indices = nn.kneighbors(X_np, return_distance=True)
+        return knn_dists.astype(np.float32, copy=False), knn_indices
+
+    if backend == "nn_descent":
+        angular = metric in ("cosine", "angular")
+        knn_indices, knn_dists, _ = umap_nearest_neighbors(
+            X_np,
+            n_neighbors=k,
+            metric=metric,
+            metric_kwds={},
+            angular=angular,
+            random_state=np.random.RandomState(42),
+            low_memory=True,
+            use_pynndescent=True,
+            n_jobs=-1,
+            verbose=False,
+        )
+        return knn_dists, knn_indices
+
+    raise ValueError(f"Unknown backend: {backend}")
+
+
 def _build_knn_with_cuvs(
     X: cp.ndarray, k: int, metric: str, backend: str
 ) -> t.Tuple[np.ndarray, np.ndarray]:
@@ -310,7 +368,7 @@ def _build_symmetric_csr_from_knn(
 
 
 def compute_simplicial_set_embedding_metrics(
-    high_dim_data, embedding, k, metric, skip_topolgy_preservation=False
+    high_dim_data, embedding, k, metric, skip_topology_preservation=False
 ):
     """
     Assess the quality of UMAP embeddings with GPU acceleration.
@@ -335,16 +393,8 @@ def compute_simplicial_set_embedding_metrics(
     dict
     """
     # Ensure GPU arrays
-    X_cp = (
-        high_dim_data
-        if isinstance(high_dim_data, cp.ndarray)
-        else cp.asarray(high_dim_data, dtype=cp.float32)
-    )
-    Y_cp = (
-        embedding
-        if isinstance(embedding, cp.ndarray)
-        else cp.asarray(embedding, dtype=cp.float32)
-    )
+    X_cp = cp.asarray(high_dim_data, dtype=cp.float32)
+    Y_cp = cp.asarray(embedding, dtype=cp.float32)
     n = int(X_cp.shape[0])
 
     metrics = {}
@@ -375,9 +425,11 @@ def compute_simplicial_set_embedding_metrics(
     low_d_cp = pairwise_distance(Y_cp, Y_cp, metric="euclidean")
     low_d = cp.asnumpy(low_d_cp).astype(np.float32, copy=False)
 
-    mask = np.isfinite(high_geo)
+    # Exclude diagonal (self-pairs) and avoid double counting by using upper triangle
+    offdiag_upper = np.triu(np.ones((n, n), dtype=bool), k=1)
+    mask = np.isfinite(high_geo) & offdiag_upper
     sp, _ = spearmanr(high_geo[mask], low_d[mask])
-    pe, _ = pearsonr(high_geo[mask].ravel(), low_d[mask].ravel())
+    pe, _ = pearsonr(high_geo[mask], low_d[mask])
     metrics["geodesic_spearman_correlation"] = float(sp)
     metrics["geodesic_pearson_correlation"] = float(pe)
     metrics["demap"] = float(pe)
@@ -404,7 +456,7 @@ def compute_simplicial_set_embedding_metrics(
 
     # 4) Topology Preservation via Persistent Homology (CPU via ripser)
 
-    if not skip_topolgy_preservation:
+    if not skip_topology_preservation:
         try:
             from ripser import ripser
         except ImportError:
@@ -431,229 +483,3 @@ def compute_simplicial_set_embedding_metrics(
         metrics["betti_h1_low"] = int(betti_low_h1)
 
     return metrics
-
-
-def run_umap_pipeline(X, implementation, **umap_params):
-    """
-    Compute UMAP embeddings and assess quality.
-
-    Parameters:
-    - X: input data
-    - implementation: "reference" or "cuml"
-    - umap_params: dictionary of UMAP parameters
-
-    Returns:
-    - knn_graph: KNN graph
-    - fuzzy_graph: fuzzy simplicial set
-    - spectral_init: spectral initialization from fuzzy graph
-    - embedding: UMAP embedding
-    """
-
-    if implementation == "reference":
-        from umap.spectral import spectral_layout
-        from umap.umap_ import (
-            fuzzy_simplicial_set,
-            nearest_neighbors,
-            simplicial_set_embedding,
-        )
-    elif implementation == "cuml":
-        from cuml.manifold.simpl_set import (
-            fuzzy_simplicial_set,
-            simplicial_set_embedding,
-        )
-        from cuml.neighbors import NearestNeighbors
-
-        # from cuml.manifold.spectral_embedding import spectral_embedding
-    else:
-        raise ValueError(f"Invalid implementation: {implementation}")
-
-    print(f"Running {implementation} UMAP pipeline...")
-
-    # ------------------------------------------------------------------
-    # Extract UMAP-related parameters (with defaults)
-    # ------------------------------------------------------------------
-    n_neighbors = umap_params.get("k", umap_params.get("n_neighbors", 15))
-    min_dist = umap_params.get("min_dist", 0.1)
-    spread = umap_params.get("spread", 1.0)
-    n_components = umap_params.get("n_components", 2)
-    n_epochs = umap_params.get("n_epochs", 500)
-    init = umap_params.get("init", "spectral")
-    negative_sample_rate = umap_params.get("negative_sample_rate", 5)
-    gamma = umap_params.get("gamma", 1.0)
-    metric = umap_params.get("metric", "euclidean")
-    random_state = umap_params.get("random_state", np.random.RandomState(42))
-    # Parameters that control the attraction/repulsion curve.
-    a, b = find_ab_params(spread=spread, min_dist=min_dist)
-
-    # ------------------------------------------------------------------
-    # STEP 1: Nearest-neighbors search (high-dimensional space)
-    # ------------------------------------------------------------------
-    print("  Computing k-nearest neighbors (KNN) ...")
-
-    if implementation == "reference":
-        # Use UMAP's nearest neighbor descent algorithm
-        knn_indices, knn_dists, _ = nearest_neighbors(
-            X,
-            n_neighbors=n_neighbors,
-            metric=metric,
-            metric_kwds={},
-            angular=False,
-            random_state=random_state,
-        )
-    else:
-        # Use cuML's NearestNeighbors
-        nn = NearestNeighbors(n_neighbors=n_neighbors, metric=metric)
-        nn.fit(X)
-        knn_dists, knn_indices = nn.kneighbors(
-            X, n_neighbors=n_neighbors, return_distance=True
-        )
-
-    knn_graph = (knn_dists, knn_indices)
-
-    # ------------------------------------------------------------------
-    # STEP 2: Fuzzy simplicial set construction using pre-computed KNN
-    # ------------------------------------------------------------------
-    print("  Computing fuzzy simplicial set ...")
-    fuzzy_results = fuzzy_simplicial_set(
-        X,
-        n_neighbors=n_neighbors,
-        random_state=random_state,
-        metric=metric,
-        knn_indices=knn_indices,
-        knn_dists=knn_dists,
-    )
-
-    if implementation == "reference":
-        fuzzy_graph = fuzzy_results[0]
-    else:
-        fuzzy_graph = fuzzy_results
-
-    # ------------------------------------------------------------------
-    # STEP 2.5: Spectral initialization from fuzzy graph
-    # ------------------------------------------------------------------
-    print("  Computing spectral initialization from fuzzy graph ...")
-    spectral_init = None
-    if implementation == "reference":
-        spectral_init = spectral_layout(
-            data=X,
-            graph=fuzzy_graph,
-            dim=n_components,
-            random_state=random_state,
-        )
-    else:
-        """
-        spectral_init = spectral_embedding(
-            X,
-            n_components=n_components,
-            random_state=random_state,
-            norm_laplacian=True,
-            drop_first=True
-        )
-        """
-        # run simplicial_set_embedding for 1 epoch to get spectral initialization
-        spectral_init = simplicial_set_embedding(
-            X,
-            graph=fuzzy_graph,
-            n_components=n_components,
-            initial_alpha=1.0,
-            a=a,
-            b=b,
-            gamma=gamma,
-            negative_sample_rate=negative_sample_rate,
-            n_epochs=1,
-            init="spectral",
-            random_state=random_state,
-            metric=metric,
-        )
-
-    # ------------------------------------------------------------------
-    # STEP 3: Low-dimensional embedding via simplicial_set_embedding
-    # ------------------------------------------------------------------
-    print("  Computing 2-D embedding from fuzzy simplicial set ...")
-
-    # Use spectral initialization if init is "spectral"
-    embedding_init = (
-        spectral_init
-        if spectral_init is not None and init == "spectral"
-        else init
-    )
-
-    if implementation == "reference":
-        additional_params = {
-            "metric_kwds": {},
-            "densmap": False,
-            "densmap_kwds": {},
-            "output_dens": False,
-            "output_metric": metric,
-            "output_metric_kwds": {},
-        }
-    else:
-        additional_params = {}
-
-    embedding_results = simplicial_set_embedding(
-        X,
-        graph=fuzzy_graph,
-        n_components=n_components,
-        initial_alpha=1.0,
-        a=a,
-        b=b,
-        gamma=gamma,
-        negative_sample_rate=negative_sample_rate,
-        n_epochs=n_epochs,
-        init=embedding_init,
-        random_state=random_state,
-        metric=metric,
-        **additional_params,
-    )
-
-    if implementation == "reference":
-        embedding = embedding_results[0]
-    else:
-        embedding = embedding_results
-
-    return knn_graph, fuzzy_graph, spectral_init, embedding
-
-
-def run_implementation(X, implementation, **umap_params):
-    knn_graph, fuzzy_graph, spectral_init, embedding = run_umap_pipeline(
-        X, implementation=implementation, **umap_params
-    )
-    metrics = compute_simplicial_set_embedding_metrics(
-        X, embedding, k=umap_params["n_neighbors"]
-    )
-    return knn_graph, fuzzy_graph, spectral_init, embedding, metrics
-
-
-def compare_implementations(X, **umap_params):
-    (
-        ref_knn_graph,
-        ref_fuzzy_graph,
-        ref_spectral_init,
-        ref_embedding,
-        ref_metrics,
-    ) = run_implementation(X, implementation="reference", **umap_params)
-    (
-        knn_graph,
-        fuzzy_graph,
-        spectral_init,
-        embedding,
-        metrics,
-    ) = run_implementation(X, implementation="cuml", **umap_params)
-
-    metrics["knn_recall"] = compute_knn_metrics(ref_knn_graph[1], knn_graph[1])
-    metrics["fuzzy_cross_entropy_refwise"] = compute_fuzzy_kl_divergence(
-        ref_fuzzy_graph, fuzzy_graph
-    )
-
-    return {
-        "ref_knn_graph": ref_knn_graph,
-        "ref_fuzzy_graph": ref_fuzzy_graph,
-        "ref_spectral_init": ref_spectral_init,
-        "ref_embedding": ref_embedding,
-        "ref_metrics": ref_metrics,
-        "knn_graph": knn_graph,
-        "fuzzy_graph": fuzzy_graph,
-        "spectral_init": spectral_init,
-        "embedding": embedding,
-        "metrics": metrics,
-    }
