@@ -14,8 +14,6 @@
 #
 
 # distutils: language = c++
-import warnings
-
 import cupy as cp
 import numpy as np
 from pylibraft.common.handle import Handle
@@ -645,7 +643,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "cluster_selection_method",
             "allow_single_cluster",
             "gen_min_span_tree",
-            "connectivity",
             "prediction_data"
         ]
 
@@ -754,7 +751,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  gen_min_span_tree=False,
                  handle=None,
                  verbose=False,
-                 connectivity='deprecated',
                  output_type=None,
                  prediction_data=False):
 
@@ -764,12 +760,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
         if min_samples is None:
             min_samples = min_cluster_size
-
-        if connectivity != "deprecated":
-            warnings.warn(
-                "The `connectivity` parameter is deprecated and will be removed in 25.10",
-                FutureWarning,
-            )
 
         if 2 < min_samples and min_samples > 1023:
             raise ValueError("'min_samples' must be a positive number "
@@ -784,7 +774,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.alpha = alpha
         self.cluster_selection_method = cluster_selection_method
         self.allow_single_cluster = allow_single_cluster
-        self.connectivity = connectivity
         self.gen_min_span_tree = gen_min_span_tree
         self.prediction_data = prediction_data
 

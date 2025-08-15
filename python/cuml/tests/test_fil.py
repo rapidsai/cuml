@@ -552,29 +552,6 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
     np.testing.assert_array_equal(fil_preds, xgb_preds_int)
 
 
-@pytest.mark.parametrize("is_classifier", [True, False])
-def test_thresholding(is_classifier, small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        is_classifier=is_classifier,
-    )
-    fil_preds = np.asarray(fm.predict(X, threshold=0.5))
-    if is_classifier:
-        assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() == 0
-    else:
-        assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() > 0
-
-    with pytest.warns(FutureWarning):
-        _ = ForestInference.load(
-            model_path,
-            model_type=model_type,
-            is_classifier=is_classifier,
-            threshold=0.5,
-        )
-
-
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 def test_output_args(train_device, infer_device, small_classifier_and_preds):

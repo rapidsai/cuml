@@ -14,8 +14,6 @@
 #
 
 # distutils: language = c++
-import warnings
-
 import cupy as cp
 import numpy as np
 
@@ -230,14 +228,7 @@ class SGD(Base,
         else:
             raise ValueError(f"loss {loss!r} is not supported")
 
-        if penalty == 'none':
-            warnings.warn(
-                "penalty='none' is deprecated and will be removed in 25.10. Please use "
-                "`penalty=None` instead.",
-                FutureWarning,
-            )
-            self.penalty = None
-        elif penalty in [None, 'l1', 'l2', 'elasticnet']:
+        if penalty in [None, 'l1', 'l2', 'elasticnet']:
             self.penalty = penalty
         else:
             raise ValueError(f"penalty {penalty!r} is not supported")

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import warnings
 from textwrap import dedent
 
 import cuml.accel.runners as runners
@@ -85,26 +84,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
     )
-    # --convert-to-sklearn, --format, --output, and --cudf-pandas are deprecated
-    # and hidden from the CLI --help with `argparse.SUPPRESS
-    parser.add_argument("--convert-to-sklearn", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--format",
-        choices=["pickle", "joblib"],
-        type=str.lower,
-        default="pickle",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--output",
-        default="converted_sklearn_model.pkl",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--cudf-pandas",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "-m",
@@ -158,38 +137,6 @@ def main(argv: list[str] | None = None):
     """Run the `cuml.accel` CLI"""
     # Parse arguments
     ns = parse_args(sys.argv[1:] if argv is None else argv)
-
-    # If the user requested a conversion, handle it and exit
-    if ns.convert_to_sklearn:
-        warnings.warn(
-            "`--convert-to-sklearn`, `--format`, and `--output` are deprecated and will "
-            "be removed in 25.10. Estimators created with `cuml.accel` may now be "
-            "serialized and loaded in environments without `cuml` without the need for "
-            "running a conversion step.",
-            FutureWarning,
-        )
-        with open(ns.convert_to_sklearn, "rb") as f:
-            if ns.format == "pickle":
-                import pickle as serializer
-            elif ns.format == "joblib":
-                import joblib as serializer
-            estimator = serializer.load(f)
-
-        with open(ns.output, "wb") as f:
-            serializer.dump(estimator, f)
-        sys.exit()
-
-    # Enable cudf.pandas if requested
-    if ns.cudf_pandas:
-        warnings.warn(
-            "`--cudf-pandas` is deprecated and will be removed in 25.10. Instead, please "
-            "invoke both accelerators explicitly like\n\n"
-            "  $ python -m cudf.pandas -m cuml.accel ...",
-            FutureWarning,
-        )
-        import cudf.pandas
-
-        cudf.pandas.install()
 
     # Parse verbose into log_level
     log_level = {0: "warn", 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
