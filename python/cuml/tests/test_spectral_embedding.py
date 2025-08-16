@@ -19,6 +19,7 @@ import pytest
 from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
+from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
 from cuml.testing.datasets import make_classification_dataset
@@ -66,51 +67,79 @@ def load_digits_dataset(n_samples=None):
     return digits.data
 
 
-# Dataset configurations: (dataset_loader, dataset_name, n_samples, min_trustworthiness)
-dataset_configs = [
-    (generate_s_curve, 1500, 0.8),
-    (generate_s_curve, 2000, 0.8),
-    (generate_swiss_roll, 2000, 0.8),
-    (generate_swiss_roll, 3000, 0.8),
-    (generate_mnist_like_dataset, 5000, 0.8),
-    (load_digits_dataset, None, 0.8),
-]
-
-
+@pytest.mark.parametrize("affinity", ["nearest_neighbors", "precomputed"])
 @pytest.mark.parametrize(
-    "dataset_loader,n_samples,min_trustworthiness",
-    dataset_configs,
+    "dataset_loader,n_samples",
+    [
+        (generate_s_curve, 1500),
+        (generate_s_curve, 2000),
+        (generate_swiss_roll, 2000),
+        (generate_swiss_roll, 3000),
+        (generate_mnist_like_dataset, 5000),
+        (load_digits_dataset, None),
+    ],
 )
 def test_spectral_embedding_trustworthiness(
-    dataset_loader, n_samples, min_trustworthiness
+    dataset_loader, n_samples, affinity
 ):
     """Test trustworthiness comparison between sklearn and cuML on various datasets."""
     # Load/generate dataset
     X = dataset_loader(n_samples) if n_samples else dataset_loader(None)
 
-    # sklearn embedding
-    sk_spectral = skSpectralEmbedding(
-        n_components=N_COMPONENTS,
-        n_neighbors=N_NEIGHBORS,
-        affinity="nearest_neighbors",
-        random_state=42,
-        n_jobs=-1,
-    )
-    X_sklearn = sk_spectral.fit_transform(X)
+    if affinity == "precomputed":
+        # Create k-neighbors graph for precomputed affinity
+        knn_graph = kneighbors_graph(
+            X,
+            n_neighbors=N_NEIGHBORS,
+            mode="connectivity",
+            include_self=True,
+        )
+        # Make symmetric
+        knn_graph = 0.5 * (knn_graph + knn_graph.T)
+        knn_coo = knn_graph.tocoo()
 
-    # cuML embedding
-    X_gpu = cp.asarray(X)
-    cuml_spectral = SpectralEmbedding(
-        n_components=N_COMPONENTS, n_neighbors=N_NEIGHBORS, random_state=42
-    )
-    X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
-    X_cuml = cp.asnumpy(X_cuml_gpu)
+        # sklearn embedding with precomputed
+        sk_spectral = skSpectralEmbedding(
+            n_components=N_COMPONENTS,
+            affinity="precomputed",
+            random_state=42,
+        )
+        X_sklearn = sk_spectral.fit_transform(knn_coo)
+
+        # cuML embedding with precomputed
+        cuml_spectral = SpectralEmbedding(
+            n_components=N_COMPONENTS, affinity="precomputed", random_state=42
+        )
+        X_cuml_gpu = cuml_spectral.fit_transform(knn_coo)
+        X_cuml = cp.asnumpy(X_cuml_gpu)
+    else:
+        # sklearn embedding with nearest_neighbors
+        sk_spectral = skSpectralEmbedding(
+            n_components=N_COMPONENTS,
+            n_neighbors=N_NEIGHBORS,
+            affinity="nearest_neighbors",
+            random_state=42,
+            n_jobs=-1,
+        )
+        X_sklearn = sk_spectral.fit_transform(X)
+
+        # cuML embedding with nearest_neighbors
+        X_gpu = cp.asarray(X)
+        cuml_spectral = SpectralEmbedding(
+            n_components=N_COMPONENTS,
+            affinity="nearest_neighbors",
+            n_neighbors=N_NEIGHBORS,
+            random_state=42,
+        )
+        X_cuml_gpu = cuml_spectral.fit_transform(X_gpu)
+        X_cuml = cp.asnumpy(X_cuml_gpu)
 
     # Calculate trustworthiness scores
     trust_sklearn = trustworthiness(X, X_sklearn, n_neighbors=N_NEIGHBORS)
     trust_cuml = trustworthiness(X, X_cuml, n_neighbors=N_NEIGHBORS)
 
     # Assertions
+    min_trustworthiness = 0.8
     assert trust_sklearn > min_trustworthiness
     assert trust_cuml > min_trustworthiness
 
