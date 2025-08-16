@@ -104,8 +104,6 @@ def make_dataset(dtype, nrows, ncols, ninfo):
 @pytest.mark.parametrize("model_name", models.keys())
 @pytest.mark.parametrize("dtype", test_dtypes_all)
 def test_estimators_all_dtypes(model_name, dtype):
-    if model_name in ["SparseRandomProjection", "GaussianRandomProjection"]:
-        pytest.xfail()
     nrows = 500
     ncols = 20
     ninfo = 10
@@ -114,6 +112,8 @@ def test_estimators_all_dtypes(model_name, dtype):
     print(model_name)
     if model_name == "KMeans":
         model = models[model_name](n_init="auto")
+    elif model_name in ["SparseRandomProjection", "GaussianRandomProjection"]:
+        model = models[model_name](n_components=5)
     else:
         model = models[model_name]()
     sign = inspect.signature(model.fit)
