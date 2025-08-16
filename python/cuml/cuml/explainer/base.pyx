@@ -20,6 +20,7 @@ import pandas as pd
 
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
+    get_cai_ptr,
     get_dtype_from_model_func,
     get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
@@ -45,16 +46,6 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
         const float* row,
         int* idx,
         bool rowMajor) except +
-
-    void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
-            const handle_t& handle,
-            double* dataset,
-            const double* background,
-            int nrows,
-            int ncols,
-            const double* row,
-            int* idx,
-            bool rowMajor) except +
 
 
 class SHAPBase():
@@ -373,6 +364,7 @@ class SHAPBase():
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
+        cdef uintptr_t bg_ptr_f32, row_ptr_f32, masked_ptr_f32
 
         masked_ptr = masked_inputs.__cuda_array_interface__['data'][0]
 
@@ -391,14 +383,26 @@ class SHAPBase():
                                      <int*> idx_ptr,
                                      <bool> row_major)
         else:
+            # Convert float64 inputs to float32 for kernel call
+            bg_f32 = self.background.astype(cp.float32)
+            row_f32 = row.astype(cp.float32)
+            masked_f32 = cp.zeros(masked_inputs.shape, dtype=cp.float32)
+
+            bg_ptr_f32 = get_cai_ptr(bg_f32)
+            row_ptr_f32 = get_cai_ptr(row_f32)
+            masked_ptr_f32 = get_cai_ptr(masked_f32)
+
             shap_main_effect_dataset(handle_[0],
-                                     <double*> masked_ptr,
-                                     <double*> bg_ptr,
+                                     <float*> masked_ptr_f32,
+                                     <float*> bg_ptr_f32,
                                      <int> self.nrows,
                                      <int> self.ncols,
-                                     <double*> row_ptr,
+                                     <float*> row_ptr_f32,
                                      <int*> idx_ptr,
                                      <bool> row_major)
+
+            # Convert result back to float64
+            masked_inputs[:] = masked_f32.astype(cp.float64)
 
         self.handle.sync()
 

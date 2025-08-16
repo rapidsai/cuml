@@ -46,20 +46,6 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML" nogil:
         int maxsample,
         uint64_t seed) except +
 
-    void kernel_dataset "ML::Explainer::kernel_dataset"(
-        handle_t& handle,
-        float* X,
-        int nrows_X,
-        int ncols,
-        double* background,
-        int nrows_background,
-        double* combinations,
-        double* observation,
-        int* nsamples,
-        int len_nsamples,
-        int maxsample,
-        uint64_t seed) except +
-
 
 class KernelExplainer(SHAPBase):
     """
@@ -321,6 +307,7 @@ class KernelExplainer(SHAPBase):
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, ds_ptr, x_ptr, smp_ptr
+        cdef uintptr_t row_ptr_f32, bg_ptr_f32, ds_ptr_f32
 
         row_ptr = get_cai_ptr(row)
         bg_ptr = get_cai_ptr(self.background)
@@ -338,19 +325,31 @@ class KernelExplainer(SHAPBase):
 
         # we default to float32 unless self.dtype is specifically np.float64
         if self.dtype == np.float64:
+            # Convert float64 inputs to float32 for kernel call
+            row_f32 = row.astype(np.float32)
+            bg_f32 = self.background.astype(np.float32)
+            synth_data_f32 = cp.zeros(self._synth_data.shape, dtype=np.float32)
+
+            row_ptr_f32 = get_cai_ptr(row_f32)
+            bg_ptr_f32 = get_cai_ptr(bg_f32)
+            ds_ptr_f32 = get_cai_ptr(synth_data_f32)
+
             kernel_dataset(
                 handle_[0],
                 <float*> x_ptr,
                 <int> self._mask.shape[0],
                 <int> self._mask.shape[1],
-                <double*> bg_ptr,
+                <float*> bg_ptr_f32,
                 <int> self.background.shape[0],
-                <double*> ds_ptr,
-                <double*> row_ptr,
+                <float*> ds_ptr_f32,
+                <float*> row_ptr_f32,
                 <int*> smp_ptr,
                 <int> self.nsamples_random,
                 <int> maxsample,
                 <uint64_t> self.random_state)
+
+            # Convert result back to float64
+            self._synth_data[:] = synth_data_f32.astype(np.float64)
 
         else:
             kernel_dataset(
