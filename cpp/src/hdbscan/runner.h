@@ -153,11 +153,15 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
+  auto start = raft::curTimeMillis();
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
+  auto end = raft::curTimeMillis();
+  std::cout << "Build Linkage: " << end - start << std::endl;
 
   /**
    * Condense branches of tree according to min cluster size
    */
+  start = raft::curTimeMillis();
   detail::Condense::build_condensed_hierarchy(handle,
                                               out.get_children(),
                                               out.get_deltas(),
@@ -165,6 +169,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               min_cluster_size,
                                               m,
                                               out.get_condensed_tree());
+  end = raft::curTimeMillis();
+  std::cout << "build_condensed_hierarchy: " << end - start << std::endl;
 
   /**
    * Extract labels from stability
@@ -175,6 +181,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   rmm::device_uvector<value_idx> label_map(out.get_condensed_tree().get_n_clusters(),
                                            handle.get_stream());
+  start = raft::curTimeMillis();
   value_idx n_selected_clusters =
     detail::Extract::extract_clusters(handle,
                                       out.get_condensed_tree(),
@@ -188,6 +195,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       params.allow_single_cluster,
                                       static_cast<value_idx>(params.max_cluster_size),
                                       params.cluster_selection_epsilon);
+  end = raft::curTimeMillis();
+  std::cout << "extract_clusters: " << end - start << std::endl;
 
   out.set_n_clusters(n_selected_clusters);
 
@@ -195,6 +204,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
   value_t max_lambda = *(thrust::max_element(
     exec_policy, lambdas_ptr, lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
+  start = raft::curTimeMillis();
   detail::Stability::get_stability_scores(handle,
                                           labels,
                                           tree_stabilities.data(),
@@ -203,6 +213,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                           m,
                                           out.get_stabilities(),
                                           label_map.data());
+  end = raft::curTimeMillis();
+  std::cout << "get_stability_scores: " << end - start << std::endl;
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
