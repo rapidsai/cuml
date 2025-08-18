@@ -134,10 +134,10 @@ def test_parse_verbose():
 def run(args=None, stdin=None, env=None, expected_returncode=0):
     # Run without `CUML_ACCEL_ENABLED` defined by default to test
     # the other accelerator loading mechanisms
-    orig_env = os.environ.copy()
-    orig_env.pop("CUML_ACCEL_ENABLED", None)
+    proc_env = os.environ.copy()
+    proc_env.pop("CUML_ACCEL_ENABLED", None)
     if env is not None:
-        orig_env.update(env)
+        proc_env.update(env)
 
     proc = subprocess.Popen(
         [sys.executable, *map(str, args or [])],
@@ -146,7 +146,7 @@ def run(args=None, stdin=None, env=None, expected_returncode=0):
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
-        env=env,
+        env=proc_env,
     )
     stdout, _ = proc.communicate(stdin)
     assert proc.returncode == expected_returncode, f"stdout:\n\n{stdout}"
