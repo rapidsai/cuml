@@ -507,7 +507,9 @@ RF_params set_rf_params(int max_depth,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
-                        int max_batch_size)
+                        int max_batch_size,
+                        bool oob_score,
+                        bool compute_feature_importance)
 {
   DT::DecisionTreeParams tree_params;
   DT::set_tree_params(tree_params,
@@ -528,6 +530,8 @@ RF_params set_rf_params(int max_depth,
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   rf_params.tree_params = tree_params;
+  rf_params.oob_score = oob_score;
+  rf_params.compute_feature_importance = compute_feature_importance;
   validity_check(rf_params);
   return rf_params;
 }
@@ -673,6 +677,32 @@ RF_metrics score(const raft::handle_t& user_handle,
 /** @} */
 
 // Functions' specializations
+/**
+ * @brief Get the out-of-bag score of the trained RandomForest model.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @return OOB score (-1 if not computed)
+ */
+template <class T, class L>
+double get_oob_score(const RandomForestMetaData<T, L>* forest)
+{
+  return forest->oob_score;
+}
+
+/**
+ * @brief Get the feature importances of the trained RandomForest model.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @return Vector of feature importances
+ */
+template <class T, class L>
+std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest)
+{
+  return forest->feature_importances;
+}
+
 template std::string get_rf_summary_text<float, int>(const RandomForestClassifierF* forest);
 template std::string get_rf_summary_text<double, int>(const RandomForestClassifierD* forest);
 template std::string get_rf_summary_text<float, float>(const RandomForestRegressorF* forest);
@@ -704,4 +734,14 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
                                                   int num_features);
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
+
+template double get_oob_score<float, int>(const RandomForestClassifierF* forest);
+template double get_oob_score<double, int>(const RandomForestClassifierD* forest);
+template double get_oob_score<float, float>(const RandomForestRegressorF* forest);
+template double get_oob_score<double, double>(const RandomForestRegressorD* forest);
+
+template std::vector<float> get_feature_importances<float, int>(const RandomForestClassifierF* forest);
+template std::vector<double> get_feature_importances<double, int>(const RandomForestClassifierD* forest);
+template std::vector<float> get_feature_importances<float, float>(const RandomForestRegressorF* forest);
+template std::vector<double> get_feature_importances<double, double>(const RandomForestRegressorD* forest);
 }  // End namespace ML

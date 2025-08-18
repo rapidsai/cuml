@@ -68,11 +68,15 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         bool bootstrap
         float max_samples
         int seed
+        bool oob_score
+        bool compute_feature_importance
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
         void* trees
         RF_params rf_params
+        double oob_score
+        vector[T] feature_importances
 
     #
     # Treelite handling
@@ -105,6 +109,11 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                                  uint64_t,
                                  CRITERION,
                                  int,
-                                 int) except +
+                                 int,
+                                 bool,
+                                 bool) except +
+    
+    cdef double get_oob_score[T, L](RandomForestMetaData[T, L]*) except +
+    cdef vector[T] get_feature_importances[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef vector[unsigned char] save_model(TreeliteModelHandle)

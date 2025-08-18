@@ -92,6 +92,17 @@ struct RF_params {
    * N streams need N times RF workspace.
    */
   int n_streams;
+  /**
+   * Enable out-of-bag score computation.
+   * If set to true, OOB score will be computed during training.
+   * Only valid when bootstrap=true.
+   */
+  bool oob_score = false;
+  /**
+   * Enable feature importance computation.
+   * If set to true, feature importances will be computed during training.
+   */
+  bool compute_feature_importance = true;
   DT::DecisionTreeParams tree_params;
 };
 
@@ -113,6 +124,25 @@ template <class T, class L>
 struct RandomForestMetaData {
   std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
+  
+  /**
+   * Out-of-bag score for the forest.
+   * For classification: accuracy score
+   * For regression: R-squared score
+   */
+  double oob_score = -1.0;
+  
+  /**
+   * Feature importances (mean decrease in impurity).
+   * Vector of size n_features containing importance score for each feature.
+   */
+  std::vector<T> feature_importances;
+  
+  /**
+   * OOB indices for each tree.
+   * For each tree, stores the indices of samples that were out-of-bag.
+   */
+  std::vector<std::vector<int>> oob_indices_per_tree;
 };
 
 template <class T, class L>
@@ -131,6 +161,26 @@ template <class T, class L>
 void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
+
+/**
+ * @brief Get the out-of-bag score of the trained RandomForest model.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @return OOB score (-1 if not computed)
+ */
+template <class T, class L>
+double get_oob_score(const RandomForestMetaData<T, L>* forest);
+
+/**
+ * @brief Get the feature importances of the trained RandomForest model.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @return Vector of feature importances
+ */
+template <class T, class L>
+std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest);
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -197,7 +247,9 @@ RF_params set_rf_params(int max_depth,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
-                        int max_batch_size);
+                        int max_batch_size,
+                        bool oob_score = false,
+                        bool compute_feature_importance = true);
 
 // ----------------------------- Regression ----------------------------------- //
 

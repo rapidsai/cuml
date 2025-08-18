@@ -204,6 +204,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+    oob_score : bool (default = False)
+        Whether to compute the out-of-bag R-squared score on the training dataset.
+        Only valid when bootstrap=True.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -427,7 +430,9 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
                                   <int> self.n_streams,
-                                  <int> self.max_batch_size)
+                                  <int> self.max_batch_size,
+                                  <bool> self.oob_score,
+                                  <bool> True)  # compute_feature_importance=True
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -452,6 +457,24 @@ class RandomForestRegressor(BaseRandomForestModel,
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
+        
+        # Extract OOB score and feature importances from the forest
+        if self.oob_score:
+            if self.dtype == np.float32:
+                self._oob_score_ = get_oob_score(rf_forest)
+            else:
+                self._oob_score_ = get_oob_score(rf_forest64)
+        
+        # Extract feature importances
+        cdef vector[float] fi_float
+        cdef vector[double] fi_double
+        if self.dtype == np.float32:
+            fi_float = get_feature_importances(rf_forest)
+            self._feature_importances_ = [fi_float[i] for i in range(fi_float.size())]
+        else:
+            fi_double = get_feature_importances(rf_forest64)
+            self._feature_importances_ = [fi_double[i] for i in range(fi_double.size())]
+        
         del X_m
         del y_m
         return self

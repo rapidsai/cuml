@@ -135,12 +135,14 @@ class BaseRandomForestModel(Base, InteropMixin):
             "handle",
             "verbose",
             "output_type",
+            "oob_score",
         ]
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.oob_score:
-            raise UnsupportedOnGPU("`oob_score=True` is not supported")
+        # Remove the restriction on oob_score
+        # if model.oob_score:
+        #     raise UnsupportedOnGPU("`oob_score=True` is not supported")
 
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
@@ -184,6 +186,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": model.min_impurity_decrease,
             "bootstrap": model.bootstrap,
             "random_state": model.random_state,
+            "oob_score": model.oob_score,
             **conditional_params
         }
 
@@ -205,6 +208,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
             "max_samples": self.max_samples,
+            "oob_score": self.oob_score,
         }
 
     def _attrs_from_cpu(self, model):
@@ -260,6 +264,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         handle=None,
         verbose=False,
         output_type=None,
+        oob_score=False,
     ):
         if handle is None:
             handle = Handle(n_streams=n_streams)
@@ -283,11 +288,14 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.max_batch_size = max_batch_size
         self.random_state = random_state
         self.n_streams = n_streams
+        self.oob_score = oob_score
 
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.treelite_serialized_bytes = None
         self.n_cols = None
+        self._oob_score_ = -1.0
+        self._feature_importances_ = None
 
     def set_params(self, **params):
         self.treelite_serialized_bytes = None
@@ -457,3 +465,45 @@ class BaseRandomForestModel(Base, InteropMixin):
         if predict_proba:
             return fil_model.predict_proba(X)
         return fil_model.predict(X, threshold=threshold)
+    
+    @property
+    def oob_score_(self):
+        """Out-of-bag score for the training dataset.
+        
+        Only available if oob_score=True.
+        
+        Returns
+        -------
+        score : float
+            Score of the training dataset using an out-of-bag estimate.
+            For classification, this is the accuracy score.
+            For regression, this is the R-squared score.
+        """
+        if not self.oob_score:
+            raise AttributeError(
+                "oob_score_ is only available when oob_score=True"
+            )
+        if self._oob_score_ < 0:
+            raise NotFittedError(
+                "This RandomForest instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before using this property."
+            )
+        return self._oob_score_
+    
+    @property
+    def feature_importances_(self):
+        """The feature importances based on the mean decrease in impurity.
+        
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            The values of this array sum to 1, unless all trees are single node
+            trees consisting of only the root node, in which case it will be an
+            array of zeros.
+        """
+        if self._feature_importances_ is None:
+            raise NotFittedError(
+                "This RandomForest instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before using this property."
+            )
+        return np.asarray(self._feature_importances_)
