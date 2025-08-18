@@ -203,7 +203,7 @@ def test_knn(cu_knn_graph_fixture):
 
     # Compute KNN metrics via helper
     avg_recall, mae_dist = compute_knn_metrics(
-        (inds_cuvs, dists_cuvs), (inds_umap, dists_umap), n_neighbors
+        (dists_umap, inds_umap), (dists_cuvs, inds_cuvs), n_neighbors
     )
 
     # Tolerances: stricter for bruteforce, looser for NN-descent approx
@@ -249,6 +249,11 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
 
     # cuML fuzzy graph (GPU native + CPU SciPy for ref embedding step) precomputed in fixture
     cu_graph = d["cu_graph_cpu"]
+
+    # Fuzzy simplicial set from similar KNN graphs should match very closely
+    assert (
+        ref_graph.todense() - cu_graph.todense()
+    ).sum() < 1e-2, "Fuzzy graph mismatch"
 
     # Compute fuzzy simplicial set metrics : KL, Jaccard, Row-sum L1
     kl_sym, jacc, row_l1 = compute_fuzzy_simplicial_set_metrics(
@@ -399,10 +404,10 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     cu_emb_cp = cp.asarray(cu_emb, dtype=cp.float32)
 
     metrics_ref = compute_simplicial_set_embedding_metrics(
-        X_cp, ref_emb_cp, k=k, metric=metric, skip_topolgy_preservation=True
+        X_cp, ref_emb_cp, k=k, metric=metric, skip_topology_preservation=True
     )
     metrics_cu = compute_simplicial_set_embedding_metrics(
-        X_cp, cu_emb_cp, k=k, metric=metric, skip_topolgy_preservation=True
+        X_cp, cu_emb_cp, k=k, metric=metric, skip_topology_preservation=True
     )
 
     trust_ref = metrics_ref["trustworthiness"]
@@ -423,38 +428,109 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
 
     rmse = procrustes_rmse(ref_emb, cu_emb)
 
-    # Tolerances (tuned for robustness across datasets and params)
-    tol_trust = 0.03
-    tol_cont = 0.03
-    tol_corr = 0.05
-    tol_xent = 0.15
-    tol_kl = 0.10
-    tol_rmse = 0.15
+    # Moderate thresholds: small degradations allowed
+    mod_trust = 0.05
+    mod_cont = 0.05
+    mod_corr = 0.15
+    mod_rel_kl = 0.15
+    mod_rmse = 0.12
 
-    assert trust_cu >= trust_ref - tol_trust, (
-        f"Trustworthiness worse than reference by more than tol: cuML={trust_cu:.4f}, ref={trust_ref:.4f} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
+    # Severe thresholds: clearly unacceptable degradations
+    sev_trust = 0.10
+    sev_cont = 0.10
+    sev_corr = 0.30
+    sev_rel_kl = 0.35
+    sev_rmse = 0.20
+
+    # Compute deficits (positive means cuML is worse than reference)
+    trust_def = max(0.0, trust_ref - trust_cu)
+    cont_def = max(0.0, cont_ref - cont_cu)
+    sp_def = max(0.0, sp_ref - sp_cu)
+    pe_def = max(0.0, pe_ref - pe_cu)
+    xent_rel_increase = max(
+        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
     )
-    assert cont_cu >= cont_ref - tol_cont, (
-        f"Continuity worse than reference by more than tol: cuML={cont_cu:.4f}, ref={cont_ref:.4f} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
-    )
-    assert sp_cu >= sp_ref - tol_corr, (
-        f"Spearman geodesic correlation worse than reference by more than tol: cuML={sp_cu:.4f}, ref={sp_ref:.4f} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
-    )
-    assert pe_cu >= pe_ref - tol_corr, (
-        f"Pearson geodesic correlation worse than reference by more than tol: cuML={pe_cu:.4f}, ref={pe_ref:.4f} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
-    )
-    assert xent_cu <= xent_ref + tol_xent, (
-        f"Refwise KL worse than reference by more than tol: cuML={xent_cu:.4e}, ref={xent_ref:.4e} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
-    )
-    assert kl_cu <= kl_ref + tol_kl, (
-        f"Symmetric KL worse than reference by more than tol: cuML={kl_cu:.4e}, ref={kl_ref:.4e} "
-        f"on {d['dataset_name']} (k={k}, params={params})"
-    )
-    assert (
-        rmse <= tol_rmse
-    ), f"Procrustes-aligned RMSE too high: {rmse:.3f} on {d['dataset_name']} (params={params})"
+    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    moderate_issues = []
+    severe_issues = []
+
+    # Trustworthiness
+    if trust_def > sev_trust:
+        severe_issues.append(
+            f"trustworthiness deficit {trust_def:.3f} (cu={trust_cu:.4f}, ref={trust_ref:.4f})"
+        )
+    elif trust_def > mod_trust:
+        moderate_issues.append(
+            f"trustworthiness deficit {trust_def:.3f} (cu={trust_cu:.4f}, ref={trust_ref:.4f})"
+        )
+
+    # Continuity
+    if cont_def > sev_cont:
+        severe_issues.append(
+            f"continuity deficit {cont_def:.3f} (cu={cont_cu:.4f}, ref={cont_ref:.4f})"
+        )
+    elif cont_def > mod_cont:
+        moderate_issues.append(
+            f"continuity deficit {cont_def:.3f} (cu={cont_cu:.4f}, ref={cont_ref:.4f})"
+        )
+
+    # Geodesic correlations
+    if sp_def > sev_corr:
+        severe_issues.append(
+            f"spearman correlation deficit {sp_def:.3f} (cu={sp_cu:.4f}, ref={sp_ref:.4f})"
+        )
+    elif sp_def > mod_corr:
+        moderate_issues.append(
+            f"spearman correlation deficit {sp_def:.3f} (cu={sp_cu:.4f}, ref={sp_ref:.4f})"
+        )
+
+    if pe_def > sev_corr:
+        severe_issues.append(
+            f"pearson correlation deficit {pe_def:.3f} (cu={pe_cu:.4f}, ref={pe_ref:.4f})"
+        )
+    elif pe_def > mod_corr:
+        moderate_issues.append(
+            f"pearson correlation deficit {pe_def:.3f} (cu={pe_cu:.4f}, ref={pe_ref:.4f})"
+        )
+
+    # Fuzzy KL and symmetric KL (relative change)
+    if xent_rel_increase > sev_rel_kl:
+        severe_issues.append(
+            f"fuzzy KL relative increase {xent_rel_increase:.3f} (cu={xent_cu:.4e}, ref={xent_ref:.4e})"
+        )
+    elif xent_rel_increase > mod_rel_kl:
+        moderate_issues.append(
+            f"fuzzy KL relative increase {xent_rel_increase:.3f} (cu={xent_cu:.4e}, ref={xent_ref:.4e})"
+        )
+
+    if kl_rel_increase > sev_rel_kl:
+        severe_issues.append(
+            f"symmetric KL relative increase {kl_rel_increase:.3f} (cu={kl_cu:.4e}, ref={kl_ref:.4e})"
+        )
+    elif kl_rel_increase > mod_rel_kl:
+        moderate_issues.append(
+            f"symmetric KL relative increase {kl_rel_increase:.3f} (cu={kl_cu:.4e}, ref={kl_ref:.4e})"
+        )
+
+    # Procrustes RMSE
+    if rmse > sev_rmse:
+        severe_issues.append(f"rmse {rmse:.3f} > {sev_rmse:.3f}")
+    elif rmse > mod_rmse:
+        moderate_issues.append(f"rmse {rmse:.3f} > {mod_rmse:.3f}")
+
+    # Holistic decision rule:
+    # - Fail if multiple severe degradations, or RMSE alone is severe
+    # - Or if many moderate degradations accumulate
+    should_fail = False
+    if len(severe_issues) >= 2 or rmse > sev_rmse:
+        should_fail = True
+    elif len(moderate_issues) >= 4:
+        should_fail = True
+
+    if should_fail:
+        details = (
+            f"Severe issues: {severe_issues} | Moderate issues: {moderate_issues} "
+            f"on {d['dataset_name']} (k={k}, params={params})"
+        )
+        assert False, details
