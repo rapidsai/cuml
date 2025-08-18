@@ -18,11 +18,6 @@
 
 import warnings
 
-_DATA_ON_HOST_DEPRECATED_MESSAGE = (
-    "The data_on_host option is deprecated and will be removed in release 25.10. "
-    "Whether data is on host or device is now determined by the build_algo."
-)
-
 import cupy
 import cupyx.scipy.sparse
 import joblib
@@ -772,8 +767,7 @@ class UMAP(Base,
         y=None,
         *,
         convert_dtype=True,
-        knn_graph=None,
-        data_on_host="auto"
+        knn_graph=None
     ) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -789,14 +783,6 @@ class UMAP(Base,
         and also allows the use of a custom distance function. This function
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
-
-        .. deprecated:: 25.08
-            The `data_on_host` parameter is deprecated and will be removed in
-            release 25.10. Whether data is on host or device is now determined
-            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
-            data will automatically be placed on host memory. When
-            `build_algo == brute_force_knn`, data will automatically be placed
-            on device memory.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -847,31 +833,6 @@ class UMAP(Base,
                                                       if convert_dtype
                                                       else None),
                                     convert_to_mem_type=convert_to_mem_type)
-
-        # Get nnd_n_clusters value for validation
-        build_kwds = self.build_kwds or {}
-        nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
-
-        # deprecation notice and raising error for data_on_host parameter
-        if data_on_host is True:
-            if self.build_algo == "brute_force_knn":
-                raise ValueError(
-                    f"build_algo = 'brute_force_knn' is not supported when data_on_host "
-                    f"is True; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                )
-            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
-        elif data_on_host is False:
-            if self.build_algo == "nn_descent" and nnd_n_clusters > 1:
-                raise ValueError(
-                    f"nnd_n_clusters > 1 is not supported for nn_descent build when "
-                    f"data_on_host is False; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                )
-            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
-        elif data_on_host != "auto":
-            raise ValueError(
-                f"data_on_host must be True, False, or 'auto'; "
-                f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-            )
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -990,8 +951,7 @@ class UMAP(Base,
         y=None,
         *,
         convert_dtype=True,
-        knn_graph=None,
-        data_on_host="auto",
+        knn_graph=None
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -1023,21 +983,12 @@ class UMAP(Base,
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
-
-        .. deprecated:: 25.08
-            The `data_on_host` parameter is deprecated and will be removed in
-            release 25.10. Whether data is on host or device is now determined
-            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
-            data will automatically be placed on host memory. When
-            `build_algo == brute_force_knn`, data will automatically be placed
-            on device memory.
         """
         self.fit(
             X,
             y,
             convert_dtype=convert_dtype,
-            knn_graph=knn_graph,
-            data_on_host=data_on_host
+            knn_graph=knn_graph
         )
         return self.embedding_
 

@@ -22,7 +22,7 @@ from cuml.accel import profilers
 
 @contextlib.contextmanager
 def _maybe_profile(
-    path=None, source=None, namespace=None, profile=False, line_profile=False
+    filename=None, source=None, profile=False, line_profile=False
 ):
     """A helper for managing optional application of the profilers."""
     with contextlib.ExitStack() as stack:
@@ -33,9 +33,7 @@ def _maybe_profile(
                 stack.callback(print)
         if line_profile:
             stack.enter_context(
-                profilers.LineProfiler(
-                    path=path, source=source, namespace=namespace
-                )
+                profilers.LineProfiler(filename=filename, source=source)
             )
         yield
 
@@ -45,7 +43,9 @@ def run_path(
 ) -> None:
     """Run a script at a given path the same as ``python script``."""
     path = os.path.abspath(path)
-    with _maybe_profile(path=path, profile=profile, line_profile=line_profile):
+    with _maybe_profile(
+        filename=path, profile=profile, line_profile=line_profile
+    ):
         runpy.run_path(path, run_name="__main__")
 
 
@@ -85,13 +85,15 @@ def run_source(
         "__cached__": None,
     }
     try:
-        exec_source(
-            source,
-            namespace,
+        code = compile(source, filename, "exec")
+
+        with _maybe_profile(
+            source=source,
             filename=filename,
             profile=profile,
             line_profile=line_profile,
-        )
+        ):
+            exec(code, namespace)
     except SystemExit:
         raise
     except BaseException:
@@ -99,34 +101,9 @@ def run_source(
         # Drop our frames from the traceback before formatting
         sys.__excepthook__(
             typ,
-            value.with_traceback(tb.tb_next.tb_next),
-            tb.tb_next.tb_next,
+            value.with_traceback(tb.tb_next),
+            tb.tb_next,
         )
         # Exit on error with the proper code
         code = 130 if typ is KeyboardInterrupt else 1
         sys.exit(code)
-
-
-def exec_source(
-    source: str,
-    namespace: dict,
-    filename: str = "<stdin>",
-    profile: bool = False,
-    line_profile: bool = False,
-) -> None:
-    """Execute the given source in the context of a specified namespace.
-
-    This differs from ``run_source`` in two ways:
-
-    - It doesn't prepopulate the executing namespace
-    - It doesn't cleanup tracebacks nor exit on failure
-    """
-    code = compile(source, filename, "exec")
-
-    with _maybe_profile(
-        source=source,
-        namespace=namespace,
-        profile=profile,
-        line_profile=line_profile,
-    ):
-        exec(code, namespace)

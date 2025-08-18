@@ -343,42 +343,28 @@ class LineProfiler(Callback):
     Parameters
     ----------
     source : str, optional
-        The script's source code. If not provided, will be inferred from `path`.
-    path : str, optional
-        A path to the script's source. May be omitted if the script's executing
-        namespace is provided instead (useful if executing source code without a path).
-    namespace : dict, optional
-        The script's executing namespace. When executing source that lacks a unique path,
-        the namespace is needed to temporarily inject a value so the profiler can know
-        which frames to trace.
+        The script's source code. If not provided, will be inferred from `filename`.
+    filename : str, optional
+        The filename for the source being profiled. If not provided, the `start` method
+        must be called at the top level in the executing source.
     quiet : bool, optional
         Set to True to skip printing the report automatically upon exiting the context.
     """
 
-    FLAG = "__cuml_accel_line_profiler_enabled__"
-
     def __init__(
         self,
         source: str | None = None,
-        path: str | None = None,
-        namespace: dict | None = None,
+        filename: str | None = None,
         quiet: bool = False,
     ):
-        if path is not None:
-            self._should_trace = lambda frame: frame.f_code.co_filename == path
-        else:
-            self._should_trace = lambda frame: frame.f_globals.get(
-                self.FLAG, False
-            )
         if source is None:
-            if path is None:
-                raise ValueError("Must provide either `path` or `source`")
-            with open(path, "r") as f:
+            if filename is None:
+                raise ValueError("Must provide either `filename` or `source`")
+            with open(filename, "r") as f:
                 source = f.read()
 
         self.source = source
-        self.path = path
-        self.namespace = namespace
+        self.filename = filename
         self.quiet = quiet
 
         self.total_time = 0.0
@@ -386,6 +372,7 @@ class LineProfiler(Callback):
         self.line_stats = defaultdict(LineStats)
         self._timers = []
         self._new_frame = False
+        self._offset = 0
 
     def _on_gpu_call(self, qualname: str, duration: float) -> None:
         for lineno, _ in self._timers:
@@ -398,32 +385,50 @@ class LineProfiler(Callback):
         for lineno, _ in self._timers:
             self.line_stats[lineno].cpu_fallback = True
 
-    def __enter__(self) -> LineProfiler:
-        self._old_trace = sys.gettrace()
-        self._start_time = perf_counter()
+    def start(self):
+        """Start the line profiler.
 
-        sys.settrace(self._trace)
-        if self.namespace is not None:
-            self.namespace[self.FLAG] = True
+        In normal usage this is called automatically within `__enter__`.
 
-        _CALLBACKS.append(self)
+        When running within a cell, a call to `start` is injected into the source
+        and the profiler isn't started until that line is hit. This makes it easier
+        to compose ``%%cuml.accel.line_profile`` with other cell magics.
+        """
+        if not hasattr(self, "_old_trace"):
+            if self.filename is None:
+                parent = sys._getframe().f_back
+                self.filename = parent.f_code.co_filename
+                self._offset = parent.f_lineno
+                parent.f_trace = self._trace
+
+            self._old_trace = sys.gettrace()
+            self._start_time = perf_counter()
+
+            sys.settrace(self._trace)
+            _CALLBACKS.append(self)
+
+    def __enter__(self):
+        if self.filename is not None:
+            self.start()
         return self
 
     def __exit__(self, *args) -> None:
-        _CALLBACKS.remove(self)
-        self.total_time += perf_counter() - self._start_time
+        try:
+            _CALLBACKS.remove(self)
+        except ValueError:
+            pass
 
-        if self.namespace is not None:
-            self.namespace.pop(self.FLAG, None)
-        sys.settrace(self._old_trace)
-
+        if hasattr(self, "_start_time"):
+            self.total_time += perf_counter() - self._start_time
+        if (old_trace := getattr(self, "_old_trace", None)) is not None:
+            sys.settrace(old_trace)
         if not self.quiet:
             self.print_report()
 
     def _maybe_pop_timer(self):
         if self._new_frame:
             self._new_frame = False
-        else:
+        elif self._timers:
             lineno, start = self._timers.pop()
             duration = perf_counter() - start
             stats = self.line_stats[lineno]
@@ -431,7 +436,7 @@ class LineProfiler(Callback):
             stats.total_time += duration
 
     def _trace(self, frame, event, arg):
-        if not self._should_trace(frame):
+        if frame.f_code.co_filename != self.filename:
             # This frame is not directly in this script, no need to trace
             return None
 
@@ -476,8 +481,8 @@ class LineProfiler(Callback):
         # 1 ms, except for very short runs.
         min_non_accel_time = min(self.total_time / 1000, 0.001)
 
-        for lineno, line in enumerate(self.source.splitlines(), 1):
-            stats = self.line_stats[lineno]
+        for lineno, line in enumerate(self.source.rstrip().splitlines(), 1):
+            stats = self.line_stats[lineno + self._offset]
 
             if stats.count == 0:
                 row = ("", "", "")
