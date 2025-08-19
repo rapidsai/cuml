@@ -509,8 +509,13 @@ class NearestNeighbors(Base,
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
-    """
 
+    Pickling ``NearestNeighbors`` instances is supported for all algorithms.
+    However, for RBC, IVFPQ or IVFFlat the index will currently be rebuilt upon
+    load rather than serialized as part of the pickled binary. For approximate
+    indices like IVFPQ or IVFFlat this may result in small differences between
+    the original and reloaded models, as the generated indices may differ.
+    """
     _fit_X = CumlArrayDescriptor(order='C')
 
     _cpu_class_path = "sklearn.neighbors.NearestNeighbors"
