@@ -368,6 +368,7 @@ class GaussianNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -406,6 +407,7 @@ class GaussianNB(_BaseNB):
         y = input_to_cupy_array(
             y,
             convert_to_dtype=(expected_y_dtype if convert_dtype else False),
+            check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
 
