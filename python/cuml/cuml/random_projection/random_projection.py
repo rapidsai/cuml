@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import cupy as cp
-import cupyx.scipy.sparse as cu_sp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
 import sklearn.random_projection
@@ -23,7 +23,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -99,11 +99,10 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         # Prefer float32, unless `convert_dtype=False` and the input is float64
         if convert_dtype:
             dtype = np.float32
-        elif (dtype := getattr(X, "dtype", np.float32)) not in (
-            np.float32,
-            np.float64,
-        ):
-            dtype = np.float32
+        else:
+            dtype = getattr(X, "dtype", np.float32)
+            if dtype not in ("float32", "float64"):
+                dtype = np.float32
 
         if self.n_components == "auto":
             self.n_components_ = johnson_lindenstrauss_min_dim(
@@ -133,32 +132,43 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
         # Coerce X to a cupy array or cupyx sparse matrix
+        index = None
         if sp.issparse(X):
-            X = cu_sp.csr_matrix(X)
-        elif not cu_sp.issparse(X):
-            X = input_to_cupy_array(
+            X = cp_sp.csr_matrix(X)
+        elif not cp_sp.issparse(X):
+            X_m = input_to_cuml_array(
                 X,
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 check_dtype=[np.float32, np.float64],
+                order="K",
             ).array
+            index = X_m.index
+            X = X_m.to_output("cupy")
 
-        # Ensure components is also a cupy array or sparse matrix
-        if isinstance(self.components_, SparseCumlArray):
-            components = self.components_.to_output("cupy")
-        else:
-            components = self.components_
+        components = self.components_.to_output("cupy")
 
+        # Compute the output
         out = X @ components.T
-        if getattr(self, "dense_output", False) and (
-            sp.issparse(out) or cu_sp.issparse(out)
-        ):
+
+        # Coerce to correct dtype if needed (sparse matrices astype doesn't
+        # support copy=False, so we need to use the more verbose version here).
+        if out.dtype != self.components_.dtype:
+            out = out.astype(self.components_.dtype)
+
+        if sp.issparse(out) or cp_sp.issparse(out):
+            if not getattr(self, "dense_output", False):
+                # Sparse output
+                return out
             out = out.toarray()
-        return out
+
+        return CumlArray(data=out, index=index)
 
     @generate_docstring()
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """Fit to data, then transform it."""
-        return self.fit(X).transform(X, convert_dtype=convert_dtype)
+        return self.fit(X, convert_dtype=convert_dtype).transform(
+            X, convert_dtype=convert_dtype
+        )
 
 
 class GaussianRandomProjection(_BaseRandomProjection):
@@ -241,11 +251,13 @@ class GaussianRandomProjection(_BaseRandomProjection):
     def _gen_random_matrix(self, n_components, n_features, dtype):
         seed = check_random_seed(self.random_state)
         rng = cp.random.RandomState(seed)
-        return rng.normal(
-            loc=0.0,
-            scale=1.0 / np.sqrt(n_components),
-            size=(n_components, n_features),
-        ).astype(dtype, copy=False)
+        return CumlArray(
+            data=rng.normal(
+                loc=0.0,
+                scale=1.0 / np.sqrt(n_components),
+                size=(n_components, n_features),
+            ).astype(dtype, copy=False)
+        )
 
 
 class SparseRandomProjection(_BaseRandomProjection):
@@ -391,6 +403,8 @@ class SparseRandomProjection(_BaseRandomProjection):
         else:
             density = self.density
 
+        self.density_ = density
+
         seed = check_random_seed(self.random_state)
         rng = cp.random.default_rng(seed)
 
@@ -399,14 +413,17 @@ class SparseRandomProjection(_BaseRandomProjection):
             components = (
                 rng.binomial(1, 0.5, (n_components, n_features)) * 2 - 1
             )
-            return (1 / np.sqrt(n_components) * components).astype(
-                dtype, copy=False
+            return CumlArray(
+                data=(1 / np.sqrt(n_components) * components).astype(
+                    dtype, copy=False
+                )
             )
 
         k = int(density * n_features * n_components)
-        # Index generation performed on host. cupy's implementation
-        # of choice with replace=False isn't currently memory efficient.
-        # This operation runs fine on host, no need to worry about it.
+        # Index generation performed on host. cupy's implementation of choice
+        # with replace=False isn't currently memory efficient. See
+        # https://github.com/cupy/cupy/issues/9320. This operation runs fine on
+        # host; it's necessarily important to move this to run on GPU anyway.
         ind = cp.asarray(
             np.random.default_rng(seed).choice(
                 int(n_features * n_components), k, replace=False
@@ -422,7 +439,7 @@ class SparseRandomProjection(_BaseRandomProjection):
         data = cp.multiply(data, factor, dtype=dtype)
 
         return SparseCumlArray(
-            data=cu_sp.coo_matrix(
+            data=cp_sp.coo_matrix(
                 (data, (i, j)), shape=(n_components, n_features)
             ).asformat("csr")
         )
