@@ -22,7 +22,7 @@ from sklearn.manifold import trustworthiness
 from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
-from cuml.manifold.simpl_set import fuzzy_simplicial_set
+from cuml.manifold.umap import fuzzy_simplicial_set
 from cuml.testing.datasets import make_classification_dataset
 
 # Test parameters
