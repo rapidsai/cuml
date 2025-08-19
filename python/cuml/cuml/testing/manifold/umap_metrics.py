@@ -15,13 +15,16 @@
 
 import typing as t
 
+import cudf
+import cugraph
 import cupy as cp
 import numpy as np
 from cuvs.distance import pairwise_distance
 from cuvs.neighbors import brute_force, nn_descent
 from scipy.linalg import orthogonal_procrustes
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import shortest_path
+
+# from scipy.sparse.csgraph import shortest_path  # replaced by cuGraph for speed
 from scipy.stats import pearsonr, spearmanr
 from sklearn.neighbors import NearestNeighbors
 
@@ -367,8 +370,97 @@ def _build_symmetric_csr_from_knn(
     return csr_matrix((data2, (rows2, cols2)), shape=(n, n))
 
 
+def _compute_geodesic_correlations(
+    Y_cp: cp.ndarray,
+    hd_inds_np: np.ndarray,
+    hd_dists_np: np.ndarray,
+    n: int,
+) -> t.Tuple[float, float]:
+    rng = np.random.RandomState(42)
+    subset_size = int(max(2000, 0.1 * n))
+    subset_size = min(subset_size, n)
+    subset = rng.choice(n, size=subset_size, replace=False)
+
+    # Build undirected weighted edge list from kNN (drop self-edges and symmetrize)
+    rows = np.repeat(np.arange(n), hd_inds_np.shape[1])
+    cols = hd_inds_np.ravel()
+    data = hd_dists_np.ravel().astype(np.float32, copy=False)
+
+    mask = rows != cols
+    rows, cols, data = rows[mask], cols[mask], data[mask]
+
+    # Restrict to vertex-induced subgraph
+    in_sub = np.zeros(n, dtype=bool)
+    in_sub[subset] = True
+    keep = in_sub[rows] & in_sub[cols]
+
+    # Map to local [0, subset_size) ids
+    orig_to_local = -np.ones(n, dtype=np.int32)
+    orig_to_local[subset] = np.arange(subset_size, dtype=np.int32)
+    src_sub = orig_to_local[rows[keep]]
+    dst_sub = orig_to_local[cols[keep]]
+    w_sub = data[keep]
+
+    # Symmetrize
+    src_all = np.concatenate([src_sub, dst_sub])
+    dst_all = np.concatenate([dst_sub, src_sub])
+    w_all = np.concatenate([w_sub, w_sub]).astype(np.float32, copy=False)
+
+    # cuGraph on GPU
+    edgelist = cudf.DataFrame(
+        {
+            "src": cp.asarray(src_all),
+            "dst": cp.asarray(dst_all),
+            "w": cp.asarray(w_all),
+        }
+    )
+    G = cugraph.Graph(directed=False)
+    G.from_cudf_edgelist(
+        edgelist,
+        source="src",
+        destination="dst",
+        edge_attr="w",
+        renumber=False,
+    )
+
+    # Sources inside the subgraph (heuristic applied to subset)
+    num_sources = int(max(256, 0.05 * subset_size))
+    num_sources = max(1, min(subset_size - 1, num_sources))
+    sources_local = rng.choice(subset_size, size=num_sources, replace=False)
+
+    # Compute distances from multiple sources with per-source SSSP (version-compatible)
+    high_geo = np.full((num_sources, subset_size), np.inf, dtype=np.float32)
+    for r, s in enumerate(sources_local):
+        res = cugraph.sssp(G, source=int(s), edge_attr="w")
+        v_np = res["vertex"].to_numpy()
+        d_np = res["distance"].to_numpy()
+        if d_np.dtype != np.float32:
+            d_np = d_np.astype(np.float32, copy=False)
+        high_geo[r, v_np] = d_np
+
+    # Low-d Euclidean distances on GPU, restricted to the same subset/sources
+    Y_cp_sub = Y_cp[subset]
+    low_d_cp = pairwise_distance(
+        Y_cp_sub[sources_local], Y_cp_sub, metric="euclidean"
+    )
+    low_d = cp.asnumpy(low_d_cp).astype(np.float32, copy=False)
+
+    # Build mask: exclude self-distances for each source row and non-finite geodesics
+    valid = np.isfinite(high_geo)
+    for r, s in enumerate(sources_local):
+        valid[r, s] = False
+
+    sp, _ = spearmanr(high_geo[valid], low_d[valid])
+    pe, _ = pearsonr(high_geo[valid], low_d[valid])
+    return float(sp), float(pe)
+
+
 def compute_simplicial_set_embedding_metrics(
-    high_dim_data, embedding, k, metric, skip_topology_preservation=False
+    high_dim_data,
+    embedding,
+    k,
+    metric,
+    skip_topology_preservation=False,
 ):
     """
     Assess the quality of UMAP embeddings with GPU acceleration.
@@ -387,6 +479,13 @@ def compute_simplicial_set_embedding_metrics(
         Number of neighbors (includes self for continuity; helper adjusts internally).
     metric : str
         Metric used for high-dimensional KNN (e.g., "euclidean", "cosine").
+    skip_topology_preservation : bool
+        If True, skip persistent homology metrics.
+
+    Notes
+    -----
+    Geodesic correlations are computed from a subsample of sources and a subset of the graph for speed,
+    using max(256, floor(0.05 * n)) sources (capped at n-1) with a fixed internal seed for reproducibility.
 
     Returns
     -------
@@ -415,21 +514,7 @@ def compute_simplicial_set_embedding_metrics(
     metrics["continuity"] = float(cont)
 
     # 2) Global Structure Preservation
-    # 2.a) Geodesic distances from symmetric high-d KNN graph
-    high_knn_graph = _build_symmetric_csr_from_knn(hd_inds_np, hd_dists_np, n)
-    high_geo = shortest_path(high_knn_graph, directed=False).astype(
-        np.float32, copy=False
-    )
-
-    # 2.b) Low-d full Euclidean distance matrix on GPU
-    low_d_cp = pairwise_distance(Y_cp, Y_cp, metric="euclidean")
-    low_d = cp.asnumpy(low_d_cp).astype(np.float32, copy=False)
-
-    # Exclude diagonal (self-pairs) and avoid double counting by using upper triangle
-    offdiag_upper = np.triu(np.ones((n, n), dtype=bool), k=1)
-    mask = np.isfinite(high_geo) & offdiag_upper
-    sp, _ = spearmanr(high_geo[mask], low_d[mask])
-    pe, _ = pearsonr(high_geo[mask], low_d[mask])
+    sp, pe = _compute_geodesic_correlations(Y_cp, hd_inds_np, hd_dists_np, n)
     metrics["geodesic_spearman_correlation"] = float(sp)
     metrics["geodesic_pearson_correlation"] = float(pe)
     metrics["demap"] = float(pe)
