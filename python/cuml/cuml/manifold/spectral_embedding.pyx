@@ -33,6 +33,9 @@ from pylibraft.common.cpp.mdspan cimport (
 )
 from pylibraft.common.handle cimport device_resources
 
+from cupyx.scipy.sparse import coo_matrix as cupy_coo
+from scipy.sparse import coo_matrix as scipy_coo
+
 import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -145,14 +148,13 @@ def spectral_embedding(A,
         handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    cdef int n_samples
-    cdef int nnz
-
     if affinity == "precomputed":
+        assert isinstance(A, (scipy_coo, cupy_coo))
+
         rows = A.row
         cols = A.col
         vals = A.data
-        n_samples = A.shape[0]
+        _n_rows = A.shape[0]
         nnz = A.nnz
 
         rows = input_to_cuml_array(rows, order="C",
@@ -171,7 +173,6 @@ def spectral_embedding(A,
             input_to_cuml_array(A, order="C", check_dtype=np.float32,
                                 convert_to_dtype=cp.float32)
         A_ptr = <uintptr_t>A.ptr
-        n_samples = _n_rows
 
     cdef params config
 
@@ -181,7 +182,7 @@ def spectral_embedding(A,
     config.n_neighbors = (
         n_neighbors
         if n_neighbors is not None
-        else max(int(n_samples / 10), 1)
+        else max(int(_n_rows / 10), 1)
     )
 
     config.norm_laplacian = norm_laplacian
@@ -190,7 +191,7 @@ def spectral_embedding(A,
     if config.drop_first:
         config.n_components += 1
 
-    eigenvectors = CumlArray.empty((n_samples, n_components), dtype=np.float32, order='F')
+    eigenvectors = CumlArray.empty((_n_rows, n_components), dtype=np.float32, order='F')
 
     eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
 
@@ -201,7 +202,7 @@ def spectral_embedding(A,
             make_device_vector_view(<int *>cols_ptr, <int> nnz),
             make_device_vector_view(<float *>vals_ptr, <int> nnz),
             make_device_matrix_view[float, int, col_major](
-                <float *>eigenvectors_ptr, <int> n_samples, <int> n_components))
+                <float *>eigenvectors_ptr, <int> _n_rows, <int> n_components))
     else:
         transform(
             deref(h), config,
