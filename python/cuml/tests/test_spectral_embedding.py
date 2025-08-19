@@ -22,6 +22,7 @@ from sklearn.manifold import trustworthiness
 from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
+from cuml.manifold.simpl_set import fuzzy_simplicial_set
 from cuml.testing.datasets import make_classification_dataset
 
 # Test parameters
@@ -67,7 +68,14 @@ def load_digits_dataset(n_samples=None):
     return digits.data
 
 
-@pytest.mark.parametrize("affinity", ["nearest_neighbors", "precomputed"])
+@pytest.mark.parametrize(
+    "affinity,graph_type",
+    [
+        ("nearest_neighbors", None),  # Use built-in nearest_neighbors affinity
+        ("precomputed", "binary_knn"),  # Precomputed binary k-NN graph
+        ("precomputed", "fuzzy_knn"),  # Precomputed fuzzy k-NN graph from UMAP
+    ],
+)
 @pytest.mark.parametrize(
     "dataset_loader,n_samples",
     [
@@ -80,38 +88,79 @@ def load_digits_dataset(n_samples=None):
     ],
 )
 def test_spectral_embedding_trustworthiness(
-    dataset_loader, n_samples, affinity
+    dataset_loader, n_samples, affinity, graph_type
 ):
-    """Test trustworthiness comparison between sklearn and cuML on various datasets."""
+    """Test trustworthiness comparison between sklearn and cuML on various datasets.
+
+    Tests different graph construction methods:
+    - nearest_neighbors affinity: Uses built-in k-NN graph construction
+    - precomputed with binary_knn: Binary connectivity k-NN graph
+    - precomputed with fuzzy_knn: Smooth weighted graph from UMAP's fuzzy simplicial set
+    """
     # Load/generate dataset
     X = dataset_loader(n_samples) if n_samples else dataset_loader(None)
 
     if affinity == "precomputed":
-        # Create k-neighbors graph for precomputed affinity
-        knn_graph = kneighbors_graph(
-            X,
-            n_neighbors=N_NEIGHBORS,
-            mode="connectivity",
-            include_self=True,
-        )
-        # Make symmetric
-        knn_graph = 0.5 * (knn_graph + knn_graph.T)
-        knn_coo = knn_graph.tocoo()
+        if graph_type == "fuzzy_knn":
+            # Use fuzzy_simplicial_set to create a smooth weighted KNN graph
+            X_gpu = cp.asarray(X, dtype=np.float32)
 
-        # sklearn embedding with precomputed
-        sk_spectral = skSpectralEmbedding(
-            n_components=N_COMPONENTS,
-            affinity="precomputed",
-            random_state=42,
-        )
-        X_sklearn = sk_spectral.fit_transform(knn_coo)
+            # Create smooth KNN graph using fuzzy_simplicial_set
+            # This creates a weighted graph with fuzzy membership strengths
+            graph = fuzzy_simplicial_set(
+                X_gpu,
+                n_neighbors=N_NEIGHBORS,
+                random_state=42,
+            )
 
-        # cuML embedding with precomputed
-        cuml_spectral = SpectralEmbedding(
-            n_components=N_COMPONENTS, affinity="precomputed", random_state=42
-        )
-        X_cuml_gpu = cuml_spectral.fit_transform(knn_coo)
-        X_cuml = cp.asnumpy(X_cuml_gpu)
+            # Convert to dense for sklearn
+            graph_dense = graph.toarray()
+
+            # sklearn embedding with precomputed fuzzy graph
+            sk_spectral = skSpectralEmbedding(
+                n_components=N_COMPONENTS,
+                affinity="precomputed",
+                random_state=42,
+            )
+            X_sklearn = sk_spectral.fit_transform(graph_dense.get())
+
+            # cuML embedding with precomputed fuzzy graph
+            cuml_spectral = SpectralEmbedding(
+                n_components=N_COMPONENTS,
+                affinity="precomputed",
+                random_state=42,
+            )
+            X_cuml_gpu = cuml_spectral.fit_transform(graph)
+            X_cuml = cp.asnumpy(X_cuml_gpu)
+
+        elif graph_type == "binary_knn":
+            # Create k-neighbors graph for precomputed affinity
+            knn_graph = kneighbors_graph(
+                X,
+                n_neighbors=N_NEIGHBORS,
+                mode="connectivity",
+                include_self=True,
+            )
+            # Make symmetric
+            knn_graph = 0.5 * (knn_graph + knn_graph.T)
+            knn_coo = knn_graph.tocoo()
+
+            # sklearn embedding with precomputed
+            sk_spectral = skSpectralEmbedding(
+                n_components=N_COMPONENTS,
+                affinity="precomputed",
+                random_state=42,
+            )
+            X_sklearn = sk_spectral.fit_transform(knn_coo)
+
+            # cuML embedding with precomputed
+            cuml_spectral = SpectralEmbedding(
+                n_components=N_COMPONENTS,
+                affinity="precomputed",
+                random_state=42,
+            )
+            X_cuml_gpu = cuml_spectral.fit_transform(knn_coo)
+            X_cuml = cp.asnumpy(X_cuml_gpu)
     else:
         # sklearn embedding with nearest_neighbors
         sk_spectral = skSpectralEmbedding(
