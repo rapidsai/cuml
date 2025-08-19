@@ -685,7 +685,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "cluster_selection_method",
             "allow_single_cluster",
             "gen_min_span_tree",
-            "prediction_data"
+            "prediction_data",
+            "build_algo",
+            "build_kwds"
         ]
 
     @classmethod
