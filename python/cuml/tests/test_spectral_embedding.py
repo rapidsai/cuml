@@ -73,6 +73,10 @@ def load_digits_dataset(n_samples=None):
     [
         ("nearest_neighbors", None),  # Use built-in nearest_neighbors affinity
         ("precomputed", "binary_knn"),  # Precomputed binary k-NN graph
+        (
+            "precomputed",
+            "distance_knn",
+        ),  # Precomputed k-NN graph with distances
         ("precomputed", "fuzzy_knn"),  # Precomputed fuzzy k-NN graph from UMAP
     ],
 )
@@ -95,6 +99,7 @@ def test_spectral_embedding_trustworthiness(
     Tests different graph construction methods:
     - nearest_neighbors affinity: Uses built-in k-NN graph construction
     - precomputed with binary_knn: Binary connectivity k-NN graph
+    - precomputed with distance_knn: k-NN graph with distance weights
     - precomputed with fuzzy_knn: Smooth weighted graph from UMAP's fuzzy simplicial set
     """
     # Load/generate dataset
@@ -133,12 +138,13 @@ def test_spectral_embedding_trustworthiness(
             X_cuml_gpu = cuml_spectral.fit_transform(graph)
             X_cuml = cp.asnumpy(X_cuml_gpu)
 
-        elif graph_type == "binary_knn":
+        elif graph_type in ["binary_knn", "distance_knn"]:
             # Create k-neighbors graph for precomputed affinity
+            mode = "connectivity" if graph_type == "binary_knn" else "distance"
             knn_graph = kneighbors_graph(
                 X,
                 n_neighbors=N_NEIGHBORS,
-                mode="connectivity",
+                mode=mode,
                 include_self=True,
             )
             # Make symmetric
