@@ -16,6 +16,12 @@
 import cupy as cp
 import numpy as np
 import pytest
+from cupyx.scipy.sparse import coo_matrix as cupy_coo
+from cupyx.scipy.sparse import csc_matrix as cupy_csc
+from cupyx.scipy.sparse import csr_matrix as cupy_csr
+from scipy.sparse import coo_matrix as scipy_coo
+from scipy.sparse import csc_matrix as scipy_csc
+from scipy.sparse import csr_matrix as scipy_csr
 from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
@@ -256,3 +262,82 @@ def test_output_type_handling(input_type, expected_type):
     ).fit_transform(X)
     assert isinstance(out, expected_type)
     assert out.shape == (n_samples, 2)
+
+
+converters = [
+    ("scipy_coo", scipy_coo),
+    ("scipy_csr", scipy_csr),
+    ("scipy_csc", scipy_csc),
+    ("scipy_dense", lambda x: x.toarray()),
+    ("cupy_coo", cupy_coo),
+    ("cupy_csr", cupy_csr),
+    ("cupy_csc", cupy_csc),
+    ("cupy_dense", lambda x: cp.asarray(x.toarray())),
+]
+
+
+@pytest.mark.parametrize(
+    "converter",
+    [conv for _, conv in converters],
+    ids=[name for name, _ in converters],
+)
+def test_precomputed_matrix_formats(converter):
+    """Test that various matrix formats work correctly with precomputed affinity.
+
+    This test verifies that SpectralEmbedding works with all combinations of:
+    - Matrix formats: COO, CSR, CSC, and dense
+    - Libraries: scipy and cupy
+
+    It also ensures the embeddings have good trustworthiness scores.
+    """
+
+    # Generate test data using existing helper function
+    n_samples = 1000
+    X_np = generate_s_curve(n_samples)
+
+    # Create a symmetric k-NN affinity graph
+    knn_graph = kneighbors_graph(
+        X_np,
+        n_neighbors=N_NEIGHBORS,
+        mode="connectivity",
+        include_self=True,
+    )
+    knn_graph = 0.5 * (knn_graph + knn_graph.T)
+
+    # Convert to the desired format
+    affinity_matrix = converter(knn_graph)
+
+    # Helper function to convert embedding to numpy for trustworthiness calculation
+    def to_numpy(arr):
+        return cp.asnumpy(arr) if isinstance(arr, cp.ndarray) else arr
+
+    # Test with SpectralEmbedding class
+    model = SpectralEmbedding(
+        n_components=2, affinity="precomputed", random_state=42
+    )
+    embedding_class = model.fit_transform(affinity_matrix)
+
+    # Test with spectral_embedding function
+    embedding_func = spectral_embedding(
+        affinity_matrix,
+        n_components=2,
+        affinity="precomputed",
+        random_state=42,
+    )
+
+    # Verify output shapes
+    assert embedding_class.shape == (n_samples, 2)
+    assert embedding_func.shape == (n_samples, 2)
+
+    # Calculate and print trustworthiness scores
+    trust_class = trustworthiness(
+        X_np, to_numpy(embedding_class), n_neighbors=N_NEIGHBORS
+    )
+    trust_func = trustworthiness(
+        X_np, to_numpy(embedding_func), n_neighbors=N_NEIGHBORS
+    )
+
+    # Verify embeddings have good quality
+    min_trust = 0.8
+    assert trust_class > min_trust
+    assert trust_func > min_trust

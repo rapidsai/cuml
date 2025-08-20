@@ -34,7 +34,9 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 
 from cupyx.scipy.sparse import coo_matrix as cupy_coo
+from cupyx.scipy.sparse import issparse as cupy_issparse
 from scipy.sparse import coo_matrix as scipy_coo
+from scipy.sparse import issparse as scipy_issparse
 
 import cuml
 from cuml.common import input_to_cuml_array
@@ -43,6 +45,52 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
+
+
+def _convert_to_coo_matrix(A):
+    """
+    Convert various matrix formats to COO format.
+
+    Supports:
+    - scipy sparse matrices (CSR, CSC, COO)
+    - cupy sparse matrices (CSR, CSC, COO)
+    - dense numpy arrays
+    - dense cupy arrays
+
+    Parameters
+    ----------
+    A : array-like or sparse matrix
+        Input matrix in various formats
+
+    Returns
+    -------
+    A_coo : scipy.sparse.coo_matrix or cupyx.scipy.sparse.coo_matrix
+        Matrix in COO format
+    """
+    # Check if it's already in COO format
+    if isinstance(A, (scipy_coo, cupy_coo)):
+        return A
+
+    # Handle scipy sparse matrices
+    if scipy_issparse(A):
+        return A.tocoo()
+
+    # Handle cupy sparse matrices
+    if cupy_issparse(A):
+        return A.tocoo()
+
+    # Handle dense numpy arrays
+    if isinstance(A, np.ndarray):
+        return scipy_coo(A)
+
+    # Handle dense cupy arrays
+    if isinstance(A, cp.ndarray):
+        return cupy_coo(A)
+
+    # If we get here, the format is not supported
+    raise ValueError(f"Unsupported matrix format: {type(A)}. "
+                     "Supported formats are: scipy sparse (CSR, CSC, COO), "
+                     "cupy sparse (CSR, CSC, COO), numpy dense, cupy dense.")
 
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
@@ -91,8 +139,13 @@ def spectral_embedding(A,
 
     Parameters
     ----------
-    A : array-like of shape (n_samples, n_features)
-        The input data. A k-NN graph will be constructed.
+    A : array-like or sparse matrix of shape (n_samples, n_features) or \
+        (n_samples, n_samples)
+        If affinity is 'nearest_neighbors', this is the input data and a k-NN
+        graph will be constructed. If affinity is 'precomputed', this is the
+        affinity matrix. Supported formats for precomputed affinity: scipy
+        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
+        arrays, or dense cupy arrays.
     n_components : int, default=8
         The dimension of the projection subspace.
     affinity : {'nearest_neighbors', 'precomputed'} or callable, \
@@ -100,7 +153,7 @@ def spectral_embedding(A,
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.
-         - 'precomputed' : interpret ``X`` as a precomputed affinity matrix.
+         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
@@ -149,7 +202,8 @@ def spectral_embedding(A,
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     if affinity == "precomputed":
-        assert isinstance(A, (scipy_coo, cupy_coo))
+        # Convert to COO format if needed
+        A = _convert_to_coo_matrix(A)
 
         rows = A.row
         cols = A.col
@@ -157,11 +211,12 @@ def spectral_embedding(A,
         _n_rows = A.shape[0]
         nnz = A.nnz
 
-        rows = input_to_cuml_array(rows, order="C",
+        # Use deepcopy=True to ensure we don't modify the original arrays
+        rows = input_to_cuml_array(rows, order="C", deepcopy=True,
                                    check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        cols = input_to_cuml_array(cols, order="C",
+        cols = input_to_cuml_array(cols, order="C", deepcopy=True,
                                    check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        vals = input_to_cuml_array(vals, order="C",
+        vals = input_to_cuml_array(vals, order="C", deepcopy=True,
                                    check_dtype=np.float32, convert_to_dtype=cp.float32)[0]
 
         rows_ptr = <uintptr_t>rows.ptr
@@ -305,9 +360,13 @@ class SpectralEmbedding(Base,
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
             Training vector, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
         y : Ignored
             Not used, present for API consistency by convention.
 
@@ -324,9 +383,13 @@ class SpectralEmbedding(Base,
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
             Training vector, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
         y : Ignored
             Not used, present for API consistency by convention.
 
