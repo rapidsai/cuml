@@ -118,16 +118,13 @@ def test_spectral_embedding_trustworthiness(
                 random_state=42,
             )
 
-            # Convert to dense for sklearn
-            graph_dense = graph.toarray()
-
             # sklearn embedding with precomputed fuzzy graph
             sk_spectral = skSpectralEmbedding(
                 n_components=N_COMPONENTS,
                 affinity="precomputed",
                 random_state=42,
             )
-            X_sklearn = sk_spectral.fit_transform(graph_dense.get())
+            X_sklearn = sk_spectral.fit_transform(graph.get())
 
             # cuML embedding with precomputed fuzzy graph
             cuml_spectral = SpectralEmbedding(
