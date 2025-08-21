@@ -23,7 +23,7 @@ function(find_and_configure_gputreeshap)
     rapids_cpm_find(GPUTreeShap 0.0.1
         GLOBAL_TARGETS  GPUTreeShap::GPUTreeShap GPUTreeShap
         CPM_ARGS
-            GIT_REPOSITORY  https://github.com/jameslamb/gputreeshap.git
+            GIT_REPOSITORY  https://github.com/rapidsai/gputreeshap.git
             GIT_TAG         ${PKG_PINNED_TAG}
     )
 
@@ -68,4 +68,4 @@ function(find_and_configure_gputreeshap)
 
 endfunction()
 
-find_and_configure_gputreeshap(PINNED_TAG 19bd6f45996bb882b09ade8c13e1f92d37171345)
+find_and_configure_gputreeshap(PINNED_TAG 93292317b23ef733f881c881865f5d5728dc2fea)
