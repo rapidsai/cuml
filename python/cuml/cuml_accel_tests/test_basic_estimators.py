@@ -22,7 +22,7 @@ from sklearn.linear_model import (
     LogisticRegression,
     Ridge,
 )
-from sklearn.manifold import TSNE
+from sklearn.manifold import TSNE, SpectralEmbedding
 from sklearn.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
@@ -98,6 +98,12 @@ def test_tsne():
     X, _ = make_blobs(n_samples=100, centers=3, n_features=20, random_state=42)
     tsne = TSNE()
     tsne.fit_transform(X)
+
+
+def test_spectral_embedding():
+    X, _ = make_blobs(n_samples=100, centers=3, n_features=20, random_state=42)
+    se = SpectralEmbedding(n_components=2, random_state=42)
+    se.fit_transform(X)
 
 
 def test_nearest_neighbors():
