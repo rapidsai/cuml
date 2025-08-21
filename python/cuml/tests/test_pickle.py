@@ -19,7 +19,12 @@ import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 from sklearn.base import clone
-from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.datasets import (
+    load_iris,
+    make_blobs,
+    make_classification,
+    make_regression,
+)
 from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
@@ -476,6 +481,26 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
+@pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
+def test_nearest_neighbors_pickle(algorithm):
+    X, _ = make_blobs(n_features=3, n_samples=500, random_state=42)
+    model = cuml.NearestNeighbors(algorithm=algorithm)
+    model.fit(X)
+    model2 = pickle.loads(pickle.dumps(model))
+    d1, i1 = model.kneighbors(X[:10])
+    d2, i2 = model2.kneighbors(X[:10])
+    if algorithm in ("ivfpq", "ivfflat"):
+        # Currently ivf indices aren't serialized, which may result in small
+        # differences upon reload. For now we check for comparable performance
+        # just to ensure things are wired together properly.
+        accuracy = (i1 == i2).sum() / i1.size
+        assert accuracy >= 0.9
+        np.testing.assert_allclose(d1, d2, atol=1e-5)
+    else:
+        np.testing.assert_allclose(i1, i2)
+        np.testing.assert_allclose(d1, d2)
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "data_info",
@@ -514,7 +539,6 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         D_after = pickled_model.predict(X_test)
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
-        assert state["n_indices"] == 1
         assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -543,13 +567,11 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
-        assert state["n_indices"] == 0
         assert "_fit_X" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
-        assert state["n_indices"] == 1
         assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
