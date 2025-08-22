@@ -246,6 +246,9 @@ class GaussianRandomProjection(_BaseRandomProjection):
     -----
     Inspired by Scikit-learn's implementation:
     https://scikit-learn.org/stable/modules/random_projection.html
+
+    Currently passing a sparse array to `transform` may result in close (but
+    not exactly identical) results due to https://github.com/cupy/cupy/issues/9323.
     """
 
     def _gen_random_matrix(self, n_components, n_features, dtype):
@@ -362,6 +365,9 @@ class SparseRandomProjection(_BaseRandomProjection):
     -----
     Inspired by Scikit-learn's implementation:
     https://scikit-learn.org/stable/modules/random_projection.html
+
+    Currently passing a dense array to `transform` may result in close (but
+    not exactly identical) results due to https://github.com/cupy/cupy/issues/9323.
     """
 
     def __init__(
