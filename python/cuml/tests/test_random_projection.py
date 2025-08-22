@@ -163,10 +163,19 @@ def test_random_seed_consistency(cls, sparse):
     t1 = model1.transform(X)
     model2 = cls(n_components=5, random_state=42).fit(X)
     t2 = model2.transform(X)
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         asdense(model1.components_), asdense(model2.components_)
     )
-    np.testing.assert_allclose(asdense(t1), asdense(t2))
+    # Due to https://github.com/cupy/cupy/issues/9323 only sparse @ sparse or
+    # dense @ dense outputs are exactly reproducible. All other combinations
+    # result in close but not identical outputs. For now we document this and
+    # relax the test constraint.
+    if (cls is SparseRandomProjection) != sparse:
+        # Mix of sparse and dense, check outputs are close
+        np.testing.assert_allclose(asdense(t1), asdense(t2), rtol=1e-4)
+    else:
+        # Both dense or sparse, can check exactly
+        np.testing.assert_array_equal(asdense(t1), asdense(t2))
 
 
 @pytest.mark.parametrize("cls", classes)
