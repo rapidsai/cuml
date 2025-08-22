@@ -14,7 +14,7 @@ The following dependencies are required for the cuML library:
 * **scikit-learn**: >=1.4
 * **scipy**: >=1.8.0
 * **numba**: >=0.59.1,<0.62.0a0
-* **cupy**: cupy-cuda12x>=12.0.0
+* **cupy**: cupy-cuda12x>=13.6.0 (CUDA 12), cupy-cuda13x>=13.6.0 (CUDA 13)
 * **treelite**: ==4.4.1
 
 
