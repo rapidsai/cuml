@@ -161,6 +161,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
   /**
    * Condense branches of tree according to min cluster size
    */
+  raft::resource::sync_stream(handle);
   start = raft::curTimeMillis();
   detail::Condense::build_condensed_hierarchy(handle,
                                               out.get_children(),
@@ -169,8 +170,9 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               min_cluster_size,
                                               m,
                                               out.get_condensed_tree());
+  raft::resource::sync_stream(handle);
   end = raft::curTimeMillis();
-  std::cout << "build_condensed_hierarchy: " << end - start << std::endl;
+  std::cout << "SYNC build_condensed_hierarchy: " << end - start << std::endl;
 
   /**
    * Extract labels from stability
