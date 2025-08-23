@@ -910,13 +910,13 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
-    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
+    def fit(self, X, y=None, *, convert_dtype=True, data_on_host=False) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """
 
         kwds = self.build_kwds or {}
-        if kwds.get("knn_n_clusters", 1) > 1:
+        if kwds.get("knn_n_clusters", 1) > 1 or data_on_host:
             print("converting to host mem type")
             convert_to_mem_type = MemoryType.host
         else:
