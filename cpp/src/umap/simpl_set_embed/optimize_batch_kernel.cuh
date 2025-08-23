@@ -156,7 +156,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   for (int d = 0; d < n_components; d++) {
     auto diff   = current_reg[d] - other_reg[d];
     auto grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
-    grads[d]    = grad_d * alpha;
+    current_reg[d] += grad_d * alpha;
+    grads[d] = grad_d * alpha;
   }
   // storing gradients for negative samples back to global memory
   if (move_other) {
@@ -200,6 +201,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
         grad_d = clip<T>(repulsive_grad_coeff * diff, T(-4.0), T(4.0));
       else
         grad_d = T(4.0);
+      current_reg[d] += grad_d * alpha;
       grads[d] += grad_d * alpha;
     }
   }
