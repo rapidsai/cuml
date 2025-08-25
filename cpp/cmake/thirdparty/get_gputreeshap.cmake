@@ -68,4 +68,4 @@ function(find_and_configure_gputreeshap)
 
 endfunction()
 
-find_and_configure_gputreeshap(PINNED_TAG 9382a8af94c0863de0944e65199a16fdf5f96a6d)
+find_and_configure_gputreeshap(PINNED_TAG 93292317b23ef733f881c881865f5d5728dc2fea)

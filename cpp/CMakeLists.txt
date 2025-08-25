@@ -505,12 +505,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/randomforest/randomforest.cu)
   endif()
 
-  if(all_algo OR randomprojection_algo)
-    target_sources(${CUML_CPP_TARGET}
-      PRIVATE
-        src/random_projection/rproj.cu)
-  endif()
-
   # todo: separate solvers better
   if(all_algo OR solvers_algo)
     target_sources(${CUML_CPP_TARGET}
