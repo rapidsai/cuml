@@ -985,7 +985,7 @@ class CumlArray:
             False (default) to not check at all.
 
         check_rows: boolean (default: False)
-            Set to an int `i` to check that input X has `i` columns. Set to
+            Set to an int `i` to check that input X has `i` rows. Set to
             False (default) to not check at all.
 
         fail_on_order: boolean (default: False)
