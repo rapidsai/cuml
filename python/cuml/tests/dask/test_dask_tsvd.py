@@ -28,12 +28,14 @@ from cuml.testing.utils import array_equal, stress_param, unit_param
 )
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_pca_fit(data_info, input_type, client):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
 
     nrows, ncols, n_parts = data_info
-    if nrows == int(9e6) and pytest.max_gpu_memory < 48:
+    if nrows == int(9e6) and max_gpu_memory < 48:
         if pytest.adapt_stress_test:
-            nrows = nrows * pytest.max_gpu_memory // 256
-            ncols = ncols * pytest.max_gpu_memory // 256
+            nrows = nrows * max_gpu_memory // 256
+            ncols = ncols * max_gpu_memory // 256
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
