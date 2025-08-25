@@ -1,3 +1,6 @@
+> [!WARNING]
+> Instructions in this page are deprecated and will not work with latest cuML.
+
 # Using Infiniband for Multi-Node Multi-GPU cuML
 
 These instructions outline how to run multi-node multi-GPU cuML on devices with Infiniband. These instructions assume the necessary Infiniband hardware has already been installed and the relevant software has already been configured to enable communication over the Infiniband devices.
