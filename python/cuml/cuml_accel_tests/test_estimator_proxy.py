@@ -192,6 +192,30 @@ def test_getattr():
     assert model.coef_ is model._cpu.coef_
 
 
+def test_not_implemented_attr_error():
+    X, y = make_regression()
+    model = ElasticNet()
+
+    msg = (
+        "The `ElasticNet.dual_gap_` attribute is not yet "
+        "implemented in `cuml.accel`"
+    )
+
+    # For unfit models the original error is raised
+    with pytest.raises(AttributeError) as rec:
+        model.dual_gap_
+    assert msg not in str(rec.value)
+
+    model.fit(X, y)
+    # Fit models raise the nicer error message
+    with pytest.raises(AttributeError, match=msg):
+        model.dual_gap_
+
+    # If trained on CPU though then there's no error
+    model2 = ElasticNet(positive=True).fit(X, y)
+    assert hasattr(model2, "dual_gap_")
+
+
 def test_setattr():
     model = LinearRegression()
 
