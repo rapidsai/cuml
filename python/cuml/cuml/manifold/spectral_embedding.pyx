@@ -13,23 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
-
-from cython.operator cimport dereference as deref
-from libc.stdint cimport uint64_t, uintptr_t
-from libcpp cimport bool
-
+import scipy.sparse as sp
 from pylibraft.common.handle import Handle
-
-from pylibraft.common.cpp.mdspan cimport (
-    col_major,
-    device_matrix_view,
-    make_device_matrix_view,
-    row_major,
-)
-from pylibraft.common.handle cimport device_resources
 
 import cuml
 from cuml.common import input_to_cuml_array
@@ -38,6 +26,19 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
+
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
+from pylibraft.common.cpp.mdspan cimport (
+    col_major,
+    device_matrix_view,
+    device_vector_view,
+    make_device_matrix_view,
+    make_device_vector_view,
+    row_major,
+)
+from pylibraft.common.handle cimport device_resources
 
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
@@ -55,11 +56,20 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
         device_matrix_view[float, int, row_major] dataset,
         device_matrix_view[float, int, col_major] embedding) except +
 
+    cdef void transform(
+        const device_resources &handle,
+        params config,
+        device_vector_view[int, int] rows,
+        device_vector_view[int, int] cols,
+        device_vector_view[float, int] vals,
+        device_matrix_view[float, int, col_major] embedding) except +
+
 
 @cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
                        n_components=8,
+                       affinity="nearest_neighbors",
                        random_state=None,
                        n_neighbors=None,
                        norm_laplacian=True,
@@ -77,10 +87,20 @@ def spectral_embedding(A,
 
     Parameters
     ----------
-    A : array-like of shape (n_samples, n_features)
-        The input data. A k-NN graph will be constructed.
+    A : array-like or sparse matrix of shape (n_samples, n_features) or \
+        (n_samples, n_samples)
+        If affinity is 'nearest_neighbors', this is the input data and a k-NN
+        graph will be constructed. If affinity is 'precomputed', this is the
+        affinity matrix. Supported formats for precomputed affinity: scipy
+        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
+        arrays, or dense cupy arrays.
     n_components : int, default=8
         The dimension of the projection subspace.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
@@ -123,43 +143,74 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-
     if handle is None:
         handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    A, _n_rows, _n_cols, _ = \
-        input_to_cuml_array(A, order="C", check_dtype=np.float32,
-                            convert_to_dtype=cp.float32)
-    A_ptr = <uintptr_t>A.ptr
+    if affinity == "nearest_neighbors":
+        A = input_to_cuml_array(
+            A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
+        ).array
+    elif affinity == "precomputed":
+        # Coerce `A` to a canonical float32 COO sparse matrix
+        if cp_sp.issparse(A):
+            A = A.tocoo()
+            if A.dtype != np.float32:
+                A = A.astype("float32")
+        elif sp.issparse(A):
+            A = cp_sp.coo_matrix(A, dtype="float32")
+        else:
+            A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
+        A.sum_duplicates()
+    else:
+        raise ValueError(
+            f"`affinity={affinity!r}` is not supported, expected one of "
+            "['nearest_neighbors', 'precomputed']"
+        )
 
     cdef params config
-
-    config.n_components = n_components
     config.seed = check_random_seed(random_state)
-
+    config.norm_laplacian = norm_laplacian
+    config.drop_first = drop_first
+    config.n_components = n_components + 1 if drop_first else n_components
     config.n_neighbors = (
         n_neighbors
         if n_neighbors is not None
         else max(int(A.shape[0] / 10), 1)
     )
 
-    config.norm_laplacian = norm_laplacian
-    config.drop_first = drop_first
+    eigenvectors = CumlArray.empty(
+        (A.shape[0], n_components), dtype=np.float32, order='F'
+    )
 
-    if config.drop_first:
-        config.n_components += 1
-
-    eigenvectors = CumlArray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
-
-    eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
-
-    transform(
-        deref(h), config,
-        make_device_matrix_view[float, int, row_major](
-            <float *>A_ptr, <int> A.shape[0], <int> A.shape[1]),
-        make_device_matrix_view[float, int, col_major](
-            <float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components))
+    if affinity == "precomputed":
+        transform(
+            deref(h),
+            config,
+            make_device_vector_view(<int *><uintptr_t>A.row.data.ptr, <int>A.nnz),
+            make_device_vector_view(<int *><uintptr_t>A.col.data.ptr, <int>A.nnz),
+            make_device_vector_view(<float *><uintptr_t>A.data.data.ptr, <int>A.nnz),
+            make_device_matrix_view[float, int, col_major](
+                <float *><uintptr_t>eigenvectors.ptr,
+                <int>eigenvectors.shape[0],
+                <int>eigenvectors.shape[1],
+            )
+        )
+    else:
+        transform(
+            deref(h),
+            config,
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>A.ptr,
+                <int>A.shape[0],
+                <int>A.shape[1],
+            ),
+            make_device_matrix_view[float, int, col_major](
+                <float *><uintptr_t>eigenvectors.ptr,
+                <int>eigenvectors.shape[0],
+                <int>eigenvectors.shape[1],
+            )
+        )
 
     return eigenvectors
 
@@ -180,6 +231,11 @@ class SpectralEmbedding(Base,
     ----------
     n_components : int, default=2
         The dimension of the projected subspace.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``X`` as a precomputed affinity matrix.
     random_state : int, RandomState instance or None, default=None
         A pseudo random number generator used for the initialization.
         Use an int to make the results deterministic across calls.
@@ -210,9 +266,6 @@ class SpectralEmbedding(Base,
 
     Notes
     -----
-    Currently, cuML's SpectralEmbedding only supports the 'nearest_neighbors'
-    affinity mode, where a k-NN graph is constructed from the input data.
-
     Spectral Embedding (Laplacian Eigenmaps) is most useful when the graph
     has one connected component. If there graph has many components, the first
     few eigenvectors will simply uncover the connected components of the graph.
@@ -229,10 +282,12 @@ class SpectralEmbedding(Base,
     """
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self, n_components=2, random_state=None, n_neighbors=None,
+    def __init__(self, n_components=2, affinity="nearest_neighbors",
+                 random_state=None, n_neighbors=None,
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_components = n_components
+        self.affinity = affinity
         self.random_state = random_state
         self.n_neighbors = n_neighbors
 
@@ -240,6 +295,7 @@ class SpectralEmbedding(Base,
     def _get_param_names(cls):
         return super()._get_param_names() + [
             "n_components",
+            "affinity",
             "random_state",
             "n_neighbors"
         ]
@@ -249,9 +305,13 @@ class SpectralEmbedding(Base,
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
             Training vector, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
         y : Ignored
             Not used, present for API consistency by convention.
 
@@ -268,9 +328,13 @@ class SpectralEmbedding(Base,
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
             Training vector, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
         y : Ignored
             Not used, present for API consistency by convention.
 
@@ -282,6 +346,7 @@ class SpectralEmbedding(Base,
         self.embedding_ = spectral_embedding(
             X,
             n_components=self.n_components,
+            affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors
         )
