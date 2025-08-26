@@ -69,6 +69,7 @@ option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+option(CUDA_WARNINGS_AS_ERRORS "Enable -Werror=all-warnings for all CUDA compilation" ON)
 
 # The options below allow incorporating libcuml into another build process
 # without installing all its components. This is useful if total file size is
@@ -504,12 +505,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/randomforest/randomforest.cu)
   endif()
 
-  if(all_algo OR randomprojection_algo)
-    target_sources(${CUML_CPP_TARGET}
-      PRIVATE
-        src/random_projection/rproj.cu)
-  endif()
-
   # todo: separate solvers better
   if(all_algo OR solvers_algo)
     target_sources(${CUML_CPP_TARGET}
@@ -521,7 +516,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR spectralclustering_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/spectral/spectral.cu)
+        src/spectral/spectral.cu
+        src/spectral/spectral_embedding.cu)
   endif()
 
   if(all_algo OR svm_algo)

@@ -16,8 +16,8 @@ The `test` directory has subdirectories that reflect this distinction between th
 ### Dependencies
 
 1. cmake (>= 3.26.4)
-2. CUDA (>= 11.0)
-3. gcc (>=9.3.0)
+2. CUDA (>= 12.0)
+3. gcc (>=13.0)
 4. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 
 ### Building cuML:
@@ -40,7 +40,7 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). The standard communicator and MPI communicator are not mutually exclusive and can both be installed at the same time. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support in the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This flag is ignored if BUILD_CUML_STD_COMMS is set to OFF. |
 | BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator may both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |
-| SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
+| SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCXX and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | CMAKE_CUDA_ARCHITECTURES |  List of GPU architectures, semicolon-separated | Empty  | List the GPU architectures to compile the GPU targets for. Set to "NATIVE" to auto detect GPU architecture of the system, set to "ALL" to compile for all RAPIDS supported archs: ["60" "62" "70" "72" "75" "80" "86"].  |
 | USE_CCACHE | [ON, OFF]  | ON  | Cache build artifacts with ccache. |

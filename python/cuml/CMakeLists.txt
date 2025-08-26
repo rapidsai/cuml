@@ -106,9 +106,11 @@ add_subdirectory(cuml/manifold)
 add_subdirectory(cuml/metrics)
 add_subdirectory(cuml/metrics/cluster)
 add_subdirectory(cuml/neighbors)
-add_subdirectory(cuml/random_projection)
 add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
+
+# Include the pth file in the built wheel
+install(FILES "_cuml_accel.pth" DESTINATION ".")

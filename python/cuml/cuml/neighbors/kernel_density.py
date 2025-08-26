@@ -18,8 +18,8 @@ import math
 
 import cupy as cp
 import numpy as np
+from cupyx.scipy.special import gammainc
 from numba import cuda
-from scipy.special import gammainc
 
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
@@ -426,13 +426,11 @@ class KernelDensity(Base):
             # d-dimensional tophat distribution.
             dim = self.X_.shape[1]
             X = rng.normal(size=(n_samples, dim))
-            s_sq = cp.einsum("ij,ij->i", X, X).get()
+            s_sq = cp.einsum("ij,ij->i", X, X)
 
-            # do this on the CPU because we don't have
-            # a gammainc function  readily available
-            correction = cp.array(
+            correction = (
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)
                 * self.bandwidth
-                / np.sqrt(s_sq)
+                / cp.sqrt(s_sq)
             )
             return self.X_[i] + X * correction[:, np.newaxis]

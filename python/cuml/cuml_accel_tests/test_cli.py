@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import pickle
 import pty
 import re
 import subprocess
@@ -132,26 +131,22 @@ def test_parse_verbose():
     assert ns.verbose == 3
 
 
-def test_parse_format():
-    ns = parse_args(["--format", "pickle"])
-    assert ns.format == "pickle"
+def run(args=None, stdin=None, env=None, expected_returncode=0):
+    # Run without `CUML_ACCEL_ENABLED` defined by default to test
+    # the other accelerator loading mechanisms
+    orig_env = os.environ.copy()
+    orig_env.pop("CUML_ACCEL_ENABLED", None)
+    if env is not None:
+        orig_env.update(env)
 
-    ns = parse_args(["--format", "JOBLIB"])
-    assert ns.format == "joblib"
-
-    # Invalid formats error
-    with pytest.raises(SystemExit) as exc:
-        parse_args(["--format", "invalid"])
-    assert exc.value.code != 0
-
-
-def run(args=None, stdin=None, expected_returncode=0):
     proc = subprocess.Popen(
         [sys.executable, *map(str, args or [])],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        env=env,
     )
     stdout, _ = proc.communicate(stdin)
     assert proc.returncode == expected_returncode, f"stdout:\n\n{stdout}"
@@ -191,6 +186,26 @@ def test_cli_run_stdin(pass_hyphen):
         args.append("-")
     stdout = run(args, stdin=SCRIPT)
     assert "ok\n" in stdout
+
+
+@pytest.mark.parametrize("value", ["1", "TrUe", "0", "", None])
+def test_cuml_accel_enabled_environ(value):
+    script = dedent(
+        """
+        import cuml
+        import os
+        print(os.environ)
+        print("ENABLED" if cuml.accel.enabled() else "DISABLED")
+        """
+    )
+    env = {}
+    if value is not None:
+        env["CUML_ACCEL_ENABLED"] = value
+    expected = (
+        "ENABLED" if (value or "").lower() in ("1", "true") else "DISABLED"
+    )
+    stdout = run([], stdin=script, env=env)
+    assert expected in stdout
 
 
 @pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
@@ -250,11 +265,14 @@ def test_cli_run_errors(mode, tmpdir):
 def test_cli_run_interpreter():
     driver_fd, receiver_fd = pty.openpty()
 
+    env = os.environ.copy()
+    env.pop("CUML_ACCEL_ENABLED", None)
     proc = subprocess.Popen(
         [sys.executable, "-m", "cuml.accel"],
         stdin=receiver_fd,
         stdout=receiver_fd,
         stderr=subprocess.STDOUT,
+        env=env,
     )
     os.close(receiver_fd)
 
@@ -299,23 +317,6 @@ def test_cli_mix_cuml_accel_and_cudf_pandas(first, second, tmpdir):
     assert "ok\n" in stdout
 
 
-def test_cli_cudf_pandas():
-    script = dedent(
-        """
-        import cuml.accel
-        import cudf.pandas
-
-        assert cuml.accel.enabled()
-        assert cudf.pandas.LOADED
-
-        # Print here to assert the script actually ran by checking the output
-        print("ok")
-        """
-    )
-    stdout = run(["-m", "cuml.accel", "--cudf-pandas"], stdin=script)
-    assert "ok\n" in stdout
-
-
 @pytest.mark.parametrize(
     "args, level", [([], "warn"), (["-v"], "info"), (["-vv"], "debug")]
 )
@@ -330,40 +331,100 @@ def test_cli_verbose(args, level):
     run(["-m", "cuml.accel", *args], stdin=script)
 
 
-def test_cli_convert_to_sklearn(tmpdir):
-    from sklearn.datasets import make_classification
-    from sklearn.linear_model import LogisticRegression
-
-    X, y = make_classification(random_state=42)
-    lr = LogisticRegression().fit(X, y)
-
-    original = tmpdir.join("original.pkl")
-    original.write(pickle.dumps(lr), mode="wb")
-    output = tmpdir.join("output.pkl")
-
+@pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])
+@pytest.mark.parametrize(
+    "options",
+    [
+        ("--profile",),
+        ("--line-profile",),
+        (
+            "--profile",
+            "--line-profile",
+        ),
+    ],
+)
+def test_cli_profilers(mode, options, tmpdir):
+    """Check that the --profile and --line-profile options work across execution modes."""
     script = dedent(
-        f"""
-        import cuml.accel
-        import pickle
-
-        with open({str(output)!r}, "rb") as f:
-            new = pickle.load(f)
-
-        assert not cuml.accel.is_proxy(new)
         """
-    )
+        from sklearn.datasets import make_regression
+        from sklearn.linear_model import Ridge
 
-    # Run the conversion script
-    run(
-        [
-            "-m",
-            "cuml.accel",
-            "--convert-to-sklearn",
-            original,
-            "--output",
-            output,
-        ]
-    )
+        X, y = make_regression()
+        model = Ridge().fit(X, y)
+        model.predict(X)
+        """
+    ).strip()
 
-    # Check in a new process if the reloaded estimator is a proxy estimator
-    run(stdin=script)
+    stdin = None
+    if mode == "script":
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = [path, "--foo"]
+    elif mode == "module":
+        args = ["-m", "code", "-q"]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-c", script, "--foo"]
+    else:
+        args = ["-", "--foo"]
+        stdin = script
+
+    if "--line-profile" in options and mode == "module":
+        # Check the case where --line-profile isn't supported
+        stdout = run(
+            ["-m", "cuml.accel", *options, *args],
+            stdin=stdin,
+            expected_returncode=1,
+        )
+        assert "--line-profile is not supported with -m" in stdout
+        return
+
+    stdout = run(["-m", "cuml.accel", *options, *args], stdin=stdin)
+
+    if "--line-profile" in options:
+        assert "cuml.accel line profile" in stdout
+        assert script.splitlines()[0] in stdout
+
+    if "--profile" in options:
+        if "--line-profile" in options:
+            # Check that there's a blank line between the reports
+            assert "\n\ncuml.accel profile" in stdout
+        else:
+            assert "cuml.accel profile" in stdout
+        assert "Ridge.fit" in stdout
+        assert "Ridge.predict" in stdout
+
+
+@pytest.mark.parametrize("mode", ["script", "cmd", "stdin"])
+@pytest.mark.parametrize("option", ["--profile", "--line-profile"])
+def test_cli_profilers_errors(mode, option, tmpdir):
+    """Test that the profile output is still rendered if the script errors"""
+    script = dedent(
+        """
+        print("got" + " here")
+        assert False
+        print("but" + " not here")
+        """
+    ).strip()
+    if mode == "stdin":
+        args = ["-m", "cuml.accel", option]
+        stdin = script
+    elif mode == "cmd":
+        args = ["-m", "cuml.accel", option, "-c", script]
+        stdin = None
+    else:
+        path = tmpdir.join("script.py")
+        path.write(script)
+        args = ["-m", "cuml.accel", option, path]
+        stdin = None
+
+    stdout = run(args, stdin=stdin, expected_returncode=1)
+    assert "got here" in stdout
+    if option == "--profile":
+        assert "cuml.accel profile" in stdout
+    if option == "--line-profile":
+        assert "cuml.accel line profile" in stdout
+    assert "but not here" not in stdout
+    if mode in ("stdin", "cmd"):
+        assert "exec" not in stdout  # our exec not in traceback

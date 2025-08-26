@@ -31,14 +31,14 @@ example `setup.py --singlegpu`) are:
 | Argument | Behavior |
 | --- | --- |
 | clean --all | Cleans all Python and Cython artifacts, including pycache folders, .cpp files resulting of cythonization and compiled extensions. |
-| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucx-py. |
+| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucxx. |
 
 
 ### RAFT Integration in cuml.raft
 
 RAFT's Python and Cython is located in the [RAFT repository](https://github.com/rapidsai/raft/python). It was designed to be included in projects as opposed to be distributed by itself, so at build time, **setup.py creates a symlink from cuML, located in `/python/cuml/raft/` to the Python folder of RAFT**.
 
-For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-25.08/docs/source/build.md) for recommendations.
+For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-25.10/docs/source/build.md) for recommendations.
 
 To configure RAFT at build time:
 
@@ -50,7 +50,7 @@ The RAFT Python code gets included in the cuML build and distributable artifacts
 
 ### Build Requirements
 
-cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-25.08/environments) includes all dependencies required to build cuML.
+cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-25.10/environments) includes all dependencies required to build cuML.
 
 To build cuML's Python package, the following dependencies are required:
 
@@ -66,7 +66,7 @@ To build cuML's Python package, the following dependencies are required:
 
 Packages required for multigpu algorithms*:
 - libcumlprims version matching the cuML version
-- ucx-py version matching the cuML version
+- ucxx version matching the cuML version
 - dask-cudf version matching the cuML version
 - nccl>=2.5
 - rapids-dask-dependency version matching the cuML version

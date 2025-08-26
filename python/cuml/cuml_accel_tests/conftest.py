@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This conftest is only used by the integration tests, not by the upstream
+# tests. The upstream tests use the cuml.accel plugin explicitly.
+
 from cuml.accel import install
 
 # Install the accelerator
