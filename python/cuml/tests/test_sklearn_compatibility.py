@@ -43,6 +43,10 @@ from cuml.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
+from cuml.random_projection import (
+    GaussianRandomProjection,
+    SparseRandomProjection,
+)
 from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
 
 # Skip these tests as parameterize_with_checks has a different signature in
@@ -51,6 +55,70 @@ pytest.importorskip("sklearn", minversion="1.7")
 
 
 PER_ESTIMATOR_XFAIL_CHECKS = {
+    GaussianRandomProjection: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "GaussianRandomProjection sets attributes during init",
+        "check_fit_score_takes_y": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_overwrite_params": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_fit_returns_self": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_readonly_memmap_input": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_do_not_raise_errors_in_init_or_set_params": "GaussianRandomProjection raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_positive_only_tag_during_fit": "GaussianRandomProjection does not handle negative values properly",
+        "check_estimators_dtypes": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_complex_data": "GaussianRandomProjection does not handle complex data",
+        "check_dtype_object": "GaussianRandomProjection does not handle object dtype",
+        "check_estimators_empty_data_messages": "GaussianRandomProjection does not handle empty data messages properly",
+        "check_pipeline_consistency": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
+        "check_estimator_sparse_tag": "GaussianRandomProjection does not support sparse data properly",
+        "check_estimator_sparse_array": "GaussianRandomProjection does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "GaussianRandomProjection does not handle sparse matrices gracefully",
+        "check_estimators_pickle": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_pickle(readonly_memmap=True)": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_f_contiguous_array_estimator": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
+        "check_transformer_general": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_transformer_general(readonly_memmap=True)": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_parameters_default_constructible": "GaussianRandomProjection parameters are mutated on init",
+        "check_dict_unchanged": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_fit_idempotent": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_fit_check_is_fitted": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_n_features_in": "GaussianRandomProjection n_components='auto' fails with small datasets",
+        "check_fit2d_predict1d": "GaussianRandomProjection does not handle 1D prediction input gracefully",
+    },
+    SparseRandomProjection: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "SparseRandomProjection sets attributes during init",
+        "check_fit_score_takes_y": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_overwrite_params": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_fit_returns_self": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_readonly_memmap_input": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_do_not_raise_errors_in_init_or_set_params": "SparseRandomProjection raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_positive_only_tag_during_fit": "SparseRandomProjection does not handle negative values properly",
+        "check_estimators_dtypes": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_complex_data": "SparseRandomProjection does not handle complex data",
+        "check_dtype_object": "SparseRandomProjection does not handle object dtype",
+        "check_estimators_empty_data_messages": "SparseRandomProjection does not handle empty data messages properly",
+        "check_pipeline_consistency": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_nan_inf": "SparseRandomProjection does not check for NaN and inf",
+        "check_estimator_sparse_tag": "SparseRandomProjection does not support sparse data properly",
+        "check_estimator_sparse_array": "SparseRandomProjection does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "SparseRandomProjection does not handle sparse matrices gracefully",
+        "check_estimators_pickle": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_estimators_pickle(readonly_memmap=True)": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_f_contiguous_array_estimator": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_transformer_data_not_an_array": "SparseRandomProjection does not handle non-array data",
+        "check_transformer_general": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_transformer_general(readonly_memmap=True)": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_parameters_default_constructible": "SparseRandomProjection parameters are mutated on init",
+        "check_dict_unchanged": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_fit_idempotent": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_fit_check_is_fitted": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_n_features_in": "SparseRandomProjection n_components='auto' fails with small datasets",
+        "check_fit2d_predict1d": "SparseRandomProjection does not handle 1D prediction input gracefully",
+    },
     KMeans: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "KMeans sets attributes during init",
@@ -724,6 +792,8 @@ def _check_name(check):
 
 @estimator_checks.parametrize_with_checks(
     [
+        GaussianRandomProjection(),
+        SparseRandomProjection(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),
