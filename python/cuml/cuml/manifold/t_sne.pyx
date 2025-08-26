@@ -399,6 +399,7 @@ class TSNE(Base,
             # separately in `pre_learning_rate`/`post_learning_rate`. The most equivalent
             # value is `pre_learning_rate`, which we forward here for now.
             "learning_rate_": self.pre_learning_rate,
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
         }
 
