@@ -14,14 +14,10 @@
 #
 
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
-from cupyx.scipy.sparse import coo_matrix as cupy_coo
-from cupyx.scipy.sparse import csc_matrix as cupy_csc
-from cupyx.scipy.sparse import csr_matrix as cupy_csr
-from scipy.sparse import coo_matrix as scipy_coo
-from scipy.sparse import csc_matrix as scipy_csc
-from scipy.sparse import csr_matrix as scipy_csr
+import scipy.sparse as sp
 from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
@@ -277,20 +273,22 @@ def test_output_type_handling(input_type, expected_type):
     [
         pytest.param(lambda x: x.toarray(), id="numpy"),
         pytest.param(lambda x: cp.asarray(x.toarray()), id="cupy"),
-        pytest.param(scipy_coo, id="scipy_coo"),
-        pytest.param(scipy_csr, id="scipy_csr"),
-        pytest.param(scipy_csc, id="scipy_csc"),
-        pytest.param(cupy_coo, id="cupy_coo"),
-        pytest.param(cupy_csr, id="cupy_csr"),
-        pytest.param(cupy_csc, id="cupy_csc"),
+        pytest.param(sp.coo_matrix, id="scipy_coo"),
+        pytest.param(sp.csr_matrix, id="scipy_csr"),
+        pytest.param(sp.csc_matrix, id="scipy_csc"),
+        pytest.param(cp_sp.coo_matrix, id="cupy_coo"),
+        pytest.param(cp_sp.csr_matrix, id="cupy_csr"),
+        pytest.param(cp_sp.csc_matrix, id="cupy_csc"),
     ],
 )
-def test_precomputed_matrix_formats(converter):
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_precomputed_matrix_formats(converter, dtype):
     """Test that various matrix formats work correctly with precomputed affinity.
 
     This test verifies that SpectralEmbedding works with all combinations of:
     - Matrix formats: COO, CSR, CSC, and dense
     - Libraries: scipy and cupy
+    - dtypes: float32 and float64
 
     It also ensures the embeddings have good trustworthiness scores.
     """
@@ -309,7 +307,7 @@ def test_precomputed_matrix_formats(converter):
     knn_graph = 0.5 * (knn_graph + knn_graph.T)
 
     # Convert to the desired format
-    affinity_matrix = converter(knn_graph)
+    affinity_matrix = converter(knn_graph).astype(dtype)
 
     # Test with SpectralEmbedding class
     model = SpectralEmbedding(

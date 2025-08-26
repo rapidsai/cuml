@@ -155,6 +155,8 @@ def spectral_embedding(A,
         # Coerce `A` to a canonical float32 COO sparse matrix
         if cp_sp.issparse(A):
             A = A.tocoo()
+            if A.dtype != np.float32:
+                A = A.astype("float32")
         elif sp.issparse(A):
             A = cp_sp.coo_matrix(A, dtype="float32")
         else:
