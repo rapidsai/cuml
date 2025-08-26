@@ -13,31 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
-
-from cython.operator cimport dereference as deref
-from libc.stdint cimport uint64_t, uintptr_t
-from libcpp cimport bool
-
+import scipy.sparse as sp
 from pylibraft.common.handle import Handle
-
-from pylibraft.common.cpp.mdspan cimport (
-    col_major,
-    device_matrix_view,
-    device_vector_view,
-    make_device_matrix_view,
-    make_device_vector_view,
-    row_major,
-)
-from pylibraft.common.handle cimport device_resources
-
-from cupyx.scipy.sparse import coo_matrix as cupy_coo
-from cupyx.scipy.sparse import csc_matrix as cupy_csc
-from cupyx.scipy.sparse import issparse as cupy_issparse
-from scipy.sparse import coo_matrix as scipy_coo
-from scipy.sparse import issparse as scipy_issparse
 
 import cuml
 from cuml.common import input_to_cuml_array
@@ -47,51 +27,18 @@ from cuml.internals.base import Base
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 
-
-def _convert_to_coo_matrix(A):
-    """
-    Convert various matrix formats to COO format.
-
-    Supports:
-    - scipy sparse matrices (CSR, CSC, COO)
-    - cupy sparse matrices (CSR, CSC, COO)
-    - dense numpy arrays
-    - dense cupy arrays
-
-    Parameters
-    ----------
-    A : array-like or sparse matrix
-        Input matrix in various formats
-
-    Returns
-    -------
-    A_coo : scipy.sparse.coo_matrix or cupyx.scipy.sparse.coo_matrix
-        Matrix in COO format
-    """
-    # Check if it's already in COO format
-    if isinstance(A, (scipy_coo, cupy_coo)):
-        return A
-
-    # Handle scipy sparse matrices
-    if scipy_issparse(A):
-        return A.tocoo()
-
-    # Handle cupy sparse matrices
-    if cupy_issparse(A):
-        return A.tocoo()
-
-    # Handle dense numpy arrays
-    if isinstance(A, np.ndarray):
-        return scipy_coo(A)
-
-    # Handle dense cupy arrays
-    if isinstance(A, cp.ndarray):
-        return cupy_coo(A)
-
-    # If we get here, the format is not supported
-    raise ValueError(f"Unsupported matrix format: {type(A)}. "
-                     "Supported formats are: scipy sparse (CSR, CSC, COO), "
-                     "cupy sparse (CSR, CSC, COO), numpy dense, cupy dense.")
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
+from pylibraft.common.cpp.mdspan cimport (
+    col_major,
+    device_matrix_view,
+    device_vector_view,
+    make_device_matrix_view,
+    make_device_vector_view,
+    row_major,
+)
+from pylibraft.common.handle cimport device_resources
 
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
@@ -149,8 +96,7 @@ def spectral_embedding(A,
         arrays, or dense cupy arrays.
     n_components : int, default=8
         The dimension of the projection subspace.
-    affinity : {'nearest_neighbors', 'precomputed'} or callable, \
-                default='nearest_neighbors'
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.
@@ -197,102 +143,72 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-
     if handle is None:
         handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    if affinity == "precomputed":
-        # Track if input was cupy CSC for special handling
-        is_cupy_csc = cupy_issparse(A) and isinstance(A, cupy_csc)
-
-        # Convert to COO format if needed
-        A = _convert_to_coo_matrix(A)
-
-        if isinstance(A, scipy_coo):
-            # In-place sorting of the arrays
-            idx = np.lexsort((A.col, A.row))
-
-            A.row[:] = A.row[idx]
-            A.col[:] = A.col[idx]
-            A.data[:] = A.data[idx]
-
-        elif isinstance(A, cupy_coo):
-            keys = cp.stack((A.col, A.row))
-            idx = cp.lexsort(keys)
-
-            # For cupy CSC matrices, the COO.row array shares memory with CSC.indices
-            # In-place sorting would corrupt the CSC matrix, so we create new arrays
-            if is_cupy_csc:
-                A.row = A.row[idx]
-                A.col = A.col[idx]
-                A.data = A.data[idx]
-            else:
-                # For other formats, in-place sorting is safe
-                A.row[:] = A.row[idx]
-                A.col[:] = A.col[idx]
-                A.data[:] = A.data[idx]
-
-        rows = A.row
-        cols = A.col
-        vals = A.data
-        _n_rows = A.shape[0]
-        nnz = A.nnz
-
-        # Use deepcopy=True to ensure we don't modify the original arrays
-        rows = input_to_cuml_array(rows, order="C",
-                                   check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        cols = input_to_cuml_array(cols, order="C",
-                                   check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        vals = input_to_cuml_array(vals, order="C",
-                                   check_dtype=np.float32, convert_to_dtype=cp.float32)[0]
-
-        rows_ptr = <uintptr_t>rows.ptr
-        cols_ptr = <uintptr_t>cols.ptr
-        vals_ptr = <uintptr_t>vals.ptr
-
+    if affinity == "nearest_neighbors":
+        A = input_to_cuml_array(
+            A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
+        ).array
+    elif affinity == "precomputed":
+        # Coerce `A` to a canonical float32 COO sparse matrix
+        if cp_sp.issparse(A):
+            A = A.tocoo()
+        elif sp.issparse(A):
+            A = cp_sp.coo_matrix(A, dtype="float32")
+        else:
+            A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
+        A.sum_duplicates()
     else:
-        A, _n_rows, _n_cols, _ = \
-            input_to_cuml_array(A, order="C", check_dtype=np.float32,
-                                convert_to_dtype=cp.float32)
-        A_ptr = <uintptr_t>A.ptr
+        raise ValueError(
+            f"`affinity={affinity!r}` is not supported, expected one of "
+            "['nearest_neighbors', 'precomputed']"
+        )
 
     cdef params config
-
-    config.n_components = n_components
     config.seed = check_random_seed(random_state)
-
+    config.norm_laplacian = norm_laplacian
+    config.drop_first = drop_first
+    config.n_components = n_components + 1 if drop_first else n_components
     config.n_neighbors = (
         n_neighbors
         if n_neighbors is not None
-        else max(int(_n_rows / 10), 1)
+        else max(int(A.shape[0] / 10), 1)
     )
 
-    config.norm_laplacian = norm_laplacian
-    config.drop_first = drop_first
-
-    if config.drop_first:
-        config.n_components += 1
-
-    eigenvectors = CumlArray.empty((_n_rows, n_components), dtype=np.float32, order='F')
-
-    eigenvectors_ptr = <uintptr_t>eigenvectors.ptr
+    eigenvectors = CumlArray.empty(
+        (A.shape[0], n_components), dtype=np.float32, order='F'
+    )
 
     if affinity == "precomputed":
         transform(
-            deref(h), config,
-            make_device_vector_view(<int *>rows_ptr, <int> nnz),
-            make_device_vector_view(<int *>cols_ptr, <int> nnz),
-            make_device_vector_view(<float *>vals_ptr, <int> nnz),
+            deref(h),
+            config,
+            make_device_vector_view(<int *><uintptr_t>A.row.data.ptr, <int>A.nnz),
+            make_device_vector_view(<int *><uintptr_t>A.col.data.ptr, <int>A.nnz),
+            make_device_vector_view(<float *><uintptr_t>A.data.data.ptr, <int>A.nnz),
             make_device_matrix_view[float, int, col_major](
-                <float *>eigenvectors_ptr, <int> _n_rows, <int> n_components))
+                <float *><uintptr_t>eigenvectors.ptr,
+                <int>eigenvectors.shape[0],
+                <int>eigenvectors.shape[1],
+            )
+        )
     else:
         transform(
-            deref(h), config,
+            deref(h),
+            config,
             make_device_matrix_view[float, int, row_major](
-                <float *>A_ptr, <int> _n_rows, <int> _n_cols),
+                <float *><uintptr_t>A.ptr,
+                <int>A.shape[0],
+                <int>A.shape[1],
+            ),
             make_device_matrix_view[float, int, col_major](
-                <float *>eigenvectors_ptr, <int> _n_rows, <int> n_components))
+                <float *><uintptr_t>eigenvectors.ptr,
+                <int>eigenvectors.shape[0],
+                <int>eigenvectors.shape[1],
+            )
+        )
 
     return eigenvectors
 
@@ -313,8 +229,7 @@ class SpectralEmbedding(Base,
     ----------
     n_components : int, default=2
         The dimension of the projected subspace.
-    affinity : {'nearest_neighbors', 'precomputed'} or callable, \
-                default='nearest_neighbors'
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.

@@ -228,6 +228,14 @@ def test_spectral_embedding_function_api():
     assert cp.allclose(embedding1, embedding2)
 
 
+def test_spectral_embedding_invalid_affinity():
+    X, _ = make_s_curve(n_samples=200, noise=0.05, random_state=42)
+    with pytest.raises(
+        ValueError, match="`affinity='oops!'` is not supported"
+    ):
+        spectral_embedding(X, affinity="oops!")
+
+
 @pytest.mark.parametrize(
     "input_type,expected_type",
     [
@@ -264,22 +272,18 @@ def test_output_type_handling(input_type, expected_type):
     assert out.shape == (n_samples, 2)
 
 
-converters = [
-    ("scipy_coo", scipy_coo),
-    ("scipy_csr", scipy_csr),
-    ("scipy_csc", scipy_csc),
-    ("scipy_dense", lambda x: x.toarray()),
-    ("cupy_coo", cupy_coo),
-    ("cupy_csr", cupy_csr),
-    ("cupy_csc", cupy_csc),
-    ("cupy_dense", lambda x: cp.asarray(x.toarray())),
-]
-
-
 @pytest.mark.parametrize(
     "converter",
-    [conv for _, conv in converters],
-    ids=[name for name, _ in converters],
+    [
+        pytest.param(lambda x: x.toarray(), id="numpy"),
+        pytest.param(lambda x: cp.asarray(x.toarray()), id="cupy"),
+        pytest.param(scipy_coo, id="scipy_coo"),
+        pytest.param(scipy_csr, id="scipy_csr"),
+        pytest.param(scipy_csc, id="scipy_csc"),
+        pytest.param(cupy_coo, id="cupy_coo"),
+        pytest.param(cupy_csr, id="cupy_csr"),
+        pytest.param(cupy_csc, id="cupy_csc"),
+    ],
 )
 def test_precomputed_matrix_formats(converter):
     """Test that various matrix formats work correctly with precomputed affinity.
@@ -307,10 +311,6 @@ def test_precomputed_matrix_formats(converter):
     # Convert to the desired format
     affinity_matrix = converter(knn_graph)
 
-    # Helper function to convert embedding to numpy for trustworthiness calculation
-    def to_numpy(arr):
-        return cp.asnumpy(arr) if isinstance(arr, cp.ndarray) else arr
-
     # Test with SpectralEmbedding class
     model = SpectralEmbedding(
         n_components=2, affinity="precomputed", random_state=42
@@ -331,10 +331,10 @@ def test_precomputed_matrix_formats(converter):
 
     # Calculate and print trustworthiness scores
     trust_class = trustworthiness(
-        X_np, to_numpy(embedding_class), n_neighbors=N_NEIGHBORS
+        X_np, cp.asnumpy(embedding_class), n_neighbors=N_NEIGHBORS
     )
     trust_func = trustworthiness(
-        X_np, to_numpy(embedding_func), n_neighbors=N_NEIGHBORS
+        X_np, cp.asnumpy(embedding_func), n_neighbors=N_NEIGHBORS
     )
 
     # Verify embeddings have good quality
