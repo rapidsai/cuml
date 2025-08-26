@@ -1,5 +1,5 @@
 > [!WARNING]
-> Instructions in this page are deprecated and will not work with latest cuML.
+> Instructions on this page are deprecated and will not work with the latest version of cuML.
 
 # Using Infiniband for Multi-Node Multi-GPU cuML
 
