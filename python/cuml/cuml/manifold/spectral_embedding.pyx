@@ -34,6 +34,7 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 
 from cupyx.scipy.sparse import coo_matrix as cupy_coo
+from cupyx.scipy.sparse import csc_matrix as cupy_csc
 from cupyx.scipy.sparse import issparse as cupy_issparse
 from scipy.sparse import coo_matrix as scipy_coo
 from scipy.sparse import issparse as scipy_issparse
@@ -202,8 +203,35 @@ def spectral_embedding(A,
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     if affinity == "precomputed":
+        # Track if input was cupy CSC for special handling
+        is_cupy_csc = cupy_issparse(A) and isinstance(A, cupy_csc)
+
         # Convert to COO format if needed
         A = _convert_to_coo_matrix(A)
+
+        if isinstance(A, scipy_coo):
+            # In-place sorting of the arrays
+            idx = np.lexsort((A.col, A.row))
+
+            A.row[:] = A.row[idx]
+            A.col[:] = A.col[idx]
+            A.data[:] = A.data[idx]
+
+        elif isinstance(A, cupy_coo):
+            keys = cp.stack((A.col, A.row))
+            idx = cp.lexsort(keys)
+
+            # For cupy CSC matrices, the COO.row array shares memory with CSC.indices
+            # In-place sorting would corrupt the CSC matrix, so we create new arrays
+            if is_cupy_csc:
+                A.row = A.row[idx]
+                A.col = A.col[idx]
+                A.data = A.data[idx]
+            else:
+                # For other formats, in-place sorting is safe
+                A.row[:] = A.row[idx]
+                A.col[:] = A.col[idx]
+                A.data[:] = A.data[idx]
 
         rows = A.row
         cols = A.col
@@ -212,11 +240,11 @@ def spectral_embedding(A,
         nnz = A.nnz
 
         # Use deepcopy=True to ensure we don't modify the original arrays
-        rows = input_to_cuml_array(rows, order="C", deepcopy=True,
+        rows = input_to_cuml_array(rows, order="C",
                                    check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        cols = input_to_cuml_array(cols, order="C", deepcopy=True,
+        cols = input_to_cuml_array(cols, order="C",
                                    check_dtype=np.int32, convert_to_dtype=cp.int32)[0]
-        vals = input_to_cuml_array(vals, order="C", deepcopy=True,
+        vals = input_to_cuml_array(vals, order="C",
                                    check_dtype=np.float32, convert_to_dtype=cp.float32)[0]
 
         rows_ptr = <uintptr_t>rows.ptr
