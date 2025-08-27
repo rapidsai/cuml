@@ -146,7 +146,7 @@ inline void perform_thresholding(const raft::handle_t& handle,
     in.nnz,
     [=] __device__(value_t input) {
       if (input < threshold)
-        return 0.0f;
+        return value_t(0);
       else
         return input;
     },
@@ -162,7 +162,14 @@ void trim_graph(const raft::handle_t& handle,
   auto stream             = raft::resource::get_cuda_stream(handle);
   auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
 
-  trimmed_graph.allocate(in.nnz, in.n_rows, in.n_cols, false, stream);
+  // First count how many elements will pass the filter to allocate correct size
+  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
+  auto predicate_count = [=] __device__(const value_t& val) { return val >= threshold; };
+  nnz_t new_nnz        = static_cast<nnz_t>(
+    thrust::count_if(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz, predicate_count));
+
+  // Allocate only once with the correct size
+  trimmed_graph.allocate(new_nnz, in.n_rows, in.n_cols, false, stream);
 
   auto begin_zip = thrust::make_zip_iterator(thrust::make_tuple(in.rows(), in.cols(), in.vals()));
   auto end_zip   = thrust::make_zip_iterator(
@@ -172,12 +179,7 @@ void trim_graph(const raft::handle_t& handle,
 
   auto predicate = [=] __device__(const auto& tuple) { return thrust::get<2>(tuple) >= threshold; };
 
-  auto end_out_zip =
-    thrust::copy_if(thrust_exec_policy, begin_zip, end_zip, begin_out_zip, predicate);
-
-  nnz_t new_nnz = static_cast<nnz_t>(thrust::distance(begin_out_zip, end_out_zip));
-
-  trimmed_graph.allocate(new_nnz, in.n_rows, in.n_cols, false, stream);  // effectively resizing
+  thrust::copy_if(thrust_exec_policy, begin_zip, end_zip, begin_out_zip, predicate);
 }
 
 template <typename value_t>
@@ -259,9 +261,6 @@ void _get_graph(const raft::handle_t& handle,
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&fss_graph, stream);
 
-  // value_t threshold = get_threshold(handle, fss_graph, inputs.n, params->n_epochs);
-  // perform_thresholding(handle, fss_graph, threshold);
-
   raft::sparse::op::coo_remove_zeros<value_t>(&fss_graph, graph, stream);
 }
 
@@ -294,9 +293,6 @@ void _get_graph_supervised(const raft::handle_t& handle,
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&ci_graph, stream);
-
-  // value_t threshold = get_threshold(handle, ci_graph, inputs.n, params->n_epochs);
-  // perform_thresholding(handle, ci_graph, threshold);
 
   raft::sparse::op::coo_remove_zeros<value_t>(&ci_graph, graph, stream);
 }

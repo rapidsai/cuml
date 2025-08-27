@@ -48,7 +48,7 @@ cdef class GraphHolder:
         return graph
 
     @staticmethod
-    cdef GraphHolder from_coo_array(GraphHolder graph, handle, coo_array):
+    cdef GraphHolder from_coo_array(handle, coo_array):
         def copy_from_array(dst_raft_coo_ptr, src_cp_coo):
             size = src_cp_coo.size
             itemsize = np.dtype(src_cp_coo.dtype).itemsize
@@ -64,6 +64,7 @@ cdef class GraphHolder:
             src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
             dest_mptr.copy_from_device(src_mptr, size * itemsize)
 
+        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         graph.c_graph.reset(new COO(handle_.get_stream()))
         graph.get().allocate(coo_array.nnz,
@@ -143,7 +144,6 @@ cdef class HostGraphHolder:
         cols = create_nonowning_numpy_array(self.cols(), np.int32)
 
         graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
-        self.c_graph.reset(NULL)
         return graph
 
     cdef inline host_COO* get(self) noexcept:

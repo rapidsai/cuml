@@ -366,9 +366,7 @@ def simplicial_set_embedding(
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(GraphHolder(),
-                                                            handle,
-                                                            graph)
+    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
 
     if isinstance(init, str):
         if init in ['spectral', 'random']:

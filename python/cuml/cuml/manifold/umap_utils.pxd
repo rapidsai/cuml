@@ -95,7 +95,9 @@ cdef extern from "raft/core/host_coo_matrix.hpp" nogil:
     class host_COO : raft::host_coo_matrix<float, int, int, uint64_t>
     {
         public:
-            host_COO() : raft::host_coo_matrix<float, int, int, uint64_t>(raft::resources{}, 0, 0, 0) {}
+            host_COO()
+                : raft::host_coo_matrix<float, int, int, uint64_t>(
+                    raft::resources{}, 0, 0, 0) {}
             uint64_t get_nnz() {
                 return this->structure_view().get_nnz();
             }
@@ -135,7 +137,7 @@ cdef class GraphHolder:
     cdef GraphHolder from_ptr(unique_ptr[COO]& ptr)
 
     @staticmethod
-    cdef GraphHolder from_coo_array(graph, handle, coo_array)
+    cdef GraphHolder from_coo_array(handle, coo_array)
 
     cdef COO* get(GraphHolder self) noexcept
     cdef uintptr_t vals(GraphHolder self)

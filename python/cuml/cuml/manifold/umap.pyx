@@ -512,7 +512,7 @@ class UMAP(Base,
 
         return {
             "embedding_": to_cpu(self.embedding_),
-            "graph_": self.graph_.get().tocsr(),
+            "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
             "_raw_data": raw_data,
             "_input_hash": input_hash,
@@ -928,6 +928,7 @@ class UMAP(Base,
                 dereference(fss_graph.ref()))
 
         self.graph_ = fss_graph.get_scipy_coo()
+        del fss_graph
 
         self.handle.sync()
 
