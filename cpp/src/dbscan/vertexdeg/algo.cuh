@@ -212,7 +212,7 @@ void launcher(const raft::handle_t& handle,
           data.x + start_vertex_id * k, n, k),
         raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
         raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
-        raft::make_device_vector_view<int64_t, int64_t>(data.vd, n + 1),
+        raft::make_device_vector_view<index_t, int64_t>(data.vd, n + 1),
         eps2);
     }
 
@@ -238,7 +238,7 @@ void launcher(const raft::handle_t& handle,
           data.x + start_vertex_id * k, n, k),
         raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
         raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
-        raft::make_device_vector_view<int64_t, int64_t>(data.vd, n + 1),
+        raft::make_device_vector_view<index_t, int64_t>(data.vd, n + 1),
         eps2);
     }
   }
