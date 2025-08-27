@@ -98,10 +98,10 @@ repos:
         - id: verify-codeowners
           args: [--fix, --project-prefix=cuml]
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.19.0
+      rev: v1.20.0
       hooks:
           - id: rapids-dependency-file-generator
-            args: ["--clean"]
+            args: ["--clean", "--warn-all", "--strict"]
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.10.0.1
       hooks:

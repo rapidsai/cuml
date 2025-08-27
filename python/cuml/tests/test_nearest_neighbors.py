@@ -538,6 +538,33 @@ def test_knn_graph_duplicate_point():
     )
 
 
+@pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
+def test_knn_graph_algorithm(algorithm):
+    n_features = 3 if algorithm == "rbc" else 5
+    X, _ = make_blobs(n_samples=100, n_features=n_features, random_state=42)
+
+    sk_knn = skKNN(n_neighbors=5).fit(X.get())
+    cu_knn = cuKNN(n_neighbors=5, algorithm=algorithm).fit(X)
+
+    cu_graph = cu_knn.kneighbors_graph(X)
+    assert cupyx.scipy.sparse.isspmatrix_csr(cu_graph)
+    np.testing.assert_array_equal(cu_graph.sum(axis=1).get(), 5)
+
+    if algorithm in ("brute", "rbc"):
+        # These algorithms are exact, can check for exact equality
+        sk_graph = sk_knn.kneighbors_graph(X.get())
+        np.testing.assert_array_equal(
+            sk_graph.toarray(),
+            cu_graph.toarray().get(),
+        )
+    else:
+        # Approximate algorithms may have differences. Instead of checking
+        # exact equality, here we check that the graph found for the nearest 5
+        # neighbors is a subset of the graph found for nearest 20.
+        sk_graph = sk_knn.kneighbors_graph(X.get(), 20)
+        assert ((sk_graph - cu_graph.get()) < 0).sum() == 0
+
+
 @pytest.mark.parametrize(
     "distance_dims", [("euclidean", 2), ("euclidean", 3), ("haversine", 2)]
 )

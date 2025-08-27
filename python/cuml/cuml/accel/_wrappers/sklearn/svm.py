@@ -43,6 +43,12 @@ class SVC(ProxyBase):
     # cuml.SVC supports sparse X for some but not all operations,
     # easier to just fallback for now
     _gpu_supports_sparse = False
+    _not_implemented_attributes = frozenset(
+        (
+            "class_weight_",
+            "n_iter_",
+        )
+    )
 
     def _gpu_fit(self, X, y, sample_weight=None):
         n_classes = len(np.unique(np.asanyarray(y)))
@@ -85,11 +91,14 @@ class SVR(ProxyBase):
     # cuml.SVC supports sparse X for some but not all operations,
     # easier to just fallback for now
     _gpu_supports_sparse = False
+    _not_implemented_attributes = frozenset(("n_iter_",))
 
 
 class LinearSVC(ProxyBase):
     _gpu_class = cuml.svm.LinearSVC
+    _not_implemented_attributes = frozenset(("n_iter_",))
 
 
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
+    _not_implemented_attributes = frozenset(("n_iter_",))
