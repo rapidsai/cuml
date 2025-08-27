@@ -449,6 +449,7 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
+          - pynvml>=12.0.0,<13.0.0a0
           - pyyaml
           - pytest
           - pytest-benchmark

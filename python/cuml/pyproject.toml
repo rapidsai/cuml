@@ -134,6 +134,7 @@ test = [
     "nltk",
     "numpydoc<1.9",
     "pynndescent",
+    "pynvml>=12.0.0,<13.0.0a0",
     "pytest",
     "pytest-benchmark",
     "pytest-cases",
