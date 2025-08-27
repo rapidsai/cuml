@@ -49,7 +49,6 @@ from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
 from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
@@ -752,7 +751,7 @@ class UMAP(Base,
     @staticmethod
     def _destroy_umap_params(ptr):
         cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
-        free(umap_params)
+        del umap_params
 
     @staticmethod
     def find_ab_params(spread, min_dist):

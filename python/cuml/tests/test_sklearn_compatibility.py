@@ -540,11 +540,8 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_n_features_in_after_fitting": "UMAP does not check n_features_in consistency",
         "check_complex_data": "UMAP does not handle complex data",
         "check_dtype_object": "UMAP does not handle object dtype",
-        "check_estimators_nan_inf": "UMAP does not check for NaN and inf",
         "check_estimator_sparse_tag": "UMAP does not support sparse data",
-        # "check_estimator_sparse_matrix": "UMAP does not handle sparse matrices gracefully",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
-        # "check_transformers_unfitted": "UMAP does not raise error when transform called before fit",
         "check_parameters_default_constructible": "UMAP parameters are mutated on init",
         "check_fit_check_is_fitted": "UMAP passes check_is_fitted before being fit",
         "check_estimators_empty_data_messages": "UMAP does not handle empty data",
@@ -775,6 +772,11 @@ def test_sklearn_compatible_estimator(estimator, check):
         )
 
     check_name = _check_name(check)
+
+    if check_name in ["check_estimators_nan_inf"] and isinstance(
+        estimator, UMAP
+    ):
+        pytest.skip("UMAP does not handle Nans and infinities")
 
     if check_name == "check_classifiers_regression_target" and isinstance(
         estimator, RandomForestClassifier
