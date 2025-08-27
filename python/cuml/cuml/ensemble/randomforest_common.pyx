@@ -167,10 +167,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
-        if model.random_state is not None:
-            # determinism requires 1 CUDA stream
-            conditional_params["n_streams"] = 1
-
         if model.max_depth is not None:
             conditional_params["max_depth"] = model.max_depth
 
