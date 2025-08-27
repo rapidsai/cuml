@@ -37,8 +37,7 @@ markers = [
   "mg: Multi-GPU tests",
   "memleak: Test that checks for memory leaks",
   "no_bad_cuml_array_check: Test that should not check for bad CumlArray uses",
-  "ucx: Run _only_ Dask UCX-Py tests",
-  "ucxx: Run _only_ Dask UCXX tests",
+  "ucx: Run _only_ Dask UCXX tests",
 ]
 
 testpaths = [
@@ -135,6 +134,7 @@ test = [
     "nltk",
     "numpydoc<1.9",
     "pynndescent",
+    "pynvml>=12.0.0,<13.0.0a0",
     "pytest",
     "pytest-benchmark",
     "pytest-cases",
