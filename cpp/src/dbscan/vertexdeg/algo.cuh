@@ -206,8 +206,14 @@ void launcher(const raft::handle_t& handle,
     if (data.rbc_index != nullptr) {
       eps_nn(handle, data, start_vertex_id, batch_size, stream, (value_t)sqrtf(eps2));
     } else {
-      cuvs::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+      cuvs::neighbors::epsilon_neighborhood::eps_neighbors_l2sq<value_t, index_t, int64_t>(
+        handle,
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(
+          data.x + start_vertex_id * k, n, k),
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
+        raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
+        raft::make_device_vector_view<int64_t, int64_t>(data.vd, n + 1),
+        eps2);
     }
 
     /**
@@ -226,8 +232,14 @@ void launcher(const raft::handle_t& handle,
     if (data.rbc_index != nullptr) {
       eps_nn(handle, data, start_vertex_id, batch_size, stream, data.eps);
     } else {
-      cuvs::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+      cuvs::neighbors::epsilon_neighborhood::eps_neighbors_l2sq<value_t, index_t, int64_t>(
+        handle,
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(
+          data.x + start_vertex_id * k, n, k),
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
+        raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
+        raft::make_device_vector_view<int64_t, int64_t>(data.vd, n + 1),
+        eps2);
     }
   }
 
