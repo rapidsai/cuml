@@ -485,6 +485,7 @@ class UMAP(Base,
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
             "sparse_fit": model._sparse_data,
+            "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
 
