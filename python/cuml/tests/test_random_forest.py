@@ -1368,3 +1368,24 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cuml.ensemble.RandomForestClassifier,
+        cuml.ensemble.RandomForestRegressor,
+    ],
+)
+def test_predict_model_deprecated(cls):
+    if cls is cuml.ensemble.RandomForestClassifier:
+        X, y = make_classification(n_samples=500)
+    else:
+        X, y = make_regression(n_samples=500)
+
+    model = cls().fit(X, y)
+    sol = model.predict(X)
+    with pytest.warns(FutureWarning, match="predict_model"):
+        res = model.predict(X, predict_model="CPU")
+
+    np.testing.assert_array_equal(res, sol)
