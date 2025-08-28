@@ -516,8 +516,10 @@ class ProxyBase(BaseEstimator):
         return self._cpu._more_tags()
 
     def _repr_mimebundle_(self, **kwargs):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_mimebundle_(**kwargs)
 
     @property
     def _repr_html_(self):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_html_
