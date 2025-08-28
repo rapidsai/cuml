@@ -453,3 +453,15 @@ class BaseRandomForestModel(Base, InteropMixin):
         if predict_proba:
             return fil_model.predict_proba(X)
         return fil_model.predict(X, threshold=threshold)
+
+    def _handle_deprecated_predict_model(self, predict_model):
+        if predict_model != "deprecated":
+            warnings.warn(
+                (
+                    "`predict_model` is deprecated (and ignored) and will be removed "
+                    "in 25.12. To infer on CPU use `model.convert_to_fil_model` to get "
+                    "a `FIL` instance which may then be used to perform inference on "
+                    "both CPU and GPU."
+                ),
+                FutureWarning,
+            )
