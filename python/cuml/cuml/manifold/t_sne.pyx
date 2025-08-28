@@ -387,6 +387,7 @@ class TSNE(Base,
         return {
             "embedding_": to_gpu(model.embedding_),
             "kl_divergence_": to_gpu(model.kl_divergence_),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
         }
 
