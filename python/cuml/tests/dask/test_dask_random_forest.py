@@ -108,9 +108,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         cuml_mod = cuRFC_mg(**cu_rf_params, ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df)
         X_test_dask_array = from_array(X_test)
-        cuml_preds_gpu = cuml_mod.predict(
-            X_test_dask_array, predict_model="GPU"
-        ).compute()
+        cuml_preds_gpu = cuml_mod.predict(X_test_dask_array).compute()
         acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
 
         # the sklearn model when ran with the same parameters gives an
@@ -210,53 +208,6 @@ def test_rf_classification_dask_array(partitions_per_worker, client):
     acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
     assert acc_score > 0.8
-
-
-@pytest.mark.parametrize("partitions_per_worker", [5])
-def test_rf_regression_dask_cpu(partitions_per_worker, client):
-    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
-
-    X, y = make_regression(
-        n_samples=n_workers * 2000,
-        n_features=20,
-        n_informative=10,
-        random_state=123,
-    )
-
-    X = X.astype(np.float32)
-    y = y.astype(np.float32)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=n_workers * 400, random_state=123
-    )
-
-    cu_rf_params = {
-        "n_estimators": 50,
-        "max_depth": 16,
-        "n_bins": 16,
-    }
-
-    workers = client.has_what().keys()
-    n_partitions = partitions_per_worker * len(workers)
-
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
-
-    y_cudf = cudf.Series(y_train)
-    y_train_df = dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
-
-    X_train_df, y_train_df = dask_utils.persist_across_workers(
-        client, [X_train_df, y_train_df], workers=workers
-    )
-
-    cuml_mod = cuRFR_mg(**cu_rf_params)
-    cuml_mod.fit(X_train_df, y_train_df)
-
-    cuml_mod_predict = cuml_mod.predict(X_test, predict_model="CPU")
-
-    acc_score = r2_score(y_test, cuml_mod_predict)
-
-    assert acc_score >= 0.67
 
 
 @pytest.mark.parametrize("partitions_per_worker", [5])
