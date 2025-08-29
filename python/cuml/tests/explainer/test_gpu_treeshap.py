@@ -740,13 +740,12 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
             model = model.get_booster()
         return model, pred
     elif learner == "rf":
-        predict_model = "GPU" if y.dtype == np.float32 else "CPU"
         if task == "regression":
             model = cuml.ensemble.RandomForestRegressor(
                 n_estimators=n_estimators
             )
             model.fit(X, y)
-            pred = model.predict(X, predict_model=predict_model)
+            pred = model.predict(X)
         elif task == "classification":
             model = cuml.ensemble.RandomForestClassifier(
                 n_estimators=n_estimators
