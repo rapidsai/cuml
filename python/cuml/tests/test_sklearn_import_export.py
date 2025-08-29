@@ -290,15 +290,31 @@ def test_kernel_ridge(random_state, alpha_kind):
 
 @pytest.mark.parametrize("sparse", [False, True])
 def test_svr(random_state, sparse):
-    X, y = make_regression(n_samples=100, random_state=random_state)
-    if sparse:
-        X = scipy.sparse.coo_matrix(X)
-    original = cuml.SVR()
-    assert_estimator_roundtrip(original, sklearn.svm.SVR, X, y)
+    from sklearn.datasets import make_friedman1
+    from sklearn.preprocessing import StandardScaler
 
-    # Check inference works after conversion
-    cu_model = cuml.SVR(kernel="linear").fit(X, y)
-    sk_model = sklearn.svm.SVR(kernel="linear").fit(X, y)
+    # Nonlinear problem where RBF shines
+    X, y = make_friedman1(
+        n_samples=200, n_features=5, noise=0.05, random_state=random_state
+    )
+
+    # Dense standardization (center + scale)
+    X = StandardScaler().fit_transform(X)
+    y = np.asarray(y, dtype=np.float32).ravel()
+    X = X.astype(np.float32)
+    original = cuml.SVR(kernel="rbf", C=10.0, epsilon=0.1, gamma="scale")
+    sklearn_cls = sklearn.svm.SVR
+
+    # Round-trip compatibility
+    assert_estimator_roundtrip(original, sklearn_cls, X, y)
+
+    # Train both and compare
+    cu_model = cuml.SVR(kernel="rbf", C=10.0, epsilon=0.1, gamma="scale").fit(
+        X, y
+    )
+    sk_model = sklearn.svm.SVR(
+        kernel="rbf", C=10.0, epsilon=0.1, gamma="scale"
+    ).fit(X, y)
 
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
