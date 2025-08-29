@@ -465,7 +465,7 @@ dependencies:
           - pynndescent
     specific:
       # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-      # ref: https://github.com/conda-forge/conda-forge-repodata-patches-feedstock/pull/932
+      # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
