@@ -31,7 +31,7 @@ example `setup.py --singlegpu`) are:
 | Argument | Behavior |
 | --- | --- |
 | clean --all | Cleans all Python and Cython artifacts, including pycache folders, .cpp files resulting of cythonization and compiled extensions. |
-| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucx-py. |
+| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucxx. |
 
 
 ### RAFT Integration in cuml.raft
@@ -66,7 +66,7 @@ To build cuML's Python package, the following dependencies are required:
 
 Packages required for multigpu algorithms*:
 - libcumlprims version matching the cuML version
-- ucx-py version matching the cuML version
+- ucxx version matching the cuML version
 - dask-cudf version matching the cuML version
 - nccl>=2.5
 - rapids-dask-dependency version matching the cuML version

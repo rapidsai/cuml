@@ -56,22 +56,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                   RF_params,
                   level_enum) except +
 
-    cdef void predict(handle_t& handle,
-                      RandomForestMetaData[float, float] *,
-                      float*,
-                      int,
-                      int,
-                      float*,
-                      level_enum) except +
-
-    cdef void predict(handle_t& handle,
-                      RandomForestMetaData[double, double]*,
-                      double*,
-                      int,
-                      int,
-                      double*,
-                      level_enum) except +
-
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
@@ -171,9 +155,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
-        For nearly reproducible results, set ``n_streams=1``. If ``n_streams``
-        is greater than 1, results may vary due to unpredictable differences in
-        stream/thread timing, even when a ``random_state`` is specified.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum
@@ -202,8 +183,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
-        Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results.
+        Seed for the random number generator. Unseeded by default.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -223,15 +203,6 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     Notes
     -----
-    **Known Limitations**\n
-    This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
-
-      * GPU-based inference is only supported with 32-bit (float32) data-types.
-        Alternatives are to use CPU-based inference for 64-bit (float64)
-        data-types, or let the default automatic datatype conversion occur
-        during GPU inference.
-
     For additional docs, see `scikitlearn's RandomForestRegressor
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
@@ -456,57 +427,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         del y_m
         return self
 
-    def _predict_model_on_cpu(
-        self,
-        X,
-        convert_dtype = True,
-    ) -> CumlArray:
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = \
-            <handle_t*> <uintptr_t> self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float] *> <uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double] *> <uintptr_t> self.rf_forest64
-        if self.dtype == np.float32:
-            predict(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <float*> preds_ptr,
-                    <level_enum> self.verbose)
-
-        elif self.dtype == np.float64:
-            predict(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <double*> preds_ptr,
-                    <level_enum> self.verbose)
-        else:
-            raise TypeError("supports only float32 and float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-
-        self.handle.sync()
-        # synchronous w/o a stream
-        del X_m
-        return preds
-
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
@@ -516,11 +436,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         self,
         X,
         *,
-        convert_dtype = True,
-        predict_model = "GPU",
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
+        convert_dtype=True,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+        predict_model="deprecated",
     ) -> CumlArray:
         """
         Predicts the values for X.
@@ -532,43 +452,41 @@ class RandomForestRegressor(BaseRandomForestModel,
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model : string (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
-            'depth_first', 'layered', 'breadth_first'. Only used when predict_model='GPU'.
+            'depth_first', 'layered', 'breadth_first'.
         default_chunk_size : int, optional (default = None)
             Determines how batches are further subdivided for parallel processing.
             The optimal value depends on hardware, model, and batch size.
-            If None, will be automatically determined. Only used when predict_model='GPU'.
+            If None, will be automatically determined.
         align_bytes : int, optional (default = None)
             If specified, trees will be padded such that their in-memory size is
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
-            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
-            Only used when predict_model='GPU'.
+            Typical values are 0 or 128.
+        predict_model : string (default = 'deprecated')
+
+            .. deprecated:: 25.10
+                `predict_model` is deprecated (and ignored) and will be removed
+                in 25.12. To infer on CPU use `model.convert_to_fil_model` to get
+                a `FIL` instance which may then be used to perform inference on
+                both CPU and GPU.
 
         Returns
         -------
         y : {}
         """
-        if predict_model == "CPU":
-            preds = self._predict_model_on_cpu(
-                X=X,
-                convert_dtype=convert_dtype,
-            )
-        else:
-            preds = self._predict_model_on_gpu(
-                X=X,
-                is_classifier=False,
-                predict_proba=False,
-                convert_dtype=convert_dtype,
-                layout=layout,
-                default_chunk_size=default_chunk_size,
-                align_bytes=align_bytes,
-            )
+        self._handle_deprecated_predict_model(predict_model)
+
+        preds = self._predict_model_on_gpu(
+            X=X,
+            is_classifier=False,
+            predict_proba=False,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.
@@ -587,11 +505,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         X,
         y,
         *,
-        convert_dtype = True,
-        predict_model = "GPU",
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
+        convert_dtype=True,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+        predict_model="deprecated",
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -605,8 +523,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         convert_dtype : bool (default = True)
             When True, automatically convert the input to the data type used
             to train the model. This may increase memory usage.
-        predict_model : string (default = 'GPU')
-            Device to use for prediction: 'GPU' or 'CPU'.
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -618,7 +534,14 @@ class RandomForestRegressor(BaseRandomForestModel,
             If specified, trees will be padded such that their in-memory size is
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
-            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+            Typical values are 0 or 128.
+        predict_model : string (default = 'deprecated')
+
+            .. deprecated:: 25.10
+                `predict_model` is deprecated (and ignored) and will be removed
+                in 25.12. To infer on CPU use `model.convert_to_fil_model` to get
+                a `FIL` instance which may then be used to perform inference on
+                both CPU and GPU.
 
         Returns
         -------

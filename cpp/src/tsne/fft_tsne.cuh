@@ -45,6 +45,7 @@
 #include <cufft_utils.h>
 
 #include <cmath>
+#include <utility>
 
 namespace ML {
 namespace TSNE {
@@ -164,14 +165,14 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-value_t FFT_TSNE(value_t* VAL,
-                 const value_idx* COL,
-                 const value_idx* ROW,
-                 const value_idx NNZ,
-                 const raft::handle_t& handle,
-                 value_t* Y,
-                 const value_idx n,
-                 const TSNEParams& params)
+std::pair<float, int> FFT_TSNE(value_t* VAL,
+                               const value_idx* COL,
+                               const value_idx* ROW,
+                               const value_idx NNZ,
+                               const raft::handle_t& handle,
+                               value_t* Y,
+                               const value_idx n,
+                               const TSNEParams& params)
 {
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
@@ -343,7 +344,8 @@ value_t FFT_TSNE(value_t* VAL,
   value_t exaggeration  = params.early_exaggeration;
 
   value_t kl_div = 0;
-  for (int iter = 0; iter < params.max_iter; iter++) {
+  int iter       = 0;
+  for (; iter < params.max_iter; iter++) {
     // Compute charges Q_ij
     {
       int num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
@@ -591,7 +593,7 @@ value_t FFT_TSNE(value_t* VAL,
   CUFFT_TRY(cufftDestroy(plan_kernel_tilde));
   CUFFT_TRY(cufftDestroy(plan_dft));
   CUFFT_TRY(cufftDestroy(plan_idft));
-  return kl_div;
+  return std::make_pair(kl_div, iter);
 }
 
 }  // namespace TSNE
