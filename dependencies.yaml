@@ -13,6 +13,7 @@ files:
       - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
       - depends_on_libcuvs
@@ -41,6 +42,7 @@ files:
       - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
       - depends_on_libcuvs
@@ -119,6 +121,7 @@ files:
       - depends_on_cuml
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_pylibraft
       - depends_on_raft_dask
@@ -161,6 +164,7 @@ files:
       - depends_on_cudf
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcuml
       - depends_on_pylibraft
@@ -278,7 +282,6 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==25.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.59.1,<0.62.0a0
           - &numpy numpy>=1.23,<3.0a0
@@ -448,7 +451,6 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
-          - pynvml>=12.0.0,<13.0.0a0
           - pyyaml
           - pytest
           - pytest-benchmark
@@ -461,6 +463,19 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+    specific:
+      # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
+      # ref: https://github.com/conda-forge/conda-forge-repodata-patches-feedstock/pull/932
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - nvidia-ml-py>=12.560.30,<13.0.0a0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - nvidia-ml-py>=13.0.0,<14.0.0a0
   test_python_xgboost:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -575,6 +590,32 @@ dependencies:
           - matrix:
             packages:
               - *cuvs_unsuffixed
+  depends_on_dask_cuda:
+    common:
+      - output_types: conda
+        packages:
+          - &dask_cuda_unsuffixed dask-cuda==25.10.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - dask-cuda[cu12]==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - dask-cuda[cu13]==25.10.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - *dask_cuda_unsuffixed
   depends_on_dask_cudf:
     common:
       - output_types: conda
