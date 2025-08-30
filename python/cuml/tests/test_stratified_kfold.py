@@ -15,9 +15,11 @@
 
 import cudf
 import cupy as cp
+import numpy as np
 import pytest
 
-from cuml.model_selection import StratifiedKFold
+from cuml.datasets import make_regression
+from cuml.model_selection import KFold, StratifiedKFold
 
 
 def get_x_y(n_samples, n_classes):
@@ -63,3 +65,43 @@ def test_invalid_folds(n_splits):
         kf = StratifiedKFold(n_splits=n_splits)
         for train_index, test_index in kf.split(X, y):
             break
+
+
+@pytest.mark.parametrize("shuffle", [True, False])
+@pytest.mark.parametrize("n_splits", [5, 10])
+@pytest.mark.parametrize(
+    "rs",
+    [
+        1,
+        np.random.RandomState(1),
+        cp.random.RandomState(1),
+        np.random.default_rng(1),
+        cp.random.default_rng(1),
+    ],
+)
+def test_kfold(shuffle: bool, n_splits: int, rs) -> None:
+    n_samples = 256
+    n_features = 16
+    X, y = make_regression(n_samples, n_features, random_state=1)
+    kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=rs)
+    n_test_total = 0
+
+    for tr_idx, te_idx in kfold.split(X, y):
+        n_test_total += te_idx.size
+
+        assert tr_idx.shape[0] + te_idx.shape[0] == n_samples
+        fold_size = X.shape[0] // n_splits
+        assert te_idx.shape[0] == fold_size or te_idx.shape[0] == fold_size + 1
+        assert cp.all(tr_idx >= 0)
+        assert cp.all(te_idx >= 0)
+        indices = cp.concatenate([tr_idx, te_idx])
+        assert len(indices.shape) == 1
+        assert indices.size == n_samples
+        uniques = cp.unique(indices)
+        sorted_uniques = cp.sort(uniques)
+
+        assert uniques.size == n_samples, indices
+        arr = cp.arange(n_samples)
+        cp.testing.assert_allclose(sorted_uniques, arr)
+
+    assert n_test_total == n_samples
