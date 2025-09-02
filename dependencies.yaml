@@ -451,6 +451,9 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
+          # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
+          # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
+          - nvidia-ml-py>=12.560.30
           - pyyaml
           - pytest
           - pytest-benchmark
@@ -463,19 +466,6 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
-    specific:
-      # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-      # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
-      - output_types: [conda, requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - nvidia-ml-py>=12.560.30,<13.0.0a0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
-          - matrix:
-            packages:
-              - nvidia-ml-py>=13.0.0,<14.0.0a0
   test_python_xgboost:
     common:
       - output_types: [conda, requirements, pyproject]
