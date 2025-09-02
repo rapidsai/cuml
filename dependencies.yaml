@@ -19,6 +19,7 @@ files:
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -48,6 +49,7 @@ files:
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -123,6 +125,7 @@ files:
       - depends_on_cuvs
       - depends_on_dask_cuda
       - depends_on_dask_cudf
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
@@ -167,6 +170,7 @@ files:
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcuml
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
@@ -738,6 +742,22 @@ dependencies:
             packages:
               - librmm-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*librmm_unsuffixed]}
+  depends_on_numba_cuda:
+    common:
+      - output_types: [conda]
+        packages:
+        - numba-cuda>=0.19.1,<0.20.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - numba-cuda[cu12]>=0.19.1,<0.20.0a0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - numba-cuda[cu13]>=0.19.1,<0.20.0a0
   depends_on_pylibraft:
     common:
       - output_types: conda
