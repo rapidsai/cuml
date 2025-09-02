@@ -172,10 +172,6 @@ class RandomForestRegressor(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype):
-        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
-
     def get_summary_text(self):
         """
         Obtain the text summary of the random forest model
@@ -254,7 +250,7 @@ class RandomForestRegressor(
         self,
         X,
         convert_dtype=True,
-        predict_model="GPU",
+        predict_model="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -263,24 +259,6 @@ class RandomForestRegressor(
     ):
         """
         Predicts the regressor outputs for X.
-
-        GPU-based prediction in a multi-node, multi-GPU context works
-        by sending the sub-forest from each worker to the client,
-        concatenating these into one forest with the full
-        `n_estimators` set of trees, and sending this combined forest to
-        the workers, which will each infer on their local set of data.
-        Within the worker, this uses the cuML Forest Inference Library
-        (cuml.fil) for high-throughput prediction.
-
-        This allows inference to scale to large datasets, but the forest
-        transmission incurs overheads for very large trees. For inference
-        on small datasets, this overhead may dominate prediction time.
-
-        The 'CPU' fallback method works with sub-forests in-place,
-        broadcasting the datasets to all workers and combining predictions
-        via an averaging method at the end. This method is slower
-        on a per-row basis but may be faster for problems with many trees
-        and few rows.
 
         Parameters
         ----------
@@ -291,10 +269,14 @@ class RandomForestRegressor(
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+        predict_model : string (default = 'deprecated')
+
+            .. deprecated:: 25.10
+                `predict_model` is deprecated (and ignored) and will be removed
+                in 25.12. The default of `predict_model="GPU"` should suffice in
+                all situations. When inferring on small datasets you may also
+                want to try setting ``broadcast_data=True``.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -306,7 +288,7 @@ class RandomForestRegressor(
             If specified, trees will be padded such that their in-memory size is
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
-            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+            Typical values are 0 or 128.
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
@@ -322,29 +304,25 @@ class RandomForestRegressor(
         -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
-        if predict_model == "CPU":
-            preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
+        self._handle_deprecated_predict_model(predict_model)
 
-        else:
-            if broadcast_data:
-                preds = self.partial_inference(
-                    X,
-                    convert_dtype=convert_dtype,
-                    layout=layout,
-                    default_chunk_size=default_chunk_size,
-                    align_bytes=align_bytes,
-                    delayed=delayed,
-                )
-            else:
-                preds = self._predict_using_fil(
-                    X,
-                    convert_dtype=convert_dtype,
-                    layout=layout,
-                    default_chunk_size=default_chunk_size,
-                    align_bytes=align_bytes,
-                    delayed=delayed,
-                )
-        return preds
+        if broadcast_data:
+            return self.partial_inference(
+                X,
+                convert_dtype=convert_dtype,
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+                delayed=delayed,
+            )
+        return self._predict_using_fil(
+            X,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            delayed=delayed,
+        )
 
     def partial_inference(self, X, delayed, **kwargs):
         partial_infs = self._partial_inference(
@@ -359,45 +337,6 @@ class RandomForestRegressor(
             return merged_regressions
         else:
             return merged_regressions.persist()
-
-    def predict_using_fil(self, X, delayed, **kwargs):
-        if self._get_internal_model() is None:
-            self._set_internal_model(self._concat_treelite_models())
-        return self._predict_using_fil(X=X, delayed=delayed, **kwargs)
-
-    """
-    TODO : Update function names used for CPU predict.
-           Cuml issue #1854 has been created to track this.
-    """
-
-    def predict_model_on_cpu(self, X, convert_dtype):
-        workers = self.workers
-
-        X_Scattered = self.client.scatter(X)
-
-        futures = list()
-        for n, w in enumerate(workers):
-            futures.append(
-                self.client.submit(
-                    RandomForestRegressor._predict_model_on_cpu,
-                    self.rfs[w],
-                    X_Scattered,
-                    convert_dtype,
-                    workers=[w],
-                )
-            )
-
-        rslts = self.client.gather(futures, errors="raise")
-        pred = list()
-
-        for i in range(len(X)):
-            pred_per_worker = 0.0
-            for d in range(len(rslts)):
-                pred_per_worker = pred_per_worker + rslts[d][i]
-
-            pred.append(pred_per_worker / len(rslts))
-
-        return pred
 
     def get_params(self, deep=True):
         """
