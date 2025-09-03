@@ -13,11 +13,13 @@ files:
       - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -41,11 +43,13 @@ files:
       - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -119,7 +123,9 @@ files:
       - depends_on_cuml
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
@@ -161,8 +167,10 @@ files:
       - depends_on_cudf
       - depends_on_cupy
       - depends_on_cuvs
+      - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcuml
+      - depends_on_numba_cuda
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
@@ -289,9 +297,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==25.10.*,>=0.0.0a0
           - joblib>=0.11
-          - numba>=0.59.1,<0.62.0a0
+          - numba>=0.60.0,<0.62.0a0
           - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
@@ -449,7 +456,9 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
-          - pynvml>=12.0.0,<13.0.0a0
+          # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
+          # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
+          - nvidia-ml-py>=12.560.30
           - pyyaml
           - pytest
           - pytest-benchmark
@@ -495,7 +504,7 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.6.2,<13.0a0
+              - cuda-python>=12.9.2,<13.0a0
           - matrix:
             packages:
               - cuda-python
@@ -529,13 +538,16 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - cupy>=13.6.0
+    # NOTE: This is intentionally not broken into groups by a 'cuda_suffixed' selector like
+    #       other packages with -cu{nn}x suffixes in this file.
+    #       All RAPIDS wheel builds (including in devcontainers) expect cupy to be suffixed.
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
             packages:
-              - cupy-cuda12x>=12.0.0
+              - cupy-cuda12x>=13.6.0
   depends_on_cuvs:
     common:
       - output_types: conda
@@ -557,6 +569,27 @@ dependencies:
           - matrix:
             packages:
               - *cuvs_unsuffixed
+  depends_on_dask_cuda:
+    common:
+      - output_types: conda
+        packages:
+          - &dask_cuda_unsuffixed dask-cuda==25.10.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - dask-cuda[cu12]==25.10.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - *dask_cuda_unsuffixed
   depends_on_dask_cudf:
     common:
       - output_types: conda
@@ -664,6 +697,21 @@ dependencies:
             packages:
               - librmm-cu12==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*librmm_unsuffixed]}
+  depends_on_numba_cuda:
+    common:
+      - output_types: [conda]
+        packages:
+        - numba-cuda>=0.19.1,<0.20.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - numba-cuda[cu12]>=0.19.1,<0.20.0a0
+          - matrix:
+            packages:
+              - numba-cuda>=0.19.1,<0.20.0a0
   depends_on_pylibraft:
     common:
       - output_types: conda
