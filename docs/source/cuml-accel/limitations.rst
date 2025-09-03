@@ -324,10 +324,6 @@ TSNE
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
 - Even with a ``random_state``, the TSNE implementation used by ``cuml.accel``

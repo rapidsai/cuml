@@ -182,12 +182,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
 def test_rf_regression_pickle(
     tmpdir, datatype, nrows, ncols, n_info, n_classes, key
 ):
-
     result = {}
-    if datatype == np.float64:
-        pytest.xfail(
-            "Pickling is not supported for dataset with" " dtype float64"
-        )
 
     def create_mod():
         if key == "RandomForestRegressor":
@@ -202,20 +197,14 @@ def test_rf_regression_pickle(
         model = rf_models[key]()
 
         model.fit(X_train, y_train)
-        if datatype == np.float32:
-            predict_model = "GPU"
-        else:
-            predict_model = "CPU"
-        result["rf_res"] = model.predict(X_test, predict_model=predict_model)
+        result["rf_res"] = model.predict(X_test)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
 
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
-        pickled_model.score(
-            X_test, np.zeros(X_test.shape[0]), predict_model="GPU"
-        )
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
         pickle_save_load(tmpdir, create_mod, assert_model)
 
