@@ -287,7 +287,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - joblib>=0.11
-          - numba>=0.59.1,<0.62.0a0
+          - numba>=0.60.0,<0.62.0a0
           - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
