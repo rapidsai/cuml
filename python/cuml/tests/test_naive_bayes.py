@@ -474,6 +474,10 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()[:, :ncols]
     y = y.astype(y_dtype)[:nrows]
 
+    print()
+    print(f"{np.unique(y)=}")
+    print(f"{y=}")
+
     if priors == "balanced":
         priors = cp.array([1 / 20] * 20)
     elif priors == "unbalanced":
