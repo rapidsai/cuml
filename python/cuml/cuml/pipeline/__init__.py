@@ -19,8 +19,6 @@ cuML includes tests to ensure full compatibility of these wrappers
 with CUDA-based data and cuML estimators, but all of the underlying code
 is due to the scikit-learn developers."""
 
-from sklearn.pipeline import Pipeline, make_pipeline
-
 __all__ = ["Pipeline", "make_pipeline"]
 
 
