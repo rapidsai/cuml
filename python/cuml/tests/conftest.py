@@ -417,9 +417,6 @@ class DownloadDataPlugin:
             # the datasets we might use.
             fetch_20newsgroups()
             fetch_california_housing()
-            datasets.load_digits()
-            datasets.load_diabetes()
-            datasets.load_breast_cancer()
 
 
 def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
