@@ -57,7 +57,7 @@ To build cuML's Python package, the following dependencies are required:
 - cudatoolkit version corresponding to system CUDA toolkit
 - cython >=3.0.0
 - numpy
- cmake >=3.30.4
+- cmake >=3.30.4
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}

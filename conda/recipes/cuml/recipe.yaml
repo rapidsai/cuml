@@ -72,6 +72,7 @@ requirements:
     - cuda-cudart-dev
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
@@ -95,6 +96,7 @@ requirements:
     - cuda-cudart
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   ignore_run_exports:
     by_name:
       - cuda-cudart
