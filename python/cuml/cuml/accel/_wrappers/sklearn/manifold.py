@@ -22,3 +22,4 @@ __all__ = ("TSNE",)
 
 class TSNE(ProxyBase):
     _gpu_class = cuml.manifold.TSNE
+    _not_implemented_attributes = frozenset(("n_iter_",))

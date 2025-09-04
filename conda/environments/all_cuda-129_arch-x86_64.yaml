@@ -12,10 +12,10 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-python>=12.6.2,<13.0a0
+- cuda-python>=12.9.2,<13.0a0
 - cuda-version=12.9
 - cudf==25.10.*,>=0.0.0a0
-- cupy>=12.0.0
+- cupy>=13.6.0
 - cuvs==25.10.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.0.0
@@ -43,10 +43,12 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba>=0.59.1,<0.62.0a0
+- numba-cuda>=0.19.1,<0.20.0a0
+- numba>=0.60.0,<0.62.0a0
 - numpy>=1.23,<3.0a0
 - numpydoc
 - numpydoc<1.9
+- nvidia-ml-py>=12.560.30
 - packaging
 - pre-commit
 - pydata-sphinx-theme!=0.14.2

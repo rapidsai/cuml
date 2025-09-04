@@ -724,6 +724,7 @@ def _check_name(check):
 
 @estimator_checks.parametrize_with_checks(
     [
+        DBSCAN(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),

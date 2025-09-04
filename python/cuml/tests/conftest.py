@@ -15,7 +15,6 @@
 #
 
 import os
-import subprocess
 from datetime import timedelta
 from math import ceil
 from ssl import create_default_context
@@ -27,6 +26,7 @@ import cupy as cp
 import hypothesis
 import numpy as np
 import pandas as pd
+import pynvml
 import pytest
 from sklearn import datasets
 from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
@@ -264,6 +264,8 @@ def pytest_configure(config):
     else:
         hypothesis.settings.load_profile("unit")
 
+    config.pluginmanager.register(DownloadDataPlugin(), "download_data")
+
 
 def pytest_pyfunc_call(pyfuncitem):
     """Skip tests that require the cudf.pandas accelerator.
@@ -275,20 +277,72 @@ def pytest_pyfunc_call(pyfuncitem):
         pytest.skip("Test requires cudf.pandas accelerator")
 
 
-def _get_gpu_memory():
-    """Get the total GPU memory in GB."""
-    bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
-    output = subprocess.check_output(bash_command, shell=True).decode("utf-8")
-    lines = output.split("\n")
-    lines.pop(0)
-    gpus_memory = []
-    for line in lines:
-        tokens = line.split(" ")
-        if len(tokens) > 1:
-            gpus_memory.append(int(tokens[0]))
-    gpus_memory.sort()
-    max_gpu_memory = ceil(gpus_memory[-1] / 1024)
-    return max_gpu_memory
+def _get_pynvml_device_handle(device_id=0):
+    """Get GPU handle from device index or UUID.
+
+    Parameters
+    ----------
+    device_id: int or str
+        The index or UUID of the device from which to obtain the handle.
+
+    Raises
+    ------
+    ValueError
+        If acquiring the device handle for the device specified failed.
+    pynvml.NVMLError
+        If any NVML error occurred while initializing.
+
+    Returns
+    -------
+    A pynvml handle to the device.
+
+    Examples
+    --------
+    >>> _get_pynvml_device_handle(device_id=0)
+
+    >>> _get_pynvml_device_handle(device_id="GPU-9fb42d6f-7d6b-368f-f79c-3c3e784c93f6")
+    """
+    pynvml.nvmlInit()
+
+    try:
+        if device_id and not str(device_id).isnumeric():
+            # This means device_id is UUID.
+            # This works for both MIG and non-MIG device UUIDs.
+            handle = pynvml.nvmlDeviceGetHandleByUUID(str.encode(device_id))
+            if pynvml.nvmlDeviceIsMigDeviceHandle(handle):
+                # Additionally get parent device handle
+                # if the device itself is a MIG instance
+                handle = pynvml.nvmlDeviceGetDeviceHandleFromMigDeviceHandle(
+                    handle
+                )
+        else:
+            handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
+        return handle
+    except pynvml.NVMLError:
+        raise ValueError(f"Invalid device index or UUID: {device_id}")
+
+
+def _get_gpu_memory(device_index=0):
+    """Return total memory of CUDA device with index or with device identifier UUID.
+
+    Parameters
+    ----------
+    device_index: int or str
+        The index or UUID of the device from which to obtain the CPU affinity.
+
+    Returns
+    -------
+    The total memory of the CUDA Device in GB, or ``None`` for devices that do not
+    have a dedicated memory resource, as is usually the case for system on a chip (SoC)
+    devices.
+    """
+    handle = _get_pynvml_device_handle(device_index)
+
+    try:
+        # Return total memory in GB
+        return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
+    except pynvml.NVMLError_NotSupported:
+        return None
 
 
 # =============================================================================
@@ -349,6 +403,23 @@ def random_seed(request):
 # =============================================================================
 # Dataset Fixtures
 # =============================================================================
+
+
+class DownloadDataPlugin:
+    """Download data before workers are spawned.
+
+    This avoids downloading data in each worker, which can lead to races.
+    """
+
+    def pytest_configure(self, config):
+        if not hasattr(config, "workerinput"):
+            # We're in the controller process, not a worker. Let's fetch all
+            # the datasets we might use.
+            fetch_20newsgroups()
+            fetch_california_housing()
+            datasets.load_digits()
+            datasets.load_diabetes()
+            datasets.load_breast_cancer()
 
 
 def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
