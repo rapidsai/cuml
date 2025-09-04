@@ -445,14 +445,10 @@ def nlp_20news():
         (X, Y) where X is the feature matrix and Y is the target vector
     """
 
-    @dataset_fetch_retry
-    def _fetch_20news():
-        return fetch_20newsgroups(
+    try:
+        twenty_train = fetch_20newsgroups(
             subset="train", shuffle=True, random_state=42
         )
-
-    try:
-        twenty_train = _fetch_20news()
     except Exception as e:
         pytest.xfail(f"Error fetching 20 newsgroup dataset: {str(e)}")
 
@@ -477,12 +473,8 @@ def housing_dataset():
         vector, and feature_names is a list of feature names
     """
 
-    @dataset_fetch_retry
-    def _fetch_housing():
-        return fetch_california_housing()
-
     try:
-        data = _fetch_housing()
+        data = fetch_california_housing()
     except Exception as e:
         pytest.xfail(f"Error fetching housing dataset: {str(e)}")
 
