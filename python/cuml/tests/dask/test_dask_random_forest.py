@@ -431,7 +431,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
 @pytest.mark.parametrize("max_depth", [1, 2, 3, 5, 10, 15, 20])
 @pytest.mark.parametrize("n_estimators", [5, 10, 20])
-def test_rf_instance_count(client, max_depth, n_estimators):
+def test_rf_data_count(client, max_depth, n_estimators):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     if n_estimators < n_workers:
         err_msg = "n_estimators cannot be lower than number of dask workers"
@@ -448,7 +448,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
         n_classes=2,
     )
     X = X.astype(np.float32)
-    cu_rf_mg = cuRFC_mg(
+    dask_model = cuRFC_mg(
         max_features=1.0,
         max_samples=1.0,
         n_bins=16,
@@ -463,30 +463,25 @@ def test_rf_instance_count(client, max_depth, n_estimators):
     y = y.astype(np.int32)
 
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
-    cu_rf_mg.fit(X_dask, y_dask)
-    json_out = cu_rf_mg.get_json()
-    json_obj = json.loads(json_out)
+    dask_model.fit(X_dask, y_dask)
+    model = dask_model.get_combined_model()
+    json_obj = json.loads(model.convert_to_treelite_model().dump_as_json())
 
-    # The instance count of each node must be equal to the sum of
-    # the instance counts of its children
-    def check_instance_count_for_non_leaf(tree):
-        assert "instance_count" in tree
-        if "children" not in tree:
-            return
-        assert "instance_count" in tree["children"][0]
-        assert "instance_count" in tree["children"][1]
-        assert (
-            tree["instance_count"]
-            == tree["children"][0]["instance_count"]
-            + tree["children"][1]["instance_count"]
-        )
-        check_instance_count_for_non_leaf(tree["children"][0])
-        check_instance_count_for_non_leaf(tree["children"][1])
+    def check_count(node, nodes):
+        if "left_child" in node:
+            left = nodes[node["left_child"]]
+            right = nodes[node["right_child"]]
+            count = check_count(left, nodes) + check_count(right, nodes)
+            assert count == node["data_count"]
+        return node["data_count"]
 
-    for tree in json_obj:
-        check_instance_count_for_non_leaf(tree)
+    for tree in json_obj["trees"]:
+        nodes = tree["nodes"]
         # The root's count should be equal to the number of rows in the data
-        assert tree["instance_count"] == n_samples_per_worker
+        assert nodes[0]["data_count"] == n_samples_per_worker
+        # Check that the data_count accumulates properly as you move up the tree
+        for node in nodes:
+            check_count(node, nodes)
 
 
 @pytest.mark.parametrize("estimator_type", ["regression", "classification"])

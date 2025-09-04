@@ -1228,19 +1228,18 @@ def test_rf_nbins_small(small_clf):
         )
 
 
-@pytest.mark.parametrize("split_criterion", [2], ids=["mse"])
-def test_rf_regression_with_identical_labels(split_criterion):
+def test_rf_regression_with_identical_labels():
     X = np.array([[-1, 0], [0, 1], [2, 0], [0, 3], [-2, 0]], dtype=np.float32)
     y = np.array([1, 1, 1, 1, 1], dtype=np.float32)
     # Degenerate case: all labels are identical.
     # RF Regressor must not create any split. It must yield an empty tree
     # with only the root node.
-    clf = curfr(
+    model = curfr(
         max_features=1.0,
         max_samples=1.0,
         n_bins=5,
         bootstrap=False,
-        split_criterion=split_criterion,
+        split_criterion="mse",
         min_samples_leaf=1,
         min_samples_split=2,
         random_state=0,
@@ -1248,11 +1247,17 @@ def test_rf_regression_with_identical_labels(split_criterion):
         n_estimators=1,
         max_depth=1,
     )
-    clf.fit(X, y)
-    model_dump = json.loads(clf.get_json())
-    assert len(model_dump) == 1
-    expected_dump = {"nodeid": 0, "leaf_value": [1.0], "instance_count": 5}
-    assert model_dump[0] == expected_dump
+    model.fit(X, y)
+    trees = json.loads(model.convert_to_treelite_model().dump_as_json())[
+        "trees"
+    ]
+    assert len(trees) == 1
+    assert len(trees[0]["nodes"]) == 1
+    assert trees[0]["nodes"][0] == {
+        "node_id": 0,
+        "leaf_value": 1.0,
+        "data_count": 5,
+    }
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
