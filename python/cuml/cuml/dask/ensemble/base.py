@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import json
 import math
 import warnings
 from collections.abc import Iterable
@@ -255,58 +254,6 @@ class BaseRandomForestModel(object):
         wait_and_raise_from_futures(model_params)
         return self
 
-    def _get_summary_text(self):
-        """
-        Obtain the summary of the forest as text
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _get_summary_text_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(futures, errors="raise")
-        return "\n".join(all_dump)
-
-    def _get_detailed_text(self):
-        """
-        Obtain the detailed information of the forest as text
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _get_detailed_text_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(futures, errors="raise")
-        return "\n".join(all_dump)
-
-    def _get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        dump = list()
-        for n, w in enumerate(self.workers):
-            dump.append(
-                self.client.submit(
-                    _get_json_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(dump, errors="raise")
-        combined_dump = []
-        for e in all_dump:
-            obj = json.loads(e)
-            combined_dump.extend(obj)
-        return json.dumps(combined_dump)
-
     def get_combined_model(self):
         """
         Return single-GPU model for serialization.
@@ -409,18 +356,6 @@ def _func_predict_proba_partial(model, input_data, **kwargs):
     with using_output_type("cupy"):
         prediction = model.predict_proba(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
-
-
-def _get_summary_text_func(model):
-    return model.get_summary_text()
-
-
-def _get_detailed_text_func(model):
-    return model.get_detailed_text()
-
-
-def _get_json_func(model):
-    return model.get_json()
 
 
 def _func_get_params(model, deep):
