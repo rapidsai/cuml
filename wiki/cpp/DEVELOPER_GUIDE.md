@@ -338,7 +338,7 @@ void foo(const raft::handle_t& h, ... , cudaStream_t stream )
     auto execution_policy = ML::thrust_exec_policy(h.get_device_allocator(),stream);
     thrust::for_each(execution_policy->on(stream), ... );
 }
-
+```
 ## Further Reading 
 For a more detailed explanation of memory management in cuML, including usage guidelines and best practices with RMM, please refer to the [Memory Management Guide](../../docs/source/developer_guide/memory_management.rst).
 ```
