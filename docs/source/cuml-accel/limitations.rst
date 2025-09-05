@@ -197,11 +197,6 @@ RandomForestClassifier
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``feature_importances_``
-- ``estimators_samples_``
-
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -216,11 +211,6 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``feature_importances_``
-- ``estimators_samples_``
 
 
 sklearn.kernel_ridge
@@ -333,10 +323,6 @@ TSNE
 - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 Additional notes:
 

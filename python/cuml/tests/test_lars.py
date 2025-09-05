@@ -119,10 +119,13 @@ def test_lars_model(datatype, nrows, column_info, precompute):
 )
 @pytest.mark.parametrize("precompute", [True, False])
 def test_lars_collinear(datatype, nrows, column_info, precompute):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     ncols, n_info = column_info
-    if nrows == 500000 and ncols == 1000 and pytest.max_gpu_memory < 32:
+    if nrows == 500000 and ncols == 1000 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = nrows * pytest.max_gpu_memory // 32
+            nrows = nrows * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."

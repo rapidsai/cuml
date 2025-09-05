@@ -18,7 +18,6 @@ import inspect
 import os
 
 import pylibraft.common.handle
-from sklearn.utils import estimator_html_repr
 
 import cuml
 import cuml.common
@@ -458,10 +457,11 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
 
     def _repr_mimebundle_(self, **kwargs):
         """Prepare representations used by jupyter kernels to display estimator"""
-        if estimator_html_repr is not None:
-            output = {"text/plain": repr(self)}
-            output["text/html"] = estimator_html_repr(self)
-            return output
+        from sklearn.utils import estimator_html_repr
+
+        output = {"text/plain": repr(self)}
+        output["text/html"] = estimator_html_repr(self)
+        return output
 
     def set_nvtx_annotations(self):
         for func_name in [

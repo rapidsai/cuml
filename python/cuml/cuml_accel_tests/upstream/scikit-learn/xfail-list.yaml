@@ -320,10 +320,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X3-euclidean-None-kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X4-seuclidean-metric_params4-ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_dtype_convert"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[auto]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[ball_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[brute]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[auto]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[brute]"
@@ -408,7 +404,6 @@
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_overwrite_params]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_dont_overwrite_parameters]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_overwrite_params]"
-  - "sklearn.tests.test_docstrings::test_docstring[GridSearchCV-None]"
   - "sklearn.tests.test_multioutput::test_multi_output_classes_[estimator0]"
   - "sklearn.tests.test_multioutput::test_multi_output_classification_sample_weights"
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[bsr_array]"
@@ -1204,7 +1199,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
