@@ -19,7 +19,7 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.13
-conda env update -n cuml_dev --file=conda/environments/all_cuda-129_arch-x86_64.yaml
+conda env update -n cuml_dev --file=conda/environments/all_cuda-130_arch-x86_64.yaml
 conda activate cuml_dev
 ```
 
