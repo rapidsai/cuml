@@ -341,7 +341,7 @@ void foo(const raft::handle_t& h, ... , cudaStream_t stream )
 ```
 ## Memory Management in cuML
 
-cuML uses the **RAPIDS Memory Manager (RMM)** to manage GPU memory.  
+The cuML uses the **RAPIDS Memory Manager (RMM)** to manage GPU memory.  
 Developers contributing to cuML should **always use RMM utilities** instead of raw CUDA allocation (`cudaMalloc` / `cudaFree`).
 
 ### Why RMM?
