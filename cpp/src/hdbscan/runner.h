@@ -113,6 +113,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
+  RAFT_EXPECTS(params.min_samples <= m, "min_samples must be at most the number of samples in X");
+
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
