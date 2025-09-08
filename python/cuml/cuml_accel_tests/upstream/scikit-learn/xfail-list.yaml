@@ -1152,7 +1152,6 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
   - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
   - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
