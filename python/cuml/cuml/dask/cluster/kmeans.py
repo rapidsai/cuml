@@ -98,7 +98,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
-        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
+        from cuml.cluster.kmeans import KMeans
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
@@ -109,7 +109,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return cumlKMeans(handle=handle, output_type=datatype, **kwargs).fit(
+        return KMeans(handle=handle, output_type=datatype, **kwargs).fit(
             inp_data, sample_weight=inp_weights
         )
 
