@@ -259,7 +259,6 @@ def test_degenerate_cases():
         n_estimators=10,
         max_leaves=-1,
         max_depth=16,
-        accuracy_metric="mse",
     )
     # Attempt to import un-fitted model
     with pytest.raises(NotFittedError):
@@ -304,7 +303,6 @@ def test_cuml_rf_regressor(input_type):
         n_estimators=10,
         max_leaves=-1,
         max_depth=16,
-        accuracy_metric="mse",
     )
     cuml_model.fit(X, y)
     pred = cuml_model.predict(X).squeeze()
@@ -354,7 +352,6 @@ def test_cuml_rf_classifier(n_classes, input_type):
         n_estimators=10,
         max_leaves=-1,
         max_depth=16,
-        accuracy_metric="mse",
     )
     cuml_model.fit(X, y)
     pred = cuml_model.predict_proba(X)

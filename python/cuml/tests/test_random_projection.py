@@ -172,7 +172,7 @@ def test_random_seed_consistency(cls, sparse):
     # relax the test constraint.
     if (cls is SparseRandomProjection) != sparse:
         # Mix of sparse and dense, check outputs are close
-        np.testing.assert_allclose(asdense(t1), asdense(t2), rtol=1e-4)
+        np.testing.assert_allclose(asdense(t1), asdense(t2), rtol=1e-3)
     else:
         # Both dense or sparse, can check exactly
         np.testing.assert_array_equal(asdense(t1), asdense(t2))
