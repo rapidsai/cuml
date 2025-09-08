@@ -116,20 +116,6 @@ inline value_t get_threshold(const raft::handle_t& handle,
 }
 
 template <typename value_t>
-inline bool should_perform_thresholding(const raft::handle_t& handle,
-                                        raft::sparse::COO<value_t>& in,
-                                        value_t threshold)
-{
-  auto stream             = raft::resource::get_cuda_stream(handle);
-  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
-
-  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
-  value_t min_val = *(thrust::min_element(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz));
-
-  return min_val < threshold;
-}
-
-template <typename value_t>
 inline void perform_thresholding(const raft::handle_t& handle,
                                  raft::sparse::COO<value_t>& in,
                                  value_t threshold)
@@ -153,51 +139,33 @@ inline void perform_thresholding(const raft::handle_t& handle,
     stream);
 }
 
-template <typename value_t, typename value_idx, typename nnz_t>
+template <typename value_t>
 void trim_graph(const raft::handle_t& handle,
-                raft::sparse::COO<value_t, value_idx, nnz_t>& in,
-                raft::sparse::COO<value_t, value_idx, nnz_t>& trimmed_graph,
-                value_t threshold)
+                raft::sparse::COO<value_t>& in,
+                raft::sparse::COO<value_t>& out,
+                int n_rows,
+                int n_epochs)
 {
-  auto stream             = raft::resource::get_cuda_stream(handle);
-  auto thrust_exec_policy = raft::resource::get_thrust_policy(handle);
+  auto stream = raft::resource::get_cuda_stream(handle);
 
-  // First count how many elements will pass the filter to allocate correct size
-  thrust::device_ptr<const value_t> vals_ptr = thrust::device_pointer_cast(in.vals());
-  auto predicate_count = [=] __device__(const value_t& val) { return val >= threshold; };
-  nnz_t new_nnz        = static_cast<nnz_t>(
-    thrust::count_if(thrust_exec_policy, vals_ptr, vals_ptr + in.nnz, predicate_count));
-
-  // Allocate only once with the correct size
-  trimmed_graph.allocate(new_nnz, in.n_rows, in.n_cols, false, stream);
-
-  auto begin_zip = thrust::make_zip_iterator(thrust::make_tuple(in.rows(), in.cols(), in.vals()));
-  auto end_zip   = thrust::make_zip_iterator(
-    thrust::make_tuple(in.rows() + in.nnz, in.cols() + in.nnz, in.vals() + in.nnz));
-  auto begin_out_zip = thrust::make_zip_iterator(
-    thrust::make_tuple(trimmed_graph.rows(), trimmed_graph.cols(), trimmed_graph.vals()));
-
-  auto predicate = [=] __device__(const auto& tuple) { return thrust::get<2>(tuple) >= threshold; };
-
-  thrust::copy_if(thrust_exec_policy, begin_zip, end_zip, begin_out_zip, predicate);
+  value_t threshold = get_threshold(handle, in, n_rows, n_epochs);
+  perform_thresholding(handle, in, threshold);
+  raft::sparse::op::coo_remove_zeros<value_t>(&in, &out, stream);
 }
 
-template <typename value_t>
-raft::sparse::COO<value_t>* thresholding(const raft::handle_t& handle,
-                                         raft::sparse::COO<value_t>& in,
-                                         raft::sparse::COO<value_t>& out,
-                                         int n_rows,
-                                         int n_epochs)
+template <typename value_t, typename value_idx, typename nnz_t>
+void copy_device_graph_to_host(const raft::handle_t& handle,
+                               raft::sparse::COO<value_t, value_idx, nnz_t>& device_graph,
+                               raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
 {
-  value_t threshold       = get_threshold(handle, in, n_rows, n_epochs);
-  bool apply_thresholding = should_perform_thresholding(handle, in, threshold);
+  auto stream = raft::resource::get_cuda_stream(handle);
 
-  if (apply_thresholding) {
-    trim_graph(handle, in, out, threshold);
-    return &out;
-  }
-
-  return &in;
+  host_graph.initialize_sparsity(device_graph.nnz);
+  raft::copy(
+    host_graph.structure_view().get_rows().data(), device_graph.rows(), device_graph.nnz, stream);
+  raft::copy(
+    host_graph.structure_view().get_cols().data(), device_graph.cols(), device_graph.nnz, stream);
+  raft::copy(host_graph.get_elements().data(), device_graph.vals(), device_graph.nnz, stream);
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -307,8 +275,8 @@ void _refine(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
-  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
-  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
+  raft::sparse::COO<value_t> trimmed_graph(stream);
+  trim_graph(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -326,15 +294,16 @@ void _init_and_refine(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
-  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
-  graph = thresholding(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
+  raft::sparse::COO<value_t> trimmed_graph(stream);
+  trim_graph(handle, *graph, trimmed_graph, inputs.n, params->n_epochs);
 
   // Initialize embeddings
   InitEmbed::run<value_t, nnz_t>(
-    handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
+    handle, inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream, params->init);
 
   // Run simplicial set embedding
-  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(inputs.n, inputs.d, graph, params, embeddings, stream);
+  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
+    inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream);
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -349,30 +318,23 @@ void _fit(const raft::handle_t& handle,
   auto stream = raft::resource::get_cuda_stream(handle);
   ML::default_logger().set_level(params->verbosity);
 
-  std::unique_ptr<raft::sparse::COO<value_t>> full_graph =
-    std::make_unique<raft::sparse::COO<value_t>>(stream);
-  UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, full_graph.get());
-
-  host_graph.initialize_sparsity(full_graph->nnz);
-  raft::copy(
-    host_graph.structure_view().get_rows().data(), full_graph->rows(), full_graph->nnz, stream);
-  raft::copy(
-    host_graph.structure_view().get_cols().data(), full_graph->cols(), full_graph->nnz, stream);
-  raft::copy(host_graph.get_elements().data(), full_graph->vals(), full_graph->nnz, stream);
-
   raft::sparse::COO<value_t> trimmed_graph(stream);
-  raft::sparse::COO<value_t>* graph =
-    thresholding(handle, *full_graph.get(), trimmed_graph, inputs.n, params->n_epochs);
+  {
+    raft::sparse::COO<value_t> graph(stream);
+    UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+      handle, inputs, params, &graph);
 
-  if (graph == &trimmed_graph) { full_graph.reset(); }
+    copy_device_graph_to_host(handle, graph, host_graph);
+
+    trim_graph(handle, graph, trimmed_graph, inputs.n, params->n_epochs);
+  }
 
   /**
    * Run initialization method
    */
   raft::common::nvtx::push_range("umap::embedding");
   InitEmbed::run<value_t, nnz_t>(
-    handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
+    handle, inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream, params->init);
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
@@ -382,7 +344,8 @@ void _fit(const raft::handle_t& handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(inputs.n, inputs.d, graph, params, embeddings, stream);
+  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
+    inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream);
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -402,30 +365,23 @@ void _fit_supervised(const raft::handle_t& handle,
   auto stream = handle.get_stream();
   ML::default_logger().set_level(params->verbosity);
 
-  std::unique_ptr<raft::sparse::COO<value_t>> full_graph =
-    std::make_unique<raft::sparse::COO<value_t>>(stream);
-  UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, full_graph.get());
-
-  host_graph.initialize_sparsity(full_graph->nnz);
-  raft::copy(
-    host_graph.structure_view().get_rows().data(), full_graph->rows(), full_graph->nnz, stream);
-  raft::copy(
-    host_graph.structure_view().get_cols().data(), full_graph->cols(), full_graph->nnz, stream);
-  raft::copy(host_graph.get_elements().data(), full_graph->vals(), full_graph->nnz, stream);
-
   raft::sparse::COO<value_t> trimmed_graph(stream);
-  raft::sparse::COO<value_t>* graph =
-    thresholding(handle, *full_graph.get(), trimmed_graph, inputs.n, params->n_epochs);
+  {
+    raft::sparse::COO<value_t> graph(stream);
+    UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+      handle, inputs, params, &graph);
 
-  if (graph == &trimmed_graph) { full_graph.reset(); }
+    copy_device_graph_to_host(handle, graph, host_graph);
+
+    trim_graph(handle, graph, trimmed_graph, inputs.n, params->n_epochs);
+  }
 
   /**
    * Initialize embeddings
    */
   raft::common::nvtx::push_range("umap::supervised::fit");
   InitEmbed::run<value_t, nnz_t>(
-    handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
+    handle, inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream, params->init);
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
@@ -435,7 +391,8 @@ void _fit_supervised(const raft::handle_t& handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(inputs.n, inputs.d, graph, params, embeddings, stream);
+  SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
+    inputs.n, inputs.d, &trimmed_graph, params, embeddings, stream);
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -553,7 +510,6 @@ void _transform(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<nnz_t> row_ind(inputs.n, stream);
-
   raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), stream);
 
   rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
@@ -579,15 +535,6 @@ void _transform(const raft::handle_t& handle,
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  raft::sparse::COO<value_t> trimmed_graph(raft::resource::get_cuda_stream(handle));
-  raft::sparse::COO<value_t>* comp_coo =
-    thresholding(handle, graph_coo, trimmed_graph, inputs.n, params->n_epochs);
-
-  raft::common::nvtx::push_range("umap::optimization");
-  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
-
-  rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
-
   int n_epochs = params->n_epochs;
   if (n_epochs <= 0) {
     if (inputs.n <= 10000)
@@ -598,8 +545,16 @@ void _transform(const raft::handle_t& handle,
     n_epochs /= 3;
   }
 
+  raft::sparse::COO<value_t> trimmed_graph(stream);
+  trim_graph(handle, graph_coo, trimmed_graph, inputs.n, n_epochs);
+
+  raft::common::nvtx::push_range("umap::optimization");
+  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
+
+  rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
+
   SimplSetEmbedImpl::make_epochs_per_sample(
-    comp_coo->vals(), comp_coo->nnz, n_epochs, epochs_per_sample.data(), stream);
+    trimmed_graph.vals(), trimmed_graph.nnz, n_epochs, epochs_per_sample.data(), stream);
 
   CUML_LOG_DEBUG("Performing optimization");
 
@@ -614,9 +569,9 @@ void _transform(const raft::handle_t& handle,
                                                             inputs.n,
                                                             embedding,
                                                             orig_x_inputs.n,
-                                                            comp_coo->rows(),
-                                                            comp_coo->cols(),
-                                                            comp_coo->nnz,
+                                                            trimmed_graph.rows(),
+                                                            trimmed_graph.cols(),
+                                                            trimmed_graph.nnz,
                                                             epochs_per_sample.data(),
                                                             params->repulsion_strength,
                                                             params,
