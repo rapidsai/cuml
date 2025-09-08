@@ -1146,8 +1146,6 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
   marker: cuml_accel_kmeans_predict_output_deviation
   condition: scikit-learn<1.7
@@ -1318,7 +1316,6 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_shape]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifiers_classes]"
