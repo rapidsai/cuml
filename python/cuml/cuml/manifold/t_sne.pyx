@@ -103,7 +103,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int64_t* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -117,7 +118,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
 
 
 # Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
@@ -256,6 +258,8 @@ class TSNE(Base,
     kl_divergence_ : float
         Kullback-Leibler divergence after optimization. An experimental
         feature at this time.
+    n_iter_ : int
+        Number of iterations run.
 
     References
     ----------
@@ -383,6 +387,7 @@ class TSNE(Base,
         return {
             "embedding_": to_gpu(model.embedding_),
             "kl_divergence_": to_gpu(model.kl_divergence_),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
         }
 
@@ -395,6 +400,7 @@ class TSNE(Base,
             # separately in `pre_learning_rate`/`post_learning_rate`. The most equivalent
             # value is `pre_learning_rate`, which we forward here for now.
             "learning_rate_": self.pre_learning_rate,
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
         }
 
@@ -654,6 +660,7 @@ class TSNE(Base,
             self._build_tsne_params(algo)
 
         cdef float kl_divergence = 0
+        cdef int n_iter = 0
 
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
@@ -670,7 +677,8 @@ class TSNE(Base,
                             <int*> knn_indices_ptr,
                             <float*> knn_dists_ptr,
                             <TSNEParams&> deref(params),
-                            &kl_divergence)
+                            &kl_divergence,
+                            &n_iter)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -680,12 +688,14 @@ class TSNE(Base,
                      <int64_t*> knn_indices_ptr,
                      <float*> knn_dists_ptr,
                      <TSNEParams&> deref(params),
-                     &kl_divergence)
+                     &kl_divergence,
+                     &n_iter)
 
         self.handle.sync()
         free(params)
 
         self._kl_divergence_ = kl_divergence
+        self.n_iter_ = n_iter
         logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 

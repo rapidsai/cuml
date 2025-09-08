@@ -142,6 +142,18 @@ def test_repr():
     assert isinstance(model._repr_mimebundle_(), dict)
 
 
+def test_repr_mimebundle():
+    model = LogisticRegression(C=1.5)
+    unfitted_html_repr = model._repr_mimebundle_()["text/html"]
+
+    X, y = make_classification()
+    model.fit(X, y)
+    fitted_html_repr = model._repr_mimebundle_()["text/html"]
+
+    assert "<span>Not fitted</span>" in unfitted_html_repr
+    assert "<span>Fitted</span>" in fitted_html_repr
+
+
 def test_pipeline_repr():
     """sklearn's pretty printer requires you not override __repr__
     for pipelines to repr properly"""

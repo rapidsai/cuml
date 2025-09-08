@@ -182,12 +182,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
 def test_rf_regression_pickle(
     tmpdir, datatype, nrows, ncols, n_info, n_classes, key
 ):
-
     result = {}
-    if datatype == np.float64:
-        pytest.xfail(
-            "Pickling is not supported for dataset with" " dtype float64"
-        )
 
     def create_mod():
         if key == "RandomForestRegressor":
@@ -202,20 +197,14 @@ def test_rf_regression_pickle(
         model = rf_models[key]()
 
         model.fit(X_train, y_train)
-        if datatype == np.float32:
-            predict_model = "GPU"
-        else:
-            predict_model = "CPU"
-        result["rf_res"] = model.predict(X_test, predict_model=predict_model)
+        result["rf_res"] = model.predict(X_test)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
 
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
-        pickled_model.score(
-            X_test, np.zeros(X_test.shape[0]), predict_model="GPU"
-        )
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
         pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -227,16 +216,19 @@ def test_rf_regression_pickle(
 )
 @pytest.mark.parametrize("fit_intercept", [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_size[0] == 500000
         and datatype == np.float64
         and ("LogisticRegression" in keys or "Ridge" in keys)
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
     ):
         if pytest.adapt_stress_test:
-            data_size[0] = data_size[0] * pytest.max_gpu_memory // 640
-            data_size[1] = data_size[1] * pytest.max_gpu_memory // 640
-            data_size[2] = data_size[2] * pytest.max_gpu_memory // 640
+            data_size[0] = data_size[0] * max_gpu_memory // 640
+            data_size[1] = data_size[1] * max_gpu_memory // 640
+            data_size[2] = data_size[2] * max_gpu_memory // 640
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -412,13 +404,16 @@ def test_unfit_clone(model_name):
     [unit_param([500, 20, 10, 5]), stress_param([500000, 1000, 500, 50])],
 )
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_info[0] == 500000
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
         and ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys)
     ):
         if pytest.adapt_stress_test:
-            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+            data_info[0] = data_info[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -481,13 +476,16 @@ def test_nearest_neighbors_pickle(algorithm):
 )
 @pytest.mark.parametrize("keys", k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_info[0] == 500000
         and "NearestNeighbors" in keys
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
     ):
         if pytest.adapt_stress_test:
-            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+            data_info[0] = data_info[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -553,9 +551,12 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
-    if data_size[0] == 500000 and pytest.max_gpu_memory < 32:
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
+    if data_size[0] == 500000 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            data_size[0] = data_size[0] * pytest.max_gpu_memory // 32
+            data_size[0] = data_size[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
