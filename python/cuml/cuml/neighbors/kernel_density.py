@@ -137,17 +137,51 @@ def norm_log_probabilities(log_probabilities, kernel, h, d):
 
 @cuda.jit()
 def logsumexp_kernel(distances, log_probabilities):
-    i = cuda.grid(1)
-    if i >= log_probabilities.size:
+    row = cuda.blockIdx.x
+    if row >= distances.shape[0]:
         return
-    max_exp = distances[i, 0]
-    for j in range(1, distances.shape[1]):
-        if distances[i, j] > max_exp:
-            max_exp = distances[i, j]
-    sum = 0.0
-    for j in range(0, distances.shape[1]):
-        sum += math.exp(distances[i, j] - max_exp)
-    log_probabilities[i] = math.log(sum) + max_exp
+    tid = cuda.threadIdx.x
+    ncols = distances.shape[1]
+    stride = cuda.blockDim.x
+
+    sdata = cuda.shared.array(256, dtype=distances.dtype)
+
+    # phase 1: block-wide max
+    local_max = 0.0
+    for col in range(tid, ncols, stride):
+        val = distances[row, col]
+        if val > local_max:
+            local_max = val
+    sdata[tid] = local_max
+    cuda.syncthreads()
+
+    offset = stride // 2
+    while offset > 0:
+        if tid < offset:
+            other = sdata[tid + offset]
+            if other > sdata[tid]:
+                sdata[tid] = other
+        cuda.syncthreads()
+        offset //= 2
+
+    block_max = sdata[0]
+
+    # phase 2: block-wide sum of exp(x - max)
+    local_sum = 0.0
+    for col in range(tid, ncols, stride):
+        local_sum += math.exp(distances[row, col] - block_max)
+    sdata[tid] = local_sum
+    cuda.syncthreads()
+
+    offset = stride // 2
+    while offset > 0:
+        if tid < offset:
+            sdata[tid] += sdata[tid + offset]
+        cuda.syncthreads()
+        offset //= 2
+
+    if tid == 0:
+        log_probabilities[row] = math.log(sdata[0]) + block_max
 
 
 class KernelDensity(Base):
@@ -324,11 +358,11 @@ class KernelDensity(Base):
         else:
             raise ValueError("Unsupported kernel.")
 
-        log_probabilities = cp.zeros(distances.shape[0])
+        log_probabilities = cp.zeros(distances.shape[0], dtype=distances.dtype)
         if self.sample_weight_ is not None:
             distances += cp.log(self.sample_weight_)
 
-        logsumexp_kernel.forall(log_probabilities.size)(
+        logsumexp_kernel[(log_probabilities.size,),(256,)](
             distances, log_probabilities
         )
         # Note that sklearns user guide is wrong
