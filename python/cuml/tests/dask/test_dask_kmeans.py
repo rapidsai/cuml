@@ -15,6 +15,7 @@
 
 import cupy as cp
 import dask.array as da
+import numpy as np
 import pytest
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
@@ -318,4 +319,7 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
     local_model = cumlModel.get_combined_model()
     expected_score = local_model.score(X_train.compute())
 
-    assert abs(actual_score - expected_score) < 9e-3
+    np.testing.assert_allclose(actual_score, expected_score, atol=9e-3)
+    # The score is -1 * inertia. Scoring the training data should result in
+    # -1 * model.inertia_
+    np.testing.assert_allclose(actual_score, -cumlModel.inertia_, atol=9e-3)
