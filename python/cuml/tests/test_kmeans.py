@@ -449,3 +449,13 @@ def test_kmeans_empty_x():
     y = np.ones(shape=10)
     with pytest.raises(ValueError, match=r"Found array with 0 feature\(s\)"):
         model.fit(X, y)
+
+
+def test_kmeans_n_samples_less_than_n_clusters():
+    model = cuml.KMeans(n_clusters=8)
+
+    X = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
+    with pytest.raises(
+        ValueError, match="n_samples=2 should be >= n_clusters=8"
+    ):
+        model.fit(X)
