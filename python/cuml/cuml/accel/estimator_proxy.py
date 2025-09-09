@@ -117,6 +117,11 @@ class ProxyBase(BaseEstimator):
     # AttributeError.
     _not_implemented_attributes = frozenset()
 
+    # A set of additional attribute names to proxy through that don't match the
+    # `*_` naming convention. Typically this is private attributes that
+    # consumers might still be using.
+    _other_attributes = frozenset()
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # The CPU estimator, always defined. This is the source of truth for any
         # hyperparameters. It also may have fit attributes on it - these are lazily
@@ -376,13 +381,13 @@ class ProxyBase(BaseEstimator):
         )
 
     def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            # Never proxy magic methods or private attributes
-            raise AttributeError(
-                f"{type(self).__name__!r} object has no attribute {name!r}"
-            )
+        is_private = name.startswith("_")
 
-        if name.endswith("_"):
+        if (
+            name.endswith("_")
+            and not is_private
+            or name in self._other_attributes
+        ):
             # Fit attributes require syncing
             self._sync_attrs_to_cpu()
 
@@ -402,6 +407,11 @@ class ProxyBase(BaseEstimator):
                         "an issue: https://github.com/rapidsai/cuml/issues."
                     ) from None
                 raise
+        elif is_private:
+            # Don't proxy magic methods or private attributes by default
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
+            )
 
         return getattr(self._cpu, name)
 
