@@ -162,11 +162,11 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
 def test_logaddexp():
     X = np.array([[0.0, 0.0], [0.0, 0.0]])
     out = np.zeros(X.shape[0])
-    logsumexp_kernel.forall(out.size)(X, out)
+    logsumexp_kernel[(out.size,), (256,)](X, out)
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
     X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    logsumexp_kernel.forall(out.size)(X, out)
+    logsumexp_kernel[(out.size,), (256,)](X, out)
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 

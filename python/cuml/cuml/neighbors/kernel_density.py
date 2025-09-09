@@ -362,7 +362,7 @@ class KernelDensity(Base):
         if self.sample_weight_ is not None:
             distances += cp.log(self.sample_weight_)
 
-        logsumexp_kernel[(log_probabilities.size,),(256,)](
+        logsumexp_kernel[(log_probabilities.size,), (256,)](
             distances, log_probabilities
         )
         # Note that sklearns user guide is wrong
