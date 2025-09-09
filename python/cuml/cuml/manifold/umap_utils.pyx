@@ -134,6 +134,14 @@ cdef class HostGraphHolder:
         return self.get().get_nnz()
 
     def get_scipy_coo(self):
+        """Convert the host graph to a SciPy COO sparse matrix.
+
+        Returns
+        -------
+        scipy.sparse.coo_matrix
+            A copy of the graph data as a SciPy COO sparse matrix.
+            Note that this returns a copy of the data, not a view.
+        """
         def create_nonowning_numpy_array(ptr, dtype):
             c_type = np.ctypeslib.as_ctypes_type(dtype)
             c_pointer = ctypes.cast(ptr, ctypes.POINTER(c_type))

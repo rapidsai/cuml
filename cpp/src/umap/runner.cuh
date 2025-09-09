@@ -319,6 +319,7 @@ void _fit(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   raft::sparse::COO<value_t> trimmed_graph(stream);
+  // scoping to allow early release of the full graph
   {
     raft::sparse::COO<value_t> graph(stream);
     UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
@@ -366,6 +367,7 @@ void _fit_supervised(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   raft::sparse::COO<value_t> trimmed_graph(stream);
+  // scoping to allow early release of the full graph
   {
     raft::sparse::COO<value_t> graph(stream);
     UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
