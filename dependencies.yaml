@@ -443,9 +443,8 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
-          # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-          # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
-          - nvidia-ml-py>=12.560.30
+          # 'nvidia-ml-py' provides the 'pynvml' module
+          - nvidia-ml-py>=12
           - pyyaml
           - pytest
           - pytest-benchmark

@@ -130,7 +130,7 @@ test = [
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc<1.9",
-    "nvidia-ml-py>=12.560.30",
+    "nvidia-ml-py>=12",
     "pynndescent",
     "pytest",
     "pytest-benchmark",
