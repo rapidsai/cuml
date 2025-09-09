@@ -78,12 +78,19 @@ set(CUDA_STATIC_MATH_LIBRARIES OFF)
 add_subdirectory(../../cpp cuml-cpp)
 
 # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
-set(rpaths
-  "$ORIGIN/../../nvidia/cublas/lib"
-  "$ORIGIN/../../nvidia/cufft/lib"
-  "$ORIGIN/../../nvidia/curand/lib"
-  "$ORIGIN/../../nvidia/cusolver/lib"
-  "$ORIGIN/../../nvidia/cusparse/lib"
-  "$ORIGIN/../../nvidia/nvjitlink/lib"
-)
+if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 13.0)
+  # starting with CTK 13 wheels, all libraries are grouped in this 'nvidia/cu13/lib' directory
+  set(rpaths
+    "$ORIGIN/../../nvidia/cu13/lib"
+  )
+else()
+  set(rpaths
+    "$ORIGIN/../../nvidia/cublas/lib"
+    "$ORIGIN/../../nvidia/cufft/lib"
+    "$ORIGIN/../../nvidia/curand/lib"
+    "$ORIGIN/../../nvidia/cusolver/lib"
+    "$ORIGIN/../../nvidia/cusparse/lib"
+    "$ORIGIN/../../nvidia/nvjitlink/lib"
+  )
+endif()
 set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
