@@ -155,16 +155,14 @@ def test_getattr(client):
     assert kmeans_model.client is not None
 
     # Test getattr on local_model param with a non-distributed model
-
     X, y = make_blobs(
-        n_samples=5,
+        n_samples=20,
         n_features=5,
         centers=2,
         n_parts=2,
         cluster_std=0.01,
         random_state=10,
     )
-
     kmeans_model.fit(X)
 
     assert kmeans_model.cluster_centers_ is not None

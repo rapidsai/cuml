@@ -109,8 +109,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return KMeans(handle=handle, output_type=datatype, **kwargs).fit(
-            inp_data, sample_weight=inp_weights
+        return KMeans(handle=handle, output_type=datatype, **kwargs)._fit(
+            inp_data, sample_weight=inp_weights, multigpu=True
         )
 
     @staticmethod

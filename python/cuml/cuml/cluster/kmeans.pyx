@@ -34,12 +34,70 @@ from cuml.internals.utils import check_random_seed
 from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from cuml.cluster.cpp.kmeans cimport fit as cpp_fit
-from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
-from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
+cimport cuml.cluster.cpp.kmeans as cpp_kmeans
 from cuml.cluster.kmeans_utils cimport InitMethod, KMeansParams
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
+
+ctypedef fused index_t:
+    int
+    int64_t
+
+
+ctypedef fused value_t:
+    float
+    double
+
+
+cdef _kmeans_cpp_fit(
+    handle_t& handle,
+    KMeansParams& params,
+    const value_t *X,
+    index_t n_rows,
+    index_t n_cols,
+    const value_t *sample_weight,
+    value_t *centroids,
+):
+    cdef index_t n_iter = 0
+    cdef value_t inertia = 0
+
+    with nogil:
+        cpp_kmeans.fit(
+            handle, params, X, n_rows, n_cols, sample_weight, centroids, inertia, n_iter
+        )
+    return n_iter
+
+
+cdef _kmeans_cpp_predict(
+    handle_t& handle,
+    KMeansParams& params,
+    const value_t *centroids,
+    const value_t *X,
+    index_t n_rows,
+    index_t n_cols,
+    const value_t *sample_weight,
+    index_t *labels,
+):
+    cdef value_t inertia = 0
+    with nogil:
+        cpp_kmeans.predict(
+            handle, params, centroids, X, n_rows, n_cols, sample_weight,
+            True, labels, inertia
+        )
+    return inertia
+
+
+cdef void _kmeans_cpp_transform(
+    handle_t& handle,
+    KMeansParams& params,
+    const value_t *centroids,
+    const value_t *X,
+    index_t n_rows,
+    index_t n_cols,
+    value_t *out,
+):
+    with nogil:
+        cpp_kmeans.transform(handle, params, centroids, X, n_rows, n_cols, out)
 
 
 cdef _kmeans_init_params(kmeans, KMeansParams& params):
@@ -90,9 +148,6 @@ cdef _kmeans_predict(
 
     Split out to be shared between `KMeans.fit` and `KMeans.predict`
     """
-    cdef float inertia_f32 = 0
-    cdef double inertia_f64 = 0
-
     n_rows, n_cols = X.shape
     labels = CumlArray.zeros(
         shape=n_rows,
@@ -101,7 +156,7 @@ cdef _kmeans_predict(
 
     if X.dtype == np.float32:
         if labels.dtype == np.int32:
-            cpp_predict(
+            inertia = _kmeans_cpp_predict(
                 handle[0],
                 params,
                 <float*><uintptr_t>centers.ptr,
@@ -109,12 +164,10 @@ cdef _kmeans_predict(
                 <int>n_rows,
                 <int>n_cols,
                 <float*><uintptr_t>sample_weight.ptr,
-                True,
                 <int*><uintptr_t>labels.ptr,
-                inertia_f32,
             )
         else:
-            cpp_predict(
+            inertia = _kmeans_cpp_predict(
                 handle[0],
                 params,
                 <float*><uintptr_t>centers.ptr,
@@ -122,14 +175,11 @@ cdef _kmeans_predict(
                 <int64_t>n_rows,
                 <int64_t>n_cols,
                 <float*><uintptr_t>sample_weight.ptr,
-                True,
                 <int64_t*><uintptr_t>labels.ptr,
-                inertia_f32,
             )
-        inertia = inertia_f32
     else:
         if labels.dtype == np.int32:
-            cpp_predict(
+            inertia = _kmeans_cpp_predict(
                 handle[0],
                 params,
                 <double*><uintptr_t>centers.ptr,
@@ -137,12 +187,10 @@ cdef _kmeans_predict(
                 <int>n_rows,
                 <int>n_cols,
                 <double*><uintptr_t>sample_weight.ptr,
-                True,
                 <int*><uintptr_t>labels.ptr,
-                inertia_f64,
             )
         else:
-            cpp_predict(
+            inertia = _kmeans_cpp_predict(
                 handle[0],
                 params,
                 <double*><uintptr_t>centers.ptr,
@@ -150,11 +198,8 @@ cdef _kmeans_predict(
                 <int64_t>n_rows,
                 <int64_t>n_cols,
                 <double*><uintptr_t>sample_weight.ptr,
-                True,
                 <int64_t*><uintptr_t>labels.ptr,
-                inertia_f64,
             )
-        inertia = inertia_f64
 
     return labels, inertia
 
@@ -434,6 +479,11 @@ class KMeans(Base,
         Compute k-means clustering with X.
 
         """
+        return self._fit(X, y=y, sample_weight=sample_weight, convert_dtype=convert_dtype)
+
+    def _fit(
+        self, X, y=None, sample_weight=None, *, convert_dtype=True, multigpu=False
+    ) -> "KMeans":
         # Process input arrays
         X_m, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
@@ -460,7 +510,10 @@ class KMeans(Base,
                     f"Found array with 0 {kind}(s) (shape=({n_rows}, {n_cols})) "
                     "while a minimum of 1 is required by KMeans."
                 )
-        if n_rows < self.n_clusters:
+
+        # Skip this check if running in multigpu mode. In that case we don't care if
+        # a single partition has fewer rows than clusters
+        if not multigpu and n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
             )
@@ -494,14 +547,10 @@ class KMeans(Base,
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef KMeansParams params
         _kmeans_init_params(self, params)
-        cdef float inertia_f32 = 0
-        cdef double inertia_f64 = 0
-        cdef int n_iter_i32 = 0
-        cdef int64_t n_iter_i64 = 0
 
         if dtype == np.float32:
             if int32_indices:
-                cpp_fit(
+                n_iter = _kmeans_cpp_fit(
                     handle_[0],
                     params,
                     <const float*><uintptr_t>X_m.ptr,
@@ -509,11 +558,9 @@ class KMeans(Base,
                     <int>n_cols,
                     <const float *><uintptr_t>sample_weight_m.ptr,
                     <float*><uintptr_t>centers.ptr,
-                    inertia_f32,
-                    n_iter_i32,
                 )
             else:
-                cpp_fit(
+                n_iter = _kmeans_cpp_fit(
                     handle_[0],
                     params,
                     <const float*><uintptr_t>X_m.ptr,
@@ -521,12 +568,10 @@ class KMeans(Base,
                     <int64_t>n_cols,
                     <const float *><uintptr_t>sample_weight_m.ptr,
                     <float*><uintptr_t>centers.ptr,
-                    inertia_f32,
-                    n_iter_i64,
                 )
         else:
             if int32_indices:
-                cpp_fit(
+                n_iter = _kmeans_cpp_fit(
                     handle_[0],
                     params,
                     <const double*><uintptr_t>X_m.ptr,
@@ -534,11 +579,9 @@ class KMeans(Base,
                     <int>n_cols,
                     <const double *><uintptr_t>sample_weight_m.ptr,
                     <double*><uintptr_t>centers.ptr,
-                    inertia_f64,
-                    n_iter_i32,
                 )
             else:
-                cpp_fit(
+                n_iter = _kmeans_cpp_fit(
                     handle_[0],
                     params,
                     <const double*><uintptr_t>X_m.ptr,
@@ -546,8 +589,6 @@ class KMeans(Base,
                     <int64_t>n_cols,
                     <const double *><uintptr_t>sample_weight_m.ptr,
                     <double*><uintptr_t>centers.ptr,
-                    inertia_f64,
-                    n_iter_i64,
                 )
 
         labels, inertia = _kmeans_predict(handle_, params, X_m, sample_weight_m, centers)
@@ -557,7 +598,7 @@ class KMeans(Base,
         self.cluster_centers_ = centers
         self.labels_ = labels
         self.inertia_ = inertia
-        self.n_iter_ = n_iter_i32 if int32_indices else n_iter_i64
+        self.n_iter_ = n_iter
 
         return self
 
@@ -679,7 +720,7 @@ class KMeans(Base,
 
         if dtype == np.float32:
             if self.labels_.dtype == np.int32:
-                cpp_transform(
+                _kmeans_cpp_transform(
                     handle_[0],
                     params,
                     <float*><uintptr_t>self.cluster_centers_.ptr,
@@ -689,7 +730,7 @@ class KMeans(Base,
                     <float*><uintptr_t>out.ptr,
                 )
             else:
-                cpp_transform(
+                _kmeans_cpp_transform(
                     handle_[0],
                     params,
                     <float*><uintptr_t>self.cluster_centers_.ptr,
@@ -700,7 +741,7 @@ class KMeans(Base,
                 )
         else:
             if self.labels_.dtype == np.int32:
-                cpp_transform(
+                _kmeans_cpp_transform(
                     handle_[0],
                     params,
                     <double*><uintptr_t>self.cluster_centers_.ptr,
@@ -710,7 +751,7 @@ class KMeans(Base,
                     <double*><uintptr_t>out.ptr,
                 )
             else:
-                cpp_transform(
+                _kmeans_cpp_transform(
                     handle_[0],
                     params,
                     <double*><uintptr_t>self.cluster_centers_.ptr,
