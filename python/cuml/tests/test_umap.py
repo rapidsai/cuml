@@ -839,9 +839,6 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 def test_umap_trustworthiness_on_batch_nnd(
     num_clusters, fit_then_transform, metric, do_snmg
 ):
-    if do_snmg and num_clusters == 5:
-        pytest.xfail("xfailing snmg test with 5 clusters for now")
-
     digits = datasets.load_digits()
 
     umap_handle = None
