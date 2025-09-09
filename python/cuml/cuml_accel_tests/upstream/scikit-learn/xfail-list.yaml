@@ -1041,14 +1041,9 @@
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
-  condition: scikit-learn>=1.7
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
-- reason: Test is flaky with cuml.accel
-  marker: cuml_accel_flaky
-  strict: false
-  tests:
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
@@ -1152,7 +1147,6 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
   - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
   - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
