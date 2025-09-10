@@ -16,11 +16,11 @@
 
 import cupy as cp
 import cupyx
+import dask.array as da
 import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
-from cuml.dask.metrics.utils import sorted_unique_labels
 from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.prims.label import make_monotonic
 
@@ -91,7 +91,9 @@ def confusion_matrix(
     client = get_client(client)
 
     if labels is None:
-        labels = sorted_unique_labels(y_true, y_pred)
+        labels = da.unique(
+            da.concatenate([da.unique(y_true), da.unique(y_pred)])
+        ).compute()
 
     if normalize not in ["true", "pred", "all", None]:
         msg = (

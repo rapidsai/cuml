@@ -195,3 +195,16 @@ def test_not_fitted():
         kde.sample(X)
     with pytest.raises(NotFittedError):
         kde.score_samples(X)
+
+
+def test_bad_sample_weight_errors():
+    kde = KernelDensity()
+    X = np.array([[0.0, 1.0], [2.0, 0.5]])
+
+    with pytest.raises(ValueError, match="Expected 2 rows but got 3 rows."):
+        kde.fit(X, sample_weight=np.array([1, 2, 3]))
+
+    with pytest.raises(
+        ValueError, match="Expected 1 columns but got 2 columns."
+    ):
+        kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))

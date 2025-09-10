@@ -786,7 +786,7 @@ class StandardScaler(TransformerMixin,
         # missing values)
         ptp = np.amax(self.n_samples_seen_) - np.amin(self.n_samples_seen_)
         if ptp == 0:
-            self.n_samples_seen_ = self.n_samples_seen_[0]
+            self.n_samples_seen_ = self.n_samples_seen_[0].item()
         del ptp
 
         if self.with_std:
