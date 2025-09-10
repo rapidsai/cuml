@@ -81,6 +81,7 @@ cdef _kmeans_fit(
     sample_weight,
     centers,
 ):
+    """Fit the kmeans centers and return `n_iter`"""
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
