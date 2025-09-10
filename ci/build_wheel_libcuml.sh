@@ -43,7 +43,7 @@ EXCLUDE_ARGS=(
   --exclude "librmm.so"
 )
 
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DCUML_USE_CUVS_STATIC=ON"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCUML_USE_CUVS_STATIC=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 # repair wheels and write to the location that artifact-uploading code expects to find them
