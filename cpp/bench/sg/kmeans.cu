@@ -51,16 +51,25 @@ class KMeans : public BlobsFixture<D> {
     using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) { state.SkipWithError("KMeans only supports row-major inputs"); }
     this->loopOnState(state, [this]() {
-      ML::kmeans::fit_predict(*this->handle,
-                              kParams,
-                              this->data.X.data(),
-                              this->params.nrows,
-                              this->params.ncols,
-                              nullptr,
-                              centroids,
-                              this->data.y.data(),
-                              inertia,
-                              nIter);
+      ML::kmeans::fit(*this->handle,
+                      kParams,
+                      this->data.X.data(),
+                      this->params.nrows,
+                      this->params.ncols,
+                      nullptr,
+                      centroids,
+                      inertia,
+                      nIter);
+      ML::kmeans::predict(*this->handle,
+                          kParams,
+                          centroids,
+                          this->data.X.data(),
+                          this->params.nrows,
+                          this->params.ncols,
+                          nullptr,
+                          true,
+                          this->data.y.data(),
+                          inertia);
     });
   }
 

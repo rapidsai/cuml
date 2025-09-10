@@ -455,7 +455,6 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
             src/kmeans/kmeans_transform.cu
             src/kmeans/kmeans_fit.cu
-            src/kmeans/kmeans_fit_predict.cu
             src/kmeans/kmeans_predict.cu
             src/kmeans/kmeans_params.cpp
             )
