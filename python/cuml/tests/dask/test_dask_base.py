@@ -158,7 +158,7 @@ def test_getattr(client):
     X, y = make_blobs(
         n_samples=20,
         n_features=5,
-        centers=2,
+        centers=8,
         n_parts=2,
         cluster_std=0.01,
         random_state=10,
