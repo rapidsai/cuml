@@ -194,6 +194,22 @@ def test_input_to_host_array(dtype, input_type, num_rows, num_cols, order):
     del real_data
 
 
+@pytest.mark.parametrize("dtype", test_dtypes_acceptable)
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("order", ["C", "F", "K"])
+def test_non_contiguous_input_to_host_array(dtype, input_type, order):
+    input_data, real_data = get_input(input_type, 10, 8, dtype)
+    input_data = input_data[:-3]
+    real_data = real_data[:-3]
+
+    res = input_to_host_array(input_data, order=order).array
+    np.testing.assert_equal(real_data, res)
+    if order == "F":
+        assert res.flags.f_contiguous
+    else:
+        assert res.flags.c_contiguous
+
+
 @pytest.mark.parametrize("dtype", test_dtypes_all)
 @pytest.mark.parametrize("check_dtype", test_dtypes_all)
 @pytest.mark.parametrize("input_type", test_input_types)
