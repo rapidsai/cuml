@@ -39,7 +39,7 @@ function(find_and_configure_cumlprims_mg)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-          GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
           SOURCE_SUBDIR    cpp
