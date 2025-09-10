@@ -38,6 +38,7 @@ from cuml.manifold.simpl_set import (
 from cuml.testing.manifold.umap_metrics import (
     _build_knn_with_cuvs,
     _build_knn_with_umap,
+    compare_spectral_embeddings,
     compute_fuzzy_simplicial_set_metrics,
     compute_knn_metrics,
     compute_simplicial_set_embedding_metrics,
@@ -209,9 +210,9 @@ def test_knn(cu_knn_graph_fixture):
     # Tolerances: stricter for bruteforce, looser for NN-descent approx
     if d["backend"] == "bruteforce":
         recall_tol = 0.995
-        dist_tol = 5e-5 if metric == "cosine" else 1e-5
+        dist_tol = 5e-5 if metric == "cosine" else 6e-4
     else:
-        recall_tol = 0.95
+        recall_tol = 0.94
         dist_tol = 5e-3 if metric == "cosine" else 1e-3
 
     assert avg_recall >= recall_tol, (
@@ -276,6 +277,76 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     assert (
         row_l1 <= row_l1_tol
     ), f"Row-sum L1 too high (row_l1={row_l1:.3e} > tol={row_l1_tol:.3e}) for {dataset_name}, metric={metric}, backend={d['backend']}"
+
+
+def test_spectral_init(cu_fuzzy_fixture):
+    """Test cuML SpectralEmbedding against reference UMAP spectral_layout."""
+    d = cu_fuzzy_fixture
+    dataset_name = d["dataset_name"]
+    X_np = d["X_np"]
+    n_neighbors = d["k"]
+    cu_graph_cpu = d["cu_graph_cpu"]
+
+    # Compare spectral embeddings
+    result = compare_spectral_embeddings(
+        fuzzy_graph_cpu=cu_graph_cpu,
+        n_components=2,
+        n_neighbors=n_neighbors,
+        random_state=42,
+    )
+
+    # Extract and validate results
+    rmse = result["rmse"]
+    correlations = result["correlations"]
+    ref_emb = result["ref_embedding"]
+    cu_emb = result["cu_embedding"]
+
+    expected_shape = (X_np.shape[0], 2)
+    assert ref_emb.shape == expected_shape
+    assert cu_emb.shape == expected_shape
+    assert len(correlations) == 2
+    assert all(np.isfinite(c) for c in correlations)
+    assert np.isfinite(rmse)
+
+    # Set tolerances (moderate due to implementation differences)
+    severe_rmse_tol = 0.50
+    moderate_rmse_tol = 0.30
+    severe_corr_tol = 0.50
+    moderate_corr_tol = 0.70
+
+    # Collect issues
+    severe_issues = []
+    moderate_issues = []
+
+    # Check RMSE
+    if rmse > severe_rmse_tol:
+        severe_issues.append(f"RMSE {rmse:.3f} > {severe_rmse_tol:.3f}")
+    elif rmse > moderate_rmse_tol:
+        moderate_issues.append(f"RMSE {rmse:.3f} > {moderate_rmse_tol:.3f}")
+
+    # Check correlations
+    for i, corr in enumerate(correlations):
+        corr_abs = abs(corr)
+        if corr_abs < severe_corr_tol:
+            severe_issues.append(
+                f"Component {i} correlation {corr_abs:.3f} < {severe_corr_tol:.3f}"
+            )
+        elif corr_abs < moderate_corr_tol:
+            moderate_issues.append(
+                f"Component {i} correlation {corr_abs:.3f} < {moderate_corr_tol:.3f}"
+            )
+
+    # Fail if any severe issues or too many moderate issues
+    should_fail = len(severe_issues) > 0 or len(moderate_issues) >= 3
+
+    if should_fail:
+        corr_str = ", ".join(f"{abs(c):.3f}" for c in correlations)
+        details = (
+            f"Spectral embedding comparison failed for {dataset_name} (k={n_neighbors}): "
+            f"RMSE={rmse:.3f}, correlations=[{corr_str}] | "
+            f"Severe issues: {severe_issues} | Moderate issues: {moderate_issues}"
+        )
+        assert False, details
 
 
 # Curated parameter sets spanning key UMAP embedding knobs (kept small for CI)

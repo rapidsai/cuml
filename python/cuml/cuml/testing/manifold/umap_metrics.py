@@ -30,6 +30,9 @@ from sklearn.neighbors import NearestNeighbors
 
 # Reference UMAP implementation
 from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
+from umap.umap_ import spectral_layout
+
+from cuml.manifold import SpectralEmbedding
 
 # cuML implementation
 from cuml.manifold.simpl_set import (
@@ -110,6 +113,113 @@ def compute_knn_metrics(
     )
 
     return avg_recall, mae_dist
+
+
+def compare_spectral_embeddings(
+    fuzzy_graph_cpu, n_components=2, n_neighbors=15, random_state=42
+):
+    """Compare UMAP's spectral_layout with cuML's SpectralEmbedding.
+
+    Parameters
+    ----------
+    fuzzy_graph_cpu : csr_matrix
+        Precomputed fuzzy simplicial set graph (CPU)
+    n_components : int, default=2
+        Number of embedding dimensions
+    n_neighbors : int, default=15
+        Number of neighbors (ignored when affinity="precomputed")
+    random_state : int, default=42
+        Random state for reproducibility
+
+    Returns
+    -------
+    dict with keys: ref_embedding, cu_embedding, rmse, correlations, stats
+    """
+    # Reference UMAP spectral layout
+    ref_spectral_init = spectral_layout(
+        data=None,
+        graph=fuzzy_graph_cpu,
+        dim=n_components,
+        random_state=np.random.RandomState(random_state),
+    )
+
+    # cuML SpectralEmbedding
+    se = SpectralEmbedding(
+        affinity="precomputed",
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+    )
+    cu_spectral_init = se.fit_transform(fuzzy_graph_cpu)
+
+    # Convert to numpy arrays
+    ref_init_np = (
+        cp.asnumpy(ref_spectral_init)
+        if isinstance(ref_spectral_init, cp.ndarray)
+        else np.asarray(ref_spectral_init, dtype=np.float32)
+    )
+    cu_init_np = (
+        cp.asnumpy(cu_spectral_init)
+        if isinstance(cu_spectral_init, cp.ndarray)
+        else np.asarray(cu_spectral_init, dtype=np.float32)
+    )
+
+    # Validate shapes
+    expected_shape = (fuzzy_graph_cpu.shape[0], n_components)
+    if ref_init_np.shape != expected_shape:
+        raise ValueError(
+            f"Reference embedding shape {ref_init_np.shape} != expected {expected_shape}"
+        )
+    if cu_init_np.shape != expected_shape:
+        raise ValueError(
+            f"cuML embedding shape {cu_init_np.shape} != expected {expected_shape}"
+        )
+
+    # Center and normalize
+    def center_and_normalize(arr):
+        centered = arr - arr.mean(axis=0, keepdims=True)
+        std = np.std(centered, axis=0, keepdims=True)
+        std = np.where(std > 1e-8, std, 1.0)
+        return centered / std
+
+    ref_norm = center_and_normalize(ref_init_np)
+    cu_norm = center_and_normalize(cu_init_np)
+
+    # Compute metrics
+    rmse = procrustes_rmse(ref_norm, cu_norm)
+
+    correlations = []
+    for dim in range(n_components):
+        ref_col, cu_col = ref_norm[:, dim], cu_norm[:, dim]
+        if np.std(ref_col) < 1e-10 or np.std(cu_col) < 1e-10:
+            corr = 0.0
+        else:
+            corr = np.corrcoef(ref_col, cu_col)[0, 1]
+            if not np.isfinite(corr):
+                corr = 0.0
+        correlations.append(corr)
+
+    # Compute statistics
+    ref_stats = {
+        "mean": np.mean(ref_norm, axis=0).tolist(),
+        "std": np.std(ref_norm, axis=0).tolist(),
+        "min": np.min(ref_norm, axis=0).tolist(),
+        "max": np.max(ref_norm, axis=0).tolist(),
+    }
+    cu_stats = {
+        "mean": np.mean(cu_norm, axis=0).tolist(),
+        "std": np.std(cu_norm, axis=0).tolist(),
+        "min": np.min(cu_norm, axis=0).tolist(),
+        "max": np.max(cu_norm, axis=0).tolist(),
+    }
+
+    return {
+        "ref_embedding": ref_norm,
+        "cu_embedding": cu_norm,
+        "rmse": rmse,
+        "correlations": correlations,
+        "stats": {"ref": ref_stats, "cu": cu_stats},
+    }
 
 
 def continuity_score(
@@ -431,7 +541,7 @@ def _compute_geodesic_correlations(
     # Compute distances from multiple sources with per-source SSSP (version-compatible)
     high_geo = np.full((num_sources, subset_size), np.inf, dtype=np.float32)
     for r, s in enumerate(sources_local):
-        res = cugraph.sssp(G, source=int(s), edge_attr="w")
+        res = cugraph.sssp(G, source=int(s))
         v_np = res["vertex"].to_numpy()
         d_np = res["distance"].to_numpy()
         if d_np.dtype != np.float32:
