@@ -19,7 +19,6 @@ import math
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
-from numba import cuda
 
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
@@ -135,19 +134,17 @@ def norm_log_probabilities(log_probabilities, kernel, h, d):
     return log_probabilities - (factor + d * np.log(h))
 
 
-@cuda.jit()
-def logsumexp_kernel(distances, log_probabilities):
-    i = cuda.grid(1)
-    if i >= log_probabilities.size:
-        return
-    max_exp = distances[i, 0]
-    for j in range(1, distances.shape[1]):
-        if distances[i, j] > max_exp:
-            max_exp = distances[i, j]
-    sum = 0.0
-    for j in range(0, distances.shape[1]):
-        sum += math.exp(distances[i, j] - max_exp)
-    log_probabilities[i] = math.log(sum) + max_exp
+# Implements a reduction similar to `numpy.logaddexp.reduce`. `cupy` currently
+# does not support this method natively: https://github.com/cupy/cupy/issues/9391
+logaddexp_reduce = cp.ReductionKernel(
+    "T d",
+    "T out",
+    "exp(d)",
+    "a + b",
+    "out = log(a)",
+    "0",
+    "logaddexp_reduce",
+)
 
 
 class KernelDensity(Base):
@@ -326,13 +323,18 @@ class KernelDensity(Base):
         else:
             raise ValueError("Unsupported kernel.")
 
-        log_probabilities = cp.zeros(distances.shape[0])
         if self.sample_weight_ is not None:
             distances += cp.log(self.sample_weight_)
 
-        logsumexp_kernel.forall(log_probabilities.size)(
-            distances, log_probabilities
-        )
+        # To avoid overflow, we apply
+        # log(exp(x).sum()) -> log(exp(x - x.max())) + x.max()
+        # We subtract the max inplace to avoid an extra allocation,
+        # since `distances` is no longer needed after this point.
+        max_distances = distances.max(axis=1)
+        distances -= max_distances[:, None]
+        log_probabilities = logaddexp_reduce(distances, axis=1)
+        log_probabilities += max_distances
+
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for
         #  the kernel density is sum(K(x,h)).
