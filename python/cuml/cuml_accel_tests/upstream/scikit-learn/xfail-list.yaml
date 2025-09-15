@@ -1038,7 +1038,14 @@
   condition: scikit-learn<1.7
   strict: false
   tests:
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag"
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.7
+  strict: false
+  tests:
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   strict: false
@@ -1103,6 +1110,13 @@
   marker: cuml_accel_kmeans_cluster_centers_attribute
   tests:
   - "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
+- reason: These tests always pass on some platforms and always fail on others
+  marker: cuml_accel_kmeans_differs_on_certain_platforms
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
+  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: cuml.accel deviates in KMeans empty cluster reloacation (number of labels)
   marker: cuml_accel_kmeans_empty_clusters_num_labels
   tests:
@@ -1117,7 +1131,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: Integer inputs are converted to float32 instead of float64 with cuml.accel
   marker: cuml_accel_kmeans_integer_dtype
   tests:
@@ -1151,11 +1164,6 @@
   condition: scikit-learn<1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
-- reason: cuml.accel deviates in predict output for KMeans
-  marker: cuml_accel_kmeans_predict_output_deviation
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
 - reason: cuml.accel deviates in repeated predict output for KMeans
   marker: cuml_accel_kmeans_repeated_predict_output_deviation
   condition: scikit-learn<1.6
