@@ -416,7 +416,9 @@ def _build_knn_with_umap(
     if backend == "bruteforce":
         nn = NearestNeighbors(n_neighbors=k, metric=metric, algorithm="brute")
         nn.fit(X_np)
-        knn_dists, knn_indices = nn.kneighbors(X_np, return_distance=True)
+        knn_dists, knn_indices = nn.kneighbors(
+            X_np, return_distance=True, n_jobs=-1
+        )
         return knn_dists.astype(np.float32, copy=False), knn_indices
 
     if backend == "nn_descent":

@@ -39,6 +39,7 @@ from cuml.testing.manifold.umap_metrics import (
     _build_knn_with_cuvs,
     _build_knn_with_umap,
     compare_spectral_embeddings,
+    compute_fuzzy_js_divergence,
     compute_fuzzy_simplicial_set_metrics,
     compute_knn_metrics,
     compute_simplicial_set_embedding_metrics,
@@ -74,10 +75,14 @@ def _env_data_dir() -> pathlib.Path:
 
 def read_fbin(fname: pathlib.Path) -> np.ndarray:
     shape = np.fromfile(fname, dtype=np.uint32, count=2)
-    # if float(shape[0]) * shape[1] * 4 > 2_000_000_000:
-    #    data = np.memmap(fname, dtype=np.float32, offset=8, mode="r").reshape(shape)
-    # else:
-    data = np.fromfile(fname, dtype=np.float32, offset=8).reshape(shape)
+    num_elems = int(shape[0]) * int(shape[1])
+    bytes_required = num_elems * 4
+    if bytes_required > 1_500_000_000:
+        data = np.memmap(
+            fname, dtype=np.float32, offset=8, mode="r", shape=tuple(shape)
+        )
+    else:
+        data = np.fromfile(fname, dtype=np.float32, offset=8).reshape(shape)
     return data
 
 
@@ -255,17 +260,23 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     kl_sym, jacc, row_l1 = compute_fuzzy_simplicial_set_metrics(
         ref_graph, cu_graph
     )
+    js_avg = compute_fuzzy_js_divergence(ref_graph, cu_graph, average=True)
 
     # Simple, global tolerances
     kl_tol = 1e-2
     j_tol = 0.90
     row_l1_tol = 5e-3
+    js_tol = 1e-2
 
     # Assertions focused on matching the reference
     assert np.isfinite(kl_sym), "KL not finite"
+    assert np.isfinite(js_avg), "JS not finite"
     assert (
         kl_sym <= kl_tol
     ), f"KL(sym) too high: {kl_sym:.3e} > {kl_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
+    assert (
+        js_avg <= js_tol
+    ), f"JS(avg) too high: {js_avg:.3e} > {js_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
     assert (
         jacc >= j_tol
     ), f"Edge Jaccard too low (jacc={jacc:.3f} < tol={j_tol:.3f}) for {dataset_name}, metric={metric}, backend={d['backend']}"
