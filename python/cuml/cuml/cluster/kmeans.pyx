@@ -399,6 +399,11 @@ class KMeans(Base,
                     "while a minimum of 1 is required by KMeans."
                 )
 
+        if n_rows < self.n_clusters:
+            raise ValueError(
+                f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
+            )
+
         self._seed = check_random_seed(self.random_state)
         self.n_features_in_ = n_cols
         self.feature_names_in_ = X_m.index
