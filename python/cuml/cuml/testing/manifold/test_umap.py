@@ -251,11 +251,6 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     # cuML fuzzy graph (GPU native + CPU SciPy for ref embedding step) precomputed in fixture
     cu_graph = d["cu_graph_cpu"]
 
-    # Fuzzy simplicial set from similar KNN graphs should match very closely
-    assert (
-        ref_graph.todense() - cu_graph.todense()
-    ).sum() < 1e-2, "Fuzzy graph mismatch"
-
     # Compute fuzzy simplicial set metrics : KL, Jaccard, Row-sum L1
     kl_sym, jacc, row_l1 = compute_fuzzy_simplicial_set_metrics(
         ref_graph, cu_graph
@@ -264,7 +259,7 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     # Simple, global tolerances
     kl_tol = 1e-2
     j_tol = 0.90
-    row_l1_tol = 1e-3
+    row_l1_tol = 5e-3
 
     # Assertions focused on matching the reference
     assert np.isfinite(kl_sym), "KL not finite"

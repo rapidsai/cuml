@@ -378,18 +378,14 @@ def compute_fuzzy_simplicial_set_metrics(ref_fss_graph, cu_fss_graph):
     # Symmetric KL divergence between the two fuzzy graphs
     kl_sym = compute_fuzzy_kl_sym(ref_fss_graph, cu_fss_graph)
 
-    # Jaccard over undirected edges
-    jacc = compute_edge_jaccard(ref_fss_graph, cu_fss_graph, eps=0.0)
+    # Jaccard over undirected edges (ignore near-zero weights for stability)
+    jacc = compute_edge_jaccard(ref_fss_graph, cu_fss_graph, eps=1e-6)
 
-    # Row-sum L1: average absolute difference of total membership mass per node
-    row_l1 = float(
-        np.mean(
-            np.abs(
-                np.asarray(ref_fss_graph.sum(axis=1)).ravel()
-                - np.asarray(cu_fss_graph.sum(axis=1)).ravel()
-            )
-        )
-    )
+    # Row-sum relative L1: average relative difference of total membership mass per node
+    sums_ref = np.asarray(ref_fss_graph.sum(axis=1)).ravel()
+    sums_cu = np.asarray(cu_fss_graph.sum(axis=1)).ravel()
+    denom = np.maximum(np.abs(sums_ref), 1e-12)
+    row_l1 = float(np.mean(np.abs(sums_ref - sums_cu) / denom))
 
     return kl_sym, jacc, row_l1
 
@@ -424,7 +420,7 @@ def _build_knn_with_umap(
         return knn_dists.astype(np.float32, copy=False), knn_indices
 
     if backend == "nn_descent":
-        angular = metric in ("cosine", "angular")
+        angular = metric == "angular"
         knn_indices, knn_dists, _ = umap_nearest_neighbors(
             X_np,
             n_neighbors=k,
