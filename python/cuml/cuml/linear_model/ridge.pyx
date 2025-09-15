@@ -79,7 +79,6 @@ _SOLVER_CUML_TO_SKLEARN = {
     "auto": "auto",
     "svd": "svd",
     "eig": "cholesky",
-    "cd": "sag",
 }
 
 
@@ -97,12 +96,11 @@ class Ridge(Base,
 
     cuML's Ridge can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or `__cuda_array_interface__`
-    compliant), in addition to cuDF objects. It provides 3
-    algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses
+    compliant), in addition to cuDF objects. It provides 2
+    algorithms: SVD and Eig to fit a linear model. In general SVD uses
     significantly more memory and is slower than Eig. If using CUDA 10.1,
     the memory difference is even bigger than in the other supported CUDA
-    versions. However, SVD is more stable than Eig (default). CD uses
-    Coordinate Descent and can be faster when data is large.
+    versions. However, SVD is more stable than Eig (default).
 
     Examples
     --------
@@ -145,12 +143,9 @@ class Ridge(Base,
     alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
-    solver : {'auto', 'eig', 'svd', 'cd'} (default = 'auto')
+    solver : {'auto', 'eig', 'svd'} (default = 'auto')
         Eig uses a eigendecomposition of the covariance matrix, and is much
-        faster.
-        SVD is slower, but guaranteed to be stable.
-        CD or Coordinate Descent is very fast and is suitable for large
-        problems.
+        faster. SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
         If True, Ridge tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -268,7 +263,7 @@ class Ridge(Base,
 
         Parameters
         ----------
-        solver : Type: string. 'auto' (default), 'eig', 'svd', and 'cd' are supported
+        solver : Type: string. 'auto' (default), 'eig', and 'svd' are supported
         algorithms. The 'auto' option will use 'eig' as the solver.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
@@ -302,14 +297,14 @@ class Ridge(Base,
         """
         if solver == 'auto':
             self.solver_ = 'eig'
-        elif solver in ("eig", "svd", "cd"):
+        elif solver in ("eig", "svd"):
             self.solver_ = solver
         else:
             # TODO (csadorf): this should be a ValueError, but using using
             # TypeError for backwards compatibility
             raise TypeError(f"solver {solver!r} is not supported")
 
-        self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
+        self.algo = {'svd': 0, 'eig': 1}[self.solver_]
 
     @generate_docstring()
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
@@ -353,8 +348,8 @@ class Ridge(Base,
             raise TypeError(msg)
 
         if self.n_features_in_ == 1 and self.algo != 0:
-            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
-                          "solvers do not support training data with 1 " +
+            warnings.warn("Changing solver to 'svd' as 'eig' solver " +
+                          "does not support training data with 1 " +
                           "column currently.", UserWarning)
             self._select_solver('svd')
 

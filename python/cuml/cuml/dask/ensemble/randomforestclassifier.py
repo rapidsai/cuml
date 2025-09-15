@@ -44,8 +44,6 @@ class RandomForestClassifier(
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-     * The get_summary_text and get_detailed_text functions provides the \
-        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -185,24 +183,6 @@ class RandomForestClassifier(
     @staticmethod
     def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
-
-    def get_summary_text(self):
-        """
-        Obtain the text summary of the random forest model
-        """
-        return self._get_summary_text()
-
-    def get_detailed_text(self):
-        """
-        Obtain the detailed information for the random forest model, as text
-        """
-        return self._get_detailed_text()
-
-    def get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """

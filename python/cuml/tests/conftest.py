@@ -42,17 +42,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 
 
-def pytest_sessionstart(session):
-    """Initialize SSL certificates for secure HTTP connections.
-
-    This function is called at the start of the test session to ensure
-    proper SSL certificate handling for dataset downloads.
-    """
-    ssl_context = create_default_context(cafile=certifi.where())
-    https_handler = HTTPSHandler(context=ssl_context)
-    install_opener(build_opener(https_handler))
-
-
 # =============================================================================
 # Test Configuration Constants
 # =============================================================================
@@ -263,6 +252,12 @@ def pytest_configure(config):
         hypothesis.settings.load_profile("quality")
     else:
         hypothesis.settings.load_profile("unit")
+
+    # Initialize SSL certificates for secure HTTP connections. This ensures
+    # we use the certifi certs for all urllib downloads.
+    ssl_context = create_default_context(cafile=certifi.where())
+    https_handler = HTTPSHandler(context=ssl_context)
+    install_opener(build_opener(https_handler))
 
     config.pluginmanager.register(DownloadDataPlugin(), "download_data")
 
