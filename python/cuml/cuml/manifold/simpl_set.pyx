@@ -31,7 +31,6 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from libcpp.memory cimport unique_ptr
 
 
@@ -148,7 +147,7 @@ def fuzzy_simplicial_set(X,
                                   high=np.iinfo(np.uint64).max,
                                   dtype=np.uint64)
 
-    cdef UMAPParams* umap_params = new UMAPParams()
+    cdef UMAPParams umap_params
     umap_params.n_neighbors = <int> n_neighbors
     umap_params.random_state = <uint64_t> random_state
     umap_params.deterministic = <bool> deterministic
@@ -201,10 +200,8 @@ def fuzzy_simplicial_set(X,
         <int> X.shape[1],
         <int64_t*><uintptr_t> knn_indices_ptr,
         <float*><uintptr_t> knn_dists_ptr,
-        <UMAPParams*> umap_params)
+        &umap_params)
     fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
-
-    free(umap_params)
 
     return fss_graph.get_cupy_coo()
 
@@ -320,7 +317,7 @@ def simplicial_set_embedding(
                                   high=np.iinfo(np.uint64).max,
                                   dtype=np.uint64)
 
-    cdef UMAPParams* umap_params = new UMAPParams()
+    cdef UMAPParams umap_params
     umap_params.n_components = <int> n_components
     umap_params.initial_alpha = <float> initial_alpha
     umap_params.learning_rate = <float> initial_alpha
@@ -378,7 +375,7 @@ def simplicial_set_embedding(
                             <int> X_m.shape[0],
                             <int> X_m.shape[1],
                             <COO*> fss_graph.get(),
-                            <UMAPParams*> umap_params,
+                            &umap_params,
                             <float*><uintptr_t> embedding.ptr)
         else:
             raise ValueError("Invalid initialization strategy")
@@ -396,13 +393,11 @@ def simplicial_set_embedding(
                <int> X_m.shape[0],
                <int> X_m.shape[1],
                <COO*> fss_graph.get(),
-               <UMAPParams*> umap_params,
+               &umap_params,
                <float*><uintptr_t> embedding.ptr)
     else:
         raise ValueError(
             "Initialization not supported. Please provide a valid "
             "initialization strategy or a pre-initialized embedding.")
-
-    free(umap_params)
 
     return embedding

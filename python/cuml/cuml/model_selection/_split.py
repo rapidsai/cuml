@@ -19,7 +19,6 @@ from typing import List, Optional, Tuple, Union
 import cudf
 import cupy as cp
 import numpy as np
-from numba import cuda
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray, array_to_memory_order
@@ -498,16 +497,7 @@ class StratifiedKFold:
         if self.n_splits > dg[col].min():
             raise ValueError(msg)
 
-        def get_order_in_group(y, ids, order):
-            for i in range(cuda.threadIdx.x, len(y), cuda.blockDim.x):
-                order[i] = i
-
-        got = grpby.apply_grouped(
-            get_order_in_group,
-            incols=["y", "ids"],
-            outcols={"order": "int32"},
-            tpb=64,
-        )
+        got = grpby.apply(lambda df: df.assign(order=range(len(df))))
         got = got.sort_values("ids")
 
         for i in range(self.n_splits):

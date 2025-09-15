@@ -26,7 +26,7 @@ import scipy.sparse
 import sklearn
 from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
-from sklearn.datasets import make_classification, make_regression
+from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
@@ -35,6 +35,7 @@ from sklearn.linear_model import (
     LogisticRegression,
 )
 from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 
 from cuml.accel import is_proxy
@@ -202,6 +203,23 @@ def test_getattr():
     model.fit(X, y)
     # Fit attributes now available
     assert model.coef_ is model._cpu.coef_
+
+
+def test_getattr_supports_select_private_attributes():
+    X, y = make_blobs(random_state=42)
+
+    # Private attributes error on unfit models
+    model = NearestNeighbors()
+    assert not hasattr(model, "_tree")
+
+    # Some estimators can still expose select private attrs
+    model = NearestNeighbors().fit(X)
+    assert model._gpu is not None
+    assert model._tree is None
+    assert model._fit_method == "brute"
+
+    # But missing attributes still error appropriately
+    assert not hasattr(model, "_oops_not_a_real_attr")
 
 
 def test_not_implemented_attr_error():

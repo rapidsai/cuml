@@ -54,7 +54,6 @@ from cuml.manifold.umap_utils import (
 
 from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
@@ -491,6 +490,7 @@ class UMAP(Base,
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
             "sparse_fit": model._sparse_data,
+            "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
 
@@ -617,7 +617,6 @@ class UMAP(Base,
             raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
-        self.embedding_ = None
 
         self.validate_hyperparams()
 
@@ -757,7 +756,7 @@ class UMAP(Base,
     @staticmethod
     def _destroy_umap_params(ptr):
         cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
-        free(umap_params)
+        del umap_params
 
     @staticmethod
     def find_ab_params(spread, min_dist):
@@ -790,7 +789,7 @@ class UMAP(Base,
         Takes precedence over the precomputed_knn parameter.
         """
         if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
+            raise ValueError("Reshape your data: data should be two dimensional")
 
         if y is not None and knn_graph is not None\
                 and self.target_metric != "categorical":
@@ -842,6 +841,13 @@ class UMAP(Base,
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
+
+        if self.n_dims < 1:
+            raise ValueError(
+                f"0 feature(s) (shape=({self.n_rows}, {self.n_dims})) "
+                f"while a minimum of 1 is required."
+            )
+
         if self.build_algo == "nn_descent" and self.n_rows < 150:
             # https://github.com/rapidsai/cuvs/issues/184
             warnings.warn(
@@ -871,6 +877,8 @@ class UMAP(Base,
             self._knn_indices = knn_indices
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
+
+        self.n_features_in_ = self.n_dims
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
@@ -1013,7 +1021,7 @@ class UMAP(Base,
 
         """
         if len(X.shape) != 2:
-            raise ValueError("X should be two dimensional")
+            raise ValueError("Reshape your data: X should be two dimensional")
 
         if is_sparse(X) and not self.sparse_fit:
             logger.warn("Model was trained on dense data but sparse "
@@ -1041,9 +1049,11 @@ class UMAP(Base,
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
-        if n_cols != self._raw_data.shape[1]:
-            raise ValueError("n_features of X must match n_features of "
-                             "training data")
+        if n_cols != self.n_features_in_:
+            raise ValueError(
+                'X has {} features, but {} is expecting {} features '
+                'as input'.format(n_cols, self.__class__.__name__, self.n_features_in_)
+            )
 
         if self.hash_input:
             if _joblib_hash(X_m.to_output('numpy')) == self._input_hash:
