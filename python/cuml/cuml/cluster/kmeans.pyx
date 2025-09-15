@@ -237,7 +237,7 @@ cdef _kmeans_predict(
                     inertia_f64,
                 )
 
-    inertia = inertia_f32 if indices_i32 else inertia_f64
+    inertia = inertia_f32 if values_f32 else inertia_f64
 
     return labels, inertia
 
