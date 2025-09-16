@@ -1,21 +1,9 @@
 # Copyright (c) 2020-2025, NVIDIA CORPORATION.
-
-from ssl import create_default_context
-from urllib.request import HTTPSHandler, build_opener, install_opener
-
-import certifi
 import pytest
 
 enable_tcp_over_ucx = True
 enable_nvlink = False
 enable_infiniband = False
-
-
-# Install SSL certificates
-def pytest_sessionstart(session):
-    ssl_context = create_default_context(cafile=certifi.where())
-    https_handler = HTTPSHandler(context=ssl_context)
-    install_opener(build_opener(https_handler))
 
 
 @pytest.fixture(scope="module")

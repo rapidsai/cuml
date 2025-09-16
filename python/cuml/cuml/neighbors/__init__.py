@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.neighbors.kernel_density import (
-    VALID_KERNELS,
-    KernelDensity,
-    logsumexp_kernel,
-)
+from cuml.neighbors.kernel_density import VALID_KERNELS, KernelDensity
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 from cuml.neighbors.nearest_neighbors import NearestNeighbors, kneighbors_graph

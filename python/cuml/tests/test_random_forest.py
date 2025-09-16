@@ -450,7 +450,6 @@ def test_rf_regression(
         handle=handle,
         max_leaves=-1,
         max_depth=16,
-        accuracy_metric="mse",
     )
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test)
@@ -766,7 +765,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         handle=handle,
         max_leaves=-1,
         max_depth=40,
-        accuracy_metric="mse",
     )
     cuml_model.fit(X_train, y_train)
 
@@ -935,162 +933,6 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     assert params["n_bins"] == n_bins
 
 
-@pytest.mark.parametrize("n_estimators", [5, 10, 20])
-@pytest.mark.parametrize("detailed_text", [True, False])
-def test_rf_get_text(n_estimators, detailed_text):
-
-    X, y = make_classification(
-        n_samples=500,
-        n_features=10,
-        n_clusters_per_class=1,
-        n_informative=5,
-        random_state=94929,
-        n_classes=2,
-    )
-
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
-
-    # Create a handle for the cuml model
-    handle, stream = get_handle(True, n_streams=1)
-
-    # Initialize cuML Random Forest classification model
-    cuml_model = curfc(
-        handle=handle,
-        max_features=1.0,
-        max_samples=1.0,
-        n_bins=16,
-        split_criterion=0,
-        min_samples_leaf=2,
-        random_state=23707,
-        n_streams=1,
-        n_estimators=n_estimators,
-        max_leaves=-1,
-        max_depth=16,
-    )
-
-    # Train model on the data
-    cuml_model.fit(X, y)
-
-    if detailed_text:
-        text_output = cuml_model.get_detailed_text()
-    else:
-        text_output = cuml_model.get_summary_text()
-
-    # Test 1: Output is non-zero
-    assert "" != text_output
-
-    # Count the number of trees printed
-    tree_count = 0
-    for line in text_output.split("\n"):
-        if line.strip().startswith("Tree #"):
-            tree_count += 1
-
-    # Test 2: Correct number of trees are printed
-    assert n_estimators == tree_count
-
-
-@pytest.mark.parametrize("max_depth", [1, 2, 3, 5, 10, 15, 20])
-@pytest.mark.parametrize("n_estimators", [5, 10, 20])
-@pytest.mark.parametrize("estimator_type", ["regression", "classification"])
-def test_rf_get_json(estimator_type, max_depth, n_estimators):
-    X, y = make_classification(
-        n_samples=350,
-        n_features=20,
-        n_clusters_per_class=1,
-        n_informative=10,
-        random_state=123,
-        n_classes=2,
-    )
-    X = X.astype(np.float32)
-    if estimator_type == "classification":
-        cuml_model = curfc(
-            max_features=1.0,
-            max_samples=1.0,
-            n_bins=16,
-            split_criterion=0,
-            min_samples_leaf=2,
-            random_state=23707,
-            n_streams=1,
-            n_estimators=n_estimators,
-            max_leaves=-1,
-            max_depth=max_depth,
-        )
-        y = y.astype(np.int32)
-    elif estimator_type == "regression":
-        cuml_model = curfr(
-            max_features=1.0,
-            max_samples=1.0,
-            n_bins=16,
-            min_samples_leaf=2,
-            random_state=23707,
-            n_streams=1,
-            n_estimators=n_estimators,
-            max_leaves=-1,
-            max_depth=max_depth,
-        )
-        y = y.astype(np.float32)
-    else:
-        assert False
-
-    # Train model on the data
-    cuml_model.fit(X, y)
-
-    json_out = cuml_model.get_json()
-    json_obj = json.loads(json_out)
-
-    # Test 1: Output is non-zero
-    assert "" != json_out
-
-    # Test 2: JSON object contains correct number of trees
-    assert isinstance(json_obj, list)
-    assert len(json_obj) == n_estimators
-
-    # Test 3: Traverse JSON trees and get the same predictions as cuML RF
-    def predict_with_json_tree(tree, x):
-        if "children" not in tree:
-            assert "leaf_value" in tree
-            return tree["leaf_value"]
-        assert "split_feature" in tree
-        assert "split_threshold" in tree
-        assert "yes" in tree
-        assert "no" in tree
-        if x[tree["split_feature"]] <= tree["split_threshold"] + 1e-5:
-            return predict_with_json_tree(tree["children"][0], x)
-        return predict_with_json_tree(tree["children"][1], x)
-
-    def predict_with_json_rf_classifier(rf, x):
-        # Returns the class with the highest vote. If there is a tie, return
-        # the list of all classes with the highest vote.
-        predictions = []
-        for tree in rf:
-            predictions.append(np.array(predict_with_json_tree(tree, x)))
-        predictions = np.sum(predictions, axis=0)
-        return np.argmax(predictions)
-
-    def predict_with_json_rf_regressor(rf, x):
-        pred = 0.0
-        for tree in rf:
-            pred += predict_with_json_tree(tree, x)[0]
-        return pred / len(rf)
-
-    if estimator_type == "classification":
-        expected_pred = cuml_model.predict(X).astype(np.int32)
-        for idx, row in enumerate(X):
-            majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] == majority_vote
-    elif estimator_type == "regression":
-        expected_pred = cuml_model.predict(X).astype(np.float32).squeeze()
-        pred = []
-        for idx, row in enumerate(X):
-            pred.append(predict_with_json_rf_regressor(json_obj, row))
-        pred = np.array(pred, dtype=np.float32)
-        print(json_obj)
-        for i in range(len(pred)):
-            assert np.isclose(pred[i], expected_pred[i]), X[i, 19]
-        np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
-
-
 @pytest.mark.xfail(
     reason="Needs refactoring/debugging due to sporadic failures"
     "https://github.com/rapidsai/cuml/issues/5528"
@@ -1230,19 +1072,18 @@ def test_rf_nbins_small(small_clf):
         )
 
 
-@pytest.mark.parametrize("split_criterion", [2], ids=["mse"])
-def test_rf_regression_with_identical_labels(split_criterion):
+def test_rf_regression_with_identical_labels():
     X = np.array([[-1, 0], [0, 1], [2, 0], [0, 3], [-2, 0]], dtype=np.float32)
     y = np.array([1, 1, 1, 1, 1], dtype=np.float32)
     # Degenerate case: all labels are identical.
     # RF Regressor must not create any split. It must yield an empty tree
     # with only the root node.
-    clf = curfr(
+    model = curfr(
         max_features=1.0,
         max_samples=1.0,
         n_bins=5,
         bootstrap=False,
-        split_criterion=split_criterion,
+        split_criterion="mse",
         min_samples_leaf=1,
         min_samples_split=2,
         random_state=0,
@@ -1250,11 +1091,17 @@ def test_rf_regression_with_identical_labels(split_criterion):
         n_estimators=1,
         max_depth=1,
     )
-    clf.fit(X, y)
-    model_dump = json.loads(clf.get_json())
-    assert len(model_dump) == 1
-    expected_dump = {"nodeid": 0, "leaf_value": [1.0], "instance_count": 5}
-    assert model_dump[0] == expected_dump
+    model.fit(X, y)
+    trees = json.loads(model.convert_to_treelite_model().dump_as_json())[
+        "trees"
+    ]
+    assert len(trees) == 1
+    assert len(trees[0]["nodes"]) == 1
+    assert trees[0]["nodes"][0] == {
+        "node_id": 0,
+        "leaf_value": 1.0,
+        "data_count": 5,
+    }
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
@@ -1389,3 +1236,23 @@ def test_predict_model_deprecated(cls):
         res = model.predict(X, predict_model="CPU")
 
     np.testing.assert_array_equal(res, sol)
+
+
+def test_accuracy_metric_deprecated():
+    X, y = make_regression(n_samples=500)
+
+    # r2 score used by default
+    model = cuml.RandomForestRegressor().fit(X, y)
+    score = model.score(X, y)
+    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
+
+    # explicit use warns but still works
+    with pytest.warns(FutureWarning, match="accuracy_metric"):
+        model = cuml.RandomForestRegressor(accuracy_metric="r2")
+    score = model.fit(X, y).score(X, y)
+    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
+
+    with pytest.warns(FutureWarning, match="accuracy_metric"):
+        model = cuml.RandomForestRegressor(accuracy_metric="mse")
+    score = model.fit(X, y).score(X, y)
+    np.testing.assert_allclose(score, mean_squared_error(y, model.predict(X)))

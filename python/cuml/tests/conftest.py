@@ -42,17 +42,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 
 
-def pytest_sessionstart(session):
-    """Initialize SSL certificates for secure HTTP connections.
-
-    This function is called at the start of the test session to ensure
-    proper SSL certificate handling for dataset downloads.
-    """
-    ssl_context = create_default_context(cafile=certifi.where())
-    https_handler = HTTPSHandler(context=ssl_context)
-    install_opener(build_opener(https_handler))
-
-
 # =============================================================================
 # Test Configuration Constants
 # =============================================================================
@@ -264,6 +253,14 @@ def pytest_configure(config):
     else:
         hypothesis.settings.load_profile("unit")
 
+    # Initialize SSL certificates for secure HTTP connections. This ensures
+    # we use the certifi certs for all urllib downloads.
+    ssl_context = create_default_context(cafile=certifi.where())
+    https_handler = HTTPSHandler(context=ssl_context)
+    install_opener(build_opener(https_handler))
+
+    config.pluginmanager.register(DownloadDataPlugin(), "download_data")
+
 
 def pytest_pyfunc_call(pyfuncitem):
     """Skip tests that require the cudf.pandas accelerator.
@@ -403,6 +400,20 @@ def random_seed(request):
 # =============================================================================
 
 
+class DownloadDataPlugin:
+    """Download data before workers are spawned.
+
+    This avoids downloading data in each worker, which can lead to races.
+    """
+
+    def pytest_configure(self, config):
+        if not hasattr(config, "workerinput"):
+            # We're in the controller process, not a worker. Let's fetch all
+            # the datasets we might use.
+            fetch_20newsgroups()
+            fetch_california_housing()
+
+
 def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
     """Decorator for retrying dataset fetching operations with exponential backoff.
 
@@ -429,14 +440,10 @@ def nlp_20news():
         (X, Y) where X is the feature matrix and Y is the target vector
     """
 
-    @dataset_fetch_retry
-    def _fetch_20news():
-        return fetch_20newsgroups(
+    try:
+        twenty_train = fetch_20newsgroups(
             subset="train", shuffle=True, random_state=42
         )
-
-    try:
-        twenty_train = _fetch_20news()
     except Exception as e:
         pytest.xfail(f"Error fetching 20 newsgroup dataset: {str(e)}")
 
@@ -461,12 +468,8 @@ def housing_dataset():
         vector, and feature_names is a list of feature names
     """
 
-    @dataset_fetch_retry
-    def _fetch_housing():
-        return fetch_california_housing()
-
     try:
-        data = _fetch_housing()
+        data = fetch_california_housing()
     except Exception as e:
         pytest.xfail(f"Error fetching housing dataset: {str(e)}")
 
