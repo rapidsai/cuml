@@ -20,7 +20,6 @@ import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -28,6 +27,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
+from cuml.metrics import accuracy_score
 from cuml.prims.label.classlabels import check_labels, invert_labels
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -59,20 +59,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                   int,
                   RF_params,
                   level_enum) except +
-
-    cdef RF_metrics score(handle_t& handle,
-                          RandomForestMetaData[float, int]*,
-                          int*,
-                          int,
-                          int*,
-                          level_enum) except +
-
-    cdef RF_metrics score(handle_t& handle,
-                          RandomForestMetaData[double, int]*,
-                          int*,
-                          int,
-                          int*,
-                          level_enum) except +
 
 
 class RandomForestClassifier(BaseRandomForestModel,
@@ -576,18 +562,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
-        cdef uintptr_t y_ptr
-        _, n_rows, _, _ = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        y_m, n_rows, _, _ = \
-            input_to_cuml_array(y, check_dtype=np.int32,
-                                convert_to_dtype=(np.int32 if convert_dtype
-                                                  else False))
-        y_ptr = y_m.ptr
-        preds = self.predict(
+        y_pred = self.predict(
             X,
             threshold=threshold,
             convert_dtype=convert_dtype,
@@ -596,41 +571,4 @@ class RandomForestClassifier(BaseRandomForestModel,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-
-        cdef uintptr_t preds_ptr
-        preds_m, _, _, _ = \
-            input_to_cuml_array(preds, convert_to_dtype=np.int32)
-        preds_ptr = preds_m.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float32:
-            self.stats = score(handle_[0],
-                               rf_forest,
-                               <int*> y_ptr,
-                               <int> n_rows,
-                               <int*> preds_ptr,
-                               <level_enum> self.verbose)
-        elif self.dtype == np.float64:
-            self.stats = score(handle_[0],
-                               rf_forest64,
-                               <int*> y_ptr,
-                               <int> n_rows,
-                               <int*> preds_ptr,
-                               <level_enum> self.verbose)
-        else:
-            raise TypeError("supports only np.float32 and np.float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-
-        self.handle.sync()
-        del y_m
-        del preds_m
-        return self.stats['accuracy']
+        return accuracy_score(y, y_pred)
