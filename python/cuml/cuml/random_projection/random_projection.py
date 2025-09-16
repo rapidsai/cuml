@@ -15,7 +15,6 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-import sklearn.random_projection
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -51,6 +50,8 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
         The minimal number of components to guarantee with good probability
         an eps-embedding with n_samples.
     """
+    import sklearn.random_projection
+
     return sklearn.random_projection.johnson_lindenstrauss_min_dim(
         n_samples, eps=eps
     )

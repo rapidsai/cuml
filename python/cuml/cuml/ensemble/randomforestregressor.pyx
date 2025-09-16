@@ -15,6 +15,8 @@
 #
 # distutils: language = c++
 
+import warnings
+
 import numpy as np
 from treelite import Model as TreeliteModel
 
@@ -100,12 +102,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         >>> cuml_model = curfr(max_features=1.0, n_bins=128,
         ...                    min_samples_leaf=1,
         ...                    min_samples_split=2,
-        ...                    n_estimators=40, accuracy_metric='r2')
+        ...                    n_estimators=40)
         >>> cuml_model.fit(X,y)
         RandomForestRegressor()
         >>> cuml_score = cuml_model.score(X,y)
-        >>> print("MSE score of cuml : ", cuml_score) # doctest: +SKIP
-        MSE score of cuml :  0.9076250195503235
+        >>> print("R2 score of cuml : ", cuml_score) # doctest: +SKIP
+        R2 score of cuml :  0.9076250195503235
 
     Parameters
     ----------
@@ -172,14 +174,18 @@ class RandomForestRegressor(BaseRandomForestModel,
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'r2')
+    accuracy_metric : string (default = 'deprecated')
         Decides the metric used to evaluate the performance of the model.
-        In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.\n
-         * for r-squared : ``'r2'``
+         * for r-squared : ``'r2'`` (default)
          * for median of abs error : ``'median_ae'``
          * for mean of abs error : ``'mean_ae'``
          * for mean square error' : ``'mse'``
+
+        .. deprecated:: 25.10
+            `accuracy_metric` is deprecated and will be removed in 25.12. To
+            evaluate models with metrics other than r2, please call the respective
+            metric function from `cuml.metrics` directly.
+
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -217,11 +223,20 @@ class RandomForestRegressor(BaseRandomForestModel,
     def __init__(self, *,
                  split_criterion=2,
                  max_features=1.0,
-                 accuracy_metric='r2',
+                 accuracy_metric='deprecated',
                  handle=None,
                  verbose=False,
                  output_type=None,
                  **kwargs):
+
+        if accuracy_metric != "deprecated":
+            warnings.warn(
+                "`accuracy_metric` was deprecated in 25.10 and will be removed "
+                "in 25.12. To evaluate models with metrics other than r2, please call "
+                "the respective metric function from `cuml.metrics` directly.",
+                FutureWarning
+            )
+
         self.accuracy_metric = accuracy_metric
         super().__init__(
             split_criterion=split_criterion,
@@ -576,7 +591,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         preds_ptr = preds_m.ptr
 
         # shortcut for default accuracy metric of r^2
-        if self.accuracy_metric == "r2":
+        if self.accuracy_metric in ("r2", "deprecated"):
             stats = r2_score(y_m, preds)
             self.handle.sync()
             del y_m
@@ -619,47 +634,3 @@ class RandomForestRegressor(BaseRandomForestModel,
         del y_m
         del preds_m
         return stats
-
-    def get_summary_text(self):
-        """
-        Obtain the text summary of the random forest model
-        """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float64:
-            return get_rf_summary_text(rf_forest64).decode('utf-8')
-        else:
-            return get_rf_summary_text(rf_forest).decode('utf-8')
-
-    def get_detailed_text(self):
-        """
-        Obtain the detailed information for the random forest model, as text
-        """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float64:
-            return get_rf_detailed_text(rf_forest64).decode('utf-8')
-        else:
-            return get_rf_detailed_text(rf_forest).decode('utf-8')
-
-    def get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float64:
-            return get_rf_json(rf_forest64).decode('utf-8')
-        return get_rf_json(rf_forest).decode('utf-8')

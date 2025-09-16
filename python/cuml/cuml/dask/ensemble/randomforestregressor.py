@@ -34,8 +34,6 @@ class RandomForestRegressor(
        and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays
        distributed so that each worker has at least one partition.
-     * The get_summary_text and get_detailed_text functions provides the \
-        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -117,14 +115,18 @@ class RandomForestRegressor(
          * If type ``float``, then ``min_samples_split`` represents a fraction
            and ``ceil(min_samples_split * n_rows)`` is the minimum number of
            samples for each split.
-    accuracy_metric : string (default = 'r2')
+    accuracy_metric : string (default = 'deprecated')
         Decides the metric used to evaluate the performance of the model.
-        In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.\n
-         * for r-squared : ``'r2'``
+         * for r-squared : ``'r2'`` (default)
          * for median of abs error : ``'median_ae'``
          * for mean of abs error : ``'mean_ae'``
          * for mean square error' : ``'mse'``
+
+        .. deprecated:: 25.10
+            `accuracy_metric` is deprecated and will be removed in 25.12. To
+            evaluate models with metrics other than r2, please call the respective
+            metric function from `cuml.metrics` directly.
+
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -171,24 +173,6 @@ class RandomForestRegressor(
         return cuRFR(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
-
-    def get_summary_text(self):
-        """
-        Obtain the text summary of the random forest model
-        """
-        return self._get_summary_text()
-
-    def get_detailed_text(self):
-        """
-        Obtain the detailed information for the random forest model, as text
-        """
-        return self._get_detailed_text()
-
-    def get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """

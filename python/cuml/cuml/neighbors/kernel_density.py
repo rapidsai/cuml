@@ -255,23 +255,25 @@ class KernelDensity(Base):
         self : object
             Returns the instance itself.
         """
-        if sample_weight is not None:
-            self.sample_weight_ = input_to_cupy_array(
-                sample_weight,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64],
-            ).array
-            if self.sample_weight_.min() <= 0:
-                raise ValueError("sample_weight must have positive values")
-        else:
-            self.sample_weight_ = None
-
         self.X_ = input_to_cupy_array(
             X,
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[cp.float32, cp.float64],
         ).array
+
+        if sample_weight is not None:
+            self.sample_weight_ = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64],
+                check_cols=1,
+                check_rows=self.X_.shape[0],
+            ).array
+            if self.sample_weight_.min() <= 0:
+                raise ValueError("sample_weight must have positive values")
+        else:
+            self.sample_weight_ = None
 
         return self
 

@@ -22,13 +22,14 @@ __all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
 
 class NearestNeighbors(ProxyBase):
     _gpu_class = cuml.neighbors.NearestNeighbors
-    # Exposed for use in sklearn test suite
-    _fit_method = "brute"
+    _other_attributes = frozenset(("_fit_method", "_tree"))
 
 
 class KNeighborsClassifier(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsClassifier
+    _other_attributes = frozenset(("_fit_method", "_tree"))
 
 
 class KNeighborsRegressor(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsRegressor
+    _other_attributes = frozenset(("_fit_method", "_tree"))

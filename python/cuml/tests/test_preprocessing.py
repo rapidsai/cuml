@@ -165,6 +165,8 @@ def test_standard_scaler_sparse(
     if scipy.sparse.issparse(t_X):
         assert scipy.sparse.issparse(r_X)
 
+    assert scaler.n_samples_seen_ == X.shape[0]
+
     scaler = skStandardScaler(copy=True, with_mean=False, with_std=with_std)
     sk_t_X = scaler.fit_transform(X_np)
     sk_r_X = scaler.inverse_transform(sk_t_X)
