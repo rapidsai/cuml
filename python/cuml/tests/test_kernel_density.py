@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 from hypothesis import assume, example, given, settings
@@ -24,7 +25,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
 
 from cuml.common.exceptions import NotFittedError
-from cuml.neighbors import VALID_KERNELS, KernelDensity, logsumexp_kernel
+from cuml.neighbors import VALID_KERNELS, KernelDensity
+from cuml.neighbors.kernel_density import logaddexp_reduce
 from cuml.testing.utils import as_type
 
 
@@ -159,14 +161,13 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
             kde.sample(100)
 
 
-def test_logaddexp():
+def test_logaddexp_reduce():
     X = np.array([[0.0, 0.0], [0.0, 0.0]])
-    out = np.zeros(X.shape[0])
-    logsumexp_kernel.forall(out.size)(X, out)
+    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
     X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    logsumexp_kernel.forall(out.size)(X, out)
+    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
