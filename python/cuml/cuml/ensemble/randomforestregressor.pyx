@@ -18,14 +18,12 @@
 import warnings
 
 import numpy as np
-from treelite import Model as TreeliteModel
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.fil.fil import ForestInference
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.utils import check_random_seed
@@ -314,58 +312,6 @@ class RandomForestRegressor(BaseRandomForestModel,
             self.rf_forest64 = 0
         self.treelite_serialized_bytes = None
         self.n_cols = None
-
-    def convert_to_treelite_model(self):
-        """
-        Converts the cuML RF model to a Treelite model
-
-        Returns
-        -------
-        tl_to_fil_model : treelite.Model
-        """
-        treelite_bytes = self._serialize_treelite_bytes()
-        return TreeliteModel.deserialize_bytes(treelite_bytes)
-
-    def convert_to_fil_model(
-        self,
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
-    ):
-        """
-        Create a Forest Inference (FIL) model from the trained cuML
-        Random Forest model.
-
-        Parameters
-        ----------
-        layout : string (default = 'depth_first')
-            Specifies the in-memory layout of nodes in FIL forests. Options:
-            'depth_first', 'layered', 'breadth_first'.
-        default_chunk_size : int, optional (default = None)
-            Determines how batches are further subdivided for parallel processing.
-            The optimal value depends on hardware, model, and batch size.
-            If None, will be automatically determined.
-        align_bytes : int, optional (default = None)
-            If specified, trees will be padded such that their in-memory size is
-            a multiple of this value. This can improve performance by guaranteeing
-            that memory reads from trees begin on a cache line boundary.
-            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
-
-        Returns
-        -------
-        fil_model : ForestInference
-            A Forest Inference model which can be used to perform
-            inferencing on the random forest model.
-        """
-        treelite_bytes = self._serialize_treelite_bytes()
-        return ForestInference(
-            treelite_model=treelite_bytes,
-            output_type="input",
-            is_classifier=False,
-            layout=layout,
-            default_chunk_size=default_chunk_size,
-            align_bytes=align_bytes,
-        )
 
     @nvtx.annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
