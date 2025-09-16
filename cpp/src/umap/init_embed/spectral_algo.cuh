@@ -31,6 +31,7 @@
 #include <thrust/extrema.h>
 
 #include <stdint.h>
+#include <type_traits>
 
 namespace UMAPAlgo {
 
@@ -59,11 +60,6 @@ void launcher(const raft::handle_t& handle,
   auto tmp_embedding =
     raft::make_device_matrix<float, int, raft::col_major>(handle, n, params->n_components);
 
-  auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int>(
-    coo->vals(),
-    raft::make_device_coordinate_structure_view<int, int, int>(
-      coo->rows(), coo->cols(), n, n, coo->nnz));
-
   ML::SpectralEmbedding::params spectral_params;
   spectral_params.n_neighbors    = params->n_neighbors;
   spectral_params.norm_laplacian = true;
@@ -74,8 +70,25 @@ void launcher(const raft::handle_t& handle,
 
   uint64_t seed = params->random_state;
 
-  ML::SpectralEmbedding::transform(
-    handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
+  // Create the COO matrix view with the appropriate NNZ type and call transform
+  if constexpr (std::is_same_v<nnz_t, uint64_t>) {
+    auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int64_t>(
+      coo->vals(),
+      raft::make_device_coordinate_structure_view<int, int, int64_t>(
+        coo->rows(), coo->cols(), n, n, coo->nnz));
+    
+    std::cout << "Calling transform with int64_t NNZ type" << std::endl;
+    ML::SpectralEmbedding::transform(
+      handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
+  } else {
+    auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int>(
+      coo->vals(),
+      raft::make_device_coordinate_structure_view<int, int, int>(
+        coo->rows(), coo->cols(), n, n, coo->nnz));
+    std::cout << "Calling transform with int NNZ type" << std::endl;
+    ML::SpectralEmbedding::transform(
+      handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
+  }
 
   raft::linalg::transpose(
     handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
