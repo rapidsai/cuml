@@ -1,30 +1,51 @@
 Introduction
 ============
 
-cuML accelerates machine learning on GPUs. The library follows a
-couple of key principles, and understanding these will help you take
-full advantage of cuML.
-
+cuML's design is built around three core principles that work together to make
+GPU-accelerated machine learning both powerful and accessible. These principles
+guide every aspect of the library's development and determine how you interact
+with cuML in practice. Understanding these principles will help you take full
+advantage of cuML's capabilities and write more effective code.
 
 1. Where possible, match the scikit-learn API
 ---------------------------------------------
 
 cuML estimators look and feel just like `scikit-learn estimators
-<https://scikit-learn.org/stable/developers/develop.html>`_. You
-initialize them with key parameters, fit them with a ``fit`` method,
-then call ``predict`` or ``transform`` for inference.
+<https://scikit-learn.org/stable/developers/develop.html>`_. This means:
 
+* **Familiar workflow**: Initialize with parameters, fit with data, predict/transform for inference
+* **Drop-in replacement**: Most sklearn code works with minimal changes
+* **Consistent naming**: Same method names and parameter conventions
+* **Compatible interfaces**: Works with sklearn's cross-validation, pipelines, and preprocessing
 
 .. code-block:: python
 
    from cuml import LinearRegression
+   from cuml.datasets import make_regression
+   import numpy as np
 
+   # Generate sample data
+   X, y = make_regression(n_samples=1000, n_features=4, noise=0.1, random_state=42)
+
+   # Split data (same as sklearn)
+   from sklearn.model_selection import train_test_split
+   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+   # Fit model (same API as sklearn)
    model = LinearRegression()
-   model.fit(X_train, y)
-   y_prediction = model.predict(X_test)
+   model.fit(X_train, y_train)
+
+   # Make predictions
+   y_pred = model.predict(X_test)
+   print(f"R² score: {model.score(X_test, y_test):.3f}")
 
 You can find many more complete examples in the `Introductory Notebook
 <estimator_intro.ipynb>`_ and in the cuML API documentation.
+
+.. note::
+
+   Use `cuml.accel <cuml-accel/index.rst>`_ if you need 100% API
+   parity with scikit-learn.
 
 2. Accept flexible input types, return predictable output types
 ---------------------------------------------------------------
@@ -52,23 +73,36 @@ more detail explaining this approach.
 3. Be fast!
 -----------
 
-cuML's estimators rely on highly-optimized CUDA primitives and
-algorithms within ``libcuml``. On a modern GPU, these can exceed the
-performance of CPU-based equivalents by a factor of anything from 4x
-(for a medium-sized linear regression) to over 1000x (for large-scale
-t-SNE dimensionality reduction). The `cuml.benchmark
+cuML delivers on average **10-50x performance improvements** through:
+
+* **Highly-optimized CUDA primitives** and algorithms
+* **GPU-accelerated implementations** designed for modern hardware
+* **Efficient memory management** and data movement
+
+Performance gains vary by algorithm and dataset size:
+* **4x faster** for medium-sized linear regression
+* **1000x+ faster** for large-scale t-SNE dimensionality reduction
+* **Scaling benefits** increase with larger datasets
+
+.. note::
+   Modern GPUs have 5000+ cores. To maximize performance, ensure you're providing
+   enough data to keep the GPU busy. Expect larger performance gains as dataset
+   size grows.
+
+The `cuml.benchmark
 <https://docs.rapids.ai/api/cuml/nightly/api.html#benchmarking>`_ module
 provides an easy interface to benchmark your own hardware.
 
-To maximize performance, keep in mind - a modern GPU can have over
-5000 cores, so make sure you're providing enough data to keep it busy!
-In many cases, performance advantages appear as the dataset grows.
 
+What's Next
+===========
 
-Learn more
-----------
+Here are some suggestions on what to explore next:
 
-To get started learning cuML, walk through the `Introductory Notebook
-<estimator_intro.ipynb>`_. Then try out some of the other notebook
-examples in the ``notebooks`` directory of the repository. Finally, do
-a deeper dive with the `cuML blogs <cuml_blogs.rst>`_.
+1. **Try the examples**: Walk through the `Introductory Notebook
+   <estimator_intro.ipynb>`_ for hands-on learning
+2. **Explore the API**: Browse the `API Reference <api>` for specific algorithms
+3. **Check out notebooks**: Try examples in the ``notebooks`` directory
+4. **Learn advanced topics**: Read the `cuML blogs <cuml_blogs.rst>`_ for deeper insights
+5. **Get help**: Visit our `GitHub Issues <https://github.com/rapidsai/cuml/issues>`_
+   or `RAPIDS Community <https://rapids.ai/community.html>`_
