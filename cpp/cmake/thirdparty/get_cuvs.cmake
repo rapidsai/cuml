@@ -73,8 +73,8 @@ endfunction()
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 set(CPM_cuvs_SOURCE "/home/nfs/jinsolp/rapids/cuvs")
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             jinsolp
-      PINNED_TAG       hdbscan-int64-pub
+      FORK             rapidsai
+      PINNED_TAG       ${rapids-cmake-checkout-tag}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory
