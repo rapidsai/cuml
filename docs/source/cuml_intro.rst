@@ -3,7 +3,7 @@ Introduction
 
 cuML accelerates machine learning on GPUs. The library follows a
 couple of key principles, and understanding these will help you take
-full advantage cuML.
+full advantage of cuML.
 
 
 1. Where possible, match the scikit-learn API
@@ -17,9 +17,9 @@ then call ``predict`` or ``transform`` for inference.
 
 .. code-block:: python
 
-   import cuml.LinearRegression
+   from cuml import LinearRegression
 
-   model = cuml.LinearRegression()
+   model = LinearRegression()
    model.fit(X_train, y)
    y_prediction = model.predict(X_test)
 
@@ -30,7 +30,7 @@ You can find many more complete examples in the `Introductory Notebook
 ---------------------------------------------------------------
 
 cuML estimators can accept NumPy arrays, cuDF dataframes, cuPy arrays,
-2d PyTorch tensors, and really any kind of standards-based Python
+2D PyTorch tensors, and really any kind of standards-based Python
 array input you can throw at them. This relies on the ``__array__``
 and ``__cuda_array_interface__`` standards, widely used throughout the
 PyData community.
@@ -56,7 +56,7 @@ cuML's estimators rely on highly-optimized CUDA primitives and
 algorithms within ``libcuml``. On a modern GPU, these can exceed the
 performance of CPU-based equivalents by a factor of anything from 4x
 (for a medium-sized linear regression) to over 1000x (for large-scale
-tSNE dimensionality reduction). The `cuml.benchmark
+t-SNE dimensionality reduction). The `cuml.benchmark
 <https://docs.rapids.ai/api/cuml/nightly/api.html#benchmarking>`_ module
 provides an easy interface to benchmark your own hardware.
 
