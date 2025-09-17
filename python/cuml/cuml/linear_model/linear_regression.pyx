@@ -205,7 +205,7 @@ class LinearRegression(Base,
         If True, it is guaranteed that a copy of X is created, leaving the
         original X unchanged. However, if set to False, X may be modified
         directly, which would reduce the memory usage of the estimator.
-        
+
         .. versionchanged:: 23.08
             Starting from version 23.08, the new `copy_X` parameter defaults
             to ``True``, ensuring a copy of X is created after passing it to
@@ -250,7 +250,7 @@ class LinearRegression(Base,
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
     Consider using :class:`Ridge` to fix the multicollinearity problem, and
-    consider maybe first :class:`DBSCAN` to remove the outliers, or 
+    consider maybe first :class:`DBSCAN` to remove the outliers, or
     statistical analysis to filter possible outliers.
 
     **Applications of LinearRegression**
