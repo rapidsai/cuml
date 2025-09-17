@@ -465,7 +465,7 @@ dependencies:
           # included in the "devcontainers" key. The libxgboost package depends
           # on librmm but we do not want to have a package depending on librmm
           # in devcontainers since it should be built from source.
-          - &xgboost xgboost>=2.1.0
+          - &xgboost rapids-xgboost==25.10.*,>=0.0.0a0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
