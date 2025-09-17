@@ -19,7 +19,12 @@ import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 from sklearn.base import clone
-from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.datasets import (
+    load_iris,
+    make_blobs,
+    make_classification,
+    make_regression,
+)
 from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
@@ -55,8 +60,8 @@ cluster_models = cluster_config.get_models()
 decomposition_config = ClassEnumerator(module=cuml.decomposition)
 decomposition_models = decomposition_config.get_models()
 
-decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
-decomposition_models_xfail = decomposition_config_xfail.get_models()
+random_projection_config = ClassEnumerator(module=cuml.random_projection)
+random_projection_models = random_projection_config.get_models()
 
 neighbor_config = ClassEnumerator(
     module=cuml.neighbors, exclude_classes=[cuml.neighbors.KernelDensity]
@@ -97,11 +102,9 @@ unfit_clone_xfail = [
     "AutoARIMA",
     "ARIMA",
     "BaseRandomForestModel",
-    "GaussianRandomProjection",
     "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
-    "SparseRandomProjection",
     "UMAP",
 ]
 
@@ -112,7 +115,7 @@ all_models.update(
         **solver_models,
         **cluster_models,
         **decomposition_models,
-        **decomposition_models_xfail,
+        **random_projection_models,
         **neighbor_models,
         **dbscan_model,
         **hdbscan_model,
@@ -179,12 +182,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
 def test_rf_regression_pickle(
     tmpdir, datatype, nrows, ncols, n_info, n_classes, key
 ):
-
     result = {}
-    if datatype == np.float64:
-        pytest.xfail(
-            "Pickling is not supported for dataset with" " dtype float64"
-        )
 
     def create_mod():
         if key == "RandomForestRegressor":
@@ -199,20 +197,14 @@ def test_rf_regression_pickle(
         model = rf_models[key]()
 
         model.fit(X_train, y_train)
-        if datatype == np.float32:
-            predict_model = "GPU"
-        else:
-            predict_model = "CPU"
-        result["rf_res"] = model.predict(X_test, predict_model=predict_model)
+        result["rf_res"] = model.predict(X_test)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
 
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
-        pickled_model.score(
-            X_test, np.zeros(X_test.shape[0]), predict_model="GPU"
-        )
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
         pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -224,16 +216,19 @@ def test_rf_regression_pickle(
 )
 @pytest.mark.parametrize("fit_intercept", [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_size[0] == 500000
         and datatype == np.float64
         and ("LogisticRegression" in keys or "Ridge" in keys)
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
     ):
         if pytest.adapt_stress_test:
-            data_size[0] = data_size[0] * pytest.max_gpu_memory // 640
-            data_size[1] = data_size[1] * pytest.max_gpu_memory // 640
-            data_size[2] = data_size[2] * pytest.max_gpu_memory // 640
+            data_size[0] = data_size[0] * max_gpu_memory // 640
+            data_size[1] = data_size[1] * max_gpu_memory // 640
+            data_size[2] = data_size[2] * max_gpu_memory // 640
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -314,18 +309,17 @@ def test_cluster_pickle(tmpdir, datatype, keys, data_size):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("keys", decomposition_models_xfail.values())
+@pytest.mark.parametrize("keys", random_projection_models.keys())
 @pytest.mark.parametrize(
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
-@pytest.mark.xfail
-def test_decomposition_pickle(tmpdir, datatype, keys, data_size):
+def test_random_projection_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
-        model = decomposition_models_xfail[keys]()
+        model = random_projection_models[keys](n_components=5)
         result["decomposition"] = model.fit_transform(X_train)
         return model, X_train
 
@@ -370,30 +364,6 @@ def test_umap_pickle(tmpdir, datatype, keys):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("keys", decomposition_models.keys())
-@pytest.mark.parametrize(
-    "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
-)
-@pytest.mark.xfail
-def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
-    result = {}
-
-    def create_mod():
-        nrows, ncols, n_info = data_size
-        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
-        model = decomposition_models[keys]()
-        result["decomposition"] = model.fit_transform(X_train)
-        return model, X_train
-
-    def assert_model(pickled_model, X_test):
-        assert array_equal(
-            result["decomposition"], pickled_model.transform(X_test)
-        )
-
-    pickle_save_load(tmpdir, create_mod, assert_model)
-
-
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
@@ -401,10 +371,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
-    if (
-        model_name in decomposition_models_xfail.keys()
-        or model_name in unfit_pickle_xfail
-    ):
+    if model_name in unfit_pickle_xfail:
         pytest.xfail()
 
     # Pickling should work even if fit has not been called
@@ -437,13 +404,16 @@ def test_unfit_clone(model_name):
     [unit_param([500, 20, 10, 5]), stress_param([500000, 1000, 500, 50])],
 )
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_info[0] == 500000
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
         and ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys)
     ):
         if pytest.adapt_stress_test:
-            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+            data_info[0] = data_info[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -476,6 +446,26 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
+@pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
+def test_nearest_neighbors_pickle(algorithm):
+    X, _ = make_blobs(n_features=3, n_samples=500, random_state=42)
+    model = cuml.NearestNeighbors(algorithm=algorithm)
+    model.fit(X)
+    model2 = pickle.loads(pickle.dumps(model))
+    d1, i1 = model.kneighbors(X[:10])
+    d2, i2 = model2.kneighbors(X[:10])
+    if algorithm in ("ivfpq", "ivfflat"):
+        # Currently ivf indices aren't serialized, which may result in small
+        # differences upon reload. For now we check for comparable performance
+        # just to ensure things are wired together properly.
+        accuracy = (i1 == i2).sum() / i1.size
+        assert accuracy >= 0.9
+        np.testing.assert_allclose(d1, d2, atol=1e-5)
+    else:
+        np.testing.assert_allclose(i1, i2)
+        np.testing.assert_allclose(d1, d2)
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "data_info",
@@ -486,13 +476,16 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 )
 @pytest.mark.parametrize("keys", k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
     if (
         data_info[0] == 500000
         and "NearestNeighbors" in keys
-        and pytest.max_gpu_memory < 32
+        and max_gpu_memory < 32
     ):
         if pytest.adapt_stress_test:
-            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+            data_info[0] = data_info[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."
@@ -514,7 +507,6 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         D_after = pickled_model.predict(X_test)
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
-        assert state["n_indices"] == 1
         assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -543,13 +535,11 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
-        assert state["n_indices"] == 0
         assert "_fit_X" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
-        assert state["n_indices"] == 1
         assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -561,9 +551,12 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
-    if data_size[0] == 500000 and pytest.max_gpu_memory < 32:
+    # Assume at least 4GB memory
+    max_gpu_memory = pytest.max_gpu_memory or 4
+
+    if data_size[0] == 500000 and max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            data_size[0] = data_size[0] * pytest.max_gpu_memory // 32
+            data_size[0] = data_size[0] * max_gpu_memory // 32
         else:
             pytest.skip(
                 "Insufficient GPU memory for this test."

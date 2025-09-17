@@ -7,7 +7,7 @@ The Forest Inference Library is a subset of cuML designed to accelerate inferenc
 
     from cuml import ForestInference
 
-    fil_model = ForestInference.load("./my_xgboost_classifier.ubj", output_class=True)
+    fil_model = ForestInference.load("./my_xgboost_classifier.ubj", is_classifier=True)
     class_predictions = fil_model.predict(input_data)
 
 FIL typically offers speedups of 80x or more relative to native inference with e.g. a Scikit-Learn ``RandomForest`` model on CPU.

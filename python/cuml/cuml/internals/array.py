@@ -612,7 +612,7 @@ class CumlArray:
                         )
                 return cp.asnumpy(
                     cp_arr,
-                    order=self.order,
+                    order=self.order or "A",  # self.order may be None
                 )
             return output_mem_type.xpy.asarray(
                 self, dtype=output_dtype, order=self.order

@@ -212,47 +212,6 @@ def test_compare_skl_ucx(
     )
 
 
-@pytest.mark.parametrize(
-    "nrows", [unit_param(300), quality_param(1e6), stress_param(5e8)]
-)
-@pytest.mark.parametrize("ncols", [10, 30])
-@pytest.mark.parametrize(
-    "nclusters", [unit_param(5), quality_param(10), stress_param(15)]
-)
-@pytest.mark.parametrize(
-    "n_neighbors", [unit_param(10), quality_param(4), stress_param(100)]
-)
-@pytest.mark.parametrize(
-    "n_parts",
-    [unit_param(1), unit_param(5), quality_param(7), stress_param(50)],
-)
-@pytest.mark.parametrize(
-    "streams_per_handle,reverse_worker_order", [(5, True), (10, False)]
-)
-@pytest.mark.ucxx
-def test_compare_skl_ucxx(
-    nrows,
-    ncols,
-    nclusters,
-    n_parts,
-    n_neighbors,
-    streams_per_handle,
-    reverse_worker_order,
-    request,
-):
-    _test_compare_skl(
-        nrows,
-        ncols,
-        nclusters,
-        n_parts,
-        n_neighbors,
-        streams_per_handle,
-        reverse_worker_order,
-        "ucxx_client",
-        request,
-    )
-
-
 def _test_batch_size(nrows, ncols, n_parts, batch_size, dask_client, request):
     client = request.getfixturevalue(dask_client)
 
@@ -307,15 +266,6 @@ def test_batch_size_ucx(nrows, ncols, n_parts, batch_size, request):
     _test_batch_size(nrows, ncols, n_parts, batch_size, "ucx_client", request)
 
 
-@pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
-@pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
-@pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
-@pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
-@pytest.mark.ucxx
-def test_batch_size_ucxx(nrows, ncols, n_parts, batch_size, request):
-    _test_batch_size(nrows, ncols, n_parts, batch_size, "ucxx_client", request)
-
-
 def _test_return_distance(dask_client, request):
     client = request.getfixturevalue(dask_client)
 
@@ -355,11 +305,6 @@ def test_return_distance(request):
 @pytest.mark.ucx
 def test_return_distance_ucx(request):
     _test_return_distance("ucx_client", request)
-
-
-@pytest.mark.ucxx
-def test_return_distance_ucxx(request):
-    _test_return_distance("ucxx_client", request)
 
 
 def _test_default_n_neighbors(dask_client, request):
@@ -408,11 +353,6 @@ def test_default_n_neighbors_ucx(request):
     _test_default_n_neighbors("ucx_client", request)
 
 
-@pytest.mark.ucxx
-def test_default_n_neighbors_ucxx(request):
-    _test_default_n_neighbors("ucxx_client", request)
-
-
 def _test_one_query_partition(dask_client, request):
     client = request.getfixturevalue(dask_client)  # noqa
 
@@ -435,8 +375,3 @@ def test_one_query_partition(request):
 @pytest.mark.ucx
 def test_one_query_partition_ucx(request):
     _test_one_query_partition("ucx_client", request)
-
-
-@pytest.mark.ucxx
-def test_one_query_partition_ucxx(request):
-    _test_one_query_partition("ucxx_client", request)

@@ -26,7 +26,6 @@
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/util/device_atomics.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -39,6 +38,7 @@
 #include <thrust/transform.h>
 
 #include <cuvs/neighbors/ball_cover.hpp>
+#include <cuvs/neighbors/epsilon_neighborhood.hpp>
 #include <math.h>
 
 namespace ML {
@@ -206,8 +206,15 @@ void launcher(const raft::handle_t& handle,
     if (data.rbc_index != nullptr) {
       eps_nn(handle, data, start_vertex_id, batch_size, stream, (value_t)sqrtf(eps2));
     } else {
-      raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+      cuvs::neighbors::epsilon_neighborhood::compute<value_t, index_t, int64_t>(
+        handle,
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(
+          data.x + start_vertex_id * k, n, k),
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
+        raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
+        raft::make_device_vector_view<index_t, int64_t>(data.vd, n + 1),
+        eps2,
+        cuvs::distance::DistanceType::L2Unexpanded);
     }
 
     /**
@@ -226,8 +233,15 @@ void launcher(const raft::handle_t& handle,
     if (data.rbc_index != nullptr) {
       eps_nn(handle, data, start_vertex_id, batch_size, stream, data.eps);
     } else {
-      raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+      cuvs::neighbors::epsilon_neighborhood::compute<value_t, index_t, int64_t>(
+        handle,
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(
+          data.x + start_vertex_id * k, n, k),
+        raft::make_device_matrix_view<const value_t, int64_t, raft::row_major>(data.x, m, k),
+        raft::make_device_matrix_view<bool, int64_t, raft::row_major>(data.adj, n, m),
+        raft::make_device_vector_view<index_t, int64_t>(data.vd, n + 1),
+        eps2,
+        cuvs::distance::DistanceType::L2Unexpanded);
     }
   }
 

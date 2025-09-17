@@ -42,7 +42,7 @@ growing list of algorithms. The following Python snippet reads input from a CSV 
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 
 
-Initialize a `LocalCUDACluster` configured with [UCX](https://github.com/rapidsai/ucx-py) for fast transport of CUDA arrays
+Initialize a `LocalCUDACluster` configured with [UCXX](https://github.com/rapidsai/ucxx) for fast transport of CUDA arrays
 ```python
 # Initialize UCX for high-speed transport of CUDA arrays
 from dask_cuda import LocalCUDACluster
@@ -102,19 +102,17 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
 | | Inference for decision tree-based models | Forest Inference Library (FIL) |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Preprocessing** | Standardization, or mean removal and variance scaling / Normalization / Encoding categorical features / Discretization / Imputation of missing values / Polynomial features generation / and coming soon custom transformers and non-linear transformation | Based on Scikit-Learn preprocessing
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
-| **Model Explanation**                                 | SHAP Kernel Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
-|                                                       | SHAP Permutation Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
+| **Model Explanation** | SHAP Kernel Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
+|  | SHAP Permutation Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
 | **Execution device interoperability** | | Run estimators interchangeably from host/cpu or device/gpu with minimal code change [demo](https://docs.rapids.ai/api/cuml/stable/execution_device_interoperability.html) |
-| **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+| **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 
 ---
 

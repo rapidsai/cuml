@@ -454,7 +454,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
             src/kmeans/kmeans_transform.cu
-            src/kmeans/kmeans_fit_predict.cu
+            src/kmeans/kmeans_fit.cu
             src/kmeans/kmeans_predict.cu
             src/kmeans/kmeans_params.cpp
             )
@@ -503,12 +503,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/randomforest/randomforest.cu)
-  endif()
-
-  if(all_algo OR randomprojection_algo)
-    target_sources(${CUML_CPP_TARGET}
-      PRIVATE
-        src/random_projection/rproj.cu)
   endif()
 
   # todo: separate solvers better
@@ -569,7 +563,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/preprocess_mg.cu
         src/glm/ridge_mg.cu
         src/glm/qn_mg.cu
-        src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/knn/knn_classify_mg.cu
         src/knn/knn_regress_mg.cu

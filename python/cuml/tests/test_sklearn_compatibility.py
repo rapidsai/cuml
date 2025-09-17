@@ -537,16 +537,14 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_overwrite_params": "UMAP overwrites parameters during fit",
         "check_dont_overwrite_parameters": "UMAP overwrites parameters during fit",
         "check_do_not_raise_errors_in_init_or_set_params": "UMAP raises errors in init or set_params",
-        "check_n_features_in_after_fitting": "UMAP does not check n_features_in consistency",
         "check_complex_data": "UMAP does not handle complex data",
         "check_dtype_object": "UMAP does not handle object dtype",
-        "check_estimators_nan_inf": "UMAP does not check for NaN and inf",
         "check_estimator_sparse_tag": "UMAP does not support sparse data",
-        # "check_estimator_sparse_matrix": "UMAP does not handle sparse matrices gracefully",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
-        # "check_transformers_unfitted": "UMAP does not raise error when transform called before fit",
         "check_parameters_default_constructible": "UMAP parameters are mutated on init",
-        "check_fit_check_is_fitted": "UMAP passes check_is_fitted before being fit",
+        "check_methods_sample_order_invariance": "UMAP results depend on sample order",
+        "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
+        "check_methods_subset_invariance": "UMAP results depend on data subset",
     },
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -724,6 +722,7 @@ def _check_name(check):
 
 @estimator_checks.parametrize_with_checks(
     [
+        DBSCAN(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),
@@ -770,11 +769,10 @@ def test_sklearn_compatible_estimator(estimator, check):
 
     check_name = _check_name(check)
 
-    if check_name == "check_estimators_pickle" and isinstance(
-        estimator,
-        (KNeighborsClassifier, KNeighborsRegressor, NearestNeighbors),
+    if check_name in ["check_estimators_nan_inf"] and isinstance(
+        estimator, UMAP
     ):
-        pytest.skip("Pickling KNeighborsClassifier crashes the test suite")
+        pytest.skip("UMAP does not handle Nans and infinities")
 
     if check_name == "check_classifiers_regression_target" and isinstance(
         estimator, RandomForestClassifier
@@ -782,26 +780,5 @@ def test_sklearn_compatible_estimator(estimator, check):
         pytest.skip(
             "Regression targets for RandomForestClassifier crash the test suite"
         )
-
-    # We skip running these checks because they lead to memory errors which doesn't crash the test suite
-    # but it does lead to lots of other checks on other estimators failing.
-    if isinstance(estimator, UMAP) and check_name in (
-        "check_estimators_empty_data_messages",
-        "check_methods_sample_order_invariance",
-        "check_transformer_general",
-        "check_estimators_pickle",
-        "check_f_contiguous_array_estimator",
-        "check_methods_subset_invariance",
-        "check_fit2d_1sample",
-        "check_fit2d_1feature",
-        "check_dict_unchanged",
-        "check_fit_idempotent",
-        "check_n_features_in",
-        "check_transformer_data_not_an_array",
-        "check_estimators_nan_inf",
-        "check_estimator_sparse_matrix",
-        "check_fit2d_predict1d",
-    ):
-        pytest.skip("Check leads to a MemoryError")
 
     check(estimator)
