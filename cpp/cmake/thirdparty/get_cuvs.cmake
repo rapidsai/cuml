@@ -47,8 +47,8 @@ function(find_and_configure_cuvs)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
-        GIT_REPOSITORY         https://github.com/${PKG_FORK}/cuvs.git
-        GIT_TAG                ${PKG_PINNED_TAG}
+        GIT_REPOSITORY         https://github.com/jinsolp/cuvs.git
+        GIT_TAG                hdbscan-int64-pub
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
@@ -71,6 +71,7 @@ endfunction()
 # Change pinned tag here to test a commit in CI
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
+set(CPM_cuvs_SOURCE "/home/nfs/jinsolp/rapids/cuvs")
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
       FORK             jinsolp
       PINNED_TAG       hdbscan-int64-pub
