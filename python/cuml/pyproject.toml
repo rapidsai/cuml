@@ -37,8 +37,7 @@ markers = [
   "mg: Multi-GPU tests",
   "memleak: Test that checks for memory leaks",
   "no_bad_cuml_array_check: Test that should not check for bad CumlArray uses",
-  "ucx: Run _only_ Dask UCX-Py tests",
-  "ucxx: Run _only_ Dask UCXX tests",
+  "ucx: Run _only_ Dask UCXX tests",
 ]
 
 testpaths = [
@@ -92,21 +91,18 @@ authors = [
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
-    "cuda-python",
+    "cuda-python>=13.0.1,<14.0a0",
+    "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14",
     "cudf==25.10.*,>=0.0.0a0",
-    "cupy-cuda12x>=12.0.0",
+    "cupy-cuda13x>=13.6.0",
     "cuvs==25.10.*,>=0.0.0a0",
     "dask-cuda==25.10.*,>=0.0.0a0",
     "dask-cudf==25.10.*,>=0.0.0a0",
     "joblib>=0.11",
     "libcuml==25.10.*,>=0.0.0a0",
-    "numba>=0.59.1,<0.62.0a0",
+    "numba-cuda[cu13]>=0.19.1,<0.20.0a0",
+    "numba>=0.60.0,<0.62.0a0",
     "numpy>=1.23,<3.0a0",
-    "nvidia-cublas",
-    "nvidia-cufft",
-    "nvidia-curand",
-    "nvidia-cusolver",
-    "nvidia-cusparse",
     "packaging",
     "pylibraft==25.10.*,>=0.0.0a0",
     "raft-dask==25.10.*,>=0.0.0a0",
@@ -134,6 +130,7 @@ test = [
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc<1.9",
+    "nvidia-ml-py>=12",
     "pynndescent",
     "pytest",
     "pytest-benchmark",
@@ -187,7 +184,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.30.4",
-    "cuda-python",
+    "cuda-python>=13.0.1,<14.0a0",
     "cython>=3.0.0",
     "libcuml==25.10.*,>=0.0.0a0",
     "libcuvs==25.10.*,>=0.0.0a0",

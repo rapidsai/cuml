@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include "barnes_hut_tsne.cuh"
 #include "distances.cuh"
 #include "exact_kernels.cuh"
@@ -38,6 +39,8 @@
 #include <cuvs/distance/distance.hpp>
 #include <pca/pca.cuh>
 #include <stdint.h>
+
+#include <utility>
 
 namespace ML {
 
@@ -164,7 +167,7 @@ class TSNE_runner {
                            });
   }
 
-  value_t run()
+  std::pair<float, int> run()
   {
     distance_and_perplexity();
 
@@ -179,8 +182,8 @@ class TSNE_runner {
         return TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
       case TSNE_ALGORITHM::FFT: return TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
       case TSNE_ALGORITHM::EXACT: return TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      default: ASSERT(false, "Unknown algorithm: %d", params.algorithm);
     }
-    return 0;
   }
 
  private:

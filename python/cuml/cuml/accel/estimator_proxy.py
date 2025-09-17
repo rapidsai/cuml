@@ -112,6 +112,16 @@ class ProxyBase(BaseEstimator):
     See the definitions in ``cuml.accel._wrappers.linear_model`` for examples.
     """
 
+    # A set of attribute names that aren't supported by `cuml.accel`.
+    # Attributes in this set will raise a nicer error message than the default
+    # AttributeError.
+    _not_implemented_attributes = frozenset()
+
+    # A set of additional attribute names to proxy through that don't match the
+    # `*_` naming convention. Typically this is private attributes that
+    # consumers might still be using.
+    _other_attributes = frozenset()
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # The CPU estimator, always defined. This is the source of truth for any
         # hyperparameters. It also may have fit attributes on it - these are lazily
@@ -371,15 +381,38 @@ class ProxyBase(BaseEstimator):
         )
 
     def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            # Never proxy magic methods or private attributes
+        is_private = name.startswith("_")
+
+        if (
+            name.endswith("_")
+            and not is_private
+            or name in self._other_attributes
+        ):
+            # Fit attributes require syncing
+            self._sync_attrs_to_cpu()
+
+            try:
+                return getattr(self._cpu, name)
+            except AttributeError:
+                # We special case `feature_names_in_` here since it's the only common
+                # fitted attribute that cuml doesn't support anywhere.
+                if (
+                    name in self._not_implemented_attributes
+                    or name == "feature_names_in_"
+                ) and is_fitted(self._cpu):
+                    raise AttributeError(
+                        f"The `{type(self).__name__}.{name}` attribute is not yet "
+                        "implemented in `cuml.accel`.\n\n"
+                        "If this attribute is important for your use case, please open "
+                        "an issue: https://github.com/rapidsai/cuml/issues."
+                    ) from None
+                raise
+        elif is_private:
+            # Don't proxy magic methods or private attributes by default
             raise AttributeError(
                 f"{type(self).__name__!r} object has no attribute {name!r}"
             )
 
-        if name.endswith("_"):
-            # Fit attributes require syncing
-            self._sync_attrs_to_cpu()
         return getattr(self._cpu, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -493,8 +526,10 @@ class ProxyBase(BaseEstimator):
         return self._cpu._more_tags()
 
     def _repr_mimebundle_(self, **kwargs):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_mimebundle_(**kwargs)
 
     @property
     def _repr_html_(self):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_html_

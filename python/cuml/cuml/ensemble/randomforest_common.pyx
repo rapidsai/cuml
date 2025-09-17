@@ -169,10 +169,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
-        if model.random_state is not None:
-            # determinism requires 1 CUDA stream
-            conditional_params["n_streams"] = 1
-
         if model.max_depth is not None:
             conditional_params["max_depth"] = model.max_depth
 
@@ -507,3 +503,15 @@ class BaseRandomForestModel(Base, InteropMixin):
                 "Call 'fit' with appropriate arguments before using this property."
             )
         return np.asarray(self._feature_importances_)
+
+    def _handle_deprecated_predict_model(self, predict_model):
+        if predict_model != "deprecated":
+            warnings.warn(
+                (
+                    "`predict_model` is deprecated (and ignored) and will be removed "
+                    "in 25.12. To infer on CPU use `model.convert_to_fil_model` to get "
+                    "a `FIL` instance which may then be used to perform inference on "
+                    "both CPU and GPU."
+                ),
+                FutureWarning,
+            )
