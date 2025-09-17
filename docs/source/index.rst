@@ -18,9 +18,6 @@ As data gets larger, algorithms running on a CPU become slow and cumbersome.
 RAPIDS provides users a streamlined approach where data is initially loaded
 in the GPU, and compute tasks can be performed on it directly.
 
-cuML is fully open source, and the RAPIDS team welcomes new and seasoned
-contributors, users and hobbyists! Thank you for your wonderful support!
-
 Quick Start
 ===========
 
