@@ -57,6 +57,11 @@ void transform(raft::resources const& handle,
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
+               raft::device_matrix_view<float, int64_t, raft::row_major> dataset,
+               raft::device_matrix_view<float, int64_t, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
                raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
 
@@ -64,11 +69,6 @@ void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
                raft::device_coo_matrix_view<float, int, int, int64_t> connectivity_graph,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
-
-void transform(raft::resources const& handle,
-  ML::SpectralEmbedding::params config,
-  raft::device_coo_matrix_view<float, int64_t, int64_t, int64_t> connectivity_graph,
-  raft::device_matrix_view<float, int64_t, raft::col_major> embedding);
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
