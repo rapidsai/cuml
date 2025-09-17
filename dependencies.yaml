@@ -183,7 +183,6 @@ files:
       key: test
     includes:
       - test_python
-      - test_python_xgboost
   py_build_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml

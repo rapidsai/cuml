@@ -138,7 +138,6 @@ test = [
     "pytest-cov",
     "pytest-xdist",
     "pyyaml",
-    "rapids-xgboost==25.10.*,>=0.0.0a0",
     "scikit-learn>=1.4",
     "seaborn",
     "statsmodels",
