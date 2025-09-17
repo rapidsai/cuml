@@ -51,7 +51,9 @@ cuML is available through conda and pip. For detailed installation instructions,
 visit the `RAPIDS Release Selector <https://docs.rapids.ai/install#selector>`_.
 
 .. note::
-   cuML is only supported on Linux operating systems.
+   cuML is only supported on Linux operating systems and WSL 2. See
+   `the RAPIDS install page <https://docs.rapids.ai/install/#system-req>`_
+   for details on system and hardware requirements.
 
 Part of RAPIDS
 ==============
