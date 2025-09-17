@@ -89,15 +89,15 @@ void build_linkage(const raft::handle_t& handle,
   } else {
     linkage_params.min_samples = params.min_samples + 1;
   }
-  linkage_params.alpha                          = params.alpha;
-  linkage_params.all_neighbors_p.metric         = static_cast<cuvs::distance::DistanceType>(metric);
-  linkage_params.all_neighbors_p.overlap_factor = params.build_params.overlap_factor;
-  linkage_params.all_neighbors_p.n_clusters     = params.build_params.n_clusters;
+  linkage_params.alpha                       = params.alpha;
+  linkage_params.all_neighbors_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+  linkage_params.all_neighbors_params.overlap_factor = params.build_params.overlap_factor;
+  linkage_params.all_neighbors_params.n_clusters     = params.build_params.n_clusters;
 
   if (params.build_algo == Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN) {
     auto brute_force_params = cuvs::neighbors::graph_build_params::brute_force_params{};
     brute_force_params.build_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
-    linkage_params.all_neighbors_p.graph_build_params = brute_force_params;
+    linkage_params.all_neighbors_params.graph_build_params = brute_force_params;
   } else if (params.build_algo == Common::GRAPH_BUILD_ALGO::NN_DESCENT) {
     auto nn_descent_params           = cuvs::neighbors::graph_build_params::nn_descent_params{};
     nn_descent_params.max_iterations = params.build_params.nn_descent_params.max_iterations;
@@ -105,7 +105,7 @@ void build_linkage(const raft::handle_t& handle,
     nn_descent_params.intermediate_graph_degree =
       params.build_params.nn_descent_params.graph_degree * 2;
     nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
-    linkage_params.all_neighbors_p.graph_build_params = nn_descent_params;
+    linkage_params.all_neighbors_params.graph_build_params = nn_descent_params;
   } else {
     RAFT_FAIL("Unsupported build algo. build algo must be either brute force or nn descent");
   }
@@ -162,8 +162,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
   auto exec_policy = handle.get_thrust_policy();
 
   int min_cluster_size = params.min_cluster_size;
-
-  RAFT_EXPECTS(params.min_samples <= m, "min_samples must be at most the number of samples in X");
 
   RAFT_EXPECTS(params.min_samples <= m, "min_samples must be at most the number of samples in X");
 
