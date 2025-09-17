@@ -183,6 +183,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_python_xgboost
   py_build_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml
@@ -458,13 +459,16 @@ dependencies:
           - pynndescent
   test_python_xgboost:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda]
         packages:
           # We must separate xgboost into its own list so that it is not
           # included in the "devcontainers" key. The libxgboost package depends
           # on librmm but we do not want to have a package depending on librmm
           # in devcontainers since it should be built from source.
-          - &xgboost rapids-xgboost==25.10.*,>=0.0.0a0
+          - &rapids-xgboost rapids-xgboost==25.10.*,>=0.0.0a0
+      - output_types: [requirements, pyproject]
+        packages:
+          - &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
@@ -475,13 +479,14 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
-          - *xgboost
       - output_types: conda
         packages:
           - matplotlib-base
+          - *rapids-xgboost
       - output_types: requirements
         packages:
           - matplotlib
+          - *xgboost
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]
