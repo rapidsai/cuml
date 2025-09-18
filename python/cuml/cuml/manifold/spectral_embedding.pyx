@@ -24,7 +24,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_cpu
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -365,26 +365,11 @@ class SpectralEmbedding(Base,
         return params
 
     def _attrs_to_cpu(self, model):
-        """Get attributes to set on CPU model from GPU model.
-
-        Override the base implementation to include feature_names_in_.
-        """
-        # Get base attributes (n_features_in_)
-        out = super()._attrs_to_cpu(model)
-
-        # Add embedding_ attribute
-        if hasattr(self, 'embedding_'):
-            # Convert to numpy if it's a cupy array
-            embedding = self.embedding_
-            if hasattr(embedding, '__cuda_array_interface__'):
-                embedding = cp.asnumpy(embedding)
-            out['embedding_'] = embedding
-
-        # Add n_neighbors_ if it exists
-        if hasattr(self, 'n_neighbors_'):
-            out['n_neighbors_'] = self.n_neighbors_
-
-        return out
+        return {
+            "n_neighbors_": self.n_neighbors_,
+            "embedding_": to_cpu(self.embedding_),
+            **super()._attrs_to_cpu(self, model),
+        }
 
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
