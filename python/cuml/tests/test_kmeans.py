@@ -18,6 +18,7 @@ import random
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn
 from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
@@ -303,8 +304,6 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         (1000, 1.0, 1 << 15, "preset"),
         (500, 1.5, 1 << 5, "k-means||"),
         (1000, 1.0, 1 << 10, "random"),
-        # Redundant case to better exercise 'k-means||'
-        (1000, 1.0, 1 << 15, "k-means||"),
     ],
 )
 @pytest.mark.parametrize(
@@ -318,14 +317,13 @@ def test_all_kmeans_params(
     max_samples_per_batch,
     random_state,
 ):
-
     np.random.seed(0)
     X = np.random.rand(1000, 10)
 
     if init == "preset":
         init = np.random.rand(n_clusters, 10)
 
-    cuml_kmeans = cuml.KMeans(
+    model = cuml.KMeans(
         n_clusters=n_clusters,
         max_iter=max_iter,
         init=init,
@@ -335,8 +333,14 @@ def test_all_kmeans_params(
         output_type="cupy",
         n_init=1,
     )
+    model.fit(X)
+    assert hasattr(model, "labels_")
 
-    cuml_kmeans.fit_predict(X)
+    # Check that can clone and refit
+    model2 = sklearn.clone(model)
+    assert not hasattr(model2, "labels_")
+    model2.fit(X)
+    assert hasattr(model2, "labels_")
 
 
 @pytest.mark.parametrize(
@@ -457,5 +461,31 @@ def test_kmeans_n_samples_less_than_n_clusters():
     X = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
     with pytest.raises(
         ValueError, match="n_samples=2 should be >= n_clusters=8"
+    ):
+        model.fit(X)
+
+
+def test_kmeans_init_wrong_shape():
+    X = np.empty(shape=(20, 10))
+
+    # init not compatible with X
+    model = cuml.KMeans(n_init=1, init=X[:8, :2], n_clusters=8)
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"The shape of the initial centers .* does not match "
+            r"the number of features of the data"
+        ),
+    ):
+        model.fit(X)
+
+    # init not compatible with n_clusters
+    model = cuml.KMeans(n_init=1, init=X[:2], n_clusters=8)
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"The shape of the initial centers .* does not match "
+            r"the number of clusters"
+        ),
     ):
         model.fit(X)

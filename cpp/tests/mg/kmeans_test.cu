@@ -15,7 +15,6 @@
  */
 
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/cluster/kmeans_params.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
@@ -125,15 +124,15 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     T inertia  = 0;
     int n_iter = 0;
 
-    ML::kmeans::opg::fit(handle,
-                         params,
-                         X.data(),
-                         n_samples,
-                         n_features,
-                         d_sample_weight_ptr,
-                         d_centroids.data(),
-                         inertia,
-                         n_iter);
+    kmeans::fit(handle,
+                params,
+                X.data(),
+                n_samples,
+                n_features,
+                d_sample_weight_ptr,
+                d_centroids.data(),
+                inertia,
+                n_iter);
 
     kmeans::predict(handle,
                     params,

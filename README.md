@@ -109,10 +109,8 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Preprocessing** | Standardization, or mean removal and variance scaling / Normalization / Encoding categorical features / Discretization / Imputation of missing values / Polynomial features generation / and coming soon custom transformers and non-linear transformation | Based on Scikit-Learn preprocessing
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
-| **Model Explanation**                                 | SHAP Kernel Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
-|                                                       | SHAP Permutation Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
+| **Model Explanation** | SHAP Kernel Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
+|  | SHAP Permutation Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
 | **Execution device interoperability** | | Run estimators interchangeably from host/cpu or device/gpu with minimal code change [demo](https://docs.rapids.ai/api/cuml/stable/execution_device_interoperability.html) |
 | **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 
