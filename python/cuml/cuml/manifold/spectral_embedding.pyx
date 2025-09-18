@@ -24,7 +24,8 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
 from cython.operator cimport dereference as deref
@@ -39,15 +40,6 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.handle cimport device_resources
-
-import cuml
-from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.utils import check_random_seed
 
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
