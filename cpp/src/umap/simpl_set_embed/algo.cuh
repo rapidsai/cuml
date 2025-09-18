@@ -296,18 +296,15 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <typename T, typename nnz_t, int TPB_X>
-void launcher(
-  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(int m,
+              int n,
+              raft::sparse::COO<T>* in,
+              UMAPParams* params,
+              T* embedding,
+              int n_epochs,
+              cudaStream_t stream)
 {
   nnz_t nnz = in->nnz;
-
-  int n_epochs = params->n_epochs;
-  if (n_epochs <= 0) {
-    if (m <= 10000)
-      n_epochs = 500;
-    else
-      n_epochs = 200;
-  }
 
   rmm::device_uvector<T> epochs_per_sample(nnz, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, nnz * sizeof(T), stream));
