@@ -107,4 +107,4 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                                  int,
                                  int) except +
 
-    cdef vector[unsigned char] save_model(TreeliteModelHandle)
+    cdef vector[unsigned char] save_model(TreeliteModelHandle) except +

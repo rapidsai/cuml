@@ -31,7 +31,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
     double adjusted_rand_index(handle_t &handle,
                                int *y,
                                int *y_hat,
-                               int n)
+                               int n) except +
 
 
 @cuml.internals.api_return_any()
