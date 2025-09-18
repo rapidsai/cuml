@@ -16,7 +16,7 @@
 
 import platform
 import random
-from itertools import chain, permutations
+from itertools import chain, combinations_with_replacement, permutations
 
 import cudf
 import cupy as cp
@@ -308,6 +308,21 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+@pytest.mark.parametrize("nrows", [0, 1, 2])
+def test_adjusted_rand_score_small(nrows):
+    arrs = [
+        np.array(a, dtype="int32")
+        for a in combinations_with_replacement(range(2), nrows)
+    ]
+    for y in arrs:
+        for y_pred in arrs:
+            res = cu_ars(y, y_pred)
+            sol = sk_ars(y, y_pred)
+            assert (
+                res == sol
+            ), f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
 
 
 @pytest.mark.parametrize(
