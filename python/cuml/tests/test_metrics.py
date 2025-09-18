@@ -571,6 +571,7 @@ def test_completeness_score_big_array(use_handle, input_range):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -593,6 +594,7 @@ def test_regression_metrics(n_samples, y_dtype, pred_dtype, func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -612,6 +614,7 @@ def test_regression_metrics_cudf(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -632,6 +635,7 @@ def test_regression_metrics_zero_error(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -653,6 +657,7 @@ def test_regression_metrics_multioutput(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -674,6 +679,7 @@ def test_regression_metrics_multioutput_raw_values(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -696,6 +702,7 @@ def test_regression_metrics_multioutput_custom_weights(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
