@@ -69,7 +69,20 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 
 
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows",
+    [
+        pytest.param(
+            500,
+            marks=[
+                pytest.mark.unit,
+                pytest.mark.xfail(
+                    reason="https://github.com/rapidsai/cuvs/issues/184"
+                ),
+            ],
+        ),
+        quality_param(5000),
+        stress_param(500000),
+    ],
 )
 @pytest.mark.parametrize(
     "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
@@ -865,76 +878,6 @@ def test_umap_trustworthiness_on_batch_nnd(
 
     cuml_trust = trustworthiness(
         digits.data, cuml_embedding, n_neighbors=10, metric=metric
-    )
-
-    assert cuml_trust > 0.9
-
-
-@pytest.mark.parametrize("data_on_host", [True, False, "auto", None])
-@pytest.mark.parametrize("num_clusters", [0, 1, 5])
-@pytest.mark.parametrize(
-    "build_algo,n_rows",
-    [
-        ("brute_force_knn", 5000),
-        ("nn_descent", 5000),
-        ("auto", 5000),  # results in brute_force_knn
-        # ("auto", 51000),    # results in nn_descent, passes tests but trustworthiness takes long to run
-    ],
-)
-def test_umap_param_handling(data_on_host, num_clusters, build_algo, n_rows):
-
-    data, _ = make_blobs(
-        n_samples=n_rows, n_features=64, centers=5, random_state=0
-    )
-
-    def run_umap():
-        cuml_model = cuUMAP(
-            n_neighbors=10,
-            min_dist=0.01,
-            build_algo=build_algo,
-            build_kwds={"nnd_n_clusters": num_clusters},
-            metric="l2",
-        )
-
-        if data_on_host is None:
-            cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-        else:
-            cuml_embedding = cuml_model.fit_transform(
-                data, convert_dtype=True, data_on_host=data_on_host
-            )
-        return cuml_embedding
-
-    # eventual build_algo when given auto
-    configured_build_algo = build_algo
-    if configured_build_algo in ["auto", None]:
-        if n_rows <= 50000:
-            configured_build_algo = "brute_force_knn"
-        else:
-            configured_build_algo = "nn_descent"
-
-    if (
-        num_clusters == 0
-        or (
-            configured_build_algo == "brute_force_knn" and data_on_host is True
-        )
-        or (
-            configured_build_algo == "nn_descent"
-            and num_clusters > 1
-            and data_on_host is False
-        )
-    ):
-        with pytest.raises(ValueError):
-            run_umap()
-        return
-
-    if data_on_host in [True, False]:
-        with pytest.warns(FutureWarning):
-            cuml_embedding = run_umap()
-    else:
-        cuml_embedding = run_umap()
-
-    cuml_trust = trustworthiness(
-        data, cuml_embedding, n_neighbors=10, metric="l2"
     )
 
     assert cuml_trust > 0.9

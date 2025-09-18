@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
@@ -50,6 +51,18 @@ cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::p
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
                raft::device_matrix_view<float, int, raft::row_major> dataset,
+               raft::device_matrix_view<float, int, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
+               raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
+               raft::device_matrix_view<float, int, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
+               raft::device_vector_view<int, int> rows,
+               raft::device_vector_view<int, int> cols,
+               raft::device_vector_view<float, int> vals,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
 
 }  // namespace ML::SpectralEmbedding

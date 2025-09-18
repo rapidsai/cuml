@@ -15,8 +15,6 @@
 #
 import cupy as cp
 import dask.array
-import numpy as np
-from dask.distributed import default_client
 
 from cuml.dask.common.base import (
     BaseEstimator,
@@ -46,8 +44,6 @@ class RandomForestClassifier(
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-     * The get_summary_text and get_detailed_text functions provides the \
-        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -188,24 +184,6 @@ class RandomForestClassifier(
     def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
-    def get_summary_text(self):
-        """
-        Obtain the text summary of the random forest model
-        """
-        return self._get_summary_text()
-
-    def get_detailed_text(self):
-        """
-        Obtain the detailed information for the random forest model, as text
-        """
-        return self._get_detailed_text()
-
-    def get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        return self._get_json()
-
     def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest classifier
@@ -275,7 +253,7 @@ class RandomForestClassifier(
         X,
         threshold=0.5,
         convert_dtype=True,
-        predict_model="GPU",
+        predict_model="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -285,40 +263,25 @@ class RandomForestClassifier(
         """
         Predicts the labels for X.
 
-        GPU-based prediction in a multi-node, multi-GPU context works
-        by sending the sub-forest from each worker to the client,
-        concatenating these into one forest with the full
-        `n_estimators` set of trees, and sending this combined forest to
-        the workers, which will each infer on their local set of data.
-        Within the worker, this uses the cuML Forest Inference Library
-        (cuml.fil) for high-throughput prediction.
-
-        This allows inference to scale to large datasets, but the forest
-        transmission incurs overheads for very large trees. For inference
-        on small datasets, this overhead may dominate prediction time.
-
-        The 'CPU' fallback method works with sub-forests in-place, broadcasting
-        the datasets to all workers and combining predictions via a voting
-        method at the end. This method is slower on a per-row basis but may be
-        faster for problems with many trees and few rows.
-
         Parameters
         ----------
         X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
         threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU, that is for,
-            predict_model='GPU'.
+            Threshold used for classification.
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+        predict_model : string (default = 'deprecated')
+
+            .. deprecated:: 25.10
+                `predict_model` is deprecated (and ignored) and will be removed
+                in 25.12. The default of `predict_model="GPU"` should suffice in
+                all situations. When inferring on small datasets you may also
+                want to try setting ``broadcast_data=True``.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -330,11 +293,10 @@ class RandomForestClassifier(
             If specified, trees will be padded such that their in-memory size is
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
-            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+            Typical values are 0 or 128.
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
-            eagerly executed one.  It is not required  while using
-            predict_model='CPU'.
+            eagerly executed one.
         broadcast_data : bool (default = False)
             If False, the trees are merged in a single model before the workers
             perform inference on their share of the prediction workload.
@@ -348,29 +310,26 @@ class RandomForestClassifier(
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             The predicted class labels.
         """
-        if predict_model == "CPU":
-            preds = self.predict_model_on_cpu(X=X, convert_dtype=convert_dtype)
-        else:
-            if broadcast_data:
-                preds = self.partial_inference(
-                    X,
-                    convert_dtype=convert_dtype,
-                    layout=layout,
-                    default_chunk_size=default_chunk_size,
-                    align_bytes=align_bytes,
-                    delayed=delayed,
-                )
-            else:
-                preds = self._predict_using_fil(
-                    X,
-                    threshold=threshold,
-                    convert_dtype=convert_dtype,
-                    layout=layout,
-                    default_chunk_size=default_chunk_size,
-                    align_bytes=align_bytes,
-                    delayed=delayed,
-                )
-        return preds
+        self._handle_deprecated_predict_model(predict_model)
+
+        if broadcast_data:
+            return self.partial_inference(
+                X,
+                convert_dtype=convert_dtype,
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+                delayed=delayed,
+            )
+        return self._predict_using_fil(
+            X,
+            threshold=threshold,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            delayed=delayed,
+        )
 
     def partial_inference(self, X, delayed, **kwargs):
         partial_infs = self._partial_inference(
@@ -391,78 +350,6 @@ class RandomForestClassifier(
             return pred_class
         else:
             return pred_class.persist()
-
-    def predict_using_fil(self, X, delayed, **kwargs):
-        if self._get_internal_model() is None:
-            self._set_internal_model(self._concat_treelite_models())
-
-        return self._predict_using_fil(X=X, delayed=delayed, **kwargs)
-
-    """
-    TODO : Update function names used for CPU predict.
-        Cuml issue #1854 has been created to track this.
-    """
-
-    def predict_model_on_cpu(self, X, convert_dtype=True):
-        """
-        Predicts the labels for X.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        -------
-        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
-        """
-        c = default_client()
-        workers = self.workers
-
-        X_Scattered = c.scatter(X)
-        futures = list()
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestClassifier._predict_model_on_cpu,
-                    self.rfs[w],
-                    X_Scattered,
-                    convert_dtype,
-                    workers=[w],
-                )
-            )
-
-        rslts = self.client.gather(futures, errors="raise")
-        indexes = np.zeros(len(futures), dtype=np.int32)
-        pred = list()
-
-        for i in range(len(X)):
-            classes = dict()
-            max_class = -1
-            max_val = 0
-
-            for d in range(len(rslts)):
-                for j in range(self.n_estimators_per_worker[d]):
-                    sub_ind = indexes[d] + j
-                    cls = rslts[d][sub_ind]
-                    if cls not in classes.keys():
-                        classes[cls] = 1
-                    else:
-                        classes[cls] = classes[cls] + 1
-
-                    if classes[cls] > max_val:
-                        max_val = classes[cls]
-                        max_class = cls
-
-                indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
-
-            pred.append(max_class)
-        return pred
 
     def predict_proba(self, X, delayed=True, **kwargs):
         """

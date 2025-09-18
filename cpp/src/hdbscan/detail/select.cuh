@@ -126,7 +126,13 @@ void parent_csr(const raft::handle_t& handle,
   auto n_clusters         = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
-    raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes, stream);
+    raft::sparse::op::coo_sort(static_cast<value_idx>(0),
+                               static_cast<value_idx>(0),
+                               cluster_tree_edges,
+                               parents,
+                               children,
+                               sizes,
+                               stream);
 
     raft::sparse::convert::sorted_coo_to_csr(
       parents, cluster_tree_edges, indptr, n_clusters + 1, stream);
@@ -323,7 +329,7 @@ void cluster_epsilon_search(const raft::handle_t& handle,
 
   // copying selected clusters by index
   thrust::copy_if(thrust_policy,
-                  thrust::make_counting_iterator(value_idx(0)),
+                  thrust::make_counting_iterator(0),
                   thrust::make_counting_iterator(n_clusters),
                   is_cluster,
                   selected_clusters.data(),
@@ -388,7 +394,7 @@ void select_clusters(const raft::handle_t& handle,
                      int* is_cluster,
                      Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
                      bool allow_single_cluster,
-                     int max_cluster_size,
+                     value_idx max_cluster_size,
                      float cluster_selection_epsilon)
 {
   auto stream        = handle.get_stream();

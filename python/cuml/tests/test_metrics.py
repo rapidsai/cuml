@@ -16,7 +16,7 @@
 
 import platform
 import random
-from itertools import chain, permutations
+from itertools import chain, combinations_with_replacement, permutations
 
 import cudf
 import cupy as cp
@@ -310,6 +310,21 @@ def test_rand_index_score(name, nrows):
     assert array_equal(cu_score, cu_score_using_sk)
 
 
+@pytest.mark.parametrize("nrows", [0, 1, 2])
+def test_adjusted_rand_score_small(nrows):
+    arrs = [
+        np.array(a, dtype="int32")
+        for a in combinations_with_replacement(range(2), nrows)
+    ]
+    for y in arrs:
+        for y_pred in arrs:
+            res = cu_ars(y, y_pred)
+            sol = sk_ars(y, y_pred)
+            assert (
+                res == sol
+            ), f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
+
+
 @pytest.mark.parametrize(
     "metric", ("cityblock", "cosine", "euclidean", "l1", "sqeuclidean")
 )
@@ -571,6 +586,7 @@ def test_completeness_score_big_array(use_handle, input_range):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -593,6 +609,7 @@ def test_regression_metrics(n_samples, y_dtype, pred_dtype, func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -612,6 +629,7 @@ def test_regression_metrics_cudf(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -632,6 +650,7 @@ def test_regression_metrics_zero_error(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -653,6 +672,7 @@ def test_regression_metrics_multioutput(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -674,6 +694,7 @@ def test_regression_metrics_multioutput_raw_values(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )
@@ -696,6 +717,7 @@ def test_regression_metrics_multioutput_custom_weights(func):
         "r2_score",
         "mean_squared_error",
         "mean_absolute_error",
+        "median_absolute_error",
         "mean_squared_log_error",
     ],
 )

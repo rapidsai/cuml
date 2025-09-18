@@ -52,6 +52,7 @@ DEPENDENCIES=(
   pylibraft
   raft-dask
   rapids-dask-dependency
+  rapids-xgboost
   rmm
 )
 for DEP in "${DEPENDENCIES[@]}"; do
@@ -73,8 +74,6 @@ sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" python/cuml/README.md
 # CI files
 for FILE in .github/workflows/*.yaml .github/workflows/*.yml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
-  # Wheel builds clone cumlprims_mg, update its branch
-  sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" "${FILE}"
   # CI image tags of the form {rapids_version}-{something}
   sed_runner "s/:[0-9]*\\.[0-9]*-/:${NEXT_SHORT_TAG}-/g" "${FILE}"
 done

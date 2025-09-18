@@ -18,11 +18,6 @@
 
 import warnings
 
-_DATA_ON_HOST_DEPRECATED_MESSAGE = (
-    "The data_on_host option is deprecated and will be removed in release 25.10. "
-    "Whether data is on host or device is now determined by the build_algo."
-)
-
 import cupy
 import cupyx.scipy.sparse
 import joblib
@@ -54,7 +49,6 @@ from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
 from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
@@ -491,6 +485,7 @@ class UMAP(Base,
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
             "sparse_fit": model._sparse_data,
+            "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
 
@@ -617,7 +612,6 @@ class UMAP(Base,
             raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
-        self.embedding_ = None
 
         self.validate_hyperparams()
 
@@ -757,7 +751,7 @@ class UMAP(Base,
     @staticmethod
     def _destroy_umap_params(ptr):
         cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
-        free(umap_params)
+        del umap_params
 
     @staticmethod
     def find_ab_params(spread, min_dist):
@@ -772,8 +766,7 @@ class UMAP(Base,
         y=None,
         *,
         convert_dtype=True,
-        knn_graph=None,
-        data_on_host="auto"
+        knn_graph=None
     ) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -789,17 +782,9 @@ class UMAP(Base,
         and also allows the use of a custom distance function. This function
         should match the metric used to train the UMAP embeedings.
         Takes precedence over the precomputed_knn parameter.
-
-        .. deprecated:: 25.08
-            The `data_on_host` parameter is deprecated and will be removed in
-            release 25.10. Whether data is on host or device is now determined
-            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
-            data will automatically be placed on host memory. When
-            `build_algo == brute_force_knn`, data will automatically be placed
-            on device memory.
         """
         if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
+            raise ValueError("Reshape your data: data should be two dimensional")
 
         if y is not None and knn_graph is not None\
                 and self.target_metric != "categorical":
@@ -848,34 +833,16 @@ class UMAP(Base,
                                                       else None),
                                     convert_to_mem_type=convert_to_mem_type)
 
-        # Get nnd_n_clusters value for validation
-        build_kwds = self.build_kwds or {}
-        nnd_n_clusters = build_kwds.get("nnd_n_clusters", 1)
-
-        # deprecation notice and raising error for data_on_host parameter
-        if data_on_host is True:
-            if self.build_algo == "brute_force_knn":
-                raise ValueError(
-                    f"build_algo = 'brute_force_knn' is not supported when data_on_host "
-                    f"is True; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                )
-            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
-        elif data_on_host is False:
-            if self.build_algo == "nn_descent" and nnd_n_clusters > 1:
-                raise ValueError(
-                    f"nnd_n_clusters > 1 is not supported for nn_descent build when "
-                    f"data_on_host is False; {_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-                )
-            warnings.warn(_DATA_ON_HOST_DEPRECATED_MESSAGE, FutureWarning)
-        elif data_on_host != "auto":
-            raise ValueError(
-                f"data_on_host must be True, False, or 'auto'; "
-                f"{_DATA_ON_HOST_DEPRECATED_MESSAGE}"
-            )
-
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
+
+        if self.n_dims < 1:
+            raise ValueError(
+                f"0 feature(s) (shape=({self.n_rows}, {self.n_dims})) "
+                f"while a minimum of 1 is required."
+            )
+
         if self.build_algo == "nn_descent" and self.n_rows < 150:
             # https://github.com/rapidsai/cuvs/issues/184
             warnings.warn(
@@ -905,6 +872,8 @@ class UMAP(Base,
             self._knn_indices = knn_indices
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
+
+        self.n_features_in_ = self.n_dims
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
@@ -985,8 +954,7 @@ class UMAP(Base,
         y=None,
         *,
         convert_dtype=True,
-        knn_graph=None,
-        data_on_host="auto",
+        knn_graph=None
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -1018,21 +986,12 @@ class UMAP(Base,
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
-
-        .. deprecated:: 25.08
-            The `data_on_host` parameter is deprecated and will be removed in
-            release 25.10. Whether data is on host or device is now determined
-            by the `nnd_n_clusters` parameter. When `build_algo == nn_descent`,
-            data will automatically be placed on host memory. When
-            `build_algo == brute_force_knn`, data will automatically be placed
-            on device memory.
         """
         self.fit(
             X,
             y,
             convert_dtype=convert_dtype,
-            knn_graph=knn_graph,
-            data_on_host=data_on_host
+            knn_graph=knn_graph
         )
         return self.embedding_
 
@@ -1057,7 +1016,7 @@ class UMAP(Base,
 
         """
         if len(X.shape) != 2:
-            raise ValueError("X should be two dimensional")
+            raise ValueError("Reshape your data: X should be two dimensional")
 
         if is_sparse(X) and not self.sparse_fit:
             logger.warn("Model was trained on dense data but sparse "
@@ -1085,9 +1044,11 @@ class UMAP(Base,
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
-        if n_cols != self._raw_data.shape[1]:
-            raise ValueError("n_features of X must match n_features of "
-                             "training data")
+        if n_cols != self.n_features_in_:
+            raise ValueError(
+                'X has {} features, but {} is expecting {} features '
+                'as input'.format(n_cols, self.__class__.__name__, self.n_features_in_)
+            )
 
         if self.hash_input:
             if _joblib_hash(X_m.to_output('numpy')) == self._input_hash:
