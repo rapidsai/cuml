@@ -52,6 +52,7 @@ DEPENDENCIES=(
   pylibraft
   raft-dask
   rapids-dask-dependency
+  rapids-xgboost
   rmm
 )
 for DEP in "${DEPENDENCIES[@]}"; do
