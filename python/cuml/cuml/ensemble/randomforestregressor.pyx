@@ -21,7 +21,7 @@ import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
+import cuml.metrics
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -55,20 +55,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                   double*,
                   RF_params,
                   level_enum) except +
-
-    cdef RF_metrics score(handle_t& handle,
-                          RandomForestMetaData[float, float]*,
-                          float*,
-                          int,
-                          float*,
-                          level_enum) except +
-
-    cdef RF_metrics score(handle_t& handle,
-                          RandomForestMetaData[double, double]*,
-                          double*,
-                          int,
-                          double*,
-                          level_enum) except +
 
 
 class RandomForestRegressor(BaseRandomForestModel,
@@ -510,19 +496,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         median_abs_error : float or
         mean_abs_error : float
         """
-        from cuml.metrics.regression import r2_score
-
-        cdef uintptr_t y_ptr
-        _, n_rows, _, dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None))
-        y_m, n_rows, _, _ = \
-            input_to_cuml_array(y,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else False))
-        y_ptr = y_m.ptr
-        preds = self.predict(
+        y_pred = self.predict(
             X,
             convert_dtype=convert_dtype,
             predict_model=predict_model,
@@ -530,53 +504,12 @@ class RandomForestRegressor(BaseRandomForestModel,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-
-        cdef uintptr_t preds_ptr
-        preds_m, _, _, _ = \
-            input_to_cuml_array(preds, convert_to_dtype=dtype)
-        preds_ptr = preds_m.ptr
-
-        # shortcut for default accuracy metric of r^2
+        # TODO: all this branching will be removed in 25.12
         if self.accuracy_metric in ("r2", "deprecated"):
-            stats = r2_score(y_m, preds)
-            self.handle.sync()
-            del y_m
-            del preds_m
-            return stats
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float32:
-            self.temp_stats = score(handle_[0],
-                                    rf_forest,
-                                    <float*> y_ptr,
-                                    <int> n_rows,
-                                    <float*> preds_ptr,
-                                    <level_enum> self.verbose)
-
-        elif self.dtype == np.float64:
-            self.temp_stats = score(handle_[0],
-                                    rf_forest64,
-                                    <double*> y_ptr,
-                                    <int> n_rows,
-                                    <double*> preds_ptr,
-                                    <level_enum> self.verbose)
-
-        if self.accuracy_metric == 'median_ae':
-            stats = self.temp_stats['median_abs_error']
-        if self.accuracy_metric == 'mean_ae':
-            stats = self.temp_stats['mean_abs_error']
+            return cuml.metrics.r2_score(y, y_pred)
+        elif self.accuracy_metric == "median_ae":
+            return cuml.metrics.median_absolute_error(y, y_pred)
+        elif self.accuracy_metric == "mean_ae":
+            return cuml.metrics.mean_absolute_error(y, y_pred)
         else:
-            stats = self.temp_stats['mean_squared_error']
-
-        self.handle.sync()
-        del y_m
-        del preds_m
-        return stats
+            return cuml.metrics.mean_squared_error(y, y_pred)
