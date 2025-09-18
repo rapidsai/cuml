@@ -24,7 +24,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_cpu
+from cuml.internals.interop import InteropMixin, to_cpu
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -333,25 +333,6 @@ class SpectralEmbedding(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        """Get parameters to use to instantiate a GPU model from a CPU model.
-
-        Parameters
-        ----------
-        model : sklearn.manifold.SpectralEmbedding
-            The CPU model to get parameters from
-
-        Returns
-        -------
-        dict
-            Parameters to pass to the GPU model constructor
-        """
-        affinity = getattr(model, 'affinity', 'nearest_neighbors')
-        if affinity != 'nearest_neighbors':
-            raise UnsupportedOnGPU(
-                f"`affinity={affinity!r}` is not supported. "
-                "Only 'nearest_neighbors' affinity is currently supported."
-            )
-
         params = {
             "n_components": model.n_components,
             "random_state": model.random_state,
