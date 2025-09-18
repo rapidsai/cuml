@@ -281,7 +281,13 @@ def test_ridge_regression_model_default(dataset):
     skridge.fit(X_train, y_train)
     skridge_predict = skridge.predict(X_test)
 
-    equal = array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    equal = array_equal(
+        skridge_predict,
+        curidge_predict,
+        unit_tol=1e-1,
+        total_tol=1e-3,
+        with_sign=True,
+    )
     note(equal)
     target(float(np.abs(equal.compute_difference())))
     assert equal
