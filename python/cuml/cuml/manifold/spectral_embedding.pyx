@@ -293,11 +293,6 @@ class SpectralEmbedding(Base,
         Spectral embedding of the training matrix.
     n_neighbors_ : int
         Number of nearest neighbors effectively used.
-    n_features_in_ : int
-        Number of features seen during fit.
-    feature_names_in_ : ndarray of shape (`n_features_in_`,)
-        Names of features seen during fit. Defined only when X has feature
-        names that are all strings.
 
     Notes
     -----
@@ -523,25 +518,11 @@ class SpectralEmbedding(Base,
                     else:
                         raise
 
-        # Store feature names if X is a pandas DataFrame
-        if hasattr(X, "columns"):
-            self.feature_names_in_ = np.asarray(X.columns)
-
-        # Store the number of features - must be done before calling spectral_embedding
-        # Convert X to get its shape for setting attributes
-        from cuml.common import input_to_cuml_array
-        _X_arr, n_samples, n_features, _ = input_to_cuml_array(
-            X, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
-        )
-
-        # Always set n_features_in_ for sklearn compatibility
-        self.n_features_in_ = n_features
-
         # Store n_neighbors_ for sklearn compatibility
         self.n_neighbors_ = (
             self.n_neighbors
             if self.n_neighbors is not None
-            else max(int(n_samples / 10), 1)
+            else max(int(X.shape[0] / 10), 1)
         )
 
         self.embedding_ = spectral_embedding(
