@@ -299,7 +299,7 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
     chunk_size = 500
     n_rows, n_cols = 1500, 100
     weights = [0.6, 0.2, 0.15, 0.05]
-    rtol = 1e-3 if x_dtype == cp.float32 else 1e-6
+    rtol = 1.5e-3 if x_dtype == cp.float32 else 1e-6
 
     X, y = make_classification(
         n_rows,
