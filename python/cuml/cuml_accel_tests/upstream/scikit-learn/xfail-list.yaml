@@ -1034,6 +1034,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SpectralEmbedding()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
 - reason: Test is flaky with cuml.accel
@@ -1075,6 +1076,7 @@
   - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_f_contiguous_array_estimator]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
@@ -1427,7 +1429,10 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
