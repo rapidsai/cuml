@@ -396,7 +396,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-l2]"
   - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-manhattan]"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_kneighbors_regressor"
-  - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_embedding"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_tsne"
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_class_weight_classifiers]"
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_classifiers_one_label_sample_weights]"
@@ -989,7 +988,6 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Ridge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVC()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVR()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SpectralEmbedding()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
