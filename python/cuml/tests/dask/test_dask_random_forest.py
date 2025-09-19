@@ -295,7 +295,9 @@ def test_rf_concatenation_dask(client, model_type):
     res1 = cu_rf_mg.predict(X_df)
     res1.compute()
     if cu_rf_mg.internal_model:
-        treelite_bytes = cu_rf_mg.internal_model._serialize_treelite_bytes()
+        treelite_bytes = (
+            cu_rf_mg.internal_model.treelite_model_.serialize_bytes()
+        )
         local_tl = treelite.Model.deserialize_bytes(treelite_bytes)
         assert local_tl.num_tree == n_estimators
 

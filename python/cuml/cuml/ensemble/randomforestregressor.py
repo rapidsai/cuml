@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# distutils: language = c++
 
 import warnings
 
@@ -22,44 +19,14 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 import cuml.metrics
+from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.utils import check_random_seed
-
-from libc.stdint cimport uint64_t, uintptr_t
-from libcpp cimport bool
-from pylibraft.common.handle cimport handle_t
-
-from cuml.ensemble.randomforest_shared cimport *
-from cuml.internals.logger cimport level_enum
 
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
-
-    cdef void fit(handle_t& handle,
-                  RandomForestMetaData[float, float]*,
-                  float*,
-                  int,
-                  int,
-                  float*,
-                  RF_params,
-                  level_enum) except +
-
-    cdef void fit(handle_t& handle,
-                  RandomForestMetaData[double, double]*,
-                  double*,
-                  int,
-                  int,
-                  double*,
-                  RF_params,
-                  level_enum) except +
-
-
-class RandomForestRegressor(BaseRandomForestModel,
-                            RegressorMixin):
-
+class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
@@ -97,16 +64,12 @@ class RandomForestRegressor(BaseRandomForestModel,
     ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_criterion : int or string (default = ``2`` (``'mse'``))
+    split_criterion : str or int (default = ``'mse'``)
         The criterion used to split nodes.\n
-         * ``0`` or ``'gini'`` for gini impurity
-         * ``1`` or ``'entropy'`` for information gain (entropy)
-         * ``2`` or ``'mse'`` for mean squared error
-         * ``4`` or ``'poisson'`` for poisson half deviance
-         * ``5`` or ``'gamma'`` for gamma half deviance
-         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
-
-        ``0``, ``'gini'``, ``1`` and ``'entropy'`` not valid for regression.
+         * ``'mse'`` or ``2`` for mean squared error
+         * ``'poisson'`` or ``4`` for poisson half deviance
+         * ``'gamma'`` or ``5`` for gamma half deviance
+         * ``'inverse_gaussian'`` or ``6`` for inverse gaussian deviance
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
             * If ``True``, each tree in the forest is built
@@ -198,27 +161,28 @@ class RandomForestRegressor(BaseRandomForestModel,
     """
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
-    RF_type = REGRESSION
 
     @classmethod
     def _get_param_names(cls):
         return [*super()._get_param_names(), "accuracy_metric"]
 
-    def __init__(self, *,
-                 split_criterion=2,
-                 max_features=1.0,
-                 accuracy_metric='deprecated',
-                 handle=None,
-                 verbose=False,
-                 output_type=None,
-                 **kwargs):
-
+    def __init__(
+        self,
+        *,
+        split_criterion="mse",
+        max_features=1.0,
+        accuracy_metric="deprecated",
+        handle=None,
+        verbose=False,
+        output_type=None,
+        **kwargs,
+    ):
         if accuracy_metric != "deprecated":
             warnings.warn(
                 "`accuracy_metric` was deprecated in 25.10 and will be removed "
                 "in 25.12. To evaluate models with metrics other than r2, please call "
                 "the respective metric function from `cuml.metrics` directly.",
-                FutureWarning
+                FutureWarning,
             )
 
         self.accuracy_metric = accuracy_metric
@@ -228,157 +192,43 @@ class RandomForestRegressor(BaseRandomForestModel,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
-            **kwargs)
-
-    # TODO: Add the preprocess and postprocess functions in the cython code to
-    # normalize the labels
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        cdef size_t params_t
-        cdef  RandomForestMetaData[float, float] *rf_forest
-        cdef  RandomForestMetaData[double, double] *rf_forest64
-        cdef size_t params_t64
-        if self.n_cols:
-            # only if model has been fit previously
-            self._serialize_treelite_bytes()  # Ensure we have this cached
-            if self.rf_forest:
-                params_t = <uintptr_t> self.rf_forest
-                rf_forest = \
-                    <RandomForestMetaData[float, float]*>params_t
-                state["rf_params"] = rf_forest.rf_params
-
-            if self.rf_forest64:
-                params_t64 = <uintptr_t> self.rf_forest64
-                rf_forest64 = \
-                    <RandomForestMetaData[double, double]*>params_t64
-                state["rf_params64"] = rf_forest64.rf_params
-
-        state['n_cols'] = self.n_cols
-        state["_verbose"] = self._verbose
-        state["treelite_serialized_bytes"] = self.treelite_serialized_bytes
-        state['handle'] = self.handle
-        state["split_criterion"] = self.split_criterion
-
-        return state
-
-    def __setstate__(self, state):
-        super(RandomForestRegressor, self).__init__(
-            split_criterion=state["split_criterion"],
-            handle=state["handle"], verbose=state['_verbose'])
-        cdef  RandomForestMetaData[float, float] *rf_forest = \
-            new RandomForestMetaData[float, float]()
-        cdef  RandomForestMetaData[double, double] *rf_forest64 = \
-            new RandomForestMetaData[double, double]()
-
-        self.n_cols = state['n_cols']
-        if self.n_cols:
-            rf_forest.rf_params = state["rf_params"]
-            state["rf_forest"] = <uintptr_t>rf_forest
-
-            rf_forest64.rf_params = state["rf_params64"]
-            state["rf_forest64"] = <uintptr_t>rf_forest64
-
-        self.treelite_serialized_bytes = state["treelite_serialized_bytes"]
-        self.__dict__.update(state)
-
-    def __del__(self):
-        self._reset_forest_data()
-
-    def _reset_forest_data(self):
-        """Free memory allocated by this instance and clear instance vars."""
-        if hasattr(self, "rf_forest") and self.rf_forest:
-            delete_rf_metadata(
-                <RandomForestMetaData[float, float]*><uintptr_t>
-                self.rf_forest)
-            self.rf_forest = 0
-        if hasattr(self, "rf_forest64") and self.rf_forest64:
-            delete_rf_metadata(
-                <RandomForestMetaData[double, double]*><uintptr_t>
-                self.rf_forest64)
-            self.rf_forest64 = 0
-        self.treelite_serialized_bytes = None
-        self.n_cols = None
+            **kwargs,
+        )
 
     @nvtx.annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
-        domain="cuml_python")
+        domain="cuml_python",
+    )
     @generate_docstring()
-    @cuml.internals.api_base_return_any_skipall
-    def fit(self, X, y, *, convert_dtype=True):
+    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
 
         """
+        X_m = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64],
+            order="F",
+        ).array
 
-        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
-                                                                convert_dtype)
-
-        # Reset the old tree data for new fit call
-        cdef uintptr_t X_ptr, y_ptr
-        X_ptr = X_m.ptr
-        y_ptr = y_m.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            new RandomForestMetaData[float, float]()
-        self.rf_forest = <uintptr_t> rf_forest
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            new RandomForestMetaData[double, double]()
-        self.rf_forest64 = <uintptr_t> rf_forest64
-        if self.random_state is None:
-            seed_val = <uintptr_t>NULL
-        else:
-            seed_val = <uintptr_t>check_random_seed(self.random_state)
-
-        rf_params = set_rf_params(<int> self.max_depth,
-                                  <int> self.max_leaves,
-                                  <float> max_feature_val,
-                                  <int> self.n_bins,
-                                  <int> self.min_samples_leaf,
-                                  <int> self.min_samples_split,
-                                  <float> self.min_impurity_decrease,
-                                  <bool> self.bootstrap,
-                                  <int> self.n_estimators,
-                                  <float> self.max_samples,
-                                  <uint64_t> seed_val,
-                                  <CRITERION> self.split_criterion,
-                                  <int> self.n_streams,
-                                  <int> self.max_batch_size)
-
-        if self.dtype == np.float32:
-            fit(handle_[0],
-                rf_forest,
-                <float*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <float*> y_ptr,
-                rf_params,
-                <level_enum> self.verbose)
-
-        else:
-            rf_params64 = rf_params
-            fit(handle_[0],
-                rf_forest64,
-                <double*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <double*> y_ptr,
-                rf_params64,
-                <level_enum> self.verbose)
-        # make sure that the `fit` is complete before the following delete
-        # call happens
-        self.handle.sync()
-        del X_m
-        del y_m
-        return self
+        y_m = input_to_cuml_array(
+            y,
+            convert_to_dtype=(X_m.dtype if convert_dtype else None),
+            check_dtype=X_m.dtype,
+            check_rows=X_m.shape[0],
+            check_cols=1,
+        ).array
+        return self._fit_forest(X_m, y_m)
 
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
-        domain="cuml_python")
-    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
-                           return_values=[('dense', '(n_samples, 1)')])
+        domain="cuml_python",
+    )
+    @insert_into_docstring(
+        parameters=[("dense", "(n_samples, n_features)")],
+        return_values=[("dense", "(n_samples, 1)")],
+    )
     def predict(
         self,
         X,
@@ -425,28 +275,29 @@ class RandomForestRegressor(BaseRandomForestModel,
         """
         self._handle_deprecated_predict_model(predict_model)
 
-        preds = self._predict_model_on_gpu(
-            X=X,
-            is_classifier=False,
-            predict_proba=False,
-            convert_dtype=convert_dtype,
+        fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
+        preds = fil.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
-            preds = CumlArray(preds.to_output('array').reshape(-1))
-
+            preds = CumlArray(preds.to_output("cupy").reshape(-1))
         return preds
 
     @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
-        domain="cuml_python")
-    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
-                                       ('dense', '(n_samples, 1)')])
+        domain="cuml_python",
+    )
+    @insert_into_docstring(
+        parameters=[
+            ("dense", "(n_samples, n_features)"),
+            ("dense", "(n_samples, 1)"),
+        ]
+    )
     def score(
         self,
         X,
