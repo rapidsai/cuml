@@ -48,7 +48,7 @@ dependencies:
 - numpy>=1.23,<3.0a0
 - numpydoc
 - numpydoc<1.9
-- nvidia-ml-py>=12.560.30
+- nvidia-ml-py>=12
 - packaging
 - pre-commit
 - pydata-sphinx-theme!=0.14.2

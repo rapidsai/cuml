@@ -92,6 +92,7 @@ license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
     "cuda-python>=13.0.1,<14.0a0",
+    "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14",
     "cudf==25.10.*,>=0.0.0a0",
     "cupy-cuda13x>=13.6.0",
     "cuvs==25.10.*,>=0.0.0a0",
@@ -102,11 +103,6 @@ dependencies = [
     "numba-cuda[cu13]>=0.19.1,<0.20.0a0",
     "numba>=0.60.0,<0.62.0a0",
     "numpy>=1.23,<3.0a0",
-    "nvidia-cublas",
-    "nvidia-cufft",
-    "nvidia-curand",
-    "nvidia-cusolver",
-    "nvidia-cusparse",
     "packaging",
     "pylibraft==25.10.*,>=0.0.0a0",
     "raft-dask==25.10.*,>=0.0.0a0",
@@ -134,7 +130,7 @@ test = [
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc<1.9",
-    "nvidia-ml-py>=12.560.30",
+    "nvidia-ml-py>=12",
     "pynndescent",
     "pytest",
     "pytest-benchmark",
