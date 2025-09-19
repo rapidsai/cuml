@@ -28,6 +28,8 @@ from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 
+import cuml.datasets
+
 # cuML implementation
 from cuml.manifold.simpl_set import (
     fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
@@ -609,5 +611,520 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
         details = (
             f"Severe issues: {severe_issues} | Moderate issues: {moderate_issues} "
             f"on {d['dataset_name']} (k={k}, params={params})"
+        )
+        assert False, details
+
+
+# Add new synthetic dataset generation and parameter ranges
+
+# Synthetic dataset configurations
+_SYNTHETIC_DATASET_CONFIGS = [
+    pytest.param(
+        {
+            "name": "gaussian_blobs",
+            "generator": lambda: cuml.datasets.make_blobs(
+                n_samples=500,
+                n_features=10,
+                centers=4,
+                cluster_std=1.5,
+                random_state=42,
+            ),
+            "metric": "euclidean",
+        },
+        id="gaussian-blobs",
+    ),
+    pytest.param(
+        {
+            "name": "classification_easy",
+            "generator": lambda: cuml.datasets.make_classification(
+                n_samples=400,
+                n_features=8,
+                n_informative=6,
+                n_redundant=1,
+                n_classes=3,
+                class_sep=2.0,
+                random_state=42,
+            ),
+            "metric": "euclidean",
+        },
+        id="classification-easy",
+    ),
+    pytest.param(
+        {
+            "name": "classification_hard",
+            "generator": lambda: cuml.datasets.make_classification(
+                n_samples=300,
+                n_features=12,
+                n_informative=8,
+                n_redundant=2,
+                n_classes=4,
+                class_sep=0.8,
+                random_state=42,
+            ),
+            "metric": "euclidean",
+        },
+        id="classification-hard",
+    ),
+    pytest.param(
+        {
+            "name": "high_dim_sparse",
+            "generator": lambda: cuml.datasets.make_classification(
+                n_samples=250,
+                n_features=20,
+                n_informative=5,
+                n_redundant=0,
+                n_classes=2,
+                class_sep=1.5,
+                random_state=42,
+            ),
+            "metric": "cosine",
+        },
+        id="high-dim-sparse",
+    ),
+]
+
+# Comprehensive parameter sets for synthetic data testing
+_SYNTHETIC_EMBED_PARAM_SETS = [
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="baseline-spectral",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 0.5,
+            "min_dist": 0.05,
+            "spread": 1.0,
+            "n_epochs": 150,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "random",
+            "n_components": 2,
+        },
+        id="baseline-random",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 0.1,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 300,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="low-lr",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 2.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 100,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="high-lr",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.0,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="min-dist-zero",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.5,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="min-dist-large",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 0.5,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="tight-spread",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 2.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="wide-spread",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 10,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="high-neg-sampling",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 2,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="low-neg-sampling",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 0.5,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="low-gamma",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 2.0,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="high-gamma",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "random",
+            "n_components": 2,
+        },
+        id="random-init",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 1.0,
+            "min_dist": 0.1,
+            "spread": 1.0,
+            "n_epochs": 200,
+            "negative_sample_rate": 5,
+            "gamma": 1.0,
+            "init": "spectral",
+            "n_components": 3,
+        },
+        id="3d-embedding",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 0.1,
+            "min_dist": 0.001,
+            "spread": 0.5,
+            "n_epochs": 400,
+            "negative_sample_rate": 10,
+            "gamma": 2.0,
+            "init": "random",
+            "n_components": 2,
+        },
+        id="extreme-tight",
+    ),
+    pytest.param(
+        {
+            "learning_rate": 3.0,
+            "min_dist": 0.3,
+            "spread": 3.0,
+            "n_epochs": 100,
+            "negative_sample_rate": 2,
+            "gamma": 0.3,
+            "init": "spectral",
+            "n_components": 2,
+        },
+        id="extreme-loose",
+    ),
+]
+
+
+@pytest.mark.parametrize("dataset_config", _SYNTHETIC_DATASET_CONFIGS)
+@pytest.mark.parametrize(
+    "params", _SYNTHETIC_EMBED_PARAM_SETS[:8]
+)  # Use first 8 to keep test time reasonable
+def test_simplicial_set_embedding_synthetic(dataset_config, params):
+    """
+    Test simplicial set embedding with synthetic datasets and comprehensive parameter ranges.
+
+    This test replicates the behavior of test_simplicial_set_embedding but uses small
+    artificially generated datasets to enable testing of a wider range of parameters
+    without requiring large external datasets.
+    """
+    # Generate synthetic dataset
+    X_cp, y = dataset_config["generator"]()
+    X_np = (
+        cp.asnumpy(X_cp)
+        if isinstance(X_cp, cp.ndarray)
+        else np.asarray(X_cp, dtype=np.float32)
+    )
+    X_cp = cp.asarray(X_np, dtype=cp.float32)
+
+    metric = dataset_config["metric"]
+    dataset_name = dataset_config["name"]
+    k = 15  # Fixed k for synthetic data
+
+    # Build KNN graph using cuVS
+    knn_dists_np, knn_inds_np = _build_knn_with_cuvs(
+        X_cp, k=k, metric=metric, backend="bruteforce"
+    )
+
+    # Build fuzzy simplicial set using cuML
+    cu_graph_gpu = cu_fuzzy_simplicial_set(
+        X_cp,
+        n_neighbors=k,
+        random_state=42,
+        metric=metric,
+        knn_indices=cp.asarray(knn_inds_np),
+        knn_dists=cp.asarray(knn_dists_np),
+    )
+    cu_graph_cpu = (
+        cu_graph_gpu.get() if hasattr(cu_graph_gpu, "get") else cu_graph_gpu
+    )
+    cu_graph_cpu = csr_matrix(cu_graph_cpu)
+
+    a, b = find_ab_params(spread=params["spread"], min_dist=params["min_dist"])
+
+    # Reference embedding (CPU) using UMAP reference implementation
+    ref_res = ref_simplicial_set_embedding(
+        X_np,
+        graph=cu_graph_cpu,
+        n_components=params["n_components"],
+        initial_alpha=params["learning_rate"],
+        a=a,
+        b=b,
+        gamma=params["gamma"],
+        negative_sample_rate=params["negative_sample_rate"],
+        n_epochs=params["n_epochs"],
+        init=params["init"],
+        random_state=np.random.RandomState(42),
+        metric=metric,
+        metric_kwds={},
+        densmap=False,
+        densmap_kwds={},
+        output_dens=False,
+        output_metric=metric,
+        output_metric_kwds={},
+    )
+    ref_emb = ref_res[0]
+
+    # cuML embedding (GPU)
+    cu_emb = cu_simplicial_set_embedding(
+        X_cp,
+        graph=cu_graph_gpu,
+        n_components=params["n_components"],
+        initial_alpha=params["learning_rate"],
+        a=a,
+        b=b,
+        gamma=params["gamma"],
+        negative_sample_rate=params["negative_sample_rate"],
+        n_epochs=params["n_epochs"],
+        init=params["init"],
+        random_state=42,
+        metric=metric,
+    )
+    cu_emb = cp.asnumpy(cu_emb) if isinstance(cu_emb, cp.ndarray) else cu_emb
+
+    # Evaluate metrics using helper functions
+    ref_emb_cp = cp.asarray(ref_emb, dtype=cp.float32)
+    cu_emb_cp = cp.asarray(cu_emb, dtype=cp.float32)
+
+    metrics_ref = compute_simplicial_set_embedding_metrics(
+        X_cp, ref_emb_cp, k=k, metric=metric, skip_topology_preservation=True
+    )
+    metrics_cu = compute_simplicial_set_embedding_metrics(
+        X_cp, cu_emb_cp, k=k, metric=metric, skip_topology_preservation=True
+    )
+
+    # Extract key metrics
+    trust_ref = metrics_ref["trustworthiness"]
+    trust_cu = metrics_cu["trustworthiness"]
+    cont_ref = metrics_ref["continuity"]
+    cont_cu = metrics_cu["continuity"]
+    sp_ref = metrics_ref["geodesic_spearman_correlation"]
+    sp_cu = metrics_cu["geodesic_spearman_correlation"]
+    pe_ref = metrics_ref["geodesic_pearson_correlation"]
+    pe_cu = metrics_cu["geodesic_pearson_correlation"]
+    xent_ref = metrics_ref["fuzzy_kl_divergence"]
+    xent_cu = metrics_cu["fuzzy_kl_divergence"]
+    kl_ref = metrics_ref["fuzzy_sym_kl_divergence"]
+    kl_cu = metrics_cu["fuzzy_sym_kl_divergence"]
+
+    rmse = procrustes_rmse(ref_emb, cu_emb)
+
+    # Adjusted thresholds for synthetic data (more lenient due to smaller datasets)
+    mod_trust = 0.08
+    mod_cont = 0.08
+    mod_corr = 0.20
+    mod_rel_kl = 0.25
+    mod_rmse = 0.15
+
+    # Severe thresholds
+    sev_trust = 0.15
+    sev_cont = 0.15
+    sev_corr = 0.40
+    sev_rel_kl = 0.50
+    sev_rmse = 0.30
+
+    # Compute deficits (positive means cuML is worse than reference)
+    trust_def = max(0.0, trust_ref - trust_cu)
+    cont_def = max(0.0, cont_ref - cont_cu)
+    sp_def = max(0.0, sp_ref - sp_cu)
+    pe_def = max(0.0, pe_ref - pe_cu)
+    xent_rel_increase = max(
+        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
+    )
+    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    moderate_issues = []
+    severe_issues = []
+
+    # Trustworthiness
+    if trust_def > sev_trust:
+        severe_issues.append(
+            f"trustworthiness deficit {trust_def:.3f} (cu={trust_cu:.4f}, ref={trust_ref:.4f})"
+        )
+    elif trust_def > mod_trust:
+        moderate_issues.append(
+            f"trustworthiness deficit {trust_def:.3f} (cu={trust_cu:.4f}, ref={trust_ref:.4f})"
+        )
+
+    # Continuity
+    if cont_def > sev_cont:
+        severe_issues.append(
+            f"continuity deficit {cont_def:.3f} (cu={cont_cu:.4f}, ref={cont_ref:.4f})"
+        )
+    elif cont_def > mod_cont:
+        moderate_issues.append(
+            f"continuity deficit {cont_def:.3f} (cu={cont_cu:.4f}, ref={cont_ref:.4f})"
+        )
+
+    # Geodesic correlations
+    if sp_def > sev_corr:
+        severe_issues.append(
+            f"spearman correlation deficit {sp_def:.3f} (cu={sp_cu:.4f}, ref={sp_ref:.4f})"
+        )
+    elif sp_def > mod_corr:
+        moderate_issues.append(
+            f"spearman correlation deficit {sp_def:.3f} (cu={sp_cu:.4f}, ref={sp_ref:.4f})"
+        )
+
+    if pe_def > sev_corr:
+        severe_issues.append(
+            f"pearson correlation deficit {pe_def:.3f} (cu={pe_cu:.4f}, ref={pe_ref:.4f})"
+        )
+    elif pe_def > mod_corr:
+        moderate_issues.append(
+            f"pearson correlation deficit {pe_def:.3f} (cu={pe_cu:.4f}, ref={pe_ref:.4f})"
+        )
+
+    # Fuzzy KL and symmetric KL (relative change)
+    if xent_rel_increase > sev_rel_kl:
+        severe_issues.append(
+            f"fuzzy KL relative increase {xent_rel_increase:.3f} (cu={xent_cu:.4e}, ref={xent_ref:.4e})"
+        )
+    elif xent_rel_increase > mod_rel_kl:
+        moderate_issues.append(
+            f"fuzzy KL relative increase {xent_rel_increase:.3f} (cu={xent_cu:.4e}, ref={xent_ref:.4e})"
+        )
+
+    if kl_rel_increase > sev_rel_kl:
+        severe_issues.append(
+            f"symmetric KL relative increase {kl_rel_increase:.3f} (cu={kl_cu:.4e}, ref={kl_ref:.4e})"
+        )
+    elif kl_rel_increase > mod_rel_kl:
+        moderate_issues.append(
+            f"symmetric KL relative increase {kl_rel_increase:.3f} (cu={kl_cu:.4e}, ref={kl_ref:.4e})"
+        )
+
+    # Procrustes RMSE
+    if rmse > sev_rmse:
+        severe_issues.append(f"rmse {rmse:.3f} > {sev_rmse:.3f}")
+    elif rmse > mod_rmse:
+        moderate_issues.append(f"rmse {rmse:.3f} > {mod_rmse:.3f}")
+
+    # Holistic decision rule for synthetic data:
+    # - Fail if multiple severe degradations, or RMSE alone is severe
+    # - Or if many moderate degradations accumulate
+    should_fail = False
+    fail_reason = ""
+
+    if len(severe_issues) >= 2:
+        should_fail = True
+        fail_reason = f"Multiple severe issues: {severe_issues}"
+    elif rmse > sev_rmse:
+        should_fail = True
+        fail_reason = f"Severe RMSE degradation: {rmse:.3f} > {sev_rmse:.3f}"
+    elif len(severe_issues) == 1 and len(moderate_issues) >= 2:
+        should_fail = True
+        fail_reason = f"One severe + multiple moderate issues: severe={severe_issues}, moderate={moderate_issues}"
+    elif len(moderate_issues) >= 4:
+        should_fail = True
+        fail_reason = f"Too many moderate issues: {moderate_issues}"
+
+    if should_fail:
+        details = (
+            f"Synthetic embedding test failed for {dataset_name} "
+            f"with params {params}: {fail_reason} | "
+            f"RMSE={rmse:.3f}, trust_def={trust_def:.3f}, cont_def={cont_def:.3f}, "
+            f"sp_def={sp_def:.3f}, pe_def={pe_def:.3f}, "
+            f"xent_rel={xent_rel_increase:.3f}, kl_rel={kl_rel_increase:.3f}"
         )
         assert False, details
