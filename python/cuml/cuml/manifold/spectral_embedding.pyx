@@ -335,6 +335,7 @@ class SpectralEmbedding(Base,
     def _params_from_cpu(cls, model):
         params = {
             "n_components": model.n_components,
+            "affinity": model.affinity,
             "random_state": model.random_state,
             "n_neighbors": model.n_neighbors
         }
@@ -343,6 +344,7 @@ class SpectralEmbedding(Base,
     def _params_to_cpu(self):
         params = {
             "n_components": self.n_components,
+            "affinity": self.affinity,
             "random_state": self.random_state,
             "n_neighbors": self.n_neighbors
         }
