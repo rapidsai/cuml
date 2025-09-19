@@ -24,7 +24,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -340,11 +340,26 @@ class SpectralEmbedding(Base,
         }
         return params
 
+    def _params_to_cpu(self):
+        params = {
+            "n_components": self.n_components,
+            "random_state": self.random_state,
+            "n_neighbors": self.n_neighbors
+        }
+        return params
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "n_neighbors_": to_gpu(model.n_neighbors_),
+            "embedding_": to_gpu(model.embedding_),
+            **super()._attrs_from_cpu(model)
+        }
+
     def _attrs_to_cpu(self, model):
         return {
-            "n_neighbors_": self.n_neighbors_,
+            "n_neighbors_": to_cpu(self.n_neighbors_),
             "embedding_": to_cpu(self.embedding_),
-            **super()._attrs_to_cpu(self, model),
+            **super()._attrs_to_cpu(model),
         }
 
     def fit_transform(self, X, y=None) -> CumlArray:
