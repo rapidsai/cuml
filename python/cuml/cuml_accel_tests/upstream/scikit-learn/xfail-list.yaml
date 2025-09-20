@@ -1044,6 +1044,12 @@
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_f_contiguous_array_estimator]"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
   condition: scikit-learn>=1.7
   strict: false
   tests:
@@ -1074,7 +1080,6 @@
   - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
-  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_f_contiguous_array_estimator]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
