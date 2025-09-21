@@ -28,7 +28,6 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -45,7 +44,7 @@ from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.fil.infer_kind cimport infer_kind
 from cuml.fil.postprocessing cimport element_op, row_op
 from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.internals.treelite cimport *
+from cuml.internals.treelite cimport TreeliteModelHandle
 
 from cuda.bindings import runtime
 
@@ -149,7 +148,7 @@ cdef class ForestInference_impl():
     def __cinit__(
         self,
         raft_handle,
-        tl_model_bytes,
+        tl_model,
         *,
         layout='depth_first',
         align_bytes=0,
@@ -176,11 +175,8 @@ cdef class ForestInference_impl():
             use_double_precision_bool = use_double_precision
             use_double_precision_c = use_double_precision_bool
 
-        cdef TreeliteModelHandle tl_handle = NULL
-        safe_treelite_call(
-            TreeliteDeserializeModelFromBytes(
-                tl_model_bytes, len(tl_model_bytes), &tl_handle),
-            "Failed to load Treelite model from bytes:"
+        cdef TreeliteModelHandle tl_handle = <TreeliteModelHandle><uintptr_t>(
+            tl_model.handle.value
         )
 
         cdef raft_proto_device_t dev_type
@@ -214,11 +210,6 @@ cdef class ForestInference_impl():
             dev_type,
             device_id,
             self.raft_proto_handle.get_next_usable_stream()
-        )
-
-        safe_treelite_call(
-            TreeliteFreeModel(tl_handle),
-            "Failed to free Treelite model:"
         )
 
     def get_dtype(self):
@@ -659,14 +650,14 @@ class ForestInference(Base, CMajorInputTagMixin):
 
         if self.treelite_model is not None:
             if isinstance(self.treelite_model, treelite.Model):
-                treelite_model_bytes = self.treelite_model.serialize_bytes()
+                tl_model = self.treelite_model
             elif isinstance(self.treelite_model, bytes):
-                treelite_model_bytes = self.treelite_model
+                tl_model = treelite.Model.deserialize_bytes(self.treelite_model)
             else:
                 raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
                 self.handle,
-                treelite_model_bytes,
+                tl_model,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
                 use_double_precision=self._use_double_precision_,
