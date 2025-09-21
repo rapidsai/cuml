@@ -149,33 +149,6 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-
-    # Check for empty data
-    if hasattr(A, 'shape'):
-        if len(A.shape) >= 2:
-            if A.shape[0] == 0:
-                raise ValueError(
-                    f"Found array with 0 sample(s) (shape={A.shape}) while a "
-                    f"minimum of 1 is required."
-                )
-            if A.shape[1] == 0:
-                raise ValueError(
-                    f"Found array with 0 feature(s) (shape={A.shape}) while a "
-                    f"minimum of 1 is required."
-                )
-            # SpectralEmbedding requires at least 2 samples
-            if A.shape[0] < 2:
-                raise ValueError(
-                    f"SpectralEmbedding requires at least 2 samples, but got "
-                    f"only {A.shape[0]} sample(s)."
-                )
-            # SpectralEmbedding requires at least 2 features for meaningful embedding
-            if A.shape[1] < 2:
-                raise ValueError(
-                    f"SpectralEmbedding requires at least 2 features for meaningful "
-                    f"results, but got only {A.shape[1]} feature(s)."
-                )
-
     if handle is None:
         handle = Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
@@ -200,6 +173,20 @@ def spectral_embedding(A,
             f"`affinity={affinity!r}` is not supported, expected one of "
             "['nearest_neighbors', 'precomputed']"
         )
+
+    if A.ndim >= 2:
+        n_samples, n_features = A.shape
+
+        if n_samples < 2:
+            raise ValueError(
+                f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+                f"minimum of 2 is required."
+            )
+        if n_features < 2:
+            raise ValueError(
+                f"Found array with {n_features} feature(s) (shape={A.shape}) while "
+                f"a minimum of 2 is required."
+            )
 
     cdef params config
     config.seed = check_random_seed(random_state)
