@@ -336,6 +336,34 @@ comparing the trustworthiness score (computed via
 ``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
 attribute useful.
 
+SpectralEmbedding
+^^^^^^^^^^^^^^^^^
+
+``SpectralEmbedding`` will fall back to CPU in the following cases:
+
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+- If ``X`` is sparse.
+- If ``X`` has only 1 feature.
+
+Additionally, the following parameters are not supported:
+
+- ``gamma`` (used with ``rbf`` affinity, which is not supported).
+- ``eigen_solver`` and ``eigen_tol`` (cuML uses its own eigensolver).
+- ``n_jobs`` (GPU parallelization is automatic).
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+- ``n_features_in_``
+
+Additional notes:
+
+- The ``affinity`` parameter only supports ``"nearest_neighbors"`` and
+  ``"precomputed"``. The ``"rbf"``, ``"precomputed_nearest_neighbors"``,
+  and callable options are not supported.
+- Input data must have at least 2 features. Single-feature data will raise
+  a ``ValueError``.
+
 
 sklearn.neighbors
 -----------------
