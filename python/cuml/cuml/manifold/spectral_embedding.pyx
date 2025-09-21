@@ -420,7 +420,7 @@ class SpectralEmbedding(Base,
             n_components=self.n_components,
             affinity=self.affinity,
             random_state=self.random_state,
-            n_neighbors=self.n_neighbors,
+            n_neighbors=self.n_neighbors_,
             handle=self.handle
         )
 
