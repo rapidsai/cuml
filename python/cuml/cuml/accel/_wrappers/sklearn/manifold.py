@@ -22,6 +22,7 @@ __all__ = ("SpectralEmbedding", "TSNE")
 
 class SpectralEmbedding(ProxyBase):
     _gpu_class = cuml.manifold.SpectralEmbedding
+    _not_implemented_attributes = frozenset(("affinity_matrix_",))
 
 
 class TSNE(ProxyBase):
