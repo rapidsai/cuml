@@ -260,6 +260,7 @@ def test_spectral_embedding(random_state):
     original.fit(X)
     sklearn_model = original.as_sklearn()
     roundtrip_model = SpectralEmbedding.from_sklearn(sklearn_model)
+assert_params_equal(original, roundtrip_model)
 
     original_embedding = original.embedding_
     sklearn_embedding = sklearn_model.embedding_
