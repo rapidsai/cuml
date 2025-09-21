@@ -24,7 +24,12 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
@@ -333,6 +338,8 @@ class SpectralEmbedding(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.affinity not in ("nearest_neighbors", "precomputed"):
+            raise UnsupportedOnGPU(f"affinity={model.affinity!r} is not supported on GPU")
         params = {
             "n_components": model.n_components,
             "affinity": model.affinity,

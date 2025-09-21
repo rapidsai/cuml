@@ -1569,27 +1569,19 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
 - reason: SpectralEmbedding does not expose affinity_matrix_ attribute in cuML
   tests:
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_array]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-None]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_array]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-None]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_array]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-None]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_array]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_matrix]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SpectralEmbedding-SpectralEmbedding]"
-- reason: SpectralEmbedding does not support 'rbf' affinity mode in cuML
-  tests:
-  - "sklearn.manifold.tests.test_spectral_embedding::test_error_pyamg_not_available"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_callable_affinity[None]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-None]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-None]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-None]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_preserves_dtype[float32-arpack]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_preserves_dtype[float32-lobpcg]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_preserves_dtype[float64-arpack]"
-  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_preserves_dtype[float64-lobpcg]"
 - reason: SpectralEmbedding produces different eigenvector signs in cuML
   strict: false
   tests:
