@@ -394,6 +394,8 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     def _fit_forest(self, X, y):
         cdef bool is_classifier = self._estimator_type == "classifier"
+        cdef bool is_float32 = X.dtype == np.float32
+
         cdef uintptr_t X_ptr = X.ptr
         cdef uintptr_t y_ptr = y.ptr
         cdef int n_rows = X.shape[0]
@@ -447,54 +449,55 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef TreeliteModelHandle tl_handle
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
-        if is_classifier:
-            if X.dtype == np.float32:
-                fit_treelite(
-                    handle_[0],
-                    &tl_handle,
-                    <float*> X_ptr,
-                    n_rows,
-                    n_cols,
-                    <int*> y_ptr,
-                    n_classes,
-                    params,
-                    verbose
-                )
+        with nogil:
+            if is_classifier:
+                if is_float32:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        verbose
+                    )
+                else:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        verbose
+                    )
             else:
-                fit_treelite(
-                    handle_[0],
-                    &tl_handle,
-                    <double*> X_ptr,
-                    n_rows,
-                    n_cols,
-                    <int*> y_ptr,
-                    n_classes,
-                    params,
-                    verbose
-                )
-        else:
-            if X.dtype == np.float32:
-                fit_treelite(
-                    handle_[0],
-                    &tl_handle,
-                    <float*> X_ptr,
-                    n_rows,
-                    n_cols,
-                    <float*> y_ptr,
-                    params,
-                    verbose
-                )
-            else:
-                fit_treelite(
-                    handle_[0],
-                    &tl_handle,
-                    <double*> X_ptr,
-                    n_rows,
-                    n_cols,
-                    <double*> y_ptr,
-                    params,
-                    verbose
-                )
+                if is_float32:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <float*> y_ptr,
+                        params,
+                        verbose
+                    )
+                else:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <double*> y_ptr,
+                        params,
+                        verbose
+                    )
 
         self._n_samples = y.shape[0]
         self._n_samples_bootstrap = (
