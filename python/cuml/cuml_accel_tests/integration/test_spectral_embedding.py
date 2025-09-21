@@ -18,8 +18,8 @@ from sklearn.datasets import make_blobs
 from sklearn.manifold import SpectralEmbedding
 
 
-def test_spectral_embedding_s_curve():
-    """Test SpectralEmbedding with S-curve dataset."""
+def test_spectral_embedding_make_blobs():
+    """Test SpectralEmbedding with make_blobs dataset."""
     X, _ = make_blobs(n_samples=100, centers=3, n_features=20, random_state=42)
     model = SpectralEmbedding(n_components=2, random_state=42)
     X_embedded = model.fit_transform(X)
