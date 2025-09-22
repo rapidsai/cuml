@@ -1411,7 +1411,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_dtype_object]"

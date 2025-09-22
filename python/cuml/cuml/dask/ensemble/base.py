@@ -183,7 +183,8 @@ class BaseRandomForestModel(object):
             for indiv_worker_model_bytes in mod_bytes
         ]
         concatenated_model = treelite.Model.concatenate(tl_model_objs)
-        model._deserialize_from_treelite(concatenated_model)
+        model._treelite_model_bytes = concatenated_model.serialize_bytes()
+        model._fil_model = None
         return model
 
     def _partial_inference(self, X, op_type, delayed, **kwargs):
@@ -367,4 +368,4 @@ def _func_set_params(model, **params):
 
 
 def _serialize_treelite_bytes(model):
-    return model._serialize_treelite_bytes()
+    return model._treelite_model_bytes
