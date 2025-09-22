@@ -317,7 +317,6 @@
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
   - "sklearn.neighbors.tests.test_neighbors::test_KNeighborsRegressor_multioutput_uniform_weight"
   - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X3-euclidean-None-kd_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X4-seuclidean-metric_params4-ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_dtype_convert"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[auto]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[ball_tree]"
@@ -1038,7 +1037,14 @@
   condition: scikit-learn<1.7
   strict: false
   tests:
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag"
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.7
+  strict: false
+  tests:
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   strict: false
@@ -1104,6 +1110,13 @@
   marker: cuml_accel_kmeans_cluster_centers_attribute
   tests:
   - "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
+- reason: These tests always pass on some platforms and always fail on others
+  marker: cuml_accel_kmeans_differs_on_certain_platforms
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
+  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: cuml.accel deviates in KMeans empty cluster reloacation (number of labels)
   marker: cuml_accel_kmeans_empty_clusters_num_labels
   tests:
@@ -1118,7 +1131,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: Integer inputs are converted to float32 instead of float64 with cuml.accel
   marker: cuml_accel_kmeans_integer_dtype
   tests:
@@ -1147,18 +1159,11 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
   marker: cuml_accel_kmeans_predict_output_deviation
   condition: scikit-learn<1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
-- reason: cuml.accel deviates in predict output for KMeans
-  marker: cuml_accel_kmeans_predict_output_deviation
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
 - reason: cuml.accel deviates in repeated predict output for KMeans
   marker: cuml_accel_kmeans_repeated_predict_output_deviation
   condition: scikit-learn<1.6
@@ -1319,7 +1324,6 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_shape]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifiers_classes]"
@@ -1399,7 +1403,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_dtype_object]"

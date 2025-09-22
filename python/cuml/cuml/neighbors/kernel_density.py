@@ -19,9 +19,9 @@ import math
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
-from numba import cuda
 
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.metrics import pairwise_distances
@@ -54,20 +54,12 @@ def tophat_log_kernel(x, h):
 
 
 @cp.fuse()
-def _epanechnikov_log_kernel(x, h, h_squared):
+def epanechnikov_log_kernel(x, h):
     # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(1.0 - (x * x) / h_squared, 1e-30)
+    z = cp.maximum(1.0 - (x * x) / (h * h), 1e-30)
     y = (x < h) * cp.log(z)
     y += (x >= h) * np.finfo(y.dtype).min
     return y
-
-
-def epanechnikov_log_kernel(x, h):
-    # TODO: Due to https://github.com/cupy/cupy/issues/8536 cupy.fuse errors when trying
-    # to compile the elementwise operation in epanechnikov. Handling `h * h` on host
-    # (where `h` is a host scalar) seems to work around the bug completely. Once the upstream
-    # issue is fixed this can be reverted.
-    return _epanechnikov_log_kernel(x, h, h * h)
 
 
 @cp.fuse()
@@ -111,7 +103,7 @@ def logSn(n):
     return np.log(2 * np.pi) + logVn(n - 1)
 
 
-def norm_log_probabilities(log_probabilities, kernel, h, d):
+def norm_factor(kernel, h, d):
     if kernel == "gaussian":
         factor = 0.5 * d * np.log(2 * np.pi)
     elif kernel == "tophat":
@@ -132,22 +124,20 @@ def norm_log_probabilities(log_probabilities, kernel, h, d):
     else:
         raise ValueError("Unsupported kernel.")
 
-    return log_probabilities - (factor + d * np.log(h))
+    return factor + d * np.log(h)
 
 
-@cuda.jit()
-def logsumexp_kernel(distances, log_probabilities):
-    i = cuda.grid(1)
-    if i >= log_probabilities.size:
-        return
-    max_exp = distances[i, 0]
-    for j in range(1, distances.shape[1]):
-        if distances[i, j] > max_exp:
-            max_exp = distances[i, j]
-    sum = 0.0
-    for j in range(0, distances.shape[1]):
-        sum += math.exp(distances[i, j] - max_exp)
-    log_probabilities[i] = math.log(sum) + max_exp
+# Implements a reduction similar to `numpy.logaddexp.reduce`. `cupy` currently
+# does not support this method natively: https://github.com/cupy/cupy/issues/9391
+logaddexp_reduce = cp.ReductionKernel(
+    "T d",
+    "T out",
+    "exp(d)",
+    "a + b",
+    "out = log(a)",
+    "0",
+    "logaddexp_reduce",
+)
 
 
 class KernelDensity(Base):
@@ -255,17 +245,6 @@ class KernelDensity(Base):
         self : object
             Returns the instance itself.
         """
-        if sample_weight is not None:
-            self.sample_weight_ = input_to_cupy_array(
-                sample_weight,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64],
-            ).array
-            if self.sample_weight_.min() <= 0:
-                raise ValueError("sample_weight must have positive values")
-        else:
-            self.sample_weight_ = None
-
         self.X_ = input_to_cupy_array(
             X,
             order="C",
@@ -273,9 +252,22 @@ class KernelDensity(Base):
             check_dtype=[cp.float32, cp.float64],
         ).array
 
+        if sample_weight is not None:
+            self.sample_weight_ = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64],
+                check_cols=1,
+                check_rows=self.X_.shape[0],
+            ).array
+            if self.sample_weight_.min() <= 0:
+                raise ValueError("sample_weight must have positive values")
+        else:
+            self.sample_weight_ = None
+
         return self
 
-    def score_samples(self, X, *, convert_dtype=True):
+    def score_samples(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute the log-likelihood of each sample under the model.
 
         Parameters
@@ -295,9 +287,10 @@ class KernelDensity(Base):
         """
         if not hasattr(self, "X_"):
             raise NotFittedError()
-        X_cuml = input_to_cuml_array(
+        X_m = input_to_cuml_array(
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
+            convert_to_dtype=(self.X_.dtype if convert_dtype else None),
+            check_dtype=[self.X_.dtype],
         )
         if self.metric_params:
             if len(self.metric_params) != 1:
@@ -306,31 +299,40 @@ class KernelDensity(Base):
                 )
             metric_arg = list(self.metric_params.values())[0]
             distances = pairwise_distances(
-                X_cuml.array,
+                X_m.array,
                 self.X_,
                 metric=self.metric,
                 metric_arg=metric_arg,
             )
         else:
             distances = pairwise_distances(
-                X_cuml.array, self.X_, metric=self.metric
+                X_m.array, self.X_, metric=self.metric
             )
 
         distances = cp.asarray(distances)
 
-        h = self.bandwidth
+        h = distances.dtype.type(self.bandwidth)
         if self.kernel in log_probability_kernels_:
-            distances = log_probability_kernels_[self.kernel](distances, h)
+            # XXX: passing `h` as a 0-dim array works around dtype inference
+            # issues in cupy.fuse. See https://github.com/cupy/cupy/issues/9400
+            distances = log_probability_kernels_[self.kernel](
+                distances, cp.array(h, dtype=distances.dtype)
+            )
         else:
             raise ValueError("Unsupported kernel.")
 
-        log_probabilities = cp.zeros(distances.shape[0])
         if self.sample_weight_ is not None:
             distances += cp.log(self.sample_weight_)
 
-        logsumexp_kernel.forall(log_probabilities.size)(
-            distances, log_probabilities
-        )
+        # To avoid overflow, we apply
+        # log(exp(x).sum()) -> log(exp(x - x.max())) + x.max()
+        # We subtract the max inplace to avoid an extra allocation,
+        # since `distances` is no longer needed after this point.
+        max_distances = distances.max(axis=1)
+        distances -= max_distances[:, None]
+        log_probabilities = logaddexp_reduce(distances, axis=1)
+        log_probabilities += max_distances
+
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for
         #  the kernel density is sum(K(x,h)).
@@ -345,18 +347,16 @@ class KernelDensity(Base):
         log_probabilities -= np.log(sum_weights)
 
         # norm
-        if len(X_cuml.array.shape) == 1:
+        if len(X_m.array.shape) == 1:
             # if X is one dimensional, we have 1 feature
             dimension = 1
         else:
-            dimension = X_cuml.array.shape[1]
-        log_probabilities = norm_log_probabilities(
-            log_probabilities, self.kernel, h, dimension
-        )
+            dimension = X_m.array.shape[1]
+        log_probabilities -= norm_factor(self.kernel, h, dimension)
 
         return log_probabilities
 
-    def score(self, X, y=None):
+    def score(self, X, y=None) -> float:
         """Compute the total log-likelihood under the model.
 
         Parameters
@@ -376,7 +376,7 @@ class KernelDensity(Base):
             probability density, so the value will be low for high-dimensional
             data.
         """
-        return cp.sum(self.score_samples(X))
+        return float(cp.sum(self.score_samples(X).to_output("cupy")))
 
     def sample(self, n_samples=1, random_state=None):
         """

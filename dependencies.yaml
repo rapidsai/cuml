@@ -347,20 +347,12 @@ dependencies:
               cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
-              - nvidia-cublas-cu12
-              - nvidia-cufft-cu12
-              - nvidia-curand-cu12
-              - nvidia-cusparse-cu12
-              - nvidia-cusolver-cu12
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==12.*
           - matrix:
               cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
-              - nvidia-cublas-cu13
-              - nvidia-cufft-cu13
-              - nvidia-curand-cu13
-              - nvidia-cusparse-cu13
-              - nvidia-cusolver-cu13
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:
@@ -370,11 +362,7 @@ dependencies:
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
-              - nvidia-cublas
-              - nvidia-cufft
-              - nvidia-curand
-              - nvidia-cusparse
-              - nvidia-cusolver
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14
   docs:
     common:
       - output_types: [conda, requirements]
@@ -455,9 +443,8 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
-          # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-          # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
-          - nvidia-ml-py>=12.560.30
+          # 'nvidia-ml-py' provides the 'pynvml' module
+          - nvidia-ml-py>=12
           - pyyaml
           - pytest
           - pytest-benchmark
@@ -472,12 +459,15 @@ dependencies:
           - pynndescent
   test_python_xgboost:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda]
         packages:
           # We must separate xgboost into its own list so that it is not
           # included in the "devcontainers" key. The libxgboost package depends
           # on librmm but we do not want to have a package depending on librmm
           # in devcontainers since it should be built from source.
+          - &rapids-xgboost rapids-xgboost==25.10.*,>=0.0.0a0
+      - output_types: [requirements, pyproject]
+        packages:
           - &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
@@ -489,13 +479,14 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
-          - *xgboost
       - output_types: conda
         packages:
           - matplotlib-base
+          - *rapids-xgboost
       - output_types: requirements
         packages:
           - matplotlib
+          - *xgboost
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]

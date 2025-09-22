@@ -14,17 +14,21 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
+from sklearn.datasets import make_blobs
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
 
+import cuml
 from cuml.common.exceptions import NotFittedError
-from cuml.neighbors import VALID_KERNELS, KernelDensity, logsumexp_kernel
+from cuml.neighbors import VALID_KERNELS, KernelDensity
+from cuml.neighbors.kernel_density import logaddexp_reduce
 from cuml.testing.utils import as_type
 
 
@@ -107,7 +111,9 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         # cosine is numerically unstable at high dimensions
         # for both cuml and sklearn
         assume(X.shape[1] <= 20)
-    kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=bandwidth)
+    kde = KernelDensity(
+        kernel=kernel, metric=metric, bandwidth=bandwidth, output_type="cupy"
+    )
     kde.fit(X, sample_weight=sample_weight)
     cuml_prob = kde.score_samples(X)
     cuml_prob_test = kde.score_samples(X_test)
@@ -121,14 +127,14 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         )
         tol = 1e-3
         assert np.allclose(
-            np.exp(as_type("numpy", cuml_prob)),
+            np.exp(as_type("numpy", cuml_prob), dtype="float64"),
             ref_prob,
             rtol=tol,
             atol=tol,
             equal_nan=True,
         )
         assert np.allclose(
-            np.exp(as_type("numpy", cuml_prob_test)),
+            np.exp(as_type("numpy", cuml_prob_test), dtype="float64"),
             ref_prob_test,
             rtol=tol,
             atol=tol,
@@ -159,14 +165,35 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
             kde.sample(100)
 
 
-def test_logaddexp():
+@pytest.mark.parametrize(
+    "kernel",
+    ["gaussian", "tophat", "epanechnikov", "exponential", "linear", "cosine"],
+)
+@pytest.mark.parametrize("fit_dtype", ["float32", "float64"])
+@pytest.mark.parametrize("score_dtype", ["float32", "float64"])
+def test_score_samples_output_type_and_dtype(kernel, fit_dtype, score_dtype):
+    """Check that the output dtype and type of `score_samples` is correct"""
+    X, _ = make_blobs(n_samples=200, n_features=10, centers=5, random_state=42)
+    X_train, X_score = X[:100], X[100:]
+    X_train = X_train.astype(fit_dtype)
+    X_score = X_score.astype(score_dtype)
+    kde = KernelDensity(kernel=kernel).fit(X_train)
+    res = kde.score_samples(X_score)
+    assert res.dtype == fit_dtype
+    assert isinstance(res, np.ndarray)
+    with cuml.using_output_type("cupy"):
+        res = kde.score_samples(X_score)
+    assert res.dtype == fit_dtype
+    assert isinstance(res, cp.ndarray)
+
+
+def test_logaddexp_reduce():
     X = np.array([[0.0, 0.0], [0.0, 0.0]])
-    out = np.zeros(X.shape[0])
-    logsumexp_kernel.forall(out.size)(X, out)
+    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
     X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    logsumexp_kernel.forall(out.size)(X, out)
+    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
@@ -195,3 +222,16 @@ def test_not_fitted():
         kde.sample(X)
     with pytest.raises(NotFittedError):
         kde.score_samples(X)
+
+
+def test_bad_sample_weight_errors():
+    kde = KernelDensity()
+    X = np.array([[0.0, 1.0], [2.0, 0.5]])
+
+    with pytest.raises(ValueError, match="Expected 2 rows but got 3 rows."):
+        kde.fit(X, sample_weight=np.array([1, 2, 3]))
+
+    with pytest.raises(
+        ValueError, match="Expected 1 columns but got 2 columns."
+    ):
+        kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))

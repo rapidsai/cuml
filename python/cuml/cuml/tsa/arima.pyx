@@ -50,10 +50,10 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
 
     cdef cppclass ARIMAMemory[DataT]:
         ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
-                    char* in_buf)
+                    char* in_buf) except +
 
         @staticmethod
-        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
+        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs) except +
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
@@ -61,55 +61,55 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
 
     void cpp_pack "pack" (
         handle_t& handle, const ARIMAParams[double]& params,
-        const ARIMAOrder& order, int batch_size, double* param_vec)
+        const ARIMAOrder& order, int batch_size, double* param_vec) except +
 
     void cpp_unpack "unpack" (
         handle_t& handle, ARIMAParams[double]& params,
-        const ARIMAOrder& order, int batch_size, const double* param_vec)
+        const ARIMAOrder& order, int batch_size, const double* param_vec) except +
 
     bool detect_missing(
-        handle_t& handle, const double* d_y, int n_elem)
+        handle_t& handle, const double* d_y, int n_elem) except +
 
     void batched_diff(
         handle_t& handle, double* d_y_diff, const double* d_y, int batch_size,
-        int n_obs, const ARIMAOrder& order)
+        int n_obs, const ARIMAOrder& order) except +
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
+        bool trans, bool host_loglike, LoglikeMethod method, int truncate) except +
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, const double* d_exog, int batch_size, int n_obs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
         double* loglike, bool trans, bool host_loglike, LoglikeMethod method,
-        int truncate)
+        int truncate) except +
 
     void batched_loglike_grad(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, int truncate)
+        bool trans, LoglikeMethod method, int truncate) except +
 
     void cpp_predict "predict" (
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, const double* d_exog_fut,
         int batch_size, int nobs, int start, int end, const ARIMAOrder& order,
         const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
-        double level, double* d_lower, double* d_upper)
+        double level, double* d_lower, double* d_upper) except +
 
     void information_criterion(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type)
+        double* ic, int ic_type) except +
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
         const double* d_exog, int batch_size, int nobs,
-        const ARIMAOrder& order, bool missing)
+        const ARIMAOrder& order, bool missing) except +
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
@@ -117,7 +117,7 @@ cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
     void batched_jones_transform(
         handle_t& handle, ARIMAMemory[double]& arima_mem,
         const ARIMAOrder& order, int batchSize, bool isInv,
-        const double* h_params, double* h_Tparams)
+        const double* h_params, double* h_Tparams) except +
 
 
 cdef class ARIMAParamsWrapper:
