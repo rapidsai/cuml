@@ -264,13 +264,13 @@ void optimize_layout(T* head_embedding,
 
   T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
-  int threshold_for_outlier = 1024;  // this is a heuristic value.
+  int threshold_for_outlier = 512;  // this is a heuristic value.
   bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
   if (move_other && !has_outlier) {
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier) {
+  if (has_outlier || !params->deterministic) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
