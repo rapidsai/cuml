@@ -486,7 +486,7 @@ class UMAP(Base,
 
         return {
             "embedding_": to_gpu(model.embedding_, order="C"),
-            "graph_": cupyx.scipy.sparse.coo_matrix(model.graph_),
+            "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
             "sparse_fit": model._sparse_data,
