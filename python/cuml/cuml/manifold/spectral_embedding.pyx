@@ -174,8 +174,7 @@ def spectral_embedding(A,
             "['nearest_neighbors', 'precomputed']"
         )
 
-    n_samples = A.shape[0]
-    n_features = A.shape[1] if A.ndim > 2 else 1
+    n_samples, n_features = A.shape
 
     if n_samples < 2:
         raise ValueError(
