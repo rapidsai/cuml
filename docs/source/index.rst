@@ -64,7 +64,7 @@ seamlessly with other RAPIDS libraries like cuDF for data manipulation and
 cuGraph for graph analytics.
 
 Community & Support
-==================
+===================
 
 * :doc:`User Guide <user_guide>` - Comprehensive usage documentation
 * :doc:`API Reference <api>` - Complete API documentation
