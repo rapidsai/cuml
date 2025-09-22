@@ -26,10 +26,11 @@ import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 import umap
+from cuvs.neighbors import all_neighbors, nn_descent
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
+from sklearn.datasets import make_blobs, make_moons
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
@@ -925,3 +926,49 @@ def test_umap_small_fit_large_transform():
 
     trust = trustworthiness(infer, embeddings, n_neighbors=10)
     assert trust >= 0.9
+
+
+def test_umap_outliers():
+    k = 15
+    n_rows = 50_000
+
+    data, _ = make_moons(n_samples=n_rows, noise=0.0, random_state=42)
+    data = data.astype(np.float32)
+
+    # precompute knn for faster testing with CPU UMAP
+    nn_descent_params = nn_descent.IndexParams(
+        metric="euclidean",
+        graph_degree=k,
+        intermediate_graph_degree=k * 2,
+    )
+    params = all_neighbors.AllNeighborsParams(
+        algo="nn_descent",
+        metric="euclidean",
+        nn_descent_params=nn_descent_params,
+    )
+    indices, distances = all_neighbors.build(
+        data,
+        k,
+        params,
+        distances=cp.empty((n_rows, k), dtype=cp.float32),
+    )
+    indices = cp.asnumpy(indices)
+    distances = cp.asnumpy(distances)
+
+    gpu_umap = cuUMAP(
+        precomputed_knn=(indices, distances),
+        build_algo="nn_descent",
+        init="spectral",
+    )
+    gpu_umap_embeddings = gpu_umap.fit_transform(data)
+
+    cpu_umap = umap.UMAP(precomputed_knn=(indices, distances), init="spectral")
+    cpu_umap_embeddings = cpu_umap.fit_transform(data)
+
+    lower_bound = 2 * cpu_umap_embeddings.min()
+    upper_bound = 2 * cpu_umap_embeddings.max()
+
+    assert np.all(
+        (gpu_umap_embeddings >= lower_bound)
+        & (gpu_umap_embeddings <= upper_bound)
+    )
