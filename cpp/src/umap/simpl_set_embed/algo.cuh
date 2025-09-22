@@ -222,7 +222,6 @@ bool check_outliers(const int* rows, int m, nnz_t nnz, int threshold, cudaStream
 
   rmm::device_uvector<int> has_outlier_d(1, stream);
   cudaMemset(has_outlier_d.data(), 0, sizeof(int));
-  // has_outlier_d.set_value_async(0, stream);
 
   dim3 grid_head_n(raft::ceildiv(static_cast<nnz_t>(m), static_cast<nnz_t>(TPB_X)), 1, 1);
   check_threshold_kernel<<<grid_head_n, blk, 0, stream>>>(
@@ -264,7 +263,15 @@ void optimize_layout(T* head_embedding,
 
   T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
-  int threshold_for_outlier = 512;  // this is a heuristic value.
+  auto min_n                = min(head_n, tail_n);
+  int threshold_for_outlier = 1024;  // this is a heuristic value.
+  // for smaller datasets, could be a dense point even with a smaller graph degree
+  if (min_n <= 100000) {
+    threshold_for_outlier = 256;
+  } else if (min_n <= 1000000) {
+    threshold_for_outlier = 512;
+  }
+
   bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
   if (move_other && !has_outlier) {
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
