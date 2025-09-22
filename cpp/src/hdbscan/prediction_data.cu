@@ -212,7 +212,7 @@ void generate_prediction_data(const raft::handle_t& handle,
                     [labels, inverse_label_map] __device__(auto idx) {
                       auto label = labels[idx];
                       if (label != -1) { return inverse_label_map[label]; }
-                      return (int64_t)-1;
+                      return static_cast<int64_t>(-1);
                     });
 
   thrust::sort_by_key(exec_policy,
