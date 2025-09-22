@@ -354,7 +354,6 @@ Additionally, the following parameters are not supported:
 The following fitted attributes are currently not computed:
 
 - ``affinity_matrix_``
-- ``n_features_in_``
 
 Additional notes:
 
