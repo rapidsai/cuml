@@ -345,11 +345,6 @@ SpectralEmbedding
 - If ``X`` is sparse.
 - If ``X`` has only 1 feature.
 
-Additionally, the following parameters are not supported:
-
-- ``gamma`` (used with ``rbf`` affinity, which is not supported).
-- ``eigen_solver`` and ``eigen_tol`` (cuML uses its own eigensolver).
-- ``n_jobs`` (GPU parallelization is automatic).
 
 The following fitted attributes are currently not computed:
 
