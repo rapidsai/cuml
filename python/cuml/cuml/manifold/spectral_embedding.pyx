@@ -174,19 +174,19 @@ def spectral_embedding(A,
             "['nearest_neighbors', 'precomputed']"
         )
 
-    if A.ndim >= 2:
-        n_samples, n_features = A.shape
+    n_samples = A.shape[0]
+    n_features = A.shape[1] if A.ndim > 2 else 1
 
-        if n_samples < 2:
-            raise ValueError(
-                f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
-                f"minimum of 2 is required."
-            )
-        if n_features < 2:
-            raise ValueError(
-                f"Found array with {n_features} feature(s) (shape={A.shape}) while "
-                f"a minimum of 2 is required."
-            )
+    if n_samples < 2:
+        raise ValueError(
+            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+            f"minimum of 2 is required."
+        )
+    if n_features < 2:
+        raise ValueError(
+            f"Found array with {n_features} feature(s) (shape={A.shape}) while "
+            f"a minimum of 2 is required."
+        )
 
     cdef params config
     config.seed = check_random_seed(random_state)
