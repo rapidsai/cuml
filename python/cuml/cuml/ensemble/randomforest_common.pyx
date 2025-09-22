@@ -520,13 +520,13 @@ class BaseRandomForestModel(Base, InteropMixin):
                         verbose
                     )
 
-        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to manage
-        # ownership, and keep the loaded model around. However, this only works if the
-        # `libtreelite` used by `treelite` matches the one that `cuml` is linked against.
-        # This is currently true for conda environments, but not for wheels where
-        # `treelite` contains its own separate version. So for now we need to do this
-        # serialize-and-reload dance. If/when this is fixed we instead store the loaded
-        # model and use that everywhere.
+        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
+        # manage ownership, and keep the loaded model around. However, this
+        # only works if the `libtreelite` is ABI compatible with the one used
+        # by `cuml`. This is currently true for conda environments, but not for
+        # wheels where `cuml` and `treelite` use different manylinux ABIs. So
+        # for now we need to do this serialize-and-reload dance. If/when this
+        # is fixed we could instead store the loaded model and use that instead.
         cdef const char* tl_bytes = NULL
         cdef size_t tl_bytes_len
         safe_treelite_call(
