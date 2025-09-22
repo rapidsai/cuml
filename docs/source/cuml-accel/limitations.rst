@@ -350,14 +350,6 @@ The following fitted attributes are currently not computed:
 
 - ``affinity_matrix_``
 
-Additional notes:
-
-- The ``affinity`` parameter only supports ``"nearest_neighbors"`` and
-  ``"precomputed"``. The ``"rbf"``, ``"precomputed_nearest_neighbors"``,
-  and callable options are not supported.
-- Input data must have at least 2 features. Single-feature data will raise
-  a ``ValueError``.
-
 
 sklearn.neighbors
 -----------------
