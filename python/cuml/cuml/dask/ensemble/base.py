@@ -183,7 +183,7 @@ class BaseRandomForestModel(object):
             for indiv_worker_model_bytes in mod_bytes
         ]
         concatenated_model = treelite.Model.concatenate(tl_model_objs)
-        model.treelite_model_ = concatenated_model
+        model._treelite_model_bytes = concatenated_model.serialize_bytes()
         model._fil_model = None
         return model
 
@@ -368,4 +368,4 @@ def _func_set_params(model, **params):
 
 
 def _serialize_treelite_bytes(model):
-    return model.treelite_model_.serialize_bytes()
+    return model._treelite_model_bytes

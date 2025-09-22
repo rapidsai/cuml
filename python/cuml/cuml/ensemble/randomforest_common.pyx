@@ -15,7 +15,6 @@
 #
 from __future__ import annotations
 
-import ctypes
 import math
 import warnings
 from typing import Literal
@@ -31,6 +30,7 @@ from cuml.internals.interop import (
     UnsupportedOnCPU,
     UnsupportedOnGPU,
 )
+from cuml.internals.treelite import safe_treelite_call
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -38,7 +38,11 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
-from cuml.internals.treelite cimport TreeliteModelHandle
+from cuml.internals.treelite cimport (
+    TreeliteFreeModel,
+    TreeliteModelHandle,
+    TreeliteSerializeModelToBytes,
+)
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
@@ -264,7 +268,7 @@ class BaseRandomForestModel(Base, InteropMixin):
     def _attrs_from_cpu(self, model):
         tl_model = treelite.sklearn.import_model(model)
         return {
-            "treelite_model_": tl_model,
+            "_treelite_model_bytes": tl_model.serialize_bytes(),
             "n_outputs_": model.n_outputs_,
             "_n_samples": model._n_samples,
             "_n_samples_bootstrap": model._n_samples_bootstrap,
@@ -272,7 +276,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         }
 
     def _attrs_to_cpu(self, model):
-        sk_model = treelite.sklearn.export_model(self.treelite_model_)
+        tl_model = treelite.Model.deserialize_bytes(self._treelite_model_bytes)
+        sk_model = treelite.sklearn.export_model(tl_model)
         return {
             "estimator_": sk_model.estimator,
             "estimators_": sk_model.estimators_,
@@ -326,14 +331,11 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        # FIL model isn't currently pickleable
         state.pop("_fil_model", None)
-        if (tl_model := state.pop("treelite_model_", None)) is not None:
-            state["treelite_model_bytes"] = tl_model.serialize_bytes()
         return state
 
     def __setstate__(self, state):
-        if (tl_model_bytes := state.pop("treelite_model_bytes", None)) is not None:
-            self.treelite_model_ = treelite.Model.deserialize_bytes(tl_model_bytes)
         self.__dict__.update(state)
 
     def __len__(self):
@@ -348,7 +350,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         -------
         tl_to_fil_model : treelite.Model
         """
-        return self.treelite_model_
+        return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
 
     def convert_to_fil_model(
         self,
@@ -385,7 +387,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
-            treelite_model=self.treelite_model_,
+            treelite_model=self._treelite_model_bytes,
             is_classifier=(self._estimator_type == "classifier"),
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -499,13 +501,30 @@ class BaseRandomForestModel(Base, InteropMixin):
                         verbose
                     )
 
+        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to manage
+        # ownership, and keep the loaded model around. However, this only works if the
+        # `libtreelite` used by `treelite` matches the one that `cuml` is linked against.
+        # This is currently true for conda environments, but not for wheels where
+        # `treelite` contains its own separate version. So for now we need to do this
+        # serialize-and-reload dance. If/when this is fixed we instead store the loaded
+        # model and use that everywhere.
+        cdef const char* tl_bytes = NULL
+        cdef size_t tl_bytes_len
+        safe_treelite_call(
+            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
+            "Failed to serialize Treelite model to bytes:"
+        )
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle), "Failed to free Treelite model:"
+        )
+
         self._n_samples = y.shape[0]
         self._n_samples_bootstrap = (
             self._n_samples if self.max_samples is None
             else max(round(self._n_samples * self.max_samples), 1)
         )
         self.n_outputs_ = 1
-        self.treelite_model_ = treelite.Model(handle=ctypes.c_void_p(<uintptr_t>tl_handle))
+        self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         # Ensure cached fil model is reset
         self._fil_model = None
         return self
