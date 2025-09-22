@@ -343,20 +343,39 @@ class BaseRandomForestModel(Base, InteropMixin):
         return self.n_estimators
 
     def convert_to_treelite_model(self):
+        """Deprecated, use `as_treelite`."""
+        warnings.warn(
+            "`convert_to_treelite_model` was deprecated in 25.10 and will be "
+            "removed in 25.12. Please use `as_treelite` instead.",
+            FutureWarning,
+        )
+        return self.as_treelite()
+
+    def convert_to_fil_model(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None
+    ):
+        """Deprecated, use `as_fil`."""
+        warnings.warn(
+            "`convert_to_fil_model` was deprecated in 25.10 and will be "
+            "removed in 25.12. Please use `as_fil` instead.",
+            FutureWarning,
+        )
+        return self.as_fil(
+            layout=layout, default_chunk_size=default_chunk_size, align_bytes=align_bytes
+        )
+
+    def as_treelite(self):
         """
-        Converts the cuML RF model to a Treelite model
+        Converts this estimator to a Treelite model.
 
         Returns
         -------
-        tl_to_fil_model : treelite.Model
+        treelite.Model
         """
         return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
 
-    def convert_to_fil_model(
-        self,
-        layout="depth_first",
-        default_chunk_size=None,
-        align_bytes=None,
+    def as_fil(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -540,9 +559,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         ):
             # default parameters, get (or create) the cached fil model
             if (fil_model := getattr(self, "_fil_model", None)) is None:
-                fil_model = self._fil_model = self.convert_to_fil_model()
+                fil_model = self._fil_model = self.as_fil()
         else:
-            fil_model = self.convert_to_fil_model(
+            fil_model = self.as_fil(
                 layout=layout,
                 default_chunk_size=default_chunk_size,
                 align_bytes=align_bytes,
@@ -554,7 +573,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             warnings.warn(
                 (
                     "`predict_model` is deprecated (and ignored) and will be removed "
-                    "in 25.12. To infer on CPU use `model.convert_to_fil_model` to get "
+                    "in 25.12. To infer on CPU use `model.as_fil` to get "
                     "a `FIL` instance which may then be used to perform inference on "
                     "both CPU and GPU."
                 ),

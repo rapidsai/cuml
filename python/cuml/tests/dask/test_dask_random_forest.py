@@ -362,7 +362,7 @@ def test_rf_data_count(client, max_depth, n_estimators):
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
     dask_model.fit(X_dask, y_dask)
     model = dask_model.get_combined_model()
-    json_obj = json.loads(model.convert_to_treelite_model().dump_as_json())
+    json_obj = json.loads(model.as_treelite().dump_as_json())
 
     def check_count(node, nodes):
         if "left_child" in node:
