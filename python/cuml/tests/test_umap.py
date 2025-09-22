@@ -69,7 +69,20 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 
 
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows",
+    [
+        pytest.param(
+            500,
+            marks=[
+                pytest.mark.unit,
+                pytest.mark.xfail(
+                    reason="https://github.com/rapidsai/cuvs/issues/184"
+                ),
+            ],
+        ),
+        quality_param(5000),
+        stress_param(500000),
+    ],
 )
 @pytest.mark.parametrize(
     "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
