@@ -210,8 +210,8 @@ def test_default_parameters():
     assert clf_params["max_features"] == "sqrt"
 
     # Different default split_criterion
-    assert reg_params["split_criterion"] == 2
-    assert clf_params["split_criterion"] == 0
+    assert reg_params["split_criterion"] == "mse"
+    assert clf_params["split_criterion"] == "gini"
 
     # Drop differing params
     for name in [

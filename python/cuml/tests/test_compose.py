@@ -313,3 +313,17 @@ def test_column_transformer_index(clf_dataset):  # noqa: F811
 
     transformer = cuColumnTransformer(cu_transformers)
     transformer.fit_transform(X)
+
+
+def test_column_transform_properly_handles_sub_output_type():
+    """Check that ColumnTransformer properly handles child estimators
+    with different output types configured"""
+    df = cudf.DataFrame({"x": ["a", "b", "a", "b"], "y": [1, 10, 100, 5]})
+
+    transformer = cuColumnTransformer(
+        [
+            ("x_enc", cuOneHotEncoder(sparse_output=False), ["x"]),
+            ("y_enc", cuStandardScaler(output_type="numpy"), ["y"]),
+        ]
+    ).fit(df)
+    transformer.transform(df)
