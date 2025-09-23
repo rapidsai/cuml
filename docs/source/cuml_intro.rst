@@ -7,8 +7,16 @@ guide every aspect of the library's development and determine how you interact
 with cuML in practice. Understanding these principles will help you take full
 advantage of cuML's capabilities and write more effective code.
 
-1. Where possible, match the scikit-learn API
----------------------------------------------
+1. :ref:`Where possible, match familiar APIs <where-possible-match-the-scikit-learn-api>`
+2. :ref:`Be flexible on inputs and predictable on outputs <accept-flexible-input-types-return-predictable-output-types>`
+3. :ref:`Deliver top GPU-accelerated performance <be-fast>`
+
+These principles work together to create a seamless experience that combines the familiarity of scikit-learn and other popular ML packages with the power of GPU acceleration. Let's explore how each principle shapes cuML's design and functionality.
+
+Familiar APIs for Seamless Integration
+--------------------------------------
+
+.. _where-possible-match-the-scikit-learn-api:
 
 cuML estimators look and feel just like `scikit-learn estimators
 <https://scikit-learn.org/stable/developers/develop.html>`_. This means:
@@ -47,8 +55,10 @@ You can find many more complete examples in the `Introductory Notebook
    Use `cuml.accel <cuml-accel/index.rst>`_ if you need 100% API
    parity with scikit-learn.
 
-2. Accept flexible input types, return predictable output types
----------------------------------------------------------------
+Flexible Inputs, Predictable Outputs
+------------------------------------
+
+.. _accept-flexible-input-types-return-predictable-output-types:
 
 cuML estimators can accept NumPy arrays, cuDF dataframes, cuPy arrays,
 2D PyTorch tensors, and really any kind of standards-based Python
@@ -70,8 +80,10 @@ The `RAPIDS Configurable Input and Output Types
 <https://medium.com/@dantegd/e719d72c135b>`_ blog post goes into much
 more detail explaining this approach.
 
-3. Be fast!
------------
+GPU-Accelerated Performance
+---------------------------
+
+.. _be-fast:
 
 cuML delivers on average **10-50x performance improvements** through:
 
