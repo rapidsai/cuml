@@ -35,8 +35,6 @@
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 
-#include <fstream>
-
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
@@ -127,9 +125,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   value_idx n_elements_to_traverse =
     thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
-  int count = 0;
   while (n_elements_to_traverse > 0) {
-    count += 1;
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(frontier.data(),
@@ -153,183 +149,9 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
       exec_policy, frontier.data(), frontier.data() + root + 1, static_cast<value_idx>(0));
 
     handle.sync_stream(stream);
-    // std::cout << "\t\trun condense_hierarchy_kernel num elems to traverse: "  <<
-    // n_elements_to_traverse  << std::endl;
   }
-  std::cout << "sync twice run the while loop " << count << " times\n";
-
-  //   // ---- save to disk for Python ----
-  // {
-  //   size_t size_used = (root + 1) * 2;
-  //   std::vector<value_idx> out_parent_h((root + 1) * 2);
-  //   std::vector<value_idx> out_child_h((root + 1) * 2);
-  //   std::vector<value_t> out_lambda_h((root + 1) * 2);
-  //   std::vector<value_idx> out_size_h((root + 1) * 2);
-
-  //   raft::copy(out_parent_h.data(), out_parent.data(), size_used, stream);
-  //   raft::copy(out_child_h.data(), out_child.data(), size_used, stream);
-  //   raft::copy(out_lambda_h.data(), out_lambda.data(), size_used, stream);
-  //   raft::copy(out_size_h.data(), out_size.data(), size_used, stream);
-
-  //   std::cout << "saving information after condense to disk\n";
-  //   std::ofstream f1("bc_out_parent_h_1000.bin", std::ios::binary);
-  //   f1.write((char*)out_parent_h.data(), out_parent_h.size() * sizeof(value_idx));
-  //   f1.close();
-
-  //   std::ofstream f2("bc_out_child_h_1000.bin", std::ios::binary);
-  //   f2.write((char*)out_child_h.data(), out_child_h.size() * sizeof(value_idx));
-  //   f2.close();
-
-  //   std::ofstream f3("bc_out_lambda_h_1000.bin", std::ios::binary);
-  //   f3.write((char*)out_lambda_h.data(), out_lambda_h.size() * sizeof(value_t));
-  //   f3.close();
-
-  //   std::ofstream f4("bc_out_size_h_1000.bin", std::ios::binary);
-  //   f4.write((char*)out_size_h.data(), out_size_h.size() * sizeof(value_idx));
-  //   f4.close();
-  // }
-  // //  ----------------------------
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
-
-// // Node struct for pointer chasing tree
-// template <typename value_idx, typename value_t>
-// struct Node {
-//     value_idx idx;
-//     value_idx size;
-//     value_t lambda_val;
-//     Node* parent;
-//     Node* first_child;
-//     Node* next_sibling;
-
-//     Node(value_idx i)
-//         : idx(i),
-//           size(1),
-//           lambda_val(std::numeric_limits<value_t>::infinity()),
-//           parent(nullptr),
-//           first_child(nullptr),
-//           next_sibling(nullptr) {}
-// };
-
-// template <typename value_idx, typename value_t, int tpb = 256>
-// void build_condensed_hierarchy(const raft::handle_t& handle,
-//                                const value_idx* children,   // shape (n_leaves - 1, 2)
-//                                const value_t* delta,        // shape (n_leaves - 1)
-//                                const value_idx* sizes,      // shape (n_leaves - 1)
-//                                int min_cluster_size,
-//                                int n_leaves,
-//                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
-// {
-//     int n_merges = n_leaves - 1;
-//     int n_nodes  = n_leaves + n_merges;
-
-//     // Allocate nodes
-//     std::vector<Node<value_idx, value_t>*> nodes;
-//     nodes.reserve(n_nodes);
-//     for (int i = 0; i < n_nodes; i++) {
-//         nodes.push_back(new Node<value_idx, value_t>(i));
-//     }
-
-//     // Build tree with pointer chasing
-//     for (int t = 0; t < n_merges; t++) {
-//         value_idx parent = n_leaves + t;
-//         value_idx left   = children[2 * t];
-//         value_idx right  = children[2 * t + 1];
-//         value_t lambda_val = delta[t];
-
-//         nodes[parent]->size = sizes[t];
-//         nodes[parent]->lambda_val = lambda_val;
-
-//         nodes[left]->parent  = nodes[parent];
-//         nodes[right]->parent = nodes[parent];
-
-//         nodes[parent]->first_child = nodes[left];
-//         nodes[left]->next_sibling  = nodes[right];
-//     }
-
-//     Node<value_idx,value_t>* root = nodes.back();
-
-//     // Shared output vectors (protected by OpenMP locks or per-thread buffers)
-//     std::vector<value_idx> out_parent;
-//     std::vector<value_idx> out_child;
-//     std::vector<value_t>   out_lambda;
-//     std::vector<value_idx> out_size;
-
-//     // Use a lock-free approach with thread-local buffers, then merge
-//     int n_threads = omp_get_max_threads();
-//     std::vector<std::vector<value_idx>> local_parent(n_threads);
-//     std::vector<std::vector<value_idx>> local_child(n_threads);
-//     std::vector<std::vector<value_t>>   local_lambda(n_threads);
-//     std::vector<std::vector<value_idx>> local_size(n_threads);
-
-//     // Parallel DFS using explicit stack
-//     #pragma omp parallel
-//     {
-//         int tid = omp_get_thread_num();
-//         std::vector<Node<value_idx,value_t>*> stack;
-
-//         #pragma omp single nowait
-//         {
-//             stack.push_back(root);
-//         }
-
-//         while (true) {
-//             Node<value_idx,value_t>* node = nullptr;
-
-//             // Critical section for shared stack
-//             #pragma omp critical
-//             {
-//                 if (!stack.empty()) {
-//                     node = stack.back();
-//                     stack.pop_back();
-//                 }
-//             }
-
-//             if (!node) {
-//                 // No more work for this thread
-//                 break;
-//             }
-
-//             // Iterate children
-//             Node<value_idx,value_t>* child = node->first_child;
-//             while (child) {
-//                 if (child->size >= min_cluster_size) {
-//                     local_parent[tid].push_back(node->idx);
-//                     local_child[tid].push_back(child->idx);
-//                     local_lambda[tid].push_back(node->lambda_val);
-//                     local_size[tid].push_back(child->size);
-
-//                     // Add child to stack for further traversal
-//                     #pragma omp critical
-//                     stack.push_back(child);
-//                 }
-//                 child = child->next_sibling;
-//             }
-//         }
-//     }
-
-//     // Merge thread-local buffers
-//     for (int t = 0; t < n_threads; t++) {
-//         out_parent.insert(out_parent.end(),
-//                           local_parent[t].begin(), local_parent[t].end());
-//         out_child.insert(out_child.end(),
-//                          local_child[t].begin(), local_child[t].end());
-//         out_lambda.insert(out_lambda.end(),
-//                           local_lambda[t].begin(), local_lambda[t].end());
-//         out_size.insert(out_size.end(),
-//                         local_size[t].begin(), local_size[t].end());
-//     }
-
-//     // Push into condensed_tree
-//     condensed_tree.condense(out_parent.data(),
-//                             out_child.data(),
-//                             out_lambda.data(),
-//                             out_size.data(),
-//                             static_cast<value_idx>(out_parent.size()));
-
-//     // Cleanup
-//     for (auto n : nodes) delete n;
-// }
 
 };  // end namespace Condense
 };  // end namespace detail
