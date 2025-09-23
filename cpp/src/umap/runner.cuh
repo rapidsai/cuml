@@ -42,13 +42,18 @@
 #include <cuda_runtime.h>
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
+#include <thrust/distance.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/remove.h>
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/tuple.h>
 
 #include <memory>
+#include <type_traits>
 
 namespace UMAPAlgo {
 
@@ -149,11 +154,31 @@ void trim_graph(const raft::handle_t& handle,
                 raft::sparse::COO<value_t>& out,
                 int n_epochs)
 {
-  auto stream = raft::resource::get_cuda_stream(handle);
+  auto exec = raft::resource::get_thrust_policy(handle);
 
   value_t threshold = get_threshold(handle, in, n_epochs);
-  perform_thresholding(handle, in, threshold);
-  raft::sparse::op::coo_remove_zeros<value_t>(&in, &out, stream);
+
+  auto zipped_begin =
+    thrust::make_zip_iterator(thrust::make_tuple(in.rows(), in.cols(), in.vals()));
+  auto zipped_end = zipped_begin + in.nnz;
+
+  using row_type   = typename std::remove_pointer<decltype(in.rows())>::type;
+  using col_type   = typename std::remove_pointer<decltype(in.cols())>::type;
+  using tuple_type = thrust::tuple<row_type, col_type, value_t>;
+
+  auto new_end = thrust::remove_if(
+    exec, zipped_begin, zipped_end, [threshold] __host__ __device__(const tuple_type& t) {
+      return thrust::get<2>(t) < threshold;
+    });
+
+  auto new_nnz = static_cast<decltype(in.nnz)>(thrust::distance(zipped_begin, new_end));
+  in.nnz       = new_nnz;
+
+  auto stream = raft::resource::get_cuda_stream(handle);
+  out.allocate(new_nnz, in.n_rows, in.n_cols, true, stream);
+  raft::copy(out.rows(), in.rows(), new_nnz, stream);
+  raft::copy(out.cols(), in.cols(), new_nnz, stream);
+  raft::copy(out.vals(), in.vals(), new_nnz, stream);
 }
 
 template <typename value_t, typename value_idx, typename nnz_t>
@@ -286,7 +311,7 @@ void _refine(const raft::handle_t& handle,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream);
+    inputs.n, inputs.d, &trimmed_graph, params, embeddings, n_epochs, stream);
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
