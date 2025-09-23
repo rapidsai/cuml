@@ -68,6 +68,7 @@ function(find_and_configure_cuvs)
 
 endfunction()
 
+message(STATUS "rapids-cmake-checkout-tag: ${rapids-cmake-checkout-tag}")
 # Change pinned tag here to test a commit in CI
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
