@@ -439,3 +439,13 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
     assert cu_trust > 0.85
     assert nans == 0
     assert array_equal(sk_trust, cu_trust, 0.1, with_sign=True)
+
+
+@pytest.mark.parametrize("algorithm", ["fft", "barnes_hut", "exact"])
+def test_tsne_n_iter(algorithm):
+    X, _ = make_blobs(
+        n_samples=1000, n_features=64, centers=5, random_state=42
+    )
+    model = TSNE(n_components=2, random_state=42).fit(X)
+    assert model.n_iter_ > 0
+    assert model.n_iter_ <= model.n_iter

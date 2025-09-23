@@ -120,7 +120,7 @@ class RandomForest {
            int n_cols,
            L* labels,
            int n_unique_labels,
-           RandomForestMetaData<T, L>*& forest)
+           RandomForestMetaData<T, L>* forest)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);

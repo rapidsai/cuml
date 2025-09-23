@@ -11,118 +11,232 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
+import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
+import pandas as pd
 import pytest
+import scipy.sparse as sp
 from scipy.spatial.distance import pdist
-from sklearn.datasets import make_blobs
-from sklearn.random_projection import (
-    johnson_lindenstrauss_min_dim as sklearn_johnson_lindenstrauss_min_dim,
-)
 
 from cuml.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
 )
-from cuml.random_projection import (
-    johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim,
-)
+
+classes = [GaussianRandomProjection, SparseRandomProjection]
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("method", ["gaussian", "sparse"])
-def test_random_projection_fit(datatype, method):
-    # dataset generation
-    data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
+def random_array(m, n, dtype="float32", sparse=False, random_state=42):
+    rng = np.random.default_rng(random_state)
+    if sparse:
+        return sp.random(m, n, format="csr", dtype=dtype, rng=rng)
+    return rng.random((m, n), dtype=dtype)
 
-    # conversion to input_type
-    data = data.astype(datatype)
-    target = target.astype(datatype)
 
-    # creation of model
-    if method == "gaussian":
-        model = GaussianRandomProjection(eps=0.2)
+def asdense(X):
+    return X.toarray() if sp.issparse(X) else X
+
+
+@pytest.mark.parametrize("cls", classes)
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("sparse", [True, False])
+def test_random_projection(cls, dtype, sparse):
+    model = cls(eps=0.2, random_state=42)
+    X = random_array(800, 3000, dtype=dtype, sparse=sparse)
+    X2 = model.fit_transform(X)
+    if sparse and cls is SparseRandomProjection:
+        assert sp.issparse(X2)
     else:
-        model = SparseRandomProjection(eps=0.2)
+        assert isinstance(X2, np.ndarray)
 
-    # fitting the model
-    model.fit(data)
-
-    assert True  # Did not crash
-
-
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("method", ["gaussian", "sparse"])
-def test_random_projection_fit_transform(datatype, method):
-    eps = 0.2
-
-    # dataset generation
-    data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
-
-    # conversion to input_type
-    data = data.astype(datatype)
-    target = target.astype(datatype)
-
-    # creation of model
-    if method == "gaussian":
-        model = GaussianRandomProjection(eps=eps)
-    else:
-        model = SparseRandomProjection(eps=eps)
-
-    # fitting the model
-    model.fit(data)
-    # applying transformation
-    transformed_data = model.transform(data)
-
-    original_pdist = pdist(data)
-    embedded_pdist = pdist(transformed_data)
+    original_pdist = pdist(asdense(X))
+    embedded_pdist = pdist(asdense(X2))
 
     # check JL lemma
-    assert np.all(((1.0 - eps) * original_pdist) <= embedded_pdist) and np.all(
-        embedded_pdist <= ((1.0 + eps) * original_pdist)
+    assert np.all(((1.0 - model.eps) * original_pdist) <= embedded_pdist)
+    assert np.all(embedded_pdist <= ((1.0 + model.eps) * original_pdist))
+
+
+def test_gaussian_random_matrix():
+    """Test statistical properties of gaussian random matrix"""
+    n_components = 100
+    n_features = 1000
+    X = random_array(100, n_features, random_state=42)
+    model = GaussianRandomProjection(
+        n_components=n_components, random_state=42
+    ).fit(X)
+    A = model.components_
+
+    np.testing.assert_array_almost_equal(0.0, np.mean(A), 2)
+    np.testing.assert_array_almost_equal(
+        np.var(A, ddof=1), 1 / n_components, 1
     )
 
 
-def test_johnson_lindenstrauss_min_dim():
-    n_tests = 10000
-    n_samples = np.random.randint(low=50, high=1e10, size=n_tests)
-    eps_values = np.random.rand(n_tests) + 1e-17  # range (0,1)
-    tests = zip(n_samples, eps_values)
+@pytest.mark.parametrize("density", [0.3, 1.0])
+def test_sparse_random_matrix(density):
+    """Test statistical properties of sparse random matrix"""
+    n_components = 100
+    n_features = 500
+    s = 1 / density
 
-    for n_samples, eps in tests:
-        cuml_value = cuml_johnson_lindenstrauss_min_dim(n_samples, eps=eps)
-        sklearn_value = sklearn_johnson_lindenstrauss_min_dim(
-            n_samples, eps=eps
-        )
-        assert cuml_value == sklearn_value
+    X = random_array(100, n_features, random_state=42)
+    model = SparseRandomProjection(
+        n_components=n_components,
+        density=density,
+        random_state=42,
+    ).fit(X)
 
+    A = asdense(model.components_)
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("method", ["sparse"])
-def test_random_projection_fit_transform_default(datatype, method):
-    eps = 0.8
-    # dataset generation
-    data, target = make_blobs(n_samples=30, centers=4, n_features=5000)
-
-    # conversion to input_type
-    data = data.astype(datatype)
-    target = target.astype(datatype)
-
-    # creation of model
-    if method == "gaussian":
-        model = GaussianRandomProjection()
+    values = np.unique(A)
+    expected = np.sqrt(s) / np.sqrt(n_components)
+    if density == 1.0:
+        np.testing.assert_allclose(values, [-expected, expected])
     else:
-        model = SparseRandomProjection()
+        np.testing.assert_allclose(values, [-expected, 0, expected])
 
-    # fitting the model
-    model.fit(data)
-    transformed_data = model.transform(data)
-
-    original_pdist = pdist(data)
-    embedded_pdist = pdist(transformed_data)
-
-    # check JL lemma
-    assert np.all(((1.0 - eps) * original_pdist) <= embedded_pdist) and np.all(
-        embedded_pdist <= ((1.0 + eps) * original_pdist)
+    np.testing.assert_almost_equal(np.mean(A == 0.0), 1 - 1 / s, decimal=2)
+    np.testing.assert_almost_equal(np.mean(A > 0), 1 / (2 * s), decimal=2)
+    np.testing.assert_almost_equal(np.mean(A < 0), 1 / (2 * s), decimal=2)
+    np.testing.assert_almost_equal(
+        np.var(A == 0.0, ddof=1), (1 - 1 / s) * 1 / s, decimal=2
     )
+    np.testing.assert_almost_equal(
+        np.var(A > 0, ddof=1), (1 - 1 / (2 * s)) * 1 / (2 * s), decimal=2
+    )
+    np.testing.assert_almost_equal(
+        np.var(A < 0, ddof=1), (1 - 1 / (2 * s)) * 1 / (2 * s), decimal=2
+    )
+
+
+@pytest.mark.parametrize("cls", classes)
+def test_n_components_auto(cls):
+    X = random_array(10, 1000)
+    model = cls(n_components="auto", random_state=42, eps=0.5).fit(X)
+
+    assert model.n_components_ == 110
+    assert model.components_.shape == (110, 1000)
+    if cls is SparseRandomProjection:
+        np.testing.assert_almost_equal(model.density_, 0.03, 2)
+
+
+@pytest.mark.parametrize("cls", classes)
+def test_n_components_auto_too_large_target_dimension_error(cls):
+    X = random_array(1000, 100)
+    model = cls(n_components="auto", eps=0.1)
+    expected_msg = (
+        "eps=0.1 and n_samples=1000 lead to a target dimension"
+        " of 5920 which is larger than the original space with"
+        " n_features=100"
+    )
+    with pytest.raises(ValueError, match=expected_msg):
+        model.fit(X)
+
+
+def test_sparse_output_representation():
+    dense = random_array(10, 1000)
+    sparse = random_array(10, 1000, sparse=True)
+
+    # Outputs are sparse for sparse inputs, dense for dense inputs
+    model = SparseRandomProjection(n_components=10, random_state=42).fit(dense)
+    assert sp.issparse(model.transform(sparse))
+    assert isinstance(model.transform(dense), np.ndarray)
+
+    # dense_output forces all outputs to be dense
+    model = SparseRandomProjection(
+        n_components=10, dense_output=True, random_state=42
+    )
+    model.fit(dense)
+    assert sp.issparse(model.components_)
+    assert isinstance(model.transform(dense), np.ndarray)
+    assert isinstance(model.transform(sparse), np.ndarray)
+
+
+@pytest.mark.parametrize("cls", classes)
+@pytest.mark.parametrize("sparse", [False, True])
+def test_random_seed_consistency(cls, sparse):
+    X = random_array(10, 1000, sparse=sparse)
+
+    model1 = cls(n_components=5, random_state=42).fit(X)
+    t1 = model1.transform(X)
+    model2 = cls(n_components=5, random_state=42).fit(X)
+    t2 = model2.transform(X)
+    np.testing.assert_array_equal(
+        asdense(model1.components_), asdense(model2.components_)
+    )
+    # Due to https://github.com/cupy/cupy/issues/9323 only sparse @ sparse or
+    # dense @ dense outputs are exactly reproducible. All other combinations
+    # result in close but not identical outputs. For now we document this and
+    # relax the test constraint.
+    if (cls is SparseRandomProjection) != sparse:
+        # Mix of sparse and dense, check outputs are close
+        np.testing.assert_allclose(asdense(t1), asdense(t2), rtol=1e-3)
+    else:
+        # Both dense or sparse, can check exactly
+        np.testing.assert_array_equal(asdense(t1), asdense(t2))
+
+
+@pytest.mark.parametrize("cls", classes)
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_components_dtype(cls, dtype):
+    X = random_array(10, 100, dtype=dtype)
+
+    # float32 used by default for all inputs
+    model = cls(random_state=42, n_components=5)
+    transformed = model.fit_transform(X)
+    assert model.components_.dtype == "float32"
+    assert transformed.dtype == "float32"
+
+    # float64 available if `convert_dtype=False` and float64
+    expected = "float64" if dtype == "float64" else "float32"
+    model = cls(random_state=42, n_components=5)
+    transformed = model.fit_transform(X, convert_dtype=False)
+    assert model.components_.dtype == expected
+    assert transformed.dtype == expected
+
+
+@pytest.mark.parametrize("cls", classes)
+def test_output_type_dense_inputs(cls):
+    X_np = random_array(10, 100)
+    X_cp = cp.asarray(X_np)
+    X_pd = pd.DataFrame(
+        X_np,
+        columns=[f"x{i}" for i in range(100)],
+        index=np.arange(10, 30, 2),
+    )
+
+    out = cls(random_state=42, n_components=5).fit_transform(X_np)
+    assert isinstance(out, np.ndarray)
+
+    out = cls(random_state=42, n_components=5).fit_transform(X_cp)
+    assert isinstance(out, cp.ndarray)
+
+    out = cls(random_state=42, n_components=5).fit_transform(X_pd)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.index == X_pd.index).all()
+
+
+@pytest.mark.parametrize("cls", classes)
+def test_output_type_sparse_inputs(cls):
+    X_cpu = random_array(10, 100, sparse=True)
+    X_gpu = cp_sp.csr_matrix(X_cpu)
+
+    model = cls(random_state=42, n_components=5)
+    out = model.fit_transform(X_cpu)
+    if cls is SparseRandomProjection:
+        assert sp.issparse(out)
+        assert sp.issparse(model.components_)
+    else:
+        assert isinstance(out, np.ndarray)
+        assert isinstance(model.components_, np.ndarray)
+
+    model = cls(random_state=42, n_components=5)
+    out = model.fit_transform(X_gpu)
+    if cls is SparseRandomProjection:
+        assert cp_sp.issparse(out)
+        assert cp_sp.issparse(model.components_)
+    else:
+        assert isinstance(out, cp.ndarray)
+        assert isinstance(model.components_, cp.ndarray)

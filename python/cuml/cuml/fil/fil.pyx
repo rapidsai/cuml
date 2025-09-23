@@ -45,7 +45,11 @@ from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.fil.infer_kind cimport infer_kind
 from cuml.fil.postprocessing cimport element_op, row_op
 from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.internals.treelite cimport *
+from cuml.internals.treelite cimport (
+    TreeliteDeserializeModelFromBytes,
+    TreeliteFreeModel,
+    TreeliteModelHandle,
+)
 
 from cuda.bindings import runtime
 

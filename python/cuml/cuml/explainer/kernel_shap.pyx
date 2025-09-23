@@ -20,7 +20,6 @@ from random import randint
 
 import cupy as cp
 import numpy as np
-from sklearn.linear_model import LassoLarsIC, lars_path
 
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
@@ -564,6 +563,7 @@ def _l1_regularization(X,
     """
     Function calls LASSO or LARS if l1 regularization is needed.
     """
+    from sklearn.linear_model import LassoLarsIC, lars_path
 
     # create augmented dataset for feature selection
     s = cp.sum(X, axis=1)

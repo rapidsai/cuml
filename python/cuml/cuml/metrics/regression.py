@@ -303,6 +303,88 @@ def mean_absolute_error(
     return float(out)
 
 
+def _weighted_median(X, weights):
+    """Compute the weighted median of `X`."""
+    # Sorted indices mapping back to X
+    sorted_idx = cp.argsort(X, axis=0)
+    sorted_weights = weights[sorted_idx]
+    weight_cdf = cp.cumsum(sorted_weights, axis=0)
+    adjusted_percentile = 0.5 * weight_cdf[-1]
+    # The index of the median value per column in sorted_idx
+    median_idx = cp.array(
+        [
+            cp.searchsorted(weight_cdf[:, i], adjusted_percentile[i])
+            for i in range(weight_cdf.shape[1])
+        ]
+    )
+    col_idx = cp.arange(X.shape[1])
+    return X[sorted_idx[median_idx, col_idx], col_idx]
+
+
+@cuml.internals.api_return_any()
+def median_absolute_error(
+    y_true,
+    y_pred,
+    *,
+    sample_weight=None,
+    multioutput="uniform_average",
+):
+    """Median absolute error regression loss.
+
+    Median absolute error output is non-negative floating point. The best value
+    is 0.0.
+
+    Parameters
+    ----------
+    y_true : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Ground truth (correct) target values.
+    y_pred : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Estimated target values.
+    sample_weight : array-like (device or host) shape = (n_samples,), optional
+        Sample weights.
+    multioutput : string in ['raw_values', 'uniform_average']
+        or array-like of shape (n_outputs)
+        Defines aggregating of multiple output values.
+        Array-like value defines weights used to average errors.
+        'raw_values' :
+        Returns a full set of errors in case of multioutput input.
+        'uniform_average' :
+        Errors of all outputs are averaged with uniform weight.
+
+    Returns
+    -------
+    loss : float or ndarray of floats
+        If multioutput is 'raw_values', then median absolute error is returned
+        for each output separately.
+        If multioutput is 'uniform_average' or an ndarray of weights, then the
+        weighted average of all output errors is returned.
+    """
+    (
+        y_true,
+        y_pred,
+        sample_weight,
+        multioutput,
+    ) = _normalize_regression_metric_args(
+        y_true, y_pred, sample_weight, multioutput
+    )
+
+    if sample_weight is None:
+        output_errors = cp.median(cp.abs(y_pred - y_true), axis=0)
+    else:
+        output_errors = _weighted_median(
+            cp.abs(y_pred - y_true), sample_weight
+        )
+    if isinstance(multioutput, str):
+        if multioutput == "raw_values":
+            return output_errors
+        elif multioutput == "uniform_average":
+            multioutput = None
+
+    return float(cp.average(output_errors, weights=multioutput))
+
+
 @cuml.internals.api_return_any()
 def mean_squared_log_error(
     y_true,
