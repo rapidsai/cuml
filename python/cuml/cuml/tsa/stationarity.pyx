@@ -38,7 +38,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         int batch_size,
         int n_obs,
         int d, int D, int s,
-        float pval_threshold)
+        float pval_threshold) except +
 
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
@@ -47,7 +47,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         int batch_size,
         int n_obs,
         int d, int D, int s,
-        double pval_threshold)
+        double pval_threshold) except +
 
 
 @cuml.internals.api_return_array(input_arg="y", get_output_type=True)
