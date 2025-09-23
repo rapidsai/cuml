@@ -206,7 +206,7 @@ CUML_KERNEL void check_threshold_kernel(const int* degrees,
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n_vertices) {
-    if (degrees[i] > threshold) { atomicExch(flag, 1); }
+    if (degrees[i] > threshold) { *flag = 1; }
   }
 }
 
