@@ -16,7 +16,6 @@ dependencies:
 - cuda-version=12.9
 - cudf==25.10.*,>=0.0.0a0
 - cupy>=13.6.0
-- cuvs==25.10.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.0.0
 - dask-cuda==25.10.*,>=0.0.0a0
