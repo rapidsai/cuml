@@ -991,6 +991,12 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
+  condition: scikit-learn<1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SpectralEmbedding()]"
+- reason: cuml raises a different error if X doesn't have expected n features
+  marker: cuml_accel_check_n_features_in
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
