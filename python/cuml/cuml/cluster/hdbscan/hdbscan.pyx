@@ -592,7 +592,8 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
     build_algo: string (default='brute_force')
         How to build the knn graph. Supported build algorithms are ['brute_force',
-        'nn_descent'].
+        'nn_descent']. The 'nn_descent' algorithm is typically faster,
+        but may result in a slight accuracy drop compared to 'brute_force'.
 
     build_kwds: dict (optional, default=None)
         Dictionary of parameters to configure the build algorithm. Default values:
@@ -605,14 +606,15 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
           Valid only when `knn_n_clusters > 1`. Must be < 'knn_n_clusters'.
 
         - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent when
-          `build_algo=nn_descent`. Must be ≥ `n_neighbors`.
+          `build_algo=nn_descent`. Must be ≥ `min_samples+1`.
 
         - `nnd_max_iterations` (int, default=20): Max NN Descent iterations when
           `build_algo=nn_descent`.
 
         Hints:
 
-        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
+        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy
+          when `build_algo=nn_descent`.
 
         - The ratio `knn_overlap_factor / knn_n_clusters` impacts memory usage.
           Approximately `(knn_overlap_factor / knn_n_clusters) * num_rows_in_entire_data`
@@ -910,17 +912,17 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
-    def fit(self, X, y=None, *, convert_dtype=True, data_on_host=False) -> "HDBSCAN":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """
 
         kwds = self.build_kwds or {}
-        if kwds.get("knn_n_clusters", 1) > 1 or data_on_host:
-            print("converting to host mem type")
+        if kwds.get("knn_n_clusters", 1) > 1:
+            logger.warn("Using data on host memory because knn_n_clusters > 1.")
             convert_to_mem_type = MemoryType.host
         else:
-            print("converting to device mem type")
+            logger.warn("Using data on device memory because knn_n_clusters = 1.")
             convert_to_mem_type = MemoryType.device
 
         self._raw_data = input_to_cuml_array(
@@ -967,11 +969,11 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                 and params.build_params.overlap_factor >= params.build_params.n_clusters
             ):
                 raise ValueError(
-                    "If nnd_n_clusters > 1, then knn_overlap_factor must be strictly "
-                    "smaller than n_clusters."
+                    "If knn_n_clusters > 1, then knn_overlap_factor must be strictly "
+                    "smaller than knn_n_clusters."
                 )
             if params.build_params.n_clusters < 1:
-                raise ValueError("nnd_n_clusters must be >= 1")
+                raise ValueError("knn_n_clusters must be >= 1")
 
             params.build_params.nn_descent_params.graph_degree = (
                 <uint64_t> kwds.get("nnd_graph_degree", 64)

@@ -122,6 +122,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
 
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(root + 1, static_cast<value_idx>(tpb));
+
   value_idx n_elements_to_traverse =
     thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
@@ -150,6 +151,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
 
     handle.sync_stream(stream);
   }
+
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
 

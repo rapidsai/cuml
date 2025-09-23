@@ -154,7 +154,7 @@ namespace graph_build_params {
 
 /**
  * Arguments for using nn descent as the knn build algorithm.
- * graph_degree must be larger than or equal to n_neighbors.
+ * graph_degree must be larger than or equal to min_samples+1.
  * Increasing graph_degree and max_iterations may result in better accuracy.
  */
 struct nn_descent_params_hdbscan {
@@ -166,6 +166,11 @@ struct nn_descent_params_hdbscan {
 
 /**
  * Parameters for knn graph building in HDBSCAN.
+ * Enables building the mutual reachability graph on datasets larger than device memory by:
+ *   1. Partitioning the dataset into overlapping clusters,
+ *   2. Computing local KNN graphs within each cluster, and
+ *   3. Merging the local graphs into a single global graph.
+ *
  * - the ratio of overlap_factor / n_clusters determines device memory usage. Approximately
  * (overlap_factor / n_clusters) * num_rows_in_entire_data number of rows will be put on device
  * memory at once. E.g. between (overlap_factor / n_clusters) = 2/10 and 2/20, the latter will use
