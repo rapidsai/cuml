@@ -66,6 +66,10 @@ array input you can throw at them. This relies on the ``__array__``
 and ``__cuda_array_interface__`` standards, widely used throughout the
 PyData community.
 
+.. note::
+
+   Array inputs in the form of lists or tuples are only supported when using :doc:`cuml.accel <cuml-accel/index>`.
+
 By default, outputs will mirror the data type you provided. So, if you
 fit a model with a NumPy array, the ``model.coef_`` property
 containing fitted coefficients will also be a NumPy array. If you fit
