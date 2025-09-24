@@ -24,7 +24,13 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
 from cython.operator cimport dereference as deref
@@ -168,6 +174,19 @@ def spectral_embedding(A,
             "['nearest_neighbors', 'precomputed']"
         )
 
+    n_samples, n_features = A.shape
+
+    if n_samples < 2:
+        raise ValueError(
+            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+            f"minimum of 2 is required."
+        )
+    if n_features < 2:
+        raise ValueError(
+            f"Found array with {n_features} feature(s) (shape={A.shape}) while "
+            f"a minimum of 2 is required."
+        )
+
     cdef params config
     config.seed = check_random_seed(random_state)
     config.norm_laplacian = norm_laplacian
@@ -216,8 +235,8 @@ def spectral_embedding(A,
 
 
 class SpectralEmbedding(Base,
-                        CMajorInputTagMixin,
-                        SparseInputTagMixin):
+                        InteropMixin,
+                        CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -263,6 +282,8 @@ class SpectralEmbedding(Base,
     ----------
     embedding_ : cupy.ndarray of shape (n_samples, n_components)
         Spectral embedding of the training matrix.
+    n_neighbors_ : int
+        Number of nearest neighbors effectively used.
 
     Notes
     -----
@@ -280,6 +301,7 @@ class SpectralEmbedding(Base,
     >>> X_transformed.shape
     (100, 2)
     """
+    _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
     embedding_ = CumlArrayDescriptor()
 
     def __init__(self, n_components=2, affinity="nearest_neighbors",
@@ -299,6 +321,41 @@ class SpectralEmbedding(Base,
             "random_state",
             "n_neighbors"
         ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.affinity not in ("nearest_neighbors", "precomputed"):
+            raise UnsupportedOnGPU(f"affinity={model.affinity!r} is not supported on GPU")
+        params = {
+            "n_components": model.n_components,
+            "affinity": model.affinity,
+            "random_state": model.random_state,
+            "n_neighbors": model.n_neighbors
+        }
+        return params
+
+    def _params_to_cpu(self):
+        params = {
+            "n_components": self.n_components,
+            "affinity": self.affinity,
+            "random_state": self.random_state,
+            "n_neighbors": self.n_neighbors
+        }
+        return params
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "n_neighbors_": to_gpu(model.n_neighbors_),
+            "embedding_": to_gpu(model.embedding_),
+            **super()._attrs_from_cpu(model)
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "n_neighbors_": to_cpu(self.n_neighbors_),
+            "embedding_": to_cpu(self.embedding_),
+            **super()._attrs_to_cpu(model),
+        }
 
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
@@ -343,11 +400,21 @@ class SpectralEmbedding(Base,
         self : object
             Returns the instance itself.
         """
+
+        # Store n_neighbors_ for sklearn compatibility
+        self.n_neighbors_ = (
+            self.n_neighbors
+            if self.n_neighbors is not None
+            else max(int(X.shape[0] / 10), 1)
+        )
+
         self.embedding_ = spectral_embedding(
             X,
             n_components=self.n_components,
             affinity=self.affinity,
             random_state=self.random_state,
-            n_neighbors=self.n_neighbors
+            n_neighbors=self.n_neighbors_,
+            handle=self.handle
         )
+
         return self
