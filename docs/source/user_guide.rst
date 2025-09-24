@@ -8,6 +8,13 @@ code directly, have a look at the notebooks within the `notebooks
 <https://github.com/rapidsai/cuml/tree/HEAD/notebooks>`_ as part of the cuML
 GitHub repository instead.
 
+.. note::
+
+   This guide describes how to use cuML's GPU-accelerated estimators and
+   functions directly within your own code. See the :doc:`the next section
+   <cuml-accel/index>` if you want to accelerate existing scikit-learn, UMAP,
+   and HDBSCAN code with zero code changes.
+
 .. toctree::
    :maxdepth: 2
 
