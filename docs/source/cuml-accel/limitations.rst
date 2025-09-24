@@ -336,6 +336,20 @@ comparing the trustworthiness score (computed via
 ``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
 attribute useful.
 
+SpectralEmbedding
+^^^^^^^^^^^^^^^^^
+
+``SpectralEmbedding`` will fall back to CPU in the following cases:
+
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+- If ``X`` is sparse.
+- If ``X`` has only 1 feature.
+
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+
 
 sklearn.neighbors
 -----------------
