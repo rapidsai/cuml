@@ -175,7 +175,7 @@ cdef class TreeExplainer:
             tl_model = treelite.frontend.from_lightgbm(model)
         # cuML RF model object
         elif isinstance(model, (cuml.RandomForestClassifier, cuml.RandomForestRegressor)):
-            tl_model = model.convert_to_treelite_model()
+            tl_model = model.as_treelite()
         # scikit-learn RF model object
         elif isinstance(model, treelite.Model):
             tl_model = model
