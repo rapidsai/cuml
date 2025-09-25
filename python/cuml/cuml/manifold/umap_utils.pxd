@@ -82,10 +82,10 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         GraphBasedDimRedCallback * callback,
 
 cdef extern from "raft/sparse/coo.hpp" nogil:
-    cdef cppclass COO "raft::sparse::COO<float, int>":
+    cdef cppclass COO "raft::sparse::COO<float, int, uint64_t>":
         COO(cuda_stream_view stream)
-        void allocate(int nnz, int size, bool init, cuda_stream_view stream)
-        int nnz
+        void allocate(uint64_t nnz, int size, bool init, cuda_stream_view stream)
+        uint64_t nnz
         float* vals()
         int* rows()
         int* cols()
