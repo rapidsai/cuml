@@ -220,9 +220,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Define RMM allocator options
-    RMM_ALLOCATOR_TYPES = ["cuda", "managed", "prefetched"]
-
     # Setup RMM allocator based on command line option
     match args.rmm_allocator:
         case "cuda":
