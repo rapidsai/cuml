@@ -125,30 +125,6 @@ inline value_t get_threshold(const raft::handle_t& handle,
 }
 
 template <typename value_t>
-inline void perform_thresholding(const raft::handle_t& handle,
-                                 raft::sparse::COO<value_t>& in,
-                                 value_t threshold)
-{
-  auto stream = raft::resource::get_cuda_stream(handle);
-
-  /**
-   * Go through COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
-   */
-  raft::linalg::unaryOp<value_t>(
-    in.vals(),
-    in.vals(),
-    in.nnz,
-    [=] __device__(value_t input) {
-      if (input < threshold)
-        return value_t(0);
-      else
-        return input;
-    },
-    stream);
-}
-
-template <typename value_t>
 void trim_graph(const raft::handle_t& handle, raft::sparse::COO<value_t>& graph, int n_epochs)
 {
   auto exec = raft::resource::get_thrust_policy(handle);
@@ -341,15 +317,12 @@ void _fit(const raft::handle_t& handle,
   int n_epochs = get_n_epochs(params, inputs.n);
 
   raft::sparse::COO<value_t> graph(stream);
-  // scoping to allow early release of the full graph
-  {
-    UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-      handle, inputs, params, &graph);
+  UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+    handle, inputs, params, &graph);
 
-    copy_device_graph_to_host(handle, graph, host_graph);
+  copy_device_graph_to_host(handle, graph, host_graph);
 
-    trim_graph(handle, graph, n_epochs);
-  }
+  trim_graph(handle, graph, n_epochs);
 
   /**
    * Run initialization method
@@ -390,15 +363,12 @@ void _fit_supervised(const raft::handle_t& handle,
   int n_epochs = get_n_epochs(params, inputs.n);
 
   raft::sparse::COO<value_t> graph(stream);
-  // scoping to allow early release of the full graph
-  {
-    UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-      handle, inputs, params, &graph);
+  UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+    handle, inputs, params, &graph);
 
-    copy_device_graph_to_host(handle, graph, host_graph);
+  copy_device_graph_to_host(handle, graph, host_graph);
 
-    trim_graph(handle, graph, n_epochs);
-  }
+  trim_graph(handle, graph, n_epochs);
 
   /**
    * Initialize embeddings
