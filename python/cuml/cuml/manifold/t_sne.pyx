@@ -22,6 +22,8 @@ import warnings
 
 import cupy
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -101,7 +103,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int64_t* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -115,7 +118,28 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
+
+
+# Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+if Version(sklearn.__version__) >= Version("1.5.0"):
+    _SKLEARN_N_ITER_PARAM = "max_iter"
+else:
+    _SKLEARN_N_ITER_PARAM = "n_iter"
+
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded
+}
 
 
 class TSNE(Base,
@@ -234,6 +258,8 @@ class TSNE(Base,
     kl_divergence_ : float
         Kullback-Leibler divergence after optimization. An experimental
         feature at this time.
+    n_iter_ : int
+        Number of iterations run.
 
     References
     ----------
@@ -303,16 +329,19 @@ class TSNE(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.n_components != 2:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Only `n_components=2` is supported")
 
         # Our barnes_hut implementation can sometimes hang, see #3865 and #3360.
         # fft should be at least as good, and doesn't have this issue.
         method = {"exact": "exact", "barnes_hut": "fft"}.get(model.method, None)
         if method is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`method={model.method!r}` is not supported")
 
         if not (isinstance(model.init, str) and model.init in ("pca", "random")):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
+
+        if not (isinstance(model.metric, str) and model.metric in _SUPPORTED_METRICS):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         params = {
             "n_components": model.n_components,
@@ -330,21 +359,19 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if model.max_iter is not None:
-            # max_iter may be None, in that case use cuml's default
-            params["n_iter"] = model.max_iter
+        if (max_iter := getattr(model, _SKLEARN_N_ITER_PARAM, None)) is not None:
+            params["n_iter"] = max_iter
 
         return params
 
     def _params_to_cpu(self):
         method = "exact" if self.method == "Exact" else "barnes_hut"
 
-        return {
+        params = {
             "n_components": self.n_components,
             "perplexity": self.perplexity,
             "early_exaggeration": self.early_exaggeration,
             "learning_rate": self.learning_rate,
-            "max_iter": self.n_iter,
             "n_iter_without_progress": self.n_iter_without_progress,
             "min_grad_norm": self.min_grad_norm,
             "metric": self.metric,
@@ -352,12 +379,15 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
+            _SKLEARN_N_ITER_PARAM: self.n_iter,
         }
+        return params
 
     def _attrs_from_cpu(self, model):
         return {
             "embedding_": to_gpu(model.embedding_),
             "kl_divergence_": to_gpu(model.kl_divergence_),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
         }
 
@@ -370,6 +400,7 @@ class TSNE(Base,
             # separately in `pre_learning_rate`/`post_learning_rate`. The most equivalent
             # value is `pre_learning_rate`, which we forward here for now.
             "learning_rate_": self.pre_learning_rate,
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
         }
 
@@ -500,6 +531,12 @@ class TSNE(Base,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
+
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
@@ -623,6 +660,7 @@ class TSNE(Base,
             self._build_tsne_params(algo)
 
         cdef float kl_divergence = 0
+        cdef int n_iter = 0
 
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
@@ -639,7 +677,8 @@ class TSNE(Base,
                             <int*> knn_indices_ptr,
                             <float*> knn_dists_ptr,
                             <TSNEParams&> deref(params),
-                            &kl_divergence)
+                            &kl_divergence,
+                            &n_iter)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -649,12 +688,14 @@ class TSNE(Base,
                      <int64_t*> knn_indices_ptr,
                      <float*> knn_dists_ptr,
                      <TSNEParams&> deref(params),
-                     &kl_divergence)
+                     &kl_divergence,
+                     &n_iter)
 
         self.handle.sync()
         free(params)
 
         self._kl_divergence_ = kl_divergence
+        self.n_iter_ = n_iter
         logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 
@@ -713,25 +754,10 @@ class TSNE(Base,
         elif self.init.lower() == 'pca':
             params.init = TSNE_INIT.PCA
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded
-        }
-
-        if self.metric.lower() in metric_parsing:
-            params.metric = metric_parsing[self.metric.lower()]
+        if (metric := _SUPPORTED_METRICS.get(self.metric, None)) is not None:
+            params.metric = metric
         else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
+            raise ValueError(f"Invalid value for metric: {self.metric}")
 
         if self.metric_params is None:
             params.p = <float> 2.0

@@ -25,33 +25,31 @@ import ctypes
 
 from libcpp cimport bool
 
-from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.cluster.kmeans_utils cimport KMeansParams
 from cuml.common.rng_state cimport RngState
 from cuml.metrics.distance_type cimport DistanceType
 
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
-    cdef void fit_predict(handle_t& handle,
-                          KMeansParams& params,
-                          const float *X,
-                          int n_samples,
-                          int n_features,
-                          const float *sample_weight,
-                          float *centroids,
-                          int *labels,
-                          float &inertia,
-                          int &n_iter) except +
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int n_samples,
+                  int n_features,
+                  const float *sample_weight,
+                  float *centroids,
+                  float &inertia,
+                  int &n_iter) except +
 
-    cdef void fit_predict(handle_t& handle,
-                          KMeansParams& params,
-                          const double *X,
-                          int n_samples,
-                          int n_features,
-                          const double *sample_weight,
-                          double *centroids,
-                          int *labels,
-                          double &inertia,
-                          int &n_iter) except +
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int n_samples,
+                  int n_features,
+                  const double *sample_weight,
+                  double *centroids,
+                  double &inertia,
+                  int &n_iter) except +
 
     cdef void predict(handle_t& handle,
                       KMeansParams& params,
@@ -91,27 +89,25 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
                         int n_features,
                         double *X_new) except +
 
-    cdef void fit_predict(handle_t& handle,
-                          KMeansParams& params,
-                          const float *X,
-                          int64_t n_samples,
-                          int64_t n_features,
-                          const float *sample_weight,
-                          float *centroids,
-                          int64_t *labels,
-                          float &inertia,
-                          int64_t &n_iter) except +
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const float *sample_weight,
+                  float *centroids,
+                  float &inertia,
+                  int64_t &n_iter) except +
 
-    cdef void fit_predict(handle_t& handle,
-                          KMeansParams& params,
-                          const double *X,
-                          int64_t n_samples,
-                          int64_t n_features,
-                          const double *sample_weight,
-                          double *centroids,
-                          int64_t *labels,
-                          double &inertia,
-                          int64_t &n_iter) except +
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const double *sample_weight,
+                  double *centroids,
+                  double &inertia,
+                  int64_t &n_iter) except +
 
     cdef void predict(handle_t& handle,
                       KMeansParams& params,

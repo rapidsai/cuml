@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -16,6 +16,7 @@
 #
 import os
 import sys
+import textwrap
 
 from packaging.version import Version
 
@@ -192,10 +193,48 @@ numpydoc_show_inherited_class_members = False
 numpydoc_class_members_toctree = False
 
 
+# Redirects
+REDIRECTS = {
+    "zero-code-change/index.html": "cuml-accel/",
+    "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
+    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
+    "zero_code_change_examples/plot_kmeans_digits/index.html": (
+        "cuml-accel/examples/plot_kmeans_digits/"
+    ),
+}
+
+
+def setup_redirects(app, docname):
+    """Generates redirect pages for moved content when building html docs"""
+    template = textwrap.dedent(
+        """
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="1; url={new_path}" />
+            <script>
+            window.location.href = "{new_path}"
+            </script>
+        </head>
+        </html>
+        """
+    ).strip()
+
+    if app.builder.name == "dirhtml":
+        for old_path, new_path in REDIRECTS.items():
+            # make new_path relative to old_path
+            new_path = f"{'../' * old_path.count('/')}{new_path}"
+            redirect_path = os.path.join(app.outdir, old_path)
+            os.makedirs(os.path.dirname(redirect_path), exist_ok=True)
+            with open(redirect_path, "w") as f:
+                f.write(template.format(new_path=new_path))
+
+
 def setup(app):
     app.add_css_file("references.css")
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
     app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")
+    app.connect("build-finished", setup_redirects)
 
 
 # The following is used by sphinx.ext.linkcode to provide links to github

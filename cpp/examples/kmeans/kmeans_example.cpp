@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
+#include <cuml/common/distance_type.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -112,7 +114,7 @@ int main(int argc, char* argv[])
       params.max_iter   = 300;
       params.tol        = 0.05;
     }
-    params.metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+    params.metric = ML::distance::DistanceType::L2SqrtExpanded;
     params.init   = ML::kmeans::KMeansParams::InitMethod::Random;
 
     // Inputs copied from kmeans_test.cu
@@ -149,16 +151,19 @@ int main(int argc, char* argv[])
 
     double inertia = 0;
     int n_iter     = 0;
-    ML::kmeans::fit_predict(handle,
-                            params,
-                            d_srcdata,
-                            n_samples,
-                            n_features,
-                            0,
-                            d_pred_centroids,
-                            d_pred_labels,
-                            inertia,
-                            n_iter);
+
+    ML::kmeans::fit(
+      handle, params, d_srcdata, n_samples, n_features, 0, d_pred_centroids, inertia, n_iter);
+    ML::kmeans::predict(handle,
+                        params,
+                        d_pred_centroids,
+                        d_srcdata,
+                        n_samples,
+                        n_features,
+                        0,
+                        true,
+                        d_pred_labels,
+                        inertia);
 
     std::vector<int> h_pred_labels(n_samples);
     CUDA_RT_CALL(cudaMemcpyAsync(h_pred_labels.data(),

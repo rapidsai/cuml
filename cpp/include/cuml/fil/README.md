@@ -5,7 +5,7 @@ LightGBM, or even Scikit-Learn/cuML's random forest implementations, FIL
 cannot be used to _train_ forest models. Instead, its goal is to speed up
 inference using forest models trained by all of those packages.
 
-This directory contains an experimental new implementation of FIL which
+This directory contains an implementation of FIL which
 provides both CPU and GPU execution. Its GPU implementation also offers
 improved performance relative to the existing implementation in many but not all cases.
 
@@ -26,10 +26,7 @@ implementation, much of the more general-purpose CPU-GPU interoperable code
 has temporarily been put in the `raft_proto` namespace. As the name suggests,
 the intention is that most or all of this functionality will either be moved
 to RAFT or that RAFT features will be updated to provide CPU-GPU
-compatible versions of the same. The public API includes just a few
-references to this namespace, so be prepared to shift these references to the
-corresponding RAFT symbols as this version of FIL progresses out of
-experimental.
+compatible versions of the same.
 
 ### Importing a model
 FIL uses Treelite as a common translation layer for all its input types.

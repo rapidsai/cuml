@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import warnings
 from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
@@ -21,12 +22,32 @@ from pathlib import Path
 import yaml
 from packaging.requirements import Requirement
 
+from cuml.accel._sklearn_patch import apply_sklearn_patches
 from cuml.accel.core import install
+
+
+class UnmatchedXfailTests(UserWarning):
+    """Warning raised when xfail entries in the configuration file don't match any actual tests.
+
+    This warning is raised during pytest collection when there are entries in the xfail
+    list that don't correspond to any existing test functions. This typically indicates
+    either:
+    1. Tests have been renamed or removed but the xfail list wasn't updated
+    2. There are typos in the test IDs in the xfail list
+    3. The tests only exist for specific versions of dependencies (check the condition
+       field in the xfail list)
+    """
+
+    ...
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
+
+    # Apply sklearn patches BEFORE installing cuml.accel to prevent duplicates
+    apply_sklearn_patches()
+
     try:
         install()
     except RuntimeError:
@@ -124,9 +145,13 @@ def pytest_collection_modifyitems(config, items):
         for test_id in tests:
             xfail_configs[test_id].append(config)
 
+    # Track which xfail test IDs were actually found
+    found_xfail_tests = set()
+
     for item in items:
         test_id = f"{item.module.__name__}::{item.name}"
         if test_id in xfail_configs:
+            found_xfail_tests.add(test_id)
             for config in xfail_configs[test_id]:
                 # Add the xfail marker
                 item.add_marker(
@@ -140,3 +165,21 @@ def pytest_collection_modifyitems(config, items):
                 # If there's a marker, add it as a proper pytest marker
                 if extra_marker := config["extra_marker"]:
                     item.add_marker(extra_marker)
+
+    # Check for xfail entries that don't match any actual tests
+    # Only include tests where at least one config has a met condition
+    expected_tests = {
+        test_id
+        for test_id, configs in xfail_configs.items()
+        if any(config["condition"] for config in configs)
+    }
+    missing_tests = expected_tests - found_xfail_tests
+    if missing_tests:
+        missing_list = sorted(missing_tests)
+        print("Did not find the following test ids:")
+        print("\n".join(missing_list))
+
+        warnings.warn(
+            f"Found {len(missing_list)} xfail entries that don't match any present tests",
+            category=UnmatchedXfailTests,
+        )

@@ -46,7 +46,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
         float tail_strength,
         float noise,
         bool shuffle,
-        uint64_t seed)
+        uint64_t seed) except +
 
     void cpp_make_regression "ML::Datasets::make_regression" (
         const handle_t& handle,
@@ -62,7 +62,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
         double tail_strength,
         double noise,
         bool shuffle,
-        uint64_t seed)
+        uint64_t seed) except +
 
 inp_to_dtype = {
     'single': np.float32,

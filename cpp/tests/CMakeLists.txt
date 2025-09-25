@@ -66,6 +66,7 @@ function(ConfigureTest)
     $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
     $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
     ${TREELITE_LIBS}
+    ${CUVS_LIB}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
@@ -134,21 +135,17 @@ if(all_algo OR genetic_algo)
   ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST  sg/genetic/param_test.cu ML_INCLUDE)
 endif()
 
-if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_GREATER_EQUAL "11.2")
-    # An HDBSCAN gtest is failing w/ CUDA 11.2 for some reason.
-    if(all_algo OR hdbscan_algo)
-      ConfigureTest(PREFIX SG NAME HDBSCAN_TEST  sg/hdbscan_test.cu ML_INCLUDE)
-      # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
-      # See this issue: https://github.com/rapidsai/cuml/issues/6225
-      set_property(
-        SOURCE sg/hdbscan_test.cu
-        APPEND_STRING
-        PROPERTY COMPILE_FLAGS
-        " -Xcompiler=-Wno-maybe-uninitialized"
-      )
-    endif()
-endif()
-
+  if(all_algo OR hdbscan_algo)
+    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST  sg/hdbscan_test.cu ML_INCLUDE)
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+    set_property(
+      SOURCE sg/hdbscan_test.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+  endif()
 
 if(all_algo OR holtwinters_algo)
   ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST  sg/holtwinters_test.cu ML_INCLUDE)
@@ -172,10 +169,6 @@ endif()
 
 if(all_algo OR randomforest_algo)
   ConfigureTest(PREFIX SG NAME RF_TEST  sg/rf_test.cu ML_INCLUDE GPUS 1 PERCENT 100)
-endif()
-
-if(all_algo OR randomprojection_algo)
-  ConfigureTest(PREFIX SG NAME RPROJ_TEST  sg/rproj_test.cu ML_INCLUDE)
 endif()
 
 # todo: separate solvers better

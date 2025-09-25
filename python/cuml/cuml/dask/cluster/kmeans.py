@@ -98,7 +98,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
-        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
+        from cuml.cluster.kmeans import KMeans
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
@@ -109,8 +109,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return cumlKMeans(handle=handle, output_type=datatype, **kwargs).fit(
-            inp_data, sample_weight=inp_weights
+        return KMeans(handle=handle, output_type=datatype, **kwargs)._fit(
+            inp_data, sample_weight=inp_weights, multigpu=True
         )
 
     @staticmethod
@@ -175,11 +175,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         comms.destroy()
 
-        _results = [res.result() for res in kmeans_fit]
-        _labels = [model.labels_ for model in _results]
-        self.labels_ = cp.concatenate(_labels)
-
-        self._set_internal_model(kmeans_fit[0])
+        models = [res.result() for res in kmeans_fit]
+        first = models[0]
+        first.labels_ = cp.concatenate([model.labels_ for model in models])
+        first.inertia_ = sum(model.inertia_ for model in models)
+        self._set_internal_model(first)
 
         return self
 
@@ -262,7 +262,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self._transform(X, n_dims=2, delayed=delayed)
 
-    @with_cupy_rmm
     def score(self, X, sample_weight=None):
         """
         Computes the inertia score for the trained KMeans centroids.
@@ -288,9 +287,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             delayed=False,
             output_futures=True,
         )
-
-        return -1 * cp.sum(
-            cp.asarray(self.client.compute(scores, sync=True)) * -1.0
+        return -1.0 * sum(
+            -1.0 * score for score in self.client.compute(scores, sync=True)
         )
 
     def _get_param_names(self):

@@ -45,7 +45,13 @@ from cuml.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.fil.infer_kind cimport infer_kind
 from cuml.fil.postprocessing cimport element_op, row_op
 from cuml.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.internals.treelite cimport *
+from cuml.internals.treelite cimport (
+    TreeliteDeserializeModelFromBytes,
+    TreeliteFreeModel,
+    TreeliteModelHandle,
+)
+
+from cuda.bindings import runtime
 
 
 cdef extern from "cuml/fil/forest_model.hpp" namespace "ML::fil" nogil:
@@ -153,7 +159,7 @@ cdef class ForestInference_impl():
         align_bytes=0,
         use_double_precision=None,
         mem_type=None,
-        device_id=0
+        device_id=None,
     ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
@@ -195,6 +201,14 @@ cdef class ForestInference_impl():
             tree_layout = fil_tree_layout.layered_children_together
         else:
             raise RuntimeError(f"Unrecognized tree layout {layout}")
+
+        # Use assertion here, since device_id being None would indicate
+        # a bug, not a user error. The outer ForestInference object
+        # should set an integer device_id before passing it to
+        # ForestInference_impl.
+        assert device_id is not None, (
+            "device_id should be set before building ForestInference_impl"
+        )
 
         self.model = import_from_treelite_handle(
             tl_handle,
@@ -456,14 +470,11 @@ class ForestInference(Base, CMajorInputTagMixin):
         only for models trained and double precision and when exact
         conformance between results from FIL and the original training
         framework is of paramount importance.
-    device_id : int, default=0
+    device_id : int or None, default=None
         For GPU execution, the device on which to load and execute this
-        model. For CPU execution, this value is currently ignored.
+        model. If set to None, use the currently active device.
+        For CPU execution, this value is currently ignored.
     """
-    _param_names = [
-        "treelite_model", "handle", "output_type", "verbose", "is_classifier",
-        "layout", "default_chunk_size", "align_bytes", "precision", "device_id",
-    ]
 
     def _reload_model(self):
         """Reload model on any device (CPU/GPU) where model has already been
@@ -556,7 +567,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         try:
             return self._device_id_
         except AttributeError:
-            self._device_id_ = 0
+            self._device_id_ = None
             return self._device_id_
 
     @device_id.setter
@@ -565,14 +576,13 @@ class ForestInference(Base, CMajorInputTagMixin):
             old_value = self.device_id
         except AttributeError:
             old_value = None
-        if value is not None:
-            self._device_id_ = value
-            if (
-                self.treelite_model is not None
-                and self.device_id != old_value
-                and hasattr(self, '_gpu_forest')
-            ):
-                self._load_to_fil(device_id=self.device_id)
+        self._device_id_ = value
+        if (
+            self.treelite_model is not None
+            and self.device_id != old_value
+            and hasattr(self, '_gpu_forest')
+        ):
+            self._load_to_fil(device_id=self.device_id)
 
     @property
     def treelite_model(self):
@@ -618,7 +628,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         default_chunk_size=None,
         align_bytes=None,
         precision='single',
-        device_id=0,
+        device_id=None,
     ):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
@@ -632,11 +642,21 @@ class ForestInference(Base, CMajorInputTagMixin):
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
 
-    def _load_to_fil(self, mem_type=None, device_id=0):
+    def _load_to_fil(self, mem_type=None, device_id=None):
         if mem_type is None:
             mem_type = GlobalSettings().fil_memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
+
+        if device_id is None:
+            # If no device ID is explicitly given, use the currently
+            # active device
+            status, current_device_id = runtime.cudaGetDevice()
+            if status != runtime.cudaError_t.cudaSuccess:
+                _, name = runtime.cudaGetErrorName(status)
+                _, msg = runtime.cudaGetErrorString(status)
+                raise RuntimeError(f"Failed to run cudaGetDevice(). {name}: {msg}")
+            device_id = current_device_id
 
         if mem_type.is_device_accessible:
             self.device_id = device_id
@@ -706,7 +726,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         path,
         *,
         is_classifier=False,
-        threshold=None,
         precision='single',
         model_type=None,
         output_type=None,
@@ -728,9 +747,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             made to load the file based on its extension.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -814,7 +830,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             skl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -832,9 +847,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Scikit-Learn forest model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -906,7 +918,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             tl_model,
             *,
             is_classifier=False,
-            threshold=None,
             precision='single',
             model_type=None,
             output_type=None,
@@ -924,9 +935,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             The Treelite model to load.
         is_classifier : boolean, default=False
             True for classification models, False for regressors
-        threshold : float
-            For binary classifiers, outputs above this value will be considered
-            a positive detection.
         precision : {'single', 'double', None}, default='single'
             Use the given floating point precision for evaluating the model. If
             None, use the native precision of the model. Note that
@@ -1367,7 +1375,19 @@ class ForestInference(Base, CMajorInputTagMixin):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + ForestInference._param_names
+        return [
+            *super()._get_param_names(),
+            "treelite_model",
+            "handle",
+            "output_type",
+            "verbose",
+            "is_classifier",
+            "layout",
+            "default_chunk_size",
+            "align_bytes",
+            "precision",
+            "device_id",
+        ]
 
     def set_params(self, **params):
         super().set_params(**params)

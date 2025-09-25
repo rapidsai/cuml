@@ -15,10 +15,13 @@
 #
 
 import cuml.cluster
-from cuml.accel.estimator_proxy_mixin import ProxyMixin
+from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("HDBSCAN",)
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
-    pass
+class HDBSCAN(ProxyBase):
+    _gpu_class = cuml.cluster.HDBSCAN
+    _not_implemented_attributes = frozenset(
+        ("exemplars_", "outlier_scores_", "relative_validity_")
+    )

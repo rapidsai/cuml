@@ -17,13 +17,6 @@ add_module_gpu_default("agglomerative.pyx" ${agglomerative_algo} ${cluster_algo}
 add_module_gpu_default("dbscan.pyx" ${dbscan_algo} ${cluster_algo})
 add_module_gpu_default("kmeans.pyx" ${kmeans_algo} ${cluster_algo})
 
-if(NOT SINGLEGPU)
-  list(APPEND cython_sources
-       dbscan_mg.pyx
-       kmeans_mg.pyx
-  )
-endif()
-
 add_subdirectory(hdbscan)
 
 rapids_cython_create_modules(

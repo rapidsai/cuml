@@ -7,7 +7,7 @@ The Forest Inference Library is a subset of cuML designed to accelerate inferenc
 
     from cuml import ForestInference
 
-    fil_model = ForestInference.load("./my_xgboost_classifier.ubj", output_class=True)
+    fil_model = ForestInference.load("./my_xgboost_classifier.ubj", is_classifier=True)
     class_predictions = fil_model.predict(input_data)
 
 FIL typically offers speedups of 80x or more relative to native inference with e.g. a Scikit-Learn ``RandomForest`` model on CPU.
@@ -33,7 +33,7 @@ Deprecated ``load`` Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 As of RAPIDS 25.04, the following hyperparameters accepted by the ``.load`` method of previous versions of FIL have been deprecated.
 
-- ``threshold`` (will raise a ``DeprecationWarning`` if used; pass to ``.predict`` instead)
+- ``threshold`` (will trigger a deprecation warning if used; pass to ``.predict`` instead)
 - ``algo`` (ignored, but a warning will be logged)
 - ``storage_type`` (ignored, but a warning will be logged)
 - ``blocks_per_sm`` (ignored, but a warning will be logged)

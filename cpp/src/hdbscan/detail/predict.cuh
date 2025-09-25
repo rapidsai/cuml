@@ -19,13 +19,13 @@
 #include "kernels/predict.cuh"
 #include "reachability.cuh"
 
+#include <cuml/common/distance_type.hpp>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-
-#include <thrust/transform.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -76,19 +76,19 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
                                                                knn_dists,
                                                                knn_inds,
                                                                n_prediction_points,
-                                                               neighborhood,
+                                                               static_cast<value_idx>(neighborhood),
                                                                min_mr_dists.data(),
                                                                min_mr_inds);
 
   // obtain lambda values from minimum mutual reachability distances
-  thrust::transform(exec_policy,
-                    min_mr_dists.data(),
-                    min_mr_dists.data() + n_prediction_points,
-                    prediction_lambdas,
-                    [] __device__(value_t dist) {
-                      if (dist > 0) return (1 / dist);
-                      return std::numeric_limits<value_t>::max();
-                    });
+  raft::linalg::map_offset(
+    handle,
+    raft::make_device_vector_view<value_t, value_idx>(prediction_lambdas, n_prediction_points),
+    [min_mr_dists = min_mr_dists.data()] __device__(auto idx) {
+      value_t dist = min_mr_dists[idx];
+      if (dist > 0) return (1 / dist);
+      return std::numeric_limits<value_t>::max();
+    });
 }
 
 /**
@@ -160,7 +160,7 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                                        size_t n_prediction_points,
                                        value_idx* min_mr_inds,
                                        value_t* prediction_lambdas,
-                                       cuvs::distance::DistanceType metric)
+                                       ML::distance::DistanceType metric)
 {
   auto stream               = handle.get_stream();
   size_t m                  = prediction_data.n_rows;
@@ -233,12 +233,12 @@ void approximate_predict(const raft::handle_t& handle,
                          value_idx* labels,
                          const value_t* points_to_predict,
                          size_t n_prediction_points,
-                         cuvs::distance::DistanceType metric,
+                         ML::distance::DistanceType metric,
                          int min_samples,
                          value_idx* out_labels,
                          value_t* out_probabilities)
 {
-  RAFT_EXPECTS(metric == cuvs::distance::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == ML::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();
