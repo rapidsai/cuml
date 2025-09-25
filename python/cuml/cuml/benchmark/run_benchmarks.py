@@ -16,9 +16,9 @@
 """Command-line ML benchmark runner"""
 
 import json
-import rmm
 
 import numpy as np
+import rmm
 
 from cuml.benchmark import algorithms, datagen, runners
 
@@ -236,7 +236,9 @@ if __name__ == "__main__":
             rmm.mr.set_current_device_resource(prefetch_mr)
             print("Using Prefetched Managed Memory Resource...")
         case _:
-            raise ValueError(f"Unknown RMM allocator type: {args.rmm_allocator}")
+            raise ValueError(
+                f"Unknown RMM allocator type: {args.rmm_allocator}"
+            )
 
     args.dtype = PrecisionMap[args.dtype]
 
