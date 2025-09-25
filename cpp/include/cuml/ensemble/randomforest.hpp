@@ -138,7 +138,7 @@ typedef RandomForestMetaData<float, int> RandomForestClassifierF;
 typedef RandomForestMetaData<double, int> RandomForestClassifierD;
 
 void fit(const raft::handle_t& user_handle,
-         RandomForestClassifierF*& forest,
+         RandomForestClassifierF* forest,
          float* input,
          int n_rows,
          int n_cols,
@@ -147,7 +147,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void fit(const raft::handle_t& user_handle,
-         RandomForestClassifierD*& forest,
+         RandomForestClassifierD* forest,
          double* input,
          int n_rows,
          int n_cols,
@@ -155,6 +155,17 @@ void fit(const raft::handle_t& user_handle,
          int n_unique_labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+
+template <typename T, typename L>
+void fit_treelite(const raft::handle_t& user_handle,
+                  TreeliteModelHandle* model,
+                  T* input,
+                  int n_rows,
+                  int n_cols,
+                  L* labels,
+                  int n_unique_labels,
+                  RF_params rf_params,
+                  rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -205,7 +216,7 @@ typedef RandomForestMetaData<float, float> RandomForestRegressorF;
 typedef RandomForestMetaData<double, double> RandomForestRegressorD;
 
 void fit(const raft::handle_t& user_handle,
-         RandomForestRegressorF*& forest,
+         RandomForestRegressorF* forest,
          float* input,
          int n_rows,
          int n_cols,
@@ -213,13 +224,23 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void fit(const raft::handle_t& user_handle,
-         RandomForestRegressorD*& forest,
+         RandomForestRegressorD* forest,
          double* input,
          int n_rows,
          int n_cols,
          double* labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+
+template <typename T, typename L>
+void fit_treelite(const raft::handle_t& user_handle,
+                  TreeliteModelHandle* model,
+                  T* input,
+                  int n_rows,
+                  int n_cols,
+                  L* labels,
+                  RF_params rf_params,
+                  rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,

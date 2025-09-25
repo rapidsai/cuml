@@ -991,6 +991,12 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
+  condition: scikit-learn<1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SpectralEmbedding()]"
+- reason: cuml raises a different error if X doesn't have expected n features
+  marker: cuml_accel_check_n_features_in
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
@@ -1007,6 +1013,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
 - reason: Test crashes with cuml.accel
   marker: cuml_accel_crashes
@@ -1031,6 +1038,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SpectralEmbedding()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
 - reason: Test is flaky with cuml.accel
@@ -1040,6 +1048,12 @@
   tests:
   - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag"
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_f_contiguous_array_estimator]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   condition: scikit-learn>=1.7
@@ -1403,7 +1417,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_dtype_object]"
@@ -1424,6 +1437,8 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
@@ -1555,6 +1570,25 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
+- reason: SpectralEmbedding does not expose affinity_matrix_ attribute in cuML
+  tests:
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_matrix]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SpectralEmbedding-SpectralEmbedding]"
+- reason: SpectralEmbedding produces different eigenvector signs in cuML
+  strict: false
+  tests:
+  - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_embedding"
 - reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
   strict: false
   tests:
