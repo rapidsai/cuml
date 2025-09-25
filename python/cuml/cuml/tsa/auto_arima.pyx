@@ -48,59 +48,59 @@ from cuml.tsa.stationarity import kpss_test
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML" nogil:
     int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
-                                   int* index, int batch_size)
+                                   int* index, int batch_size) except +
 
     void divide_by_mask_execute(const handle_t& handle, const float* d_in,
                                 const bool* mask, const int* index,
                                 float* d_out0, float* d_out1, int batch_size,
-                                int n_obs)
+                                int n_obs) except +
     void divide_by_mask_execute(const handle_t& handle, const double* d_in,
                                 const bool* mask, const int* index,
                                 double* d_out0, double* d_out1,
-                                int batch_size, int n_obs)
+                                int batch_size, int n_obs) except +
     void divide_by_mask_execute(const handle_t& handle, const int* d_in,
                                 const bool* mask, const int* index,
                                 int* d_out0, int* d_out1, int batch_size,
-                                int n_obs)
+                                int n_obs) except +
 
     void divide_by_min_build_index(const handle_t& handle,
                                    const float* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
-                                   int batch_size, int n_sub)
+                                   int batch_size, int n_sub) except +
     void divide_by_min_build_index(const handle_t& handle,
                                    const double* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
-                                   int batch_size, int n_sub)
+                                   int batch_size, int n_sub) except +
 
     void divide_by_min_execute(const handle_t& handle, const float* d_in,
                                const int* d_batch, const int* d_index,
                                float** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
     void divide_by_min_execute(const handle_t& handle, const double* d_in,
                                const int* d_batch, const int* d_index,
                                double** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
     void divide_by_min_execute(const handle_t& handle, const int* d_in,
                                const int* d_batch, const int* d_index,
                                int** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
 
     void cpp_build_division_map "ML::build_division_map" (
         const handle_t& handle, const int* const* hd_id, const int* h_size,
-        int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
+        int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub) except +
 
     void cpp_merge_series "ML::merge_series" (
         const handle_t& handle, const float* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
-        int batch_size, int n_sub, int n_obs)
+        int batch_size, int n_sub, int n_obs) except +
     void cpp_merge_series "ML::merge_series" (
         const handle_t& handle, const double* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
-        int batch_size, int n_sub, int n_obs)
+        int batch_size, int n_sub, int n_obs) except +
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     bool detect_missing(
-        handle_t& handle, const double* d_y, int n_elem)
+        handle_t& handle, const double* d_y, int n_elem) except +
 
 tests_map = {
     "kpss": kpss_test,

@@ -46,6 +46,7 @@ from cuml.metrics.regression import (
     mean_absolute_error,
     mean_squared_error,
     mean_squared_log_error,
+    median_absolute_error,
     r2_score,
 )
 from cuml.metrics.trustworthiness import trustworthiness
@@ -56,6 +57,7 @@ __all__ = [
     "mean_squared_error",
     "mean_squared_log_error",
     "mean_absolute_error",
+    "median_absolute_error",
     "accuracy_score",
     "adjusted_rand_score",
     "roc_auc_score",
