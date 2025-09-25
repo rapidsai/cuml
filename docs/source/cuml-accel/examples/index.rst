@@ -8,6 +8,6 @@ examples in this section is available in the cuML GitHub repository at `examples
 .. toctree::
    :maxdepth: 1
 
-   cuml_accel_demo.ipynb
-   cuml_accel_profiling.ipynb
+   getting_started.ipynb
+   profiling.ipynb
    plot_kmeans_digits.ipynb
