@@ -216,7 +216,7 @@ if __name__ == "__main__":
         "--rmm-allocator",
         choices=["cuda", "managed", "prefetched"],
         default="cuda",
-        help="RMM memory resource to use (default: CUDA)",
+        help="RMM memory resource to use (default: cuda)",
     )
     args = parser.parse_args()
 
@@ -224,19 +224,22 @@ if __name__ == "__main__":
     RMM_ALLOCATOR_TYPES = ["cuda", "managed", "prefetched"]
 
     # Setup RMM allocator based on command line option
-    if args.rmm_allocator == "cuda":
-        dev_resource = rmm.mr.CudaMemoryResource()
-        rmm.mr.set_current_device_resource(dev_resource)
-        print("Using CUDA Memory Resource...")
-    elif args.rmm_allocator == "managed":
-        managed_resource = rmm.mr.ManagedMemoryResource()
-        rmm.mr.set_current_device_resource(managed_resource)
-        print("Using Managed Memory Resource...")
-    elif args.rmm_allocator == "prefetched":
-        upstream_mr = rmm.mr.ManagedMemoryResource()
-        prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
-        rmm.mr.set_current_device_resource(prefetch_mr)
-        print("Using Prefetched Managed Memory Resource...")
+    match args.rmm_allocator:
+        case "cuda":
+            dev_resource = rmm.mr.CudaMemoryResource()
+            rmm.mr.set_current_device_resource(dev_resource)
+            print("Using CUDA Memory Resource...")
+        case "managed":
+            managed_resource = rmm.mr.ManagedMemoryResource()
+            rmm.mr.set_current_device_resource(managed_resource)
+            print("Using Managed Memory Resource...")
+        case "prefetched":
+            upstream_mr = rmm.mr.ManagedMemoryResource()
+            prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
+            rmm.mr.set_current_device_resource(prefetch_mr)
+            print("Using Prefetched Managed Memory Resource...")
+        case _:
+            raise ValueError(f"Unknown RMM allocator type: {args.rmm_allocator}")
 
     args.dtype = PrecisionMap[args.dtype]
 
