@@ -162,6 +162,13 @@ def spectral_embedding(A,
         else:
             A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
         A.sum_duplicates()
+
+        # laplacian kernel expects diagonal to be zero
+        # remove diagonal elements since they are ignored in laplacian calculation anyway
+        mask = A.row != A.col
+        A.data = A.data[mask]
+        A.row = A.row[mask]
+        A.col = A.col[mask]
     else:
         raise ValueError(
             f"`affinity={affinity!r}` is not supported, expected one of "
