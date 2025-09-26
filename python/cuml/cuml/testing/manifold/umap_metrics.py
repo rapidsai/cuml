@@ -415,11 +415,11 @@ def _build_knn_with_umap(
     X_np = cp.asnumpy(X) if isinstance(X, cp.ndarray) else np.asarray(X)
 
     if backend == "bruteforce":
-        nn = NearestNeighbors(n_neighbors=k, metric=metric, algorithm="brute")
-        nn.fit(X_np)
-        knn_dists, knn_indices = nn.kneighbors(
-            X_np, return_distance=True, n_jobs=-1
+        nn = NearestNeighbors(
+            n_neighbors=k, metric=metric, algorithm="brute", n_jobs=-1
         )
+        nn.fit(X_np)
+        knn_dists, knn_indices = nn.kneighbors(X_np, return_distance=True)
         return knn_dists.astype(np.float32, copy=False), knn_indices
 
     if backend == "nn_descent":
