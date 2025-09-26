@@ -14,6 +14,7 @@
 
 import importlib
 import inspect
+import os
 import pickle
 import subprocess
 import sys
@@ -444,11 +445,14 @@ def test_unpickle_cuml_accel_not_active():
         model.score(X, y)
         """
     )
+    env = os.environ.copy()
+    env.pop("CUML_ACCEL_ENABLED", None)
     res = subprocess.run(
         [sys.executable, "-c", script],
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE,
         text=True,
+        env=env,
     )
     # Pull out attributes before assert for nicer error reporting on failure
     returncode = res.returncode
@@ -485,11 +489,14 @@ def test_unpickle_cuml_not_installed():
         model.score(X, y)
         """
     )
+    env = os.environ.copy()
+    env.pop("CUML_ACCEL_ENABLED", None)
     res = subprocess.run(
         [sys.executable, "-c", script],
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE,
         text=True,
+        env=env,
     )
     # Pull out attributes before assert for nicer error reporting on failure
     returncode = res.returncode
