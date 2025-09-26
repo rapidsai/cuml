@@ -296,53 +296,25 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <typename T, typename nnz_t, int TPB_X>
-void launcher(
-  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(int m,
+              int n,
+              raft::sparse::COO<T>* in,
+              UMAPParams* params,
+              T* embedding,
+              int n_epochs,
+              cudaStream_t stream)
 {
   nnz_t nnz = in->nnz;
 
-  /**
-   * Find vals.max()
-   */
-  thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals());
-  T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
+  rmm::device_uvector<T> epochs_per_sample(nnz, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, nnz * sizeof(T), stream));
 
-  int n_epochs = params->n_epochs;
-  if (n_epochs <= 0) {
-    if (m <= 10000)
-      n_epochs = 500;
-    else
-      n_epochs = 200;
-  }
-
-  /**
-   * Go through COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
-   */
-  raft::linalg::unaryOp<T>(
-    in->vals(),
-    in->vals(),
-    nnz,
-    [=] __device__(T input) {
-      if (input < (max / float(n_epochs)))
-        return 0.0f;
-      else
-        return input;
-    },
-    stream);
-
-  raft::sparse::COO<T> out(stream);
-  raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
-
-  rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
-
-  make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
+  make_epochs_per_sample(in->vals(), nnz, n_epochs, epochs_per_sample.data(), stream);
 
   /*
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     std::stringstream ss;
-    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), nnz, "epochs_per_sample", stream);
     CUML_LOG_TRACE(ss.str().c_str());
   }
   */
@@ -351,9 +323,9 @@ void launcher(
                                    m,
                                    embedding,
                                    m,
-                                   out.rows(),
-                                   out.cols(),
-                                   out.nnz,
+                                   in->rows(),
+                                   in->cols(),
+                                   in->nnz,
                                    epochs_per_sample.data(),
                                    params->repulsion_strength,
                                    params,
