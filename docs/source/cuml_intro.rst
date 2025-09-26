@@ -32,7 +32,7 @@ cuML estimators look and feel just like `scikit-learn estimators
    from cuml.datasets import make_regression
    import numpy as np
 
-   # Generate sample data
+   # Generate sample data directly in GPU memory
    X, y = make_regression(n_samples=1000, n_features=4, noise=0.1, random_state=42)
 
    # Split data (same as sklearn)
