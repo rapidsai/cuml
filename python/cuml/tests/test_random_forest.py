@@ -210,8 +210,8 @@ def test_default_parameters():
     assert clf_params["max_features"] == "sqrt"
 
     # Different default split_criterion
-    assert reg_params["split_criterion"] == 2
-    assert clf_params["split_criterion"] == 0
+    assert reg_params["split_criterion"] == "mse"
+    assert clf_params["split_criterion"] == "gini"
 
     # Drop differing params
     for name in [
@@ -707,14 +707,14 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
     acc = accuracy_score(y_test, preds)
     np.testing.assert_almost_equal(acc, cuml_model.score(X_test, y_test))
 
-    fil_model = cuml_model.convert_to_fil_model()
+    fil_model = cuml_model.as_fil()
 
     with cuml.using_output_type("numpy"):
         fil_model_preds = fil_model.predict(X_test)
         fil_model_acc = accuracy_score(y_test, fil_model_preds)
         assert acc == fil_model_acc
 
-    tl_model = cuml_model.convert_to_treelite_model()
+    tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree
     assert X.shape[1] == tl_model.num_feature
 
@@ -771,7 +771,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
     preds = cuml_model.predict(X_test, layout=fil_layout)
     r2 = r2_score(y_test, preds)
 
-    fil_model = cuml_model.convert_to_fil_model()
+    fil_model = cuml_model.as_fil()
 
     with cuml.using_output_type("numpy"):
         fil_model_preds = fil_model.predict(X_test)
@@ -779,7 +779,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         fil_model_r2 = r2_score(y_test, fil_model_preds)
         assert r2 == fil_model_r2
 
-    tl_model = cuml_model.convert_to_treelite_model()
+    tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree
     assert X.shape[1] == tl_model.num_feature
 
@@ -1092,9 +1092,7 @@ def test_rf_regression_with_identical_labels():
         max_depth=1,
     )
     model.fit(X, y)
-    trees = json.loads(model.convert_to_treelite_model().dump_as_json())[
-        "trees"
-    ]
+    trees = json.loads(model.as_treelite().dump_as_json())["trees"]
     assert len(trees) == 1
     assert len(trees[0]["nodes"]) == 1
     assert trees[0]["nodes"][0] == {
@@ -1112,7 +1110,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
     expected_pred = clf.predict(X).reshape((-1, 1, 1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().serialize(checkpoint_path)
+    clf.as_treelite().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
@@ -1127,7 +1125,7 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     expected_pred = clf.predict_proba(X).reshape((-1, 1, 2))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().serialize(checkpoint_path)
+    clf.as_treelite().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
@@ -1142,7 +1140,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     expected_prob = clf.predict_proba(X).reshape((X.shape[0], 1, -1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
-    clf.convert_to_treelite_model().serialize(checkpoint_path)
+    clf.as_treelite().serialize(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
@@ -1256,3 +1254,18 @@ def test_accuracy_metric_deprecated():
         model = cuml.RandomForestRegressor(accuracy_metric="mse")
     score = model.fit(X, y).score(X, y)
     np.testing.assert_allclose(score, mean_squared_error(y, model.predict(X)))
+
+
+def test_convert_methods_deprecated():
+    X, y = make_regression(n_samples=500)
+    model = cuml.RandomForestRegressor().fit(X, y)
+
+    with pytest.warns(FutureWarning, match="convert_to_treelite_model"):
+        tl = model.convert_to_treelite_model()
+
+    assert isinstance(tl, treelite.Model)
+
+    with pytest.warns(FutureWarning, match="convert_to_fil_model"):
+        fil = model.convert_to_fil_model()
+
+    assert isinstance(fil, cuml.fil.ForestInference)

@@ -41,7 +41,7 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
         float noise_scale,
         float intercept_scale,
         uint64_t seed
-    )
+    ) except +
 
     void cpp_make_arima "ML::Datasets::make_arima" (
         const handle_t& handle,
@@ -53,7 +53,7 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
         double noise_scale,
         double intercept_scale,
         uint64_t seed
-    )
+    ) except +
 
 
 inp_to_dtype = {

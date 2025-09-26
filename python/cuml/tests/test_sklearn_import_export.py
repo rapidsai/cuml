@@ -51,7 +51,7 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge,
 )
-from cuml.manifold import TSNE
+from cuml.manifold import TSNE, SpectralEmbedding
 from cuml.testing.utils import array_equal
 
 ###############################################################################
@@ -244,6 +244,24 @@ def test_tsne(random_state):
     roundtrip_model = TSNE.from_sklearn(sklearn_model)
     # Since TSNE is non-deterministic, exact match is unlikely.
     # We can at least check output dimensions are the same.
+    original_embedding = original.embedding_
+    sklearn_embedding = sklearn_model.embedding_
+    roundtrip_embedding = roundtrip_model.embedding_
+
+    assert array_equal(original_embedding, sklearn_embedding)
+    assert array_equal(original_embedding, roundtrip_embedding)
+
+
+def test_spectral_embedding(random_state):
+    X, _ = make_blobs(
+        n_samples=100, centers=3, n_features=20, random_state=random_state
+    )
+    original = SpectralEmbedding(n_components=2, random_state=random_state)
+    original.fit(X)
+    sklearn_model = original.as_sklearn()
+    roundtrip_model = SpectralEmbedding.from_sklearn(sklearn_model)
+    assert_params_equal(original, roundtrip_model)
+
     original_embedding = original.embedding_
     sklearn_embedding = sklearn_model.embedding_
     roundtrip_embedding = roundtrip_model.embedding_

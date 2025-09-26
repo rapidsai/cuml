@@ -36,7 +36,9 @@ def _from_df_to_cupy(df):
             if isinstance(df, pd.DataFrame):
                 df[col] = [ord(c) for c in df[col]]
             else:
-                df[col] = [ord(c) for c in df[col].values_host]
+                df[col] = [
+                    ord(c) if c is not None else c for c in df[col].values_host
+                ]
     return cp.array(from_df_to_numpy(df))
 
 
@@ -143,7 +145,7 @@ def test_onehot_inverse_transform_handle_unknown(as_array):
     ref = DataFrame({"chars": [None, "b"], "int": [0, 2]})
     if as_array:
         X = _from_df_to_cupy(X)
-        ref = DataFrame({0: [None, ord("b")], 1: [0, 2]})
+        ref = _from_df_to_cupy(ref)
 
     enc = OneHotEncoder(handle_unknown="ignore")
     enc = enc.fit(X)
