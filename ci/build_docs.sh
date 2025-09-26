@@ -1,5 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2023-2025, NVIDIA CORPORATION.
+source ./ci/use_conda_packages_from_prs.sh
+
 set -euo pipefail
 
 rapids-logger "Downloading artifacts from previous jobs"

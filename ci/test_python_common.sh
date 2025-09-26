@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2022-2025, NVIDIA CORPORATION.
+source ./ci/use_conda_packages_from_prs.sh
 
 set -euo pipefail
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
+source ./ci/use_wheels_from_prs.sh
+
 set -euo pipefail
 
 source rapids-init-pip
