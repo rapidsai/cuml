@@ -51,8 +51,11 @@ You can find many more complete examples in the `Introductory Notebook
 
 .. note::
 
-   Use `cuml.accel <cuml-accel/index.rst>`_ if you need 100% API
-   parity with scikit-learn.
+   While cuML's APIs closely mirror scikit-learn, some differences exist due to
+   GPU-specific implementations and optimizations.
+
+   For **zero code change acceleration** with 100% API compatibility, use
+   `cuml.accel <cuml-accel/index.rst>`_.
 
 Flexible Inputs, Predictable Outputs
 ------------------------------------
