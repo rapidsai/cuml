@@ -2,7 +2,8 @@
 # Copyright (c) 2025, NVIDIA CORPORATION.
 
 # download CI artifacts
-LIBCUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 1234 python conda)
+CUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 1234 python conda)
+LIBCUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 1234 cpp conda)
 
 # For `rattler` builds:
 #
@@ -12,6 +13,7 @@ LIBCUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 1234 python conda)
 #
 RAPIDS_PREPENDED_CONDA_CHANNELS=(
     "${LIBCUVS_CHANNEL}"
+    "${CUVS_CHANNEL}"
 )
 export RAPIDS_PREPENDED_CONDA_CHANNELS
 
