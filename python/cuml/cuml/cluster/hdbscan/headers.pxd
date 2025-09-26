@@ -26,7 +26,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
         LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
 
     cdef cppclass CondensedHierarchy[value_idx, value_t]:
-        CondensedHierarchy(const handle_t &handle, size_t n_leaves)
+        CondensedHierarchy(const handle_t &handle, size_t n_leaves) except +
 
         CondensedHierarchy(const handle_t& handle_,
                            size_t n_leaves_,
@@ -34,15 +34,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
                            value_idx* parents_,
                            value_idx* children_,
                            value_t* lambdas_,
-                           value_idx* sizes_)
+                           value_idx* sizes_) except +
 
-        value_idx *get_parents()
-        value_idx *get_children()
-        value_t *get_lambdas()
-        value_idx *get_sizes()
-        value_idx get_n_edges()
-        value_idx get_n_leaves()
-        int get_n_clusters()
+        value_idx *get_parents() except +
+        value_idx *get_children() except +
+        value_t *get_lambdas() except +
+        value_idx *get_sizes() except +
+        value_idx get_n_edges() except +
+        value_idx get_n_leaves() except +
+        int get_n_clusters() except +
 
     cdef cppclass hdbscan_output[int, float]:
         hdbscan_output(const handle_t &handle,
@@ -54,14 +54,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
                        float *deltas,
                        int *mst_src,
                        int *mst_dst,
-                       float *mst_weights)
-        int get_n_leaves()
-        int get_n_clusters()
-        float *get_stabilities()
-        int *get_labels()
-        int *get_inverse_label_map()
-        float *get_core_dists()
-        CondensedHierarchy[int, float] &get_condensed_tree()
+                       float *mst_weights) except +
+        int get_n_leaves() except +
+        int get_n_clusters() except +
+        float *get_stabilities() except +
+        int *get_labels() except +
+        int *get_inverse_label_map() except +
+        float *get_core_dists() except +
+        CondensedHierarchy[int, float] &get_condensed_tree() except +
 
     cdef cppclass HDBSCANParams:
         int min_samples
@@ -78,7 +78,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
         PredictionData(const handle_t &handle,
                        int m,
                        int n,
-                       float *core_dists)
+                       float *core_dists) except +
 
         size_t n_rows
         size_t n_cols

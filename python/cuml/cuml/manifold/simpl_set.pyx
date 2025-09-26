@@ -43,7 +43,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                               int d,
                               int64_t* knn_indices,
                               float* knn_dists,
-                              UMAPParams* params)
+                              UMAPParams* params) except +
 
     void refine(handle_t &handle,
                 float* X,
@@ -51,7 +51,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                 int d,
                 COO* cgraph_coo,
                 UMAPParams* params,
-                float* embeddings)
+                float* embeddings) except +
 
     void init_and_refine(handle_t &handle,
                          float* X,
@@ -59,7 +59,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                          int d,
                          COO* cgraph_coo,
                          UMAPParams* params,
-                         float* embeddings)
+                         float* embeddings) except +
 
 
 def fuzzy_simplicial_set(X,
@@ -363,9 +363,7 @@ def simplicial_set_embedding(
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(GraphHolder(),
-                                                            handle,
-                                                            graph)
+    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
 
     if isinstance(init, str):
         if init in ['spectral', 'random']:

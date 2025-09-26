@@ -359,7 +359,7 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
  * @{
  */
 void fit(const raft::handle_t& user_handle,
-         RandomForestClassifierF*& forest,
+         RandomForestClassifierF* forest,
          float* input,
          int n_rows,
          int n_cols,
@@ -380,7 +380,7 @@ void fit(const raft::handle_t& user_handle,
 }
 
 void fit(const raft::handle_t& user_handle,
-         RandomForestClassifierD*& forest,
+         RandomForestClassifierD* forest,
          double* input,
          int n_rows,
          int n_cols,
@@ -399,6 +399,23 @@ void fit(const raft::handle_t& user_handle,
     std::make_shared<RandomForest<double, int>>(rf_params, RF_type::CLASSIFICATION);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
 }
+
+template <typename value_t, typename label_t>
+void fit_treelite(const raft::handle_t& user_handle,
+                  TreeliteModelHandle* model,
+                  value_t* input,
+                  int n_rows,
+                  int n_cols,
+                  label_t* labels,
+                  int n_unique_labels,
+                  RF_params rf_params,
+                  rapids_logger::level_enum verbosity)
+{
+  RandomForestMetaData<value_t, label_t> metadata;
+  fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
+  build_treelite_forest(model, &metadata, n_cols);
+}
+
 /** @} */
 
 /**
@@ -554,7 +571,7 @@ RF_params set_rf_params(int max_depth,
  * @{
  */
 void fit(const raft::handle_t& user_handle,
-         RandomForestRegressorF*& forest,
+         RandomForestRegressorF* forest,
          float* input,
          int n_rows,
          int n_cols,
@@ -574,7 +591,7 @@ void fit(const raft::handle_t& user_handle,
 }
 
 void fit(const raft::handle_t& user_handle,
-         RandomForestRegressorD*& forest,
+         RandomForestRegressorD* forest,
          double* input,
          int n_rows,
          int n_cols,
@@ -592,6 +609,22 @@ void fit(const raft::handle_t& user_handle,
     std::make_shared<RandomForest<double, double>>(rf_params, RF_type::REGRESSION);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
 }
+
+template <typename value_t, typename label_t>
+void fit_treelite(const raft::handle_t& user_handle,
+                  TreeliteModelHandle* model,
+                  value_t* input,
+                  int n_rows,
+                  int n_cols,
+                  label_t* labels,
+                  RF_params rf_params,
+                  rapids_logger::level_enum verbosity)
+{
+  RandomForestMetaData<value_t, label_t> metadata;
+  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
+  build_treelite_forest(model, &metadata, n_cols);
+}
+
 /** @} */
 
 /**
@@ -734,6 +767,42 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
                                                   int num_features);
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
+
+template void fit_treelite<float, int>(const raft::handle_t& user_handle,
+                                       TreeliteModelHandle* model,
+                                       float* input,
+                                       int n_rows,
+                                       int n_cols,
+                                       int* labels,
+                                       int n_unique_labels,
+                                       RF_params rf_params,
+                                       rapids_logger::level_enum verbosity);
+template void fit_treelite<double, int>(const raft::handle_t& user_handle,
+                                        TreeliteModelHandle* model,
+                                        double* input,
+                                        int n_rows,
+                                        int n_cols,
+                                        int* labels,
+                                        int n_unique_labels,
+                                        RF_params rf_params,
+                                        rapids_logger::level_enum verbosity);
+template void fit_treelite<float, float>(const raft::handle_t& user_handle,
+                                         TreeliteModelHandle* model,
+                                         float* input,
+                                         int n_rows,
+                                         int n_cols,
+                                         float* labels,
+                                         RF_params rf_params,
+                                         rapids_logger::level_enum verbosity);
+template void fit_treelite<double, double>(const raft::handle_t& user_handle,
+                                           TreeliteModelHandle* model,
+                                           double* input,
+                                           int n_rows,
+                                           int n_cols,
+                                           double* labels,
+                                           RF_params rf_params,
+                                           rapids_logger::level_enum verbosity);
+
 
 template double get_oob_score<float, int>(const RandomForestClassifierF* forest);
 template double get_oob_score<double, int>(const RandomForestClassifierD* forest);

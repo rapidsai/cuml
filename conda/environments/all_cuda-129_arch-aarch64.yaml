@@ -16,7 +16,6 @@ dependencies:
 - cuda-version=12.9
 - cudf==25.10.*,>=0.0.0a0
 - cupy>=13.6.0
-- cuvs==25.10.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.0.0
 - dask-cuda==25.10.*,>=0.0.0a0
@@ -65,6 +64,7 @@ dependencies:
 - rapids-build-backend>=0.4.0,<0.5.0.dev0
 - rapids-dask-dependency==25.10.*,>=0.0.0a0
 - rapids-logger==0.1.*,>=0.0.0a0
+- rapids-xgboost==25.10.*,>=0.0.0a0
 - recommonmark
 - rich
 - rmm==25.10.*,>=0.0.0a0
@@ -80,5 +80,4 @@ dependencies:
 - tenacity
 - treelite==4.4.1
 - umap-learn==0.5.7
-- xgboost>=2.1.0
 name: all_cuda-129_arch-aarch64

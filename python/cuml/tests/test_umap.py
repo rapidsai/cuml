@@ -69,7 +69,20 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 
 
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows",
+    [
+        pytest.param(
+            500,
+            marks=[
+                pytest.mark.unit,
+                pytest.mark.xfail(
+                    reason="https://github.com/rapidsai/cuvs/issues/184"
+                ),
+            ],
+        ),
+        quality_param(5000),
+        stress_param(500000),
+    ],
 )
 @pytest.mark.parametrize(
     "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
@@ -689,8 +702,8 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     model.fit(X)
     ref_fss_graph = model.graph_
 
-    cu_fss_graph = cu_fss_graph.todense()
-    ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
+    cu_fss_graph = cp.array(cu_fss_graph.todense())
+    ref_fss_graph = cp.array(ref_fss_graph.todense())
     assert correctness_sparse(
         ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
     )
@@ -839,7 +852,6 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 def test_umap_trustworthiness_on_batch_nnd(
     num_clusters, fit_then_transform, metric, do_snmg
 ):
-
     digits = datasets.load_digits()
 
     umap_handle = None
