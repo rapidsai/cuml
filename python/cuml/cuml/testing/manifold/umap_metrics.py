@@ -19,8 +19,9 @@ import cudf
 import cugraph
 import cupy as cp
 import numpy as np
+from cuvs.common import MultiGpuResources
 from cuvs.distance import pairwise_distance
-from cuvs.neighbors import brute_force, nn_descent
+from cuvs.neighbors import all_neighbors, brute_force, nn_descent
 from scipy.linalg import orthogonal_procrustes
 from scipy.sparse import csr_matrix
 
@@ -441,19 +442,60 @@ def _build_knn_with_umap(
 
 
 def _build_knn_with_cuvs(
-    X: cp.ndarray, k: int, metric: str, backend: str
+    X: t.Union[cp.ndarray, np.ndarray], k: int, metric: str, backend: str
 ) -> t.Tuple[np.ndarray, np.ndarray]:
+    # Ensure X is on device for non-all_neighbors backends
+    if backend != "all_neighbors":
+        X_device = cp.asarray(X) if isinstance(X, np.ndarray) else X
+
     if backend == "bruteforce":
-        index = brute_force.build(X, metric=metric)
-        knn_dists, knn_indices = brute_force.search(index, X, k)
+        index = brute_force.build(X_device, metric=metric)
+        knn_dists, knn_indices = brute_force.search(index, X_device, k)
         return cp.asnumpy(knn_dists), cp.asnumpy(knn_indices)
 
     if backend == "nn_descent":
         params = nn_descent.IndexParams(metric=metric)
-        index = nn_descent.build(params, X)
+        index = nn_descent.build(params, X_device)
         knn_indices = cp.asarray(index.graph[:, :k])
         knn_dists = cp.asarray(index.distances[:, :k])
         return cp.asnumpy(knn_dists), cp.asnumpy(knn_indices)
+
+    if backend == "all_neighbors":
+        n_rows = X.shape[0]
+
+        nn_descent_params = nn_descent.IndexParams(
+            metric=metric,
+            graph_degree=64,
+            intermediate_graph_degree=128,
+            max_iterations=20,
+            termination_threshold=0.0001,
+        )
+
+        # Create all_neighbors parameters
+        params = all_neighbors.AllNeighborsParams(
+            algo="nn_descent",
+            overlap_factor=2,
+            n_clusters=8,
+            metric=metric,
+            nn_descent_params=nn_descent_params,
+        )
+
+        # Create MultiGpuResources for SNMG-only operation
+        resources = MultiGpuResources()
+
+        # Ensure data is on host for multi-GPU all_neighbors
+        X_host = X if isinstance(X, np.ndarray) else cp.asnumpy(X)
+
+        # Build all-neighbors graph with SNMG
+        indices, distances = all_neighbors.build(
+            X_host,
+            k,
+            params,
+            distances=cp.empty((n_rows, k), dtype=cp.float32),
+            resources=resources,
+        )
+
+        return cp.asnumpy(distances), cp.asnumpy(indices)
 
     raise ValueError(f"Unknown backend: {backend}")
 

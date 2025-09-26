@@ -125,7 +125,7 @@ _CU_KNN_PARAMS = [
         "sift-128-euclidean",
     ]
     for k in (10, 30)
-    for backend in ("bruteforce", "nn_descent")
+    for backend in ("bruteforce", "nn_descent", "all_neighbors")
 ]
 _CU_KNN_IDS = [
     f"{name}-k{k}-{backend}" for (name, k, backend) in _CU_KNN_PARAMS
@@ -138,12 +138,20 @@ def cu_knn_graph_fixture(request):
     ds_spec = _DATASET_SPECS.get(dataset_name, {})
     metric = ds_spec.get("metric")
 
+    print(
+        f"\n[KNN FIXTURE] Starting KNN computation for {dataset_name}, k={k}, backend={backend}, metric={metric}"
+    )
+
     X_np = _load_dataset(dataset_name)
     X_cp = cp.asarray(X_np)
 
     # Precompute cuVS KNN for the selected backend
     knn_dists_np, knn_inds_np = _build_knn_with_cuvs(
         X_cp, k=k, metric=metric, backend=backend
+    )
+
+    print(
+        f"[KNN FIXTURE] ✓ Completed KNN computation for {dataset_name}, k={k}, backend={backend}"
     )
 
     return {
@@ -166,7 +174,7 @@ def cu_fuzzy_fixture(cu_knn_graph_fixture):
     k = d["k"]
 
     # Skip fuzzy graph/embedding tests for nn_descent backend while retaining it for KNN tests
-    if d.get("backend") == "nn_descent":
+    if d.get("backend") != "bruteforce":
         pytest.skip("Skipping cu_fuzzy_fixture for nn_descent backend")
 
     # cuML fuzzy graph (GPU native + CPU SciPy for ref embedding step) for the selected backend
