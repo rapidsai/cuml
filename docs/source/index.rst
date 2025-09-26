@@ -3,20 +3,21 @@ Welcome to cuML's documentation!
 
 cuML is a suite of fast, GPU-accelerated machine learning algorithms
 designed for data science and analytical tasks. Our API mirrors scikit-learn,
-and we provide practitioners with the easy fit-predict-transform paradigm
-without ever having to program on a GPU. With `cuml.accel`, cuML can also
+providing practitioners with the familiar fit-predict-transform paradigm
+without requiring GPU programming expertise. With `cuml.accel`, cuML can also
 automatically accelerate existing code with zero code changes.
 
-cuML delivers **10-50x faster performance** than CPU-based alternatives for
-realistic workloads and supports **50+ algorithms** across all major machine
-learning categories, including clustering, regression, classification,
-dimensionality reduction, and time series analysis. With comprehensive
-**multi-GPU and multi-node support** via Dask, cuML scales from single
-workstations to large clusters.
+cuML delivers on average **10-50x faster performance** than CPU-based
+alternatives for realistic workloads and supports **50+ algorithms** across all
+major machine learning categories, including clustering, regression,
+classification, dimensionality reduction, and time series analysis. With
+comprehensive **multi-GPU and multi-node support** via Dask, cuML scales from
+single workstations to large clusters.
 
-As data gets larger, algorithms running on a CPU become slow and cumbersome.
-RAPIDS provides users a streamlined approach where data is initially loaded
-in the GPU, and compute tasks can be performed on it directly.
+Especially if your scikit-learn, umap-learn, or hdbscan workflows take many
+minutes to complete, you will likely benefit from using cuML. The equivalent
+cuML estimators often run in seconds.
+
 
 Quick Start
 ===========
