@@ -30,16 +30,15 @@ cuML estimators look and feel just like `scikit-learn estimators
 
    from cuml import LinearRegression
    from cuml.datasets import make_regression
-   import numpy as np
+   from cuml.model_selection import train_test_split
 
    # Generate sample data directly in GPU memory
    X, y = make_regression(n_samples=1000, n_features=4, noise=0.1, random_state=42)
 
-   # Split data (same as sklearn)
-   from sklearn.model_selection import train_test_split
-   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+   # Split data into train and test datasets
+   X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
-   # Fit model (same API as sklearn)
+   # Fit model
    model = LinearRegression()
    model.fit(X_train, y_train)
 
