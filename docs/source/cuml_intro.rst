@@ -91,13 +91,18 @@ GPU-Accelerated Performance
 
 .. _be-fast:
 
-cuML delivers on average **10-50x performance improvements** through:
+cuML transforms slow, CPU-bound machine learning workflows into fast, interactive
+experiences. What takes minutes or hours on the CPU often completes in seconds
+on the GPU, enabling real-time experimentation and rapid iteration. On average,
+you can expect **10-50x performance improvements** on demanding workflows. cuML
+delivers this performance through:
 
 * **Highly-optimized CUDA primitives** and algorithms
 * **GPU-accelerated implementations** designed for modern hardware
 * **Efficient memory management** and data movement
 
 Performance gains vary by algorithm and dataset size:
+
 * **4x faster** for medium-sized linear regression
 * **1000x+ faster** for large-scale t-SNE dimensionality reduction
 * **Scaling benefits** increase with larger datasets
