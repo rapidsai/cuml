@@ -34,11 +34,14 @@ void run(int m,
          raft::sparse::COO<T>* coo,
          UMAPParams* params,
          T* embedding,
+         int n_epochs,
          cudaStream_t stream,
          int algorithm = 0)
 {
   switch (algorithm) {
-    case 0: SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(m, n, coo, params, embedding, stream);
+    case 0:
+      SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(
+        m, n, coo, params, embedding, n_epochs, stream);
   }
 }
 }  // namespace SimplSetEmbed

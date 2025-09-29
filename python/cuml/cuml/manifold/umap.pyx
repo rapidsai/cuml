@@ -46,8 +46,13 @@ from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
 from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
-from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
+from cuml.manifold.umap_utils import (
+    HostGraphHolder,
+    coerce_metric,
+    find_ab_params,
+)
 
+from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
@@ -66,7 +71,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              float * knn_dists,
              UMAPParams * params,
              float * embeddings,
-             COO * graph) except +
+             cppHostCOO & graph) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -80,7 +85,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                     float * knn_dists,
                     UMAPParams *params,
                     float *embeddings,
-                    COO * graph) except +
+                    cppHostCOO & graph) except +
 
     void transform(handle_t & handle,
                    float * X,
@@ -481,7 +486,7 @@ class UMAP(Base,
 
         return {
             "embedding_": to_gpu(model.embedding_, order="C"),
-            "graph_": cupyx.scipy.sparse.coo_matrix(model.graph_),
+            "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
             "sparse_fit": model._sparse_data,
@@ -507,7 +512,7 @@ class UMAP(Base,
 
         return {
             "embedding_": to_cpu(self.embedding_),
-            "graph_": self.graph_.get().tocsr(),
+            "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
             "_raw_data": raw_data,
             "_input_hash": input_hash,
@@ -900,7 +905,7 @@ class UMAP(Base,
 
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
-        fss_graph = GraphHolder.new_graph(handle_.get_stream())
+        fss_graph = HostGraphHolder.new_graph()
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> self._build_umap_params(
                                                            self.sparse_fit)
@@ -917,8 +922,7 @@ class UMAP(Base,
                        <float*> _knn_dists_ptr,
                        <UMAPParams*> umap_params,
                        <float*> _embed_raw_ptr,
-                       <COO*> fss_graph.get())
-
+                       dereference(fss_graph.ref()))
         else:
             fit(handle_[0],
                 <float*><uintptr_t> self._raw_data.ptr,
@@ -929,9 +933,10 @@ class UMAP(Base,
                 <float*> _knn_dists_ptr,
                 <UMAPParams*>umap_params,
                 <float*>_embed_raw_ptr,
-                <COO*> fss_graph.get())
+                dereference(fss_graph.ref()))
 
-        self.graph_ = fss_graph.get_cupy_coo()
+        self.graph_ = fss_graph.get_scipy_coo()
+        del fss_graph
 
         self.handle.sync()
 

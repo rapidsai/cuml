@@ -232,6 +232,15 @@ def test_spectral_embedding_invalid_affinity():
         spectral_embedding(X, affinity="oops!")
 
 
+@pytest.mark.parametrize("value", [float("inf"), float("nan")])
+@pytest.mark.parametrize("affinity", ["nearest_neighbors", "precomputed"])
+def test_spectral_embedding_nonfinite(value, affinity):
+    X = np.array([[0, 1], [2, 3], [0, value]], dtype="float32")
+
+    with pytest.raises(ValueError, match="nonfinite"):
+        spectral_embedding(X, affinity=affinity)
+
+
 @pytest.mark.parametrize(
     "input_type,expected_type",
     [
