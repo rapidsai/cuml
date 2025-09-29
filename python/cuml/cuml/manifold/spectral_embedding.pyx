@@ -302,7 +302,7 @@ class SpectralEmbedding(Base,
     (100, 2)
     """
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
-    embedding_ = CumlArrayDescriptor()
+    embedding_ = CumlArrayDescriptor(order="F")
 
     def __init__(self, n_components=2, affinity="nearest_neighbors",
                  random_state=None, n_neighbors=None,
@@ -345,15 +345,15 @@ class SpectralEmbedding(Base,
 
     def _attrs_from_cpu(self, model):
         return {
-            "n_neighbors_": to_gpu(model.n_neighbors_),
-            "embedding_": to_gpu(model.embedding_),
+            "n_neighbors_": model.n_neighbors_,
+            "embedding_": to_gpu(model.embedding_, order="F"),
             **super()._attrs_from_cpu(model)
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "n_neighbors_": to_cpu(self.n_neighbors_),
-            "embedding_": to_cpu(self.embedding_),
+            "n_neighbors_": self.n_neighbors_,
+            "embedding_": to_cpu(self.embedding_, order="F"),
             **super()._attrs_to_cpu(model),
         }
 
