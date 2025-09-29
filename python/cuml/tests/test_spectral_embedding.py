@@ -18,9 +18,15 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
 import scipy.sparse as sp
-from sklearn.datasets import load_digits, make_s_curve, make_swiss_roll
+from sklearn.datasets import (
+    load_digits,
+    make_circles,
+    make_s_curve,
+    make_swiss_roll,
+)
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
+from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
@@ -348,3 +354,18 @@ def test_precomputed_matrix_formats(converter, dtype):
     min_trust = 0.8
     assert trust_class > min_trust
     assert trust_func > min_trust
+
+
+def test_precomputed_no_sparsity():
+    """This test ensures that embedding works in the rare case where affinity is 0% sparse."""
+    X, y = make_circles(n_samples=200, noise=0.1, factor=0.3, random_state=42)
+    distances = pairwise_distances(X)
+    gamma = 1.0
+    affinity_matrix = np.exp(-gamma * distances**2)
+    affinity_matrix = sp.coo_matrix(affinity_matrix)
+
+    embedding_precomp = SpectralEmbedding(
+        n_components=2, affinity="precomputed", random_state=42
+    )
+    out = embedding_precomp.fit_transform(affinity_matrix)
+    assert out.shape == (200, 2)
