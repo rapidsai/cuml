@@ -26,7 +26,6 @@ import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 import umap
-from cuvs.neighbors import all_neighbors, nn_descent
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -44,6 +43,8 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
+
+cuvs = pytest.importorskip("cuvs")
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
@@ -931,21 +932,23 @@ def test_umap_outliers():
     k = 15
     n_rows = 50_000
 
+    # This dataset was specifically chosen because UMAP produces outliers
+    # on this dataset before the outlier fix.
     data, _ = make_moons(n_samples=n_rows, noise=0.0, random_state=42)
     data = data.astype(np.float32)
 
     # precompute knn for faster testing with CPU UMAP
-    nn_descent_params = nn_descent.IndexParams(
+    nn_descent_params = cuvs.nn_descent.IndexParams(
         metric="euclidean",
         graph_degree=k,
         intermediate_graph_degree=k * 2,
     )
-    params = all_neighbors.AllNeighborsParams(
+    params = cuvs.all_neighbors.AllNeighborsParams(
         algo="nn_descent",
         metric="euclidean",
         nn_descent_params=nn_descent_params,
     )
-    indices, distances = all_neighbors.build(
+    indices, distances = cuvs.all_neighbors.build(
         data,
         k,
         params,
@@ -964,6 +967,8 @@ def test_umap_outliers():
     cpu_umap = umap.UMAP(precomputed_knn=(indices, distances), init="spectral")
     cpu_umap_embeddings = cpu_umap.fit_transform(data)
 
+    # test to see if there are values in the final embedding that are too out of range
+    # compared to the cpu umap output.
     lower_bound = 2 * cpu_umap_embeddings.min()
     upper_bound = 2 * cpu_umap_embeddings.max()
 

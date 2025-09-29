@@ -21,11 +21,13 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/linalg/init.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -202,11 +204,11 @@ CUML_KERNEL void compute_degrees_kernel(const int* rows, nnz_t nnz, int* degrees
 CUML_KERNEL void check_threshold_kernel(const int* degrees,
                                         int n_vertices,
                                         int threshold,
-                                        int* flag)
+                                        bool* flag)
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n_vertices) {
-    if (degrees[i] > threshold) { *flag = 1; }
+    if (degrees[i] > threshold) { *flag = true; }
   }
 }
 
@@ -214,22 +216,20 @@ template <typename nnz_t, int TPB_X>
 bool check_outliers(const int* rows, int m, nnz_t nnz, int threshold, cudaStream_t stream)
 {
   rmm::device_uvector<int> graph_degree_head(m, stream);
-  cudaMemset(graph_degree_head.data(), 0, m * sizeof(int));
+  raft::linalg::zero(graph_degree_head.data(), m, stream);
 
   dim3 grid_nnz(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   compute_degrees_kernel<<<grid_nnz, blk, 0, stream>>>(rows, nnz, graph_degree_head.data());
 
-  rmm::device_uvector<int> has_outlier_d(1, stream);
-  cudaMemset(has_outlier_d.data(), 0, sizeof(int));
+  rmm::device_scalar<bool> has_outlier_d(0, stream);  // initialize to 0
 
   dim3 grid_head_n(raft::ceildiv(static_cast<nnz_t>(m), static_cast<nnz_t>(TPB_X)), 1, 1);
   check_threshold_kernel<<<grid_head_n, blk, 0, stream>>>(
     graph_degree_head.data(), m, threshold, has_outlier_d.data());
-
-  int has_outlier_h = 0;
-  raft::copy(&has_outlier_h, has_outlier_d.data(), 1, stream);
-  return static_cast<bool>(has_outlier_h);
+  cudaStreamSynchronize(stream);
+  bool has_outlier_h = has_outlier_d.value(stream);
+  return has_outlier_h;
 }
 
 /**
@@ -277,7 +277,7 @@ void optimize_layout(T* head_embedding,
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier || !params->deterministic) {
+  if (has_outlier) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
