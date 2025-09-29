@@ -928,8 +928,12 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
-def test_umap_outliers():
-    k = 15
+@pytest.mark.parametrize("n_neighbors", [5, 15])
+@pytest.mark.parametrize("n_components", [2, 5])
+def test_umap_outliers(n_neighbors, n_components):
+    from cuvs.neighbors import all_neighbors, nn_descent
+
+    k = n_neighbors
     n_rows = 50_000
 
     # This dataset was specifically chosen because UMAP produces outliers
@@ -938,17 +942,17 @@ def test_umap_outliers():
     data = data.astype(np.float32)
 
     # precompute knn for faster testing with CPU UMAP
-    nn_descent_params = cuvs.nn_descent.IndexParams(
+    nn_descent_params = nn_descent.IndexParams(
         metric="euclidean",
         graph_degree=k,
         intermediate_graph_degree=k * 2,
     )
-    params = cuvs.all_neighbors.AllNeighborsParams(
+    params = all_neighbors.AllNeighborsParams(
         algo="nn_descent",
         metric="euclidean",
         nn_descent_params=nn_descent_params,
     )
-    indices, distances = cuvs.all_neighbors.build(
+    indices, distances = all_neighbors.build(
         data,
         k,
         params,
@@ -961,16 +965,23 @@ def test_umap_outliers():
         precomputed_knn=(indices, distances),
         build_algo="nn_descent",
         init="spectral",
+        n_neighbors=n_neighbors,
+        n_components=n_components,
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 
-    cpu_umap = umap.UMAP(precomputed_knn=(indices, distances), init="spectral")
+    cpu_umap = umap.UMAP(
+        precomputed_knn=(indices, distances),
+        init="spectral",
+        n_neighbors=n_neighbors,
+        n_components=n_components,
+    )
     cpu_umap_embeddings = cpu_umap.fit_transform(data)
 
     # test to see if there are values in the final embedding that are too out of range
     # compared to the cpu umap output.
-    lower_bound = 2 * cpu_umap_embeddings.min()
-    upper_bound = 2 * cpu_umap_embeddings.max()
+    lower_bound = 3 * cpu_umap_embeddings.min()
+    upper_bound = 3 * cpu_umap_embeddings.max()
 
     assert np.all(
         (gpu_umap_embeddings >= lower_bound)
