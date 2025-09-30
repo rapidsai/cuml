@@ -186,7 +186,8 @@ def _get_rs(rs):
             rs.randint(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
         )
         return cp.random.RandomState(seed)
-    raise TypeError(f"Invalid type for random state: {type(rs)}")
+
+    _check_rs_type(rs)
 
 
 def _check_rs_type(rs):
@@ -201,7 +202,7 @@ def _check_rs_type(rs):
             cp.random.Generator,
         ),
     ):
-        raise ValueError(
+        raise TypeError(
             f"random_state {rs} should an integer/"
             f"/{type(np.random.Generator)}/{type(np.random.RandomState)}"
             f"/{type(cp.random.Generator)}/{type(cp.random.RandomState)}"
