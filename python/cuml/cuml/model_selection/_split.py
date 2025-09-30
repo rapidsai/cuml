@@ -14,7 +14,8 @@
 #
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from abc import ABC, abstractmethod
+from typing import Any, Generator, List, Optional, Tuple, Union
 
 import cudf
 import cupy as cp
@@ -376,7 +377,10 @@ def train_test_split(
             stratify, *_ = input_to_cuml_array(stratify)
             stratify = stratify[idxs]
 
-            (train_indices, test_indices,) = _compute_stratify_split_indices(
+            (
+                train_indices,
+                test_indices,
+            ) = _compute_stratify_split_indices(
                 idxs,
                 stratify,
                 train_size,
