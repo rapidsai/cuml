@@ -44,8 +44,6 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-cuvs = pytest.importorskip("cuvs")
-
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
 
@@ -931,7 +929,8 @@ def test_umap_small_fit_large_transform():
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
-    from cuvs.neighbors import all_neighbors, nn_descent
+    all_neighbors = pytest.importorskip("cuvs.neighbors.all_neighbors")
+    nn_descent = pytest.importorskip("cuvs.neighbors.nn_descent")
 
     k = n_neighbors
     n_rows = 50_000
