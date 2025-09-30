@@ -112,16 +112,16 @@ Interactive tool for UMAP embedding quality assessment and implementation compar
 
 ```bash
 # Quality assessment with web report
-python run_umap_debug.py --implementation cuml --dataset "Swiss Roll" --web-report
+python python/cuml/cuml/testing/manifold/run_umap_debug.py --implementation cuml --dataset "Swiss Roll" --web-report
 
 # Compare cuML vs reference implementation
-python run_umap_debug.py --implementation both --dataset "Swiss Roll" --web-report
+python python/cuml/cuml/testing/manifold/run_umap_debug.py --implementation both --dataset "Swiss Roll" --web-report
 
 # Quick quality check (no web report)
-python run_umap_debug.py --dataset "Swiss Roll" --implementation cuml
+python python/cuml/cuml/testing/manifold/run_umap_debug.py --dataset "Swiss Roll" --implementation cuml
 
 # List available datasets
-python run_umap_debug.py --list-datasets
+python python/cuml/cuml/testing/manifold/run_umap_debug.py --list-datasets
 ```
 
 ### Quality Metrics Library (`umap_metrics.py`)
