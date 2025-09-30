@@ -13,16 +13,63 @@
 # limitations under the License.
 from __future__ import annotations
 
-import os
 import sys
 from collections import defaultdict
 from contextlib import contextmanager
+from functools import cache
 from time import perf_counter
 from typing import Iterator
 
 from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = ("profile", "ProfileResults", "MethodStats")
+
+
+@cache
+def get_syntax_theme():
+    """Get our custom syntax theme.
+
+    Defined as a local cached function to avoid the `rich` import until needed."""
+    from pygments.token import Token
+    from rich.style import Style
+    from rich.syntax import SyntaxTheme
+
+    class Theme(SyntaxTheme):
+        """A syntax theme approximating the default syntax used to highlight
+        in Jupyter notebooks. This works well in both light and dark terminals,
+        as well as in light & dark themed notebooks. Only ascii colors and simple
+        styles are used, making this broadly applicable"""
+
+        styles = {
+            Token.Keyword.Namespace: Style(color="green", bold=True),
+            Token.Operator.Word: Style(color="green", bold=True),
+            Token.Keyword: Style(color="green", bold=True),
+            Token.Comment: Style(dim=True),
+            Token.Name.Builtin: Style(color="green"),
+            Token.Keyword.Constant: Style(color="green"),
+            Token.Literal.Number: Style(color="green"),
+            Token.Literal.String: Style(color="red"),
+        }
+
+        @cache
+        def get_style_for_token(self, token_type):
+            # Tokens are hierarchical and singletons. We traverse upwards,
+            # applying the first style found that matches and cache the result
+            # to avoid doing this again.
+            token = token_type
+            while token:
+                try:
+                    return self.styles[token]
+                except KeyError:
+                    pass
+                token = token[:-1]
+            # Default
+            return Style.null()
+
+        def get_background_style(self):
+            return Style.null()
+
+    return Theme()
 
 
 class Callback:
@@ -255,32 +302,18 @@ class ProfileResults(Callback):
         from rich.style import Style
         from rich.table import Table
 
-        console = Console()
-
-        base_style = Style.parse(os.getenv("CUML_ACCEL_PROFILER_STYLE", ""))
-
         table = Table(
-            style=base_style,
             title="cuml.accel profile",
             title_justify="left",
-            title_style=base_style + Style(bold=True),
-            caption_style=base_style,
+            title_style=Style(bold=True),
+            caption_style=Style(),
             caption_justify="left",
-            header_style=base_style,
         )
-        table.add_column("Function", no_wrap=True, style=base_style)
-        table.add_column(
-            "GPU calls", justify="right", no_wrap=True, style=base_style
-        )
-        table.add_column(
-            "GPU time", justify="right", no_wrap=True, style=base_style
-        )
-        table.add_column(
-            "CPU calls", justify="right", no_wrap=True, style=base_style
-        )
-        table.add_column(
-            "CPU time", justify="right", no_wrap=True, style=base_style
-        )
+        table.add_column("Function", no_wrap=True)
+        table.add_column("GPU calls", justify="right", no_wrap=True)
+        table.add_column("GPU time", justify="right", no_wrap=True)
+        table.add_column("CPU calls", justify="right", no_wrap=True)
+        table.add_column("CPU time", justify="right", no_wrap=True)
 
         fallbacks = []
         gpu_calls = cpu_calls = gpu_total_time = cpu_total_time = 0
@@ -309,8 +342,6 @@ class ProfileResults(Callback):
             format_duration(cpu_total_time),
         )
 
-        console.print(table)
-
         if fallbacks:
             parts = [
                 (
@@ -322,7 +353,9 @@ class ProfileResults(Callback):
                 parts.append(f"* {function}")
                 for reason in sorted(reasons):
                     parts.append(f"  - {reason}")
-            console.print("\n".join(parts), highlight=False, style=base_style)
+            table.caption = "\n".join(parts)
+
+        Console().print(table)
 
 
 class LineStats:
@@ -475,27 +508,21 @@ class LineProfiler(Callback):
 
         gpu_percent = 100 * self.total_gpu_time / self.total_time
 
-        base_style = Style.parse(os.getenv("CUML_ACCEL_PROFILER_STYLE", ""))
+        syntax_theme = get_syntax_theme()
 
         table = Table(
-            style=base_style,
             title="cuml.accel line profile",
             title_justify="left",
-            title_style=base_style + Style(bold=True),
+            title_style=Style(bold=True),
             caption=f"Ran in {format_duration(self.total_time)}, {gpu_percent:.1f}% on GPU",
-            caption_style=base_style,
+            caption_style=Style(),
             caption_justify="left",
-            header_style=base_style,
         )
-        table.add_column("#", justify="right", no_wrap=True, style=base_style)
-        table.add_column("N", justify="right", no_wrap=True, style=base_style)
-        table.add_column(
-            "Time", justify="right", no_wrap=True, style=base_style
-        )
-        table.add_column(
-            "GPU %", justify="right", no_wrap=True, style=base_style
-        )
-        table.add_column("Source", justify="left", style=base_style)
+        table.add_column("#", justify="right", no_wrap=True)
+        table.add_column("N", justify="right", no_wrap=True)
+        table.add_column("Time", justify="right", no_wrap=True)
+        table.add_column("GPU %", justify="right", no_wrap=True)
+        table.add_column("Source", justify="left")
 
         # We always display the time for GPU/CPU fallback lines. For non-accel-related
         # lines, we only display the time if it was "long enough". By default this is
@@ -533,6 +560,6 @@ class LineProfiler(Callback):
             table.add_row(
                 str(lineno),
                 *row,
-                Syntax(line, "python", theme="ansi_light"),
+                Syntax(line, "python", theme=syntax_theme),
             )
         Console().print(table)
