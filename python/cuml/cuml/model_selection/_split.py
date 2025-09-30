@@ -532,13 +532,10 @@ class StratifiedKFold(_KFoldBase):
     ----------
     n_splits : int, default=5
         Number of folds. Must be at least 2.
-
     shuffle : boolean, default=False
         Whether to shuffle each class's samples before splitting.
-
-    random_state : int, CuPy RandomState or NumPy RandomState optional
-        If shuffle is true, seeds the generator. Unseeded by default.  Pass an int for
-        reproducible output across multiple function calls.
+    random_state : int (default=None)
+        Random seed
 
     Examples
     --------
