@@ -22,6 +22,11 @@ These tools enable **rigorous implementation comparison** and provide detailed a
 
 The following dependencies are **NOT** present in the conda environment and need to be installed separately:
 
+#### Required for Nearest Neighbors search
+```bash
+conda install -c rapidsai cuvs
+```
+
 #### Required for Geodesic Distance Computation
 ```bash
 conda install -c rapidsai cugraph
