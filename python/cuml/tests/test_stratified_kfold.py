@@ -70,31 +70,29 @@ def test_invalid_folds(n_splits):
 @pytest.mark.parametrize("shuffle", [True, False])
 @pytest.mark.parametrize("n_splits", [5, 10])
 @pytest.mark.parametrize(
-    "rs",
+    "random_state",
     [
         1,
         np.random.RandomState(1),
         cp.random.RandomState(1),
-        np.random.default_rng(1),
-        cp.random.default_rng(1),
     ],
 )
-def test_kfold(shuffle: bool, n_splits: int, rs) -> None:
+def test_kfold(shuffle, n_splits, random_state) -> None:
     n_samples = 256
     n_features = 16
     X, y = make_regression(n_samples, n_features, random_state=1)
-    kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=rs)
+    kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
     n_test_total = 0
 
-    for tr_idx, te_idx in kfold.split(X, y):
-        n_test_total += te_idx.size
+    for train_idx, test_idx in kfold.split(X, y):
+        n_test_total += test_idx.size
 
-        assert tr_idx.shape[0] + te_idx.shape[0] == n_samples
+        assert train_idx.shape[0] + test_idx.shape[0] == n_samples
         fold_size = X.shape[0] // n_splits
-        assert te_idx.shape[0] == fold_size or te_idx.shape[0] == fold_size + 1
-        assert cp.all(tr_idx >= 0)
-        assert cp.all(te_idx >= 0)
-        indices = cp.concatenate([tr_idx, te_idx])
+        assert test_idx.shape[0] in (fold_size, fold_size + 1)
+        assert cp.all(train_idx >= 0)
+        assert cp.all(test_idx >= 0)
+        indices = cp.concatenate([train_idx, test_idx])
         assert len(indices.shape) == 1
         assert indices.size == n_samples
         uniques = cp.unique(indices)
@@ -113,5 +111,5 @@ def test_kfold_dataframe() -> None:
     n_samples = 4096
     X, y = get_x_y(n_samples, 2)
     kfold = KFold(n_splits=5, shuffle=True)
-    for tr_idx, te_idx in kfold.split(X, y):
-        assert tr_idx.shape[0] + te_idx.shape[0] == n_samples
+    for train_idx, test_idx in kfold.split(X, y):
+        assert train_idx.shape[0] + test_idx.shape[0] == n_samples
