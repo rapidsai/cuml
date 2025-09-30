@@ -498,7 +498,9 @@ class KFold(_KFoldBase):
         indices = cp.arange(n_samples)
 
         if self.shuffle:
-            cp.random.RandomState(check_random_seed(self.seed)).shuffle(indices)
+            cp.random.RandomState(check_random_seed(self.seed)).shuffle(
+                indices
+            )
 
         fold_sizes = cp.full(
             self.n_splits, n_samples // self.n_splits, dtype=cp.int64
