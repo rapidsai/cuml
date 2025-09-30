@@ -361,9 +361,9 @@ def _convert_to_cudf(data):
     elif isinstance(data, (cudf.DataFrame, cudf.Series)):
         return data
     elif isinstance(data, pd.DataFrame):
-        return cudf.DataFrame.from_pandas(data)
+        return cudf.DataFrame(data)
     elif isinstance(data, pd.Series):
-        return cudf.Series.from_pandas(data)
+        return cudf.Series(data)
     elif isinstance(data, np.ndarray):
         data = np.squeeze(data)
         if data.ndim == 1:
@@ -411,11 +411,9 @@ def _convert_to_gpuarray(data, order="F"):
     elif isinstance(data, tuple):
         return tuple([_convert_to_gpuarray(d, order=order) for d in data])
     elif isinstance(data, pd.DataFrame):
-        return _convert_to_gpuarray(
-            cudf.DataFrame.from_pandas(data), order=order
-        )
+        return _convert_to_gpuarray(cudf.DataFrame(data), order=order)
     elif isinstance(data, pd.Series):
-        gs = cudf.Series.from_pandas(data)
+        gs = cudf.Series(data)
         return cuda.as_cuda_array(gs)
     else:
         return input_utils.input_to_cuml_array(data, order=order)[0].to_output(
@@ -575,10 +573,8 @@ def gen_data(
         if n_features == 0:
             n_features = X.shape[1]
 
-        X_df = cudf.DataFrame.from_pandas(
-            X.iloc[0:n_samples, 0:n_features].astype(dtype)
-        )
-        y_df = cudf.Series.from_pandas(y.iloc[0:n_samples].astype(dtype))
+        X_df = cudf.DataFrame(X.iloc[0:n_samples, 0:n_features].astype(dtype))
+        y_df = cudf.Series(y.iloc[0:n_samples].astype(dtype))
 
     data = (X_df, y_df)
     if test_fraction != 0.0:
