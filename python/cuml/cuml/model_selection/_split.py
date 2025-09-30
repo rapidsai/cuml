@@ -377,10 +377,7 @@ def train_test_split(
             stratify, *_ = input_to_cuml_array(stratify)
             stratify = stratify[idxs]
 
-            (
-                train_indices,
-                test_indices,
-            ) = _compute_stratify_split_indices(
+            (train_indices, test_indices,) = _compute_stratify_split_indices(
                 idxs,
                 stratify,
                 train_size,
