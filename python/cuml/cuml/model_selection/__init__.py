@@ -21,7 +21,7 @@ is due to the scikit-learn developers."""
 
 from cuml.model_selection._split import StratifiedKFold, train_test_split
 
-__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold"]
+__all__ = ["train_test_split", "KFold", "GridSearchCV", "StratifiedKFold"]
 
 
 def __getattr__(name):
