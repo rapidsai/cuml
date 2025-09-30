@@ -18,6 +18,51 @@ These tools provide **standardized metrics** to evaluate how well your UMAP embe
 
 These tools enable **rigorous implementation comparison** and provide detailed algorithmic insights including **accuracy benchmarking**, **pipeline debugging**, and **topological analysis** using persistent homology.
 
+## Necessary Dependencies
+
+The following dependencies are **NOT** present in the conda environment and need to be installed separately:
+
+#### Required for Geodesic Distance Computation
+```bash
+conda install -c rapidsai cugraph
+```
+
+#### Required for Topology Preservation Metrics
+```bash
+pip install ripser
+```
+
+#### Required for Web Report Generation
+```bash
+pip install plotly
+```
+
+## Data Requirements
+
+### Real Dataset Testing
+
+Most of the tests require datasets to be present on disk.
+
+Please first download them,
+```bash
+conda install -c rapidsai cuvs-bench
+python -m cuvs_bench.get_dataset --dataset deep-image-96-angular --normalize
+python -m cuvs_bench.get_dataset --dataset fashion-mnist-784-euclidean --normalize
+python -m cuvs_bench.get_dataset --dataset gist-960-euclidean --normalize
+python -m cuvs_bench.get_dataset --dataset glove-25-angular --normalize
+python -m cuvs_bench.get_dataset --dataset mnist-784-euclidean --normalize
+python -m cuvs_bench.get_dataset --dataset sift-128-euclidean --normalize
+```
+
+Then, allow the datasets to be found by setting the `DATASET_DIR` environment variable:
+```bash
+export DATASET_DIR=/path/to/benchmark/datasets
+```
+
+Expected dataset format:
+- Binary files with `.fbin` extension for base vectors
+- Datasets should follow the standard ANN benchmark format
+
 ## Files Description
 
 ### Core Testing Files
@@ -127,36 +172,3 @@ Creates interactive HTML reports with:
 - **Spectral Initialization Plots**: Visualization of initial embedding states
 - **Quality Metrics Tables**: Comprehensive metric comparisons
 - **Implementation Comparisons**: Side-by-side reference vs cuML analysis
-
-## Missing Dependencies
-
-The following dependencies are **NOT** present in the conda environment and need to be installed separately:
-
-#### Required for Geodesic Distance Computation
-```bash
-conda install -c rapidsai-nightly cugraph
-```
-
-#### Required for Topology Preservation Metrics
-```bash
-pip install ripser
-```
-
-#### Required for Web Report Generation
-```bash
-pip install plotly
-```
-
-## Data Requirements
-
-### Real Dataset Testing
-
-For tests using real benchmark datasets, set the `DATASET_DIR` environment variable:
-
-```bash
-export DATASET_DIR=/path/to/benchmark/datasets
-```
-
-Expected dataset format:
-- Binary files with `.fbin` extension for base vectors
-- Datasets should follow the standard ANN benchmark format
