@@ -81,7 +81,9 @@ def test_kfold(shuffle, n_splits, random_state) -> None:
     n_samples = 256
     n_features = 16
     X, y = make_regression(n_samples, n_features, random_state=1)
-    kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+    kfold = KFold(
+        n_splits=n_splits, shuffle=shuffle, random_state=random_state
+    )
     n_test_total = 0
 
     for train_idx, test_idx in kfold.split(X, y):
