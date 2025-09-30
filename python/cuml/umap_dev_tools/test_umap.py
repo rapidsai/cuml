@@ -27,6 +27,16 @@ from scipy.sparse import csr_matrix
 from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
+from umap_metrics import (
+    _build_knn_with_cuvs,
+    _build_knn_with_umap,
+    compare_spectral_embeddings,
+    compute_fuzzy_js_divergence,
+    compute_fuzzy_simplicial_set_metrics,
+    compute_knn_metrics,
+    compute_simplicial_set_embedding_metrics,
+    procrustes_rmse,
+)
 
 import cuml.datasets
 
@@ -36,16 +46,6 @@ from cuml.manifold.simpl_set import (
 )
 from cuml.manifold.simpl_set import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
-)
-from cuml.testing.manifold.umap_metrics import (
-    _build_knn_with_cuvs,
-    _build_knn_with_umap,
-    compare_spectral_embeddings,
-    compute_fuzzy_js_divergence,
-    compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
-    compute_simplicial_set_embedding_metrics,
-    procrustes_rmse,
 )
 
 pytestmark = [pytest.mark.slow]
