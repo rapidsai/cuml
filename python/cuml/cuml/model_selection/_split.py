@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generator, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import cudf
 import cupy as cp
@@ -28,6 +28,7 @@ from cuml.internals.input_utils import (
     determine_df_obj_type,
 )
 from cuml.internals.output_utils import output_to_df_obj_like
+from cuml.internals.utils import check_random_seed
 
 
 def _compute_stratify_split_indices(
@@ -167,46 +168,6 @@ def _approximate_mode(class_counts, n_draws, rng):
             if need_to_add == 0:
                 break
     return floored.astype(int)
-
-
-def _get_rs(rs):
-    """Get a `cupy.random.RandomState` given a user provided `random_state` parameter."""
-    # int | None
-    if rs is None or isinstance(rs, int):
-        return cp.random.RandomState(rs)
-    # Generator
-    if isinstance(rs, (np.random.Generator, cp.random.Generator)):
-        seed = int(
-            rs.integers(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
-        )
-        return cp.random.RandomState(seed)
-    # RandomState
-    if isinstance(rs, (np.random.RandomState, cp.random.RandomState)):
-        seed = int(
-            rs.randint(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
-        )
-        return cp.random.RandomState(seed)
-
-    _check_rs_type(rs)
-
-
-def _check_rs_type(rs):
-    """Check the `random_state` type."""
-    if rs is not None and not isinstance(
-        rs,
-        (
-            int,
-            cp.random.RandomState,
-            np.random.RandomState,
-            np.random.Generator,
-            cp.random.Generator,
-        ),
-    ):
-        raise TypeError(
-            f"random_state {rs} should an integer/"
-            f"/{type(np.random.Generator)}/{type(np.random.RandomState)}"
-            f"/{type(cp.random.Generator)}/{type(cp.random.RandomState)}"
-        )
 
 
 def train_test_split(
@@ -371,7 +332,20 @@ def train_test_split(
         idxs = cp.arange(X_row)
 
         # Compute shuffle indices
-        random_state = _get_rs(random_state)
+        if random_state is None or isinstance(random_state, int):
+            random_state = cp.random.RandomState(seed=random_state)
+
+        elif isinstance(random_state, np.random.RandomState):
+            random_state = cp.random.RandomState(
+                seed=random_state.get_state()[1]
+            )
+
+        elif not isinstance(random_state, cp.random.RandomState):
+            raise TypeError(
+                "`random_state` must be an int, NumPy RandomState \
+                             or CuPy RandomState."
+            )
+
         random_state.shuffle(idxs)
 
         if stratify is not None:
@@ -447,21 +421,14 @@ def train_test_split(
         return X_train, X_test
 
 
-class KFoldBase(ABC):
+class _KFoldBase(ABC):
     """Base class for k-fold split."""
 
-    def __init__(
-        self,
-        n_splits: int = 5,
-        shuffle: bool = False,
-        random_state=None,
-    ):
+    def __init__(self, n_splits=5, shuffle=False, random_state=None):
         if n_splits < 2 or not isinstance(n_splits, int):
             raise ValueError(
                 f"n_splits {n_splits} is not a integer at least 2"
             )
-
-        _check_rs_type(random_state)
 
         self.n_splits = n_splits
         self.shuffle = shuffle
@@ -469,36 +436,57 @@ class KFoldBase(ABC):
 
     @abstractmethod
     def split(self, x, y):
+        """Generate indices to split data into training and test set.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+
+        Yields
+        ------
+        train_idx : CuPy ndarray
+            The training set indices for that split.
+
+        test_idx : CuPy ndarray
+            The testing set indices for that split.
+        """
         raise NotImplementedError()
 
 
-class KFold(KFoldBase):
+class KFold(_KFoldBase):
     """K-Folds cross-validator.
 
-    Provides train/test indices to split data into k folds.
+    Provides train/test indices to split data in train/test sets. Split dataset into k
+    consecutive folds (without shuffling by default).
+
+    Each fold is then used once as a validation set while the k - 1 remaining folds form
+    the training set.
 
     Parameters
     ----------
     n_splits :
         Number of folds. Must be at least 2.
+
     shuffle :
         Whether to shuffle the samples before splitting.
-    random_state : int/Generator/RandomState/None (default=None)
-        Random seed. Ignored if shuffle is False.
+
+    random_state : int, CuPy RandomState or NumPy RandomState optional
+        If shuffle is true, seeds the generator. Unseeded by default.  Pass an int for
+        reproducible output across multiple function calls.
 
     """
 
-    def __init__(
-        self,
-        n_splits: int = 5,
-        shuffle: bool = False,
-        random_state=None,
-    ):
+    def __init__(self, n_splits=5, shuffle=False, random_state=None):
         super().__init__(
             n_splits=n_splits, shuffle=shuffle, random_state=random_state
         )
 
-    def split(self, x, y=None) -> Generator[Tuple[Any, Any], None, None]:
+    def split(self, x, y=None):
         n_samples = x.shape[0]
         if y is not None and n_samples != len(y):
             raise ValueError("Expecting same length of x and y")
@@ -510,7 +498,7 @@ class KFold(KFoldBase):
         indices = cp.arange(n_samples)
 
         if self.shuffle:
-            _get_rs(self.seed).shuffle(indices)
+            cp.random.RandomState(check_random_seed(self.seed)).shuffle(indices)
 
         fold_sizes = cp.full(
             self.n_splits, n_samples // self.n_splits, dtype=cp.int64
@@ -530,7 +518,7 @@ class KFold(KFoldBase):
             current = stop
 
 
-class StratifiedKFold(KFoldBase):
+class StratifiedKFold(_KFoldBase):
     """
     A cudf based implementation of Stratified K-Folds cross-validator.
 
@@ -542,10 +530,13 @@ class StratifiedKFold(KFoldBase):
     ----------
     n_splits : int, default=5
         Number of folds. Must be at least 2.
+
     shuffle : boolean, default=False
         Whether to shuffle each class's samples before splitting.
-    random_state : int (default=None)
-        Random seed
+
+    random_state : int, CuPy RandomState or NumPy RandomState optional
+        If shuffle is true, seeds the generator. Unseeded by default.  Pass an int for
+        reproducible output across multiple function calls.
 
     Examples
     --------
