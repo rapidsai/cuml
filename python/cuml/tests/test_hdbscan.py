@@ -18,6 +18,7 @@ import hdbscan
 import numpy as np
 import pandas as pd
 import pytest
+from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
@@ -1217,3 +1218,29 @@ def test_approximate_predict_output_type():
     with cuml.using_output_type("cupy"):
         out = approximate_predict(model, X2_df)
     assert all(isinstance(val, cp.ndarray) for val in out)
+
+
+@pytest.mark.parametrize("n_clusters", [1, 4, 7])
+@pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
+@pytest.mark.parametrize("do_snmg", [False, True])
+def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg):
+    X, y = make_blobs(
+        n_samples=10_000,
+        n_features=16,
+        centers=10,
+        random_state=42,
+    )
+
+    umap_handle = None
+    if do_snmg:
+        umap_handle = DeviceResourcesSNMG()
+
+    cuml_agg = HDBSCAN(
+        build_algo=build_algo,
+        build_kwds={"knn_n_clusters": n_clusters, "nnd_graph_degree": 32},
+        handle=umap_handle,
+    ).fit(X)
+
+    sk_agg = hdbscan.HDBSCAN().fit(X)
+
+    assert adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.9
