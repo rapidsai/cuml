@@ -231,11 +231,7 @@ def setup_redirects(app, docname):
 
 
 def setup(app):
-    # Override the default cuml.accel profiler style to support both
-    # dark and light mode in rendered jupyter notebooks.
-    os.environ["CUML_ACCEL_PROFILER_STYLE"] = "#333333 on #ffffff"
-
-    app.add_css_file("references.css")
+    app.add_css_file("custom.css")
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
     app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")
     app.connect("build-finished", setup_redirects)
