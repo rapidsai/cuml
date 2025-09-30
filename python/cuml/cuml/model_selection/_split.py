@@ -170,7 +170,7 @@ def _approximate_mode(class_counts, n_draws, rng):
 
 
 def _get_rs(rs):
-    """Get a `RandomState` given a user provided `random_state` parameter."""
+    """Get a `cupy.random.RandomState` given a user provided `random_state` parameter."""
     # int | None
     if rs is None or isinstance(rs, int):
         return cp.random.RandomState(rs)

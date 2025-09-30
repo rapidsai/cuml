@@ -105,3 +105,13 @@ def test_kfold(shuffle: bool, n_splits: int, rs) -> None:
         cp.testing.assert_allclose(sorted_uniques, arr)
 
     assert n_test_total == n_samples
+
+
+# Since the kfold only uses the shape of the input, not the actual data, we only have a
+# small test for dataframe.
+def test_kfold_dataframe() -> None:
+    n_samples = 4096
+    X, y = get_x_y(n_samples, 2)
+    kfold = KFold(n_splits=5, shuffle=True)
+    for tr_idx, te_idx in kfold.split(X, y):
+        assert tr_idx.shape[0] + te_idx.shape[0] == n_samples
