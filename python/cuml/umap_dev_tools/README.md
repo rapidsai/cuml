@@ -96,7 +96,7 @@ This file contains tests for real-world datasets commonly used in nearest neighb
 #### Running Tests
 
 ```bash
-DATASET_DIR=datasets pytest python/cuml/cuml/testing/manifold/test_umap.py -v
+DATASET_DIR=datasets pytest python/cuml/umap_dev_tools/test_umap.py -v
 ```
 
 ### Embedding Quality Assessment (`run_umap_debug.py`)
@@ -112,16 +112,16 @@ Interactive tool for UMAP embedding quality assessment and implementation compar
 
 ```bash
 # Quality assessment with web report
-python python/cuml/cuml/testing/manifold/run_umap_debug.py --implementation cuml --dataset "Swiss Roll" --web-report
+python python/cuml/umap_dev_tools/run_umap_debug.py --implementation cuml --dataset "Swiss Roll" --web-report
 
 # Compare cuML vs reference implementation
-python python/cuml/cuml/testing/manifold/run_umap_debug.py --implementation both --dataset "Swiss Roll" --web-report
+python python/cuml/umap_dev_tools/run_umap_debug.py --implementation both --dataset "Swiss Roll" --web-report
 
 # Quick quality check (no web report)
-python python/cuml/cuml/testing/manifold/run_umap_debug.py --dataset "Swiss Roll" --implementation cuml
+python python/cuml/umap_dev_tools/run_umap_debug.py --dataset "Swiss Roll" --implementation cuml
 
 # List available datasets
-python python/cuml/cuml/testing/manifold/run_umap_debug.py --list-datasets
+python python/cuml/umap_dev_tools/run_umap_debug.py --list-datasets
 ```
 
 ### Quality Metrics Library (`umap_metrics.py`)
