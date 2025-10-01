@@ -38,6 +38,8 @@ def test_split_dataframe(n_samples, n_classes, n_splits, shuffle):
     X, y = get_x_y(n_samples, n_classes)
 
     kf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle)
+    assert kf.get_n_splits(X, y) == kf.get_n_splits() == n_splits
+
     for train_index, test_index in kf.split(X, y):
         assert len(train_index) + len(test_index) == n_samples
         assert len(train_index) == len(test_index) * (n_splits - 1)
