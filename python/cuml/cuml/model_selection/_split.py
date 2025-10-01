@@ -436,44 +436,11 @@ class _KFoldBase(ABC):
 
     @abstractmethod
     def split(self, x, y):
-        """Generate indices to split data into training and test set.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Training data, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
-
-        y : array-like of shape (n_samples,), default=None
-            The target variable for supervised learning problems.
-
-        Yields
-        ------
-        train : CuPy ndarray
-            The training set indices for that split.
-
-        test : CuPy ndarray
-            The testing set indices for that split.
-        """
         raise NotImplementedError()
 
+    @abstractmethod
     def get_n_splits(self, X=None, y=None):
-        """Returns the number of splitting iterations in the cross-validator.
-
-        Parameters
-        ----------
-        X : object
-            Always ignored, exists for compatibility.
-
-        y : object
-            Always ignored, exists for compatibility.
-
-        Returns
-        -------
-        n_splits : int
-            Returns the number of splitting iterations in the cross-validator.
-        """
-        return self.n_splits
+        raise NotImplementedError()
 
 
 class KFold(_KFoldBase):
@@ -508,6 +475,25 @@ class KFold(_KFoldBase):
         )
 
     def split(self, x, y=None):
+        """Generate indices to split data into training and test set.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+
+        Yields
+        ------
+        train : CuPy ndarray
+            The training set indices for that split.
+
+        test : CuPy ndarray
+            The testing set indices for that split.
+        """
         n_samples = x.shape[0]
         if y is not None and n_samples != len(y):
             raise ValueError("Expecting same length of x and y")
@@ -539,6 +525,24 @@ class KFold(_KFoldBase):
             train = indices[cp.logical_not(mask)]
             yield train, test
             current = stop
+
+    def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
 
 
 class StratifiedKFold(_KFoldBase):
@@ -582,6 +586,25 @@ class StratifiedKFold(_KFoldBase):
         )
 
     def split(self, x, y):
+        """Generate indices to split data into training and test set.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+
+        Yields
+        ------
+        train : CuPy ndarray
+            The training set indices for that split.
+
+        test : CuPy ndarray
+            The testing set indices for that split.
+        """
         if len(x) != len(y):
             raise ValueError("Expecting same length of x and y")
         y = input_to_cuml_array(y).array.to_output("cupy")
@@ -626,3 +649,21 @@ class StratifiedKFold(_KFoldBase):
             raise ValueError(f"Expecting 1D array, got {y.shape}")
         else:
             pass
+
+    def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
