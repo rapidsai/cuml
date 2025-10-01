@@ -189,6 +189,27 @@ void knn_classify(raft::handle_t& handle,
                   int k);
 
 /**
+ * @brief Weighted KNN classification using pre-computed weights
+ *
+ * @param[in] handle RAFT handle
+ * @param[out] out output array on device (size n_samples * size of y vector)
+ * @param[in] knn_indices index array on device resulting from knn query (size n_samples * k)
+ * @param[in] weights pre-computed weight array on device (size n_samples * k)
+ * @param[in] y vector of label arrays on device vector size is number of (size n_samples)
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of samples in knn_indices
+ * @param[in] k number of nearest neighbors in knn_indices
+ */
+void knn_classify_weighted(raft::handle_t& handle,
+                           int* out,
+                           int64_t* knn_indices,
+                           float* weights,
+                           std::vector<int*>& y,
+                           size_t n_index_rows,
+                           size_t n_query_rows,
+                           int k);
+
+/**
  * @brief Flat C++ API function to perform a knn regression using
  * a given a vector of label arrays. This supports multilabel
  * regression by classifying on multiple label arrays. Note that
@@ -231,4 +252,26 @@ void knn_class_proba(raft::handle_t& handle,
                      size_t n_index_rows,
                      size_t n_query_rows,
                      int k);
+
+/**
+ * @brief Weighted KNN class probabilities using pre-computed weights
+ *
+ * @param[in] handle RAFT handle
+ * @param[out] out vector of output arrays on device. vector size = n_outputs.
+ * Each array should have size(n_samples, n_classes)
+ * @param[in] knn_indices array on device of knn indices (size n_samples * k)
+ * @param[in] weights pre-computed weight array on device (size n_samples * k)
+ * @param[in] y array of labels on device (size n_samples)
+ * @param[in] n_index_rows number of labels in y
+ * @param[in] n_query_rows number of rows in knn_indices and out
+ * @param[in] k number of nearest neighbors in knn_indices
+ */
+void knn_class_proba_weighted(raft::handle_t& handle,
+                              std::vector<float*>& out,
+                              int64_t* knn_indices,
+                              float* weights,
+                              std::vector<int*>& y,
+                              size_t n_index_rows,
+                              size_t n_query_rows,
+                              int k);
 };  // namespace ML
