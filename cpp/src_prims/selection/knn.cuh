@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +67,30 @@ CUML_KERNEL void class_probs_kernel(OutType* out,
     int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
     int out_idx   = row * n_uniq_labels + out_label;
     out[out_idx] += n_neigh_inv;
+  }
+}
+
+template <typename OutType = float, bool precomp_lbls = false>
+CUML_KERNEL void class_probs_weighted_kernel(OutType* out,
+                                             const int64_t* knn_indices,
+                                             const float* weights,
+                                             const int* labels,
+                                             int n_uniq_labels,
+                                             std::size_t n_samples,
+                                             int n_neighbors)
+{
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int i   = row * n_neighbors;
+
+  if (row >= n_samples) return;
+
+  // Accumulate weighted votes (weights are already normalized on Python side)
+  for (int j = 0; j < n_neighbors; j++) {
+    float weight = weights[i + j];
+
+    int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+    int out_idx   = row * n_uniq_labels + out_label;
+    out[out_idx] += weight;
   }
 }
 
@@ -205,6 +229,60 @@ void class_probs(const raft::handle_t& handle,
 }
 
 /**
+ * Weighted class probabilities using pre-computed weights
+ */
+template <int TPB_X = 32, bool precomp_lbls = false>
+void class_probs_weighted(const raft::handle_t& handle,
+                          std::vector<float*>& out,
+                          const int64_t* knn_indices,
+                          const float* weights,
+                          std::vector<int*>& y,
+                          std::size_t n_index_rows,
+                          std::size_t n_query_rows,
+                          int k,
+                          std::vector<int*>& uniq_labels,
+                          std::vector<int>& n_unique)
+{
+  for (std::size_t i = 0; i < y.size(); i++) {
+    cudaStream_t stream = handle.get_next_usable_stream();
+
+    int n_unique_labels = n_unique[i];
+    size_t cur_size     = n_query_rows * n_unique_labels;
+
+    RAFT_CUDA_TRY(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
+
+    dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+
+    /**
+     * Build array of class probability arrays from
+     * knn_indices, weights, and labels
+     */
+    rmm::device_uvector<int> y_normalized(n_index_rows + n_unique_labels, stream);
+
+    /*
+     * Appending the array of unique labels to the original labels array
+     * to prevent make_monotonic function from producing misleading results
+     * due to the absence of some of the unique labels in the labels array
+     */
+    rmm::device_uvector<int> y_tmp(n_index_rows + n_unique_labels, stream);
+    raft::update_device(y_tmp.data(), y[i], n_index_rows, stream);
+    raft::update_device(y_tmp.data() + n_index_rows, uniq_labels[i], n_unique_labels, stream);
+
+    raft::label::make_monotonic(y_normalized.data(), y_tmp.data(), y_tmp.size(), stream);
+    raft::linalg::unaryOp<int>(
+      y_normalized.data(),
+      y_normalized.data(),
+      n_index_rows,
+      [] __device__(int input) { return input - 1; },
+      stream);
+    class_probs_weighted_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
+      out[i], knn_indices, weights, y_normalized.data(), n_unique_labels, n_query_rows, k);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
+/**
  * KNN classifier using voting based on the statistical mode of classes.
  * In the event of a tie, the class with the lowest index in the sorted
  * array of unique monotonically increasing labels will be used.
@@ -261,6 +339,64 @@ void knn_classify(const raft::handle_t& handle,
    */
   class_probs<32, precomp_lbls>(
     handle, probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+
+  dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  for (std::size_t i = 0; i < y.size(); i++) {
+    cudaStream_t stream = handle.get_next_usable_stream(i);
+
+    int n_unique_labels = n_unique[i];
+
+    /**
+     * Choose max probability
+     */
+    // Use shared memory for label lookups if the number of classes is small enough
+    int smem            = sizeof(int) * n_unique_labels;
+    bool use_shared_mem = smem < raft::getSharedMemPerBlock();
+
+    class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i, use_shared_mem);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
+/**
+ * Weighted KNN classification using pre-computed weights
+ */
+template <int TPB_X = 32, bool precomp_lbls = false>
+void knn_classify_weighted(const raft::handle_t& handle,
+                           int* out,
+                           const int64_t* knn_indices,
+                           const float* weights,
+                           std::vector<int*>& y,
+                           std::size_t n_index_rows,
+                           std::size_t n_query_rows,
+                           int k,
+                           std::vector<int*>& uniq_labels,
+                           std::vector<int>& n_unique)
+{
+  std::vector<float*> probs;
+  std::vector<rmm::device_uvector<float>> tmp_probs;
+
+  // allocate temporary memory
+  for (std::size_t i = 0; i < n_unique.size(); i++) {
+    int size = n_unique[i];
+
+    cudaStream_t stream = handle.get_next_usable_stream(i);
+
+    tmp_probs.emplace_back(n_query_rows * size, stream);
+    probs.push_back(tmp_probs.back().data());
+  }
+
+  /**
+   * Compute weighted class probabilities
+   *
+   * Note: Since class_probs_weighted will use the same round robin strategy for distributing
+   * work to the streams, we don't need to explicitly synchronize the streams here.
+   */
+  class_probs_weighted<32, precomp_lbls>(
+    handle, probs, knn_indices, weights, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
 
   dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);

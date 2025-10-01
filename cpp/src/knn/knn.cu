@@ -384,4 +384,54 @@ void knn_class_proba(raft::handle_t& handle,
     handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
 }
 
+void knn_classify_weighted(raft::handle_t& handle,
+                           int* out,
+                           int64_t* knn_indices,
+                           float* weights,
+                           std::vector<int*>& y,
+                           size_t n_index_rows,
+                           size_t n_query_rows,
+                           int k)
+{
+  cudaStream_t stream = handle.get_stream();
+
+  std::vector<rmm::device_uvector<int>> uniq_labels_v;
+  std::vector<int*> uniq_labels(y.size());
+  std::vector<int> n_unique(y.size());
+
+  for (std::size_t i = 0; i < y.size(); i++) {
+    uniq_labels_v.emplace_back(0, stream);
+    n_unique[i]    = raft::label::getUniquelabels(uniq_labels_v.back(), y[i], n_index_rows, stream);
+    uniq_labels[i] = uniq_labels_v[i].data();
+  }
+
+  MLCommon::Selection::knn_classify_weighted(
+    handle, out, knn_indices, weights, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+}
+
+void knn_class_proba_weighted(raft::handle_t& handle,
+                              std::vector<float*>& out,
+                              int64_t* knn_indices,
+                              float* weights,
+                              std::vector<int*>& y,
+                              size_t n_index_rows,
+                              size_t n_query_rows,
+                              int k)
+{
+  cudaStream_t stream = handle.get_stream();
+
+  std::vector<rmm::device_uvector<int>> uniq_labels_v;
+  std::vector<int*> uniq_labels(y.size());
+  std::vector<int> n_unique(y.size());
+
+  for (std::size_t i = 0; i < y.size(); i++) {
+    uniq_labels_v.emplace_back(0, stream);
+    n_unique[i]    = raft::label::getUniquelabels(uniq_labels_v.back(), y[i], n_index_rows, stream);
+    uniq_labels[i] = uniq_labels_v[i].data();
+  }
+
+  MLCommon::Selection::class_probs_weighted(
+    handle, out, knn_indices, weights, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+}
+
 };  // END NAMESPACE ML
