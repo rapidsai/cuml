@@ -48,7 +48,6 @@ def load_library():
     """Dynamically load libcuml++.so and its dependencies"""
     try:
         # These libraries must all be loaded before libcuml
-        import libcuvs
         import libraft
         import librmm
         import rapids_logger
@@ -56,7 +55,6 @@ def load_library():
         rapids_logger.load_library()
         librmm.load_library()
         libraft.load_library()
-        libcuvs.load_library()
     except ModuleNotFoundError:
         # These runtime dependencies might be satisfied by conda packages (which do not
         # have any Python modules) instead of wheels. In that situation, assume that

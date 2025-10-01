@@ -29,7 +29,7 @@ import umap
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
+from sklearn.datasets import make_blobs, make_moons
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
@@ -702,8 +702,8 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     model.fit(X)
     ref_fss_graph = model.graph_
 
-    cu_fss_graph = cu_fss_graph.todense()
-    ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
+    cu_fss_graph = cp.array(cu_fss_graph.todense())
+    ref_fss_graph = cp.array(ref_fss_graph.todense())
     assert correctness_sparse(
         ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
     )
@@ -852,7 +852,6 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 def test_umap_trustworthiness_on_batch_nnd(
     num_clusters, fit_then_transform, metric, do_snmg
 ):
-
     digits = datasets.load_digits()
 
     umap_handle = None
@@ -925,3 +924,65 @@ def test_umap_small_fit_large_transform():
 
     trust = trustworthiness(infer, embeddings, n_neighbors=10)
     assert trust >= 0.9
+
+
+@pytest.mark.parametrize("n_neighbors", [5, 15])
+@pytest.mark.parametrize("n_components", [2, 5])
+def test_umap_outliers(n_neighbors, n_components):
+    all_neighbors = pytest.importorskip("cuvs.neighbors.all_neighbors")
+    nn_descent = pytest.importorskip("cuvs.neighbors.nn_descent")
+
+    k = n_neighbors
+    n_rows = 50_000
+
+    # This dataset was specifically chosen because UMAP produces outliers
+    # on this dataset before the outlier fix.
+    data, _ = make_moons(n_samples=n_rows, noise=0.0, random_state=42)
+    data = data.astype(np.float32)
+
+    # precompute knn for faster testing with CPU UMAP
+    nn_descent_params = nn_descent.IndexParams(
+        metric="euclidean",
+        graph_degree=k,
+        intermediate_graph_degree=k * 2,
+    )
+    params = all_neighbors.AllNeighborsParams(
+        algo="nn_descent",
+        metric="euclidean",
+        nn_descent_params=nn_descent_params,
+    )
+    indices, distances = all_neighbors.build(
+        data,
+        k,
+        params,
+        distances=cp.empty((n_rows, k), dtype=cp.float32),
+    )
+    indices = cp.asnumpy(indices)
+    distances = cp.asnumpy(distances)
+
+    gpu_umap = cuUMAP(
+        precomputed_knn=(indices, distances),
+        build_algo="nn_descent",
+        init="spectral",
+        n_neighbors=n_neighbors,
+        n_components=n_components,
+    )
+    gpu_umap_embeddings = gpu_umap.fit_transform(data)
+
+    cpu_umap = umap.UMAP(
+        precomputed_knn=(indices, distances),
+        init="spectral",
+        n_neighbors=n_neighbors,
+        n_components=n_components,
+    )
+    cpu_umap_embeddings = cpu_umap.fit_transform(data)
+
+    # test to see if there are values in the final embedding that are too out of range
+    # compared to the cpu umap output.
+    lower_bound = 3 * cpu_umap_embeddings.min()
+    upper_bound = 3 * cpu_umap_embeddings.max()
+
+    assert np.all(
+        (gpu_umap_embeddings >= lower_bound)
+        & (gpu_umap_embeddings <= upper_bound)
+    )

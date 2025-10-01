@@ -90,6 +90,7 @@ else()
     "$ORIGIN/../../nvidia/curand/lib"
     "$ORIGIN/../../nvidia/cusolver/lib"
     "$ORIGIN/../../nvidia/cusparse/lib"
+    "$ORIGIN/../../nvidia/nccl/lib"
     "$ORIGIN/../../nvidia/nvjitlink/lib"
   )
 endif()
