@@ -120,7 +120,15 @@ and method calls. It can show:
   in this table (even if a CPU fallback was required). Methods that are fully
   unimplemented won't be present.
 - Which methods were accelerated on GPU, and their total runtime.
-- Which methods required a CPU fallback, their total runtime, and why a fallback was needed
+- Which methods required a CPU fallback, their total runtime, and why a
+  fallback was needed
+
+.. warning::
+
+   The function profiler does not currently track GPU calls made in
+   subprocesses. This may happen when using meta-estimators like
+   ``RandomizedSearchCV``. For now we recommend avoiding setting ``n_jobs > 1``
+   when using the profilers.
 
 It can be enabled in a few different ways:
 
@@ -221,6 +229,10 @@ The line profiler collects per-line statistics on your script. It can show:
    gather information on what parts of your code were accelerated, but you
    shouldn't compare runtimes when run with the line profiler enabled to
    other runs.
+
+   Additionally, it does not currently track GPU calls made in subprocesses.
+   This may happen when using meta-estimators like ``RandomizedSearchCV``. For
+   now we recommend avoiding setting ``n_jobs > 1`` when using the profilers.
 
 **Command Line Interface (CLI)**
 
