@@ -29,7 +29,7 @@ pytestmark = pytest.mark.mg
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = np.array(pd.DataFrame(y_train).values)
