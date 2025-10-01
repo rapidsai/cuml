@@ -27,7 +27,6 @@ from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
@@ -415,7 +414,7 @@ class KNeighborsClassifier(ClassifierMixin,
         # Declare C-level variables at the top
         cdef uintptr_t inds_ctype
         cdef uintptr_t weights_ctype
-        cdef vector[int*] *y_vec
+        cdef vector[int*] y_vec
         cdef uintptr_t y_ptr
         cdef uintptr_t classes_ptr
         cdef handle_t* handle_
@@ -460,8 +459,6 @@ class KNeighborsClassifier(ClassifierMixin,
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
                                   index=inds.index)
 
-        y_vec = new vector[int*]()
-
         # If necessary, separate columns of y to support multilabel
         # classification
         for i in range(out_cols):
@@ -478,7 +475,7 @@ class KNeighborsClassifier(ClassifierMixin,
             <int*> classes_ptr,
             <int64_t*>inds_ctype,
             <float*>weights_ctype,
-            deref(y_vec),
+            y_vec,
             <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
@@ -502,8 +499,8 @@ class KNeighborsClassifier(ClassifierMixin,
         # Declare C-level variables at the top
         cdef uintptr_t inds_ctype
         cdef uintptr_t weights_ctype
-        cdef vector[int*] *y_vec
-        cdef vector[float*] *out_vec
+        cdef vector[int*] y_vec
+        cdef vector[float*] out_vec
         cdef uintptr_t proba_ptr
         cdef uintptr_t y_ptr
         cdef handle_t* handle_
@@ -549,8 +546,6 @@ class KNeighborsClassifier(ClassifierMixin,
         weights_ctype = weights_cuml.ptr
 
         inds_ctype = inds.ptr
-        y_vec = new vector[int*]()
-        out_vec = new vector[float*]()
 
         probas = []
         for n, y in zip(n_classes, ys):
@@ -572,10 +567,10 @@ class KNeighborsClassifier(ClassifierMixin,
         # Use GPU-accelerated weighted C++ implementation for all cases
         knn_class_proba_weighted(
             handle_[0],
-            deref(out_vec),
+            out_vec,
             <int64_t*>inds_ctype,
             <float*>weights_ctype,
-            deref(y_vec),
+            y_vec,
             <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
