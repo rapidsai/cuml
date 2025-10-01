@@ -84,6 +84,7 @@ def test_kfold(shuffle, n_splits, random_state) -> None:
     kfold = KFold(
         n_splits=n_splits, shuffle=shuffle, random_state=random_state
     )
+    assert kfold.get_n_splits(X, y) == kfold.get_n_splits() == n_splits
     n_test_total = 0
 
     for train_idx, test_idx in kfold.split(X, y):

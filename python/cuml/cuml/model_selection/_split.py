@@ -424,7 +424,7 @@ def train_test_split(
 class _KFoldBase(ABC):
     """Base class for k-fold split."""
 
-    def __init__(self, n_splits=5, shuffle=False, random_state=None):
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
         if n_splits < 2 or not isinstance(n_splits, int):
             raise ValueError(
                 f"n_splits {n_splits} is not a integer at least 2"
@@ -449,13 +449,31 @@ class _KFoldBase(ABC):
 
         Yields
         ------
-        train_idx : CuPy ndarray
+        train : CuPy ndarray
             The training set indices for that split.
 
-        test_idx : CuPy ndarray
+        test : CuPy ndarray
             The testing set indices for that split.
         """
         raise NotImplementedError()
+
+    def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
 
 
 class KFold(_KFoldBase):
@@ -469,19 +487,22 @@ class KFold(_KFoldBase):
 
     Parameters
     ----------
-    n_splits :
+    n_splits : int, default=5
         Number of folds. Must be at least 2.
 
-    shuffle :
-        Whether to shuffle the samples before splitting.
+    shuffle : bool, default=False
+        Whether to shuffle the samples before splitting. Note that the samples within
+        each split will not be shuffled.
 
-    random_state : int, CuPy RandomState or NumPy RandomState optional
-        If shuffle is true, seeds the generator. Unseeded by default.  Pass an int for
-        reproducible output across multiple function calls.
+    random_state : int, CuPy RandomState, NumPy RandomState, or None, default=None
+        When `shuffle` is True, `random_state` affects the ordering of the
+        indices, which controls the randomness of each fold. Otherwise, this
+        parameter has no effect.
+        Pass an int for reproducible output across multiple function calls.
 
     """
 
-    def __init__(self, n_splits=5, shuffle=False, random_state=None):
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
         super().__init__(
             n_splits=n_splits, shuffle=shuffle, random_state=random_state
         )
@@ -559,9 +580,6 @@ class StratifiedKFold(_KFoldBase):
         super().__init__(
             n_splits=n_splits, shuffle=shuffle, random_state=random_state
         )
-
-    def get_n_splits(self, X=None, y=None):
-        return self.n_splits
 
     def split(self, x, y):
         if len(x) != len(y):
