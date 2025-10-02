@@ -360,6 +360,19 @@ void knn_regress(raft::handle_t& handle,
   MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
 }
 
+void knn_regress_weighted(raft::handle_t& handle,
+                          float* out,
+                          int64_t* knn_indices,
+                          float* weights,
+                          std::vector<float*>& y,
+                          size_t n_index_rows,
+                          size_t n_query_rows,
+                          int k)
+{
+  MLCommon::Selection::knn_regress_weighted(
+    handle, out, knn_indices, weights, y, n_index_rows, n_query_rows, k);
+}
+
 void knn_class_proba(raft::handle_t& handle,
                      std::vector<float*>& out,
                      int64_t* knn_indices,

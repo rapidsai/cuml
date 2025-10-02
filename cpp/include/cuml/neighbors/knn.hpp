@@ -232,6 +232,27 @@ void knn_regress(raft::handle_t& handle,
                  int k);
 
 /**
+ * @brief Weighted KNN regression using pre-computed weights
+ *
+ * @param[in] handle RAFT handle
+ * @param[out] out output array on device (size n_samples)
+ * @param[in] knn_indices array on device of knn indices (size n_samples * k)
+ * @param[in] weights pre-computed weight array on device (size n_samples * k)
+ * @param[in] y array of labels on device (size n_samples)
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of samples in knn_indices and out
+ * @param[in] k number of nearest neighbors in knn_indices
+ */
+void knn_regress_weighted(raft::handle_t& handle,
+                          float* out,
+                          int64_t* knn_indices,
+                          float* weights,
+                          std::vector<float*>& y,
+                          size_t n_index_rows,
+                          size_t n_query_rows,
+                          int k);
+
+/**
  * @brief Flat C++ API function to compute knn class probabilities
  * using a vector of device arrays containing discrete class labels.
  * Note that the output is a vector, which is

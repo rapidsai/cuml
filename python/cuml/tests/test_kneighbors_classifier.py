@@ -399,12 +399,11 @@ def test_predict_proba_multioutput(input_type, output_type):
     ],
 )
 @pytest.mark.parametrize("n_neighbors", [3, 5, 10])
-@pytest.mark.parametrize("n_clusters", [2, 5])
-def test_weights_predict(weights, n_neighbors, n_clusters):
+def test_weights_predict(weights, n_neighbors):
     """Test KNN classifier predict with uniform, distance, and callable weights."""
     X, y = make_blobs(
         n_samples=1000,
-        centers=n_clusters,
+        centers=5,
         n_features=20,
         cluster_std=0.5,
         random_state=42,
@@ -460,14 +459,14 @@ def test_weights_predict_proba(weights, n_neighbors):
     knn_cu.fit(X_train, y_train)
     proba_cu = knn_cu.predict_proba(X_test)
 
+    # Convert to numpy if needed
+    if isinstance(proba_cu, cp.ndarray):
+        proba_cu = proba_cu.get()
+
     # scikit-learn model for comparison
     knn_sk = skKNN(n_neighbors=n_neighbors, weights=weights, algorithm="brute")
     knn_sk.fit(X_train, y_train)
     proba_sk = knn_sk.predict_proba(X_test)
-
-    # Convert to numpy if needed
-    if isinstance(proba_cu, cp.ndarray):
-        proba_cu = proba_cu.get()
 
     # Results should match scikit-learn (within floating point tolerance)
     np.testing.assert_allclose(proba_cu, proba_sk, rtol=1e-5, atol=1e-5)

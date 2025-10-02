@@ -154,6 +154,31 @@ CUML_KERNEL void regress_avg_kernel(LabelType* out,
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
 }
 
+template <typename LabelType, bool precomp_lbls = false>
+CUML_KERNEL void regress_avg_weighted_kernel(LabelType* out,
+                                             const int64_t* knn_indices,
+                                             const float* weights,
+                                             const LabelType* labels,
+                                             std::size_t n_samples,
+                                             int n_neighbors,
+                                             int n_outputs,
+                                             int output_offset)
+{
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int i   = row * n_neighbors;
+
+  if (row >= n_samples) return;
+
+  // Accumulate weighted predictions (weights are already normalized on Python side)
+  LabelType pred = 0;
+  for (int j = 0; j < n_neighbors; j++) {
+    float weight = weights[i + j];
+    pred += weight * get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+  }
+
+  out[row * n_outputs + output_offset] = pred;
+}
+
 /**
  * A naive knn classifier to predict probabilities
  * @tparam TPB_X number of threads per block to use. each thread
@@ -460,6 +485,34 @@ void knn_regress(const raft::handle_t& handle,
     regress_avg_kernel<ValType, precomp_lbls>
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
+
+    handle.sync_stream(stream);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
+/**
+ * Weighted KNN regression using pre-computed weights
+ */
+template <typename ValType, int TPB_X = 32, bool precomp_lbls = false>
+void knn_regress_weighted(const raft::handle_t& handle,
+                          ValType* out,
+                          const int64_t* knn_indices,
+                          const float* weights,
+                          const std::vector<ValType*>& y,
+                          size_t n_index_rows,
+                          size_t n_query_rows,
+                          int k)
+{
+  /**
+   * Weighted average regression value
+   */
+  for (std::size_t i = 0; i < y.size(); i++) {
+    cudaStream_t stream = handle.get_next_usable_stream();
+
+    regress_avg_weighted_kernel<ValType, precomp_lbls>
+      <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
+        out, knn_indices, weights, y[i], n_query_rows, k, y.size(), i);
 
     handle.sync_stream(stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
