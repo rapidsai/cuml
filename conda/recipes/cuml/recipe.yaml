@@ -66,7 +66,7 @@ requirements:
     - python =${{ py_version }}
     - raft-dask =${{ minor_version }}
     - rapids-build-backend >=0.4.0,<0.5.0.dev0
-    - rapids-logger =0.1
+    - rapids-logger =0.2
     - scikit-build-core >=0.10.0
     - treelite ${{ treelite_version }}
     - cuda-cudart-dev
@@ -90,7 +90,7 @@ requirements:
     - python
     - raft-dask =${{ minor_version }}
     - rapids-dask-dependency =${{ minor_version }}
-    - rapids-logger =0.1
+    - rapids-logger =0.2
     - rich
     - treelite ${{ treelite_version }}
     - cuda-cudart
