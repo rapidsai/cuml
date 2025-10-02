@@ -21,18 +21,24 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/linalg/init.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <thrust/device_ptr.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/shuffle.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/tuple.h>
 
 #include <curand.h>
 #include <math.h>
@@ -185,6 +191,47 @@ T create_gradient_rounding_factor(
   return create_rounding_factor(max_abs, n_edges);
 }
 
+template <typename nnz_t>
+CUML_KERNEL void compute_degrees_kernel(const int* rows, nnz_t nnz, int* degrees)
+{
+  nnz_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < nnz) {
+    int row = rows[i];
+    atomicAdd(&degrees[row], 1);
+  }
+}
+
+CUML_KERNEL void check_threshold_kernel(const int* degrees,
+                                        int n_vertices,
+                                        int threshold,
+                                        bool* flag)
+{
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n_vertices) {
+    if (degrees[i] > threshold) { *flag = true; }
+  }
+}
+
+template <typename nnz_t, int TPB_X>
+bool check_outliers(const int* rows, int m, nnz_t nnz, int threshold, cudaStream_t stream)
+{
+  rmm::device_uvector<int> graph_degree_head(m, stream);
+  raft::linalg::zero(graph_degree_head.data(), m, stream);
+
+  dim3 grid_nnz(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+  compute_degrees_kernel<<<grid_nnz, blk, 0, stream>>>(rows, nnz, graph_degree_head.data());
+
+  rmm::device_scalar<bool> has_outlier_d(0, stream);  // initialize to 0
+
+  dim3 grid_head_n(raft::ceildiv(static_cast<nnz_t>(m), static_cast<nnz_t>(TPB_X)), 1, 1);
+  check_threshold_kernel<<<grid_head_n, blk, 0, stream>>>(
+    graph_degree_head.data(), m, threshold, has_outlier_d.data());
+  cudaStreamSynchronize(stream);
+  bool has_outlier_h = has_outlier_d.value(stream);
+  return has_outlier_h;
+}
+
 /**
  * Runs gradient descent using sampling weights defined on
  * both the attraction and repulsion vectors.
@@ -199,8 +246,8 @@ void optimize_layout(T* head_embedding,
                      int head_n,
                      T* tail_embedding,
                      int tail_n,
-                     const int* head,
-                     const int* tail,
+                     int* head,
+                     int* tail,
                      nnz_t nnz,
                      T* epochs_per_sample,
                      float gamma,
@@ -213,6 +260,39 @@ void optimize_layout(T* head_embedding,
   T alpha         = params->initial_alpha;
 
   auto stream_view = rmm::cuda_stream_view(stream);
+
+  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
+
+  auto min_n                = min(head_n, tail_n);
+  int threshold_for_outlier = 1024;  // this is a heuristic value.
+  // for smaller datasets, could be a dense point even with a smaller graph degree
+  if (min_n <= 100000) {
+    threshold_for_outlier = 256;
+  } else if (min_n <= 1000000) {
+    threshold_for_outlier = 512;
+  }
+
+  bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
+  if (move_other && !has_outlier) {
+    has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
+  }
+
+  if (has_outlier) {
+    // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
+    // updates). It is critical to avoid having too many threads update the same embedding vector
+    // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
+    // distributed across threads, rather than being processed by consecutive threads that are
+    // scheduled together. This approach relies on the GPU's inability to physically schedule all
+    // nnz edges at once.
+    auto first =
+      thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
+                                                   thrust::device_pointer_cast(tail),
+                                                   thrust::device_pointer_cast(epochs_per_sample)));
+
+    thrust::default_random_engine rng(params->random_state);
+    thrust::shuffle(first, first + nnz, rng);
+  }
+
   rmm::device_uvector<T> epoch_of_next_negative_sample(nnz, stream);
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   raft::linalg::unaryOp<T>(
@@ -249,8 +329,6 @@ void optimize_layout(T* head_embedding,
   dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
-
-  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
