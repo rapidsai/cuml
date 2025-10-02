@@ -48,7 +48,7 @@ def _prep_training_data(
 
     n_partitions = partitions_per_worker * len(workers)
 
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
 
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
     (X_train_df,) = dask_utils.persist_across_workers(

@@ -35,6 +35,7 @@ function sed_runner() {
 
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
+echo "branch-${NEXT_SHORT_TAG}" > RAPIDS_BRANCH
 
 DEPENDENCIES=(
   cudf

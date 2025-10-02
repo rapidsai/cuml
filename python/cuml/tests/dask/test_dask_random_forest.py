@@ -56,7 +56,7 @@ from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = cudf.Series(y_train)
@@ -152,12 +152,12 @@ def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
     workers = client.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
 
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = cudf.Series(y_train)
     y_train_df = dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
-    X_cudf_test = cudf.DataFrame.from_pandas(pd.DataFrame(X_test))
+    X_cudf_test = cudf.DataFrame(pd.DataFrame(X_test))
     X_test_df = dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
     cuml_mod = cuRFR_mg(**cu_rf_params, ignore_empty_partitions=True)
