@@ -169,7 +169,22 @@ def spectral_embedding(A,
         else:
             A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
         A.sum_duplicates()
-        isfinite = cp.isfinite(A.data).all()
+
+        affinity_data = A.data
+        affinity_rows = A.row
+        affinity_cols = A.col
+        affinity_nnz = A.nnz
+
+        # laplacian kernel expects diagonal to be zero
+        # remove diagonal elements since they are ignored in laplacian calculation anyway
+        valid = affinity_rows != affinity_cols
+        if not valid.all():
+            affinity_data = affinity_data[valid]
+            affinity_rows = affinity_rows[valid]
+            affinity_cols = affinity_cols[valid]
+            affinity_nnz = len(affinity_data)
+
+        isfinite = cp.isfinite(affinity_data).all()
     else:
         raise ValueError(
             f"`affinity={affinity!r}` is not supported, expected one of "
@@ -213,9 +228,12 @@ def spectral_embedding(A,
         transform(
             deref(h),
             config,
-            make_device_vector_view(<int *><uintptr_t>A.row.data.ptr, <int>A.nnz),
-            make_device_vector_view(<int *><uintptr_t>A.col.data.ptr, <int>A.nnz),
-            make_device_vector_view(<float *><uintptr_t>A.data.data.ptr, <int>A.nnz),
+            make_device_vector_view(<int *><uintptr_t>affinity_rows.data.ptr,
+                                    <int>affinity_nnz),
+            make_device_vector_view(<int *><uintptr_t>affinity_cols.data.ptr,
+                                    <int>affinity_nnz),
+            make_device_vector_view(<float *><uintptr_t>affinity_data.data.ptr,
+                                    <int>affinity_nnz),
             make_device_matrix_view[float, int, col_major](
                 <float *><uintptr_t>eigenvectors.ptr,
                 <int>eigenvectors.shape[0],
@@ -309,7 +327,7 @@ class SpectralEmbedding(Base,
     (100, 2)
     """
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
-    embedding_ = CumlArrayDescriptor()
+    embedding_ = CumlArrayDescriptor(order="F")
 
     def __init__(self, n_components=2, affinity="nearest_neighbors",
                  random_state=None, n_neighbors=None,
@@ -352,15 +370,15 @@ class SpectralEmbedding(Base,
 
     def _attrs_from_cpu(self, model):
         return {
-            "n_neighbors_": to_gpu(model.n_neighbors_),
-            "embedding_": to_gpu(model.embedding_),
+            "n_neighbors_": model.n_neighbors_,
+            "embedding_": to_gpu(model.embedding_, order="F"),
             **super()._attrs_from_cpu(model)
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "n_neighbors_": to_cpu(self.n_neighbors_),
-            "embedding_": to_cpu(self.embedding_),
+            "n_neighbors_": self.n_neighbors_,
+            "embedding_": to_cpu(self.embedding_, order="F"),
             **super()._attrs_to_cpu(model),
         }
 

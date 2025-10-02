@@ -147,9 +147,9 @@ class KNeighborsClassifier(ClassifierMixin,
 
     def _attrs_from_cpu(self, model):
         if isinstance(model.classes_, list):
-            classes = [to_gpu(c) for c in model.classes_]
+            classes = [to_gpu(c, dtype=np.int32) for c in model.classes_]
         else:
-            classes = to_gpu(model.classes_)
+            classes = to_gpu(model.classes_, dtype=np.int32)
 
         return {
             "_classes": classes,
