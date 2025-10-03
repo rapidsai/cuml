@@ -648,6 +648,8 @@ TEST(RfTests, IntegerOverflow)
   RF_params rf_params =
     set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 4, 128);
   fit(handle, forest_ptr, X.data().get(), m, n, y.data().get(), rf_params);
+  std::vector<float> feature_importances = get_feature_importances(forest_ptr);
+  EXPECT_TRUE(feature_importances == forest_ptr->feature_importances_);
 
   // Check we have actually learned something
   EXPECT_GT(forest->trees[0]->leaf_counter, 1);
@@ -908,6 +910,8 @@ TEST(RfTest, TextDump)
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   auto forest_ptr = forest.get();
   fit(handle, forest_ptr, X.data().get(), y.size(), 1, y.data().get(), 2, rf_params);
+  std::vector<float> feature_importances = get_feature_importances(forest_ptr);
+  EXPECT_TRUE(feature_importances == forest_ptr->feature_importances_);
 
   std::string expected_start_text = R"(Forest has 1 trees, max_depth 2, and max_leaves 2
 Tree #0

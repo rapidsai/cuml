@@ -22,6 +22,7 @@
 
 #include <map>
 #include <memory>
+#include <numeric>
 
 namespace raft {
 class handle_t;  // forward decl
@@ -113,6 +114,67 @@ template <class T, class L>
 struct RandomForestMetaData {
   std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
+  // NEW: forest-level feature importances
+  std::vector<T> feature_importances_;
+  void compute_feature_importances(const int n_features, bool normalize = true) {
+    feature_importances_.assign(n_features, T{0}); // initialize
+    // total number of training samples across all trees
+    T total_samples = T{0};
+    for (auto const& tree : trees) {
+        T weight = static_cast<T>(tree->n_samples);  // cast int to T
+        total_samples += weight;
+
+        for (int i = 0; i < n_features; ++i) {
+            feature_importances_[i] += weight * tree->feature_importances_[i];
+        }
+    }
+    // convert to weighted mean
+    if (total_samples > T{0}) {
+        for (auto &val : feature_importances_) {
+            val /= total_samples;
+        }
+    }
+    // optional normalization so they sum to 1
+    if (normalize) {
+        T total = std::accumulate(feature_importances_.begin(),
+                                  feature_importances_.end(), T{0});
+        if (total > T{0}) {
+            for (auto &val : feature_importances_) {
+                val /= total;
+            }
+        }
+    }
+  }
+  // Extract node info
+  void extract_node_info(
+    std::vector<std::vector<int64_t>>& node,
+    std::vector<std::vector<int>>& feature,
+    std::vector<std::vector<T>>& thresh,
+    std::vector<std::vector<int>>& n_samples,
+    std::vector<std::vector<int64_t>>& left,
+    std::vector<std::vector<int64_t>>& right,
+    std::vector<std::vector<T>>& best_metric
+  ) const {
+    node.resize(rf_params.n_trees);
+    feature.resize(rf_params.n_trees);
+    thresh.resize(rf_params.n_trees);
+    n_samples.resize(rf_params.n_trees);
+    left.resize(rf_params.n_trees);
+    right.resize(rf_params.n_trees);
+    best_metric.resize(rf_params.n_trees);
+    for (std::size_t i = 0; i < rf_params.n_trees; ++i) {
+      const auto& tree = trees[i];
+      tree->extract_node_info(
+        node[i],
+        feature[i],
+        thresh[i],
+        n_samples[i],
+        left[i],
+        right[i],
+        best_metric[i]
+      );
+    }
+  }
 };
 
 template <class T, class L>
@@ -184,6 +246,29 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const int* predictions,
                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
+std::vector<float> get_feature_importances(const RandomForestClassifierF* forest);
+std::vector<double> get_feature_importances(const RandomForestClassifierD* forest);
+void get_node_info(
+  const RandomForestClassifierF* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<float>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<float>>& best_metric
+);
+void get_node_info(
+  const RandomForestClassifierD* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<double>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<double>>& best_metric
+);
+
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
@@ -248,4 +333,27 @@ RF_metrics score(const raft::handle_t& user_handle,
                  int n_rows,
                  const double* predictions,
                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+
+std::vector<float> get_feature_importances(const RandomForestRegressorF* forest);
+std::vector<double> get_feature_importances(const RandomForestRegressorD* forest);
+void get_node_info(
+  const RandomForestRegressorF* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<float>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<float>>& best_metric
+);
+void get_node_info(
+  const RandomForestRegressorD* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<double>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<double>>& best_metric
+);
 };  // namespace ML

@@ -106,6 +106,55 @@ struct TreeMetaDataNode {
   std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
   int num_outputs;
+  // New member: number of samples
+  int n_samples;
+  // New member: feature importances
+  std::vector<T> feature_importances_;
+  // Compute importances from sparsetree
+  void compute_feature_importances(const int n_features) {
+    feature_importances_.assign(n_features, T{0}); // initialize
+    for (const auto& node : sparsetree) {
+      if (!node.IsLeaf()) {
+          feature_importances_[node.ColumnId()] += node.BestMetric();
+      }
+    }
+  }
+  // Extract node info
+  void extract_node_info(
+    std::vector<int64_t>& node,
+    std::vector<int>& feature,
+    std::vector<T>& thresh,
+    std::vector<int>& n_samples,
+    std::vector<int64_t>& left,
+    std::vector<int64_t>& right,
+    std::vector<T>& best_metric
+  ) {
+    node.resize(sparsetree.size());
+    feature.resize(sparsetree.size());
+    thresh.resize(sparsetree.size());
+    n_samples.resize(sparsetree.size());
+    left.resize(sparsetree.size());
+    right.resize(sparsetree.size());
+    best_metric.resize(sparsetree.size());
+    for (std::size_t i = 0; i < sparsetree.size(); ++i) {
+      const auto& node_ = sparsetree[i];
+      node[i] = i;
+      n_samples[i] = node_.InstanceCount();
+      if (!node_.IsLeaf()) {
+        feature[i] = node_.ColumnId();
+        thresh[i] = node_.QueryValue();
+        left[i] = node_.LeftChildId();
+        right[i] = node_.RightChildId();
+        best_metric[i] = node_.BestMetric();
+      } else {
+        feature[i] = -2;
+        thresh[i] = T(-2.0);
+        left[i] = -1;
+        right[i] = -1;
+        best_metric[i] = T(0.0);
+      }
+    }
+  }
 };
 
 /**

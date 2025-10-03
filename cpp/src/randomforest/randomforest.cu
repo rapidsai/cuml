@@ -482,6 +482,56 @@ RF_metrics score(const raft::handle_t& user_handle,
   return classification_score;
 }
 
+std::vector<float> get_feature_importances(const RandomForestClassifierF* forest) {
+  return forest->feature_importances_;
+}
+
+std::vector<double> get_feature_importances(const RandomForestClassifierD* forest) {
+  return forest->feature_importances_;
+}
+
+void get_node_info(
+  const RandomForestClassifierF* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<float>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<float>>& best_metric
+) {
+  forest->extract_node_info(
+    node,
+    feature,
+    thresh,
+    n_samples,
+    left,
+    right,
+    best_metric
+  );
+}
+
+void get_node_info(
+  const RandomForestClassifierD* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<double>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<double>>& best_metric
+) {
+  forest->extract_node_info(
+    node,
+    feature,
+    thresh,
+    n_samples,
+    left,
+    right,
+    best_metric
+  );
+}
+
 /**
  * @brief Check validity of all random forest hyper-parameters.
  * @param[in] rf_params: random forest hyper-parameters
@@ -671,6 +721,56 @@ RF_metrics score(const raft::handle_t& user_handle,
   return regression_score;
 }
 /** @} */
+
+std::vector<float> get_feature_importances(const RandomForestRegressorF* forest) {
+  return forest->feature_importances_;
+}
+
+std::vector<double> get_feature_importances(const RandomForestRegressorD* forest) {
+  return forest->feature_importances_;
+}
+
+void get_node_info(
+  const RandomForestRegressorF* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<float>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<float>>& best_metric
+) {
+  forest->extract_node_info(
+    node,
+    feature,
+    thresh,
+    n_samples,
+    left,
+    right,
+    best_metric
+  );
+}
+
+void get_node_info(
+  const RandomForestRegressorD* forest,
+  std::vector<std::vector<int64_t>>& node,
+  std::vector<std::vector<int>>& feature,
+  std::vector<std::vector<double>>& thresh,
+  std::vector<std::vector<int>>& n_samples,
+  std::vector<std::vector<int64_t>>& left,
+  std::vector<std::vector<int64_t>>& right,
+  std::vector<std::vector<double>>& best_metric
+) {
+  forest->extract_node_info(
+    node,
+    feature,
+    thresh,
+    n_samples,
+    left,
+    right,
+    best_metric
+  );
+}
 
 // Functions' specializations
 template std::string get_rf_summary_text<float, int>(const RandomForestClassifierF* forest);

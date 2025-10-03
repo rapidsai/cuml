@@ -264,8 +264,9 @@ class DecisionTree {
     }
     using IdxT = int;
     // Dispatch objective
+    std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> out;
     if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GINI) {
-      return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                  s,
                                                                  treeid,
                                                                  seed,
@@ -280,7 +281,7 @@ class DecisionTree {
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
-      return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
                                                                     seed,
@@ -294,7 +295,7 @@ class DecisionTree {
                                                                     quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
-      return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                 s,
                                                                 treeid,
                                                                 seed,
@@ -309,7 +310,7 @@ class DecisionTree {
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {
-      return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
                                                                     seed,
@@ -323,7 +324,7 @@ class DecisionTree {
                                                                     quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
-      return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                   s,
                                                                   treeid,
                                                                   seed,
@@ -338,7 +339,7 @@ class DecisionTree {
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
-      return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      out =  Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                             s,
                                                                             treeid,
                                                                             seed,
@@ -354,6 +355,9 @@ class DecisionTree {
     } else {
       ASSERT(false, "Unknown split criterion.");
     }
+    out->n_samples = row_ids->size();
+    out->compute_feature_importances(ncols);
+    return out;
   }
 
   template <class DataT, class LabelT>
