@@ -409,6 +409,7 @@ dependencies:
           - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
+          - pyyaml
       - output_types: conda
         packages:
           - doxygen=1.9.1
