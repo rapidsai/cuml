@@ -16,6 +16,7 @@
 # distutils: language = c++
 
 import numpy as np
+import pandas as pd
 from treelite import Model as TreeliteModel
 
 import cuml.internals
@@ -28,8 +29,9 @@ from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.utils import check_random_seed
 
-from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdint cimport uint64_t, uintptr_t, int64_t
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
 from cuml.ensemble.randomforest_shared cimport *
@@ -86,6 +88,31 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                           double*,
                           level_enum) except +
 
+    cdef vector[float] get_feature_importances(const RandomForestMetaData[float, float]*) except +
+
+    cdef vector[double] get_feature_importances(const RandomForestMetaData[double, double]*) except +
+
+    cdef void get_node_info(
+        RandomForestMetaData[float, float]*,
+        vector[vector[int64_t]],
+        vector[vector[int]],
+        vector[vector[float]],
+        vector[vector[int]],
+        vector[vector[int64_t]],
+        vector[vector[int64_t]],
+        vector[vector[float]]
+    ) except +
+
+    cdef void get_node_info(
+        RandomForestMetaData[double, double]*,
+        vector[vector[int64_t]],
+        vector[vector[int]],
+        vector[vector[double]],
+        vector[vector[int]],
+        vector[vector[int64_t]],
+        vector[vector[int64_t]],
+        vector[vector[double]]
+    ) except +
 
 class RandomForestRegressor(BaseRandomForestModel,
                             RegressorMixin):
@@ -409,6 +436,10 @@ class RandomForestRegressor(BaseRandomForestModel,
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
+
+        cdef vector[float] fi
+        cdef vector[double] fi64
+        
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -438,6 +469,8 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <float*> y_ptr,
                 rf_params,
                 <level_enum> self.verbose)
+            fi = get_feature_importances(rf_forest)  # get reference
+            self.feature_importances_ = np.array([fi[i] for i in range(fi.size())], dtype=np.float32)
 
         else:
             rf_params64 = rf_params
@@ -449,6 +482,8 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <double*> y_ptr,
                 rf_params64,
                 <level_enum> self.verbose)
+            fi64 = get_feature_importances(rf_forest64)  # get reference
+            self.feature_importances_ = np.array([fi64[i] for i in range(fi64.size())], dtype=np.float64)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -740,3 +775,70 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def get_node_info(self):
+        """
+        Export node information from trees
+        """
+        cdef vector[vector[int64_t]] node
+        cdef vector[vector[int]] feature
+        cdef vector[vector[float]] thresh
+        cdef vector[vector[double]] thresh64
+        cdef vector[vector[int]] n_samples
+        cdef vector[vector[int64_t]] left
+        cdef vector[vector[int64_t]] right
+        cdef vector[vector[float]] best_metric
+        cdef vector[vector[double]] best_metric64
+        
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
+
+        res = []
+        if self.dtype == np.float64:
+            get_node_info(
+                rf_forest64,
+                node,
+                feature,
+                thresh64,
+                n_samples,
+                left,
+                right,
+                best_metric64,
+            )
+            for i in range(self.n_estimators):
+                tree_nodes = pd.DataFrame({
+                    "node": np.array([node[i][j] for j in range(node[i].size())], dtype=np.int64),
+                    "feature": np.array([feature[i][j] for j in range(feature[i].size())], dtype=np.int32),
+                    "thresh": np.array([thresh64[i][j] for j in range(thresh64[i].size())], dtype=np.float64),
+                    "n_samples": np.array([n_samples[i][j] for j in range(n_samples[i].size())], dtype=np.int32),
+                    "left": np.array([left[i][j] for j in range(left[i].size())], dtype=np.int64),
+                    "right": np.array([right[i][j] for j in range(right[i].size())], dtype=np.int64),
+                    "best_metric": np.array([best_metric64[i][j] for j in range(best_metric64[i].size())], dtype=np.float64),
+                })
+                res.append(tree_nodes)
+        else:
+            get_node_info(
+                rf_forest,
+                node,
+                feature,
+                thresh,
+                n_samples,
+                left,
+                right,
+                best_metric,
+            )
+            for i in range(self.n_estimators):
+                tree_nodes = pd.DataFrame({
+                    "node": np.array([node[i][j] for j in range(node[i].size())], dtype=np.int64),
+                    "feature": np.array([feature[i][j] for j in range(feature[i].size())], dtype=np.int32),
+                    "thresh": np.array([thresh[i][j] for j in range(thresh[i].size())], dtype=np.float32),
+                    "n_samples": np.array([n_samples[i][j] for j in range(n_samples[i].size())], dtype=np.int32),
+                    "left": np.array([left[i][j] for j in range(left[i].size())], dtype=np.int64),
+                    "right": np.array([right[i][j] for j in range(right[i].size())], dtype=np.int64),
+                    "best_metric": np.array([best_metric[i][j] for j in range(best_metric[i].size())], dtype=np.float32),
+                })
+                res.append(tree_nodes)
+        return res

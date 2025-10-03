@@ -1,3 +1,11 @@
+# cuml 25.08.00rf_imp0 (27 Sept 2025)
+
+## 🚀 New Features
+
+- Feature importance for random forest classifier/regressor.
+
+- Node metrics for random forest classifier/regressor.
+
 # cuml 25.08.00 (6 Aug 2025)
 
 ## 🚨 Breaking Changes

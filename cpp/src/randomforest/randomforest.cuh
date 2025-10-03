@@ -190,6 +190,7 @@ class RandomForest {
                                                quantiles,
                                                i);
     }
+    forest->compute_feature_importances(n_cols, true);
     // Cleanup
     handle.sync_stream_pool();
     handle.sync_stream();
