@@ -20,12 +20,12 @@ try:
     import raft_dask as _  # noqa
 
     del _
-except ImportError as exc:
+except ModuleNotFoundError as exc:
     from cupy.cuda import get_local_runtime_version
 
     ver = f"cu{str(get_local_runtime_version())[:2]}"
 
-    raise ImportError(
+    raise ModuleNotFoundError(
         f"{exc!s}\n\n"
         "Not all requirements for using `cuml.dask` are installed.\n\n"
         "Please either conda or pip install as follows:\n\n"
