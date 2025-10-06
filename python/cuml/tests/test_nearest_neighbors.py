@@ -442,7 +442,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     knn_cu = cuKNN()
     if input_type == "dataframe":
         X_pd = pd.DataFrame({"fea%d" % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
+        X_cudf = cudf.DataFrame(X_pd)
         knn_cu.fit(X_cudf, convert_dtype=True)
 
     with pytest.raises(Exception):

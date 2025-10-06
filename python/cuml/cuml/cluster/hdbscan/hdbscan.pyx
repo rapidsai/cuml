@@ -370,7 +370,7 @@ cdef class _HDBSCANState:
             cluster_persistence = CumlArray(
                 data=_cupy_array_from_ptr(
                     <size_t>self.hdbscan_output.get_stabilities(),
-                    (1, self.n_clusters),
+                    (self.n_clusters,),
                     np.float32,
                     self,
                 )
@@ -709,9 +709,12 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             state.generate_prediction_data(self.handle, raw_data, labels)
 
         return {
+            # XXX: `hdbscan.HDBSCAN` doesn't set `n_features_in_` currently, we need
+            # to infer this ourselves from the raw data.
+            "n_features_in_": raw_data_cpu.shape[1],
             "labels_": labels,
-            "probabilities_": to_gpu(model.probabilities_),
-            "cluster_persistence_": to_gpu(model.cluster_persistence_),
+            "probabilities_": to_gpu(model.probabilities_, dtype="float32"),
+            "cluster_persistence_": to_gpu(model.cluster_persistence_, dtype="float32"),
             "_raw_data": raw_data,
             "_raw_data_cpu": raw_data_cpu,
             "_state": state,
