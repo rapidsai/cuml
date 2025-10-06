@@ -102,6 +102,10 @@ files:
       - py_version
       - depends_on_cuml
       - depends_on_libcuml
+      - depends_on_rapids_dask_dependency
+      - depends_on_dask_cuda
+      - depends_on_dask_cudf
+      - depends_on_raft_dask
   test_cpp:
     output: none
     includes:
