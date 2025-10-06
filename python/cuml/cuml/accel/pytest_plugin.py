@@ -93,11 +93,12 @@ def pytest_collection_modifyitems(config, items):
     # Import pytest lazily to avoid requiring it for normal cuml usage.
     # pytest is only needed when running tests.
     import pytest
-    import yaml
 
     xfail_list_path = config.getoption("xfail_list")
     if not xfail_list_path:
         return
+
+    import yaml  # needed to parse the YAML-formatted xfail list
 
     xfail_list_path = Path(xfail_list_path)
     if not xfail_list_path.exists():
