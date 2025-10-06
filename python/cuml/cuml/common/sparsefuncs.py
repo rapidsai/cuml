@@ -352,12 +352,28 @@ def extract_knn_infos(knn_info, n_neighbors):
         knn_indices_arr, n_neighbors, n_samples_hint
     )
 
-    if k_provided != n_neighbors:
+    if k_provided < n_neighbors:
         raise ValueError(
             f"Precomputed KNN data has {k_provided} neighbors per sample, "
             f"but n_neighbors={n_neighbors} was specified. "
-            f"Please provide KNN data with exactly {n_neighbors} neighbors per sample."
+            f"Cannot use fewer neighbors than requested. "
+            f"Please provide KNN data with at least {n_neighbors} neighbors per sample."
         )
+    elif k_provided > n_neighbors:
+        # Trim excess neighbors
+        if len(knn_indices_arr.shape) == 2:
+            # 2D array case: trim columns
+            knn_indices = knn_indices[:, :n_neighbors]
+            knn_dists = knn_dists[:, :n_neighbors]
+        else:
+            # 1D flattened array case: reshape, trim, and flatten
+            n_samples = knn_indices_arr.shape[0] // k_provided
+            knn_indices = knn_indices.reshape((n_samples, k_provided))[
+                :, :n_neighbors
+            ]
+            knn_dists = knn_dists.reshape((n_samples, k_provided))[
+                :, :n_neighbors
+            ]
 
     # Convert to CumlArray
     knn_indices_m, _, _, _ = input_to_cuml_array(
