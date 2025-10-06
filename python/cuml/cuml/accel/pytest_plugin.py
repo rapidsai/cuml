@@ -19,7 +19,6 @@ from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
 
-import yaml
 from packaging.requirements import Requirement
 
 from cuml.accel._sklearn_patch import apply_sklearn_patches
@@ -94,6 +93,7 @@ def pytest_collection_modifyitems(config, items):
     # Import pytest lazily to avoid requiring it for normal cuml usage.
     # pytest is only needed when running tests.
     import pytest
+    import yaml
 
     xfail_list_path = config.getoption("xfail_list")
     if not xfail_list_path:
