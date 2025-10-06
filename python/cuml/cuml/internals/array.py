@@ -669,7 +669,7 @@ class CumlArray:
                 output_mem_type.is_device_accessible
                 and not self.mem_type.is_device_accessible
             ):
-                out_index = cudf.Index.from_pandas(self.index)
+                out_index = cudf.Index(self.index)
             elif (
                 output_mem_type.is_host_accessible
                 and not self.mem_type.is_host_accessible
@@ -1064,10 +1064,7 @@ class CumlArray:
             elif convert_to_mem_type is MemoryType.device and isinstance(
                 index, pd.Index
             ):
-                try:
-                    index = cudf.Index.from_pandas(index)
-                except TypeError:
-                    index = cudf.Index(index)
+                index = cudf.Index(index)
 
         if isinstance(X, cudf.Series):
             if X.null_count != 0:

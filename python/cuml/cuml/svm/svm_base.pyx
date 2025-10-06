@@ -653,8 +653,8 @@ class SVMBase(Base,
                     shape=(self.n_support_, self.n_features_in_))
                 self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
-        self.n_classes_ = n_classes
-        if self.n_classes_ > 0:
+        if n_classes > 0:
+            self.n_classes_ = n_classes
             self._unique_labels_ = CumlArray(
                 data=unique_labels,
                 shape=(self.n_classes_,),

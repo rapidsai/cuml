@@ -17,6 +17,17 @@ The following dependencies are required for the cuML library:
 * **cupy**: cupy-cuda12x>=13.6.0 (CUDA 12), cupy-cuda13x>=13.6.0 (CUDA 13)
 * **treelite**: ==4.4.1
 
+Dask Runtime Dependencies
+-------------------------
+
+To use the ``cuml.dask`` module, you'll also need to install the following
+additional dependencies:
+
+* **rapids-dask-dependency**
+* **dask-cudf**
+* **raft-dask**
+
+All with constraints matching the requested ``cuml`` version.
 
 Optional Runtime Dependencies
 -----------------------------
