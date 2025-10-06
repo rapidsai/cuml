@@ -58,7 +58,7 @@ cache:
       - cuda-version =${{ cuda_version }}
       - libcumlprims =${{ minor_version }}
       # TODO: revert before merging
-      - libcuvs =25.10.00a168
+      - libcuvs =${{ minor_version }}
       - libraft-headers =${{ minor_version }}
       - librmm =${{ minor_version }}
       - rapids-logger =0.2
@@ -95,7 +95,7 @@ outputs:
         - rapids-logger =0.2
         - libcumlprims =${{ minor_version }}
         # TODO: revert before merging
-        - libcuvs =25.10.00a168
+        - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
         - cuda-cudart-dev
@@ -114,7 +114,7 @@ outputs:
         - libcusparse
         - libcumlprims =${{ minor_version }}
         # TODO: revert before merging
-        - libcuvs =25.10.00a168
+        - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
         - treelite ${{ treelite_version }}
