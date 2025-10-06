@@ -18,7 +18,7 @@ from functools import partial
 import pytest
 from sklearn.utils import estimator_checks
 
-from cuml.cluster import DBSCAN, HDBSCAN, KMeans
+from cuml.cluster import DBSCAN, HDBSCAN, AgglomerativeClustering, KMeans
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.kernel_ridge import KernelRidge
@@ -676,6 +676,22 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_fit1d": "HDBSCAN does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "HDBSCAN does not handle 1D prediction input gracefully",
     },
+    AgglomerativeClustering: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "AgglomerativeClustering sets attributes during init",
+        "check_dont_overwrite_parameters": "AgglomerativeClustering overwrites parameters during fit",
+        "check_do_not_raise_errors_in_init_or_set_params": "AgglomerativeClustering raises errors in init or set_params",
+        "check_complex_data": "AgglomerativeClustering does not handle complex data",
+        "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
+        "check_estimators_empty_data_messages": "AgglomerativeClustering does not handle empty data",
+        "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
+        "check_estimator_sparse_tag": "AgglomerativeClustering does not support sparse data",
+        "check_estimator_sparse_array": "AgglomerativeClustering does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "AgglomerativeClustering does not handle sparse matrices gracefully",
+        "check_parameters_default_constructible": "AgglomerativeClustering parameters are mutated on init",
+        "check_fit_check_is_fitted": "AgglomerativeClustering passes check_is_fitted before being fit",
+        "check_fit1d": "AgglomerativeClustering does not raise ValueError for 1D input",
+    },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "GaussianNB sets attributes during init",
@@ -793,6 +809,7 @@ def _check_name(check):
         GaussianRandomProjection(),
         SparseRandomProjection(),
         DBSCAN(),
+        AgglomerativeClustering(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),
