@@ -29,10 +29,6 @@ additional dependencies:
 
 All with constraints matching the requested ``cuml`` version.
 
-.. code-block:: shell
-
-   pip install
-
 Optional Runtime Dependencies
 -----------------------------
 
