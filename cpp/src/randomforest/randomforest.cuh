@@ -345,6 +345,7 @@ class RandomForest {
     return stats;
   }
 
+ protected:
   /**
    * @brief Compute out-of-bag score for the random forest.
    * @param[in] handle: raft::handle_t

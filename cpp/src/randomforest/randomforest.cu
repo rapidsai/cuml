@@ -897,5 +897,6 @@ template double get_oob_score<double, double>(const RandomForestRegressorD* fore
 template std::vector<float> get_feature_importances<float, int>(RandomForestClassifierF* forest);
 template std::vector<double> get_feature_importances<double, int>(RandomForestClassifierD* forest);
 template std::vector<float> get_feature_importances<float, float>(RandomForestRegressorF* forest);
-template std::vector<double> get_feature_importances<double, double>(RandomForestRegressorD* forest);
+template std::vector<double> get_feature_importances<double, double>(
+  RandomForestRegressorD* forest);
 }  // End namespace ML
