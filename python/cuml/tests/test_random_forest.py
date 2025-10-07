@@ -1360,6 +1360,133 @@ def test_rf_feature_importance_regressor():
     assert avg_informative_importance > avg_noise_importance
 
 
+def test_rf_oob_score_compare_sklearn_classifier():
+    X, y = make_classification(
+        n_samples=1200,
+        n_features=30,
+        n_informative=10,
+        n_redundant=5,
+        random_state=123,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu = curfc(
+        n_estimators=100,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    cu.fit(X, y)
+
+    sk = skrfc(
+        n_estimators=100,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    sk.fit(X, y)
+
+    # OOB scores should broadly agree within tolerance
+    assert 0.0 <= cu.oob_score_ <= 1.0
+    assert 0.0 <= sk.oob_score_ <= 1.0
+    assert abs(cu.oob_score_ - sk.oob_score_) <= 0.15
+
+
+def test_rf_oob_score_compare_sklearn_regressor():
+    X, y = make_regression(
+        n_samples=1200,
+        n_features=20,
+        n_informative=8,
+        noise=0.2,
+        random_state=123,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu = curfr(
+        n_estimators=120,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    cu.fit(X, y)
+
+    sk = skrfr(
+        n_estimators=120,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    sk.fit(X, y)
+
+    # R^2 OOB should be within reasonable tolerance
+    assert -1.0 <= cu.oob_score_ <= 1.0
+    assert -1.0 <= sk.oob_score_ <= 1.0
+    assert abs(cu.oob_score_ - sk.oob_score_) <= 0.2
+
+
+def _topk_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
+    ai = set(np.argsort(a)[-k:])
+    bi = set(np.argsort(b)[-k:])
+    return len(ai & bi) / float(k)
+
+
+def test_rf_feature_importances_compare_sklearn_classifier():
+    X, y = make_classification(
+        n_samples=1200,
+        n_features=30,
+        n_informative=6,
+        n_redundant=6,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu = curfc(n_estimators=120, max_depth=14, random_state=42)
+    cu.fit(X, y)
+    sk = skrfc(n_estimators=120, max_depth=14, random_state=42)
+    sk.fit(X, y)
+
+    cu_imp = cu.feature_importances_
+    sk_imp = sk.feature_importances_
+    assert np.isclose(cu_imp.sum(), 1.0)
+    assert np.isclose(sk_imp.sum(), 1.0)
+    # Top-k important features should substantially overlap
+    overlap = _topk_overlap(cu_imp, sk_imp, k=6)
+    assert overlap >= 0.5
+
+
+def test_rf_feature_importances_compare_sklearn_regressor():
+    X, y = make_regression(
+        n_samples=1200,
+        n_features=25,
+        n_informative=7,
+        noise=0.2,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu = curfr(n_estimators=120, max_depth=14, random_state=42)
+    cu.fit(X, y)
+    sk = skrfr(n_estimators=120, max_depth=14, random_state=42)
+    sk.fit(X, y)
+
+    cu_imp = cu.feature_importances_
+    sk_imp = sk.feature_importances_
+    assert np.isclose(cu_imp.sum(), 1.0)
+    assert np.isclose(sk_imp.sum(), 1.0)
+    overlap = _topk_overlap(cu_imp, sk_imp, k=7)
+    assert overlap >= 0.5
+
+
 def test_rf_feature_importance_not_fitted():
     """Test that accessing feature importances before fitting raises error"""
     clf = curfc()
