@@ -637,6 +637,7 @@ void fit_treelite_with_stats(const raft::handle_t& user_handle,
                              value_t* feature_importances_out)
 {
   RandomForestMetaData<value_t, label_t> metadata;
+  rf_params.oob_score = true;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
   if (oob_score_out != nullptr) { *oob_score_out = metadata.oob_score; }
   if (feature_importances_out != nullptr) {
@@ -659,6 +660,7 @@ void fit_treelite_with_stats(const raft::handle_t& user_handle,
                              value_t* feature_importances_out)
 {
   RandomForestMetaData<value_t, label_t> metadata;
+  rf_params.oob_score = true;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
   if (oob_score_out != nullptr) { *oob_score_out = metadata.oob_score; }
   if (feature_importances_out != nullptr) {

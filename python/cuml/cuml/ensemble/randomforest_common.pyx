@@ -360,13 +360,13 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.random_state = random_state
         self.n_streams = n_streams
         self.oob_score = oob_score
+        self._oob_score_ = -1.0
+        self._feature_importances_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
         # FIL model isn't currently pickleable
         state.pop("_fil_model", None)
-        self._oob_score_ = -1.0
-        self._feature_importances_ = None
         return state
 
     def __setstate__(self, state):
