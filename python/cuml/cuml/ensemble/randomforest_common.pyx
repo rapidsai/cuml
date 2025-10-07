@@ -23,7 +23,9 @@ import numpy as np
 import treelite.sklearn
 from pylibraft.common.handle import Handle
 
+from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import ForestInference
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
@@ -31,9 +33,7 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
 )
 from cuml.internals.treelite import safe_treelite_call
-from cuml.internals.array import CumlArray
 from cuml.internals.utils import check_random_seed
-from cuml.common.exceptions import NotFittedError
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -504,7 +504,6 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         cdef TreeliteModelHandle tl_handle
         cdef double oob_score_value = -1.0
-        # Allocate host numpy array for feature importances; C++ writes into it
         cdef object _fi_py
         if is_float32:
             _fi_py = np.empty(n_cols, dtype=np.float32)
@@ -599,7 +598,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._fil_model = None
         if self.oob_score:
             self._oob_score_ = oob_score_value
-        # Store numpy array (already on host)
         self._feature_importances_ = _fi_py
         return self
 
