@@ -186,7 +186,7 @@ class RandomForest {
     }
 
     // Initialize feature importance tracking
-    if (rf_params.compute_feature_importance) { forest->feature_importances.resize(n_cols, 0.0); }
+    forest->feature_importances.resize(n_cols, 0.0);
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {

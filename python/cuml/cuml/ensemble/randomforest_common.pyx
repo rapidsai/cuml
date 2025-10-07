@@ -500,7 +500,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             self.n_streams,
             self.max_batch_size,
             self.oob_score,
-            True,
         )
 
         cdef TreeliteModelHandle tl_handle
