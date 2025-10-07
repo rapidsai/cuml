@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ ctypedef int underlying_type_t_solver
 
 cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
-    ctypedef enum solver "ML::solver":
+    enum solver "ML::solver":
         COV_EIG_DQ "ML::solver::COV_EIG_DQ"
         COV_EIG_JACOBI "ML::solver::COV_EIG_JACOBI"
 
