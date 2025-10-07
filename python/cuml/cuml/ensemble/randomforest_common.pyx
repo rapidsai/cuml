@@ -77,7 +77,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int cfg_n_streams,
         int max_batch_size,
         bool oob_score,
-        bool compute_feature_importance
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -506,8 +505,13 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         cdef TreeliteModelHandle tl_handle
         cdef double oob_score_value = -1.0
-        _fi_py = CumlArray.empty((n_cols, ), dtype=float, order='F')
-        cdef uintptr_t _fi_ptr = _fi_py.ptr
+        # Allocate host numpy array for feature importances; C++ writes into it
+        cdef object _fi_py
+        if is_float32:
+            _fi_py = np.empty(n_cols, dtype=np.float32)
+        else:
+            _fi_py = np.empty(n_cols, dtype=np.float64)
+        cdef uintptr_t _fi_ptr = <uintptr_t> _fi_py.ctypes.data
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
         with nogil:
@@ -596,10 +600,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._fil_model = None
         if self.oob_score:
             self._oob_score_ = oob_score_value
-        try:
-            self._feature_importances_ = _fi_py.to_output("numpy")
-        except Exception:
-            self._feature_importances_ = None
+        # Store numpy array (already on host)
+        self._feature_importances_ = _fi_py
         return self
 
     def _get_inference_fil_model(
