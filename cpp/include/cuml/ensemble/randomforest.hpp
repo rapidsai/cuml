@@ -98,11 +98,6 @@ struct RF_params {
    * Only valid when bootstrap=true.
    */
   bool oob_score = false;
-  /**
-   * Enable feature importance computation.
-   * If set to true, feature importances will be computed during training.
-   */
-  bool compute_feature_importance = true;
   DT::DecisionTreeParams tree_params;
 };
 
@@ -180,7 +175,7 @@ double get_oob_score(const RandomForestMetaData<T, L>* forest);
  * @return Vector of feature importances
  */
 template <class T, class L>
-std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest);
+std::vector<T> get_feature_importances(RandomForestMetaData<T, L>* forest);
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -259,8 +254,7 @@ RF_params set_rf_params(int max_depth,
                         CRITERION split_criterion,
                         int cfg_n_streams,
                         int max_batch_size,
-                        bool oob_score                  = false,
-                        bool compute_feature_importance = true);
+                        bool oob_score = false);
 
 // ----------------------------- Regression ----------------------------------- //
 

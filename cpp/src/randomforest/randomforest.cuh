@@ -230,7 +230,7 @@ class RandomForest {
       compute_oob_score(handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
     }
 
-    if (rf_params.compute_feature_importance) { compute_feature_importances(forest, n_cols); }
+    compute_feature_importances(forest, n_cols);
   }
 
   /**
