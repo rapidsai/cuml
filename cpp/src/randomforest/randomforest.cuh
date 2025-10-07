@@ -66,21 +66,17 @@ class RandomForest {
       // Use bootstrapped sample set
       rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
 
-      // Track OOB samples if needed
       if (rf_params.oob_score) {
-        // Copy bootstrap indices to host to identify OOB samples
         std::vector<int> h_selected_rows(selected_rows->size());
         raft::update_host(
           h_selected_rows.data(), selected_rows->data(), selected_rows->size(), stream);
         RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-        // Mark which samples were selected
         std::vector<bool> selected(n_rows, false);
         for (int idx : h_selected_rows) {
           selected[idx] = true;
         }
 
-        // Collect OOB indices
         oob_indices.clear();
         for (int i = 0; i < n_rows; i++) {
           if (!selected[i]) { oob_indices.push_back(i); }
@@ -90,7 +86,6 @@ class RandomForest {
     } else {
       // Use all the samples from the dataset
       thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
-      // No OOB samples when not bootstrapping
       oob_indices.clear();
     }
   }

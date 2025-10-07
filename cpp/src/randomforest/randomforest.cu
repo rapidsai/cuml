@@ -625,6 +625,53 @@ void fit_treelite(const raft::handle_t& user_handle,
   build_treelite_forest(model, &metadata, n_cols);
 }
 
+template <typename value_t, typename label_t>
+void fit_treelite_with_stats(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             value_t* input,
+                             int n_rows,
+                             int n_cols,
+                             label_t* labels,
+                             int n_unique_labels,
+                             RF_params rf_params,
+                             rapids_logger::level_enum verbosity,
+                             double* oob_score_out,
+                             value_t* feature_importances_out)
+{
+  RandomForestMetaData<value_t, label_t> metadata;
+  fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
+  if (oob_score_out != nullptr) { *oob_score_out = metadata.oob_score; }
+  if (feature_importances_out != nullptr && rf_params.compute_feature_importance) {
+    std::copy(metadata.feature_importances.begin(),
+              metadata.feature_importances.end(),
+              feature_importances_out);
+  }
+  build_treelite_forest(model, &metadata, n_cols);
+}
+
+template <typename value_t, typename label_t>
+void fit_treelite_with_stats(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             value_t* input,
+                             int n_rows,
+                             int n_cols,
+                             label_t* labels,
+                             RF_params rf_params,
+                             rapids_logger::level_enum verbosity,
+                             double* oob_score_out,
+                             value_t* feature_importances_out)
+{
+  RandomForestMetaData<value_t, label_t> metadata;
+  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
+  if (oob_score_out != nullptr) { *oob_score_out = metadata.oob_score; }
+  if (feature_importances_out != nullptr && rf_params.compute_feature_importance) {
+    std::copy(metadata.feature_importances.begin(),
+              metadata.feature_importances.end(),
+              feature_importances_out);
+  }
+  build_treelite_forest(model, &metadata, n_cols);
+}
+
 /** @} */
 
 /**
@@ -802,6 +849,49 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            double* labels,
                                            RF_params rf_params,
                                            rapids_logger::level_enum verbosity);
+
+template void fit_treelite_with_stats<float, int>(const raft::handle_t& user_handle,
+                                                  TreeliteModelHandle* model,
+                                                  float* input,
+                                                  int n_rows,
+                                                  int n_cols,
+                                                  int* labels,
+                                                  int n_unique_labels,
+                                                  RF_params rf_params,
+                                                  rapids_logger::level_enum verbosity,
+                                                  double* oob_score_out,
+                                                  float* feature_importances_out);
+template void fit_treelite_with_stats<double, int>(const raft::handle_t& user_handle,
+                                                   TreeliteModelHandle* model,
+                                                   double* input,
+                                                   int n_rows,
+                                                   int n_cols,
+                                                   int* labels,
+                                                   int n_unique_labels,
+                                                   RF_params rf_params,
+                                                   rapids_logger::level_enum verbosity,
+                                                   double* oob_score_out,
+                                                   double* feature_importances_out);
+template void fit_treelite_with_stats<float, float>(const raft::handle_t& user_handle,
+                                                    TreeliteModelHandle* model,
+                                                    float* input,
+                                                    int n_rows,
+                                                    int n_cols,
+                                                    float* labels,
+                                                    RF_params rf_params,
+                                                    rapids_logger::level_enum verbosity,
+                                                    double* oob_score_out,
+                                                    float* feature_importances_out);
+template void fit_treelite_with_stats<double, double>(const raft::handle_t& user_handle,
+                                                      TreeliteModelHandle* model,
+                                                      double* input,
+                                                      int n_rows,
+                                                      int n_cols,
+                                                      double* labels,
+                                                      RF_params rf_params,
+                                                      rapids_logger::level_enum verbosity,
+                                                      double* oob_score_out,
+                                                      double* feature_importances_out);
 
 template double get_oob_score<float, int>(const RandomForestClassifierF* forest);
 template double get_oob_score<double, int>(const RandomForestClassifierD* forest);

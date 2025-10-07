@@ -31,7 +31,9 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
 )
 from cuml.internals.treelite import safe_treelite_call
+from cuml.internals.array import CumlArray
 from cuml.internals.utils import check_random_seed
+from cuml.common.exceptions import NotFittedError
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -73,7 +75,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         uint64_t seed,
         CRITERION split_criterion,
         int cfg_n_streams,
-        int max_batch_size
+        int max_batch_size,
+        bool oob_score,
+        bool compute_feature_importance
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -97,6 +101,33 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         level_enum verbosity
+    ) except +
+
+    cdef void fit_treelite_with_stats[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        int n_unique_labels,
+        RF_params params,
+        level_enum verbosity,
+        double* oob_score_out,
+        T* feature_importances_out
+    ) except +
+
+    cdef void fit_treelite_with_stats[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        RF_params params,
+        level_enum verbosity,
+        double* oob_score_out,
+        T* feature_importances_out
     ) except +
 
 
@@ -335,9 +366,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         state = self.__dict__.copy()
         # FIL model isn't currently pickleable
         state.pop("_fil_model", None)
-        return state
         self._oob_score_ = -1.0
         self._feature_importances_ = None
+        return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -469,15 +500,20 @@ class BaseRandomForestModel(Base, InteropMixin):
             _normalize_split_criterion(self.split_criterion),
             self.n_streams,
             self.max_batch_size,
+            self.oob_score,
+            True,
         )
 
         cdef TreeliteModelHandle tl_handle
+        cdef double oob_score_value = -1.0
+        _fi_py = CumlArray.empty((n_cols, ), dtype=float, order='F')
+        cdef uintptr_t _fi_ptr = _fi_py.ptr
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
         with nogil:
             if is_classifier:
                 if is_float32:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -486,10 +522,12 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <int*> y_ptr,
                         n_classes,
                         params,
-                        verbose
+                        verbose,
+                        &oob_score_value,
+                        <float*> _fi_ptr,
                     )
                 else:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -498,11 +536,13 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <int*> y_ptr,
                         n_classes,
                         params,
-                        verbose
+                        verbose,
+                        &oob_score_value,
+                        <double*> _fi_ptr,
                     )
             else:
                 if is_float32:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -510,10 +550,12 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_cols,
                         <float*> y_ptr,
                         params,
-                        verbose
+                        verbose,
+                        &oob_score_value,
+                        <float*> _fi_ptr,
                     )
                 else:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -521,7 +563,9 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_cols,
                         <double*> y_ptr,
                         params,
-                        verbose
+                        verbose,
+                        &oob_score_value,
+                        <double*> _fi_ptr,
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
@@ -550,6 +594,12 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         # Ensure cached fil model is reset
         self._fil_model = None
+        if self.oob_score:
+            self._oob_score_ = oob_score_value
+        try:
+            self._feature_importances_ = _fi_py.to_output("numpy")
+        except Exception:
+            self._feature_importances_ = None
         return self
 
     def _get_inference_fil_model(
