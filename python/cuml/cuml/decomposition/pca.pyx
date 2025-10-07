@@ -37,9 +37,10 @@ from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-from cuml.decomposition.utils cimport *
+from cuml.decomposition.common cimport paramsPCA, solver
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:

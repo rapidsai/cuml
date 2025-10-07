@@ -24,11 +24,15 @@ from cuml.internals.array import CumlArray
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.opg_data_utils_mg cimport *
-from cuml.decomposition.utils cimport *
-from cuml.decomposition.utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    doubleData_t,
+    floatData_t,
+)
+from cuml.decomposition.common cimport mg_solver, paramsPCAMG
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:

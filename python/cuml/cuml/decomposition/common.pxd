@@ -16,7 +16,6 @@
 
 from libcpp cimport bool
 
-ctypedef int underlying_type_t_solver
 
 cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
@@ -27,7 +26,6 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
     cdef cppclass params:
         size_t n_rows
         size_t n_cols
-        int gpu_id
 
     cdef cppclass paramsSolver(params):
         float tol
@@ -36,8 +34,20 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
     cdef cppclass paramsTSVD(paramsSolver):
         size_t n_components
-        solver algorithm  # = solver::COV_EIG_DQ
+        solver algorithm
 
     cdef cppclass paramsPCA(paramsTSVD):
+        bool copy
+        bool whiten
+
+    enum mg_solver "ML::mg_solver":
+        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
+
+    cdef cppclass paramsTSVDMG(paramsSolver):
+        size_t n_components
+        mg_solver algorithm
+
+    cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
         bool whiten

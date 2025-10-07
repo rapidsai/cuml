@@ -26,9 +26,10 @@ from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-from cuml.decomposition.utils cimport *
+from cuml.decomposition.common cimport paramsTSVD, solver
 
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
