@@ -112,7 +112,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
                                  int,
                                  bool,
                                  bool) except +
-    
+
     cdef double get_oob_score[T, L](RandomForestMetaData[T, L]*) except +
     cdef vector[T] get_feature_importances[T, L](RandomForestMetaData[T, L]*) except +
 

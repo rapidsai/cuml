@@ -546,8 +546,8 @@ RF_params set_rf_params(int max_depth,
   rf_params.seed        = seed;
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
-  rf_params.tree_params = tree_params;
-  rf_params.oob_score = oob_score;
+  rf_params.tree_params                = tree_params;
+  rf_params.oob_score                  = oob_score;
   rf_params.compute_feature_importance = compute_feature_importance;
   validity_check(rf_params);
   return rf_params;
@@ -803,14 +803,17 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            RF_params rf_params,
                                            rapids_logger::level_enum verbosity);
 
-
 template double get_oob_score<float, int>(const RandomForestClassifierF* forest);
 template double get_oob_score<double, int>(const RandomForestClassifierD* forest);
 template double get_oob_score<float, float>(const RandomForestRegressorF* forest);
 template double get_oob_score<double, double>(const RandomForestRegressorD* forest);
 
-template std::vector<float> get_feature_importances<float, int>(const RandomForestClassifierF* forest);
-template std::vector<double> get_feature_importances<double, int>(const RandomForestClassifierD* forest);
-template std::vector<float> get_feature_importances<float, float>(const RandomForestRegressorF* forest);
-template std::vector<double> get_feature_importances<double, double>(const RandomForestRegressorD* forest);
+template std::vector<float> get_feature_importances<float, int>(
+  const RandomForestClassifierF* forest);
+template std::vector<double> get_feature_importances<double, int>(
+  const RandomForestClassifierD* forest);
+template std::vector<float> get_feature_importances<float, float>(
+  const RandomForestRegressorF* forest);
+template std::vector<double> get_feature_importances<double, double>(
+  const RandomForestRegressorD* forest);
 }  // End namespace ML

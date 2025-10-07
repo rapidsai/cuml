@@ -571,13 +571,13 @@ class BaseRandomForestModel(Base, InteropMixin):
                 align_bytes=align_bytes,
             )
         return fil_model
-    
+
     @property
     def oob_score_(self):
         """Out-of-bag score for the training dataset.
-        
+
         Only available if oob_score=True.
-        
+
         Returns
         -------
         score : float
@@ -595,11 +595,11 @@ class BaseRandomForestModel(Base, InteropMixin):
                 "Call 'fit' with appropriate arguments before using this property."
             )
         return self._oob_score_
-    
+
     @property
     def feature_importances_(self):
         """The feature importances based on the mean decrease in impurity.
-        
+
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)

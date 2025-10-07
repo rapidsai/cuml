@@ -1223,35 +1223,34 @@ def test_rf_oob_score_classifier():
         n_features=20,
         n_informative=10,
         n_classes=3,
-        random_state=42
+        random_state=42,
     )
     X = X.astype(np.float32)
     y = y.astype(np.int32)
-    
+
     # Test with OOB score enabled
     clf = curfc(
         n_estimators=50,
         max_depth=8,
         oob_score=True,
         bootstrap=True,
-        random_state=42
+        random_state=42,
     )
     clf.fit(X, y)
-    
+
     # Check that OOB score is available and reasonable
-    assert hasattr(clf, 'oob_score_')
+    assert hasattr(clf, "oob_score_")
     assert 0.0 <= clf.oob_score_ <= 1.0
-    assert clf.oob_score_ > 0.5  # Should be better than random for this dataset
-    
+    assert (
+        clf.oob_score_ > 0.5
+    )  # Should be better than random for this dataset
+
     # Test without bootstrap (OOB score should still work but be less meaningful)
     clf_no_bootstrap = curfc(
-        n_estimators=10,
-        oob_score=True,
-        bootstrap=False,
-        random_state=42
+        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
     )
     clf_no_bootstrap.fit(X[:100], y[:100])
-    
+
     # Test error when accessing OOB score without enabling it
     clf_no_oob = curfc(n_estimators=10, oob_score=False)
     clf_no_oob.fit(X[:100], y[:100])
@@ -1266,26 +1265,26 @@ def test_rf_oob_score_regressor():
         n_features=20,
         n_informative=10,
         noise=0.1,
-        random_state=42
+        random_state=42,
     )
     X = X.astype(np.float32)
     y = y.astype(np.float32)
-    
+
     # Test with OOB score enabled
     reg = curfr(
         n_estimators=50,
         max_depth=8,
         oob_score=True,
         bootstrap=True,
-        random_state=42
+        random_state=42,
     )
     reg.fit(X, y)
-    
+
     # Check that OOB score is available and reasonable
-    assert hasattr(reg, 'oob_score_')
+    assert hasattr(reg, "oob_score_")
     assert -1.0 <= reg.oob_score_ <= 1.0
     assert reg.oob_score_ > 0.5  # Should have good R² for this dataset
-    
+
     # Test error when accessing OOB score without enabling it
     reg_no_oob = curfr(n_estimators=10, oob_score=False)
     reg_no_oob.fit(X[:100], y[:100])
@@ -1304,23 +1303,23 @@ def test_rf_feature_importance_classifier():
         n_repeated=0,
         n_classes=2,
         shuffle=False,
-        random_state=42
+        random_state=42,
     )
     X = X.astype(np.float32)
     y = y.astype(np.int32)
-    
+
     clf = curfc(n_estimators=50, max_depth=8, random_state=42)
     clf.fit(X, y)
-    
+
     # Check that feature importances are available
-    assert hasattr(clf, 'feature_importances_')
+    assert hasattr(clf, "feature_importances_")
     importances = clf.feature_importances_
-    
+
     # Check properties of feature importances
     assert len(importances) == X.shape[1]
     assert np.all(importances >= 0)
     assert np.abs(np.sum(importances) - 1.0) < 1e-5  # Should sum to 1
-    
+
     # Informative features should have higher importance
     # (first 5 features are informative in this dataset)
     avg_informative_importance = np.mean(importances[:5])
@@ -1337,23 +1336,23 @@ def test_rf_feature_importance_regressor():
         n_informative=5,
         noise=0.1,
         shuffle=False,
-        random_state=42
+        random_state=42,
     )
     X = X.astype(np.float32)
     y = y.astype(np.float32)
-    
+
     reg = curfr(n_estimators=50, max_depth=8, random_state=42)
     reg.fit(X, y)
-    
+
     # Check that feature importances are available
-    assert hasattr(reg, 'feature_importances_')
+    assert hasattr(reg, "feature_importances_")
     importances = reg.feature_importances_
-    
+
     # Check properties of feature importances
     assert len(importances) == X.shape[1]
     assert np.all(importances >= 0)
     assert np.abs(np.sum(importances) - 1.0) < 1e-5  # Should sum to 1
-    
+
     # Informative features should have higher importance
     # (first 5 features are informative in this dataset)
     avg_informative_importance = np.mean(importances[:5])
@@ -1366,7 +1365,7 @@ def test_rf_feature_importance_not_fitted():
     clf = curfc()
     with pytest.raises(NotFittedError):
         _ = clf.feature_importances_
-    
+
     reg = curfr()
     with pytest.raises(NotFittedError):
         _ = reg.feature_importances_

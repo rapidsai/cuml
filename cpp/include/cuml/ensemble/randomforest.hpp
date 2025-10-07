@@ -124,20 +124,20 @@ template <class T, class L>
 struct RandomForestMetaData {
   std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
-  
+
   /**
    * Out-of-bag score for the forest.
    * For classification: accuracy score
    * For regression: R-squared score
    */
   double oob_score = -1.0;
-  
+
   /**
    * Feature importances (mean decrease in impurity).
    * Vector of size n_features containing importance score for each feature.
    */
   std::vector<T> feature_importances;
-  
+
   /**
    * OOB indices for each tree.
    * For each tree, stores the indices of samples that were out-of-bag.
@@ -259,7 +259,7 @@ RF_params set_rf_params(int max_depth,
                         CRITERION split_criterion,
                         int cfg_n_streams,
                         int max_batch_size,
-                        bool oob_score = false,
+                        bool oob_score                  = false,
                         bool compute_feature_importance = true);
 
 // ----------------------------- Regression ----------------------------------- //
