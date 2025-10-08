@@ -13,6 +13,17 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
+echo "=== DEBUG: Listing contents of downloaded conda channels ==="
+for ch in "${CUVS_CHANNEL:-}" "${LIBCUVS_CHANNEL:-}" "${CPP_CHANNEL:-}"; do
+  if [ -n "$ch" ] && [ -d "$ch" ]; then
+    echo ">>> $ch"
+    find "$ch" -maxdepth 2 -type f | sort
+  else
+    echo "!!! Channel path $ch does not exist or is empty"
+  fi
+done
+echo "============================================================="
+
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
