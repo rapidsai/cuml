@@ -757,17 +757,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  output_type=None,
                  prediction_data=False):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        if min_samples is None:
-            min_samples = min_cluster_size
-
-        if 2 < min_samples and min_samples > 1023:
-            raise ValueError("'min_samples' must be a positive number "
-                             "between 2 and 1023")
-
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples
         self.cluster_selection_epsilon = cluster_selection_epsilon
@@ -785,10 +775,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self._prediction_data = None
         self._raw_data = None
         self._raw_data_cpu = None
-
-    @property
-    def dtype(self):
-        return np.float32
 
     def _get_raw_data_cpu(self):
         if getattr(self, "_raw_data_cpu") is None:
@@ -869,6 +855,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         """
         Fit HDBSCAN model from features.
         """
+
         self._raw_data = input_to_cuml_array(
             X,
             order='C',
@@ -878,8 +865,15 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self._raw_data_cpu = None
 
         # Validate and prepare hyperparameters
+        if (min_samples := self.min_samples) is None:
+            min_samples = self.min_cluster_size
+        if not (2 <= min_samples <= 1023):
+            raise ValueError(
+                "HDBSCAN requires `2 <= min_samples <= 1023`, got `{min_samples=}`"
+            )
+
         cdef lib.HDBSCANParams params
-        params.min_samples = self.min_samples
+        params.min_samples = min_samples
         params.alpha = self.alpha
         params.min_cluster_size = self.min_cluster_size
         params.max_cluster_size = self.max_cluster_size
@@ -1129,7 +1123,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         <float*><uintptr_t>(clusterer._raw_data.ptr),
         <float*><uintptr_t>(points_to_predict_m.ptr),
         n_prediction_points,
-        clusterer.min_samples,
+        clusterer.min_samples or clusterer.min_cluster_size,
         _metrics_mapping[clusterer.metric],
         <float*><uintptr_t>(membership_vec.ptr),
         batch_size
@@ -1219,7 +1213,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         <float*><uintptr_t>(points_to_predict_m.ptr),
         n_prediction_points,
         _metrics_mapping[clusterer.metric],
-        clusterer.min_samples,
+        clusterer.min_samples or clusterer.min_cluster_size,
         <int*><uintptr_t>(prediction_labels.ptr),
         <float*><uintptr_t>(prediction_probs.ptr),
     )
