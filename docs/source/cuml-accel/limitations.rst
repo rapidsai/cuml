@@ -197,11 +197,6 @@ RandomForestClassifier
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``feature_importances_``
-- ``estimators_samples_``
-
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -216,11 +211,6 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``feature_importances_``
-- ``estimators_samples_``
 
 
 sklearn.kernel_ridge
@@ -334,10 +324,6 @@ TSNE
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
 - Even with a ``random_state``, the TSNE implementation used by ``cuml.accel``
@@ -349,6 +335,20 @@ good in most cases. Beyond comparing the visual representation, you may find
 comparing the trustworthiness score (computed via
 ``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
 attribute useful.
+
+SpectralEmbedding
+^^^^^^^^^^^^^^^^^
+
+``SpectralEmbedding`` will fall back to CPU in the following cases:
+
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+- If ``X`` is sparse.
+- If ``X`` has only 1 feature.
+
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
 
 
 sklearn.neighbors

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import enum
+import os
 from typing import Literal
 
 from cuda.bindings import runtime
@@ -159,7 +160,14 @@ def install(
         set to `"info"` or `"debug"` to get more information about what methods
         `cuml.accel` accelerated for a given run.
     """
+    if enabled():
+        # Already enabled, no-op
+        return
+
     logger.set_level(log_level)
+    # Set the environment variable if not already set so cuml.accel will
+    # be automatically enabled in subprocesses
+    os.environ.setdefault("CUML_ACCEL_ENABLED", "1")
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():
@@ -186,14 +194,3 @@ def install(
     set_global_output_type("numpy")
 
     logger.info("Accelerator installed.")
-
-
-def pytest_load_initial_conftests(early_config, parser, args):
-    # https://docs.pytest.org/en/7.1.x/reference/\
-    # reference.html#pytest.hookspec.pytest_load_initial_conftests
-    try:
-        install()
-    except RuntimeError:
-        raise RuntimeError(
-            "An existing plugin has already loaded sklearn. Interposing failed."
-        )

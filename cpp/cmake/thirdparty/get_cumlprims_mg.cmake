@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
 #=============================================================================
 
 set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_cumlprims_mg)
 
     set(oneValueArgs VERSION FORK PINNED_TAG BUILD_STATIC EXCLUDE_FROM_ALL CLONE_ON_PIN)
     cmake_parse_arguments(PKG "" "${oneValueArgs}" "" ${ARGN} )
 
-    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_cumlprims_mg}")
+    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "${rapids-cmake-checkout-tag}")
         message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning cumlprims locally.")
         set(CPM_DOWNLOAD_cumlprims_mg ON)
     elseif(PKG_BUILD_STATIC AND (NOT CPM_cumlprims_mg_SOURCE))
@@ -40,7 +39,7 @@ function(find_and_configure_cumlprims_mg)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-          GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
           SOURCE_SUBDIR    cpp
@@ -64,7 +63,7 @@ endfunction()
 ###
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
                                 FORK       rapidsai
-                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
+                                PINNED_TAG ${rapids-cmake-checkout-tag}
                                 BUILD_STATIC     ${CUML_USE_CUMLPRIMS_MG_STATIC}
                                 EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL}
                                 # When PINNED_TAG above doesn't match cuml,

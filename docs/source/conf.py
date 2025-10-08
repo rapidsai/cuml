@@ -195,12 +195,12 @@ numpydoc_class_members_toctree = False
 
 # Redirects
 REDIRECTS = {
-    "zero-code-change.html": "cuml-accel/index.html",
-    "zero-code-change-benchmarks.html": "cuml-accel/benchmarks.html",
-    "zero-code-change-limitations.html": "cuml-accel/limitations.html",
-    "zero-code-change-logging.html": "cuml-accel/logging-and-profiling.html",
+    "zero-code-change/index.html": "cuml-accel/",
+    "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
+    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
-        "cuml-accel/examples/plot_kmeans_digits.html"
+        "cuml-accel/examples/plot_kmeans_digits/"
     ),
 }
 
@@ -220,7 +220,7 @@ def setup_redirects(app, docname):
         """
     ).strip()
 
-    if app.builder.name == "html":
+    if app.builder.name == "dirhtml":
         for old_path, new_path in REDIRECTS.items():
             # make new_path relative to old_path
             new_path = f"{'../' * old_path.count('/')}{new_path}"
@@ -231,7 +231,7 @@ def setup_redirects(app, docname):
 
 
 def setup(app):
-    app.add_css_file("references.css")
+    app.add_css_file("custom.css")
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
     app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")
     app.connect("build-finished", setup_redirects)

@@ -368,6 +368,7 @@ class GaussianNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -406,6 +407,7 @@ class GaussianNB(_BaseNB):
         y = input_to_cupy_array(
             y,
             convert_to_dtype=(expected_y_dtype if convert_dtype else False),
+            check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
 
@@ -1856,9 +1858,7 @@ class CategoricalNB(_BaseDiscreteNB):
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
             features = self.category_count_.row % self.n_features_
-            cupyx.scatter_max(
-                highest_feature, features, self.category_count_.col
-            )
+            cp.maximum.at(highest_feature, features, self.category_count_.col)
             highest_feature = (highest_feature + 1) * alpha
 
             smoothed_class_count = self.category_count_.sum(axis=1)
@@ -1874,7 +1874,7 @@ class CategoricalNB(_BaseDiscreteNB):
             self.smoothed_class_count = cp.log(smoothed_class_count)
         else:
             indices = self.category_count_.nonzero()
-            cupyx.scatter_max(highest_feature, indices[0], indices[2])
+            cp.maximum.at(highest_feature, indices[0], indices[2])
             highest_feature = (highest_feature + 1) * alpha
 
             smoothed_class_count = (
@@ -1925,7 +1925,7 @@ class CategoricalNB(_BaseDiscreteNB):
                     jll_data[cp.where(jll_data == 0)] += cp.log(self.alpha)
                     jll_zeros[cp.where(jll_zeros == 0)] += cp.log(self.alpha)
                 jll_data -= jll_zeros
-                cupyx.scatter_add(jll[:, i], X.row, jll_data)
+                cp.add.at(jll[:, i], X.row, jll_data)
 
         else:
             col_indices = cp.indices(X.shape)[1].flatten()

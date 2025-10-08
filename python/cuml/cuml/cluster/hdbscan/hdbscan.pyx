@@ -14,8 +14,6 @@
 #
 
 # distutils: language = c++
-import warnings
-
 import cupy as cp
 import numpy as np
 from pylibraft.common.handle import Handle
@@ -372,7 +370,7 @@ cdef class _HDBSCANState:
             cluster_persistence = CumlArray(
                 data=_cupy_array_from_ptr(
                     <size_t>self.hdbscan_output.get_stabilities(),
-                    (1, self.n_clusters),
+                    (self.n_clusters,),
                     np.float32,
                     self,
                 )
@@ -645,7 +643,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "cluster_selection_method",
             "allow_single_cluster",
             "gen_min_span_tree",
-            "connectivity",
             "prediction_data"
         ]
 
@@ -712,9 +709,12 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             state.generate_prediction_data(self.handle, raw_data, labels)
 
         return {
+            # XXX: `hdbscan.HDBSCAN` doesn't set `n_features_in_` currently, we need
+            # to infer this ourselves from the raw data.
+            "n_features_in_": raw_data_cpu.shape[1],
             "labels_": labels,
-            "probabilities_": to_gpu(model.probabilities_),
-            "cluster_persistence_": to_gpu(model.cluster_persistence_),
+            "probabilities_": to_gpu(model.probabilities_, dtype="float32"),
+            "cluster_persistence_": to_gpu(model.cluster_persistence_, dtype="float32"),
             "_raw_data": raw_data,
             "_raw_data_cpu": raw_data_cpu,
             "_state": state,
@@ -754,7 +754,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  gen_min_span_tree=False,
                  handle=None,
                  verbose=False,
-                 connectivity='deprecated',
                  output_type=None,
                  prediction_data=False):
 
@@ -764,12 +763,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
         if min_samples is None:
             min_samples = min_cluster_size
-
-        if connectivity != "deprecated":
-            warnings.warn(
-                "The `connectivity` parameter is deprecated and will be removed in 25.10",
-                FutureWarning,
-            )
 
         if 2 < min_samples and min_samples > 1023:
             raise ValueError("'min_samples' must be a positive number "
@@ -784,7 +777,6 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.alpha = alpha
         self.cluster_selection_method = cluster_selection_method
         self.allow_single_cluster = allow_single_cluster
-        self.connectivity = connectivity
         self.gen_min_span_tree = gen_min_span_tree
         self.prediction_data = prediction_data
 

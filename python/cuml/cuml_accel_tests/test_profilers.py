@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import textwrap
 
 import pytest
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVC
 
 from cuml.accel.profilers import LineProfiler, format_duration, profile
 
@@ -28,11 +30,10 @@ def wide_terminal(monkeypatch):
 
 
 def line_profile(source: str) -> LineProfiler:
-    code = compile(source, "<stdin>", "exec")
-    namespace = {"__name__": "__main__"}
-    with LineProfiler(source=source, namespace=namespace, quiet=True) as lprof:
-        exec(code, namespace)
-
+    filename = f"<cuml-accel-input-{os.urandom(6).hex()}>"
+    code = compile(source, filename, "exec")
+    with LineProfiler(source=source, filename=filename, quiet=True) as lprof:
+        exec(code, {"__name__": "__main__"})
     return lprof
 
 
@@ -149,14 +150,13 @@ def test_line_profile_errors():
         """
     ).strip()
 
-    code = compile(script, "<stdin>", "exec")
-    ns = {"__name__": "__main__"}
+    filename = f"<cuml-accel-input-{os.urandom(6).hex()}>"
+    code = compile(script, filename, "exec")
     with pytest.raises(ValueError, match="Oh no!"):
-        with LineProfiler(source=script, namespace=ns, quiet=True) as lprof:
-            exec(code, ns)
-
-    # FLAG removed from namespace
-    assert lprof.FLAG not in ns
+        with LineProfiler(
+            source=script, filename=filename, quiet=True
+        ) as lprof:
+            exec(code, {"__name__": "__main__"})
 
     # Timers properly unwound
     assert not lprof._timers
@@ -194,3 +194,18 @@ def test_profile(capsys, wide_terminal):
         assert method in out
     assert "Not all operations ran on the GPU" in out
     assert list(fit_stats.fallback_reasons)[0] in out
+
+
+def test_profile_fallback_in_gpu_method():
+    X, y = make_classification(n_classes=4, n_informative=4)
+    model = SVC()
+    with profile(quiet=True) as results:
+        # Hyperparameters supported but method args aren't
+        model.fit(X, y)
+
+    fit_stats = results.method_calls["SVC.fit"]
+    assert fit_stats.gpu_calls == 0
+    assert fit_stats.gpu_time == 0
+    assert fit_stats.cpu_calls == 1
+    assert fit_stats.cpu_time > 0
+    assert len(fit_stats.fallback_reasons) == 1

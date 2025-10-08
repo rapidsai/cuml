@@ -197,7 +197,6 @@
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_predict_proba[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_classification-StackingClassifier-LogisticRegression]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_regression-StackingRegressor-LinearRegression]"
-  - "sklearn.ensemble.tests.test_voting::test_parallel_fit[42]"
   - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
   - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
   - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
@@ -318,12 +317,7 @@
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
   - "sklearn.neighbors.tests.test_neighbors::test_KNeighborsRegressor_multioutput_uniform_weight"
   - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X3-euclidean-None-kd_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X4-seuclidean-metric_params4-ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_dtype_convert"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[auto]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[ball_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[brute]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_X_None[kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[auto]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[brute]"
@@ -408,7 +402,6 @@
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_overwrite_params]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_dont_overwrite_parameters]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_overwrite_params]"
-  - "sklearn.tests.test_docstrings::test_docstring[GridSearchCV-None]"
   - "sklearn.tests.test_multioutput::test_multi_output_classes_[estimator0]"
   - "sklearn.tests.test_multioutput::test_multi_output_classification_sample_weights"
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[bsr_array]"
@@ -997,6 +990,12 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
+  condition: scikit-learn<1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SpectralEmbedding()]"
+- reason: cuml raises a different error if X doesn't have expected n features
+  marker: cuml_accel_check_n_features_in
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
@@ -1013,6 +1012,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
 - reason: Test crashes with cuml.accel
   marker: cuml_accel_crashes
@@ -1037,6 +1037,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Ridge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[SpectralEmbedding()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
 - reason: Test is flaky with cuml.accel
@@ -1044,23 +1045,32 @@
   condition: scikit-learn<1.7
   strict: false
   tests:
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag"
   - "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_f_contiguous_array_estimator]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   condition: scikit-learn>=1.7
   strict: false
   tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
+  - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   strict: false
   tests:
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
   - "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
   - "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
   - "sklearn.ensemble.tests.test_forest::test_max_samples_boundary_regressors[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
+  - "sklearn.ensemble.tests.test_voting::test_parallel_fit[42]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
@@ -1114,6 +1124,13 @@
   marker: cuml_accel_kmeans_cluster_centers_attribute
   tests:
   - "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
+- reason: These tests always pass on some platforms and always fail on others
+  marker: cuml_accel_kmeans_differs_on_certain_platforms
+  strict: false
+  tests:
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
+  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
+  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: cuml.accel deviates in KMeans empty cluster reloacation (number of labels)
   marker: cuml_accel_kmeans_empty_clusters_num_labels
   tests:
@@ -1128,7 +1145,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float32-lloyd-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_results[float64-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_weighted_vs_repeated[42]"
 - reason: Integer inputs are converted to float32 instead of float64 with cuml.accel
   marker: cuml_accel_kmeans_integer_dtype
   tests:
@@ -1157,19 +1173,11 @@
   tests:
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param0-n_samples.* should be >= n_clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param1-The shape of the initial centers .* does not match the number of clusters-KMeans]"
-  - "sklearn.cluster.tests.test_k_means::test_wrong_params[param3-The shape of the initial centers .* does not match the number of features of the data-KMeans]"
 - reason: cuml.accel deviates in predict output for KMeans
   marker: cuml_accel_kmeans_predict_output_deviation
   condition: scikit-learn<1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
-- reason: cuml.accel deviates in predict output for KMeans
-  marker: cuml_accel_kmeans_predict_output_deviation
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr0]"
-  - "sklearn.cluster.tests.test_k_means::test_dense_sparse[42-KMeans-X_csr1]"
 - reason: cuml.accel deviates in repeated predict output for KMeans
   marker: cuml_accel_kmeans_repeated_predict_output_deviation
   condition: scikit-learn<1.6
@@ -1204,7 +1212,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TSNE-TSNE]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
@@ -1331,7 +1338,6 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_shape]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifiers_classes]"
@@ -1411,7 +1417,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_dtype_object]"
@@ -1432,6 +1437,8 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
@@ -1518,10 +1525,6 @@
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[False-isotonic]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[False-sigmoid]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[True-isotonic]"
-  - "sklearn.tests.test_calibration::test_parallel_execution[True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_classes]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_one_label]"
@@ -1563,6 +1566,25 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
+- reason: SpectralEmbedding does not expose affinity_matrix_ attribute in cuML
+  tests:
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-lobpcg-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-arpack-csr_matrix]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-None]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_array]"
+  - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float64-lobpcg-csr_matrix]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SpectralEmbedding-SpectralEmbedding]"
+- reason: SpectralEmbedding produces different eigenvector signs in cuML
+  strict: false
+  tests:
+  - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_embedding"
 - reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
   strict: false
   tests:

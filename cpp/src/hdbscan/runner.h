@@ -78,8 +78,18 @@ void build_linkage(const raft::handle_t& handle,
     linkage_params;
   // (min_samples+1) is used to account for self-loops in the KNN graph
   // and be consistent with scikit-learn-contrib.
-  linkage_params.min_samples = params.min_samples + 1;
-  linkage_params.alpha       = params.alpha;
+  if (params.min_samples + 1 > m) {
+    RAFT_LOG_WARN(
+      "min_samples (%d) must be less than the number of samples in X (%zu), setting min_samples to "
+      "%zu",
+      params.min_samples,
+      m,
+      m - 1);
+    linkage_params.min_samples = m;
+  } else {
+    linkage_params.min_samples = params.min_samples + 1;
+  }
+  linkage_params.alpha = params.alpha;
 
   cuvs::cluster::agglomerative::helpers::build_linkage(
     handle,
@@ -112,6 +122,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
   auto exec_policy = handle.get_thrust_policy();
 
   int min_cluster_size = params.min_cluster_size;
+
+  RAFT_EXPECTS(params.min_samples <= m, "min_samples must be at most the number of samples in X");
 
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
@@ -146,7 +158,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       params.cluster_selection_method,
                                       out._get_inverse_label_map(),
                                       params.allow_single_cluster,
-                                      params.max_cluster_size,
+                                      static_cast<value_idx>(params.max_cluster_size),
                                       params.cluster_selection_epsilon);
 
   out.set_n_clusters(n_selected_clusters);
@@ -175,7 +187,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                     out.get_labels(),
                     [label_map = label_map.data()] __device__(value_idx label) {
                       if (label != -1) return label_map[label];
-                      return -1;
+                      return static_cast<value_idx>(-1);
                     });
 }
 
