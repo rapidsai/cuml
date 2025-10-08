@@ -19,20 +19,15 @@
 import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
+import cuml.internals
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
 
-import cuml.internals
-from cuml.internals.array import CumlArray
-
 from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.internals.input_utils import input_to_cuml_array
-
-from cuml.decomposition.utils cimport *
-
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.array_sparse import SparseCumlArray
 
 
 class MGFitMixin(object):
