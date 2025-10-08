@@ -342,6 +342,11 @@ def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     assert isinstance(nz, cp.ndarray)
 
 
+@pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
+@pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:overflow encountered in divide:RuntimeWarning"
+)
 def test_typeerror_input():
     X, y = make_regression(n_samples=100, n_features=10, random_state=10)
     clf = Lasso()

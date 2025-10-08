@@ -65,6 +65,14 @@ filterwarnings = [
   "ignore:Dask configuration key 'fuse_ave_width':FutureWarning",
   # From hdbscan
   "ignore:Conversion of an array with ndim > 0:DeprecationWarning",
+  # From umap-learn
+  "ignore:Tensorflow not installed.*:ImportWarning:umap",
+  # From sklearn estimator checks
+  "ignore:Estimator .* does not inherit from.*:UserWarning",
+  # From numba - GPU under-utilization warnings in tests with small data
+  "ignore::numba.core.errors.NumbaPerformanceWarning",
+  # Allow informational benchmark warnings (pytest-benchmark plugin)
+  "default::pytest_benchmark.logger.PytestBenchmarkWarning",
 ]
 
 [project]

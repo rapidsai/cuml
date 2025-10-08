@@ -94,6 +94,9 @@ def test_column_transformer(
     "transformer_weights", [None, {"scaler": 2.4, "normalizer": 1.8}]
 )
 @pytest.mark.parametrize("sparse_threshold", [0.2, 0.8])
+@pytest.mark.filterwarnings(
+    "ignore::numba.core.errors.NumbaPerformanceWarning"
+)
 def test_column_transformer_sparse(
     sparse_clf_dataset,
     remainder,  # noqa: F811

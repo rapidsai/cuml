@@ -1129,6 +1129,7 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
+@pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
     algorithm=st.sampled_from(ALGORITHMS),
     xp=st.sampled_from([np, cp]),
