@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-source ./ci/use_wheels_from_prs.sh
+# source ./ci/use_wheels_from_prs.sh
 
 source rapids-init-pip
 
@@ -17,8 +17,10 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 #
 # Using env variable PIP_CONSTRAINT (initialized by 'rapids-init-pip') is necessary to ensure the constraints
 # are used when creating the isolated build environment.
+rapids-logger "download wheels from github and print pip constraint"
 LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
 echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUML_WHEELHOUSE}"/libcuml_*.whl)" >> "${PIP_CONSTRAINT}"
+echo ${PIP_CONSTRAINT}
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
