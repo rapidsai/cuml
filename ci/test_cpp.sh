@@ -16,7 +16,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 rapids-logger "Compressing repodata.json → repodata.json.zst for local channels"
 for ch in "${CUVS_CHANNEL:-}" "${LIBCUVS_CHANNEL:-}" "${CPP_CHANNEL:-}"; do
   if [ -n "$ch" ] && [ -d "$ch" ]; then
-    for subdir in "$ch"/linux-64 "$ch"/noarch; do
+    for subdir in "$ch"/linux-aarch64 "$ch"/linux-64 "$ch"/noarch; do
       if [ -f "${subdir}/repodata.json" ] && [ ! -f "${subdir}/repodata.json.zst" ]; then
         echo "Compressing ${subdir}/repodata.json → ${subdir}/repodata.json.zst"
         zstd -q -19 "${subdir}/repodata.json" -o "${subdir}/repodata.json.zst"
@@ -41,6 +41,8 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
+  --prepend-channel "${LIBCUVS_CHANNEL}" \
+  --prepend-channel "${CUVS_CHANNEL}" \
   --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
