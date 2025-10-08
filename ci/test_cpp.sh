@@ -19,7 +19,7 @@ for ch in "${CUVS_CHANNEL:-}" "${LIBCUVS_CHANNEL:-}" "${CPP_CHANNEL:-}"; do
     for subdir in "$ch"/linux-64 "$ch"/noarch; do
       if [ -f "${subdir}/repodata.json" ] && [ ! -f "${subdir}/repodata.json.zst" ]; then
         echo "Compressing ${subdir}/repodata.json → ${subdir}/repodata.json.zst"
-        zstd -q -19 --rm "${subdir}/repodata.json" -o "${subdir}/repodata.json.zst"
+        zstd -q -19 "${subdir}/repodata.json" -o "${subdir}/repodata.json.zst"
       fi
     done
   fi
