@@ -19,7 +19,6 @@ from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
 
-import yaml
 from packaging.requirements import Requirement
 
 from cuml.accel._sklearn_patch import apply_sklearn_patches
@@ -98,6 +97,8 @@ def pytest_collection_modifyitems(config, items):
     xfail_list_path = config.getoption("xfail_list")
     if not xfail_list_path:
         return
+
+    import yaml  # needed to parse the YAML-formatted xfail list
 
     xfail_list_path = Path(xfail_list_path)
     if not xfail_list_path.exists():
