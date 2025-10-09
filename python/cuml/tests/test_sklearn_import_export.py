@@ -394,6 +394,51 @@ def test_svc(random_state, sparse, probability):
             assert val.shape == (1,)
 
 
+@pytest.mark.parametrize("sparse", [False, "coo", "csr"])
+@pytest.mark.parametrize("estimator_type", ["svc", "svr"])
+def test_svm_n_support_from_sklearn(random_state, sparse, estimator_type):
+    """Test that n_support_ is correctly computed from support_vectors_.shape[0]"""
+    if estimator_type == "svc":
+        X, y = make_classification(
+            n_samples=100,
+            n_features=5,
+            n_informative=3,
+            random_state=random_state,
+        )
+        match sparse:
+            case "coo":
+                X = scipy.sparse.coo_matrix(X)
+            case "csr":
+                X = scipy.sparse.csr_matrix(X)
+            case False:
+                pass
+        sk_model = sklearn.svm.SVC(kernel="linear").fit(X, y)
+        cu_model_class = cuml.SVC
+    else:  # svr
+        X, y = make_regression(n_samples=100, random_state=random_state)
+        match sparse:
+            case "coo":
+                X = scipy.sparse.coo_matrix(X)
+            case "csr":
+                X = scipy.sparse.csr_matrix(X)
+            case False:
+                pass
+
+        sk_model = sklearn.svm.SVR(kernel="linear").fit(X, y)
+        cu_model_class = cuml.SVR
+
+    # Convert from sklearn to cuml
+    cu_model = cu_model_class.from_sklearn(sk_model)
+
+    # Verify n_support_ is correctly set and matches support_vectors_ shape
+    with cuml.using_output_type("cupy"):
+        n_support_vectors = cu_model.support_vectors_.shape[0]
+        assert isinstance(cu_model.n_support_, int)
+        assert cu_model.n_support_ == n_support_vectors
+        # Also verify it matches the sklearn model's support vector count
+        assert cu_model.n_support_ == sk_model.support_vectors_.shape[0]
+
+
 def test_svc_multiclass_unsupported(random_state):
     X, y = make_classification(
         n_samples=50,
