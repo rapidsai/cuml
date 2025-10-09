@@ -720,7 +720,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         raw_data = to_gpu(raw_data_cpu, order="C", dtype="float32")
-        labels = to_gpu(model.labels_, order="C", dtype="int32")
+        labels = to_gpu(model.labels_, order="C", dtype="int64")
         state = _HDBSCANState.from_sklearn(self.handle, model, raw_data)
         if model._prediction_data is not None:
             state.generate_prediction_data(self.handle, raw_data, labels)
