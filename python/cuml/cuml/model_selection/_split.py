@@ -440,6 +440,21 @@ class _KFoldBase(ABC):
 
     @abstractmethod
     def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
         raise NotImplementedError()
 
 
@@ -527,21 +542,6 @@ class KFold(_KFoldBase):
             current = stop
 
     def get_n_splits(self, X=None, y=None):
-        """Returns the number of splitting iterations in the cross-validator.
-
-        Parameters
-        ----------
-        X : object
-            Always ignored, exists for compatibility.
-
-        y : object
-            Always ignored, exists for compatibility.
-
-        Returns
-        -------
-        n_splits : int
-            Returns the number of splitting iterations in the cross-validator.
-        """
         return self.n_splits
 
 
