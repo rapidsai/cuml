@@ -464,7 +464,7 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
         densmap=False,
         densmap_kwds={},
         output_dens=False,
-        output_metric=metric,
+        output_metric="euclidean",
         output_metric_kwds={},
     )
     ref_emb = ref_res[0]
@@ -968,7 +968,7 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
         densmap=False,
         densmap_kwds={},
         output_dens=False,
-        output_metric=metric,
+        output_metric="euclidean",
         output_metric_kwds={},
     )
     ref_emb = ref_res[0]
