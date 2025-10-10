@@ -351,11 +351,12 @@ def test_svr(random_state, sparse):
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+
+    cu_score = cu_model_from_sklearn.score(X, y)
     assert cu_score > 0.7
 
-    # Check n_support_ is correctly set
-    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+    # Check n_support is set correctly
     assert (
         cu_model_from_sklearn.n_support_
         == cu_model_from_sklearn.support_vectors_.shape[0]
@@ -401,19 +402,15 @@ def test_svc(random_state, sparse, probability):
             assert val.shape == (1,)
 
     # Check n_support_ is correctly set
-    cu_model_from_sklearn = cuml.SVC.from_sklearn(sk_model)
 
     # When probability=True, cuML wraps the SVC in a CalibratedClassifierCV.
     # The support vectors are stored in the nested estimator, not on the outer
     # SVC object, so n_support_ and support_vectors_ remain None.
     if probability:
-        assert cu_model_from_sklearn.n_support_ is None
-        assert cu_model_from_sklearn.support_vectors_ is None
+        assert cu_model2.n_support_ is None
+        assert cu_model2.support_vectors_ is None
     else:
-        assert (
-            cu_model_from_sklearn.n_support_
-            == cu_model_from_sklearn.support_vectors_.shape[0]
-        )
+        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
 
 def test_svc_multiclass_unsupported(random_state):
