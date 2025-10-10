@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 from libcpp cimport bool
+from pylibraft.random.cpp.rng_state cimport RngState
 
-from cuml.common.rng_state cimport RngState
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 

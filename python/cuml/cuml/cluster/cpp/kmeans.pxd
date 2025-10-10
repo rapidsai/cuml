@@ -17,9 +17,9 @@
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+from pylibraft.random.cpp.rng_state cimport RngState
 
 from cuml.cluster.kmeans_utils cimport KMeansParams
-from cuml.common.rng_state cimport RngState
 from cuml.metrics.distance_type cimport DistanceType
 
 
