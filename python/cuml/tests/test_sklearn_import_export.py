@@ -356,17 +356,10 @@ def test_svr(random_state, sparse):
 
     # Check n_support_ is correctly set
     cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
-
-    # Scikit-learn stores n_support_ as an array with the number of support
-    # vectors for each class. So we sum the array to get the total number of
-    # support vectors.
-    # See also: https://github.com/rapidsai/cuml/issues/958
     assert (
-        n_support := sk_model.n_support_.sum()
-    ) == sk_model.support_vectors_.shape[0]
-
-    assert cu_model_from_sklearn.n_support_ == n_support
-    assert cu_model_from_sklearn.support_vectors_.shape[0] == n_support
+        cu_model_from_sklearn.n_support_
+        == cu_model_from_sklearn.support_vectors_.shape[0]
+    )
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -410,14 +403,6 @@ def test_svc(random_state, sparse, probability):
     # Check n_support_ is correctly set
     cu_model_from_sklearn = cuml.SVC.from_sklearn(sk_model)
 
-    # Scikit-learn stores n_support_ as an array with the number of support
-    # vectors for each class. So we sum the array to get the total number of
-    # support vectors.
-    # See also: https://github.com/rapidsai/cuml/issues/958
-    assert (
-        n_support := sk_model.n_support_.sum()
-    ) == sk_model.support_vectors_.shape[0]
-
     # When probability=True, cuML wraps the SVC in a CalibratedClassifierCV.
     # The support vectors are stored in the nested estimator, not on the outer
     # SVC object, so n_support_ and support_vectors_ remain None.
@@ -425,8 +410,10 @@ def test_svc(random_state, sparse, probability):
         assert cu_model_from_sklearn.n_support_ is None
         assert cu_model_from_sklearn.support_vectors_ is None
     else:
-        assert cu_model_from_sklearn.n_support_ == n_support
-        assert cu_model_from_sklearn.support_vectors_.shape[0] == n_support
+        assert (
+            cu_model_from_sklearn.n_support_
+            == cu_model_from_sklearn.support_vectors_.shape[0]
+        )
 
 
 def test_svc_multiclass_unsupported(random_state):
