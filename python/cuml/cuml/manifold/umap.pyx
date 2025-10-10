@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import warnings
 
 import cupy
@@ -53,7 +51,7 @@ from cuml.manifold.umap_utils import (
 )
 
 from cython.operator cimport dereference
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum

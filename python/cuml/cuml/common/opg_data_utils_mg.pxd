@@ -18,7 +18,6 @@
 # refactored
 # todo: use cuda_array_interface instead of arr_interfaces for building this
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
 
