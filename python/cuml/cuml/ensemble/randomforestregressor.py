@@ -237,7 +237,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ) -> CumlArray:
         """
         Predicts the values for X.
@@ -261,19 +260,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
         y : {}
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -306,7 +297,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ):
         """
         Calculates the accuracy metric score of the model for X.
@@ -332,12 +322,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
@@ -348,7 +332,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y_pred = self.predict(
             X,
             convert_dtype=convert_dtype,
-            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
