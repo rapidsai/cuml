@@ -354,6 +354,20 @@ def test_svr(random_state, sparse):
     cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
     assert cu_score > 0.7
 
+    # Check n_support_ is correctly set
+    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+
+    # Scikit-learn stores n_support_ as an array with the number of support
+    # vectors for each class. So we sum the array to get the total number of
+    # support vectors.
+    # See also: https://github.com/rapidsai/cuml/issues/958
+    assert (
+        n_support := sk_model.n_support_.sum()
+    ) == sk_model.support_vectors_.shape[0]
+
+    assert cu_model_from_sklearn.n_support_ == n_support
+    assert cu_model_from_sklearn.support_vectors_.shape[0] == n_support
+
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
@@ -393,50 +407,26 @@ def test_svc(random_state, sparse, probability):
             assert val.dtype == "float64"
             assert val.shape == (1,)
 
+    # Check n_support_ is correctly set
+    cu_model_from_sklearn = cuml.SVC.from_sklearn(sk_model)
 
-@pytest.mark.parametrize("sparse", [False, "coo", "csr"])
-@pytest.mark.parametrize("estimator_type", ["svc", "svr"])
-def test_svm_n_support_from_sklearn(random_state, sparse, estimator_type):
-    """Test that n_support_ is correctly computed from support_vectors_.shape[0]"""
-    if estimator_type == "svc":
-        X, y = make_classification(
-            n_samples=100,
-            n_features=5,
-            n_informative=3,
-            random_state=random_state,
-        )
-        match sparse:
-            case "coo":
-                X = scipy.sparse.coo_matrix(X)
-            case "csr":
-                X = scipy.sparse.csr_matrix(X)
-            case False:
-                pass
-        sk_model = sklearn.svm.SVC(kernel="linear").fit(X, y)
-        cu_model_class = cuml.SVC
-    else:  # svr
-        X, y = make_regression(n_samples=100, random_state=random_state)
-        match sparse:
-            case "coo":
-                X = scipy.sparse.coo_matrix(X)
-            case "csr":
-                X = scipy.sparse.csr_matrix(X)
-            case False:
-                pass
+    # Scikit-learn stores n_support_ as an array with the number of support
+    # vectors for each class. So we sum the array to get the total number of
+    # support vectors.
+    # See also: https://github.com/rapidsai/cuml/issues/958
+    assert (
+        n_support := sk_model.n_support_.sum()
+    ) == sk_model.support_vectors_.shape[0]
 
-        sk_model = sklearn.svm.SVR(kernel="linear").fit(X, y)
-        cu_model_class = cuml.SVR
-
-    # Convert from sklearn to cuml
-    cu_model = cu_model_class.from_sklearn(sk_model)
-
-    # Verify n_support_ is correctly set and matches support_vectors_ shape
-    with cuml.using_output_type("cupy"):
-        n_support_vectors = cu_model.support_vectors_.shape[0]
-        assert isinstance(cu_model.n_support_, int)
-        assert cu_model.n_support_ == n_support_vectors
-        # Also verify it matches the sklearn model's support vector count
-        assert cu_model.n_support_ == sk_model.support_vectors_.shape[0]
+    # When probability=True, cuML wraps the SVC in a CalibratedClassifierCV.
+    # The support vectors are stored in the nested estimator, not on the outer
+    # SVC object, so n_support_ and support_vectors_ remain None.
+    if probability:
+        assert cu_model_from_sklearn.n_support_ is None
+        assert cu_model_from_sklearn.support_vectors_ is None
+    else:
+        assert cu_model_from_sklearn.n_support_ == n_support
+        assert cu_model_from_sklearn.support_vectors_.shape[0] == n_support
 
 
 def test_svc_multiclass_unsupported(random_state):
