@@ -188,13 +188,13 @@ class KNeighborsRegressor(RegressorMixin,
             raise ValueError("Only uniform weighting strategy is supported currently.")
 
         super().fit(X, convert_dtype=convert_dtype)
-        self._y, _, _, _ = input_to_cuml_array(
+        self._y = input_to_cuml_array(
             y,
             order='F',
             check_dtype=np.float32,
             check_rows=self.n_samples_fit_,
             convert_to_dtype=(np.float32 if convert_dtype else None),
-        )
+        ).array
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
