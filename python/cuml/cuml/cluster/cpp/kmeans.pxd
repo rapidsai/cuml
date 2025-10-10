@@ -14,16 +14,9 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 from libc.stdint cimport int64_t, uintptr_t
-from pylibraft.common.handle cimport handle_t
-
-from cuml.metrics.distance_type cimport DistanceType
-
-import ctypes
-
 from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 from cuml.cluster.kmeans_utils cimport KMeansParams
 from cuml.common.rng_state cimport RngState

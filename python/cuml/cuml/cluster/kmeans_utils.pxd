@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import ctypes
-
 from libcpp cimport bool
 
 from cuml.common.rng_state cimport RngState

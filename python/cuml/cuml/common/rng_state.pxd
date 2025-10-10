@@ -13,15 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import ctypes
-
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
 
 
-cdef extern from "raft/random/rng_state.hpp" namespace \
-        "raft::random":
+cdef extern from "raft/random/rng_state.hpp" namespace "raft::random":
     enum GeneratorType:
         GenPhilox, GenPC
 
