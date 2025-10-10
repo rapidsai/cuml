@@ -3,8 +3,6 @@
 
 set -euo pipefail
 
-# source ./ci/use_wheels_from_prs.sh
-
 source rapids-init-pip
 
 package_name="libcuml"
