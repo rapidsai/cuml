@@ -89,12 +89,16 @@ def test_kfold(shuffle, n_splits, random_state) -> None:
     assert kfold.get_n_splits(X, y) == kfold.get_n_splits() == n_splits
     n_test_total = 0
 
-    for train_idx, test_idx in kfold.split(X, y):
+    for fold_idx, (train_idx, test_idx) in enumerate(kfold.split(X, y)):
         n_test_total += test_idx.size
 
         assert train_idx.shape[0] + test_idx.shape[0] == n_samples
         fold_size = X.shape[0] // n_splits
-        assert test_idx.shape[0] in (fold_size, fold_size + 1)
+        # We assign the remainder to the beginning folds.
+        if fold_idx < n_samples % n_splits:
+            assert test_idx.shape[0] == fold_size + 1
+        else:
+            assert test_idx.shape[0] == fold_size
         assert cp.all(train_idx >= 0)
         assert cp.all(test_idx >= 0)
         indices = cp.concatenate([train_idx, test_idx])
