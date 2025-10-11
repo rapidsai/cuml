@@ -136,6 +136,8 @@ void pcaFit(const raft::handle_t& handle,
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);
 
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
+
+  signFlipComponents(components, prms.n_components, prms.n_cols, stream);
 }
 
 /**
@@ -180,7 +182,6 @@ void pcaFitTransform(const raft::handle_t& handle,
          prms,
          stream);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 }
 
 // TODO: implement pcaGetCovariance function

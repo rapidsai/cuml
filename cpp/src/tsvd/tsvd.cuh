@@ -125,6 +125,86 @@ void calEig(const raft::handle_t& handle,
   raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
+namespace detail {
+
+template <typename T>
+struct AbsMaxOp {
+  __device__ __host__ inline T operator()(T a, T b) const {
+    T abs_a = a >= 0 ? a : -a;
+    T abs_b = b >= 0 ? b : -b;
+    return abs_a > abs_b ? a : b;  // return signed value of the larger |x|
+  }
+};
+
+template <typename T>
+struct FlipOp {
+  T* components;
+  T* max_vals;
+  std::size_t n_rows;
+  std::size_t n_cols;
+
+  __device__ void operator()(std::size_t row) {
+    if (max_vals[row] < T(0)) {
+      // Flip corresponding components
+      for (std::size_t i = row; i < n_rows * n_cols; i += n_rows) {
+        components[i] = -components[i];
+      }
+    }
+  }
+};
+
+}  // namespace detail
+
+/**
+ * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
+ * vectors
+ * @param components: components matrix, used to determine the sign of max absolute value
+ * @param n_rows: number of rows of components matrix
+ * @param n_cols: number of columns of components matrix
+ * @param stream cuda stream
+ * @{
+ */
+template <typename math_t>
+void signFlipComponents(math_t* components,
+                        std::size_t n_rows,
+                        std::size_t n_cols,
+                        cudaStream_t stream)
+{
+  rmm::device_uvector<math_t> max_vals(n_rows, stream);
+
+  // Step 1: find component-wise max absolute values
+  raft::linalg::reduce<
+    true,                           // rowMajor
+    false,                          // alongRows
+    math_t,                         // InType
+    math_t,                         // OutType
+    std::size_t,                    // IdxType
+    raft::identity_op,              // MainLambda
+    detail::AbsMaxOp<math_t>,       // ReduceLambda
+    raft::identity_op               // FinalLambda
+  >(
+    max_vals.data(),                // OutType* out
+    components,                     // InType const* in
+    n_rows,                         // rows
+    n_cols,                         // cols
+    math_t(0),                      // init value
+    stream,                         // cudaStream_t
+    true,                           // inclusive (can be true)
+    raft::identity_op(),            // main_op
+    detail::AbsMaxOp<math_t>(),     // reduce_op
+    raft::identity_op()             // final_op
+  );
+  
+  // Step 2: flip rows where needed
+  detail::FlipOp<math_t> op{components, max_vals.data(), n_rows, n_cols};
+  thrust::for_each(
+    rmm::exec_policy(stream),
+    thrust::make_counting_iterator<std::size_t>(0),
+    thrust::make_counting_iterator<std::size_t>(n_rows),
+    op
+  );
+}
+
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
@@ -235,6 +315,8 @@ void tsvdFit(const raft::handle_t& handle,
 
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
+
+  signFlipComponents(components, prms.n_components, prms.n_cols, stream);
 }
 
 /**
@@ -266,8 +348,6 @@ void tsvdFitTransform(const raft::handle_t& handle,
 {
   tsvdFit(handle, input, components, singular_vals, prms, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
-
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 
   rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
   raft::stats::mean<false>(
