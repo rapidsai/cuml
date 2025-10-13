@@ -115,18 +115,6 @@ class RandomForestRegressor(
          * If type ``float``, then ``min_samples_split`` represents a fraction
            and ``ceil(min_samples_split * n_rows)`` is the minimum number of
            samples for each split.
-    accuracy_metric : string (default = 'deprecated')
-        Decides the metric used to evaluate the performance of the model.
-         * for r-squared : ``'r2'`` (default)
-         * for median of abs error : ``'median_ae'``
-         * for mean of abs error : ``'mean_ae'``
-         * for mean square error' : ``'mse'``
-
-        .. deprecated:: 25.10
-            `accuracy_metric` is deprecated and will be removed in 25.12. To
-            evaluate models with metrics other than r2, please call the respective
-            metric function from `cuml.metrics` directly.
-
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings

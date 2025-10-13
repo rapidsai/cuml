@@ -222,9 +222,6 @@ def test_default_parameters():
         reg_params.pop(name)
         clf_params.pop(name)
 
-    # Only RandomForestRegressor has accuracy_metric
-    del reg_params["accuracy_metric"]
-
     # The rest are the same
     assert reg_params == clf_params
 
@@ -1213,23 +1210,3 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
-
-
-def test_accuracy_metric_deprecated():
-    X, y = make_regression(n_samples=500)
-
-    # r2 score used by default
-    model = cuml.RandomForestRegressor().fit(X, y)
-    score = model.score(X, y)
-    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
-
-    # explicit use warns but still works
-    with pytest.warns(FutureWarning, match="accuracy_metric"):
-        model = cuml.RandomForestRegressor(accuracy_metric="r2")
-    score = model.fit(X, y).score(X, y)
-    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
-
-    with pytest.warns(FutureWarning, match="accuracy_metric"):
-        model = cuml.RandomForestRegressor(accuracy_metric="mse")
-    score = model.fit(X, y).score(X, y)
-    np.testing.assert_allclose(score, mean_squared_error(y, model.predict(X)))

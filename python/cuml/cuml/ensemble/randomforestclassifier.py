@@ -362,7 +362,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         align_bytes=None,
     ):
         """
-        Calculates the accuracy metric score of the model for X.
+        Calculates the accuracy score of the model on test data.
 
         Parameters
         ----------
