@@ -997,11 +997,18 @@ def test_logistic_regression_weighting(
 
     # Set up class_weight
     class_weight = None
-    if class_weight_option == "dict":
-        weights = np.random.rand(num_classes)
-        class_weight = {i: weights[i] for i in range(num_classes)}
-    elif class_weight_option == "balanced":
-        class_weight = "balanced"
+    match class_weight_option:
+        case "dict":
+            weights = np.random.rand(num_classes)
+            class_weight = {i: weights[i] for i in range(num_classes)}
+        case "balanced":
+            class_weight = "balanced"
+        case None:
+            pass
+        case _:
+            raise ValueError(
+                f"Unknown class_weight_option: {class_weight_option}"
+            )
 
     # Use higher max_iter for better convergence with complex weighting
     max_iter = (
