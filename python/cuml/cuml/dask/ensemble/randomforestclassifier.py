@@ -180,10 +180,6 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype):
-        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
-
     def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest classifier
