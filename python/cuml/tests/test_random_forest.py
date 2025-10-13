@@ -1233,18 +1233,3 @@ def test_accuracy_metric_deprecated():
         model = cuml.RandomForestRegressor(accuracy_metric="mse")
     score = model.fit(X, y).score(X, y)
     np.testing.assert_allclose(score, mean_squared_error(y, model.predict(X)))
-
-
-def test_convert_methods_deprecated():
-    X, y = make_regression(n_samples=500)
-    model = cuml.RandomForestRegressor().fit(X, y)
-
-    with pytest.warns(FutureWarning, match="convert_to_treelite_model"):
-        tl = model.convert_to_treelite_model()
-
-    assert isinstance(tl, treelite.Model)
-
-    with pytest.warns(FutureWarning, match="convert_to_fil_model"):
-        fil = model.convert_to_fil_model()
-
-    assert isinstance(fil, cuml.fil.ForestInference)

@@ -342,28 +342,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         """Return the number of estimators in the ensemble."""
         return self.n_estimators
 
-    def convert_to_treelite_model(self):
-        """Deprecated, use `as_treelite`."""
-        warnings.warn(
-            "`convert_to_treelite_model` was deprecated in 25.10 and will be "
-            "removed in 25.12. Please use `as_treelite` instead.",
-            FutureWarning,
-        )
-        return self.as_treelite()
-
-    def convert_to_fil_model(
-        self, layout="depth_first", default_chunk_size=None, align_bytes=None
-    ):
-        """Deprecated, use `as_fil`."""
-        warnings.warn(
-            "`convert_to_fil_model` was deprecated in 25.10 and will be "
-            "removed in 25.12. Please use `as_fil` instead.",
-            FutureWarning,
-        )
-        return self.as_fil(
-            layout=layout, default_chunk_size=default_chunk_size, align_bytes=align_bytes
-        )
-
     def as_treelite(self):
         """
         Converts this estimator to a Treelite model.
