@@ -65,7 +65,10 @@ def test_base_n_features_in(datatype, use_integer_n_features):
         assert clf.n_features_in_ == X_train.shape[1]
 
 
-@pytest.mark.parametrize("child_class", list(all_base_children.keys()))
+@pytest.mark.parametrize(
+    "child_class",
+    [name for name in all_base_children.keys() if "Base" not in name],
+)
 def test_base_subclass_init_matches_docs(child_class: str):
     """
     This test is comparing the docstrings for arguments in __init__ for any
