@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
+import ctypes
 from typing import Literal
+
+import cupy as cp
+import cupyx
+import numpy as np
+import scipy
 
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
@@ -24,10 +28,6 @@ from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
 from cuml.manifold.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
-
-import cupy as cp
-import cupyx
-import numpy as np
 
 
 cdef class GraphHolder:
@@ -45,7 +45,7 @@ cdef class GraphHolder:
         return graph
 
     @staticmethod
-    cdef GraphHolder from_coo_array(GraphHolder graph, handle, coo_array):
+    cdef GraphHolder from_coo_array(handle, coo_array):
         def copy_from_array(dst_raft_coo_ptr, src_cp_coo):
             size = src_cp_coo.size
             itemsize = np.dtype(src_cp_coo.dtype).itemsize
@@ -61,6 +61,7 @@ cdef class GraphHolder:
             src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
             dest_mptr.copy_from_device(src_mptr, size * itemsize)
 
+        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         graph.c_graph.reset(new COO(handle_.get_stream()))
         graph.get().allocate(coo_array.nnz,
@@ -76,7 +77,7 @@ cdef class GraphHolder:
         graph.mr = get_current_device_resource()
         return graph
 
-    cdef inline COO* get(self):
+    cdef inline COO* get(self) noexcept:
         return self.c_graph.get()
 
     cdef uintptr_t vals(self):
@@ -106,6 +107,55 @@ cdef class GraphHolder:
         cols = create_nonowning_cp_array(self.cols(), np.int32)
 
         return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
+
+    def __dealloc__(self):
+        self.c_graph.reset(NULL)
+
+cdef class HostGraphHolder:
+    @staticmethod
+    cdef HostGraphHolder new_graph():
+        cdef HostGraphHolder graph = HostGraphHolder.__new__(HostGraphHolder)
+        graph.c_graph.reset(new host_COO())
+        return graph
+
+    cdef uintptr_t vals(self):
+        return <uintptr_t>self.get().vals()
+
+    cdef uintptr_t rows(self):
+        return <uintptr_t>self.get().rows()
+
+    cdef uintptr_t cols(self):
+        return <uintptr_t>self.get().cols()
+
+    cdef uint64_t get_nnz(self):
+        return self.get().get_nnz()
+
+    def get_scipy_coo(self):
+        """Convert the host graph to a SciPy COO sparse matrix.
+
+        Returns
+        -------
+        scipy.sparse.coo_matrix
+            A copy of the graph data as a SciPy COO sparse matrix.
+            Note that this returns a copy of the data, not a view.
+        """
+        def create_nonowning_numpy_array(ptr, dtype):
+            c_type = np.ctypeslib.as_ctypes_type(dtype)
+            c_pointer = ctypes.cast(ptr, ctypes.POINTER(c_type))
+            return np.ctypeslib.as_array(c_pointer, shape=(self.get_nnz(),))
+
+        vals = create_nonowning_numpy_array(self.vals(), np.float32)
+        rows = create_nonowning_numpy_array(self.rows(), np.int32)
+        cols = create_nonowning_numpy_array(self.cols(), np.int32)
+
+        graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
+        return graph
+
+    cdef inline host_COO* get(self) noexcept:
+        return self.c_graph.get()
+
+    cdef inline cppHostCOO* ref(self) noexcept:
+        return <cppHostCOO*>self.c_graph.get()
 
     def __dealloc__(self):
         self.c_graph.reset(NULL)

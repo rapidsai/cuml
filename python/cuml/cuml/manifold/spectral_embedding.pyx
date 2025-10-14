@@ -20,14 +20,19 @@ import scipy.sparse as sp
 from pylibraft.common.handle import Handle
 
 import cuml
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
@@ -41,7 +46,8 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 
 
-cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
+cdef extern from "cuml/manifold/spectral_embedding.hpp" \
+        namespace "ML::SpectralEmbedding" nogil:
 
     cdef cppclass params:
         int n_components
@@ -68,7 +74,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
 @cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
-                       n_components=8,
+                       int n_components=8,
                        affinity="nearest_neighbors",
                        random_state=None,
                        n_neighbors=None,
@@ -145,12 +151,20 @@ def spectral_embedding(A,
     """
     if handle is None:
         handle = Handle()
-    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
+
+    cdef float* affinity_data_ptr = NULL
+    cdef int* affinity_rows_ptr = NULL
+    cdef int* affinity_cols_ptr = NULL
+    cdef int affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
-        A = input_to_cuml_array(
+        A = input_to_cupy_array(
             A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
         ).array
+
+        affinity_data_ptr = <float*><uintptr_t>A.data.ptr
+
+        isfinite = cp.isfinite(A).all()
     elif affinity == "precomputed":
         # Coerce `A` to a canonical float32 COO sparse matrix
         if cp_sp.issparse(A):
@@ -162,11 +176,55 @@ def spectral_embedding(A,
         else:
             A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
         A.sum_duplicates()
+
+        affinity_data = A.data
+        affinity_rows = A.row
+        affinity_cols = A.col
+        affinity_nnz = A.nnz
+
+        # laplacian kernel expects diagonal to be zero
+        # remove diagonal elements since they are ignored in laplacian calculation anyway
+        valid = affinity_rows != affinity_cols
+        if not valid.all():
+            affinity_data = affinity_data[valid]
+            affinity_rows = affinity_rows[valid]
+            affinity_cols = affinity_cols[valid]
+            affinity_nnz = len(affinity_data)
+
+        affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
+        affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
+        affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+
+        isfinite = cp.isfinite(affinity_data).all()
     else:
         raise ValueError(
             f"`affinity={affinity!r}` is not supported, expected one of "
             "['nearest_neighbors', 'precomputed']"
         )
+
+    cdef int n_samples, n_features
+    n_samples, n_features = A.shape
+
+    if not isfinite:
+        raise ValueError(
+            "Input contains NaN or inf; nonfinite values are not supported"
+        )
+
+    if n_samples < 2:
+        raise ValueError(
+            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+            f"minimum of 2 is required."
+        )
+    if n_features < 2:
+        raise ValueError(
+            f"Found array with {n_features} feature(s) (shape={A.shape}) while "
+            f"a minimum of 2 is required."
+        )
+
+    # Allocate output array
+    eigenvectors = CumlArray.empty(
+        (A.shape[0], n_components), dtype=np.float32, order='F'
+    )
 
     cdef params config
     config.seed = check_random_seed(random_state)
@@ -178,46 +236,40 @@ def spectral_embedding(A,
         if n_neighbors is not None
         else max(int(A.shape[0] / 10), 1)
     )
+    cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
+    cdef bool precomputed = affinity == "precomputed"
+    cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
-    eigenvectors = CumlArray.empty(
-        (A.shape[0], n_components), dtype=np.float32, order='F'
-    )
-
-    if affinity == "precomputed":
-        transform(
-            deref(h),
-            config,
-            make_device_vector_view(<int *><uintptr_t>A.row.data.ptr, <int>A.nnz),
-            make_device_vector_view(<int *><uintptr_t>A.col.data.ptr, <int>A.nnz),
-            make_device_vector_view(<float *><uintptr_t>A.data.data.ptr, <int>A.nnz),
-            make_device_matrix_view[float, int, col_major](
-                <float *><uintptr_t>eigenvectors.ptr,
-                <int>eigenvectors.shape[0],
-                <int>eigenvectors.shape[1],
+    with nogil:
+        if precomputed:
+            transform(
+                handle_[0],
+                config,
+                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                make_device_matrix_view[float, int, col_major](
+                    eigenvectors_ptr, n_samples, n_components,
+                )
             )
-        )
-    else:
-        transform(
-            deref(h),
-            config,
-            make_device_matrix_view[float, int, row_major](
-                <float *><uintptr_t>A.ptr,
-                <int>A.shape[0],
-                <int>A.shape[1],
-            ),
-            make_device_matrix_view[float, int, col_major](
-                <float *><uintptr_t>eigenvectors.ptr,
-                <int>eigenvectors.shape[0],
-                <int>eigenvectors.shape[1],
+        else:
+            transform(
+                handle_[0],
+                config,
+                make_device_matrix_view[float, int, row_major](
+                    affinity_data_ptr, n_samples, n_features,
+                ),
+                make_device_matrix_view[float, int, col_major](
+                    eigenvectors_ptr, n_samples, n_components,
+                )
             )
-        )
 
     return eigenvectors
 
 
 class SpectralEmbedding(Base,
-                        CMajorInputTagMixin,
-                        SparseInputTagMixin):
+                        InteropMixin,
+                        CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -263,6 +315,8 @@ class SpectralEmbedding(Base,
     ----------
     embedding_ : cupy.ndarray of shape (n_samples, n_components)
         Spectral embedding of the training matrix.
+    n_neighbors_ : int
+        Number of nearest neighbors effectively used.
 
     Notes
     -----
@@ -280,7 +334,8 @@ class SpectralEmbedding(Base,
     >>> X_transformed.shape
     (100, 2)
     """
-    embedding_ = CumlArrayDescriptor()
+    _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
+    embedding_ = CumlArrayDescriptor(order="F")
 
     def __init__(self, n_components=2, affinity="nearest_neighbors",
                  random_state=None, n_neighbors=None,
@@ -299,6 +354,41 @@ class SpectralEmbedding(Base,
             "random_state",
             "n_neighbors"
         ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.affinity not in ("nearest_neighbors", "precomputed"):
+            raise UnsupportedOnGPU(f"affinity={model.affinity!r} is not supported on GPU")
+        params = {
+            "n_components": model.n_components,
+            "affinity": model.affinity,
+            "random_state": model.random_state,
+            "n_neighbors": model.n_neighbors
+        }
+        return params
+
+    def _params_to_cpu(self):
+        params = {
+            "n_components": self.n_components,
+            "affinity": self.affinity,
+            "random_state": self.random_state,
+            "n_neighbors": self.n_neighbors
+        }
+        return params
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "n_neighbors_": model.n_neighbors_,
+            "embedding_": to_gpu(model.embedding_, order="F"),
+            **super()._attrs_from_cpu(model)
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "n_neighbors_": self.n_neighbors_,
+            "embedding_": to_cpu(self.embedding_, order="F"),
+            **super()._attrs_to_cpu(model),
+        }
 
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
@@ -343,11 +433,21 @@ class SpectralEmbedding(Base,
         self : object
             Returns the instance itself.
         """
+
+        # Store n_neighbors_ for sklearn compatibility
+        self.n_neighbors_ = (
+            self.n_neighbors
+            if self.n_neighbors is not None
+            else max(int(X.shape[0] / 10), 1)
+        )
+
         self.embedding_ = spectral_embedding(
             X,
             n_components=self.n_components,
             affinity=self.affinity,
             random_state=self.random_state,
-            n_neighbors=self.n_neighbors
+            n_neighbors=self.n_neighbors_,
+            handle=self.handle
         )
+
         return self

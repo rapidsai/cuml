@@ -51,7 +51,7 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge,
 )
-from cuml.manifold import TSNE
+from cuml.manifold import TSNE, SpectralEmbedding
 from cuml.testing.utils import array_equal
 
 ###############################################################################
@@ -64,7 +64,7 @@ def random_state():
     return 42
 
 
-def assert_params_equal(original, roundtrip, exclude=()):
+def assert_roundtrip_consistency(original, roundtrip, exclude=()):
     original_params = original.get_params()
     roundtrip_params = roundtrip.get_params()
 
@@ -85,6 +85,34 @@ def assert_params_equal(original, roundtrip, exclude=()):
     assert (
         original_params == roundtrip_params
     ), f"Differences found: {dict_diff(original_params, roundtrip_params)}"
+
+    # Next check attributes are consistent. We don't check for equality
+    # since that might change. We do check for consistency in attribute
+    # availability, as well as dtype/shape/order of array values
+    attrs = [
+        name
+        for name in dir(original)
+        if name.endswith("_")
+        and not name.startswith("_")
+        and not name == "feature_names_in_"
+        and name not in exclude
+        and hasattr(original, name)
+    ]
+    with cuml.using_output_type("cupy"):
+        for name in attrs:
+            orig_attr = getattr(original, name)
+            roundtrip_attr = getattr(roundtrip, name)
+            if isinstance(orig_attr, cp.ndarray):
+                assert orig_attr.shape == roundtrip_attr.shape, name
+                assert orig_attr.dtype == roundtrip_attr.dtype, name
+                assert (
+                    orig_attr.flags["C_CONTIGUOUS"]
+                    == roundtrip_attr.flags["C_CONTIGUOUS"]
+                ), name
+                assert (
+                    orig_attr.flags["F_CONTIGUOUS"]
+                    == roundtrip_attr.flags["F_CONTIGUOUS"]
+                ), name
 
 
 def assert_estimator_roundtrip(
@@ -111,8 +139,10 @@ def assert_estimator_roundtrip(
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
 
-    # Ensure params roundtrip
-    assert_params_equal(cuml_model, roundtrip_model, exclude=exclude_params)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(
+        cuml_model, roundtrip_model, exclude=exclude_params
+    )
 
     # Ensure roundtrip model is fitted
     check_is_fitted(roundtrip_model)
@@ -252,6 +282,24 @@ def test_tsne(random_state):
     assert array_equal(original_embedding, roundtrip_embedding)
 
 
+def test_spectral_embedding(random_state):
+    X, _ = make_blobs(
+        n_samples=100, centers=3, n_features=20, random_state=random_state
+    )
+    original = SpectralEmbedding(n_components=2, random_state=random_state)
+    original.fit(X)
+    sklearn_model = original.as_sklearn()
+    roundtrip_model = SpectralEmbedding.from_sklearn(sklearn_model)
+    assert_roundtrip_consistency(original, roundtrip_model)
+
+    original_embedding = original.embedding_
+    sklearn_embedding = sklearn_model.embedding_
+    roundtrip_embedding = roundtrip_model.embedding_
+
+    assert array_equal(original_embedding, sklearn_embedding)
+    assert array_equal(original_embedding, roundtrip_embedding)
+
+
 @pytest.mark.parametrize("alpha_kind", ["scalar", "numpy", "cupy"])
 def test_kernel_ridge(random_state, alpha_kind):
     X, y = make_regression(
@@ -303,8 +351,16 @@ def test_svr(random_state, sparse):
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+
+    cu_score = cu_model_from_sklearn.score(X, y)
     assert cu_score > 0.7
+
+    # Check n_support is set correctly
+    assert (
+        cu_model_from_sklearn.n_support_
+        == cu_model_from_sklearn.support_vectors_.shape[0]
+    )
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -344,6 +400,17 @@ def test_svc(random_state, sparse, probability):
             assert isinstance(val, np.ndarray)
             assert val.dtype == "float64"
             assert val.shape == (1,)
+
+    # Check n_support_ is correctly set
+
+    # When probability=True, cuML wraps the SVC in a CalibratedClassifierCV.
+    # The support vectors are stored in the nested estimator, not on the outer
+    # SVC object, so n_support_ and support_vectors_ remain None.
+    if probability:
+        assert cu_model2.n_support_ is None
+        assert cu_model2.support_vectors_ is None
+    else:
+        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
 
 def test_svc_multiclass_unsupported(random_state):
@@ -387,8 +454,8 @@ def test_umap(random_state, sparse, supervised):
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.UMAP.from_sklearn(sk_model)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2, exclude=["build_algo"])
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2, exclude=["build_algo"])
 
     # Can infer on converted models
     np.testing.assert_array_equal(
@@ -447,8 +514,8 @@ def test_nearest_neighbors(random_state, sparse):
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.NearestNeighbors.from_sklearn(sk_model)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
 
     def assert_kneighbors_close(m1, m2):
         inds1, dists1 = m1.kneighbors(X)
@@ -486,8 +553,8 @@ def test_kneighbors_regressor(random_state, sparse, n_targets):
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.KNeighborsRegressor.from_sklearn(sk_model)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
 
     # Can infer on converted models
     assert_allclose(sk_model.predict(X), sk_model2.predict(X), atol=1e-3)
@@ -535,8 +602,8 @@ def test_kneighbors_classifier(random_state, sparse, n_labels):
         assert isinstance(sk_model2.classes_, np.ndarray)
         assert isinstance(cu_model2.classes_, np.ndarray)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
 
     # Can infer on converted models
     np.testing.assert_array_equal(sk_model.predict(X), sk_model2.predict(X))
@@ -590,8 +657,8 @@ def test_random_forest_regressor(random_state):
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -623,8 +690,8 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.HDBSCAN.from_sklearn(sk_model)
 
-    # Ensure parameters roundtrip
-    assert_params_equal(cu_model, cu_model2)
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
 
     # tree attributes all available
     for attr in ["single_linkage_tree_", "condensed_tree_"]:

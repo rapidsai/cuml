@@ -44,8 +44,6 @@ function(find_and_configure_cuvs)
 
     rapids_cpm_find(cuvs ${PKG_VERSION}
       GLOBAL_TARGETS      cuvs::cuvs
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
         GIT_REPOSITORY         https://github.com/jinsolp/cuvs.git
         GIT_TAG                hdbscan-int64-pub

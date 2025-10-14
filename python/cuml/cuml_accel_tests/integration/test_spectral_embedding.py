@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,14 @@
 # limitations under the License.
 #
 
-import ctypes
-
-from libc.stdint cimport uint64_t
-from libcpp cimport bool
+from sklearn.datasets import make_blobs
+from sklearn.manifold import SpectralEmbedding
 
 
-cdef extern from "raft/random/rng_state.hpp" namespace \
-        "raft::random":
-    enum GeneratorType:
-        GenPhilox, GenPC
+def test_spectral_embedding_make_blobs():
+    """Test SpectralEmbedding with make_blobs dataset."""
+    X, _ = make_blobs(n_samples=100, centers=3, n_features=20, random_state=42)
+    model = SpectralEmbedding(n_components=2, random_state=42)
+    X_embedded = model.fit_transform(X)
 
-    cdef struct RngState:
-        RngState(uint64_t seed) except +
-        uint64_t seed,
-        uint64_t base_subsequence,
-        GeneratorType type
+    assert X_embedded.shape == (100, 2)

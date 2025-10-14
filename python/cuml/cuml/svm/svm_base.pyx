@@ -279,10 +279,14 @@ class SVMBase(Base,
             dual_coef_ = model.dual_coef_
             support_vectors_ = model.support_vectors_
 
+        # Computing n_support_ directly from support_vectors_ since
+        # model.n_support_ is not always reliably computed.
+        n_support = support_vectors_.shape[0]
+
         return {
             "dual_coef_": to_gpu(dual_coef_, order="F"),
             "intercept_": to_gpu(model.intercept_, order="F"),
-            "n_support_": int(model.n_support_.sum()),
+            "n_support_": int(n_support),
             "support_": to_gpu(model.support_, order="F"),
             "support_vectors_": to_gpu(support_vectors_, order="F"),
             "_gamma": float(model._gamma),
@@ -653,8 +657,8 @@ class SVMBase(Base,
                     shape=(self.n_support_, self.n_features_in_))
                 self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
-        self.n_classes_ = n_classes
-        if self.n_classes_ > 0:
+        if n_classes > 0:
+            self.n_classes_ = n_classes
             self._unique_labels_ = CumlArray(
                 data=unique_labels,
                 shape=(self.n_classes_,),

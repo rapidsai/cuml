@@ -342,21 +342,18 @@ class BaseRandomForestModel(Base, InteropMixin):
         """Return the number of estimators in the ensemble."""
         return self.n_estimators
 
-    def convert_to_treelite_model(self):
+    def as_treelite(self):
         """
-        Converts the cuML RF model to a Treelite model
+        Converts this estimator to a Treelite model.
 
         Returns
         -------
-        tl_to_fil_model : treelite.Model
+        treelite.Model
         """
         return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
 
-    def convert_to_fil_model(
-        self,
-        layout="depth_first",
-        default_chunk_size=None,
-        align_bytes=None,
+    def as_fil(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None,
     ):
         """
         Create a Forest Inference (FIL) model from the trained cuML
@@ -501,13 +498,13 @@ class BaseRandomForestModel(Base, InteropMixin):
                         verbose
                     )
 
-        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to manage
-        # ownership, and keep the loaded model around. However, this only works if the
-        # `libtreelite` used by `treelite` matches the one that `cuml` is linked against.
-        # This is currently true for conda environments, but not for wheels where
-        # `treelite` contains its own separate version. So for now we need to do this
-        # serialize-and-reload dance. If/when this is fixed we instead store the loaded
-        # model and use that everywhere.
+        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
+        # manage ownership, and keep the loaded model around. However, this
+        # only works if the `libtreelite` is ABI compatible with the one used
+        # by `cuml`. This is currently true for conda environments, but not for
+        # wheels where `cuml` and `treelite` use different manylinux ABIs. So
+        # for now we need to do this serialize-and-reload dance. If/when this
+        # is fixed we could instead store the loaded model and use that instead.
         cdef const char* tl_bytes = NULL
         cdef size_t tl_bytes_len
         safe_treelite_call(
@@ -540,23 +537,11 @@ class BaseRandomForestModel(Base, InteropMixin):
         ):
             # default parameters, get (or create) the cached fil model
             if (fil_model := getattr(self, "_fil_model", None)) is None:
-                fil_model = self._fil_model = self.convert_to_fil_model()
+                fil_model = self._fil_model = self.as_fil()
         else:
-            fil_model = self.convert_to_fil_model(
+            fil_model = self.as_fil(
                 layout=layout,
                 default_chunk_size=default_chunk_size,
                 align_bytes=align_bytes,
             )
         return fil_model
-
-    def _handle_deprecated_predict_model(self, predict_model):
-        if predict_model != "deprecated":
-            warnings.warn(
-                (
-                    "`predict_model` is deprecated (and ignored) and will be removed "
-                    "in 25.12. To infer on CPU use `model.convert_to_fil_model` to get "
-                    "a `FIL` instance which may then be used to perform inference on "
-                    "both CPU and GPU."
-                ),
-                FutureWarning,
-            )

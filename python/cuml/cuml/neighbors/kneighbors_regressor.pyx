@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import numpy as np
 
+import cuml.internals
 from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_array
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
@@ -132,9 +129,6 @@ class KNeighborsRegressor(RegressorMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
-
-    y = CumlArrayDescriptor(order="F")
-
     _cpu_class_path = "sklearn.neighbors.KNeighborsRegressor"
 
     @classmethod
@@ -159,43 +153,48 @@ class KNeighborsRegressor(RegressorMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "y": to_gpu(model._y, order="F", dtype=np.float32),
+            "_y": to_gpu(model._y, order="F", dtype=np.float32),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "_y": to_cpu(self.y),
+            "_y": to_cpu(self._y),
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, weights="uniform", handle=None, verbose=False,
-                 output_type=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        weights="uniform",
+        handle=None,
+        verbose=False,
+        output_type=None,
+        **kwargs,
+    ):
         super().__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type,
-            **kwargs)
-        self.y = None
+            handle=handle, verbose=verbose, output_type=output_type, **kwargs
+        )
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
         """
         if self.weights != "uniform":
-            raise ValueError("Only uniform weighting strategy "
-                             "is supported currently.")
-        self._set_target_dtype(y)
+            raise ValueError("Only uniform weighting strategy is supported currently.")
 
-        super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self.y, _, _, _ = \
-            input_to_cuml_array(y, order='F', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
+        super().fit(X, convert_dtype=convert_dtype)
+        self._y = input_to_cuml_array(
+            y,
+            order='F',
+            check_dtype=np.float32,
+            check_rows=self.n_samples_fit_,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        ).array
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -203,50 +202,48 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @api_base_return_array(get_output_dtype=True)
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
+        indices = self.kneighbors(X, return_distance=False, convert_dtype=convert_dtype)
+        indices = input_to_cuml_array(
+            indices, check_dtype=np.int64, convert_to_dtype=np.int64, order="C"
+        ).array
 
-        knn_indices = self.kneighbors(X, return_distance=False,
-                                      convert_dtype=convert_dtype)
-
-        inds, n_rows, _n_cols, _dtype = \
-            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
-        cdef uintptr_t inds_ctype = inds.ptr
-
-        res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
-        res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
-        results = CumlArray.zeros(res_shape, dtype=np.float32,
-                                  order="C",
-                                  index=inds.index)
-
-        cdef uintptr_t results_ptr = results.ptr
-        cdef uintptr_t y_ptr
-        cdef vector[float*] *y_vec = new vector[float*]()
-
-        for col_num in range(res_cols):
-            col = self.y if res_cols == 1 else self.y[:, col_num]
-            y_ptr = col.ptr
-            y_vec.push_back(<float*>y_ptr)
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        knn_regress(
-            handle_[0],
-            <float*>results_ptr,
-            <int64_t*>inds_ctype,
-            deref(y_vec),
-            <size_t>self.n_samples_fit_,
-            <size_t>n_rows,
-            <int>self.n_neighbors
+        cdef size_t n_rows = indices.shape[0]
+        n_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
+        out = CumlArray.zeros(
+            n_rows if n_cols == 1 else (n_rows, n_cols),
+            dtype=np.float32,
+            order="C",
+            index=indices.index
         )
 
+        cdef vector[float*] *y_vec = new vector[float*]()
+        for i in range(n_cols):
+            col = self._y if n_cols == 1 else self._y[:, i]
+            y_vec.push_back(<float*><uintptr_t>col.ptr)
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef float* out_ptr = <float*><uintptr_t>out.ptr
+        cdef int64_t* indices_ptr = <int64_t *><uintptr_t>indices.ptr
+        cdef size_t n_samples = self._y.shape[0]
+        cdef int n_neighbors = self.n_neighbors
+
+        with nogil:
+            knn_regress(
+                handle_[0],
+                out_ptr,
+                indices_ptr,
+                deref(y_vec),
+                n_samples,
+                n_rows,
+                n_neighbors,
+            )
+
         self.handle.sync()
-        return results
+        return out
