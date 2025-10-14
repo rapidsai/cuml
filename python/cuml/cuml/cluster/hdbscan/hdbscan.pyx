@@ -35,7 +35,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_uvector cimport device_uvector

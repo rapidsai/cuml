@@ -1223,7 +1223,8 @@ def test_approximate_predict_output_type():
 @pytest.mark.parametrize("n_clusters", [1, 4, 7])
 @pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
 @pytest.mark.parametrize("do_snmg", [False, True])
-def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg):
+@pytest.mark.parametrize("min_samples", [15, 30])
+def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
     X, y = make_blobs(
         n_samples=10_000,
         n_features=16,
@@ -1239,6 +1240,7 @@ def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg):
         build_algo=build_algo,
         build_kwds={"knn_n_clusters": n_clusters, "nnd_graph_degree": 32},
         handle=umap_handle,
+        min_samples=min_samples,
     ).fit(X)
 
     sk_agg = hdbscan.HDBSCAN().fit(X)
