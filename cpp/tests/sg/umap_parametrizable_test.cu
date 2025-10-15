@@ -147,8 +147,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       handle.sync_stream(stream);
     }
 
-    // Create device_buffer for model embedding - will be allocated by fit()
-    auto model_embedding_buffer = std::make_unique<rmm::device_buffer>();
+    std::unique_ptr<rmm::device_buffer> model_embedding_buffer;
 
     auto graph =
       raft::make_host_coo_matrix<float, int, int, uint64_t>(handle, n_samples, n_samples);
@@ -198,11 +197,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     if (test_params.fit_transform) {
       // Copy the model embedding to the output embedding_ptr
-      RAFT_CUDA_TRY(cudaMemcpyAsync(embedding_ptr,
-                                    model_embedding,
-                                    n_samples * umap_params.n_components * sizeof(float),
-                                    cudaMemcpyDeviceToDevice,
-                                    stream));
+      raft::copy(embedding_ptr, model_embedding, n_samples * umap_params.n_components, stream);
       handle.sync_stream(stream);
     } else {
       // Use transform for non-fit_transform case

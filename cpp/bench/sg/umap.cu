@@ -71,7 +71,6 @@ class UmapBase : public BlobsFixture<float, int> {
   void allocateTempBuffers(const ::benchmark::State& state) override
   {
     alloc(yFloat, this->params.nrows);
-    embeddings_buffer = std::make_unique<rmm::device_buffer>();
     cast<float, int>(yFloat, this->data.y.data(), this->params.nrows, this->stream);
   }
 

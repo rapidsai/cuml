@@ -912,7 +912,6 @@ class UMAP(Base,
                                                            self.sparse_fit)
 
         cdef unique_ptr[device_buffer] embeddings_buffer
-        embeddings_buffer.reset(new device_buffer())
 
         if self.sparse_fit:
             fit_sparse(handle_[0],
