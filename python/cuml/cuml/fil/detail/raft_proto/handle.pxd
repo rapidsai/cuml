@@ -14,12 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
-
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
 from cuml.fil.detail.raft_proto.cuda_stream cimport (
