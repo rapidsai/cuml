@@ -660,7 +660,7 @@ class SVC(SVMBase, ClassifierMixin):
             den = cp.sum(proba, axis=1)
             cp.divide(proba, den[:, None], out=proba)
             # If all probabilities are 0, use a uniform distribution
-            proba[den == 0] == 1 / n_classes
+            proba[den == 0] = 1 / n_classes
             # Clip to between 0 and 1 to handle rounding error
             cp.clip(proba, 0, 1, out=proba)
 
