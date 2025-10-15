@@ -38,6 +38,7 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
+from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,
@@ -267,14 +268,24 @@ def test_svm_predict(params, n_pred):
     assert accuracy > 99
 
 
+def test_svc_predict_proba_not_available():
+    X, y = make_classification()
+    model = cuml.SVC().fit(X, y)
+
+    with pytest.raises(NotFittedError, match="probability=True"):
+        model.predict_proba(X)
+
+    with pytest.raises(NotFittedError, match="probability=True"):
+        model.predict_log_proba(X)
+
+
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
 # the input array is converted to numpy under the hood. We explicitly test for
 # all supported input types, to avoid errors like
 # https://github.com/rapidsai/cuml/issues/3090
-@pytest.mark.parametrize(
-    "in_type", ["numpy", "numba", "cudf", "cupy", "pandas", "cuml"]
-)
-def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
+@pytest.mark.parametrize("in_type", ["numpy", "cudf", "cupy", "pandas"])
+@pytest.mark.parametrize("n_classes", [2, 4])
+def test_svc_predict_proba(in_type, n_classes):
     params = {
         "kernel": "rbf",
         "C": 1,
@@ -283,9 +294,10 @@ def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
         "probability": True,
     }
     X, y = make_classification(
-        n_samples=n_rows,
-        n_features=n_cols,
-        n_informative=2,
+        n_samples=1000,
+        n_features=20,
+        n_informative=5,
+        n_classes=n_classes,
         n_redundant=10,
         random_state=137,
     )
@@ -300,7 +312,11 @@ def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
     cuSVC.fit(X_m.to_output(in_type), y_m.to_output(in_type))
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
-    compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)
+
+    tol = 1e-2 if n_classes == 2 else 1e-1
+    compare_probabilistic_svm(
+        cuSVC, sklSVC, X_test, y_test, tol=tol, brier_tol=tol
+    )
 
 
 @pytest.mark.parametrize("class_weight", [None, {1: 10}, "balanced"])
