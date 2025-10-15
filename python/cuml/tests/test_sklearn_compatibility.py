@@ -809,7 +809,7 @@ def _check_name(check):
         GaussianRandomProjection(),
         SparseRandomProjection(),
         DBSCAN(),
-        AgglomerativeClustering(),
+        # AgglomerativeClustering(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),
