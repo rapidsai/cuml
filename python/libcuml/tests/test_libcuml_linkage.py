@@ -36,7 +36,6 @@ def find_libcuml_so():
         # If libcuml++.so doesn't exist at the module location, it means we're importing
         # the source code instead of the installed wheel. Try site-packages directly.
         if not libcuml_so.exists():
-            # Try to find it in site-packages
             for site_pkg in sys.path:
                 if "site-packages" in site_pkg:
                     potential_path = (
@@ -57,7 +56,6 @@ def find_libcuml_so():
             if venv:
                 installation_root = Path(venv)
             else:
-                # Use sys.prefix as the installation root
                 installation_root = Path(sys.prefix)
 
             return libcuml_so, installation_root
@@ -72,7 +70,6 @@ def find_libcuml_so():
         if libcuml_paths:
             return libcuml_paths[0], venv_path
 
-    # If we get here, we couldn't find libcuml++.so
     pytest.fail("libcuml++.so not found. Please ensure libcuml is installed.")
 
 
@@ -97,15 +94,12 @@ def parse_ldd_output(ldd_output):
 
 def test_libcuml_linkage():
     """Test that libcuml++.so links to the correct library paths."""
-    # Find libcuml++.so
     libcuml_so_path, installation_root = find_libcuml_so()
     print(f"Found libcuml++.so at: {libcuml_so_path}")
     print(f"Installation root: {installation_root}")
 
-    # Import libcuml to ensure it loads successfully
     import libcuml  # noqa: F401
 
-    # Run ldd on libcuml++.so
     result = subprocess.run(
         ["ldd", str(libcuml_so_path)],
         capture_output=True,
@@ -115,47 +109,18 @@ def test_libcuml_linkage():
     ldd_output = result.stdout
     print(f"ldd output:\n{ldd_output}")
 
-    # Parse ldd output
     linked_libs = parse_ldd_output(ldd_output)
 
-    # Define expected library paths based on CMakeLists.txt
+    # Determine CUDA version from CI container environment variable
+    rapids_cuda_version = os.environ.get("RAPIDS_CUDA_VERSION", "")
+    cuda_major_version = int(rapids_cuda_version.split(".")[0])
+    is_ctk_13_plus = cuda_major_version >= 13
+
+    # Define expected library paths
     # For CTK 13+: nvidia/cu13/lib and nvidia/nccl/lib
     # For CTK 12 and below: individual nvidia/{library}/lib directories
     # The libcuml++.so is at: site-packages/libcuml/lib64/libcuml++.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
-
-    # Determine CUDA Toolkit version from environment or by auto-detection
-    rapids_cuda_version = os.environ.get("RAPIDS_CUDA_VERSION", "")
-
-    if rapids_cuda_version:
-        # Parse major version from RAPIDS_CUDA_VERSION (e.g., "13.0" -> 13)
-        try:
-            cuda_major_version = int(rapids_cuda_version.split(".")[0])
-            is_ctk_13_plus = cuda_major_version >= 13
-            print(
-                f"Using CUDA version from environment: {rapids_cuda_version} (CTK {cuda_major_version})"
-            )
-        except (ValueError, IndexError):
-            print(
-                f"Warning: Could not parse RAPIDS_CUDA_VERSION='{rapids_cuda_version}', falling back to auto-detection"
-            )
-            is_ctk_13_plus = any(
-                "nvidia/cu13/lib" in path
-                for path in linked_libs.values()
-                if path != "not found"
-            )
-    else:
-        # Auto-detect by checking library paths
-        # CTK 13+ uses nvidia/cu13/lib, earlier versions use individual directories
-        print("RAPIDS_CUDA_VERSION not set, auto-detecting from library paths")
-        is_ctk_13_plus = any(
-            "nvidia/cu13/lib" in path
-            for path in linked_libs.values()
-            if path != "not found"
-        )
-
-    # Define the libraries we expect to find with their expected path patterns
-    # These are non-system libraries that should be in the installation directory
     if is_ctk_13_plus:
         print("Detected CTK 13+ library layout")
         expected_libs = {
@@ -189,7 +154,6 @@ def test_libcuml_linkage():
             "libcumlprims_mg.so": "libcuml/lib64",
         }
 
-    # Track failures
     failures = []
 
     for lib_name, expected_path_suffix in expected_libs.items():
@@ -199,16 +163,14 @@ def test_libcuml_linkage():
 
         actual_path = linked_libs[lib_name]
 
-        # Check if library was found
         if actual_path == "not found":
-            # Some libraries like librmm.so and librapids_logger.so may not be found
+            # librmm.so and librapids_logger.so may not be found
             # but are loaded dynamically at runtime, skip these
             if lib_name in ["librmm.so", "librapids_logger.so"]:
                 continue
             failures.append(f"Library {lib_name} => not found")
             continue
 
-        # Verify the path contains the expected suffix relative to installation root
         if not actual_path.startswith(str(installation_root)):
             failures.append(
                 f"Library {lib_name} is not in installation directory:\n"
@@ -217,7 +179,6 @@ def test_libcuml_linkage():
             )
             continue
 
-        # Check that the path contains the expected suffix
         if expected_path_suffix not in actual_path:
             failures.append(
                 f"Library {lib_name} does not have expected path suffix:\n"
@@ -225,14 +186,8 @@ def test_libcuml_linkage():
                 f"  Actual path: {actual_path}"
             )
 
-    # Report all failures at once
     if failures:
         failure_msg = "\n\n".join(failures)
         pytest.fail(f"Library linkage validation failed:\n\n{failure_msg}")
 
     print("All library linkage checks passed!")
-
-
-if __name__ == "__main__":
-    # Allow running the test directly for debugging
-    sys.exit(pytest.main([__file__, "-v", "-s"]))

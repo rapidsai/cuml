@@ -44,7 +44,7 @@ set +e
 
 # Run linkage test for libcuml
 rapids-logger "Testing libcuml linkage"
-python -m pytest --cache-clear python/libcuml/test_libcuml_linkage.py -v
+python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v
 
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
