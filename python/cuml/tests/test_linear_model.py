@@ -996,10 +996,6 @@ def test_logistic_regression_weighting(
 ):
     X, y = dataset
 
-    # Ensure consistent dtypes
-    X = X.astype(np.float64)
-    y = y.astype(np.int32)
-
     num_classes = len(np.unique(y))
 
     # Set up sample_weight
