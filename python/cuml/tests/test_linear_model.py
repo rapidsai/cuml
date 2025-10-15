@@ -977,6 +977,20 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     use_sample_weight=True,
     class_weight_option="dict",
 )
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=3,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option=None,
+)
 def test_logistic_regression_weighting(
     dataset, use_sample_weight, class_weight_option
 ):
