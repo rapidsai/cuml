@@ -26,6 +26,10 @@ rapids-pip-retry install \
 rapids-logger "Importing cuml with minimal dependencies"
 python -c "import cuml"
 
+# Run linkage test for libcuml (uses RAPIDS_CUDA_VERSION env var)
+rapids-logger "Testing libcuml linkage"
+python -m pytest python/libcuml/test_libcuml_linkage.py -v
+
 # notes:
 #
 #   * echo to expand wildcard before adding `[test,experimental]` requires for pip
