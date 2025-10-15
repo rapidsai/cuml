@@ -757,129 +757,6 @@ RF_metrics score(const raft::handle_t& user_handle,
 // Functions' specializations
 
 /**
- * @brief Compute out-of-bag score for the random forest.
- */
-template <typename T, typename L>
-void compute_oob_score(const raft::handle_t& handle,
-                       RandomForestMetaData<T, L>* forest)
-{
-  if (!forest->rf_params.bootstrap || forest->oob_indices_per_tree.empty() || 
-      forest->training_data.empty() || forest->training_labels.empty()) {
-    forest->oob_score = -1.0;
-    forest->oob_score_computed = true;
-    return;
-  }
-
-  int n_rows = forest->n_rows;
-  int n_cols = forest->n_features;
-  int n_unique_labels = forest->n_unique_labels;
-  int rf_type = forest->rf_type;
-
-  std::vector<std::vector<T>> oob_predictions(n_rows);
-  std::vector<int> oob_counts(n_rows, 0);
-
-  if (rf_type == RF_type::CLASSIFICATION) {
-    for (int i = 0; i < n_rows; i++) {
-      oob_predictions[i].resize(n_unique_labels, 0.0);
-    }
-  } else {
-    for (int i = 0; i < n_rows; i++) {
-      oob_predictions[i].resize(1, 0.0);
-    }
-  }
-
-  // Use the stored training data
-  const std::vector<T>& h_input = forest->training_data;
-
-  for (int tree_idx = 0; tree_idx < forest->rf_params.n_trees; tree_idx++) {
-    const auto& oob_indices = forest->oob_indices_per_tree[tree_idx];
-    const auto& tree        = forest->trees[tree_idx];
-
-      for (int oob_idx : oob_indices) {
-        std::vector<T> row_prediction(tree->num_outputs);
-        DT::DecisionTree::predict(handle,
-                                  *tree,
-                                  &h_input[oob_idx * n_cols],
-                                  1,
-                                  n_cols,
-                                  row_prediction.data(),
-                                  tree->num_outputs,
-                                  rapids_logger::level_enum::info);
-
-        if (rf_type == RF_type::CLASSIFICATION) {
-          for (int k = 0; k < tree->num_outputs; k++) {
-            oob_predictions[oob_idx][k] += row_prediction[k];
-          }
-        } else {
-          oob_predictions[oob_idx][0] += row_prediction[0];
-        }
-        oob_counts[oob_idx]++;
-      }
-    }
-
-  std::vector<L> final_predictions(n_rows);
-  int valid_predictions = 0;
-
-  for (int i = 0; i < n_rows; i++) {
-    if (oob_counts[i] > 0) {
-      valid_predictions++;
-
-      if (rf_type == RF_type::CLASSIFICATION) {
-        int best_class = 0;
-        T best_score   = 0.0;
-        for (int k = 0; k < n_unique_labels; k++) {
-          T score = oob_predictions[i][k] / oob_counts[i];
-          if (score > best_score) {
-            best_score = score;
-            best_class = k;
-          }
-        }
-        final_predictions[i] = best_class;
-      } else {
-        final_predictions[i] = oob_predictions[i][0] / oob_counts[i];
-      }
-    }
-  }
-
-  // Use the stored training labels
-  const std::vector<L>& h_labels = forest->training_labels;
-
-  if (rf_type == RF_type::CLASSIFICATION) {
-    int correct = 0;
-    for (int i = 0; i < n_rows; i++) {
-      if (oob_counts[i] > 0 && final_predictions[i] == h_labels[i]) { correct++; }
-    }
-    forest->oob_score = static_cast<double>(correct) / valid_predictions;
-  } else {
-    double sum_squared_errors = 0.0;
-    double sum_squared_total  = 0.0;
-    double mean_y             = 0.0;
-    int count                 = 0;
-
-    for (int i = 0; i < n_rows; i++) {
-      if (oob_counts[i] > 0) {
-        mean_y += h_labels[i];
-        count++;
-      }
-    }
-    mean_y /= count;
-
-    for (int i = 0; i < n_rows; i++) {
-      if (oob_counts[i] > 0) {
-        double error = h_labels[i] - final_predictions[i];
-        sum_squared_errors += error * error;
-        double diff = h_labels[i] - mean_y;
-        sum_squared_total += diff * diff;
-      }
-    }
-
-    forest->oob_score = 1.0 - (sum_squared_errors / sum_squared_total);
-  }
-
-  forest->oob_score_computed = true;
-}
-
-/**
  * @brief Compute feature importances using mean decrease in impurity.
  */
 template <typename T, typename L>
@@ -940,15 +817,11 @@ void compute_feature_importances(RandomForestMetaData<T, L>* forest)
 }
 
 /**
- * @brief Get the out-of-bag score of the trained RandomForest model (lazy computation).
+ * @brief Get the out-of-bag score of the trained RandomForest model.
  */
 template <class T, class L>
-double get_oob_score(const raft::handle_t& handle,
-                     RandomForestMetaData<T, L>* forest)
+double get_oob_score(const RandomForestMetaData<T, L>* forest)
 {
-  if (!forest->oob_score_computed) {
-    compute_oob_score(handle, forest);
-  }
   return forest->oob_score;
 }
 
@@ -996,29 +869,16 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 
-// Template instantiations for compute and get functions
-template void compute_oob_score<float, int>(const raft::handle_t& handle,
-                                            RandomForestMetaData<float, int>* forest);
-template void compute_oob_score<double, int>(const raft::handle_t& handle,
-                                             RandomForestMetaData<double, int>* forest);
-template void compute_oob_score<float, float>(const raft::handle_t& handle,
-                                              RandomForestMetaData<float, float>* forest);
-template void compute_oob_score<double, double>(const raft::handle_t& handle,
-                                                RandomForestMetaData<double, double>* forest);
-
+// Template instantiations for get functions
 template void compute_feature_importances<float, int>(RandomForestMetaData<float, int>* forest);
 template void compute_feature_importances<double, int>(RandomForestMetaData<double, int>* forest);
 template void compute_feature_importances<float, float>(RandomForestMetaData<float, float>* forest);
 template void compute_feature_importances<double, double>(RandomForestMetaData<double, double>* forest);
 
-template double get_oob_score<float, int>(const raft::handle_t& handle,
-                                          RandomForestMetaData<float, int>* forest);
-template double get_oob_score<double, int>(const raft::handle_t& handle,
-                                           RandomForestMetaData<double, int>* forest);
-template double get_oob_score<float, float>(const raft::handle_t& handle,
-                                            RandomForestMetaData<float, float>* forest);
-template double get_oob_score<double, double>(const raft::handle_t& handle,
-                                              RandomForestMetaData<double, double>* forest);
+template double get_oob_score<float, int>(const RandomForestMetaData<float, int>* forest);
+template double get_oob_score<double, int>(const RandomForestMetaData<double, int>* forest);
+template double get_oob_score<float, float>(const RandomForestMetaData<float, float>* forest);
+template double get_oob_score<double, double>(const RandomForestMetaData<double, double>* forest);
 
 template std::vector<float> get_feature_importances<float, int>(RandomForestMetaData<float, int>* forest);
 template std::vector<double> get_feature_importances<double, int>(RandomForestMetaData<double, int>* forest);
