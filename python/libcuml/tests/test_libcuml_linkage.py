@@ -122,7 +122,6 @@ def test_libcuml_linkage():
     # The libcuml++.so is at: site-packages/libcuml/lib64/libcuml++.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
     if is_ctk_13_plus:
-        print("Detected CTK 13+ library layout")
         expected_libs = {
             # CTK 13 libs (in nvidia/cu13/lib)
             "libcufft.so.12": "nvidia/cu13/lib",
@@ -138,7 +137,6 @@ def test_libcuml_linkage():
             "libcumlprims_mg.so": "libcuml/lib64",
         }
     else:
-        print("Detected CTK 12 or earlier library layout")
         expected_libs = {
             # CTK 12 and earlier (in individual nvidia/{library}/lib directories)
             "libcufft.so.11": "nvidia/cufft/lib",
@@ -189,5 +187,3 @@ def test_libcuml_linkage():
     if failures:
         failure_msg = "\n\n".join(failures)
         pytest.fail(f"Library linkage validation failed:\n\n{failure_msg}")
-
-    print("All library linkage checks passed!")
