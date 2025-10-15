@@ -45,9 +45,11 @@
 namespace ML {
 template <class T, class L>
 class RandomForest {
+ public:
+  int rf_type;  // 0 for classification 1 for regression
+
  protected:
   RF_params rf_params;  // structure containing RF hyperparameters
-  int rf_type;          // 0 for classification 1 for regression
 
   void get_row_sample(int tree_id,
                       int n_rows,
@@ -180,13 +182,28 @@ class RandomForest {
       selected_rows.emplace_back(n_sampled_rows, handle.get_stream_from_stream_pool(i));
     }
 
-    // Initialize OOB tracking if needed
+    // Initialize metadata for lazy computation
+    forest->n_features = n_cols;
+    forest->n_rows = n_rows;
+    forest->rf_type = rf_type;
+    forest->n_unique_labels = n_unique_labels;
+    forest->feature_importances_computed = false;
+    forest->oob_score_computed = false;
+    forest->oob_score = -1.0;
+    forest->feature_importances.clear();
+
+    // Store training data if OOB score is enabled (for lazy computation)
     if (rf_params.oob_score && rf_params.bootstrap) {
       forest->oob_indices_per_tree.resize(rf_params.n_trees);
+      
+      // Copy training data to host memory for later OOB computation
+      forest->training_data.resize(std::size_t(n_rows) * n_cols);
+      raft::update_host(forest->training_data.data(), input, std::size_t(n_rows) * n_cols, handle.get_stream());
+      
+      forest->training_labels.resize(n_rows);
+      raft::update_host(forest->training_labels.data(), labels, n_rows, handle.get_stream());
+      handle.sync_stream(handle.get_stream());
     }
-
-    // Initialize feature importance tracking
-    forest->feature_importances.resize(n_cols, 0.0);
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -226,11 +243,7 @@ class RandomForest {
     handle.sync_stream_pool();
     handle.sync_stream();
 
-    if (rf_params.oob_score && rf_params.bootstrap) {
-      compute_oob_score(handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
-    }
-
-    compute_feature_importances(forest, n_cols);
+    // Note: OOB score and feature importances are now computed lazily when requested
   }
 
   /**
@@ -345,175 +358,6 @@ class RandomForest {
     return stats;
   }
 
- protected:
-  /**
-   * @brief Compute out-of-bag score for the random forest.
-   * @param[in] handle: raft::handle_t
-   * @param[in] input: training data
-   * @param[in] n_rows: number of training samples
-   * @param[in] n_cols: number of features
-   * @param[in] labels: training labels
-   * @param[in] n_unique_labels: number of unique labels (classification only)
-   * @param[in,out] forest: RandomForestMetaData to update with OOB score
-   */
-  void compute_oob_score(const raft::handle_t& handle,
-                         const T* input,
-                         int n_rows,
-                         int n_cols,
-                         const L* labels,
-                         int n_unique_labels,
-                         RandomForestMetaData<T, L>* forest)
-  {
-    std::vector<std::vector<T>> oob_predictions(n_rows);
-    std::vector<int> oob_counts(n_rows, 0);
-
-    if (rf_type == RF_type::CLASSIFICATION) {
-      for (int i = 0; i < n_rows; i++) {
-        oob_predictions[i].resize(n_unique_labels, 0.0);
-      }
-    } else {
-      for (int i = 0; i < n_rows; i++) {
-        oob_predictions[i].resize(1, 0.0);
-      }
-    }
-
-    std::vector<T> h_input(std::size_t(n_rows) * n_cols);
-    raft::update_host(h_input.data(), input, std::size_t(n_rows) * n_cols, handle.get_stream());
-    handle.sync_stream(handle.get_stream());
-
-    for (int tree_idx = 0; tree_idx < rf_params.n_trees; tree_idx++) {
-      const auto& oob_indices = forest->oob_indices_per_tree[tree_idx];
-      const auto& tree        = forest->trees[tree_idx];
-
-      for (int oob_idx : oob_indices) {
-        std::vector<T> row_prediction(tree->num_outputs);
-        DT::DecisionTree::predict(handle,
-                                  *tree,
-                                  &h_input[oob_idx * n_cols],
-                                  1,
-                                  n_cols,
-                                  row_prediction.data(),
-                                  tree->num_outputs,
-                                  rapids_logger::level_enum::info);
-
-        if (rf_type == RF_type::CLASSIFICATION) {
-          for (int k = 0; k < tree->num_outputs; k++) {
-            oob_predictions[oob_idx][k] += row_prediction[k];
-          }
-        } else {
-          oob_predictions[oob_idx][0] += row_prediction[0];
-        }
-        oob_counts[oob_idx]++;
-      }
-    }
-    std::vector<L> final_predictions(n_rows);
-    int valid_predictions = 0;
-
-    for (int i = 0; i < n_rows; i++) {
-      if (oob_counts[i] > 0) {
-        valid_predictions++;
-
-        if (rf_type == RF_type::CLASSIFICATION) {
-          int best_class = 0;
-          T best_score   = 0.0;
-          for (int k = 0; k < n_unique_labels; k++) {
-            T score = oob_predictions[i][k] / oob_counts[i];
-            if (score > best_score) {
-              best_score = score;
-              best_class = k;
-            }
-          }
-          final_predictions[i] = best_class;
-        } else {
-          final_predictions[i] = oob_predictions[i][0] / oob_counts[i];
-        }
-      }
-    }
-
-    std::vector<L> h_labels(n_rows);
-    raft::update_host(h_labels.data(), labels, n_rows, handle.get_stream());
-    handle.sync_stream(handle.get_stream());
-
-    if (rf_type == RF_type::CLASSIFICATION) {
-      int correct = 0;
-      for (int i = 0; i < n_rows; i++) {
-        if (oob_counts[i] > 0 && final_predictions[i] == h_labels[i]) { correct++; }
-      }
-      forest->oob_score = static_cast<double>(correct) / valid_predictions;
-    } else {
-      double sum_squared_errors = 0.0;
-      double sum_squared_total  = 0.0;
-      double mean_y             = 0.0;
-      int count                 = 0;
-
-      for (int i = 0; i < n_rows; i++) {
-        if (oob_counts[i] > 0) {
-          mean_y += h_labels[i];
-          count++;
-        }
-      }
-      mean_y /= count;
-
-      for (int i = 0; i < n_rows; i++) {
-        if (oob_counts[i] > 0) {
-          double error = h_labels[i] - final_predictions[i];
-          sum_squared_errors += error * error;
-          double diff = h_labels[i] - mean_y;
-          sum_squared_total += diff * diff;
-        }
-      }
-
-      forest->oob_score = 1.0 - (sum_squared_errors / sum_squared_total);
-    }
-  }
-
-  /**
-   * @brief Compute feature importances using mean decrease in impurity.
-   * @param[in,out] forest: RandomForestMetaData to update with feature importances
-   * @param[in] n_cols: number of features
-   */
-  void compute_feature_importances(RandomForestMetaData<T, L>* forest, int n_cols)
-  {
-    std::vector<double> importances(n_cols, 0.0);
-
-    for (const auto& tree : forest->trees) {
-      std::vector<double> tree_importances(n_cols, 0.0);
-
-      for (const auto& node : tree->sparsetree) {
-        if (!node.IsLeaf()) {
-          int feature_id = node.ColumnId();
-          if (feature_id >= 0 && feature_id < n_cols) {
-            double impurity_decrease = node.BestMetric() * node.InstanceCount();
-            tree_importances[feature_id] += impurity_decrease;
-          }
-        }
-      }
-
-      double sum = 0.0;
-      for (double imp : tree_importances) {
-        sum += imp;
-      }
-
-      if (sum > 0) {
-        for (int i = 0; i < n_cols; i++) {
-          tree_importances[i] /= sum;
-          importances[i] += tree_importances[i];
-        }
-      }
-    }
-
-    double sum = 0.0;
-    for (int i = 0; i < n_cols; i++) {
-      importances[i] /= rf_params.n_trees;
-      sum += importances[i];
-    }
-
-    if (sum > 0) {
-      for (int i = 0; i < n_cols; i++) {
-        forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
-      }
-    }
-  }
 };
 
 // class specializations

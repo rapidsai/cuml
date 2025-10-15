@@ -138,6 +138,49 @@ struct RandomForestMetaData {
    * For each tree, stores the indices of samples that were out-of-bag.
    */
   std::vector<std::vector<int>> oob_indices_per_tree;
+
+  /**
+   * Number of features in the training data.
+   * Used for lazy computation of feature importances.
+   */
+  int n_features = 0;
+
+  /**
+   * Flag indicating whether feature importances have been computed.
+   */
+  bool feature_importances_computed = false;
+
+  /**
+   * Flag indicating whether OOB score has been computed.
+   */
+  bool oob_score_computed = false;
+
+  /**
+   * Training data (stored for lazy OOB computation).
+   * Only stored if OOB score is enabled.
+   */
+  std::vector<T> training_data;
+
+  /**
+   * Training labels (stored for lazy OOB computation).
+   * Only stored if OOB score is enabled.
+   */
+  std::vector<L> training_labels;
+
+  /**
+   * Number of rows in training data.
+   */
+  int n_rows = 0;
+
+  /**
+   * RF type: 0 for classification, 1 for regression.
+   */
+  int rf_type = 0;
+
+  /**
+   * Number of unique labels (for classification only).
+   */
+  int n_unique_labels = 0;
 };
 
 template <class T, class L>
@@ -158,20 +201,44 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            int num_features);
 
 /**
- * @brief Get the out-of-bag score of the trained RandomForest model.
+ * @brief Compute out-of-bag score for the random forest.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] forest: CPU pointer to RandomForestMetaData
- * @return OOB score (-1 if not computed)
+ * @param[in] handle: raft::handle_t
+ * @param[in,out] forest: RandomForestMetaData to update with OOB score
+ */
+template <typename T, typename L>
+void compute_oob_score(const raft::handle_t& handle,
+                       RandomForestMetaData<T, L>* forest);
+
+/**
+ * @brief Compute feature importances using mean decrease in impurity.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in,out] forest: RandomForestMetaData to update with feature importances
+ */
+template <typename T, typename L>
+void compute_feature_importances(RandomForestMetaData<T, L>* forest);
+
+/**
+ * @brief Get the out-of-bag score of the trained RandomForest model.
+ * Computes it lazily if not already computed.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] handle: raft::handle_t
+ * @param[in,out] forest: CPU pointer to RandomForestMetaData
+ * @return OOB score (-1 if cannot be computed)
  */
 template <class T, class L>
-double get_oob_score(const RandomForestMetaData<T, L>* forest);
+double get_oob_score(const raft::handle_t& handle,
+                     RandomForestMetaData<T, L>* forest);
 
 /**
  * @brief Get the feature importances of the trained RandomForest model.
+ * Computes them lazily if not already computed.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @param[in,out] forest: CPU pointer to RandomForestMetaData
  * @return Vector of feature importances
  */
 template <class T, class L>
