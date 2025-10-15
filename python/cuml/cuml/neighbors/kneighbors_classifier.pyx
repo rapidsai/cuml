@@ -449,11 +449,6 @@ class KNeighborsClassifier(ClassifierMixin,
                 classes = CumlArray(classes_array, index=inds.index)
             return classes
 
-        # Compute weights on Python side
-        weights_cp = _compute_weights(cp.asarray(dists), self.weights)
-        weights_cuml = CumlArray(weights_cp)
-        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
-
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
                                   index=inds.index)
@@ -473,18 +468,36 @@ class KNeighborsClassifier(ClassifierMixin,
         classes_ptr = <int*><uintptr_t>classes.ptr
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Use GPU-accelerated weighted C++ implementation for all cases
-        with nogil:
-            knn_classify_weighted(
-                handle_[0],
-                classes_ptr,
-                inds_ctype,
-                weights_ctype,
-                y_vec,
-                n_samples_fit,
-                n_rows_size,
-                n_neighbors_val
-            )
+        # Use unweighted function for uniform weights (more efficient)
+        if self.weights in (None, 'uniform'):
+            with nogil:
+                knn_classify(
+                    handle_[0],
+                    classes_ptr,
+                    inds_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
+        else:
+            # Compute weights on Python side for distance weighting
+            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cuml = CumlArray(weights_cp)
+            weights_ctype = <float*><uintptr_t>weights_cuml.ptr
+
+            # Use GPU-accelerated weighted C++ implementation
+            with nogil:
+                knn_classify_weighted(
+                    handle_[0],
+                    classes_ptr,
+                    inds_ctype,
+                    weights_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
 
         self.handle.sync()
         return classes
@@ -542,11 +555,6 @@ class KNeighborsClassifier(ClassifierMixin,
             probas = [CumlArray(p, index=inds.index) for p in probas_list]
             return probas[0] if len(probas) == 1 else probas
 
-        # Compute weights on Python side
-        weights_cp = _compute_weights(cp.asarray(dists), self.weights)
-        weights_cuml = CumlArray(weights_cp)
-        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
-
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
         # Store Python attributes before nogil context
@@ -572,17 +580,35 @@ class KNeighborsClassifier(ClassifierMixin,
 
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Use GPU-accelerated weighted C++ implementation for all cases
-        with nogil:
-            knn_class_proba_weighted(
-                handle_[0],
-                out_vec,
-                inds_ctype,
-                weights_ctype,
-                y_vec,
-                n_samples_fit,
-                n_rows_size,
-                n_neighbors_val
-            )
+        # Use unweighted function for uniform weights (more efficient)
+        if self.weights in (None, 'uniform'):
+            with nogil:
+                knn_class_proba(
+                    handle_[0],
+                    out_vec,
+                    inds_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
+        else:
+            # Compute weights on Python side for distance weighting
+            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cuml = CumlArray(weights_cp)
+            weights_ctype = <float*><uintptr_t>weights_cuml.ptr
+
+            # Use GPU-accelerated weighted C++ implementation
+            with nogil:
+                knn_class_proba_weighted(
+                    handle_[0],
+                    out_vec,
+                    inds_ctype,
+                    weights_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
         self.handle.sync()
         return probas[0] if len(probas) == 1 else probas

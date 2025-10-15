@@ -315,11 +315,6 @@ class KNeighborsRegressor(RegressorMixin,
                                                                if convert_dtype
                                                                else None))
 
-        # Compute weights on Python side
-        weights_cp = _compute_weights(cp.asarray(dists), self.weights)
-        weights_cuml = CumlArray(weights_cp)
-        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
-
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
         res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
@@ -342,18 +337,36 @@ class KNeighborsRegressor(RegressorMixin,
 
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Use GPU-accelerated weighted C++ implementation for all cases
-        with nogil:
-            knn_regress_weighted(
-                handle_[0],
-                out_ptr,
-                inds_ctype,
-                weights_ctype,
-                y_vec,
-                n_samples_fit,
-                n_rows_size,
-                n_neighbors_val
-            )
+        # Use unweighted function for uniform weights (more efficient)
+        if self.weights in (None, 'uniform'):
+            with nogil:
+                knn_regress(
+                    handle_[0],
+                    out_ptr,
+                    inds_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
+        else:
+            # Compute weights on Python side for distance weighting
+            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cuml = CumlArray(weights_cp)
+            weights_ctype = <float*><uintptr_t>weights_cuml.ptr
+
+            # Use GPU-accelerated weighted C++ implementation
+            with nogil:
+                knn_regress_weighted(
+                    handle_[0],
+                    out_ptr,
+                    inds_ctype,
+                    weights_ctype,
+                    y_vec,
+                    n_samples_fit,
+                    n_rows_size,
+                    n_neighbors_val
+                )
 
         self.handle.sync()
         return out
