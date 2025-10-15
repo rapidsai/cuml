@@ -77,6 +77,7 @@ def test_invalid_folds(n_splits):
         1,
         np.random.RandomState(1),
         cp.random.RandomState(1),
+        None,
     ],
 )
 def test_kfold(shuffle, n_splits, random_state) -> None:

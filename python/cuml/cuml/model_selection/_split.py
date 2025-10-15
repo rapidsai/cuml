@@ -435,7 +435,7 @@ class _KFoldBase(ABC):
         self.seed = random_state
 
     @abstractmethod
-    def split(self, x, y):
+    def split(self, X, y):
         raise NotImplementedError()
 
     @abstractmethod
@@ -489,7 +489,7 @@ class KFold(_KFoldBase):
             n_splits=n_splits, shuffle=shuffle, random_state=random_state
         )
 
-    def split(self, x, y=None):
+    def split(self, X, y=None):
         """Generate indices to split data into training and test set.
 
         Parameters
@@ -509,7 +509,7 @@ class KFold(_KFoldBase):
         test : CuPy ndarray
             The testing set indices for that split.
         """
-        n_samples = x.shape[0]
+        n_samples = X.shape[0]
         if y is not None and n_samples != len(y):
             raise ValueError("Expecting same length of x and y")
         if n_samples < self.n_splits:
@@ -591,8 +591,8 @@ class StratifiedKFold(_KFoldBase):
     def get_n_splits(self, X=None, y=None):
         return self.n_splits
 
-    def split(self, x, y):
-        if len(x) != len(y):
+    def split(self, X, y):
+        if len(X) != len(y):
             raise ValueError("Expecting same length of x and y")
         y = input_to_cuml_array(y).array.to_output("cupy")
         if len(cp.unique(y)) < 2:
