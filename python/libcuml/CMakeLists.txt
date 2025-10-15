@@ -82,7 +82,6 @@ if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
   # starting with CTK 13 wheels, all libraries except NCCL are grouped in this 'nvidia/cu13/lib' directory
   set(rpaths
     "$ORIGIN/../../nvidia/cu13/lib"
-    "$ORIGIN/../../nvidia/nccl/lib"
   )
 else()
   set(rpaths
@@ -91,8 +90,9 @@ else()
     "$ORIGIN/../../nvidia/curand/lib"
     "$ORIGIN/../../nvidia/cusolver/lib"
     "$ORIGIN/../../nvidia/cusparse/lib"
-    "$ORIGIN/../../nvidia/nccl/lib"
     "$ORIGIN/../../nvidia/nvjitlink/lib"
   )
 endif()
+list(APPEND rpaths "$ORIGIN/../../nvidia/nccl/lib")
+
 set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
