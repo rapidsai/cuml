@@ -13,24 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# distutils: language = c++
-
 import warnings
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
@@ -177,7 +173,7 @@ class Ridge(Base,
     ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array
+    intercept_ : float
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
@@ -199,7 +195,6 @@ class Ridge(Base,
     """
 
     coef_ = CumlArrayDescriptor(order='F')
-    intercept_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.linear_model.Ridge"
 
@@ -258,158 +253,140 @@ class Ridge(Base,
     def __init__(self, *, alpha=1.0, solver='auto', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
-        """
-        Initializes the linear ridge regression class.
-
-        Parameters
-        ----------
-        solver : Type: string. 'auto' (default), 'eig', and 'svd' are supported
-        algorithms. The 'auto' option will use 'eig' as the solver.
-        fit_intercept: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        normalize: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
-        """
-        self._check_alpha(alpha)
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        # internal array attributes
-        self.coef_ = None
-        self.intercept_ = None
-
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.alpha = alpha
+        self.solver = solver
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        self.solver = solver
 
-        self.intercept_value = 0.0
+    def _pre_fit(self):
+        """Validate hyperparameters, set `solver_` attribute, and get algo value."""
+        if self.alpha < 0.0:
+            raise ValueError(f"alpha must be non-negative, got {self.alpha}")
 
-    def _check_alpha(self, alpha):
-        if alpha < 0.0:
-            raise ValueError(f"alpha must be non-negative, got {alpha}")
+        _SUPPORTED_SOLVERS = ["auto", "eig", "svd"]
+        if (solver := self.solver) not in _SUPPORTED_SOLVERS:
+            raise ValueError(
+                f"Expected `solver` to be one of {_SUPPORTED_SOLVERS}, got {solver!r}"
+            )
 
-    def _select_solver(self, solver):
-        """
-        Select the solver based on the input solver and set both solver_ and algo attributes.
-        """
-        if solver == 'auto':
-            self.solver_ = 'eig'
-        elif solver in ("eig", "svd"):
-            self.solver_ = solver
+        if self.n_features_in_ == 1:
+            # Only `svd` supports 1 column data currently. Warn if `eig`
+            # explicitly selected and fallback to `svd`
+            if self.solver == "eig":
+                warnings.warn(
+                    (
+                        "Changing solver to 'svd' as 'eig' solver does not support "
+                        "training data with 1 column currently"
+                    ),
+                    UserWarning
+                )
+            solver = "svd"
         else:
-            # TODO (csadorf): this should be a ValueError, but using using
-            # TypeError for backwards compatibility
-            raise TypeError(f"solver {solver!r} is not supported")
+            solver = "eig" if self.solver == "auto" else self.solver
 
-        self.algo = {'svd': 0, 'eig': 1}[self.solver_]
+        self.solver_ = solver
+
+        return {"svd": 0, "eig": 1}[solver]
 
     @generate_docstring()
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """
-        self._select_solver(self.solver)
+        cdef size_t n_rows, n_cols
+        X, n_rows, n_cols, dtype = input_to_cuml_array(
+            X,
+            deepcopy=True,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64]
+        )
 
-        cdef uintptr_t _X_ptr, _y_ptr, _sample_weight_ptr
-        X_m, n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, deepcopy=True,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64])
-        _X_ptr = X_m.ptr
-        self.feature_names_in_ = X_m.index
-
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-        _y_ptr = y_m.ptr
-
-        if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    convert_to_dtype=(
-                                        self.dtype if convert_dtype else None),
-                                    check_rows=n_rows, check_cols=1)
-            _sample_weight_ptr = sample_weight_m.ptr
-        else:
-            _sample_weight_ptr = 0
-
-        if self.n_features_in_ < 1:
-            msg = "X matrix must have at least a column"
-            raise TypeError(msg)
+        if n_cols < 1:
+            raise ValueError(
+                f"Found array with {n_cols} feature(s) (shape={X.shape}) while "
+                f"a minimum of 1 is required."
+            )
 
         if n_rows < 2:
-            msg = "X matrix must have at least two rows"
-            raise TypeError(msg)
+            raise ValueError(
+                f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
+                f"minimum of 2 is required."
+            )
 
-        if self.n_features_in_ == 1 and self.algo != 0:
-            warnings.warn("Changing solver to 'svd' as 'eig' solver " +
-                          "does not support training data with 1 " +
-                          "column currently.", UserWarning)
-            self._select_solver('svd')
+        y = input_to_cuml_array(
+            y,
+            check_dtype=dtype,
+            convert_to_dtype=(dtype if convert_dtype else None),
+            check_rows=n_rows,
+            check_cols=1,
+        ).array
 
-        self.n_alpha = 1
+        if sample_weight is not None:
+            sample_weight = input_to_cuml_array(
+                sample_weight,
+                check_dtype=dtype,
+                convert_to_dtype=(dtype if convert_dtype else None),
+                check_rows=n_rows,
+                check_cols=1,
+            ).array
 
-        # Initialize coef_ with correct shape based on y
-        if len(y_m.shape) == 2:
-            assert y_m.shape == (n_rows, 1)
-            self.coef_ = CumlArray.zeros((1, self.n_features_in_), dtype=self.dtype)
-        else:
-            self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
+        # Validate hyperparameters and set `solver_`
+        cdef int algo = self._pre_fit()
 
-        cdef float _c_intercept_f32
-        cdef double _c_intercept_f64
-        cdef float _c_alpha_f32
-        cdef double _c_alpha_f64
+        # Allocate outputs
+        coef = CumlArray.zeros(n_cols, dtype=dtype)
+
+        cdef float intercept_f32
+        cdef double intercept_f64
+        cdef float alpha_f32 = self.alpha
+        cdef double alpha_f64 = self.alpha
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t y_ptr = y.ptr
+        cdef uintptr_t coef_ptr = coef.ptr
+        cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
+        cdef bool normalize = self.normalize
+        cdef bool fit_intercept = self.fit_intercept
+        cdef bool use_float32 = dtype == np.float32
 
-        if self.dtype == np.float32:
-            _c_alpha_f32 = self.alpha
-            ridgeFit(handle_[0],
-                     <float*>_X_ptr,
-                     <size_t>n_rows,
-                     <size_t>self.n_features_in_,
-                     <float*>_y_ptr,
-                     <float*>&_c_alpha_f32,
-                     <int>self.n_alpha,
-                     <float*>_coef_ptr,
-                     <float*>&_c_intercept_f32,
-                     <bool>self.fit_intercept,
-                     <bool>self.normalize,
-                     <int>self.algo,
-                     <float*>_sample_weight_ptr)
-
-            self.intercept_ = _c_intercept_f32
-        else:
-            _c_alpha_f64 = self.alpha
-            ridgeFit(handle_[0],
-                     <double*>_X_ptr,
-                     <size_t>n_rows,
-                     <size_t>self.n_features_in_,
-                     <double*>_y_ptr,
-                     <double*>&_c_alpha_f64,
-                     <int>self.n_alpha,
-                     <double*>_coef_ptr,
-                     <double*>&_c_intercept_f64,
-                     <bool>self.fit_intercept,
-                     <bool>self.normalize,
-                     <int>self.algo,
-                     <double*>_sample_weight_ptr)
-
-            self.intercept_ = _c_intercept_f64
-
+        with nogil:
+            if use_float32:
+                ridgeFit(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>y_ptr,
+                    &alpha_f32,
+                    1,
+                    <float*>coef_ptr,
+                    &intercept_f32,
+                    fit_intercept,
+                    normalize,
+                    algo,
+                    <float*>sample_weight_ptr,
+                )
+            else:
+                ridgeFit(
+                    handle_[0],
+                    <double*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*>y_ptr,
+                    &alpha_f64,
+                    1,
+                    <double*>coef_ptr,
+                    &intercept_f64,
+                    fit_intercept,
+                    normalize,
+                    algo,
+                    <double*>sample_weight_ptr,
+                )
         self.handle.sync()
 
-        del X_m
-        del y_m
-        if sample_weight is not None:
-            del sample_weight_m
+        self.coef_ = coef
+        self.intercept_ = intercept_f32 if use_float32 else intercept_f64
 
         return self
