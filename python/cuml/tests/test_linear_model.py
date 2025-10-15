@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
-from hypothesis import assume, example, given, note, settings
+from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from packaging.version import Version
@@ -930,7 +930,6 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@settings(deadline=None, max_examples=10_000)  # TODO: remove after debugging
 @given(
     dataset=standard_classification_datasets(),
     use_sample_weight=st.booleans(),
