@@ -180,10 +180,6 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype):
-        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
-
     def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest classifier
@@ -253,7 +249,6 @@ class RandomForestClassifier(
         X,
         threshold=0.5,
         convert_dtype=True,
-        predict_model="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -274,14 +269,6 @@ class RandomForestClassifier(
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. The default of `predict_model="GPU"` should suffice in
-                all situations. When inferring on small datasets you may also
-                want to try setting ``broadcast_data=True``.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -310,8 +297,6 @@ class RandomForestClassifier(
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             The predicted class labels.
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         if broadcast_data:
             return self.partial_inference(
                 X,

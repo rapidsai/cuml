@@ -253,7 +253,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ) -> CumlArray:
         """
         Predicts the labels for X.
@@ -275,19 +274,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         align_bytes : int, optional (default = None)
             If specified, trees will be padded to this byte alignment, which can
             improve performance. Typical values are 0 or 128 on GPU.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
         y : {}
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -369,10 +360,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ):
         """
-        Calculates the accuracy metric score of the model for X.
+        Calculates the accuracy score of the model on test data.
 
         Parameters
         ----------
@@ -395,12 +385,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
@@ -411,7 +395,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             X,
             threshold=threshold,
             convert_dtype=convert_dtype,
-            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,

@@ -100,11 +100,11 @@ void build_index_into_children(const raft::handle_t& handle,
  * @param[in] prediction_data PreditionData object
  */
 void generate_prediction_data(const raft::handle_t& handle,
-                              CondensedHierarchy<int, float>& condensed_tree,
-                              int* labels,
-                              int* inverse_label_map,
+                              CondensedHierarchy<int64_t, float>& condensed_tree,
+                              int64_t* labels,
+                              int64_t* inverse_label_map,
                               int n_selected_clusters,
-                              PredictionData<int, float>& prediction_data)
+                              PredictionData<int64_t, float>& prediction_data)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -120,10 +120,10 @@ void generate_prediction_data(const raft::handle_t& handle,
   auto sizes      = condensed_tree.get_sizes();
 
   // first compute the death of each cluster in the condensed hierarchy
-  rmm::device_uvector<int> sorted_parents(n_edges, stream);
+  rmm::device_uvector<int64_t> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  rmm::device_uvector<int> sorted_parents_offsets(n_clusters + 1, stream);
+  rmm::device_uvector<int64_t> sorted_parents_offsets(n_clusters + 1, stream);
   detail::Utils::parent_csr(
     handle, condensed_tree, sorted_parents.data(), sorted_parents_offsets.data());
 
@@ -135,8 +135,8 @@ void generate_prediction_data(const raft::handle_t& handle,
                         const float* d_in,
                         float* d_out,
                         int num_segments,
-                        const int* d_begin_offsets,
-                        const int* d_end_offsets,
+                        const int64_t* d_begin_offsets,
+                        const int64_t* d_end_offsets,
                         cudaStream_t stream = 0) -> cudaError_t {
     return cub::DeviceSegmentedReduce::Max(d_temp_storage,
                                            temp_storage_bytes,
@@ -201,7 +201,7 @@ void generate_prediction_data(const raft::handle_t& handle,
     [is_exemplar = is_exemplar.data()] __device__(auto idx) { return is_exemplar[idx]; });
 
   // use the exemplar labels to fetch the set of selected clusters from the condensed hierarchy
-  rmm::device_uvector<int> exemplar_labels(n_exemplars, stream);
+  rmm::device_uvector<int64_t> exemplar_labels(n_exemplars, stream);
 
   // this uses the original, pre-normalized label by
   // using the inverse label_map to lookup the original labels from final labels
@@ -212,7 +212,7 @@ void generate_prediction_data(const raft::handle_t& handle,
                     [labels, inverse_label_map] __device__(auto idx) {
                       auto label = labels[idx];
                       if (label != -1) { return inverse_label_map[label]; }
-                      return -1;
+                      return static_cast<int64_t>(-1);
                     });
 
   thrust::sort_by_key(exec_policy,

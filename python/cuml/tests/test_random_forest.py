@@ -222,9 +222,6 @@ def test_default_parameters():
         reg_params.pop(name)
         clf_params.pop(name)
 
-    # Only RandomForestRegressor has accuracy_metric
-    del reg_params["accuracy_metric"]
-
     # The rest are the same
     assert reg_params == clf_params
 
@@ -1213,59 +1210,3 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [
-        cuml.ensemble.RandomForestClassifier,
-        cuml.ensemble.RandomForestRegressor,
-    ],
-)
-def test_predict_model_deprecated(cls):
-    if cls is cuml.ensemble.RandomForestClassifier:
-        X, y = make_classification(n_samples=500)
-    else:
-        X, y = make_regression(n_samples=500)
-
-    model = cls().fit(X, y)
-    sol = model.predict(X)
-    with pytest.warns(FutureWarning, match="predict_model"):
-        res = model.predict(X, predict_model="CPU")
-
-    np.testing.assert_array_equal(res, sol)
-
-
-def test_accuracy_metric_deprecated():
-    X, y = make_regression(n_samples=500)
-
-    # r2 score used by default
-    model = cuml.RandomForestRegressor().fit(X, y)
-    score = model.score(X, y)
-    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
-
-    # explicit use warns but still works
-    with pytest.warns(FutureWarning, match="accuracy_metric"):
-        model = cuml.RandomForestRegressor(accuracy_metric="r2")
-    score = model.fit(X, y).score(X, y)
-    np.testing.assert_allclose(score, r2_score(y, model.predict(X)))
-
-    with pytest.warns(FutureWarning, match="accuracy_metric"):
-        model = cuml.RandomForestRegressor(accuracy_metric="mse")
-    score = model.fit(X, y).score(X, y)
-    np.testing.assert_allclose(score, mean_squared_error(y, model.predict(X)))
-
-
-def test_convert_methods_deprecated():
-    X, y = make_regression(n_samples=500)
-    model = cuml.RandomForestRegressor().fit(X, y)
-
-    with pytest.warns(FutureWarning, match="convert_to_treelite_model"):
-        tl = model.convert_to_treelite_model()
-
-    assert isinstance(tl, treelite.Model)
-
-    with pytest.warns(FutureWarning, match="convert_to_fil_model"):
-        fil = model.convert_to_fil_model()
-
-    assert isinstance(fil, cuml.fil.ForestInference)
