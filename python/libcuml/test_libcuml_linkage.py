@@ -21,20 +21,59 @@ import pytest
 
 
 def find_libcuml_so():
-    """Find libcuml++.so in the virtual environment."""
+    """Find libcuml++.so in the installation directory.
+
+    Returns tuple of (libcuml_so_path, installation_root)
+    """
+    # Try to find libcuml++.so using the libcuml module location first
+    try:
+        import libcuml
+
+        libcuml_module_path = Path(libcuml.__file__).parent
+        # libcuml++.so should be in lib64 subdirectory
+        libcuml_so = libcuml_module_path / "lib64" / "libcuml++.so"
+
+        # If libcuml++.so doesn't exist at the module location, it means we're importing
+        # the source code instead of the installed wheel. Try site-packages directly.
+        if not libcuml_so.exists():
+            # Try to find it in site-packages
+            for site_pkg in sys.path:
+                if "site-packages" in site_pkg:
+                    potential_path = (
+                        Path(site_pkg) / "libcuml" / "lib64" / "libcuml++.so"
+                    )
+                    if potential_path.exists():
+                        libcuml_so = potential_path
+                        libcuml_module_path = potential_path.parent.parent
+                        break
+
+        if libcuml_so.exists():
+            # Find the installation root by walking up from site-packages
+            # Typical structure: {installation_root}/lib/pythonX.Y/site-packages/libcuml
+            # or just: {installation_root}/lib/site-packages/libcuml (for system Python)
+
+            # Check if VIRTUAL_ENV is set and use that as the root
+            venv = os.environ.get("VIRTUAL_ENV")
+            if venv:
+                installation_root = Path(venv)
+            else:
+                # Use sys.prefix as the installation root
+                installation_root = Path(sys.prefix)
+
+            return libcuml_so, installation_root
+    except (ImportError, AttributeError):
+        pass
+
+    # Fallback: try VIRTUAL_ENV if set
     venv = os.environ.get("VIRTUAL_ENV")
-    if not venv:
-        pytest.skip("VIRTUAL_ENV not set")
+    if venv:
+        venv_path = Path(venv)
+        libcuml_paths = list(venv_path.rglob("libcuml++.so"))
+        if libcuml_paths:
+            return libcuml_paths[0], venv_path
 
-    # Search for libcuml++.so in the virtual environment
-    venv_path = Path(venv)
-    libcuml_paths = list(venv_path.rglob("libcuml++.so"))
-
-    if not libcuml_paths:
-        pytest.fail(f"libcuml++.so not found in {venv}")
-
-    # Return the first match (should only be one in a proper install)
-    return libcuml_paths[0]
+    # If we get here, we couldn't find libcuml++.so
+    pytest.fail("libcuml++.so not found. Please ensure libcuml is installed.")
 
 
 def parse_ldd_output(ldd_output):
@@ -59,8 +98,9 @@ def parse_ldd_output(ldd_output):
 def test_libcuml_linkage():
     """Test that libcuml++.so links to the correct library paths."""
     # Find libcuml++.so
-    libcuml_so_path = find_libcuml_so()
+    libcuml_so_path, installation_root = find_libcuml_so()
     print(f"Found libcuml++.so at: {libcuml_so_path}")
+    print(f"Installation root: {installation_root}")
 
     # Import libcuml to ensure it loads successfully
     import libcuml  # noqa: F401
@@ -78,14 +118,10 @@ def test_libcuml_linkage():
     # Parse ldd output
     linked_libs = parse_ldd_output(ldd_output)
 
-    # Get virtual environment path
-    venv = os.environ.get("VIRTUAL_ENV")
-    venv_path = Path(venv)
-
     # Define expected library paths based on CMakeLists.txt
     # For CTK 13+: nvidia/cu13/lib and nvidia/nccl/lib
     # For CTK 12 and below: individual nvidia/{library}/lib directories
-    # The libcuml++.so is at: {venv}/lib/python{X.Y}/site-packages/libcuml/lib64/libcuml++.so
+    # The libcuml++.so is at: site-packages/libcuml/lib64/libcuml++.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
 
     # Determine CUDA Toolkit version from environment or by auto-detection
@@ -119,7 +155,7 @@ def test_libcuml_linkage():
         )
 
     # Define the libraries we expect to find with their expected path patterns
-    # These are non-system libraries that should be in the venv
+    # These are non-system libraries that should be in the installation directory
     if is_ctk_13_plus:
         print("Detected CTK 13+ library layout")
         expected_libs = {
@@ -172,11 +208,11 @@ def test_libcuml_linkage():
             failures.append(f"Library {lib_name} => not found")
             continue
 
-        # Verify the path contains the expected suffix relative to venv
-        if not actual_path.startswith(str(venv_path)):
+        # Verify the path contains the expected suffix relative to installation root
+        if not actual_path.startswith(str(installation_root)):
             failures.append(
-                f"Library {lib_name} is not in virtual environment:\n"
-                f"  Expected path to start with: {venv_path}\n"
+                f"Library {lib_name} is not in installation directory:\n"
+                f"  Expected path to start with: {installation_root}\n"
                 f"  Actual path: {actual_path}"
             )
             continue
