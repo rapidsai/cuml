@@ -19,7 +19,6 @@ add_module_gpu_default("tsvd.pyx" ${tsvd_algo} ${decomposition_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
-       base_mg.pyx
        pca_mg.pyx
        tsvd_mg.pyx
   )

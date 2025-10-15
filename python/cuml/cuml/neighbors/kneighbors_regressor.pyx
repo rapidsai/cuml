@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cupy as cp
 import numpy as np
 
+import cuml.internals
 from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_array
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
@@ -210,9 +207,6 @@ class KNeighborsRegressor(RegressorMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
-
-    y = CumlArrayDescriptor(order="F")
-
     _cpu_class_path = "sklearn.neighbors.KNeighborsRegressor"
 
     @classmethod
@@ -239,27 +233,32 @@ class KNeighborsRegressor(RegressorMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "y": to_gpu(model._y, order="F", dtype=np.float32),
+            "_y": to_gpu(model._y, order="F", dtype=np.float32),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "_y": to_cpu(self.y),
+            "_y": to_cpu(self._y),
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, weights="uniform", handle=None, verbose=False,
-                 output_type=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        weights="uniform",
+        handle=None,
+        verbose=False,
+        output_type=None,
+        **kwargs,
+    ):
         super().__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type,
-            **kwargs)
-        self.y = None
+            handle=handle, verbose=verbose, output_type=output_type, **kwargs
+        )
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -271,12 +270,14 @@ class KNeighborsRegressor(RegressorMixin,
             )
         self._set_target_dtype(y)
 
-        super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self.y, _, _, _ = \
-            input_to_cuml_array(y, order='F', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
+        super().fit(X, convert_dtype=convert_dtype)
+        self._y = input_to_cuml_array(
+            y,
+            order='F',
+            check_dtype=np.float32,
+            check_rows=self.n_samples_fit_,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        ).array
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -284,18 +285,17 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @api_base_return_array(get_output_dtype=True)
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
-        # Declare C-level variables at the top
-        cdef uintptr_t inds_ctype
-        cdef uintptr_t weights_ctype
-        cdef uintptr_t results_ptr
-        cdef uintptr_t y_ptr
+        cdef int64_t* inds_ctype
+        cdef float* weights_ctype
+        cdef float* out_ptr
+        cdef float* y_ptr
         cdef vector[float*] y_vec
         cdef handle_t* handle_
 
@@ -318,36 +318,42 @@ class KNeighborsRegressor(RegressorMixin,
         # Compute weights on Python side
         weights_cp = _compute_weights(cp.asarray(dists), self.weights)
         weights_cuml = CumlArray(weights_cp)
-        weights_ctype = weights_cuml.ptr
+        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
-        inds_ctype = inds.ptr
+        inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
-        res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
+        res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
-        results = CumlArray.zeros(res_shape, dtype=np.float32,
-                                  order="C",
-                                  index=inds.index)
+        out = CumlArray.zeros(res_shape, dtype=np.float32,
+                              order="C",
+                              index=inds.index)
 
-        results_ptr = results.ptr
+        out_ptr = <float*><uintptr_t>out.ptr
+
+        # Store Python attributes before nogil context
+        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
+        cdef size_t n_rows_size = <size_t>n_rows
+        cdef int n_neighbors_val = <int>self.n_neighbors
 
         for col_num in range(res_cols):
-            col = self.y if res_cols == 1 else self.y[:, col_num]
-            y_ptr = col.ptr
-            y_vec.push_back(<float*>y_ptr)
+            col = self._y if res_cols == 1 else self._y[:, col_num]
+            y_ptr = <float*><uintptr_t>col.ptr
+            y_vec.push_back(y_ptr)
 
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Use GPU-accelerated weighted C++ implementation for all cases
-        knn_regress_weighted(
-            handle_[0],
-            <float*>results_ptr,
-            <int64_t*>inds_ctype,
-            <float*>weights_ctype,
-            y_vec,
-            <size_t>self.n_samples_fit_,
-            <size_t>n_rows,
-            <int>self.n_neighbors
-        )
+        with nogil:
+            knn_regress_weighted(
+                handle_[0],
+                out_ptr,
+                inds_ctype,
+                weights_ctype,
+                y_vec,
+                n_samples_fit,
+                n_rows_size,
+                n_neighbors_val
+            )
 
         self.handle.sync()
-        return results
+        return out

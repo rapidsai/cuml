@@ -56,7 +56,7 @@ from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = cudf.Series(y_train)
@@ -152,12 +152,12 @@ def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
     workers = client.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
 
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_train))
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = cudf.Series(y_train)
     y_train_df = dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
-    X_cudf_test = cudf.DataFrame.from_pandas(pd.DataFrame(X_test))
+    X_cudf_test = cudf.DataFrame(pd.DataFrame(X_test))
     X_test_df = dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
     cuml_mod = cuRFR_mg(**cu_rf_params, ignore_empty_partitions=True)
@@ -501,27 +501,3 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
 
     if transform_broadcast:
         assert cuml_mod.internal_model is None
-
-
-@pytest.mark.parametrize("cls", [cuRFC_mg, cuRFR_mg])
-def test_predict_model_deprecated(cls, client):
-    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
-
-    if cls is cuRFC_mg:
-        X, y = make_classification(n_samples=1000 * n_workers)
-        y = y.astype("int32")
-    else:
-        X, y = make_regression(n_samples=1000 * n_workers)
-        y = y.astype("float32")
-
-    X = X.astype("float32")
-    dask_X, dask_y = _prep_training_data(client, X, y, 3)
-
-    model = cls().fit(dask_X, dask_y)
-    sol = model.predict(dask_X)
-    with pytest.warns(FutureWarning, match="predict_model"):
-        res = model.predict(dask_X, predict_model="CPU")
-
-    np.testing.assert_array_equal(
-        res.compute().to_numpy(), sol.compute().to_numpy()
-    )

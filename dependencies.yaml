@@ -12,7 +12,7 @@ files:
       - depends_on_cudf
       - depends_on_cuda_python
       - depends_on_cupy
-      - depends_on_cuvs
+      - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
@@ -31,6 +31,7 @@ files:
       - py_version
       - rapids_build_backend
       - test_python
+      - test_python_dask
       - test_python_xgboost
   devcontainers:
     output: none
@@ -42,7 +43,7 @@ files:
       - depends_on_cudf
       - depends_on_cuda_python
       - depends_on_cupy
-      - depends_on_cuvs
+      - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcumlprims
@@ -60,6 +61,7 @@ files:
       - py_version
       - rapids_build_backend
       - test_python
+      - test_python_dask
   cpp_all:
     output: conda
     matrix:
@@ -100,6 +102,10 @@ files:
       - py_version
       - depends_on_cuml
       - depends_on_libcuml
+      - depends_on_rapids_dask_dependency
+      - depends_on_dask_cuda
+      - depends_on_dask_cudf
+      - depends_on_raft_dask
   test_cpp:
     output: none
     includes:
@@ -116,13 +122,27 @@ files:
       - py_version
       - test_python
       - test_python_xgboost
+  test_python_dask:
+    output: none
+    includes:
+      - cuda_version
+      - depends_on_cuml
+      - depends_on_libcuml
+      - py_version
+      - test_python
+      - test_python_xgboost
+      - test_python_dask
+      - depends_on_rapids_dask_dependency
+      - depends_on_dask_cudf
+      - depends_on_raft_dask
+      - depends_on_dask_cuda
   test_notebooks:
     output: none
     includes:
       - cuda_version
       - depends_on_cuml
       - depends_on_cupy
-      - depends_on_cuvs
+      - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_numba_cuda
@@ -166,13 +186,9 @@ files:
       - depends_on_cuda_python
       - depends_on_cudf
       - depends_on_cupy
-      - depends_on_cuvs
-      - depends_on_dask_cuda
-      - depends_on_dask_cudf
       - depends_on_libcuml
       - depends_on_numba_cuda
       - depends_on_pylibraft
-      - depends_on_raft_dask
       - depends_on_rmm
       - py_run_cuml
   py_test_cuml:
@@ -184,6 +200,25 @@ files:
     includes:
       - test_python
       - test_python_xgboost
+  py_dask_cuml:
+    output: pyproject
+    pyproject_dir: python/cuml
+    extras:
+      table: project.optional-dependencies
+      key: dask
+    includes:
+      - depends_on_rapids_dask_dependency
+      - depends_on_dask_cudf
+      - depends_on_raft_dask
+  py_test_dask_cuml:
+    output: pyproject
+    pyproject_dir: python/cuml
+    extras:
+      table: project.optional-dependencies
+      key: test-dask
+    includes:
+      - depends_on_dask_cuda
+      - test_python_dask
   py_build_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml
@@ -291,7 +326,6 @@ dependencies:
           - &numpy numpy>=1.23,<3.0a0
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==25.12.*,>=0.0.0a0
           - rich
           - &scikit_learn scikit-learn>=1.4
           - *treelite
@@ -379,6 +413,7 @@ dependencies:
           - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
+          - pyyaml
       - output_types: conda
         packages:
           - doxygen=1.9.1
@@ -437,7 +472,6 @@ dependencies:
         packages:
           - certifi
           - *cython
-          - dask-ml
           - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
@@ -457,6 +491,11 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+  test_python_dask:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - dask-ml
   test_python_xgboost:
     common:
       - output_types: [conda]
@@ -549,32 +588,16 @@ dependencies:
           - matrix:
             packages:
               - cupy-cuda13x>=13.6.0
-  depends_on_cuvs:
+  depends_on_rapids_dask_dependency:
     common:
-      - output_types: conda
+      - output_types: [conda, pyproject, requirements]
         packages:
-          - &cuvs_unsuffixed cuvs==25.12.*,>=0.0.0a0
+          - rapids-dask-dependency==25.12.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
-            packages:
-              - cuvs-cu12==25.12.*,>=0.0.0a0
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - cuvs-cu13==25.12.*,>=0.0.0a0
-          - matrix:
-            packages:
-              - *cuvs_unsuffixed
   depends_on_dask_cuda:
     common:
       - output_types: conda
@@ -661,25 +684,6 @@ dependencies:
       - output_types: conda
         packages:
           - &libcuvs_unsuffixed libcuvs==25.12.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
-            packages:
-              - libcuvs-cu12==25.12.*,>=0.0.0a0
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - libcuvs-cu13==25.12.*,>=0.0.0a0
-          - {matrix: null, packages: [*libcuvs_unsuffixed]}
   depends_on_libraft:
     common:
       - output_types: conda
@@ -805,7 +809,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-logger==0.1.*,>=0.0.0a0
+          - rapids-logger==0.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file

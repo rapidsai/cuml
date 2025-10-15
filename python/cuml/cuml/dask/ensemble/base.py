@@ -316,18 +316,6 @@ class BaseRandomForestModel(object):
         else:
             return delayed_res.persist()
 
-    def _handle_deprecated_predict_model(self, predict_model):
-        if predict_model != "deprecated":
-            warnings.warn(
-                (
-                    "`predict_model` is deprecated (and ignored) and will be removed "
-                    "in 25.12. The default of `predict_model='GPU'` should suffice in "
-                    "all situations. When inferring on small datasets you may also "
-                    "want to try setting ``broadcast_data=True``."
-                ),
-                FutureWarning,
-            )
-
 
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])

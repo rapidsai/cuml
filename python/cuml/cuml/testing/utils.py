@@ -494,7 +494,7 @@ def generate_inputs_from_categories(
         if cudf_pandas_active:
             df = pandas_df
         else:
-            df = cudf.DataFrame.from_pandas(pandas_df)
+            df = cudf.DataFrame(pandas_df)
         return df, ary
 
 

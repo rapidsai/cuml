@@ -237,10 +237,10 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     y_host_train = pd.DataFrame(np.random.randint(0, 5, (n_samples, 1)))
     X_host_test = pd.DataFrame(np.random.uniform(0, 1, (n_query, n_features)))
 
-    X_device_train = cudf.DataFrame.from_pandas(X_host_train)
-    y_device_train = cudf.DataFrame.from_pandas(y_host_train)
+    X_device_train = cudf.DataFrame(X_host_train)
+    y_device_train = cudf.DataFrame(y_host_train)
 
-    X_device_test = cudf.DataFrame.from_pandas(X_host_test)
+    X_device_test = cudf.DataFrame(X_host_test)
 
     knn_sk = skKNN(algorithm="brute", n_neighbors=n_neighbors, n_jobs=1)
     knn_sk.fit(X_host_train, y_host_train.values.ravel())

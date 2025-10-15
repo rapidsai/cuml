@@ -14,24 +14,21 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cupyx
 import numpy as np
+from pylibraft.common.handle import Handle
 
 import cuml
-from cuml.manifold.umap_utils cimport *
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
+from libc.stdint cimport int64_t, uintptr_t
+from libcpp.memory cimport unique_ptr
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
-from libc.stdint cimport uintptr_t
-from libcpp.memory cimport unique_ptr
+from cuml.manifold.umap_utils cimport *
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
@@ -363,9 +360,7 @@ def simplicial_set_embedding(
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(GraphHolder(),
-                                                            handle,
-                                                            graph)
+    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
 
     if isinstance(init, str):
         if init in ['spectral', 'random']:

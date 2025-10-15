@@ -20,7 +20,6 @@ import numpy as np
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
@@ -294,9 +293,6 @@ class KNeighborsClassifier(ClassifierMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
-
-    y = CumlArrayDescriptor(order="F")
-
     _cpu_class_path = "sklearn.neighbors.KNeighborsClassifier"
 
     @classmethod
@@ -323,13 +319,13 @@ class KNeighborsClassifier(ClassifierMixin,
 
     def _attrs_from_cpu(self, model):
         if isinstance(model.classes_, list):
-            classes = [to_gpu(c) for c in model.classes_]
+            classes = [to_gpu(c, dtype=np.int32) for c in model.classes_]
         else:
-            classes = to_gpu(model.classes_)
+            classes = to_gpu(model.classes_, dtype=np.int32)
 
         return {
             "_classes": classes,
-            "y": to_gpu(model._y, order="F", dtype=np.int32),
+            "_y": to_gpu(model._y, order="F", dtype=np.int32),
             **super()._attrs_from_cpu(model),
         }
 
@@ -341,20 +337,23 @@ class KNeighborsClassifier(ClassifierMixin,
 
         return {
             "classes_": classes,
-            "_y": to_cpu(self.y),
+            "_y": to_cpu(self._y),
             "outputs_2d_": self.outputs_2d_,
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, weights="uniform", handle=None, verbose=False,
-                 output_type=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        weights="uniform",
+        handle=None,
+        verbose=False,
+        output_type=None,
+        **kwargs,
+    ):
         super().__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type,
-            **kwargs)
-
-        self.y = None
+            handle=handle, verbose=verbose, output_type=output_type, **kwargs
+        )
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
@@ -369,22 +368,23 @@ class KNeighborsClassifier(ClassifierMixin,
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
 
-        super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self.y, _, _, _ = input_to_cuml_array(
+        super().fit(X, convert_dtype=convert_dtype)
+        self._y = input_to_cuml_array(
             y,
             order='F',
+            check_rows=self.n_samples_fit_,
             check_dtype=np.int32,
             convert_to_dtype=(np.int32 if convert_dtype else None)
-        )
+        ).array
 
         # For multilabel y, `classes_` is a list of classes per label,
         # otherwise it's a single array of classes
-        if self.y.ndim == 1 or self.y.shape[1] == 1:
-            self._classes = CumlArray.from_input(cp.unique(self.y))
+        if self._y.ndim == 1 or self._y.shape[1] == 1:
+            self._classes = CumlArray.from_input(cp.unique(self._y))
         else:
             self._classes = [
-                CumlArray.from_input(cp.unique(self.y[:, i]))
-                for i in range(self.y.shape[1])
+                CumlArray.from_input(cp.unique(self._y[:, i]))
+                for i in range(self._y.shape[1])
             ]
         return self
 
@@ -397,7 +397,7 @@ class KNeighborsClassifier(ClassifierMixin,
     @property
     def outputs_2d_(self):
         """Whether the output is 2d"""
-        return self.y.ndim == 2 and self.y.shape[1] != 1
+        return self._y.ndim == 2 and self._y.shape[1] != 1
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
@@ -411,12 +411,11 @@ class KNeighborsClassifier(ClassifierMixin,
         predict the labels for X
 
         """
-        # Declare C-level variables at the top
-        cdef uintptr_t inds_ctype
-        cdef uintptr_t weights_ctype
+        cdef int64_t* inds_ctype
+        cdef float* weights_ctype
         cdef vector[int*] y_vec
-        cdef uintptr_t y_ptr
-        cdef uintptr_t classes_ptr
+        cdef int* y_ptr
+        cdef int* classes_ptr
         cdef handle_t* handle_
 
         # Get KNN results - always get distances to compute weights
@@ -435,13 +434,13 @@ class KNeighborsClassifier(ClassifierMixin,
                                                                if convert_dtype
                                                                else None))
 
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+        out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
         # Handle callable weights separately (Python fallback)
         if callable(self.weights):
             classes_array = _apply_callable_weights(
-                cp.asarray(dists), self.weights, inds, self.y,
+                cp.asarray(dists), self.weights, inds, self._y,
                 self._classes, self.n_neighbors
             )
             if out_cols == 1:
@@ -453,33 +452,39 @@ class KNeighborsClassifier(ClassifierMixin,
         # Compute weights on Python side
         weights_cp = _compute_weights(cp.asarray(dists), self.weights)
         weights_cuml = CumlArray(weights_cp)
-        weights_ctype = weights_cuml.ptr
+        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
-        inds_ctype = inds.ptr
+        inds_ctype = <int64_t*><uintptr_t>inds.ptr
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
                                   index=inds.index)
+
+        # Store Python attributes before nogil context
+        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
+        cdef size_t n_rows_size = <size_t>n_rows
+        cdef int n_neighbors_val = <int>self.n_neighbors
 
         # If necessary, separate columns of y to support multilabel
         # classification
         for i in range(out_cols):
-            col = self.y[:, i] if out_cols > 1 else self.y
-            y_ptr = col.ptr
-            y_vec.push_back(<int*>y_ptr)
+            col = self._y if out_cols == 1 else self._y[:, i]
+            y_ptr = <int*><uintptr_t>col.ptr
+            y_vec.push_back(y_ptr)
 
-        classes_ptr = classes.ptr
+        classes_ptr = <int*><uintptr_t>classes.ptr
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Use GPU-accelerated weighted C++ implementation for all cases
-        knn_classify_weighted(
-            handle_[0],
-            <int*> classes_ptr,
-            <int64_t*>inds_ctype,
-            <float*>weights_ctype,
-            y_vec,
-            <size_t>self.n_samples_fit_,
-            <size_t>n_rows,
-            <int>self.n_neighbors
-        )
+        with nogil:
+            knn_classify_weighted(
+                handle_[0],
+                classes_ptr,
+                inds_ctype,
+                weights_ctype,
+                y_vec,
+                n_samples_fit,
+                n_rows_size,
+                n_neighbors_val
+            )
 
         self.handle.sync()
         return classes
@@ -496,13 +501,10 @@ class KNeighborsClassifier(ClassifierMixin,
         predict the label probabilities for X
 
         """
-        # Declare C-level variables at the top
-        cdef uintptr_t inds_ctype
-        cdef uintptr_t weights_ctype
-        cdef vector[int*] y_vec
+        cdef int64_t* inds_ctype
+        cdef float* weights_ctype
         cdef vector[float*] out_vec
-        cdef uintptr_t proba_ptr
-        cdef uintptr_t y_ptr
+        cdef float* proba_ptr
         cdef handle_t* handle_
 
         # Get KNN results - always get distances to compute weights
@@ -524,17 +526,17 @@ class KNeighborsClassifier(ClassifierMixin,
             convert_to_dtype=(np.float32 if convert_dtype else None)
         )
 
-        if self.y.ndim == 1 or self.y.shape[1] == 1:
+        if self._y.ndim == 1 or self._y.shape[1] == 1:
             n_classes = [len(self._classes)]
-            ys = [self.y]
+            ys = [self._y]
         else:
             n_classes = [len(c) for c in self._classes]
-            ys = [self.y[:, i] for i in range(self.y.shape[1])]
+            ys = [self._y[:, i] for i in range(self._y.shape[1])]
 
         # Handle callable weights separately (Python fallback)
         if callable(self.weights):
             probas_list = _apply_callable_weights_proba(
-                cp.asarray(dists), self.weights, inds, self.y,
+                cp.asarray(dists), self.weights, inds, self._y,
                 self._classes, self.n_neighbors
             )
             probas = [CumlArray(p, index=inds.index) for p in probas_list]
@@ -543,9 +545,14 @@ class KNeighborsClassifier(ClassifierMixin,
         # Compute weights on Python side
         weights_cp = _compute_weights(cp.asarray(dists), self.weights)
         weights_cuml = CumlArray(weights_cp)
-        weights_ctype = weights_cuml.ptr
+        weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
-        inds_ctype = inds.ptr
+        inds_ctype = <int64_t*><uintptr_t>inds.ptr
+
+        # Store Python attributes before nogil context
+        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
+        cdef size_t n_rows_size = <size_t>n_rows
+        cdef int n_neighbors_val = <int>self.n_neighbors
 
         probas = []
         for n, y in zip(n_classes, ys):
@@ -556,25 +563,26 @@ class KNeighborsClassifier(ClassifierMixin,
                 index=inds.index
             )
             probas.append(proba)
-            proba_ptr = proba.ptr
-            out_vec.push_back(<float*>proba_ptr)
+            proba_ptr = <float*><uintptr_t>proba.ptr
+            out_vec.push_back(proba_ptr)
 
-            y_ptr = y.ptr
-            y_vec.push_back(<int*>y_ptr)
+        cdef vector[int*] y_vec
+        for y in ys:
+            y_vec.push_back(<int*><uintptr_t>y.ptr)
 
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Use GPU-accelerated weighted C++ implementation for all cases
-        knn_class_proba_weighted(
-            handle_[0],
-            out_vec,
-            <int64_t*>inds_ctype,
-            <float*>weights_ctype,
-            y_vec,
-            <size_t>self.n_samples_fit_,
-            <size_t>n_rows,
-            <int>self.n_neighbors
-        )
-
+        with nogil:
+            knn_class_proba_weighted(
+                handle_[0],
+                out_vec,
+                inds_ctype,
+                weights_ctype,
+                y_vec,
+                n_samples_fit,
+                n_rows_size,
+                n_neighbors_val
+            )
         self.handle.sync()
         return probas[0] if len(probas) == 1 else probas

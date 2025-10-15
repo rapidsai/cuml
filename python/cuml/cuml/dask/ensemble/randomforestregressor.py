@@ -115,18 +115,6 @@ class RandomForestRegressor(
          * If type ``float``, then ``min_samples_split`` represents a fraction
            and ``ceil(min_samples_split * n_rows)`` is the minimum number of
            samples for each split.
-    accuracy_metric : string (default = 'deprecated')
-        Decides the metric used to evaluate the performance of the model.
-         * for r-squared : ``'r2'`` (default)
-         * for median of abs error : ``'median_ae'``
-         * for mean of abs error : ``'mean_ae'``
-         * for mean square error' : ``'mse'``
-
-        .. deprecated:: 25.10
-            `accuracy_metric` is deprecated and will be removed in 25.12. To
-            evaluate models with metrics other than r2, please call the respective
-            metric function from `cuml.metrics` directly.
-
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -234,7 +222,6 @@ class RandomForestRegressor(
         self,
         X,
         convert_dtype=True,
-        predict_model="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -253,14 +240,6 @@ class RandomForestRegressor(
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. The default of `predict_model="GPU"` should suffice in
-                all situations. When inferring on small datasets you may also
-                want to try setting ``broadcast_data=True``.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -288,8 +267,6 @@ class RandomForestRegressor(
         -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         if broadcast_data:
             return self.partial_inference(
                 X,

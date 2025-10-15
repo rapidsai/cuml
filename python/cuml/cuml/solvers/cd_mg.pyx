@@ -26,7 +26,6 @@ import cuml.internals
 from pylibraft.common.handle cimport handle_t
 
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.decomposition.utils cimport *
 
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
