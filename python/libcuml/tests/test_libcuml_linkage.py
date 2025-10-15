@@ -117,8 +117,8 @@ def test_libcuml_linkage():
     is_ctk_13_plus = cuda_major_version >= 13
 
     # Define expected library paths
-    # For CTK 13+: nvidia/cu13/lib and nvidia/nccl/lib
-    # For CTK 12 and below: individual nvidia/{library}/lib directories
+    # For CTK 13: nvidia/cu13/lib and nvidia/nccl/lib
+    # For CTK 12: individual nvidia/{library}/lib directories
     # The libcuml++.so is at: site-packages/libcuml/lib64/libcuml++.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
     if is_ctk_13_plus:
