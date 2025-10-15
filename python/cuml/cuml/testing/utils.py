@@ -662,11 +662,8 @@ def compare_probabilistic_svm(
     if svc1.n_classes_ == 2:
         brier1 = brier_score_loss(y_test, prob1[:, 1])
         brier2 = brier_score_loss(y_test, prob2[:, 1])
-    else:
-        brier1 = brier_score_loss(y_test, prob1)
-        brier2 = brier_score_loss(y_test, prob2)
-    # Brier score - smaller is better
-    assert brier1 - brier2 <= brier_tol
+        # Brier score - smaller is better
+        assert brier1 - brier2 <= brier_tol
 
 
 def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):

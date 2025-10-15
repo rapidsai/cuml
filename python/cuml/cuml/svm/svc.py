@@ -525,10 +525,15 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y = input_to_cupy_array(y, check_rows=X.shape[0], check_cols=1).array
+        y = input_to_cupy_array(y, check_cols=1).array
         classes = cp.unique(y)
         n_classes = len(classes)
 
+        if n_classes < 2:
+            raise ValueError(
+                f"The number of classes has to be greater than one; got "
+                f"{n_classes} class"
+            )
         self.n_classes_ = n_classes
         self.classes_ = CumlArray(data=classes)
 
@@ -550,13 +555,9 @@ class SVC(SVMBase, ClassifierMixin):
                 X,
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 check_dtype=[np.float32, np.float64],
+                check_rows=y.shape[0],
                 order="F",
             ).array
-
-        # OVR encode ([0, 1, 0, 1] -> [1, -1, 1, -1]) the labels
-        y = CumlArray(
-            data=cp.array([1, -1], dtype=X.dtype).take(y == classes[0])
-        )
 
         sample_weight = apply_class_weight(
             self.handle,
@@ -575,6 +576,11 @@ class SVC(SVMBase, ClassifierMixin):
                 check_rows=X.shape[0],
                 check_cols=1,
             ).array
+
+        # Encode y to -1/1 (like [0, 1, 0, 1] -> [1, -1, 1, -1])
+        y = CumlArray(
+            data=cp.array([1, -1], dtype=X.dtype).take(y == classes[0])
+        )
 
         self._fit(X, y, sample_weight)
 
