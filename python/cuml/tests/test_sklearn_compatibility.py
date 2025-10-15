@@ -856,6 +856,14 @@ def test_sklearn_compatible_estimator(estimator, check):
 
     check_name = _check_name(check)
 
+    if check_name == "check_estimators_pickle" and isinstance(
+        estimator,
+        (AgglomerativeClustering,),
+    ):
+        pytest.skip(
+            "Pickling AgglomerativeClustering leads to additional MemoryErrors in other tests"
+        )
+
     if check_name in ["check_estimators_nan_inf"] and isinstance(
         estimator, UMAP
     ):
