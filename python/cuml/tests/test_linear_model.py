@@ -1016,7 +1016,7 @@ def test_logistic_regression_weighting(
 # ignoring warning about change of solver
 @pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
 def test_linear_models_set_params(algo):
-    x = np.linspace(0, 1, 50)
+    x = np.linspace(0, 1, 50)[:, None]
     y = 2 * x
 
     model = algo()
