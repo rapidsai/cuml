@@ -58,6 +58,8 @@ filterwarnings = [
   # TODO: https://github.com/rapidsai/cuml/issues/5879
   "ignore::FutureWarning:sklearn",
   "ignore::DeprecationWarning:sklearn",
+  # From sklearn
+  "ignore:A column-vector y was passed:sklearn.exceptions.DataConversionWarning",
   # From dask-glm
   "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
   "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
