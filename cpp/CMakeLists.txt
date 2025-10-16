@@ -766,11 +766,6 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     )
   endif()
 
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(
-    ${CUML_CPP_TARGET}_static PRIVATE $<HOST_LINK:${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld>
-  )
-
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
     PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
@@ -784,7 +779,9 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET}_static PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(${CUML_CPP_TARGET}_static PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+  target_link_options(
+    ${CUML_CPP_TARGET}_static PRIVATE $<HOST_LINK:${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld>
+  )
 
 endif()
 
