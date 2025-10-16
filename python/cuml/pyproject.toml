@@ -65,6 +65,9 @@ filterwarnings = [
   "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
   "ignore:`rcond` parameter will change to the default:FutureWarning",
   "ignore:Dask configuration key 'fuse_ave_width':FutureWarning",
+  # From dask/distributed
+  "ignore:Dask annotations .* detected:UserWarning",
+  "ignore:Sending large graph of size:UserWarning",
   # From hdbscan
   "ignore:Conversion of an array with ndim > 0:DeprecationWarning",
   # From umap-learn
