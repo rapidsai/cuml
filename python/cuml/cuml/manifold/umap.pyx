@@ -799,6 +799,9 @@ class UMAP(Base,
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
 
+        if self.n_components < 1:
+            raise ValueError("n_components must be an integer greater than or equal to 1")
+
         if y is not None and knn_graph is not None\
                 and self.target_metric != "categorical":
             raise ValueError("Cannot provide a KNN graph when in \
