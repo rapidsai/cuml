@@ -612,7 +612,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     _cuml_cpp_private_libs
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
-    ${TREELITE_LIBS}
     ${OpenMP_CXX_LIB_NAMES}
     $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
@@ -632,6 +631,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(
     cuml_objs
     PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -692,6 +692,7 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
   target_link_libraries(
     ${CUML_CPP_TARGET}
     PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -773,6 +774,7 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
     PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
