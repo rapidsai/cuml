@@ -65,12 +65,12 @@ jobs:
 
     get-highest-priority:
       # This job gets the highest priority from linked issues
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
-      needs: get-project-id
+      if: ${{ github.event.pull_request.state == 'open' }}
       runs-on: ubuntu-latest
       permissions:
         contents: read
         pull-requests: read
+        projects: read
       outputs:
         highest-priority: ${{ steps.get-priority.outputs.highest-priority }}
       steps:
@@ -79,29 +79,25 @@ jobs:
           env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
-            ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
+            PR_NODE_ID: "${{ github.event.pull_request.node_id }}"
           run: |
-            # GraphQL query to get linked issues and their priority field values
+            # GraphQL query to get linked issues and their priority field values from projects
             query='
-            query($itemId: ID!) {
-              node(id: $itemId) {
-                ... on ProjectV2Item {
-                  content {
-                    ... on PullRequest {
-                      closingIssuesReferences(first: 100) {
+            query($prId: ID!) {
+              node(id: $prId) {
+                ... on PullRequest {
+                  closingIssuesReferences(first: 100) {
+                    nodes {
+                      id
+                      projectItems(first: 100) {
                         nodes {
                           id
-                          projectItems(first: 100) {
-                            nodes {
-                              id
-                              project {
-                                id
-                              }
-                              fieldValueByName(name: "Priority") {
-                                ... on ProjectV2ItemFieldSingleSelectValue {
-                                  name
-                                }
-                              }
+                          project {
+                            id
+                          }
+                          fieldValueByName(name: "Priority") {
+                            ... on ProjectV2ItemFieldSingleSelectValue {
+                              name
                             }
                           }
                         }
@@ -112,12 +108,25 @@ jobs:
               }
             }'
 
-            # Execute query
-            response=$(gh api graphql -f query="$query" -f itemId="$ITEM_PROJECT_ID")
+            # Execute query (fail gracefully if permissions are insufficient)
+            if ! response=$(gh api graphql -f query="$query" -f prId="$PR_NODE_ID" 2>&1); then
+              echo "Warning: Failed to query project data (possibly insufficient permissions)"
+              echo "Error: $response"
+              echo "highest-priority=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Check for GraphQL errors
+            if echo "$response" | jq -e '.errors' > /dev/null 2>&1; then
+              echo "Warning: GraphQL query returned errors"
+              echo "$response" | jq '.errors'
+              echo "highest-priority=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
 
             # Extract priorities from linked issues that are in the same project
             priorities=$(echo "$response" | jq -r '
-              .data.node.content.closingIssuesReferences.nodes[]?.projectItems.nodes[]? |
+              .data.node.closingIssuesReferences.nodes[]?.projectItems.nodes[]? |
               select(.project.id == env.PROJECT_ID) |
               .fieldValueByName.name // empty
             ')
@@ -146,7 +155,12 @@ jobs:
             done <<< "$priorities"
 
             echo "highest-priority=$highest_priority" >> "$GITHUB_OUTPUT"
-            echo "Found highest priority: $highest_priority"
+
+            if [[ -z "$highest_priority" ]]; then
+              echo "No priority found on linked issues (or no linked issues found)"
+            else
+              echo "Found highest priority: $highest_priority"
+            fi
 
     update-priority:
       # This job sets the PR priority to the highest priority of linked issues
