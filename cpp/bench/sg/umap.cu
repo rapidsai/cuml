@@ -21,6 +21,9 @@
 
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/device_buffer.hpp>
+
+#include <memory>
 #include <utility>
 
 namespace ML {
@@ -68,18 +71,18 @@ class UmapBase : public BlobsFixture<float, int> {
   void allocateTempBuffers(const ::benchmark::State& state) override
   {
     alloc(yFloat, this->params.nrows);
-    alloc(embeddings, this->params.nrows * uParams.n_components);
     cast<float, int>(yFloat, this->data.y.data(), this->params.nrows, this->stream);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override
   {
     dealloc(yFloat, this->params.nrows);
-    dealloc(embeddings, this->params.nrows * uParams.n_components);
+    embeddings_buffer.reset();
   }
 
   UMAPParams uParams;
-  float *yFloat, *embeddings;
+  float* yFloat;
+  std::unique_ptr<rmm::device_buffer> embeddings_buffer;
 };  // class UmapBase
 
 std::vector<Params> getInputs()
@@ -128,7 +131,7 @@ class UmapSupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
+              embeddings_buffer,
               graph);
   }
 };
@@ -151,7 +154,7 @@ class UmapUnsupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
+              embeddings_buffer,
               graph);
   }
 };
@@ -164,13 +167,15 @@ class UmapTransform : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
+    // Extract the embeddings pointer from the device_buffer
+    float* embeddings_ptr = static_cast<float*>(embeddings_buffer->data());
     UMAP::transform(*this->handle,
                     this->data.X.data(),
                     this->params.nrows,
                     this->params.ncols,
                     this->data.X.data(),
                     this->params.nrows,
-                    embeddings,
+                    embeddings_ptr,
                     this->params.nrows,
                     &uParams,
                     transformed);
@@ -190,7 +195,7 @@ class UmapTransform : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
+              embeddings_buffer,
               graph);
   }
   void deallocateBuffers(const ::benchmark::State& state)
