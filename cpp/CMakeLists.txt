@@ -665,11 +665,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
-  # If we export the libdmlc symbols, they can lead to weird crashes with other
-  # libraries that use libdmlc. This just hides the symbols internally.
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
-  # same as above, but for protobuf library
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 endif()
