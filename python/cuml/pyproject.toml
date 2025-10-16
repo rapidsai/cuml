@@ -49,7 +49,6 @@ testpaths = [
 ]
 
 filterwarnings = [
-  "error", # fail on all warnings; remove after debugging
   "error::FutureWarning",
   "error::DeprecationWarning",
   "error:::cudf",
