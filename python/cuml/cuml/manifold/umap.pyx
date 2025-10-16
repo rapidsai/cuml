@@ -941,10 +941,10 @@ class UMAP(Base,
 
         self.handle.sync()
 
+        # Transfer ownership of embeddings_buffer to self._embeddings_buffer
         self._embeddings_buffer = DeviceBuffer.c_from_unique_ptr(
             move(embeddings_buffer)
         )
-
         embeddings_cupy = cupy.ndarray(
             shape=(self.n_rows, self.n_components),
             dtype=np.float32,
@@ -958,7 +958,6 @@ class UMAP(Base,
             ),
             order='C'
         )
-
         self.embedding_ = CumlArray(
             data=embeddings_cupy,
             index=self._raw_data.index

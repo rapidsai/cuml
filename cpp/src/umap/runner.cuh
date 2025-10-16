@@ -329,8 +329,7 @@ void _fit(const raft::handle_t& handle,
   // Allocate embeddings buffer just before initialization
   std::size_t embeddings_size =
     static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
-  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(); }
-  embeddings->resize(embeddings_size, stream);
+  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
   value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
 
   /**
@@ -382,8 +381,7 @@ void _fit_supervised(const raft::handle_t& handle,
   // Allocate embeddings buffer just before initialization
   std::size_t embeddings_size =
     static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
-  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(); }
-  embeddings->resize(embeddings_size, stream);
+  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
   value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
 
   /**
