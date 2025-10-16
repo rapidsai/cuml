@@ -68,3 +68,12 @@ def bench_svc_linear(gpubenchmark, bench_step, classification):  # noqa: F811
 
 def bench_svc_rbf(gpubenchmark, bench_step, classification):  # noqa: F811
     _benchmark_algo(gpubenchmark, "SVC-RBF", bench_step, classification)
+
+
+def bench_xgboost_classification(
+    gpubenchmark, bench_step, classification  # noqa: F811
+):
+    pytest.importorskip("xgboost")
+    _benchmark_algo(
+        gpubenchmark, "xgboost-classification", bench_step, classification
+    )
