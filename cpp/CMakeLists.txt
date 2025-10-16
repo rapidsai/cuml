@@ -343,7 +343,7 @@ endfunction()
 
 if(BUILD_CUML_CPP_LIBRARY)
 
-  # single GPU components common components
+  # single GPU components and common components
   add_library(cuml_objs OBJECT)
   if(CUML_ENABLE_GPU)
     target_compile_definitions(cuml_objs PUBLIC CUML_ENABLE_GPU)
@@ -546,7 +546,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/umap/umap.cu)
   endif()
 
-  # multi GPU components todo: separate mnmg that require cumlprims from those that don't
+  # Multi-GPU components. TODO: separate mnmg that require cumlprims from those that don't
   if(NOT SINGLEGPU)
     target_sources(
       cuml_objs

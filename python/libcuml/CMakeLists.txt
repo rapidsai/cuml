@@ -57,7 +57,7 @@ set(SINGLEGPU OFF)
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../../cpp")
 
-# --- cumlprims_mg --- # ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
+# ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuVS --- #
