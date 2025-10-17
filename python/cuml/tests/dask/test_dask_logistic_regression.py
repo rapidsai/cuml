@@ -552,6 +552,9 @@ def test_sparse_from_dense(reg_dtype, client):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.filterwarnings(
+    "ignore:The max_iter was reached which means the coef_ did not converge:sklearn.exceptions.ConvergenceWarning"
+)
 def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X, y = nlp_20news
@@ -1094,6 +1097,9 @@ def test_standardization_sparse_with_shift_scale(
 
 @pytest.mark.parametrize("standardization", [False, True])
 @pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:invalid value encountered in divide:RuntimeWarning:sklearn"
+)
 def test_sparse_all_zeroes(
     standardization, fit_intercept, client, X=None, y=None, n_parts=2
 ):

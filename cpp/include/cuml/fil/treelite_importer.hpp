@@ -25,6 +25,8 @@
 #include <cuml/fil/tree_layout.hpp>
 #include <cuml/forest/integrations/treelite.hpp>
 
+#include <raft/core/error.hpp>
+
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
 #include <treelite/enum/tree_node_type.h>

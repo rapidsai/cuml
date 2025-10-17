@@ -835,6 +835,9 @@ def test_confusion_matrix_binary():
     cp.testing.assert_array_equal(ref, cp.array([tn, fp, fn, tp]))
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The number of unique classes is greater than 50% of the number of samples.*:UserWarning"
+)
 @pytest.mark.parametrize("n_samples", [50, 3000, stress_param(500000)])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32])
 @pytest.mark.parametrize("problem_type", ["binary", "multiclass"])
@@ -1104,6 +1107,15 @@ def prep_dense_array(array, metric, col_major=0):
         return np.asfortranarray(array) if col_major else array
 
 
+@pytest.mark.filterwarnings(
+    "ignore:X was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Y was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Data was converted to boolean for metric russellrao:sklearn.exceptions.DataConversionWarning"
+)
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize(
     "matrix_size", [(5, 4), (1000, 3), (2, 10), (500, 400)]
@@ -1176,6 +1188,15 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
 
+@pytest.mark.filterwarnings(
+    "ignore:X was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Y was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Data was converted to boolean for metric russellrao:sklearn.exceptions.DataConversionWarning"
+)
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize(
     "matrix_size",
@@ -1223,6 +1244,15 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:X was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Y was converted to boolean for metric russellrao:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Data was converted to boolean for metric russellrao:sklearn.exceptions.DataConversionWarning"
+)
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 def test_pairwise_distances_one_dimension_order(metric: str):
     # Test the pairwise_distance helper function for 1 dimensional cases which
