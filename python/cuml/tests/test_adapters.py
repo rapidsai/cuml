@@ -175,9 +175,6 @@ def test__csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     assert_allclose(counts_nan, ref_counts_nan)
 
 
-@pytest.mark.filterwarnings(
-    "ignore::numba.core.errors.NumbaPerformanceWarning"
-)
 def test_inplace_csr_row_normalize_l1(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != "csr":
@@ -188,9 +185,6 @@ def test_inplace_csr_row_normalize_l1(failure_logger, sparse_random_dataset):
     assert_allclose(X_sparse, X_np)
 
 
-@pytest.mark.filterwarnings(
-    "ignore::numba.core.errors.NumbaPerformanceWarning"
-)
 def test_inplace_csr_row_normalize_l2(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != "csr":
