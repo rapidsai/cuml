@@ -27,7 +27,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -52,10 +52,20 @@ from cuml.manifold.umap_utils import (
 
 from cython.operator cimport dereference
 from libc.stdint cimport int64_t, uintptr_t
+from libcpp.memory cimport unique_ptr
+from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
+from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 from cuml.internals.logger cimport level_enum
 from cuml.manifold.umap_utils cimport *
+
+
+cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
+    cdef cppclass device_buffer:
+        device_buffer() except +
+        void* data() except +
+        size_t size() except +
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
@@ -68,7 +78,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              int64_t * knn_indices,
              float * knn_dists,
              UMAPParams * params,
-             float * embeddings,
+             unique_ptr[device_buffer] & embeddings,
              cppHostCOO & graph) except +
 
     void fit_sparse(handle_t &handle,
@@ -82,7 +92,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                     int * knn_indices,
                     float * knn_dists,
                     UMAPParams *params,
-                    float *embeddings,
+                    unique_ptr[device_buffer] & embeddings,
                     cppHostCOO & graph) except +
 
     void transform(handle_t & handle,
@@ -621,7 +631,7 @@ class UMAP(Base,
         self.sparse_fit = False
         self._input_hash = None
 
-        self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
+        self.precomputed_knn = extract_knn_graph(precomputed_knn, n_neighbors)
 
         if build_algo in {"auto", "brute_force_knn", "nn_descent"}:
             if self.deterministic and build_algo == "auto":
@@ -789,6 +799,9 @@ class UMAP(Base,
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
 
+        if self.n_components < 1:
+            raise ValueError("n_components must be an integer greater than or equal to 1")
+
         if y is not None and knn_graph is not None\
                 and self.target_metric != "categorical":
             raise ValueError("Cannot provide a KNN graph when in \
@@ -860,7 +873,7 @@ class UMAP(Base,
         cdef uintptr_t _knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
             if knn_graph is not None:
-                knn_indices, knn_dists = extract_knn_infos(knn_graph,
+                knn_indices, knn_dists = extract_knn_graph(knn_graph,
                                                            self.n_neighbors)
             elif self.precomputed_knn is not None:
                 knn_indices, knn_dists = self.precomputed_knn
@@ -878,15 +891,8 @@ class UMAP(Base,
 
         self.n_features_in_ = self.n_dims
 
-        self.embedding_ = CumlArray.zeros((self.n_rows,
-                                           self.n_components),
-                                          order="C", dtype=np.float32,
-                                          index=self._raw_data.index)
-
         if self.hash_input:
             self._input_hash = _joblib_hash(self._raw_data.to_output('numpy'))
-
-        cdef uintptr_t _embed_raw_ptr = self.embedding_.ptr
 
         cdef uintptr_t _y_raw_ptr = 0
 
@@ -907,6 +913,9 @@ class UMAP(Base,
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> self._build_umap_params(
                                                            self.sparse_fit)
+
+        cdef unique_ptr[device_buffer] embeddings_buffer
+
         if self.sparse_fit:
             fit_sparse(handle_[0],
                        <int*><uintptr_t> self._raw_data.indptr.ptr,
@@ -919,7 +928,7 @@ class UMAP(Base,
                        <int*> _knn_indices_ptr,
                        <float*> _knn_dists_ptr,
                        <UMAPParams*> umap_params,
-                       <float*> _embed_raw_ptr,
+                       embeddings_buffer,
                        dereference(fss_graph.ref()))
         else:
             fit(handle_[0],
@@ -930,13 +939,35 @@ class UMAP(Base,
                 <int64_t*> _knn_indices_ptr,
                 <float*> _knn_dists_ptr,
                 <UMAPParams*>umap_params,
-                <float*>_embed_raw_ptr,
+                embeddings_buffer,
                 dereference(fss_graph.ref()))
+
+        self.handle.sync()
+
+        # Transfer ownership of embeddings_buffer to self._embeddings_buffer
+        self._embeddings_buffer = DeviceBuffer.c_from_unique_ptr(
+            move(embeddings_buffer)
+        )
+        embeddings_cupy = cupy.ndarray(
+            shape=(self.n_rows, self.n_components),
+            dtype=np.float32,
+            memptr=cupy.cuda.MemoryPointer(
+                cupy.cuda.UnownedMemory(
+                    self._embeddings_buffer.ptr,
+                    self._embeddings_buffer.size,
+                    self._embeddings_buffer
+                ),
+                0
+            ),
+            order='C'
+        )
+        self.embedding_ = CumlArray(
+            data=embeddings_cupy,
+            index=self._raw_data.index
+        )
 
         self.graph_ = fss_graph.get_scipy_coo()
         del fss_graph
-
-        self.handle.sync()
 
         UMAP._destroy_umap_params(<size_t>umap_params)
 

@@ -55,6 +55,31 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
+            exclude: (^|/)tests?/
+          - id: cmake-format
+            name: cmake-format
+            entry: ./cpp/scripts/run-cmake-format.sh cmake-format
+            language: python
+            types: [cmake]
+            exclude: .*/thirdparty/.*
+            # Note that pre-commit autoupdate does not update the versions
+            # of dependencies, so we'll have to update this manually.
+            additional_dependencies:
+              - cmakelang==0.6.13
+            verbose: true
+            require_serial: true
+          - id: cmake-lint
+            name: cmake-lint
+            entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
+            language: python
+            types: [cmake]
+            # Note that pre-commit autoupdate does not update the versions
+            # of dependencies, so we'll have to update this manually.
+            additional_dependencies:
+              - cmakelang==0.6.13
+            verbose: true
+            require_serial: true
+            exclude: .*/thirdparty/.*
           - id: no-import-in-pxd
             name: no-import-in-pxd
             description: "Don't use `import` in .pxd files, only `cimport` statements make sense here"
