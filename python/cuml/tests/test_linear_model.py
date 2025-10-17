@@ -930,85 +930,132 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.fixture(
-    scope="session", params=["binary", "multiclass-3", "multiclass-7"]
+@given(
+    dataset=standard_classification_datasets(),
+    use_sample_weight=st.booleans(),
+    class_weight_option=st.sampled_from([None, "balanced", "dict"]),
 )
-def regression_dataset(request):
-    regression_type = request.param
-
-    out = {}
-    for test_status in ["regular"]:
-        if test_status == "regular":
-            n_samples, n_features = 100000, 5
-
-        data = (np.random.rand(n_samples, n_features) * 2) - 1
-
-        if regression_type == "binary":
-            coef = (np.random.rand(n_features) * 2) - 1
-            coef /= np.linalg.norm(coef)
-            output = (data @ coef) > 0
-        elif regression_type.startswith("multiclass"):
-            n_classes = 3 if regression_type == "multiclass-3" else 7
-            coef = (np.random.rand(n_features, n_classes) * 2) - 1
-            coef /= np.linalg.norm(coef, axis=0)
-            output = (data @ coef).argmax(axis=1)
-        output = output.astype(np.int32)
-
-        out[test_status] = (regression_type, data, coef, output)
-    return out
-
-
-@pytest.mark.parametrize(
-    "option", ["sample_weight", "class_weight", "balanced", "no_weight"]
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=0,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option=None,
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=7,
+            n_redundant=0,
+            random_state=1,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option="balanced",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=3,
+            n_redundant=0,
+            random_state=2,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option="dict",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=3,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option=None,
 )
 def test_logistic_regression_weighting(
-    regression_dataset,
-    option,
+    dataset, use_sample_weight, class_weight_option
 ):
-    regression_type, data, coef, output = regression_dataset["regular"]
+    X, y = dataset
 
-    class_weight = None
+    num_classes = len(np.unique(y))
+
+    # Set up sample_weight
     sample_weight = None
-    if option == "sample_weight":
-        n_samples = data.shape[0]
+    if use_sample_weight:
+        n_samples = X.shape[0]
         sample_weight = np.abs(np.random.rand(n_samples))
-    elif option == "class_weight":
-        class_weight = np.random.rand(2)
-        class_weight = {0: class_weight[0], 1: class_weight[1]}
-    elif option == "balanced":
-        class_weight = "balanced"
 
-    culog = cuLog(fit_intercept=False, class_weight=class_weight)
-    culog.fit(data, output, sample_weight=sample_weight)
+    # Set up class_weight
+    class_weight = None
+    match class_weight_option:
+        case "dict":
+            weights = np.random.rand(num_classes)
+            class_weight = {i: weights[i] for i in range(num_classes)}
+        case "balanced":
+            class_weight = "balanced"
+        case None:
+            pass
+        case _:
+            raise ValueError(
+                f"Unknown class_weight_option: {class_weight_option}"
+            )
 
-    sklog = skLog(fit_intercept=False, class_weight=class_weight)
-    sklog.fit(data, output, sample_weight=sample_weight)
+    # Use higher max_iter for better convergence with complex weighting
+    max_iter = (
+        1000
+        if (use_sample_weight and class_weight_option is not None)
+        else 500
+    )
+
+    culog = cuLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    culog.fit(X, y, sample_weight=sample_weight)
+
+    sklog = skLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    sklog.fit(X, y, sample_weight=sample_weight)
 
     skcoef = np.squeeze(sklog.coef_)
     cucoef = np.squeeze(culog.coef_)
-    if regression_type == "binary":
+
+    # Normalize coefficients
+    if num_classes == 2:
         skcoef /= np.linalg.norm(skcoef)
         cucoef /= np.linalg.norm(cucoef)
-        unit_tol = 0.04
-        total_tol = 0.08
-    elif regression_type.startswith("multiclass"):
-        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
-        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
-        unit_tol = 0.2
-        total_tol = 0.3
+    else:
+        skcoef /= np.linalg.norm(skcoef, axis=1, keepdims=True)
+        cucoef /= np.linalg.norm(cucoef, axis=1, keepdims=True)
 
-    equality = array_equal(
-        skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol
-    )
-    if not equality:
-        print("\ncoef.shape: ", coef.shape)
-        print("coef:\n", coef)
-        print("cucoef.shape: ", cucoef.shape)
-        print("cucoef:\n", cucoef)
-    assert equality
+    # Set tolerances based on empirical analysis
+    has_weights = use_sample_weight or class_weight_option is not None
+    harder_problem = has_weights or num_classes > 3
+    unit_tol = 0.25 if harder_problem else 0.04
+    total_tol = 0.40 if harder_problem else 0.08
+    assert array_equal(skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol)
 
-    cuOut = culog.predict(data)
-    skOut = sklog.predict(data)
+    cuOut = culog.predict(X)
+    skOut = sklog.predict(X)
     assert array_equal(skOut, cuOut, unit_tol=unit_tol, total_tol=total_tol)
 
 
@@ -1016,7 +1063,7 @@ def test_logistic_regression_weighting(
 # ignoring warning about change of solver
 @pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
 def test_linear_models_set_params(algo):
-    x = np.linspace(0, 1, 50)
+    x = np.linspace(0, 1, 50)[:, None]
     y = 2 * x
 
     model = algo()

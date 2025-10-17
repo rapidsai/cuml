@@ -351,8 +351,16 @@ def test_svr(random_state, sparse):
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+
+    cu_score = cu_model_from_sklearn.score(X, y)
     assert cu_score > 0.7
+
+    # Check n_support is set correctly
+    assert (
+        cu_model_from_sklearn.n_support_
+        == cu_model_from_sklearn.support_vectors_.shape[0]
+    )
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -392,6 +400,54 @@ def test_svc(random_state, sparse, probability):
             assert isinstance(val, np.ndarray)
             assert val.dtype == "float64"
             assert val.shape == (1,)
+
+    # Check n_support_ is correctly set
+    assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+
+
+@pytest.mark.parametrize("kind", ["SVC", "SVR"])
+def test_svm_big_sparse(random_state, kind):
+    """SVC/SVR models are only sparse if fit with a sparse matrix AND storing
+    `support_vectors_` as dense exceeds a limit (currently 1 GiB). Here we
+    create a large enough input matrix to ensure a sparse repr, and check that
+    the conversion is plumbed through properly"""
+    n_samples = 1024
+    noise_cols = 300000
+    noise_density = 0.0001
+    n_noise = int(noise_cols * n_samples * noise_density)
+
+    if kind == "SVR":
+        X, y = make_regression(
+            n_samples=n_samples, n_features=4, random_state=random_state
+        )
+        model = cuml.SVR(kernel="linear")
+    else:
+        X, y = make_classification(
+            n_samples=n_samples, n_features=4, random_state=random_state
+        )
+        model = cuml.SVC()
+
+    rng = np.random.default_rng(random_state)
+    rows = rng.integers(0, n_samples, size=n_noise)
+    cols = rng.integers(0, noise_cols, size=n_noise)
+    data = rng.uniform(size=n_noise)
+
+    X = scipy.sparse.hstack(
+        [
+            scipy.sparse.csr_matrix(X),
+            scipy.sparse.coo_matrix(
+                (data, (rows, cols)), shape=(n_samples, noise_cols)
+            ).asformat("csr"),
+        ]
+    )
+
+    model.fit(X, y)
+
+    sk_model = model.as_sklearn()
+    assert scipy.sparse.issparse(sk_model.support_vectors_)
+
+    score = sk_model.score(X[:100], y[:100])
+    assert score > 0.7
 
 
 def test_svc_multiclass_unsupported(random_state):
