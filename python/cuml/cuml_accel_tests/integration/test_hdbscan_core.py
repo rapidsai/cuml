@@ -124,6 +124,9 @@ def test_hdbscan_gen_min_span_tree(synthetic_data):
     ), "Minimum spanning tree should be generated when gen_min_span_tree=True"
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Instantiating a backend using a LocalPath:UserWarning"
+)
 def test_hdbscan_memory(synthetic_data, tmpdir):
     X, _ = synthetic_data
     from joblib import Memory

@@ -683,6 +683,12 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.parametrize("n_rows", [200, 800])
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.filterwarnings(
+    "ignore:Spectral initialisation failed.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Graph is not fully connected.*:UserWarning"
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -737,6 +743,9 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         ("hamming", "nn_descent", False),
         ("canberra", "nn_descent", False),
     ],
+)
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented.*:UserWarning"
 )
 def test_umap_distance_metrics_fit_transform_trust(
     metric, build_algo, supported
@@ -793,6 +802,9 @@ def test_umap_distance_metrics_fit_transform_trust(
         ("hamming", True, True),
         ("canberra", True, True),
     ],
+)
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented.*:UserWarning"
 )
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
     metric, supported, umap_learn_supported
