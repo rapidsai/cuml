@@ -986,3 +986,79 @@ def test_umap_outliers(n_neighbors, n_components):
         (gpu_umap_embeddings >= lower_bound)
         & (gpu_umap_embeddings <= upper_bound)
     )
+
+
+@pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
+@pytest.mark.parametrize("k_provided,k_requested", [(15, 10), (20, 8)])
+def test_umap_precomputed_knn_trimming(
+    precomputed_type, k_provided, k_requested
+):
+    """
+    Test that precomputed KNN data with more neighbors than requested
+    is automatically trimmed instead of raising an error.
+    """
+    data, labels = make_blobs(
+        n_samples=500, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    # Build KNN graph with more neighbors than we'll request
+    nn = NearestNeighbors(n_neighbors=k_provided)
+    nn.fit(data)
+
+    if precomputed_type == "tuple":
+        distances, indices = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (indices, distances)
+    elif precomputed_type == "knn_graph":
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+
+    # This should work now - the excess neighbors should be trimmed
+    model = cuUMAP(
+        n_neighbors=k_requested,
+        precomputed_knn=precomputed_knn,
+        random_state=42,
+        init="random",
+    )
+    embedding = model.fit_transform(data)
+
+    # Verify the embedding is valid
+    assert embedding.shape == (data.shape[0], 2)
+    assert not np.isnan(embedding).any()
+
+    # Verify trustworthiness with the requested number of neighbors
+    trust = trustworthiness(data, embedding, n_neighbors=k_requested)
+    assert trust >= 0.85
+
+
+@pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
+def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
+    """
+    Test that precomputed KNN data with fewer neighbors than requested
+    raises an appropriate error.
+    """
+    data, labels = make_blobs(
+        n_samples=500, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    k_provided = 5
+    k_requested = 10
+
+    # Build KNN graph with fewer neighbors than we'll request
+    nn = NearestNeighbors(n_neighbors=k_provided)
+    nn.fit(data)
+
+    if precomputed_type == "tuple":
+        distances, indices = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (indices, distances)
+    elif precomputed_type == "knn_graph":
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+
+    # This should raise an error during initialization
+    with pytest.raises(ValueError, match=".*fewer neighbors.*"):
+        cuUMAP(
+            n_neighbors=k_requested,
+            precomputed_knn=precomputed_knn,
+            random_state=42,
+            init="random",
+        )

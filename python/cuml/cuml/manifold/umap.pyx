@@ -27,7 +27,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -631,7 +631,7 @@ class UMAP(Base,
         self.sparse_fit = False
         self._input_hash = None
 
-        self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
+        self.precomputed_knn = extract_knn_graph(precomputed_knn, n_neighbors)
 
         if build_algo in {"auto", "brute_force_knn", "nn_descent"}:
             if self.deterministic and build_algo == "auto":
@@ -873,7 +873,7 @@ class UMAP(Base,
         cdef uintptr_t _knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
             if knn_graph is not None:
-                knn_indices, knn_dists = extract_knn_infos(knn_graph,
+                knn_indices, knn_dists = extract_knn_graph(knn_graph,
                                                            self.n_neighbors)
             elif self.precomputed_knn is not None:
                 knn_indices, knn_dists = self.precomputed_knn
