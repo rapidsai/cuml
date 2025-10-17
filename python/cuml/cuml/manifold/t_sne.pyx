@@ -24,7 +24,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -635,7 +635,7 @@ class TSNE(Base,
         if knn_graph is None:
             knn_graph = self.precomputed_knn
         if knn_graph is not None:
-            knn_indices, knn_dists = extract_knn_infos(knn_graph, params.n_neighbors)
+            knn_indices, knn_dists = extract_knn_graph(knn_graph, params.n_neighbors)
 
             if sparse_fit:
                 # Sparse fitting requires the indices to be int32

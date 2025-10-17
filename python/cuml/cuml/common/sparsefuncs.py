@@ -188,7 +188,7 @@ def _insert_zeros(ary, zero_indices):
 
 
 @with_cupy_rmm
-def extract_knn_graph(knn_graph):
+def extract_sparse_knn_graph(knn_graph):
     """
     Converts KNN graph from CSR, COO and CSC formats into separate
     distance and indice arrays. Input can be a cupy sparse graph (device)
@@ -278,7 +278,7 @@ def _determine_k_from_arrays(
 
 
 @with_cupy_rmm
-def extract_knn_infos(knn_info, n_neighbors):
+def extract_knn_graph(knn_info, n_neighbors):
     """
     Extract the nearest neighbors distances and indices
     from the knn_info parameter.
@@ -314,7 +314,7 @@ def extract_knn_infos(knn_info, n_neighbors):
         ),
     ):
         # Sparse matrix
-        result = extract_knn_graph(knn_info)
+        result = extract_sparse_knn_graph(knn_info)
         if result is None:
             return None
         knn_indices, knn_dists, n_samples_hint = result
