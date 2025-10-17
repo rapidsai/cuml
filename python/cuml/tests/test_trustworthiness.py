@@ -19,6 +19,16 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 @pytest.mark.filterwarnings(
     "ignore:n_jobs value.*overridden.*by setting random_state.*:UserWarning"
 )
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
+# need to be updated at that point.
+# See also https://github.com/lmcinnes/umap/issues/1174
+@pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 def test_trustworthiness(
     input_type, n_samples, n_features, n_components, batch_size
 ):
