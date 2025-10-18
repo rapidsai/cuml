@@ -339,6 +339,32 @@ void foo(const raft::handle_t& h, ... , cudaStream_t stream )
     thrust::for_each(execution_policy->on(stream), ... );
 }
 ```
+## Memory Management in cuML
+
+The cuML uses the **RAPIDS Memory Manager (RMM)** to manage GPU memory.  
+Developers contributing to cuML should **always use RMM utilities** instead of raw CUDA allocation (`cudaMalloc` / `cudaFree`).
+
+### Why RMM?
+
+- Avoids memory leaks and dangling pointers.  
+- Provides RAII-based containers (`device_uvector`, `device_buffer`).  
+- Works consistently across all RAPIDS libraries.  
+
+### Recommended Containers
+
+- **`rmm::device_uvector<T>`** – Typed, resizable GPU vector with RAII semantics.  
+- **`rmm::device_buffer`** – Untyped GPU buffer for raw storage.  
+
+### Example
+
+```cpp
+#include <rmm/device_uvector.hpp>
+
+void example(rmm::cuda_stream_view stream) {
+    rmm::device_uvector<float> data(100, stream);
+    // Memory automatically freed when leaving scope
+}
+```
 
 ## Asynchronous operations and stream ordering
 All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). Implementations that require only one CUDA Stream should use the stream from `raft::handle_t`:
