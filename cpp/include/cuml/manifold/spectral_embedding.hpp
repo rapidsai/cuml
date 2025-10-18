@@ -18,6 +18,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
+#include <cstdint>
+
 namespace cuvs::preprocessing::spectral_embedding {
 
 struct params;
@@ -55,7 +57,17 @@ void transform(raft::resources const& handle,
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
+               raft::device_matrix_view<float, int64_t, raft::row_major> dataset,
+               raft::device_matrix_view<float, int64_t, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
                raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
+               raft::device_matrix_view<float, int, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
+               raft::device_coo_matrix_view<float, int, int, int64_t> connectivity_graph,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
 
 void transform(raft::resources const& handle,
@@ -63,6 +75,13 @@ void transform(raft::resources const& handle,
                raft::device_vector_view<int, int> rows,
                raft::device_vector_view<int, int> cols,
                raft::device_vector_view<float, int> vals,
+               raft::device_matrix_view<float, int, raft::col_major> embedding);
+
+void transform(raft::resources const& handle,
+               ML::SpectralEmbedding::params config,
+               raft::device_vector_view<int, int64_t> rows,
+               raft::device_vector_view<int, int64_t> cols,
+               raft::device_vector_view<float, int64_t> vals,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
 
 }  // namespace ML::SpectralEmbedding
