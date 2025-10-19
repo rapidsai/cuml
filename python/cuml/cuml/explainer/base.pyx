@@ -20,7 +20,6 @@ import pandas as pd
 
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
-    get_dtype_from_model_func,
     get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
@@ -92,11 +91,9 @@ class SHAPBase():
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    dtype : np.float32 or np.float64 (default = None)
+    dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
-        model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will default to
-        np.float32.
+        model.
     output_type : 'cupy' or 'numpy' (default = None)
         Parameter to specify the type of data to output.
         If not specified, the explainer will try to see if model is gpu based,
@@ -116,7 +113,7 @@ class SHAPBase():
                  random_state=None,
                  is_gpu_model=None,
                  handle=None,
-                 dtype=None,
+                 dtype=np.float32,
                  output_type=None):
 
         if verbose is True:
@@ -163,15 +160,9 @@ class SHAPBase():
         else:
             self.output_type = output_type
 
-        # if not dtype is specified, we try to get it from the model
-        if dtype is None:
-            self.dtype = get_dtype_from_model_func(func=model,
-                                                   default=np.float32)
-        else:
-            self.dtype = np.dtype(dtype)
-            if dtype not in [np.float32, np.float64]:
-                raise ValueError("dtype must be either np.float32 or "
-                                 "np.float64.")
+        if (dtype := np.dtype(dtype)) not in [np.float32, np.float64]:
+            raise ValueError("dtype must be either np.float32 or np.float64.")
+        self.dtype = dtype
 
         self.background, self.nrows, self.ncols, _ = \
             input_to_cupy_array(background, order=self.order,

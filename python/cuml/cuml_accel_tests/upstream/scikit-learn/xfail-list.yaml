@@ -246,10 +246,7 @@
   - "sklearn.linear_model.tests.test_ransac::test_ransac_no_valid_data"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_no_valid_model"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_warn_exceed_max_skips"
-  - "sklearn.linear_model.tests.test_ridge::test_dtype_match_cholesky"
   - "sklearn.linear_model.tests.test_ridge::test_raises_value_error_if_sample_weights_greater_than_1d"
-  - "sklearn.linear_model.tests.test_ridge::test_ridge_cv_individual_penalties"
-  - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-None-False]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-csr_array-False]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-csr_matrix-False]"
@@ -626,7 +623,6 @@
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_grid={'ridge__alpha':[0.1,1.0]})-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_complex_data]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_dtype_object]"
-  - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_regressor_data_not_an_array]"
@@ -650,8 +646,6 @@
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_complex_data1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_dtype_object0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_dtype_object1]"
-  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_empty_data_messages0]"
-  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_empty_data_messages1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_1sample0]"
@@ -702,7 +696,6 @@
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_complex_data]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_dtype_object]"
-  - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_regressor_data_not_an_array]"
@@ -1091,10 +1084,6 @@
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
-  - "sklearn.metrics.tests.test_classification::test_confusion_matrix_binary"
-  - "sklearn.metrics.tests.test_classification::test_multilabel_confusion_matrix_binary"
-  - "sklearn.metrics.tests.test_classification::test_precision_recall_f1_score_binary"
-  - "sklearn.metrics.tests.test_ranking::test_roc_curve_hard"
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: KernelRidge input handling and validation
@@ -1243,19 +1232,12 @@
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
   tests:
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
   - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
@@ -1275,7 +1257,6 @@
   - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVR]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
-  - "sklearn.svm.tests.test_svm::test_weight"
 - reason: SVR input handling and validation
   marker: cuml_accel_svr_estimator_checks
   condition: scikit-learn>=1.6
@@ -1289,7 +1270,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
@@ -1423,7 +1403,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_fit2d_predict1d]"

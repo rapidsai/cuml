@@ -66,6 +66,15 @@ def test_umap_min_dist(manifold_data, min_dist):
         "haversine",
     ],
 )
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:n_jobs value .* overridden to .* by setting random_state:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:overflow encountered in cast:RuntimeWarning"
+)
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
     # haversine only works for 2D data
@@ -177,6 +186,9 @@ def test_umap_angular_rp_forest(manifold_data, angular_rp_forest):
 
 
 @pytest.mark.parametrize("densmap", [True, False])
+@pytest.mark.filterwarnings(
+    "ignore:n_jobs value .* overridden to .* by setting random_state:UserWarning"
+)
 def test_umap_densmap(manifold_data, densmap):
     X = manifold_data
     umap = UMAP(densmap=densmap, random_state=42)
