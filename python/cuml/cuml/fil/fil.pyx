@@ -802,9 +802,15 @@ class ForestInference(Base, CMajorInputTagMixin):
         if model_type == "treelite_checkpoint":
             tl_model = treelite.frontend.Model.deserialize(path)
         elif model_type == "xgboost_ubj":
-            tl_model = treelite.frontend.load_xgboost_model(path, format_choice="ubjson")
+            tl_model = treelite.frontend.load_xgboost_model(
+                path, format_choice="ubjson",
+                allow_unknown_field=True,  # https://github.com/dmlc/treelite/issues/633
+            )
         elif model_type == "xgboost_json":
-            tl_model = treelite.frontend.load_xgboost_model(path, format_choice="json")
+            tl_model = treelite.frontend.load_xgboost_model(
+                path, format_choice="json",
+                allow_unknown_field=True,  # https://github.com/dmlc/treelite/issues/633
+            )
         elif model_type == "xgboost":
             tl_model = treelite.frontend.load_xgboost_model_legacy_binary(path)
         elif model_type == "lightgbm":
