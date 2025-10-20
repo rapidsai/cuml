@@ -331,7 +331,6 @@ def test_logistic_regression(
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
-                multi_class="auto",
             )
         else:
             sklog = skLog(
@@ -339,7 +338,6 @@ def test_logistic_regression(
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
-                multi_class="auto",
             )
     else:
         sklog = skLog(
@@ -347,7 +345,6 @@ def test_logistic_regression(
             solver="lbfgs",
             C=C,
             fit_intercept=fit_intercept,
-            multi_class="auto",
         )
 
     sklog.fit(X_train, y_train)
@@ -420,7 +417,7 @@ def test_logistic_regression_model_default(dtype):
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    sklog = skLog(multi_class="auto")
+    sklog = skLog()
 
     sklog.fit(X_train, y_train)
 
@@ -591,11 +588,7 @@ def test_logistic_regression_predict_proba(
 
     sklog = skLog(
         fit_intercept=fit_intercept,
-        **(
-            {"solver": "lbfgs", "multi_class": "multinomial"}
-            if num_classes > 2
-            else {}
-        ),
+        **({"solver": "lbfgs"} if num_classes > 2 else {}),
     )
     sklog.coef_ = culog.coef_
     sklog.intercept_ = culog.intercept_ if fit_intercept else 0
