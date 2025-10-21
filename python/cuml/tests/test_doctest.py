@@ -17,6 +17,7 @@ import contextlib
 import doctest
 import inspect
 import io
+import warnings
 
 import cudf
 import numpy as np
@@ -112,8 +113,13 @@ def test_docstring(docstring):
     # Capture stdout and include failing outputs in the traceback.
     doctest_stdout = io.StringIO()
     with contextlib.redirect_stdout(doctest_stdout):
-        runner.run(docstring)
-        results = runner.summarize()
+        # Suppress expected warnings during doctest execution
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            runner.run(docstring)
+            results = runner.summarize()
     try:
         assert not results.failed, (
             f"{results.failed} of {results.attempted} doctests failed for "

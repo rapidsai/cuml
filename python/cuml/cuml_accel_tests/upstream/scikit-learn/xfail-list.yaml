@@ -1084,10 +1084,6 @@
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
-  - "sklearn.metrics.tests.test_classification::test_confusion_matrix_binary"
-  - "sklearn.metrics.tests.test_classification::test_multilabel_confusion_matrix_binary"
-  - "sklearn.metrics.tests.test_classification::test_precision_recall_f1_score_binary"
-  - "sklearn.metrics.tests.test_ranking::test_roc_curve_hard"
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: KernelRidge input handling and validation
@@ -1236,19 +1232,12 @@
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
   tests:
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
-  - "sklearn.svm.tests.test_svm::test_bad_input[lil_matrix]"
   - "sklearn.svm.tests.test_svm::test_svc_nonfinite_params"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_one_label]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifiers_train]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
@@ -1268,7 +1257,6 @@
   - "sklearn.svm.tests.test_svm::test_negative_sample_weights_mask_all_samples[weights-are-zero-SVR]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-1-SVC]"
   - "sklearn.svm.tests.test_svm::test_negative_weights_svc_leave_just_one_label[mask-label-2-SVC]"
-  - "sklearn.svm.tests.test_svm::test_weight"
 - reason: SVR input handling and validation
   marker: cuml_accel_svr_estimator_checks
   condition: scikit-learn>=1.6
@@ -1282,7 +1270,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"

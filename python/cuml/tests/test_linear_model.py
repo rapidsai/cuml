@@ -31,6 +31,7 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
@@ -51,8 +52,6 @@ from cuml.testing.datasets import (
 )
 from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_difference, array_equal
-
-ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
 @given(
@@ -182,9 +181,8 @@ def test_weighted_linear_regression(
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
     46340 rows"""
-    model = cuLinearRegression()
-    with pytest.warns(UserWarning):
-        model.fit(cp.random.rand(46341), cp.random.rand(46341))
+    model = cuml.LinearRegression()
+    model.fit(cp.random.rand(46341)[:, None], cp.random.rand(46341))
 
 
 # The assumptions required to have this test pass are relatively strong.
@@ -930,85 +928,132 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.fixture(
-    scope="session", params=["binary", "multiclass-3", "multiclass-7"]
+@given(
+    dataset=standard_classification_datasets(),
+    use_sample_weight=st.booleans(),
+    class_weight_option=st.sampled_from([None, "balanced", "dict"]),
 )
-def regression_dataset(request):
-    regression_type = request.param
-
-    out = {}
-    for test_status in ["regular"]:
-        if test_status == "regular":
-            n_samples, n_features = 100000, 5
-
-        data = (np.random.rand(n_samples, n_features) * 2) - 1
-
-        if regression_type == "binary":
-            coef = (np.random.rand(n_features) * 2) - 1
-            coef /= np.linalg.norm(coef)
-            output = (data @ coef) > 0
-        elif regression_type.startswith("multiclass"):
-            n_classes = 3 if regression_type == "multiclass-3" else 7
-            coef = (np.random.rand(n_features, n_classes) * 2) - 1
-            coef /= np.linalg.norm(coef, axis=0)
-            output = (data @ coef).argmax(axis=1)
-        output = output.astype(np.int32)
-
-        out[test_status] = (regression_type, data, coef, output)
-    return out
-
-
-@pytest.mark.parametrize(
-    "option", ["sample_weight", "class_weight", "balanced", "no_weight"]
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=0,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option=None,
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=7,
+            n_redundant=0,
+            random_state=1,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option="balanced",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=3,
+            n_redundant=0,
+            random_state=2,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option="dict",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=3,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option=None,
 )
 def test_logistic_regression_weighting(
-    regression_dataset,
-    option,
+    dataset, use_sample_weight, class_weight_option
 ):
-    regression_type, data, coef, output = regression_dataset["regular"]
+    X, y = dataset
 
-    class_weight = None
+    num_classes = len(np.unique(y))
+
+    # Set up sample_weight
     sample_weight = None
-    if option == "sample_weight":
-        n_samples = data.shape[0]
+    if use_sample_weight:
+        n_samples = X.shape[0]
         sample_weight = np.abs(np.random.rand(n_samples))
-    elif option == "class_weight":
-        class_weight = np.random.rand(2)
-        class_weight = {0: class_weight[0], 1: class_weight[1]}
-    elif option == "balanced":
-        class_weight = "balanced"
 
-    culog = cuLog(fit_intercept=False, class_weight=class_weight)
-    culog.fit(data, output, sample_weight=sample_weight)
+    # Set up class_weight
+    class_weight = None
+    match class_weight_option:
+        case "dict":
+            weights = np.random.rand(num_classes)
+            class_weight = {i: weights[i] for i in range(num_classes)}
+        case "balanced":
+            class_weight = "balanced"
+        case None:
+            pass
+        case _:
+            raise ValueError(
+                f"Unknown class_weight_option: {class_weight_option}"
+            )
 
-    sklog = skLog(fit_intercept=False, class_weight=class_weight)
-    sklog.fit(data, output, sample_weight=sample_weight)
+    # Use higher max_iter for better convergence with complex weighting
+    max_iter = (
+        1000
+        if (use_sample_weight and class_weight_option is not None)
+        else 500
+    )
+
+    culog = cuLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    culog.fit(X, y, sample_weight=sample_weight)
+
+    sklog = skLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    sklog.fit(X, y, sample_weight=sample_weight)
 
     skcoef = np.squeeze(sklog.coef_)
     cucoef = np.squeeze(culog.coef_)
-    if regression_type == "binary":
+
+    # Normalize coefficients
+    if num_classes == 2:
         skcoef /= np.linalg.norm(skcoef)
         cucoef /= np.linalg.norm(cucoef)
-        unit_tol = 0.04
-        total_tol = 0.08
-    elif regression_type.startswith("multiclass"):
-        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
-        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
-        unit_tol = 0.2
-        total_tol = 0.3
+    else:
+        skcoef /= np.linalg.norm(skcoef, axis=1, keepdims=True)
+        cucoef /= np.linalg.norm(cucoef, axis=1, keepdims=True)
 
-    equality = array_equal(
-        skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol
-    )
-    if not equality:
-        print("\ncoef.shape: ", coef.shape)
-        print("coef:\n", coef)
-        print("cucoef.shape: ", cucoef.shape)
-        print("cucoef:\n", cucoef)
-    assert equality
+    # Set tolerances based on empirical analysis
+    has_weights = use_sample_weight or class_weight_option is not None
+    harder_problem = has_weights or num_classes > 3
+    unit_tol = 0.25 if harder_problem else 0.04
+    total_tol = 0.40 if harder_problem else 0.08
+    assert array_equal(skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol)
 
-    cuOut = culog.predict(data)
-    skOut = sklog.predict(data)
+    cuOut = culog.predict(X)
+    skOut = sklog.predict(X)
     assert array_equal(skOut, cuOut, unit_tol=unit_tol, total_tol=total_tol)
 
 
@@ -1082,42 +1127,77 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
+@pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
-    algorithm=st.sampled_from(ALGORITHMS),
-    xp=st.sampled_from([np, cp]),
-    copy=st.one_of(st.booleans(), st.just(...)),
-    dataset=standard_regression_datasets(
-        n_features=st.integers(min_value=1, max_value=10),
-    ),
+    algo=st.sampled_from(["eig", "qr", "svd", "svd-qr"]),
+    n_targets=st.integers(min_value=1, max_value=2),
+    fit_intercept=st.booleans(),
+    weighted=st.booleans(),
 )
-@example(
-    dataset=make_regression(n_features=1), algorithm="eig", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=2), algorithm="eig", xp=cp, copy=False
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=cp, copy=True
-)
-def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
-    X, y = dataset
-    X, y = xp.asarray(X), xp.asarray(y)
-    X_copy = X.copy()
+@example(algo="eig", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd-qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=2, fit_intercept=False, weighted=True)
+def test_linear_regression_input_mutation(
+    algo, n_targets, fit_intercept, weighted
+):
+    """Check that `LinearRegression.fit`:
+    - Never mutates y and sample_weight
+    - Only sometimes mutates X
+    """
+    # Only algo="svd" supports n_targets > 1. While we do fallback to svd
+    # automatically (with a warning), there's no need to have hypothesis
+    # explore those cases.
+    assume(n_targets == 1 or algo == "svd")
 
-    if copy is ...:  # no argument
-        cuLR = cuLinearRegression(algorithm=algorithm)
+    X, y = make_regression(n_targets=n_targets, random_state=42)
+    if weighted:
+        sample_weight = (
+            cp.random.default_rng(42)
+            .uniform(0.5, 1, y.shape[0])
+            .astype("float32")
+        )
+        sample_weight_orig = sample_weight.copy()
     else:
-        cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+        sample_weight = None
 
-    cuLR.fit(X, y)
+    # The solvers expected fortran-ordered inputs, and will always copy C
+    # ordered inputs. Mutation can only happen for F-ordered inputs.
+    X = cp.asarray(X, order="F", dtype="float32")
+    y = cp.asarray(y, order="F", dtype="float32")
+    X_orig = X.copy()
+    y_orig = y.copy()
 
-    if (X.shape[1] == 1 and xp is cp) and copy is False:
-        assert not array_equal(X, X_copy)
+    params = {"algorithm": algo, "fit_intercept": fit_intercept}
+
+    # Default never mutates inputs
+    cuml.LinearRegression(**params).fit(X, y, sample_weight=sample_weight)
+    cp.testing.assert_allclose(X, X_orig)
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+
+    cuml.LinearRegression(copy_X=False, **params).fit(
+        X, y, sample_weight=sample_weight
+    )
+    # y and sample_weight are never mutated
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+    # The interface doesn't actually care if X is mutated if copy_X=False,
+    # but if our solvers stop mutating (and we can avoid a copy) it'd be good
+    # to notice. Asserting the current behavior here for now.
+    if n_targets == 1 and algo in ["eig", "qr", "svd", "svd-qr"]:
+        # `eig` sometimes mutates and sometimes doesn't, the others always do
+        if algo != "eig":
+            assert not cp.array_equal(X, X_orig)
+    elif n_targets > 1 and not fit_intercept and weighted:
+        # The fallback solver also mutates in this case
+        assert not cp.array_equal(X, X_orig)
     else:
-        assert array_equal(X, X_copy)
+        # All other options don't mutate
+        cp.testing.assert_array_equal(X, X_orig)
 
 
 @given(

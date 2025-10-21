@@ -30,6 +30,7 @@ from cuml.datasets import make_blobs
         cuml.UMAP,
     ],
 )
+@pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
 def test_random_state_argument(Estimator):
     X, y = make_blobs(random_state=0)
     # Check that both integer and np.random.RandomState are accepted

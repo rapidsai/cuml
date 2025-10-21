@@ -70,6 +70,13 @@ except ImportError:
     HDBSCAN = None
 
 
+try:
+    from xgboost import XGBClassifier, XGBRegressor
+except ImportError:
+    XGBClassifier = None
+    XGBRegressor = None
+
+
 class AlgorithmPair:
     """
     Wraps a cuML algorithm and (optionally) a cpu-based algorithm
@@ -344,6 +351,28 @@ def all_algorithms():
             shared_args={},
             cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            XGBClassifier,
+            XGBClassifier,
+            shared_args={"tree_method": "hist", "n_estimators": 100},
+            cpu_args={"n_jobs": -1},
+            cuml_args={"device": "cuda"},
+            name="xgboost-classification",
+            accepts_labels=True,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook,
+            accuracy_function=metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            XGBRegressor,
+            XGBRegressor,
+            shared_args={"tree_method": "hist", "n_estimators": 100},
+            cpu_args={"n_jobs": -1},
+            cuml_args={"device": "cuda"},
+            name="xgboost-regression",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
