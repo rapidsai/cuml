@@ -151,19 +151,14 @@ struct RandomForestMetaData {
   bool feature_importances_computed = false;
 
   /**
-   * Flag indicating whether OOB score has been computed.
-   */
-  bool oob_score_computed = false;
-
-  /**
    * Number of rows in training data.
    */
   int n_rows = 0;
 
   /**
-   * RF type: 0 for classification, 1 for regression.
+   * RF type: CLASSIFICATION or REGRESSION.
    */
-  int rf_type = 0;
+  RF_type rf_type = RF_type::CLASSIFICATION;
 
   /**
    * Number of unique labels (for classification only).
@@ -187,15 +182,6 @@ template <class T, class L>
 void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
-
-/**
- * @brief Compute feature importances using mean decrease in impurity.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in,out] forest: RandomForestMetaData to update with feature importances
- */
-template <typename T, typename L>
-void compute_feature_importances(RandomForestMetaData<T, L>* forest);
 
 /**
  * @brief Get the out-of-bag score of the trained RandomForest model.

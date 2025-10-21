@@ -757,10 +757,10 @@ RF_metrics score(const raft::handle_t& user_handle,
 // Functions' specializations
 
 /**
- * @brief Compute feature importances using mean decrease in impurity.
+ * @brief Compute feature importances using mean decrease in impurity (internal).
  */
 template <typename T, typename L>
-void compute_feature_importances(RandomForestMetaData<T, L>* forest)
+static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
 {
   if (forest->n_features <= 0) {
     forest->feature_importances_computed = true;
@@ -831,9 +831,7 @@ double get_oob_score(const RandomForestMetaData<T, L>* forest)
 template <class T, class L>
 std::vector<T> get_feature_importances(RandomForestMetaData<T, L>* forest)
 {
-  if (!forest->feature_importances_computed) {
-    compute_feature_importances(forest);
-  }
+  if (!forest->feature_importances_computed) { compute_feature_importances(forest); }
   return forest->feature_importances;
 }
 
@@ -870,20 +868,19 @@ template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 
 // Template instantiations for get functions
-template void compute_feature_importances<float, int>(RandomForestMetaData<float, int>* forest);
-template void compute_feature_importances<double, int>(RandomForestMetaData<double, int>* forest);
-template void compute_feature_importances<float, float>(RandomForestMetaData<float, float>* forest);
-template void compute_feature_importances<double, double>(RandomForestMetaData<double, double>* forest);
-
 template double get_oob_score<float, int>(const RandomForestMetaData<float, int>* forest);
 template double get_oob_score<double, int>(const RandomForestMetaData<double, int>* forest);
 template double get_oob_score<float, float>(const RandomForestMetaData<float, float>* forest);
 template double get_oob_score<double, double>(const RandomForestMetaData<double, double>* forest);
 
-template std::vector<float> get_feature_importances<float, int>(RandomForestMetaData<float, int>* forest);
-template std::vector<double> get_feature_importances<double, int>(RandomForestMetaData<double, int>* forest);
-template std::vector<float> get_feature_importances<float, float>(RandomForestMetaData<float, float>* forest);
-template std::vector<double> get_feature_importances<double, double>(RandomForestMetaData<double, double>* forest);
+template std::vector<float> get_feature_importances<float, int>(
+  RandomForestMetaData<float, int>* forest);
+template std::vector<double> get_feature_importances<double, int>(
+  RandomForestMetaData<double, int>* forest);
+template std::vector<float> get_feature_importances<float, float>(
+  RandomForestMetaData<float, float>* forest);
+template std::vector<double> get_feature_importances<double, double>(
+  RandomForestMetaData<double, double>* forest);
 
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        TreeliteModelHandle* model,
@@ -957,9 +954,9 @@ template void fit_treelite_with_stats<double, double>(const raft::handle_t& user
                                                       double* input,
                                                       int n_rows,
                                                       int n_cols,
-                                                     double* labels,
-                                                     RF_params rf_params,
-                                                     rapids_logger::level_enum verbosity,
-                                                     double* oob_score_out,
-                                                     double* feature_importances_out);
+                                                      double* labels,
+                                                      RF_params rf_params,
+                                                      rapids_logger::level_enum verbosity,
+                                                      double* oob_score_out,
+                                                      double* feature_importances_out);
 }  // End namespace ML

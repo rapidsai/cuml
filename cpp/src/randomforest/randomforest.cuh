@@ -46,7 +46,7 @@ namespace ML {
 template <class T, class L>
 class RandomForest {
  public:
-  int rf_type;  // 0 for classification 1 for regression
+  RF_type rf_type;  // CLASSIFICATION or REGRESSION
 
  protected:
   RF_params rf_params;  // structure containing RF hyperparameters
@@ -114,9 +114,9 @@ class RandomForest {
   /**
    * @brief Construct RandomForest object.
    * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
-   * @param[in] cfg_rf_type: Task type: 0 for classification, 1 for regression
+   * @param[in] cfg_rf_type: Task type: CLASSIFICATION or REGRESSION
    */
-  RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
+  RandomForest(RF_params cfg_rf_params, RF_type cfg_rf_type = RF_type::CLASSIFICATION)
     : rf_params(cfg_rf_params), rf_type(cfg_rf_type) {};
 
   /**
@@ -182,13 +182,12 @@ class RandomForest {
       selected_rows.emplace_back(n_sampled_rows, handle.get_stream_from_stream_pool(i));
     }
 
-    forest->n_features = n_cols;
-    forest->n_rows = n_rows;
-    forest->rf_type = rf_type;
-    forest->n_unique_labels = n_unique_labels;
+    forest->n_features                   = n_cols;
+    forest->n_rows                       = n_rows;
+    forest->rf_type                      = rf_type;
+    forest->n_unique_labels              = n_unique_labels;
     forest->feature_importances_computed = false;
-    forest->oob_score_computed = false;
-    forest->oob_score = -1.0;
+    forest->oob_score                    = -1.0;
     forest->feature_importances.clear();
 
     // Initialize OOB tracking if needed
@@ -340,10 +339,7 @@ class RandomForest {
 
         forest->oob_score = 1.0 - (sum_squared_errors / sum_squared_total);
       }
-      
-      forest->oob_score_computed = true;
     }
-    
     // Note: Feature importances are computed lazily when requested
   }
 
@@ -458,7 +454,6 @@ class RandomForest {
 
     return stats;
   }
-
 };
 
 // class specializations
