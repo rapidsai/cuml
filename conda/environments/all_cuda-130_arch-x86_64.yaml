@@ -78,6 +78,6 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.28
 - tenacity
-- treelite==4.4.1
+- treelite
 - umap-learn==0.5.7
 name: all_cuda-130_arch-x86_64

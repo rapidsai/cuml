@@ -16,6 +16,8 @@
 
 #include "umap.cuh"
 
+#include <rmm/device_buffer.hpp>
+
 namespace ML {
 namespace UMAP {
 
@@ -77,7 +79,7 @@ void fit(const raft::handle_t& handle,
          knn_indices_dense_t* knn_indices,
          float* knn_dists,
          UMAPParams* params,
-         float* embeddings,
+         std::unique_ptr<rmm::device_buffer>& embeddings,
          raft::host_coo_matrix<float, int, int, uint64_t>& graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
@@ -97,7 +99,7 @@ void fit_sparse(const raft::handle_t& handle,
                 int* knn_indices,
                 float* knn_dists,
                 UMAPParams* params,
-                float* embeddings,
+                std::unique_ptr<rmm::device_buffer>& embeddings,
                 raft::host_coo_matrix<float, int, int, uint64_t>& graph)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))

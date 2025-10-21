@@ -501,27 +501,3 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
 
     if transform_broadcast:
         assert cuml_mod.internal_model is None
-
-
-@pytest.mark.parametrize("cls", [cuRFC_mg, cuRFR_mg])
-def test_predict_model_deprecated(cls, client):
-    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
-
-    if cls is cuRFC_mg:
-        X, y = make_classification(n_samples=1000 * n_workers)
-        y = y.astype("int32")
-    else:
-        X, y = make_regression(n_samples=1000 * n_workers)
-        y = y.astype("float32")
-
-    X = X.astype("float32")
-    dask_X, dask_y = _prep_training_data(client, X, y, 3)
-
-    model = cls().fit(dask_X, dask_y)
-    sol = model.predict(dask_X)
-    with pytest.warns(FutureWarning, match="predict_model"):
-        res = model.predict(dask_X, predict_model="CPU")
-
-    np.testing.assert_array_equal(
-        res.compute().to_numpy(), sol.compute().to_numpy()
-    )

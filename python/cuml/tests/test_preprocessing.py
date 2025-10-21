@@ -917,6 +917,9 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:'ignore_implicit_zeros' takes effect only with sparse matrix.*:UserWarning"
+)
 @pytest.mark.parametrize("n_quantiles", [30, 100])
 @pytest.mark.parametrize("output_distribution", ["uniform", "normal"])
 @pytest.mark.parametrize("ignore_implicit_zeros", [False, True])
@@ -1033,6 +1036,12 @@ def test_quantile_transformer_sparse(
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:'ignore_implicit_zeros' takes effect only with sparse matrix.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:n_quantiles .* is greater than the total number of samples.*:UserWarning"
+)
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("n_quantiles", [30, 100])
 @pytest.mark.parametrize("output_distribution", ["uniform", "normal"])

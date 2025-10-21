@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <rmm/mr/host/pinned_memory_resource.hpp>
+#include <rmm/mr/pinned_host_memory_resource.hpp>
 
 namespace ML {
 
@@ -56,7 +56,7 @@ class pinned_host_vector {
   T& operator[](std::size_t idx) { return *(data_ + idx); }
 
  private:
-  rmm::mr::pinned_memory_resource pinned_mr{};
+  rmm::mr::pinned_host_memory_resource pinned_mr{};
   T* data_;
   std::size_t size_;
 };

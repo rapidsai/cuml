@@ -16,6 +16,7 @@
 import time
 
 import cupy as cp
+import numpy as np
 
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
@@ -136,11 +137,9 @@ class PermutationExplainer(SHAPBase):
         the model's computations, so users can run different models
         concurrently in different streams by creating handles in several
         streams.
-    dtype : np.float32 or np.float64 (default = None)
+    dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
-        model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will default to
-        np.float32.
+        model.
     output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.
         If not specified, the explainer will default to 'numpy' for the time
@@ -193,7 +192,7 @@ class PermutationExplainer(SHAPBase):
                  handle=None,
                  is_gpu_model=None,
                  random_state=None,
-                 dtype=None,
+                 dtype=np.float32,
                  output_type=None,
                  verbose=False,):
         super().__init__(

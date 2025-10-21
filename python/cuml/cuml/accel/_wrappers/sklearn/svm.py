@@ -51,20 +51,16 @@ class SVC(ProxyBase):
     )
 
     def _gpu_fit(self, X, y, sample_weight=None):
-        n_classes = len(np.unique(np.asanyarray(y)))
-        if n_classes > 2:
+        classes, counts = np.unique(np.asanyarray(y), return_counts=True)
+        if len(classes) > 2:
             raise UnsupportedOnGPU("Multiclass `y` is not supported")
 
-        if self.probability:
-            # CalibratedClassifierCV doesn't like working with cases
-            # where all classes have less than 5 examples. To avoid
-            # doing a bincount here, we can infer that if n_classes <= 2
-            # as long as we have at least 10 samples then things will work.
-            n_rows = X.shape[0] if hasattr(X, "shape") else len(X)
-            if n_rows < 10:
-                raise UnsupportedOnGPU(
-                    "`probability=True` requires >= 10 rows"
-                )
+        # CalibratedClassifierCV doesn't like working with cases where any
+        # classes have less than 5 examples.
+        if self.probability and counts.min() < 5:
+            raise UnsupportedOnGPU(
+                "`probability=True` requires >= 5 samples per class"
+            )
 
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 

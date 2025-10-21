@@ -11,19 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import warnings
-
 import numpy as np
 
-import cuml.internals
 import cuml.internals.nvtx as nvtx
-import cuml.metrics
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
+from cuml.metrics import r2_score
 
 
 class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
@@ -121,18 +117,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'deprecated')
-        Decides the metric used to evaluate the performance of the model.
-         * for r-squared : ``'r2'`` (default)
-         * for median of abs error : ``'median_ae'``
-         * for mean of abs error : ``'mean_ae'``
-         * for mean square error' : ``'mse'``
-
-        .. deprecated:: 25.10
-            `accuracy_metric` is deprecated and will be removed in 25.12. To
-            evaluate models with metrics other than r2, please call the respective
-            metric function from `cuml.metrics` directly.
-
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -162,30 +146,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
 
-    @classmethod
-    def _get_param_names(cls):
-        return [*super()._get_param_names(), "accuracy_metric"]
-
     def __init__(
         self,
         *,
         split_criterion="mse",
         max_features=1.0,
-        accuracy_metric="deprecated",
         handle=None,
         verbose=False,
         output_type=None,
         **kwargs,
     ):
-        if accuracy_metric != "deprecated":
-            warnings.warn(
-                "`accuracy_metric` was deprecated in 25.10 and will be removed "
-                "in 25.12. To evaluate models with metrics other than r2, please call "
-                "the respective metric function from `cuml.metrics` directly.",
-                FutureWarning,
-            )
-
-        self.accuracy_metric = accuracy_metric
         super().__init__(
             split_criterion=split_criterion,
             max_features=max_features,
@@ -237,7 +207,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ) -> CumlArray:
         """
         Predicts the values for X.
@@ -261,19 +230,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
         y : {}
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -306,12 +267,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ):
         """
-        Calculates the accuracy metric score of the model for X.
-        In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.
+        Calculates the r2 score of the model on test data.
 
         Parameters
         ----------
@@ -332,33 +290,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
-        mean_square_error : float or
-        median_abs_error : float or
-        mean_abs_error : float
+        r2_score : float
         """
         y_pred = self.predict(
             X,
             convert_dtype=convert_dtype,
-            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        # TODO: all this branching will be removed in 25.12
-        if self.accuracy_metric in ("r2", "deprecated"):
-            return cuml.metrics.r2_score(y, y_pred)
-        elif self.accuracy_metric == "median_ae":
-            return cuml.metrics.median_absolute_error(y, y_pred)
-        elif self.accuracy_metric == "mean_ae":
-            return cuml.metrics.mean_absolute_error(y, y_pred)
-        else:
-            return cuml.metrics.mean_squared_error(y, y_pred)
+        return r2_score(y, y_pred)

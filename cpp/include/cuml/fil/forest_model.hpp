@@ -17,9 +17,12 @@
 #include <cuml/fil/decision_forest.hpp>
 #include <cuml/fil/detail/index_type.hpp>
 #include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_check.hpp>
 #include <cuml/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/fil/detail/raft_proto/handle.hpp>
 #include <cuml/fil/infer_kind.hpp>
+
+#include <cuda_runtime.h>
 
 #include <cstddef>
 #include <type_traits>

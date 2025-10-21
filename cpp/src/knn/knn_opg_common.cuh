@@ -405,11 +405,7 @@ void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t>& work,
     ++request_idx;
   }
 
-  try {
-    handle.get_comms().waitall(requests.size(), requests.data());
-  } catch (raft::exception& e) {
-    CUML_LOG_DEBUG("FAILURE!");
-  }
+  handle.get_comms().waitall(requests.size(), requests.data());
 }
 
 /*!
@@ -674,11 +670,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     }
   }
 
-  try {
-    handle.get_comms().waitall(requests.size(), requests.data());
-  } catch (raft::exception& e) {
-    CUML_LOG_DEBUG("FAILURE!");
-  }
+  handle.get_comms().waitall(requests.size(), requests.data());
 }
 
 /*!
@@ -968,7 +960,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                                  *(params.uniq_labels),
                                                  *(params.n_unique));
       break;
-    default: CUML_LOG_DEBUG("FAILURE!");
+    default: CUML_LOG_DEBUG("Not a valid operation.");
   }
 }
 

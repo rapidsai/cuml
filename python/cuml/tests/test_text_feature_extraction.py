@@ -473,6 +473,9 @@ def test_hashingvectorizer():
 
 
 @pytest.mark.xfail
+@pytest.mark.filterwarnings(
+    "ignore:The parameter 'token_pattern' will not be used:UserWarning:sklearn"
+)
 def test_vectorizer_empty_token_case():
     """
     We ignore empty tokens right now but sklearn treats them as a character

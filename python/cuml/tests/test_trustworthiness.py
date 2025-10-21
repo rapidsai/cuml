@@ -27,6 +27,9 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 @pytest.mark.parametrize("n_features", [10, 100])
 @pytest.mark.parametrize("n_components", [2, 8])
 @pytest.mark.parametrize("batch_size", [128, 1024])
+@pytest.mark.filterwarnings(
+    "ignore:n_jobs value.*overridden.*by setting random_state.*:UserWarning"
+)
 def test_trustworthiness(
     input_type, n_samples, n_features, n_components, batch_size
 ):

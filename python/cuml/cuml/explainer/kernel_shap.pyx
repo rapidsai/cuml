@@ -133,11 +133,9 @@ class KernelExplainer(SHAPBase):
         the model's computations, so users can run different models
         concurrently in different streams by creating handles in several
         streams.
-    dtype : np.float32 or np.float64 (default = None)
+    dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
-        model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will default to
-        np.float32.
+        model.
     output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.
         If not specified, the explainer will default to 'numpy' for the time
@@ -194,7 +192,7 @@ class KernelExplainer(SHAPBase):
                  random_state=None,
                  is_gpu_model=None,
                  handle=None,
-                 dtype=None,
+                 dtype=np.float32,
                  output_type=None):
 
         super().__init__(
