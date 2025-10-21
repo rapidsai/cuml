@@ -118,19 +118,29 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         comms = Comms(comms_p2p=True)
         comms.init()
 
-        dbscan_fit = [
-            self.client.submit(
-                DBSCAN._func_fit(out_dtype),
-                comms.sessionId,
-                data,
-                **self.kwargs,
-                workers=[worker],
-                pure=False,
-            )
-            for worker in comms.worker_addresses
-        ]
+        # Get worker info to map workers to their RAFT ranks
+        worker_info = comms.worker_info(comms.worker_addresses)
 
-        wait_and_raise_from_futures(dbscan_fit)
+        # Create dict keyed by rank (not list indexed by worker order)
+        # This ensures we can explicitly get rank 0's result
+        dbscan_fit = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
+                        DBSCAN._func_fit(out_dtype),
+                        comms.sessionId,
+                        data,
+                        **self.kwargs,
+                        workers=[worker],
+                        pure=False,
+                    ),
+                )
+                for worker in comms.worker_addresses
+            ]
+        )
+
+        wait_and_raise_from_futures(list(dbscan_fit.values()))
 
         comms.destroy()
 
