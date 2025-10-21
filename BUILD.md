@@ -15,7 +15,7 @@ To install cuML from source, ensure the following dependencies are met:
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
-It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
+It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
 
 ```bash
 conda create -n cuml_dev python=3.13
@@ -91,7 +91,7 @@ $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 
 If you want a list of the available Python tests:
 ```bash
-$ pytest cuML/tests --collect-only
+$ pytest cuml/tests --collect-only
 ```
 
 Note: To run tests requiring `xgboost` in conda devcontainers, users must install the `xgboost` conda package manually.
@@ -146,7 +146,7 @@ You may also wish to make use of `ccache` to reduce build times when switching a
 $ cmake .. -DUSE_CCACHE=ON
 ```
 
-There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).
+There are many options to configure the build process, see the [customizing build section](#custom-build-options).
 
 3. Build `libcuml++` and `libcuml`:
 
@@ -179,14 +179,14 @@ To run ml-prims C++ benchmarks (optional):
 ```bash
 $ ./bench/prims_benchmark  # ml-prims benchmarks
 ```
-Refer to `--help` option to know more on its uage
+Refer to `--help` option to know more on its usage
 
 To build doxygen docs for all C/C++ source files
 ```bash
 $ make doc
 ```
 
-5. Build the `cuml` python package:
+4. Build the `cuml` python package:
 
 ```bash
 $ cd ../../python
@@ -209,7 +209,7 @@ $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 
 If you want a list of the available tests:
 ```bash
-$ pytest cuML/tests --collect-only
+$ pytest cuml/tests --collect-only
 ```
 
 5. Finally, install the Python package to your Python path:
