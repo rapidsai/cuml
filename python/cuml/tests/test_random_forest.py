@@ -1495,6 +1495,111 @@ def test_rf_feature_importance_not_fitted():
         _ = reg.feature_importances_
 
 
+def test_rf_feature_importance_exact_match_with_fixed_trees():
+    """Test that feature importances match exactly when trees are identical.
+
+    This test creates identical tree structures and verifies that the
+    feature importance calculation produces identical results.
+    """
+    # Create a simple dataset
+    X = np.array(
+        [
+            [0, 0, 0, 1],
+            [0, 0, 1, 1],
+            [0, 1, 0, 1],
+            [0, 1, 1, 1],
+            [1, 0, 0, 0],
+            [1, 0, 1, 0],
+            [1, 1, 0, 0],
+            [1, 1, 1, 0],
+        ],
+        dtype=np.float32,
+    )
+
+    y = np.array([0, 0, 0, 1, 1, 1, 1, 0], dtype=np.int32)
+
+    # Train with no randomness to get reproducible trees
+    cu_rf = curfc(
+        n_estimators=1,  # Single tree for simplicity
+        max_depth=2,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=1.0,  # Use all features
+        bootstrap=False,  # No bootstrapping
+        random_state=42,
+    )
+    cu_rf.fit(X, y)
+
+    # Get feature importances
+    cu_importances = cu_rf.feature_importances_
+
+    # The feature importances should sum to 1
+    assert np.allclose(
+        cu_importances.sum(), 1.0
+    ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
+
+    # Feature 0 should be most important as it perfectly splits the classes
+    assert (
+        np.argmax(cu_importances) == 0
+    ), f"Feature 0 should be most important, but importances are: {cu_importances}"
+
+    # Test with multiple trees
+    cu_rf2 = curfc(
+        n_estimators=10,
+        max_depth=2,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf2.fit(X, y)
+
+    cu_importances2 = cu_rf2.feature_importances_
+
+    # With no randomness, multiple trees should give same importances
+    # (since they're all built on the same data with same parameters)
+    assert np.allclose(
+        cu_importances, cu_importances2, rtol=1e-5
+    ), f"Importances differ with multiple trees:\nSingle: {cu_importances}\nMultiple: {cu_importances2}"
+
+
+def test_rf_feature_importance_consistency():
+    """Test that feature importances are consistent across multiple runs."""
+    X, y = make_classification(
+        n_samples=200,
+        n_features=10,
+        n_informative=5,
+        n_redundant=2,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Train the same model multiple times
+    importances_list = []
+    for i in range(3):
+        rf = curfc(
+            n_estimators=10,
+            max_depth=5,
+            min_samples_split=5,
+            max_features="sqrt",
+            bootstrap=True,
+            random_state=42,  # Same seed for reproducibility
+        )
+        rf.fit(X, y)
+        importances_list.append(rf.feature_importances_)
+
+    # All runs should produce identical importances
+    for i in range(1, len(importances_list)):
+        assert np.allclose(
+            importances_list[0], importances_list[i], rtol=1e-5
+        ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+
+
 def test_convert_methods_deprecated():
     X, y = make_regression(n_samples=500)
     model = cuml.RandomForestRegressor().fit(X, y)

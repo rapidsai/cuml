@@ -239,6 +239,19 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
 
+template <typename T, typename L>
+void fit_treelite_with_stats(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             T* input,
+                             int n_rows,
+                             int n_cols,
+                             L* labels,
+                             int n_unique_labels,
+                             RF_params rf_params,
+                             rapids_logger::level_enum verbosity,
+                             double* oob_score_out,
+                             T* feature_importances_out);
+
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
              const float* input,
@@ -314,26 +327,6 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
-
-/**
- * @brief Train a RandomForest and export a Treelite model while also returning
- *        the out-of-bag score and feature importances.
- *
- * These helpers mirror fit_treelite but additionally fill the provided
- * outputs with OOB score and per-feature importances computed during training.
- */
-template <typename T, typename L>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             T* input,
-                             int n_rows,
-                             int n_cols,
-                             L* labels,
-                             int n_unique_labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             double* oob_score_out,
-                             T* feature_importances_out);
 
 template <typename T, typename L>
 void fit_treelite_with_stats(const raft::handle_t& user_handle,
