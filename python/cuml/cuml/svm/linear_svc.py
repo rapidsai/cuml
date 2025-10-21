@@ -1,42 +1,71 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
+import cuml.svm.linear
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.mixins import ClassifierMixin
-from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
 
-__all__ = ["LinearSVC"]
+__all__ = ("LinearSVC",)
 
 
-class LinearSVC(LinearSVM, ClassifierMixin):
+class LinearSVC(Base, InteropMixin, ClassifierMixin):
     """
-    LinearSVC (Support Vector Classification with the linear kernel)
+    Linear Support Vector Classification.
 
-    Construct a linear SVM classifier for training and predictions.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from cuml.svm import LinearSVC
-        >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-        ...              dtype=cp.float32);
-        >>> y = cp.array([0, 0, 1, 0, 1, 1], dtype=cp.float32)
-        >>> clf = LinearSVC(loss='squared_hinge', penalty='l1', C=1)
-        >>> clf.fit(X, y)
-        LinearSVC()
-        >>> print("Predicted labels:", clf.predict(X))
-        Predicted labels: [0 0 1 0 1 1]
+    Similar to SVC with parameter kernel='linear', but implemented using a
+    linear solver. This enables flexibility in penalties and loss functions,
+    and can scale better for larger problems.
 
     Parameters
     ----------
+    penalty : {'l1', 'l2'}, default = 'l2'
+        The norm used in the penalization.
+    loss : {'hinge', 'squared_hinge'}, default='squared_hinge'
+        The loss function.
+    C : float, default=1.0
+        Regularization parameter. The strength of the regularization is
+        inversely proprtional to C. Must be strictly positive.
+    fit_intercept : bool, default=True
+        Whether to fit the bias term. Set to False if you expect that the
+        data is already centered.
+    penalized_intercept : bool, default=False
+        When true, the bias term is treated the same way as other features;
+        i.e. it's penalized by the regularization term of the target function.
+        Enabling this feature forces an extra copying the input data X.
+    class_weight : dict or string, default=None
+        Weights to modify the parameter C for class i to ``class_weight[i]*C``.
+        The string 'balanced' is also accepted, in which case
+        ``class_weight[i] = n_samples / (n_classes * n_samples_of_class[i])``
+    probability: bool, default=False
+        Set to True to enable probability estimate methods (``predict_proba``,
+        ``predict_log_proba``).
+    tol : float, default=1e-4
+        Tolerance for the stopping criterion.
+    max_iter : int, default=1000
+        Maximum number of iterations for the underlying solver.
+    linesearch_max_iter : int, default=100
+        Maximum number of linesearch (inner loop) iterations for
+        the underlying (QN) solver.
+    lbfgs_memory : int, default=5
+        Number of vectors approximating the hessian for the underlying QN
+        solver (l-bfgs).
+    multi_class : {'ovr'}, default='ovr'
+        Multiclass classification strategy. Currently only 'ovr' is supported.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -44,63 +73,9 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    penalty : {{'l1', 'l2'}} (default = '{LinearSVM_defaults.penalty}')
-        The regularization term of the target function.
-    loss : {LinearSVC.REGISTERED_LOSSES} (default = 'squared_hinge')
-        The loss term of the target function.
-    fit_intercept : {LinearSVM_defaults.fit_intercept.__class__.__name__ \
-            } (default = {LinearSVM_defaults.fit_intercept})
-        Whether to fit the bias term. Set to False if you expect that the
-        data is already centered.
-    penalized_intercept : { \
-            LinearSVM_defaults.penalized_intercept.__class__.__name__ \
-            } (default = {LinearSVM_defaults.penalized_intercept})
-        When true, the bias term is treated the same way as other features;
-        i.e. it's penalized by the regularization term of the target function.
-        Enabling this feature forces an extra copying the input data X.
-    max_iter : {LinearSVM_defaults.max_iter.__class__.__name__ \
-            } (default = {LinearSVM_defaults.max_iter})
-        Maximum number of iterations for the underlying solver.
-    linesearch_max_iter : { \
-            LinearSVM_defaults.linesearch_max_iter.__class__.__name__ \
-            } (default = {LinearSVM_defaults.linesearch_max_iter})
-        Maximum number of linesearch (inner loop) iterations for
-        the underlying (QN) solver.
-    lbfgs_memory : { \
-            LinearSVM_defaults.lbfgs_memory.__class__.__name__ \
-            } (default = {LinearSVM_defaults.lbfgs_memory})
-        Number of vectors approximating the hessian for the underlying QN
-        solver (l-bfgs).
-    class_weight : dict or string (default=None)
-        Weights to modify the parameter C for class i to class_weight[i]*C. The
-        string 'balanced' is also accepted, in which case ``class_weight[i] =
-        n_samples / (n_classes * n_samples_of_class[i])``
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    C : {LinearSVM_defaults.C.__class__.__name__ \
-            } (default = {LinearSVM_defaults.C})
-        The constant scaling factor of the loss term in the target formula
-          `F(X, y) = penalty(X) + C * loss(X, y)`.
-    grad_tol : {LinearSVM_defaults.grad_tol.__class__.__name__ \
-            } (default = {LinearSVM_defaults.grad_tol})
-        The threshold on the gradient for the underlying QN solver.
-    change_tol : {LinearSVM_defaults.change_tol.__class__.__name__ \
-            } (default = {LinearSVM_defaults.change_tol})
-        The threshold on the function change for the underlying QN solver.
-    tol : Optional[float] (default = None)
-        Tolerance for the stopping criterion.
-        This is a helper transient parameter that, when present, sets both
-        `grad_tol` and `change_tol` to the same value. When any of the two
-        `***_tol` parameters are passed as well, they take the precedence.
-    probability: {LinearSVM_defaults.probability.__class__.__name__ \
-            } (default = {LinearSVM_defaults.probability})
-        Enable or disable probability estimates.
-    multi_class : {{currently, only 'ovr'}} (default = 'ovr')
-        Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
-        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
-        while ``'ovr'`` selects `OneVsRestClassifier
-        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
     output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
         Return results and set estimator attributes to the indicated output
@@ -110,16 +85,16 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     Attributes
     ----------
-    intercept_ : float, shape (`n_classes_`,)
-        The constant in the decision function
-    coef_ : float, shape (`n_classes_`, n_cols)
-        The vectors defining the hyperplanes that separate the classes.
-    classes_ : float, shape (`n_classes_`,)
-        Array of class labels.
-    probScale_ : float, shape (`n_classes_`, 2)
-        Probability calibration constants (for the probabolistic output).
-    n_classes_ : int
-        Number of classes
+    coef_ : array, shape (1, n_features) if n_classes == 2 else (n_classes, n_features)
+        Weights assigned to the features (coefficients in the primal problem).
+    intercept_ : array or float, shape (1,) if n_classes == 2 else (n_classes,)
+        The constant factor in the decision function. If
+        ``fit_intercept=False`` this is instead a float with value 0.0.
+    classes_ : array, shape (n_classes,)
+        The unique class labels
+    prob_scale_ : array or None, shape (`n_classes_`, 2)
+        The probability calibration constants if ``probability=True``,
+        otherwise ``None``.
 
     Notes
     -----
@@ -132,122 +107,146 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     For additional docs, see `scikitlearn's LinearSVC
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html>`_.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.svm import LinearSVC
+    >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+    ...              dtype=cp.float32);
+    >>> y = cp.array([0, 0, 1, 0, 1, 1], dtype=cp.float32)
+    >>> clf = LinearSVC(penalty='l1', C=1).fit(X, y)
+    >>> print("Predicted labels:", clf.predict(X))  # doctest: +SKIP
+    Predicted labels: [0 0 1 0 1 1]
     """
 
+    coef_ = CumlArrayDescriptor(order="F")
+    intercept_ = CumlArrayDescriptor(order="F")
+    classes_ = CumlArrayDescriptor(order="F")
+    prob_scale_ = CumlArrayDescriptor(order="F")
+
     _cpu_class_path = "sklearn.svm.LinearSVC"
-    REGISTERED_LOSSES = set(["hinge", "squared_hinge"])
 
-    def __init__(self, **kwargs):
-        # NB: the keyword arguments are filtered in python/cuml/svm/linear.pyx
-        #     the default parameter values are reexported from
-        #                                      cpp/include/cuml/svm/linear.hpp
-        # set classification-specific defaults
-        if "loss" not in kwargs:
-            kwargs["loss"] = "squared_hinge"
-        if "multi_class" not in kwargs:
-            # 'multi_class' is a real parameter here
-            # 'multiclass_strategy' is an ephemeral compatibility parameter
-            #              for easier switching between
-            #              sklearn.LinearSVC <-> cuml.LinearSVC <-> cuml.SVC
-            kwargs["multi_class"] = kwargs.pop("multiclass_strategy", "ovr")
-
-        super().__init__(**kwargs)
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "penalty",
+            "loss",
+            "C",
+            "fit_intercept",
+            "penalized_intercept",
+            "class_weight",
+            "probability",
+            "tol",
+            "max_iter",
+            "linesearch_max_iter",
+            "lbfgs_memory",
+            "multi_class",
+        ]
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.intercept_scaling != 1:
+            raise UnsupportedOnGPU(
+                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+            )
         if model.multi_class != "ovr":
             raise UnsupportedOnGPU(
                 f"`multi_class={model.multi_class}` is not supported"
             )
 
-        params = {
-            "loss": model.loss,
-            "multi_class": model.multi_class,
-            "class_weight": model.class_weight,
+        return {
             "penalty": model.penalty,
-            **super()._params_from_cpu(model),
+            "loss": model.loss,
+            "C": model.C,
+            "fit_intercept": model.fit_intercept,
+            "class_weight": model.class_weight,
+            "tol": model.tol,
+            "max_iter": model.max_iter,
+            "multi_class": model.multi_class,
         }
-
-        return params
 
     def _params_to_cpu(self):
         return {
-            "loss": self.loss,
-            "multi_class": self.multi_class,
-            "class_weight": self.class_weight,
             "penalty": self.penalty,
-            **super()._params_to_cpu(),
+            "loss": self.loss,
+            "C": self.C,
+            "fit_intercept": self.fit_intercept,
+            "class_weight": self.class_weight,
+            "tol": self.tol,
+            "max_iter": self.max_iter,
+            "multi_class": self.multi_class,
         }
 
     def _attrs_from_cpu(self, model):
         return {
-            "classes_": to_gpu(model.classes_, order="F", dtype=np.float64),
+            "coef_": to_gpu(model.coef_, order="F", dtype=np.float64),
+            "intercept_": to_gpu(
+                model.intercept_, order="F", dtype=np.float64
+            ),
+            "classes_": to_gpu(model.classes_, order="F"),
+            "prob_scale_": None,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
+            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
+            "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
             "classes_": to_cpu(self.classes_, order="C"),
             **super()._attrs_to_cpu(model),
         }
 
-    @property
-    def loss(self):
-        return self.__loss
-
-    @loss.setter
-    def loss(self, loss: str):
-        if loss not in self.REGISTERED_LOSSES:
-            raise ValueError(
-                f"Classification loss type "
-                f"must be one of {self.REGISTERED_LOSSES}, "
-                f"but given '{loss}'."
-            )
-        self.__loss = loss
-
-    @classmethod
-    def _get_param_names(cls):
-        return list(
-            {
-                "handle",
-                "class_weight",
-                "verbose",
-                "penalty",
-                "loss",
-                "fit_intercept",
-                "penalized_intercept",
-                "probability",
-                "max_iter",
-                "linesearch_max_iter",
-                "lbfgs_memory",
-                "C",
-                "grad_tol",
-                "change_tol",
-                "multi_class",
-            }.union(super()._get_param_names())
+    def __init__(
+        self,
+        *,
+        penalty="l2",
+        loss="squared_hinge",
+        C=1.0,
+        fit_intercept=True,
+        penalized_intercept=False,
+        class_weight=None,
+        probability=False,
+        tol=1e-4,
+        max_iter=1000,
+        linesearch_max_iter=100,
+        lbfgs_memory=5,
+        multi_class="ovr",
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
         )
 
+        self.penalty = penalty
+        self.loss = loss
+        self.C = C
+        self.fit_intercept = fit_intercept
+        self.penalized_intercept = penalized_intercept
+        self.class_weight = class_weight
+        self.probability = probability
+        self.tol = tol
+        self.max_iter = max_iter
+        self.linesearch_max_iter = linesearch_max_iter
+        self.lbfgs_memory = lbfgs_memory
+        self.multi_class = multi_class
+
+    @generate_docstring()
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
-    ) -> "LinearSVM":
-        X, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
+    ) -> "LinearSVC":
+        """Fit the model according to the given training data."""
+        X = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
-        )
-
-        convert_to_dtype = self.dtype if convert_dtype else None
-        y = input_to_cuml_array(
-            y,
-            check_dtype=self.dtype,
-            convert_to_dtype=convert_to_dtype,
-            check_rows=n_rows,
-            check_cols=1,
         ).array
 
-        if X.size == 0 or y.size == 0:
-            raise ValueError("empty data")
+        y = input_to_cupy_array(y, check_rows=X.shape[0], check_cols=1).array
 
         sample_weight = apply_class_weight(
             self.handle,
@@ -258,11 +257,141 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             self.output_type,
             X.dtype,
         )
-        return super(LinearSVC, self).fit(
-            X, y, sample_weight, convert_dtype=convert_dtype
+
+        if sample_weight is not None:
+            sample_weight = input_to_cuml_array(
+                sample_weight,
+                check_dtype=X.dtype,
+                convert_to_dtype=(X.dtype if convert_dtype else None),
+                check_rows=X.shape[0],
+                check_cols=1,
+            ).array
+
+        classes, y = cp.unique(y, return_inverse=True)
+        coef, intercept, prob_scale = cuml.svm.linear.fit(
+            self.handle,
+            X,
+            CumlArray(data=y.astype(X.dtype, copy=False)),
+            sample_weight=sample_weight,
+            classes=CumlArray(data=classes.astype(X.dtype, copy=False)),
+            probability=self.probability,
+            loss=self.loss,
+            penalty=self.penalty,
+            fit_intercept=self.fit_intercept,
+            penalized_intercept=self.penalized_intercept,
+            max_iter=self.max_iter,
+            linesearch_max_iter=self.linesearch_max_iter,
+            lbfgs_memory=self.lbfgs_memory,
+            C=self.C,
+            tol=self.tol,
+            epsilon=0.0,
+        )
+        self.coef_ = coef
+        self.intercept_ = intercept
+        self.classes_ = CumlArray(data=classes)
+        self.prob_scale_ = prob_scale
+        return self
+
+    @generate_docstring(
+        return_values={
+            "name": "score",
+            "type": "dense",
+            "description": "Confidence score",
+            "shape": "(n_samples,) or (n_samples, n_classes)",
+        },
+    )
+    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
+        """Predict confidence scores for samples."""
+        X = input_to_cuml_array(
+            X,
+            check_dtype=self.coef_.dtype,
+            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+            check_cols=self.n_features_in_,
+            order="K",
+        ).array
+        X_cp = X.to_output("cupy")
+
+        coef = self.coef_.to_output("cupy")
+        intercept = self.intercept_
+        if isinstance(intercept, CumlArray):
+            intercept = intercept.to_output("cupy")
+
+        out = X_cp @ coef.T
+        out += intercept
+        if out.ndim > 1 and out.shape[1] == 1:
+            out = out.reshape(-1)
+        return CumlArray(out, index=X.index)
+
+    @generate_docstring(
+        return_values={
+            "name": "y_pred",
+            "type": "dense",
+            "description": "Predicted class labels.",
+            "shape": "(n_samples,)",
+        },
+    )
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+        """Predict class labels for samples in X."""
+        classes = self.classes_.to_output("cupy")
+
+        if self.probability:
+            probs = self.predict_proba(X, convert_dtype=convert_dtype)
+            inds = probs.to_output("cupy").argmax(axis=1)
+        else:
+            scores = self.decision_function(X, convert_dtype=convert_dtype)
+            if scores.ndim == 1:
+                inds = scores.to_output("cupy") >= 0
+            else:
+                inds = scores.to_output("cupy").argmax(axis=1)
+        return CumlArray(data=classes.take(inds))
+
+    @generate_docstring(
+        return_values={
+            "name": "probs",
+            "type": "dense",
+            "description": "Probabilities per class for each sample.",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
+    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
+        """Compute probabilities of possible outcomes for samples in X.
+
+        The model must have been fit with ``probability=True`` for this method
+        to be available.
+        """
+        if self.prob_scale_ is None:
+            raise NotFittedError(
+                "This classifier is not fitted to predict "
+                "probabilities. Fit a new classifier with "
+                "probability=True to enable predict_proba."
+            )
+
+        scores = self.decision_function(X, convert_dtype=convert_dtype)
+        scores = input_to_cuml_array(
+            scores,
+            check_dtype=self.coef_.dtype,
+            order="C",
+        ).array
+        return cuml.svm.linear.compute_probabilities(
+            self.handle, scores, self.prob_scale_
         )
 
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
-        y_pred = super().predict(X, convert_dtype=convert_dtype)
-        # Cast to int64 to match expected classifier interface
-        return y_pred.to_output("cupy", output_dtype="int64")
+    @generate_docstring(
+        return_values={
+            "name": "probs",
+            "type": "dense",
+            "description": "Log probabilities per class for each sample.",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
+    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
+        """Compute log probabilities of possible outcomes for samples in X.
+
+        The model must have been fit with ``probability=True`` for this method
+        to be available.
+        """
+        probs = self.predict_proba(X, convert_dtype=convert_dtype).to_output(
+            "cupy"
+        )
+        cp.log(probs, out=probs)
+        return CumlArray(data=probs)
