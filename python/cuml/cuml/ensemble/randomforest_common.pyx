@@ -23,9 +23,7 @@ import numpy as np
 import treelite.sklearn
 from pylibraft.common.handle import Handle
 
-from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import ForestInference
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
@@ -360,8 +358,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.random_state = random_state
         self.n_streams = n_streams
         self.oob_score = oob_score
-        self._oob_score_ = -1.0
-        self._feature_importances_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -616,10 +612,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             raise AttributeError(
                 "oob_score_ is only available when oob_score=True"
             )
-        if self._oob_score_ < 0:
-            raise NotFittedError(
-                "This RandomForest instance is not fitted yet. "
-                "Call 'fit' with appropriate arguments before using this property."
+        if not hasattr(self, '_oob_score_'):
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute 'oob_score_'"
             )
         return self._oob_score_
 
@@ -634,10 +629,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             trees consisting of only the root node, in which case it will be an
             array of zeros.
         """
-        if self._feature_importances_ is None:
-            raise NotFittedError(
-                "This RandomForest instance is not fitted yet. "
-                "Call 'fit' with appropriate arguments before using this property."
+        if not hasattr(self, '_feature_importances_'):
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute 'feature_importances_'"
             )
         return np.asarray(self._feature_importances_)
 
