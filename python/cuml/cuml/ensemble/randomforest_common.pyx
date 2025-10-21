@@ -571,8 +571,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         # Ensure cached fil model is reset
         self._fil_model = None
         if self.oob_score:
-            self._oob_score_ = oob_score_value
-        self._feature_importances_ = _fi_py
+            self.oob_score_ = oob_score_value
+        self.feature_importances_ = np.asarray(_fi_py)
         return self
 
     def _get_inference_fil_model(
@@ -595,45 +595,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             )
         return fil_model
 
-    @property
-    def oob_score_(self):
-        """Out-of-bag score for the training dataset.
-
-        Only available if oob_score=True.
-
-        Returns
-        -------
-        score : float
-            Score of the training dataset using an out-of-bag estimate.
-            For classification, this is the accuracy score.
-            For regression, this is the R-squared score.
-        """
-        if not self.oob_score:
-            raise AttributeError(
-                "oob_score_ is only available when oob_score=True"
-            )
-        if not hasattr(self, '_oob_score_'):
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'oob_score_'"
-            )
-        return self._oob_score_
-
-    @property
-    def feature_importances_(self):
-        """The feature importances based on the mean decrease in impurity.
-
-        Returns
-        -------
-        feature_importances_ : ndarray of shape (n_features,)
-            The values of this array sum to 1, unless all trees are single node
-            trees consisting of only the root node, in which case it will be an
-            array of zeros.
-        """
-        if not hasattr(self, '_feature_importances_'):
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'feature_importances_'"
-            )
-        return np.asarray(self._feature_importances_)
 
     def _handle_deprecated_predict_model(self, predict_model):
         if predict_model != "deprecated":
