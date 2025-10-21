@@ -84,13 +84,23 @@ CUML_KERNEL void class_probs_weighted_kernel(OutType* out,
 
   if (row >= n_samples) return;
 
-  // Accumulate weighted votes (weights are already normalized on Python side)
+  // Accumulate weighted votes (raw weights, not normalized)
+  float weight_sum = 0;
   for (int j = 0; j < n_neighbors; j++) {
     float weight = weights[i + j];
+    weight_sum += weight;
 
     int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
     int out_idx   = row * n_uniq_labels + out_label;
     out[out_idx] += weight;
+  }
+
+  // Normalize probabilities to sum to 1
+  if (weight_sum > 0) {
+    int out_base = row * n_uniq_labels;
+    for (int j = 0; j < n_uniq_labels; j++) {
+      out[out_base + j] /= weight_sum;
+    }
   }
 }
 
@@ -169,14 +179,18 @@ CUML_KERNEL void regress_avg_weighted_kernel(LabelType* out,
 
   if (row >= n_samples) return;
 
-  // Accumulate weighted predictions (weights are already normalized on Python side)
-  LabelType pred = 0;
+  // Compute weighted sum and sum of weights (weights are raw, not normalized)
+  LabelType weighted_sum = 0;
+  float weight_sum       = 0;
+
   for (int j = 0; j < n_neighbors; j++) {
     float weight = weights[i + j];
-    pred += weight * get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+    weighted_sum += weight * get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+    weight_sum += weight;
   }
 
-  out[row * n_outputs + output_offset] = pred;
+  // Compute weighted average: sum(y * w) / sum(w)
+  out[row * n_outputs + output_offset] = (weight_sum > 0) ? (weighted_sum / weight_sum) : 0;
 }
 
 /**

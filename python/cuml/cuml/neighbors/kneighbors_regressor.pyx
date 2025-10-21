@@ -45,10 +45,10 @@ def _compute_weights(distances, weights):
     Returns
     -------
     weights_arr : cupy.ndarray
-        Normalized weights of shape (n_samples, k).
-        For uniform weights, returns array of 1/k.
-        For distance weights, returns normalized inverse distances.
-        For callable, returns normalized result of callable(distances).
+        Weights of shape (n_samples, k).
+        For uniform weights, returns array of 1/k (normalized).
+        For distance weights, returns raw inverse distances (not normalized).
+        For callable, returns raw result of callable(distances) (not normalized).
     """
     # Convert to cupy array if needed and ensure 2D
     if not isinstance(distances, cp.ndarray):
@@ -65,24 +65,28 @@ def _compute_weights(distances, weights):
         n_neighbors = distances.shape[1]
         return cp.full_like(distances, 1.0 / n_neighbors, dtype=cp.float32)
     elif weights == 'distance':
-        # Distance weights: inverse of distance
-        # Handle zero distances with a very large weight
-        raw_weights = cp.where(
-            distances == 0,
-            1e12,
-            1.0 / distances
-        ).astype(cp.float32)
-        # Normalize weights per sample to sum to 1
-        weight_sums = raw_weights.sum(axis=1, keepdims=True)
-        normalized_weights = raw_weights / cp.where(weight_sums == 0, 1, weight_sums)
-        return normalized_weights
+        # Distance weights: inverse of distance (raw, not normalized)
+        # Match sklearn behavior: if any neighbor has distance 0, only those
+        # neighbors contribute (with equal weight)
+
+        # Compute 1/distance (this will produce inf for zero distances)
+        raw_weights = (1.0 / distances).astype(cp.float32)
+
+        # Handle infinite weights (from zero distances)
+        inf_mask = cp.isinf(raw_weights)
+        inf_row = cp.any(inf_mask, axis=1)
+
+        # For rows with any infinite weight, use binary mask:
+        # 1.0 for zero-distance neighbors, 0.0 for others
+        if cp.any(inf_row):
+            raw_weights[inf_row] = inf_mask[inf_row].astype(cp.float32)
+
+        return raw_weights
     elif callable(weights):
-        # Custom callable weights
+        # Custom callable weights (raw, not normalized)
         raw_weights = weights(distances).astype(cp.float32)
-        # Normalize weights per sample to sum to 1
-        weight_sums = raw_weights.sum(axis=1, keepdims=True)
-        normalized_weights = raw_weights / cp.where(weight_sums == 0, 1, weight_sums)
-        return normalized_weights
+        # Return raw weights - normalization will be done in C++ kernel
+        return raw_weights
     else:
         raise ValueError(
             f"weights must be 'uniform', 'distance', or a callable, got {weights}"
@@ -271,13 +275,25 @@ class KNeighborsRegressor(RegressorMixin,
         self._set_target_dtype(y)
 
         super().fit(X, convert_dtype=convert_dtype)
-        self._y = input_to_cuml_array(
+
+        # First get the original dtype before conversion
+        y_temp = input_to_cuml_array(
             y,
             order='F',
-            check_dtype=np.float32,
+            check_rows=self.n_samples_fit_,
+            convert_to_dtype=None,  # Don't convert yet, just to get original dtype
+        )
+        self._y_original_dtype = y_temp.dtype
+
+        # Now convert to float32 for internal use
+        y_arr = input_to_cuml_array(
+            y,
+            order='F',
             check_rows=self.n_samples_fit_,
             convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
+        )
+        self._y = y_arr.array
+
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -285,7 +301,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @cuml.internals.api_base_return_array(get_output_dtype=False)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
@@ -319,6 +335,8 @@ class KNeighborsRegressor(RegressorMixin,
 
         res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
+
+        # C++ kernel always uses float32, we'll convert after if needed
         out = CumlArray.zeros(res_shape, dtype=np.float32,
                               order="C",
                               index=inds.index)
@@ -369,4 +387,10 @@ class KNeighborsRegressor(RegressorMixin,
                 )
 
         self.handle.sync()
+
+        # Match float precision of original input labels (int labels → float32)
+        orig_dtype = getattr(self, '_y_original_dtype', self._y.dtype)
+        if np.issubdtype(orig_dtype, np.floating) and orig_dtype != np.float32:
+            out = CumlArray(cp.asarray(out).astype(orig_dtype))
+
         return out

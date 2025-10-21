@@ -33,7 +33,7 @@ from pylibraft.common.handle cimport handle_t
 
 def _compute_weights(distances, weights):
     """
-    Compute normalized weights from distances.
+    Compute weights from distances.
 
     Parameters
     ----------
@@ -46,10 +46,10 @@ def _compute_weights(distances, weights):
     Returns
     -------
     weights_arr : cupy.ndarray
-        Normalized weights of shape (n_samples, k).
-        For uniform weights, returns array of 1/k.
-        For distance weights, returns normalized inverse distances.
-        For callable, returns normalized result of callable(distances).
+        Weights of shape (n_samples, k).
+        For uniform weights, returns array of 1/k (normalized).
+        For distance weights, returns raw inverse distances (not normalized).
+        For callable, returns raw result of callable(distances) (not normalized).
     """
     # Convert to cupy array if needed and ensure 2D
     if not isinstance(distances, cp.ndarray):
@@ -66,24 +66,28 @@ def _compute_weights(distances, weights):
         n_neighbors = distances.shape[1]
         return cp.full_like(distances, 1.0 / n_neighbors, dtype=cp.float32)
     elif weights == 'distance':
-        # Distance weights: inverse of distance
-        # Handle zero distances with a very large weight
-        raw_weights = cp.where(
-            distances == 0,
-            1e12,
-            1.0 / distances
-        ).astype(cp.float32)
-        # Normalize weights per sample to sum to 1
-        weight_sums = raw_weights.sum(axis=1, keepdims=True)
-        normalized_weights = raw_weights / cp.where(weight_sums == 0, 1, weight_sums)
-        return normalized_weights
+        # Distance weights: inverse of distance (raw, not normalized)
+        # Match sklearn behavior: if any neighbor has distance 0, only those
+        # neighbors contribute (with equal weight)
+
+        # Compute 1/distance (this will produce inf for zero distances)
+        raw_weights = (1.0 / distances).astype(cp.float32)
+
+        # Handle infinite weights (from zero distances)
+        inf_mask = cp.isinf(raw_weights)
+        inf_row = cp.any(inf_mask, axis=1)
+
+        # For rows with any infinite weight, use binary mask:
+        # 1.0 for zero-distance neighbors, 0.0 for others
+        if cp.any(inf_row):
+            raw_weights[inf_row] = inf_mask[inf_row].astype(cp.float32)
+
+        return raw_weights
     elif callable(weights):
-        # Custom callable weights
+        # Custom callable weights (raw, not normalized)
         raw_weights = weights(distances).astype(cp.float32)
-        # Normalize weights per sample to sum to 1
-        weight_sums = raw_weights.sum(axis=1, keepdims=True)
-        normalized_weights = raw_weights / cp.where(weight_sums == 0, 1, weight_sums)
-        return normalized_weights
+        # Return raw weights
+        return raw_weights
     else:
         raise ValueError(
             f"weights must be 'uniform', 'distance', or a callable, got {weights}"
