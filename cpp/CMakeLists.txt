@@ -517,6 +517,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/spectral/spectral.cu
+        src/spectral/spectral_clustering.cu
         src/spectral/spectral_embedding.cu)
   endif()
 
