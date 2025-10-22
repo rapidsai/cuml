@@ -4,6 +4,10 @@
 
 To install cuML from source, ensure the following dependencies are met:
 
+**Hardware Needed to Run cuML:**
+To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or higher (Volta™ architecture or newer). Note that while a GPU is not required to build or develop cuML itself, it is necessary to execute and test GPU-accelerated functionality.
+
+**Software Dependencies:**
 1. CUDA (>= 12.0)
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
@@ -138,10 +142,16 @@ If using conda with conda-installed cmake, the `openblas` conda package is recom
 cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
 ```
 
-To reduce compile times, you can specify a GPU compute capability to compile for. For example, for Hopper GPUs:
+To reduce compile times, you can specify GPU compute capabilities to compile for. For example, for Volta GPUs:
 
 ```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="90"
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+```
+
+Or for multiple architectures (e.g., Ampere and Hopper):
+
+```bash
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="80;86;90"
 ```
 
 You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
@@ -242,7 +252,7 @@ cuML's cmake has the following configurable flags available:
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DETECT_CONDA_ENV | [ON, OFF] | ON | Use detection of conda environment for dependencies. If set to ON, and no value for CMAKE_INSTALL_PREFIX is passed, then it will assign it to $CONDA_PREFIX (to install in the active environment).  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
-| GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
+| GPU_ARCHS |  List of GPU architectures, semicolon-separated | 70;75;80;86;90  | List of GPU architectures that all artifacts are compiled for. |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 | NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
