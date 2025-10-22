@@ -4,15 +4,15 @@
 
 To install cuML from source, ensure the following dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (same as cuML version)
-2. zlib
+1. CUDA (>= 12.0)
+2. gcc (>= 13.0)
 3. cmake (>= 3.26.4)
-4. CUDA (>= 12.0)
-5. Cython (>= 0.29)
-6. gcc (>= 13.0)
-7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that BLAS must be installed in the same environment as cmake. For example, if using conda-installed cmake, the BLAS implementation should also be installed in the conda environment.
-8. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
-9. NCCL (>=2.4)
+4. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
+5. [cuDF](https://github.com/rapidsai/cudf) (same as cuML version)
+6. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that BLAS must be installed in the same environment as cmake. For example, if using conda-installed cmake, the BLAS implementation should also be installed in the conda environment.
+7. zlib
+8. Cython (>= 0.29)
+9. NCCL (>= 2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the following commands (adjust the YAML filename to match your CUDA version and architecture):
