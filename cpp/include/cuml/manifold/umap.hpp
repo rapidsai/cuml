@@ -21,6 +21,8 @@
 #include <raft/core/host_coo_matrix.hpp>
 #include <raft/sparse/coo.hpp>
 
+#include <rmm/device_buffer.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -117,7 +119,8 @@ void init_and_refine(const raft::handle_t& handle,
  * @param[in] knn_indices: pointer to knn_indices of input (optional)
  * @param[in] knn_dists: pointer to knn_dists of input (optional)
  * @param[in] params: pointer to ML::UMAPParams object
- * @param[out] embeddings: pointer to embedding produced through projection
+ * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
+ * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
  */
 void fit(const raft::handle_t& handle,
@@ -128,7 +131,7 @@ void fit(const raft::handle_t& handle,
          int64_t* knn_indices,
          float* knn_dists,
          UMAPParams* params,
-         float* embeddings,
+         std::unique_ptr<rmm::device_buffer>& embeddings,
          raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**
@@ -145,7 +148,8 @@ void fit(const raft::handle_t& handle,
  * @param[in] knn_indices: pointer to knn_indices of input (optional)
  * @param[in] knn_dists: pointer to knn_dists of input (optional)
  * @param[in] params: pointer to ML::UMAPParams object
- * @param[out] embeddings: pointer to embedding produced through projection
+ * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
+ * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
  */
 void fit_sparse(const raft::handle_t& handle,
@@ -159,7 +163,7 @@ void fit_sparse(const raft::handle_t& handle,
                 int* knn_indices,
                 float* knn_dists,
                 UMAPParams* params,
-                float* embeddings,
+                std::unique_ptr<rmm::device_buffer>& embeddings,
                 raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**

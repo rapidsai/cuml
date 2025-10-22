@@ -78,7 +78,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML::Dbscan" nogil:
                   float *input,
                   int64_t n_rows,
                   int64_t n_cols,
-                  double eps,
+                  float eps,
                   int min_pts,
                   DistanceType metric,
                   int64_t *labels,
