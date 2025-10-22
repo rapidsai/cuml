@@ -136,23 +136,6 @@ struct AbsMaxOp {
   }
 };
 
-template <typename T>
-struct FlipOp {
-  T* components;
-  T* max_vals;
-  std::size_t n_rows;
-  std::size_t n_cols;
-
-  __device__ void operator()(std::size_t row) {
-    if (max_vals[row] < T(0)) {
-      // Flip corresponding components
-      for (std::size_t i = row; i < n_rows * n_cols; i += n_rows) {
-        components[i] = -components[i];
-      }
-    }
-  }
-};
-
 }  // namespace detail
 
 /**
@@ -196,13 +179,14 @@ void signFlipComponents(math_t* components,
   );
   
   // Step 2: flip rows where needed
-  detail::FlipOp<math_t> op{components, max_vals.data(), n_rows, n_cols};
-  thrust::for_each(
-    rmm::exec_policy(stream),
-    thrust::make_counting_iterator<std::size_t>(0),
-    thrust::make_counting_iterator<std::size_t>(n_rows),
-    op
-  );
+  raft::handle_t handle{stream};
+  raft::linalg::map_offset(
+    handle,
+    raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols),
+    [components, max_vals = max_vals.data(), n_rows, n_cols] __device__(auto idx) {
+      std::size_t row = idx % n_rows;
+      return (max_vals[row] < math_t(0)) ? (-components[idx]) : components[idx];
+    });
 }
 
 /**
