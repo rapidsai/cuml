@@ -7,15 +7,15 @@ To install cuML from source, ensure the following dependencies are met:
 1. [cuDF](https://github.com/rapidsai/cudf) (Same as cuML Version)
 2. zlib
 3. cmake (>= 3.26.4)
-4. CUDA (>= 12+)
+4. CUDA (>= 12.0)
 5. Cython (>= 0.29)
 6. gcc (>= 13.0)
-7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
+7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that BLAS must be installed in the same environment as cmake. For example, if using conda-installed cmake, the BLAS implementation should also be installed in the conda environment.
 8. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
-It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
+It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the following commands (adjust the YAML filename to match your CUDA version and architecture):
 
 ```bash
 conda create -n cuml_dev python=3.13
@@ -23,24 +23,24 @@ conda env update -n cuml_dev --file=conda/environments/all_cuda-130_arch-x86_64.
 conda activate cuml_dev
 ```
 
-## Installing from Source:
+## Installing from Source
 
-### Recommended process
+### Recommended Process
 
-As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+As a convenience, a `build.sh` script is provided to simplify the build process. Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (e.g., `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
 ```bash
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
 For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [ccache](https://ccache.dev/) and make use of it by passing the `--ccache` flag to `build.sh`.
 
-To build individual components, specify them as arguments to `build.sh`
+To build individual components, specify them as arguments to `build.sh`:
 ```bash
 $ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
 $ ./build.sh cuml                      # build and install the cuML python package
 $ ./build.sh prims                     # build the ml-prims tests
-$ ./build.sh bench                     # build the cuML c++ benchmark
-$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
+$ ./build.sh bench                     # build the cuML C++ benchmark
+$ ./build.sh prims-bench               # build the ml-prims C++ benchmark
 ```
 
 Other `build.sh` options:
@@ -55,7 +55,7 @@ $ ./build.sh cuml --singlegpu          # build the cuML python package without M
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
-By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accordingly:
+By default, Ninja is used as the cmake generator. To override this and use, e.g., `make`, define the `CMAKE_GENERATOR` environment variable accordingly:
 ```bash
 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
@@ -83,7 +83,7 @@ $ cd python
 $ pytest -v
 ```
 
-If only the single GPU algos want to be run, then:
+To run only single GPU algorithm tests:
 
 ```bash
 $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
@@ -94,8 +94,7 @@ If you want a list of the available Python tests:
 $ pytest cuml/tests --collect-only
 ```
 
-Note: To run tests requiring `xgboost` in conda devcontainers, users must install the `xgboost` conda package manually.
-See `dependencies.yaml` for more information.
+**Note:** Some tests require `xgboost`. If running tests in conda devcontainers, you must install the `xgboost` conda package manually. See `dependencies.yaml` for version information.
 
 ### Manual Process
 
@@ -110,8 +109,12 @@ $ git clone https://github.com/rapidsai/cuml.git
 ```bash
 $ cd cpp
 $ mkdir build && cd build
-$ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not in the PATH. Default CUDA_HOME=/path/to/cuda/)
 $ cmake ..
+```
+
+Note: If CUDA is not in your PATH, you may need to set `CUDA_BIN_PATH` before running cmake:
+```bash
+$ export CUDA_BIN_PATH=$CUDA_HOME  # Default: /usr/local/cuda
 ```
 
 If using a conda environment (recommended), then cmake can be configured appropriately for `libcuml++` via:
@@ -120,11 +123,12 @@ If using a conda environment (recommended), then cmake can be configured appropr
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run successfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
+**Note:** You may see the following warning depending on your cmake version and `CMAKE_INSTALL_PREFIX`. This warning can be safely ignored:
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:
 ```
+To silence it, add `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 
 The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
 
@@ -134,7 +138,7 @@ If using conda and a conda installed cmake, the `openblas` conda package is reco
 cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
 ```
 
-Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for Volta GPUs:
+To reduce compile times, you can specify a GPU compute capability to compile for. For example, for Volta GPUs:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
@@ -169,19 +173,19 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-To run cuML c++ benchmarks (optional):
+To run cuML C++ benchmarks (optional):
 ```bash
 $ ./bench/sg_benchmark  # Single GPU benchmarks
 ```
-Refer to `--help` option to know more on its usage
+Use the `--help` option for more information.
 
 To run ml-prims C++ benchmarks (optional):
 ```bash
 $ ./bench/prims_benchmark  # ml-prims benchmarks
 ```
-Refer to `--help` option to know more on its usage
+Use the `--help` option for more information.
 
-To build doxygen docs for all C/C++ source files
+To build doxygen docs for all C/C++ source files:
 ```bash
 $ make doc
 ```
@@ -199,8 +203,7 @@ To run Python tests (optional):
 $ pytest -v
 ```
 
-
-If only the single GPU algos want to be run, then:
+To run only single GPU algorithm tests:
 
 ```bash
 $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
@@ -236,7 +239,7 @@ cuML's cmake has the following configurable flags available:
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
-| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
+| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchmark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DETECT_CONDA_ENV | [ON, OFF] | ON | Use detection of conda environment for dependencies. If set to ON, and no value for CMAKE_INSTALL_PREFIX is passed, then it'll assign it to $CONDA_PREFIX (to install in the active environment).  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
