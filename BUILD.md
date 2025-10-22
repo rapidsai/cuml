@@ -15,7 +15,12 @@ To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or hig
 5. Python (>= 3.10 and <= 3.13)
 6. [cuDF](https://github.com/rapidsai/cudf) (same as cuML version)
 
-**Note:** NCCL (>= 2.19) is required for multi-GPU support but is provided as a transitive dependency through cuVS. UCX (>= 1.7) is optional and can be enabled for point-to-point messaging in multi-node multi-GPU algorithms.
+**Multi-GPU Support:**
+
+cuML has limited support for multi-GPU and multi-node operations. The following dependencies enable these features:
+
+- **NCCL** (>= 2.19) - required for multi-GPU communication; provided automatically as a transitive dependency through cuVS when building with shared libraries (standard builds); this is a direct dependency for pip wheels (which link statically against cuVS)
+- **UCX** (>= 1.7) - optional; only required for multi-node operations (not needed for multi-GPU on a single node); must be explicitly enabled during build with `WITH_UCX=ON` (see [Using Infiniband for MNMG](wiki/mnmg/Using_Infiniband_for_MNMG.md))
 
 **For development only:**
 - clang-format (= 20.1.4) - enforces uniform C++ coding style; required for pre-commit hooks and CI checks. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
