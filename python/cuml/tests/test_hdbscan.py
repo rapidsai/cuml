@@ -1232,14 +1232,14 @@ def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
         random_state=42,
     )
 
-    umap_handle = None
+    hdbscan_handle = None
     if do_snmg:
-        umap_handle = DeviceResourcesSNMG()
+        hdbscan_handle = DeviceResourcesSNMG()
 
     cuml_agg = HDBSCAN(
         build_algo=build_algo,
         build_kwds={"knn_n_clusters": n_clusters, "nnd_graph_degree": 32},
-        handle=umap_handle,
+        handle=hdbscan_handle,
         min_samples=min_samples,
     ).fit(X)
 

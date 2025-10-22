@@ -156,12 +156,16 @@ namespace graph_build_params {
  * Arguments for using nn descent as the knn build algorithm.
  * graph_degree must be larger than or equal to min_samples+1.
  * Increasing graph_degree and max_iterations may result in better accuracy.
+ * Smaller termination threshold means stricter convergence criteria for nn descent and may take
+ * longer to converge.
  */
 struct nn_descent_params_hdbscan {
   // not directly using cuvs::neighbors::nn_descent::index_params to distinguish HDBSCAN-exposed NN
   // Descent parameters
-  size_t graph_degree   = 64;
-  size_t max_iterations = 20;
+  size_t graph_degree              = 64;
+  size_t intermediate_graph_degree = 128;
+  size_t max_iterations            = 20;
+  float termination_threshold      = 0.0001;
 };
 
 /**

@@ -625,8 +625,14 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent when
           `build_algo=nn_descent`. Must be ≥ `min_samples+1`.
 
+        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for
+          NN Descent. Must be > `nnd_graph_degree`.
+
         - `nnd_max_iterations` (int, default=20): Max NN Descent iterations when
           `build_algo=nn_descent`.
+
+        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to
+          better convergence but longer runtime.
 
         Hints:
 
@@ -991,8 +997,14 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             params.build_params.nn_descent_params.graph_degree = (
                 <uint64_t> kwds.get("nnd_graph_degree", 64)
             )
+            params.build_params.nn_descent_params.intermediate_graph_degree = (
+                <uint64_t> kwds.get("nnd_intermediate_graph_degree", 128)
+            )
             params.build_params.nn_descent_params.max_iterations = (
                 <uint64_t> kwds.get("nnd_max_iterations", 20)
+            )
+            params.build_params.nn_descent_params.termination_threshold = (
+                <float> kwds.get("nnd_termination_threshold", 0.0001)
             )
 
             if params.build_params.nn_descent_params.graph_degree < self.min_samples+1:
@@ -1002,7 +1014,18 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                     "min_samples + 1."
                 )
                 params.build_params.nn_descent_params.graph_degree = self.min_samples+1
-
+            if (
+                params.build_params.nn_descent_params.intermediate_graph_degree
+                < params.build_params.nn_descent_params.graph_degree
+            ):
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_intermediate_graph_degree "
+                    "should be larger than or equal to nnd_graph_degree. setting "
+                    "nnd_intermediate_graph_degree to nnd_graph_degree"
+                )
+                params.build_params.nn_descent_params.intermediate_graph_degree = (
+                    params.build_params.nn_descent_params.graph_degree
+                )
         else:
             raise ValueError(
                 "`build_algo` must be one of {'brute_force', 'nn_descent'}, "

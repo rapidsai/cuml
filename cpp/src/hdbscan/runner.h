@@ -103,7 +103,20 @@ void build_linkage(const raft::handle_t& handle,
     nn_descent_params.max_iterations = params.build_params.nn_descent_params.max_iterations;
     nn_descent_params.graph_degree   = params.build_params.nn_descent_params.graph_degree;
     nn_descent_params.intermediate_graph_degree =
-      params.build_params.nn_descent_params.graph_degree * 2;
+      params.build_params.nn_descent_params.intermediate_graph_degree;
+    nn_descent_params.termination_threshold =
+      params.build_params.nn_descent_params.termination_threshold;
+    if (static_cast<int>(nn_descent_params.graph_degree) < linkage_params.min_samples) {
+      // linkage_params.min_samples functions as the k for the knn
+      RAFT_LOG_WARN(
+        "NN Descent graph_degree (%d) must be larger than or equal to min_samples + 1 (%zu), "
+        "setting graph_degree to min_samples + 1 and scaling intermediate_graph_degree accordingly "
+        "to 2*graph_degree",
+        static_cast<int>(nn_descent_params.graph_degree),
+        static_cast<int>(linkage_params.min_samples));
+      nn_descent_params.graph_degree              = linkage_params.min_samples;
+      nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 2;
+    }
     nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
     linkage_params.all_neighbors_params.graph_build_params = nn_descent_params;
   } else {

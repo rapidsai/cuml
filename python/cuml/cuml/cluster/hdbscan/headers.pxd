@@ -24,7 +24,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" \
         namespace "ML::HDBSCAN::Common::graph_build_params" nogil:
     cdef cppclass nn_descent_params_hdbscan:
         size_t graph_degree
+        size_t intermediate_graph_degree
         size_t max_iterations
+        float termination_threshold
 
     cdef cppclass graph_build_params:
         size_t overlap_factor
