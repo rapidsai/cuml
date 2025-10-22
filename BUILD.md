@@ -139,14 +139,6 @@ in some directories may conflict with libraries in implicit directories:
 ```
 To silence it, add `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 
-The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
-
-If using conda with conda-installed cmake, the `openblas` conda package is recommended and can be explicitly specified for `blas` and `lapack`:
-
-```bash
-cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
-```
-
 To reduce compile times, you can specify GPU compute capabilities to compile for. For example, for Volta GPUs:
 
 ```bash
@@ -243,7 +235,6 @@ cuML's cmake has the following configurable flags available:
 
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
-| BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable to manually specify location of BLAS library. |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
