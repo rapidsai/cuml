@@ -840,6 +840,21 @@ def _check_name(check):
     ],
     expected_failed_checks=get_xfails,
 )
+@pytest.mark.filterwarnings(
+    "ignore:ValueError occurred during set_params.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:TypeError occurred during set_params.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:perplexity.*should be less than n_samples.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Estimator's parameters changed after set_params raised ValueError:UserWarning"
+)
+@pytest.mark.filterwarnings("ignore:Changing solver to 'svd'.*:UserWarning")
+@pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
