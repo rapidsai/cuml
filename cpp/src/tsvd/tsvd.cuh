@@ -125,19 +125,6 @@ void calEig(const raft::handle_t& handle,
   raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
-namespace detail {
-
-template <typename T>
-struct AbsMaxOp {
-  __device__ __host__ inline T operator()(T a, T b) const {
-    T abs_a = a >= 0 ? a : -a;
-    T abs_b = b >= 0 ? b : -b;
-    return abs_a > abs_b ? a : b;  // return signed value of the larger |x|
-  }
-};
-
-}  // namespace detail
-
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
@@ -156,27 +143,21 @@ void signFlipComponents(math_t* components,
   rmm::device_uvector<math_t> max_vals(n_rows, stream);
 
   // Step 1: find component-wise max absolute values
-  raft::linalg::reduce<
-    true,                           // rowMajor
-    false,                          // alongRows
-    math_t,                         // InType
-    math_t,                         // OutType
-    std::size_t,                    // IdxType
-    raft::identity_op,              // MainLambda
-    detail::AbsMaxOp<math_t>,       // ReduceLambda
-    raft::identity_op               // FinalLambda
-  >(
-    max_vals.data(),                // OutType* out
-    components,                     // InType const* in
-    n_rows,                         // rows
-    n_cols,                         // cols
-    math_t(0),                      // init value
-    stream,                         // cudaStream_t
-    true,                           // inclusive (can be true)
-    raft::identity_op(),            // main_op
-    detail::AbsMaxOp<math_t>(),     // reduce_op
-    raft::identity_op()             // final_op
-  );
+  raft::linalg::reduce<true, false>(
+    max_vals.data(),
+    components,
+    n_rows,
+    n_cols,
+    math_t(0),
+    stream,
+    true,
+    raft::identity_op(),
+    [] __device__(math_t a, math_t b) {
+      math_t abs_a = a >= 0 ? a : -a;
+      math_t abs_b = b >= 0 ? b : -b;
+      return abs_a > abs_b ? a : b;
+    },
+    raft::identity_op());
   
   // Step 2: flip rows where needed
   raft::handle_t handle{stream};
