@@ -130,7 +130,7 @@ def test_pca_defaults(n_samples, n_features, sparse):
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
     assert curesult.shape == skresult.shape
-    assert array_equal(curesult, skresult, 1e-3, with_sign=False)
+    assert array_equal(curesult, skresult, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -184,7 +184,7 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
     cupca.handle.sync()
 
     if name != "blobs":
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
@@ -239,7 +239,7 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
     cupca.handle.sync()
 
     if name != "blobs":
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
