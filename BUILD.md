@@ -11,15 +11,28 @@ To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or hig
 1. CUDA (>= 12.0)
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
-4. Cython (>= 3.0.0)
+4. ninja - build system used by default
 5. Python (>= 3.10 and <= 3.13)
-6. [cuDF](https://github.com/rapidsai/cudf) (same as cuML version)
+6. Cython (>= 3.0.0)
+
+**RAPIDS Ecosystem Libraries:**
+
+These RAPIDS libraries must match the cuML version (e.g., all version 25.10 if building cuML 25.10):
+- [librmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager
+- [libraft-headers](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms
+- [libcuvs](https://github.com/rapidsai/cuvs) - CUDA Vector Search library
+- [libcumlprims](https://github.com/rapidsai/cuml) - cuML primitives
+- [cuDF](https://github.com/rapidsai/cudf) - GPU DataFrame library
+
+**Other External Libraries:**
+- treelite (4.4.1 or compatible) - tree model library for model deployment
+- rapids-logger (0.2.x) - logging library
 
 **Multi-GPU Support:**
 
 cuML has limited support for multi-GPU and multi-node operations. The following dependencies enable these features:
 
-- **NCCL** (>= 2.19) - required for multi-GPU communication; provided automatically as a transitive dependency through cuVS when building with shared libraries (standard builds); this is a direct dependency for pip wheels (which link statically against cuVS)
+- **NCCL** (>= 2.19) - required for multi-GPU communication; provided automatically as a transitive dependency through libcuvs (listed above)
 - **UCX** (>= 1.7) - optional; only required for multi-node operations (not needed for multi-GPU on a single node); must be explicitly enabled during build with `WITH_UCX=ON` (see [Using Infiniband for MNMG](wiki/mnmg/Using_Infiniband_for_MNMG.md))
 
 **For development only:**
