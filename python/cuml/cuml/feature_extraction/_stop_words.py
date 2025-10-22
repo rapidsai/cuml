@@ -1,13 +1,17 @@
+# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Portion of this code are derived from the scikit-learn feature_extraction
 # package, which has the following license:
 #
 #    -*- coding: utf-8 -*-
-#    Authors: Olivier Grisel <olivier.grisel@ensta.org>
-#             Mathieu Blondel <mathieu@mblondel.org>
-#             Lars Buitinck
-#             Robert Layton <robertlayton@gmail.com>
-#             Jochen Wersdörfer <jochen@wersdoerfer.de>
-#             Roman Sinayev <roman.sinayev@gmail.com>
+#    Authors:
+#      SPDX-FileCopyrightText: Olivier Grisel <olivier.grisel@ensta.org>
+#      SPDX-FileCopyrightText: Mathieu Blondel <mathieu@mblondel.org>
+#      SPDX-FileCopyrightText: Lars Buitinck
+#      SPDX-FileCopyrightText: Robert Layton <robertlayton@gmail.com>
+#      SPDX-FileCopyrightText: Jochen Wersdörfer <jochen@wersdoerfer.de>
+#      SPDX-FileCopyrightText: Roman Sinayev <roman.sinayev@gmail.com>
 #
 #    License: BSD 3 clause
 #

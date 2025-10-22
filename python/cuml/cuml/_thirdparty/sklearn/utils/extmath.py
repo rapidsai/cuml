@@ -1,12 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
-#          Gael Varoquaux
-#          Alexandre Gramfort
-#          Alexandre T. Passos
-#          Olivier Grisel
-#          Lars Buitinck
-#          Stefan van der Walt
-#          Kyle Kastner
-#          Giorgio Patrini
+# SPDX-FileCopyrightText: Gael Varoquaux
+# SPDX-FileCopyrightText: Alexandre Gramfort
+# SPDX-FileCopyrightText: Alexandre T. Passos
+# SPDX-FileCopyrightText: Olivier Grisel
+# SPDX-FileCopyrightText: Lars Buitinck
+# SPDX-FileCopyrightText: Stefan van der Walt
+# SPDX-FileCopyrightText: Kyle Kastner
+# SPDX-FileCopyrightText: Giorgio Patrini
 # License: BSD 3 clause
 
 

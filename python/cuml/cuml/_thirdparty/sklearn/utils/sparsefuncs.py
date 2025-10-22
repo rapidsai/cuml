@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
-#          Manoj Kumar
-#          Thomas Unterthiner
-#          Giorgio Patrini
+# SPDX-FileCopyrightText: Manoj Kumar
+# SPDX-FileCopyrightText: Thomas Unterthiner
+# SPDX-FileCopyrightText: Giorgio Patrini
 #
 # License: BSD 3 clause
 

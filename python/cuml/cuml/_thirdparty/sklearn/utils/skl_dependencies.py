@@ -1,5 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
-#         Gael Varoquaux <gael.varoquaux@normalesup.org>
+# SPDX-FileCopyrightText: Gael Varoquaux <gael.varoquaux@normalesup.org>
 # License: BSD 3 clause
 
 

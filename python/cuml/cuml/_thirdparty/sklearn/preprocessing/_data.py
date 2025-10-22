@@ -1,11 +1,11 @@
 # Original authors from Sckit-Learn:
-#          Alexandre Gramfort <alexandre.gramfort@inria.fr>
-#          Mathieu Blondel <mathieu@mblondel.org>
-#          Olivier Grisel <olivier.grisel@ensta.org>
-#          Andreas Mueller <amueller@ais.uni-bonn.de>
-#          Eric Martin <eric@ericmart.in>
-#          Giorgio Patrini <giorgio.patrini@anu.edu.au>
-#          Eric Chang <ericchang2017@u.northwestern.edu>
+# SPDX-FileCopyrightText: Alexandre Gramfort <alexandre.gramfort@inria.fr>
+# SPDX-FileCopyrightText: Mathieu Blondel <mathieu@mblondel.org>
+# SPDX-FileCopyrightText: Olivier Grisel <olivier.grisel@ensta.org>
+# SPDX-FileCopyrightText: Andreas Mueller <amueller@ais.uni-bonn.de>
+# SPDX-FileCopyrightText: Eric Martin <eric@ericmart.in>
+# SPDX-FileCopyrightText: Giorgio Patrini <giorgio.patrini@anu.edu.au>
+# SPDX-FileCopyrightText: Eric Chang <ericchang2017@u.northwestern.edu>
 # License: BSD 3 clause
 
 
@@ -14,19 +14,8 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 import numbers
 import warnings

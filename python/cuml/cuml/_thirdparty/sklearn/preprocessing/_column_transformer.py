@@ -1,6 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
-#          Andreas Mueller
-#          Joris Van den Bossche
+# SPDX-FileCopyrightText: Andreas Mueller
+# SPDX-FileCopyrightText: Joris Van den Bossche
 # License: BSD
 
 # This code originates from the Scikit-Learn library,
