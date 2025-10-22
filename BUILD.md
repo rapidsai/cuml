@@ -8,7 +8,7 @@ To install cuML from source, ensure the following dependencies are met:
 To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or higher (Volta™ architecture or newer). Note that while a GPU is not required to build or develop cuML itself, it is necessary to execute and test GPU-accelerated functionality.
 
 **Software Dependencies:**
-1. CUDA (>= 12.0)
+1. CUDA Toolkit (>= 12.0) - must include development libraries (cudart, cublas, cusparse, cusolver, curand, cufft)
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
 4. ninja - build system used by default
