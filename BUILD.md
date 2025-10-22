@@ -138,10 +138,10 @@ If using conda and a conda installed cmake, the `openblas` conda package is reco
 cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
 ```
 
-To reduce compile times, you can specify a GPU compute capability to compile for. For example, for Volta GPUs:
+To reduce compile times, you can specify a GPU compute capability to compile for. For example, for Hopper GPUs:
 
 ```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="90"
 ```
 
 You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
