@@ -127,6 +127,9 @@ void permutation_shap_dataset(const raft::handle_t& handle,
   permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
 }
 
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+#if 0
 void permutation_shap_dataset(const raft::handle_t& handle,
                               double* dataset,
                               const double* background,
@@ -138,6 +141,7 @@ void permutation_shap_dataset(const raft::handle_t& handle,
 {
   permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
 }
+#endif
 
 template <typename DataT, typename IdxT>
 void shap_main_effect_dataset_impl(const raft::handle_t& handle,
@@ -179,6 +183,9 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
   shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
 }
 
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+#if 0
 void shap_main_effect_dataset(const raft::handle_t& handle,
                               double* dataset,
                               const double* background,
@@ -190,6 +197,7 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
 {
   shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
 }
+#endif
 
 template <typename DataT, typename IdxT>
 CUML_KERNEL void update_perm_shap_values_kernel(DataT* output,
@@ -235,6 +243,9 @@ void update_perm_shap_values(const raft::handle_t& handle,
   update_perm_shap_values_impl(handle, shap_values, y_hat, ncols, idx);
 }
 
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+#if 0
 void update_perm_shap_values(const raft::handle_t& handle,
                              double* shap_values,
                              const double* y_hat,
@@ -243,6 +254,7 @@ void update_perm_shap_values(const raft::handle_t& handle,
 {
   update_perm_shap_values_impl(handle, shap_values, y_hat, ncols, idx);
 }
+#endif
 
 }  // namespace Explainer
 }  // namespace ML

@@ -76,14 +76,16 @@ void permutation_shap_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void permutation_shap_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+// void permutation_shap_dataset(const raft::handle_t& handle,
+//                               double* dataset,
+//                               const double* background,
+//                               int nrows_bg,
+//                               int ncols,
+//                               const double* row,
+//                               int* idx,
+//                               bool row_major);
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -129,14 +131,16 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void shap_main_effect_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+// void shap_main_effect_dataset(const raft::handle_t& handle,
+//                               double* dataset,
+//                               const double* background,
+//                               int nrows_bg,
+//                               int ncols,
+//                               const double* row,
+//                               int* idx,
+//                               bool row_major);
 
 /**
  * Function that aggregates averages of the averatge of results of the model
@@ -159,11 +163,13 @@ void update_perm_shap_values(const raft::handle_t& handle,
                              const int ncols,
                              const int* idx);
 
-void update_perm_shap_values(const raft::handle_t& handle,
-                             double* shap_values,
-                             const double* y_hat,
-                             const int ncols,
-                             const int* idx);
+// Removed double instantiation to reduce binary size
+// Use float32 version and cast if needed in Python layer
+// void update_perm_shap_values(const raft::handle_t& handle,
+//                              double* shap_values,
+//                              const double* y_hat,
+//                              const int ncols,
+//                              const int* idx);
 
 }  // namespace Explainer
 }  // namespace ML
