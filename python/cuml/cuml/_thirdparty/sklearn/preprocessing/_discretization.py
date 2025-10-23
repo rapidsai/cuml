@@ -1,6 +1,11 @@
-# Original authors from Sckit-Learn:
 # SPDX-FileCopyrightText: Henry Lin <hlin117@gmail.com>
 # SPDX-FileCopyrightText: Tom Dupré la Tour
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
+
+# Original authors from Sckit-Learn:
+#         Henry Lin <hlin117@gmail.com>
+#         Tom Dupré la Tour
 
 # License: BSD
 
@@ -9,10 +14,6 @@
 # it was since modified to allow GPU acceleration.
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
-
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
-# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
-#
 
 import numbers
 import warnings

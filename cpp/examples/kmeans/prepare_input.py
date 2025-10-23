@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-#
+
 # SPDX-FileCopyrightText: Copyright 2017-2018 H2O.ai, Inc.
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+
+# Copyright 2017-2018 H2O.ai, Inc.
 #
 # Based on
 # https://github.com/h2oai/h2o4gpu/blob/master/examples/py/demos/H2O4GPU_KMeans_Homesite.ipynb

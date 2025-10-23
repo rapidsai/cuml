@@ -1,4 +1,3 @@
-# Original authors from Sckit-Learn:
 # SPDX-FileCopyrightText: Alexandre Gramfort <alexandre.gramfort@inria.fr>
 # SPDX-FileCopyrightText: Mathieu Blondel <mathieu@mblondel.org>
 # SPDX-FileCopyrightText: Olivier Grisel <olivier.grisel@ensta.org>
@@ -6,6 +5,17 @@
 # SPDX-FileCopyrightText: Eric Martin <eric@ericmart.in>
 # SPDX-FileCopyrightText: Giorgio Patrini <giorgio.patrini@anu.edu.au>
 # SPDX-FileCopyrightText: Eric Chang <ericchang2017@u.northwestern.edu>
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
+
+# Original authors from Sckit-Learn:
+#          Alexandre Gramfort <alexandre.gramfort@inria.fr>
+#          Mathieu Blondel <mathieu@mblondel.org>
+#          Olivier Grisel <olivier.grisel@ensta.org>
+#          Andreas Mueller <amueller@ais.uni-bonn.de>
+#          Eric Martin <eric@ericmart.in>
+#          Giorgio Patrini <giorgio.patrini@anu.edu.au>
+#          Eric Chang <ericchang2017@u.northwestern.edu>
 # License: BSD 3 clause
 
 
@@ -13,9 +23,6 @@
 # it was since modified to allow GPU acceleration.
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
-
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
-# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 import numbers
 import warnings

@@ -1,10 +1,11 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024, Guillaume Lemaitre
 # SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 #
 # Portions provided under the following terms:
 # BSD 3-Clause License
 
-# SPDX-FileCopyrightText: Copyright (c) 2024, Guillaume Lemaitre
+# Copyright (c) 2024, Guillaume Lemaitre
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
