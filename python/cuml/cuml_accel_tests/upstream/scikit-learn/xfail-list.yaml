@@ -1453,7 +1453,6 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVC]"
   - "sklearn.svm.tests.test_svm::test_dual_auto_deprecation_warning[LinearSVR]"
-  - "sklearn.tests.test_calibration::test_calibration_less_classes[False]"
 - reason: LinearSVM
   condition: scikit-learn>=1.7
   tests:

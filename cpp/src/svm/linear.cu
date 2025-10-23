@@ -328,8 +328,6 @@ void fit(const raft::handle_t& handle,
   }
 
   // one-vs-rest logic goes over each class
-  std::vector<T> targets(coefCols);
-  std::vector<int> num_iters(coefCols);
   const int n_streams = coefCols > 1 ? handle.get_stream_pool_size() : 1;
   bool parallel       = n_streams > 1;
 #pragma omp parallel for num_threads(n_streams) if (parallel)

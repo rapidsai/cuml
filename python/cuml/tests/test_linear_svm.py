@@ -243,7 +243,7 @@ def test_linear_svc_predict_proba(fit_intercept, n_classes):
 
     # Predictions are argmax(proba)
     y_pred = cu_model.predict(X_test)
-    y_pred_proba = proba.argmax(axis=1).astype(y_pred.dtype)
+    y_pred_proba = cu_model.classes_.take(proba.argmax(axis=1).astype("int32"))
     np.testing.assert_array_equal(y_pred, y_pred_proba)
 
 

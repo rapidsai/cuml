@@ -39,7 +39,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         The loss function.
     C : float, default=1.0
         Regularization parameter. The strength of the regularization is
-        inversely proprtional to C. Must be strictly positive.
+        inversely proportional to C. Must be strictly positive.
     fit_intercept : bool, default=True
         Whether to fit the bias term. Set to False if you expect that the
         data is already centered.
