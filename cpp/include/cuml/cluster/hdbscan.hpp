@@ -175,15 +175,16 @@ struct nn_descent_params_hdbscan {
  *   2. Computing local KNN graphs within each cluster, and
  *   3. Merging the local graphs into a single global graph.
  *
- * - the ratio of overlap_factor / n_clusters determines device memory usage. Approximately
+ * Guidelines for choosing parameters:
+ * 1. the ratio of overlap_factor / n_clusters determines device memory usage. Approximately
  * (overlap_factor / n_clusters) * num_rows_in_entire_data number of rows will be put on device
  * memory at once. E.g. between (overlap_factor / n_clusters) = 2/10 and 2/20, the latter will use
  * less device memory.
- * - larger overlap_factor results in better accuracy of the final all-neighbors knn graph. E.g.
+ * 2. larger overlap_factor results in better accuracy of the final all-neighbors knn graph. E.g.
  * While using similar amount of device memory, (overlap_factor / n_clusters) = 4/20 will have
  * better accuracy than 2/10 at the cost of performance.
- * - for overlap_factor, start with 2, and gradually increase (2->3->4 ...) for better accuracy
- * - for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage.
+ * 3. for overlap_factor, start with 2, and gradually increase (2->3->4 ...) for better accuracy
+ * 4. for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage.
  * This is independent from overlap_factor as long as overlap_factor < n_clusters
  */
 struct graph_build_params {
