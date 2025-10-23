@@ -20,6 +20,16 @@ import pytest
 from sklearn.datasets import make_blobs, make_moons
 from sklearn.preprocessing import StandardScaler
 
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - hdbscan will
+# need to be updated at that point.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
+
 
 @pytest.fixture(scope="module")
 def synthetic_data():
