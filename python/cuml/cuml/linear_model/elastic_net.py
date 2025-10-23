@@ -14,7 +14,8 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.solvers import CD, QN
+from cuml.solvers import QN
+from cuml.solvers.cd import fit_coordinate_descent
 
 
 class ElasticNet(
@@ -262,22 +263,20 @@ class ElasticNet(
             coef = CumlArray(data=solver.coef_.to_output("cupy").flatten())
             intercept = solver.intercept_.item()
         elif self.solver == "cd":
-            solver = CD(
-                handle=self.handle,
-                output_type=self.output_type,
+            coef, intercept = fit_coordinate_descent(
+                X,
+                y,
+                sample_weight=sample_weight,
+                convert_dtype=convert_dtype,
+                alpha=self.alpha,
                 fit_intercept=self.fit_intercept,
                 l1_ratio=self.l1_ratio,
                 normalize=self.normalize,
-                alpha=self.alpha,
                 shuffle=self.selection == "random",
                 max_iter=self.max_iter,
                 tol=self.tol,
-            ).fit(
-                X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
+                handle=self.handle,
             )
-
-            coef = solver.coef_
-            intercept = solver.intercept_
         else:
             raise ValueError(f"solver {self.solver} is not supported")
 
