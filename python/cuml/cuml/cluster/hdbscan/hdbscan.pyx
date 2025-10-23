@@ -1,16 +1,5 @@
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 # distutils: language = c++
@@ -31,10 +20,11 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_uvector cimport device_uvector
@@ -606,6 +596,55 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         persist the clustering object for later re-use you probably want
         to set this to True.
 
+    build_algo: string (default='brute_force')
+        How to build the knn graph. Supported build algorithms are ['brute_force',
+        'nn_descent']. The 'nn_descent' algorithm is typically faster,
+        but may result in a slight accuracy drop compared to 'brute_force'.
+
+    build_kwds: dict (optional, default=None)
+        Dictionary of parameters to configure the build algorithm. Default values:
+
+        - `knn_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `knn_n_clusters > 1`,
+          HDBSCAN can process data larger than device memory.
+
+        - `knn_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `knn_n_clusters > 1`. Must be < 'knn_n_clusters'.
+
+        - `nnd_graph_degree` (int, default=64): Graph degree used for NN Descent when
+          `build_algo=nn_descent`. Must be ≥ `min_samples+1`.
+
+        - `nnd_intermediate_graph_degree` (int, default=128): Intermediate graph degree for
+          NN Descent. Must be > `nnd_graph_degree`.
+
+        - `nnd_max_iterations` (int, default=20): Max NN Descent iterations when
+          `build_algo=nn_descent`.
+
+        - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to
+          better convergence but longer runtime.
+
+        Hints:
+
+        - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy
+          when `build_algo=nn_descent`.
+
+        - The ratio `knn_overlap_factor / knn_n_clusters` impacts memory usage.
+          Approximately `(knn_overlap_factor / knn_n_clusters) * num_rows_in_entire_data`
+          rows will be loaded onto device memory at once.  E.g., 2/20 uses less device
+          memory than 2/10.
+
+        - Larger `knn_overlap_factor` results in better accuracy of the final knn graph.
+          E.g. While using similar amount of device memory,
+          `(knn_overlap_factor / knn_n_clusters)` = 4/20 will have better accuracy
+          than 2/10 at the cost of performance.
+
+        - Start with `knn_overlap_factor = 2` and gradually increase (2->3->4 ...)
+          for better accuracy.
+
+        - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
+          memory usage. This is independent from knn_overlap_factor as long as
+          'knn_overlap_factor' < 'knn_n_clusters'.
+
     Attributes
     ----------
     labels_ : ndarray, shape (n_samples, )
@@ -660,7 +699,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             "cluster_selection_method",
             "allow_single_cluster",
             "gen_min_span_tree",
-            "prediction_data"
+            "prediction_data",
+            "build_algo",
+            "build_kwds"
         ]
 
     @classmethod
@@ -772,7 +813,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                  handle=None,
                  verbose=False,
                  output_type=None,
-                 prediction_data=False):
+                 prediction_data=False,
+                 build_algo='brute_force',
+                 build_kwds=None):
 
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.min_cluster_size = min_cluster_size
@@ -786,6 +829,8 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.allow_single_cluster = allow_single_cluster
         self.gen_min_span_tree = gen_min_span_tree
         self.prediction_data = prediction_data
+        self.build_algo = build_algo
+        self.build_kwds = build_kwds
 
         self._single_linkage_tree = None
         self._min_spanning_tree = None
@@ -873,11 +918,20 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         Fit HDBSCAN model from features.
         """
 
+        kwds = self.build_kwds or {}
+        if kwds.get("knn_n_clusters", 1) > 1:
+            logger.warn("Using data on host memory because knn_n_clusters > 1.")
+            convert_to_mem_type = MemoryType.host
+        else:
+            logger.warn("Using data on device memory because knn_n_clusters = 1.")
+            convert_to_mem_type = MemoryType.device
+
         self._raw_data = input_to_cuml_array(
             X,
             order='C',
             check_dtype=[np.float32],
             convert_to_dtype=np.float32 if convert_dtype else None,
+            convert_to_mem_type=convert_to_mem_type
         )[0]
         self._raw_data_cpu = None
 
@@ -905,6 +959,66 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             raise ValueError(
                 "`cluster_selection_method` must be one of {'eom', 'leaf'}, "
                 f"got {self.cluster_selection_method!r}"
+            )
+
+        if self.build_algo == 'brute_force':
+            params.build_algo = lib.GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
+            kwds = self.build_kwds or {}
+            params.build_params.n_clusters = <uint64_t> kwds.get("knn_n_clusters", 1)
+            params.build_params.overlap_factor = <uint64_t> kwds.get("knn_overlap_factor", 2)
+        elif self.build_algo == 'nn_descent':
+            params.build_algo = lib.GRAPH_BUILD_ALGO.NN_DESCENT
+
+            kwds = self.build_kwds or {}
+            params.build_params.n_clusters = <uint64_t> kwds.get("knn_n_clusters", 1)
+            params.build_params.overlap_factor = <uint64_t> kwds.get("knn_overlap_factor", 2)
+            if (
+                params.build_params.n_clusters > 1
+                and params.build_params.overlap_factor >= params.build_params.n_clusters
+            ):
+                raise ValueError(
+                    "If knn_n_clusters > 1, then knn_overlap_factor must be strictly "
+                    "smaller than knn_n_clusters."
+                )
+            if params.build_params.n_clusters < 1:
+                raise ValueError("knn_n_clusters must be >= 1")
+
+            params.build_params.nn_descent_params.graph_degree = (
+                <uint64_t> kwds.get("nnd_graph_degree", 64)
+            )
+            params.build_params.nn_descent_params.intermediate_graph_degree = (
+                <uint64_t> kwds.get("nnd_intermediate_graph_degree", 128)
+            )
+            params.build_params.nn_descent_params.max_iterations = (
+                <uint64_t> kwds.get("nnd_max_iterations", 20)
+            )
+            params.build_params.nn_descent_params.termination_threshold = (
+                <float> kwds.get("nnd_termination_threshold", 0.0001)
+            )
+
+            if params.build_params.nn_descent_params.graph_degree < self.min_samples+1:
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_graph_degree should be larger "
+                    "than or equal to min_samples + 1. setting nnd_graph_degree to "
+                    "min_samples + 1."
+                )
+                params.build_params.nn_descent_params.graph_degree = self.min_samples+1
+            if (
+                params.build_params.nn_descent_params.intermediate_graph_degree
+                < params.build_params.nn_descent_params.graph_degree
+            ):
+                logger.warn(
+                    "to use nn descent as the build algo, nnd_intermediate_graph_degree "
+                    "should be larger than or equal to nnd_graph_degree. setting "
+                    "nnd_intermediate_graph_degree to nnd_graph_degree"
+                )
+                params.build_params.nn_descent_params.intermediate_graph_degree = (
+                    params.build_params.nn_descent_params.graph_degree
+                )
+        else:
+            raise ValueError(
+                "`build_algo` must be one of {'brute_force', 'nn_descent'}, "
+                f"got {self.build_algo!r}"
             )
 
         cdef DistanceType metric
