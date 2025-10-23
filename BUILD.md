@@ -210,16 +210,17 @@ To build doxygen docs for all C/C++ source files:
 $ make doc
 ```
 
-4. Build the `cuml` python package:
+4. Build and install the `cuml` python package:
 
+From the repository root:
 ```bash
-$ cd ../../python
-$ python setup.py build_ext --inplace
+$ python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true python/cuml
 ```
 
 To run Python tests (optional):
 
 ```bash
+$ cd python
 $ pytest -v
 ```
 
@@ -232,12 +233,6 @@ $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 If you want a list of the available tests:
 ```bash
 $ pytest cuml/tests --collect-only
-```
-
-5. Finally, install the Python package to your Python path:
-
-```bash
-$ python setup.py install
 ```
 
 ### Custom Build Options

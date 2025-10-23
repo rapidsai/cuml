@@ -132,10 +132,7 @@ fi
 cd "$CUML_ROOT"
 
 # Get the cuML version to install matching RAPIDS libraries
-CUML_VERSION=$(grep -oP 'version = "\K[^"]+' python/cuml/pyproject.toml || echo "25.02")
-CUML_MAJOR_MINOR=$(echo $CUML_VERSION | cut -d. -f1,2)
-echo "Detected cuML version: $CUML_VERSION (will install RAPIDS libraries version $CUML_MAJOR_MINOR)"
-echo ""
+RAPIDS_VERSION="25.12"
 
 # Create environment with Python only
 # BUILD.md specifies: Python (>= 3.10 and <= 3.13)
@@ -161,21 +158,32 @@ echo "    - cmake >= 3.30.4"
 echo "    - ninja"
 echo "    - gcc >= 13.0"
 echo "    - Cython >= 3.0.0"
-echo "  RAPIDS Ecosystem Libraries (version $CUML_MAJOR_MINOR):"
-echo "    - librmm"
+echo "  CUDA Toolkit (12.6) development libraries:"
+echo "    - cuda-cudart-dev"
+echo "    - cuda-nvcc"
+echo "    - libcublas-dev, libcusparse-dev, libcusolver-dev"
+echo "    - libcurand-dev, libcufft-dev"
+echo "  RAPIDS C++ Libraries (version $RAPIDS_VERSION):"
+echo "    - librmm (C++ library)"
+echo "    - libraft (C++ library)"
 echo "    - libraft-headers"
 echo "    - libcuvs"
 echo "    - libcumlprims"
+echo "  RAPIDS Python Libraries (version $RAPIDS_VERSION):"
+echo "    - rmm (Python package)"
+echo "    - pylibraft (Python package)"
 echo "    - cudf"
 echo "  Other External Libraries:"
 echo "    - treelite (4.4.1)"
 echo "    - rapids-logger (0.2.x)"
+echo "    - cuda-python"
+echo "  Python Build Dependencies:"
+echo "    - scikit-build-core>=0.10.0"
+echo "    - rapids-build-backend>=0.4.0,<0.5.0.dev0"
 echo ""
 
 # Install all dependencies based on BUILD.md
-# Always use rapidsai stable channel
-RAPIDS_CHANNEL="rapidsai"
-echo "Using rapidsai stable channel for version $CUML_MAJOR_MINOR"
+RAPIDS_CHANNEL="rapidsai-nightly"
 
 echo "Running conda install (this may take several minutes)..."
 conda install -y -c conda-forge -c nvidia -c ${RAPIDS_CHANNEL} \
@@ -185,13 +193,27 @@ conda install -y -c conda-forge -c nvidia -c ${RAPIDS_CHANNEL} \
     "gxx_linux-64>=13.0" \
     "cython>=3.0.0" \
     cuda-version=12.6 \
-    "librmm=${CUML_MAJOR_MINOR}" \
-    "libraft-headers=${CUML_MAJOR_MINOR}" \
-    "libcuvs=${CUML_MAJOR_MINOR}" \
-    "libcumlprims=${CUML_MAJOR_MINOR}" \
-    "cudf=${CUML_MAJOR_MINOR}" \
+    cuda-cudart-dev \
+    cuda-nvcc \
+    libcublas-dev \
+    libcusparse-dev \
+    libcusolver-dev \
+    libcurand-dev \
+    libcufft-dev \
+    "librmm=${RAPIDS_VERSION}" \
+    "libraft=${RAPIDS_VERSION}" \
+    "libraft-headers=${RAPIDS_VERSION}" \
+    "libcuvs=${RAPIDS_VERSION}" \
+    "libcumlprims=${RAPIDS_VERSION}" \
+    "rmm=${RAPIDS_VERSION}" \
+    "pylibraft=${RAPIDS_VERSION}" \
+    "cudf=${RAPIDS_VERSION}" \
+    "scikit-learn" \
     "treelite=4.4.1" \
-    "rapids-logger=0.2" || {
+    "rapids-logger=0.2" \
+    "cuda-python>=12.9.2,<13.0a0" \
+    "scikit-build-core>=0.10.0" \
+    "rapids-build-backend>=0.4.0,<0.5.0.dev0" || {
     echo "ERROR: Failed to install conda dependencies"
     echo "This might indicate:"
     echo "  - BUILD.md is missing dependencies"
@@ -245,12 +267,12 @@ echo "NVCC version:"
 nvcc --version | grep release
 
 # Configure with cmake
-# Using GPU_ARCHS for faster build (Volta only for testing)
+# Using CMAKE_CUDA_ARCHITECTURES for faster build (Volta only for testing)
 # Disable building tests and examples to speed up the build
 echo "Running cmake configuration..."
 cmake .. \
     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
-    -DGPU_ARCHS="70" \
+    -DCMAKE_CUDA_ARCHITECTURES="70" \
     -DBUILD_CUML_TESTS=OFF \
     -DBUILD_CUML_MG_TESTS=OFF \
     -DBUILD_CUML_EXAMPLES=OFF \
@@ -287,24 +309,17 @@ echo "Checking installed libraries:"
 ls -lh $CONDA_PREFIX/lib/libcuml* || echo "WARNING: libcuml libraries not found in expected location"
 
 ################################################################################
-# Step 5: Build cuml Python package
+# Step 5: Build and install cuml Python package
 ################################################################################
 echo "=========================================="
-echo "Step 5: Building cuml Python package"
+echo "Step 5: Building and installing cuml Python package"
 echo "=========================================="
 
-cd "$CUML_ROOT/python"
+cd "$CUML_ROOT"
 
-echo "Building cuml Python package..."
-python setup.py build_ext --inplace || {
-    echo "ERROR: Python package build failed"
-    exit 1
-}
-
-echo ""
-echo "Installing cuml Python package..."
-python setup.py install || {
-    echo "ERROR: Python package installation failed"
+echo "Building and installing cuml Python package..."
+python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true python/cuml || {
+    echo "ERROR: Python package build and installation failed"
     exit 1
 }
 
@@ -315,15 +330,12 @@ echo "=========================================="
 echo "Step 6: Verifying installation"
 echo "=========================================="
 
+# Go to root directory to not accidentally import cuml from the repository root directory
+cd /
+
 # Check if cuml can be imported
 python -c "import cuml; print(f'cuML version: {cuml.__version__}')" || {
     echo "ERROR: Failed to import cuml"
-    exit 1
-}
-
-# Try to get CUDA runtime info
-python -c "import cuml; from cuml.internals.memory_utils import get_global_output_type; print('cuML import successful')" || {
-    echo "ERROR: cuML import failed with error"
     exit 1
 }
 
@@ -351,7 +363,7 @@ if [ "$RUN_TESTS" = "1" ]; then
     echo "Running basic tests"
     echo "=========================================="
 
-    cd "$CUML_ROOT/python"
+    cd /
 
     # Run a simple test
     python -c "
