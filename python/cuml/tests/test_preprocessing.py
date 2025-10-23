@@ -827,7 +827,13 @@ def test_kbinsdiscretizer(
         assert type(r_X) is type(t_X)
 
     transformer = skKBinsDiscretizer(
-        n_bins=n_bins, encode=encode, strategy=strategy
+        n_bins=n_bins,
+        encode=encode,
+        strategy=strategy,
+        # defaults for subsample were changed in sklearn version 1.5+
+        subsample=200_000
+        if strategy in ("uniform", "quantile", "kmeans")
+        else None,
     )
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
