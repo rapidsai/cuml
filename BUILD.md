@@ -18,11 +18,29 @@ To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or hig
 **RAPIDS Ecosystem Libraries:**
 
 These RAPIDS libraries must match the cuML version (e.g., all version 25.10 if building cuML 25.10):
-- [librmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager
-- [libraft-headers](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms
+
+*C++ Libraries:*
+- [librmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager (C++ library)
+- [libraft](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms (C++ library)
+- [libraft-headers](https://github.com/rapidsai/raft) - RAPIDS RAFT headers
 - [libcuvs](https://github.com/rapidsai/cuvs) - CUDA Vector Search library
 - [libcumlprims](https://github.com/rapidsai/cuml) - cuML primitives
-- [cuDF](https://github.com/rapidsai/cudf) - GPU DataFrame library
+
+*Python Packages:*
+- [rmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager (Python package)
+- [pylibraft](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms (Python package)
+- [cuDF](https://github.com/rapidsai/cudf) - GPU DataFrame library (Python package)
+
+**Python Runtime Dependencies:**
+- scikit-learn (>= 1.4)
+- scipy (>= 1.8.0)
+- joblib (>= 0.11)
+- numpy (>= 1.23, < 3.0)
+- cuda-python (>= 12.9.2, < 13.0a0 for CUDA 12.x; >= 13.0.1, < 14.0a0 for CUDA 13.x)
+
+**Python Build Dependencies:**
+- scikit-build-core (>= 0.10.0)
+- rapids-build-backend (>= 0.4.0, < 0.5.0.dev0)
 
 **Other External Libraries:**
 - treelite (4.4.1 or compatible) - tree model library for model deployment
