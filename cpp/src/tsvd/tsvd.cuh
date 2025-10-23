@@ -19,6 +19,8 @@
 #include <cuml/decomposition/params.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -140,17 +142,18 @@ void signFlipComponents(math_t* components,
                         std::size_t n_cols,
                         cudaStream_t stream)
 {
+  raft::handle_t handle{stream};
   rmm::device_uvector<math_t> max_vals(n_rows, stream);
+  auto components_view = raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols);
+  auto max_vals_view = raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_rows);
 
   // Step 1: find component-wise max absolute values
-  raft::linalg::reduce<true, false>(
-    max_vals.data(),
-    components,
-    n_rows,
-    n_cols,
-    math_t(0),
-    stream,
-    true,
+  raft::linalg::reduce<raft::Apply::ALONG_COLUMNS, math_t, raft::row_major, math_t, std::size_t>(
+    handle,
+    components_view,
+    max_vals_view,
+    math_t(0.0),
+    false,
     raft::identity_op(),
     [] __device__(math_t a, math_t b) {
       math_t abs_a = a >= 0 ? a : -a;
@@ -160,10 +163,9 @@ void signFlipComponents(math_t* components,
     raft::identity_op());
   
   // Step 2: flip rows where needed
-  raft::handle_t handle{stream};
   raft::linalg::map_offset(
     handle,
-    raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols),
+    components_view,
     [components, max_vals = max_vals.data(), n_rows, n_cols] __device__(auto idx) {
       std::size_t row = idx % n_rows;
       return (max_vals[row] < math_t(0)) ? (-components[idx]) : components[idx];
