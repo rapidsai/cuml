@@ -4,6 +4,8 @@
 
 To install cuML from source, ensure the following dependencies are met:
 
+> **Note:** The easiest way to setup a fully functional build environment is to use the conda environment files located in `conda/environments/all_*.yaml`. These files contain all the dependencies listed below except for clang-format (only needed for development/contributing) and UCX (only needed for optional multi-node operations). To create a development environment, see the [recommended conda setup](#recommended-conda-setup) at the end of this section.
+
 **Hardware Needed to Run cuML:**
 To run cuML code, you will need an NVIDIA GPU with compute capability 7.0 or higher (Volta™ architecture or newer). Note that while a GPU is not required to build or develop cuML itself, it is necessary to execute and test GPU-accelerated functionality.
 
@@ -55,6 +57,8 @@ cuML has limited support for multi-GPU and multi-node operations. The following 
 
 **For development only:**
 - clang-format (= 20.1.4) - enforces uniform C++ coding style; required for pre-commit hooks and CI checks. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
+
+### Recommended Conda Setup
 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above. To create a development environment named `cuml_dev`, you can use the following commands (adjust the YAML filename to match your CUDA version and architecture):
 
