@@ -35,13 +35,12 @@ from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.cluster.cpp.kmeans as kmeans_cpp
-from cuml.cluster.kmeans_utils cimport InitMethod, KMeansParams
+cimport cuml.cluster.cpp.kmeans as lib
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef _kmeans_init_params(kmeans, KMeansParams& params):
+cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
     params.n_clusters = kmeans.n_clusters
     params.max_iter = kmeans.max_iter
@@ -57,16 +56,16 @@ cdef _kmeans_init_params(kmeans, KMeansParams& params):
             # K-means++ is the constrained case of k-means|| w/
             # oversampling factor = 0
             params.oversampling_factor = 0
-            params.init = InitMethod.KMeansPlusPlus
+            params.init = lib.InitMethod.KMeansPlusPlus
         elif kmeans.init in ('scalable-k-means++', 'k-means||'):
-            params.init = InitMethod.KMeansPlusPlus
+            params.init = lib.InitMethod.KMeansPlusPlus
         elif kmeans.init == "random":
-            params.init = InitMethod.Random
+            params.init = lib.InitMethod.Random
     else:
-        params.init = InitMethod.Array
+        params.init = lib.InitMethod.Array
 
     if kmeans.n_init == "auto":
-        if isinstance(kmeans.init, str) and params.init == InitMethod.KMeansPlusPlus:
+        if isinstance(kmeans.init, str) and params.init == lib.InitMethod.KMeansPlusPlus:
             params.n_init = 1
         else:
             params.n_init = 10
@@ -76,7 +75,7 @@ cdef _kmeans_init_params(kmeans, KMeansParams& params):
 
 cdef _kmeans_fit(
     handle_t& handle,
-    KMeansParams& params,
+    lib.KMeansParams& params,
     X,
     sample_weight,
     centers,
@@ -100,7 +99,7 @@ cdef _kmeans_fit(
     with nogil:
         if values_f32:
             if indices_i32:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <float *>X_ptr,
@@ -112,7 +111,7 @@ cdef _kmeans_fit(
                     n_iter_32,
                 )
             else:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <float *>X_ptr,
@@ -125,7 +124,7 @@ cdef _kmeans_fit(
                 )
         else:
             if indices_i32:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <double *>X_ptr,
@@ -137,7 +136,7 @@ cdef _kmeans_fit(
                     n_iter_32,
                 )
             else:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <double *>X_ptr,
@@ -153,7 +152,7 @@ cdef _kmeans_fit(
 
 cdef _kmeans_predict(
     handle_t& handle,
-    KMeansParams &params,
+    lib.KMeansParams &params,
     X,
     sample_weight,
     centers,
@@ -184,7 +183,7 @@ cdef _kmeans_predict(
     with nogil:
         if values_f32:
             if indices_i32:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <float*>centers_ptr,
@@ -197,7 +196,7 @@ cdef _kmeans_predict(
                     inertia_f32,
                 )
             else:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <float*>centers_ptr,
@@ -211,7 +210,7 @@ cdef _kmeans_predict(
                 )
         else:
             if indices_i32:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <double*>centers_ptr,
@@ -224,7 +223,7 @@ cdef _kmeans_predict(
                     inertia_f64,
                 )
             else:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <double*>centers_ptr,
@@ -583,7 +582,7 @@ class KMeans(Base,
 
         # Prepare for libcuml call
         cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
         labels, inertia = _kmeans_predict(handle_[0], params, X_m, sample_weight_m, centers)
@@ -661,7 +660,7 @@ class KMeans(Base,
             )
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         labels, inertia = _kmeans_predict(
@@ -718,7 +717,7 @@ class KMeans(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         cdef bool values_f32 = dtype == np.float32
@@ -727,7 +726,7 @@ class KMeans(Base,
         with nogil:
             if values_f32:
                 if indices_i32:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <float*>centers_ptr,
@@ -737,7 +736,7 @@ class KMeans(Base,
                         <float*>out_ptr,
                     )
                 else:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <float*>centers_ptr,
@@ -748,7 +747,7 @@ class KMeans(Base,
                     )
             else:
                 if indices_i32:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <double*>centers_ptr,
@@ -758,7 +757,7 @@ class KMeans(Base,
                         <double*>out_ptr,
                     )
                 else:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <double*>centers_ptr,

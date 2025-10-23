@@ -15,6 +15,8 @@ set +e
 
 # Run the tests and capture the exit code
 timeout 1h ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh \
+    --numprocesses=8 \
+    --dist=worksteal \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 TEST_EXITCODE=$?
 

@@ -378,6 +378,9 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 @pytest.mark.parametrize("input_type", ["dataframe", "ndarray"])
 @pytest.mark.parametrize("nrows", [unit_param(500), stress_param(70000)])
+@pytest.mark.filterwarnings(
+    "ignore:algorithm='rbc' requires sqrt\\(n_samples\\) >= n_neighbors.*:UserWarning"
+)
 @pytest.mark.parametrize("n_feats", [unit_param(3), stress_param(1000)])
 @pytest.mark.parametrize(
     "k", [unit_param(3), unit_param(35), stress_param(50)]

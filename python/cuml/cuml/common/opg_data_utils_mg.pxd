@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,13 +20,9 @@
 
 from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
-from cuml.common.cython_utils import *
-from cython.operator cimport dereference as deref
-from libcpp.vector cimport vector
 
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-                 namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
 

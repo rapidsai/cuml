@@ -16,16 +16,14 @@
 
 import numpy as np
 
+from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray
+
+from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free, malloc
 
 from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.common import input_to_cuml_array
-
-from cython.operator cimport dereference as deref
-
-from cuml.internals.array import CumlArray
 
 
 def build_data_t(arys):

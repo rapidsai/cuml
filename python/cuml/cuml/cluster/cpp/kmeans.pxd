@@ -14,20 +14,34 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-from libc.stdint cimport int64_t, uintptr_t
-from pylibraft.common.handle cimport handle_t
-
-from cuml.metrics.distance_type cimport DistanceType
-
-import ctypes
-
+from libc.stdint cimport int64_t
 from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
+from pylibraft.random.cpp.rng_state cimport RngState
 
-from cuml.cluster.kmeans_utils cimport KMeansParams
-from cuml.common.rng_state cimport RngState
+from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
+
+
+cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans::KMeansParams" nogil:
+    enum class InitMethod:
+        KMeansPlusPlus, Random, Array
+
+
+cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans" nogil:
+    cdef struct KMeansParams:
+        DistanceType metric,
+        int n_clusters,
+        InitMethod init,
+        int max_iter,
+        double tol,
+        level_enum verbosity,
+        RngState rng_state,
+        int n_init,
+        double oversampling_factor,
+        int batch_samples,
+        int batch_centroids,
+        bool inertia_check
 
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:

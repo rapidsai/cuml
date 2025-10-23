@@ -182,16 +182,30 @@ def test_accuracy_runner():
 # skipping UMAP-Supervised due to issue
 # https://github.com/rapidsai/cuml/issues/4243
 @pytest.mark.parametrize(
-    "algo_name", ["DBSCAN", "LogisticRegression", "ElasticNet", "FIL"]
+    "algo_name",
+    [
+        "DBSCAN",
+        "LogisticRegression",
+        "ElasticNet",
+        "FIL",
+        "xgboost-classification",
+        "xgboost-regression",
+    ],
 )
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if algo_name == "FIL":
+    if algo_name in ["FIL", "xgboost-classification", "xgboost-regression"]:
         pytest.importorskip("xgboost")
 
+    # Use appropriate dataset for regression algorithms
+    if algo_name in ["ElasticNet", "xgboost-regression"]:
+        dataset = "regression"
+    else:
+        dataset = "classification"
+
     runner = AccuracyComparisonRunner(
-        [50], [5], dataset_name="classification", test_fraction=0.20
+        [50], [5], dataset_name=dataset, test_fraction=0.20
     )
     results = runner.run(pair)[0]
     print(results)

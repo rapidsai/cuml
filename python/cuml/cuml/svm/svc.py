@@ -12,26 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# distutils: language = c++
-
 import cudf
 import cupy as cp
 import numpy as np
-from pylibraft.common.interruptible import cuda_interruptible
 
 import cuml.internals
-from cuml.common import (
-    input_to_cuml_array,
-    input_to_host_array,
-    input_to_host_array_with_sparse_support,
-)
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.exceptions import NotFittedError
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import (
-    determine_array_type_full,
+    input_to_cuml_array,
     input_to_cupy_array,
+    input_to_host_array,
+    input_to_host_array_with_sparse_support,
 )
 from cuml.internals.interop import (
     UnsupportedOnCPU,
@@ -41,73 +37,10 @@ from cuml.internals.interop import (
 )
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.utils import check_random_seed
 from cuml.multiclass import MulticlassClassifier
 from cuml.preprocessing import LabelEncoder
 from cuml.svm.svm_base import SVMBase
-
-from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
-from libcpp cimport nullptr
-from pylibraft.common.handle cimport handle_t
-
-from cuml.internals.logger cimport level_enum
-from cuml.svm.kernel_params cimport KernelParams
-
-
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
-    enum SvmType:
-        C_SVC,
-        NU_SVC,
-        EPSILON_SVR,
-        NU_SVR
-
-    cdef struct SvmParameter:
-        # parameters for training
-        double C
-        double cache_size
-        int max_iter
-        int nochange_steps
-        double tol
-        level_enum verbosity
-        double epsilon
-        SvmType svmType
-
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM" nogil:
-
-    cdef cppclass SupportStorage[math_t]:
-        int nnz
-        int* indptr
-        int* indices
-        math_t* data
-
-    cdef cppclass SvmModel[math_t]:
-        # parameters of a fitted model
-        int n_support
-        int n_cols
-        math_t b
-        math_t *dual_coefs
-        SupportStorage[math_t] support_matrix
-        int *support_idx
-        int n_classes
-        math_t *unique_labels
-
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
-
-    cdef void svcFit[math_t](const handle_t &handle, math_t* data,
-                             int n_rows, int n_cols,
-                             math_t *labels,
-                             const SvmParameter &param,
-                             KernelParams &kernel_params,
-                             SvmModel[math_t] &model,
-                             const math_t *sample_weight) except +
-
-    cdef void svcFitSparse[math_t](const handle_t &handle, int* indptr, int* indices,
-                                   math_t* data, int n_rows, int n_cols, int nnz,
-                                   math_t *labels,
-                                   const SvmParameter &param,
-                                   KernelParams &kernel_params,
-                                   SvmModel[math_t] &model,
-                                   const math_t *sample_weight) except +
 
 
 def apply_class_weight(
@@ -152,7 +85,10 @@ def apply_class_weight(
 
     if sample_weight is not None:
         sample_weight, _, _, _ = input_to_cupy_array(
-            sample_weight, convert_to_dtype=dtype, check_rows=n_samples, check_cols=1,
+            sample_weight,
+            convert_to_dtype=dtype,
+            check_rows=n_samples,
+            check_cols=1,
         )
 
     if class_weight is None:
@@ -164,11 +100,11 @@ def apply_class_weight(
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
 
     le = LabelEncoder(handle=handle, verbose=verbose, output_type=output_type)
-    labels = y_m.to_output(output_type='series')
+    labels = y_m.to_output(output_type="series")
     encoded_labels = cp.asarray(le.fit_transform(labels))
 
     # Define class weights for the encoded labels
-    if class_weight == 'balanced':
+    if class_weight == "balanced":
         counts = cp.asnumpy(cp.bincount(encoded_labels))
         n_classes = len(counts)
         weights = n_samples / (n_classes * counts)
@@ -176,20 +112,21 @@ def apply_class_weight(
     else:
         keys = class_weight.keys()
         encoded_keys = le.transform(cudf.Series(keys)).values_host
-        class_weight = {enc_key: class_weight[key]
-                        for enc_key, key in zip(encoded_keys, keys)}
+        class_weight = {
+            enc_key: class_weight[key]
+            for enc_key, key in zip(encoded_keys, keys)
+        }
 
     if sample_weight is None:
         sample_weight = cp.ones(y_m.shape, dtype=dtype)
 
     for label, weight in class_weight.items():
-        sample_weight[encoded_labels==label] *= weight
+        sample_weight[encoded_labels == label] *= weight
 
     return sample_weight
 
 
-class SVC(SVMBase,
-          ClassifierMixin):
+class SVC(SVMBase, ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -272,8 +209,6 @@ class SVC(SVMBase,
         Enable or disable probability estimates.
     random_state: int (default = None)
         Seed for random number generator (used only when probability = True).
-        Currently this argument is not used and a warning will be printed if the
-        user provides it.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -324,12 +259,16 @@ class SVC(SVMBase,
 
     """
 
+    classes_ = CumlArrayDescriptor()
+
     _cpu_class_path = "sklearn.svm.SVC"
 
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names()
-        params.remove("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.remove(
+            "epsilon"
+        )  # SVC doesn't expose `epsilon` in the constructor
         params.extend(
             [
                 "probability",
@@ -343,7 +282,9 @@ class SVC(SVMBase,
     @classmethod
     def _params_from_cpu(cls, model):
         params = super()._params_from_cpu(model)
-        params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.pop(
+            "epsilon"
+        )  # SVC doesn't expose `epsilon` in the constructor
         params.update(
             {
                 "probability": model.probability,
@@ -356,7 +297,9 @@ class SVC(SVMBase,
 
     def _params_to_cpu(self):
         params = super()._params_to_cpu()
-        params.pop("epsilon")  # SVC doesn't expose `epsilon` in the constructor
+        params.pop(
+            "epsilon"
+        )  # SVC doesn't expose `epsilon` in the constructor
         params.update(
             {
                 "probability": self.probability,
@@ -371,81 +314,49 @@ class SVC(SVMBase,
         n_classes = len(model.classes_)
         if n_classes > 2:
             raise UnsupportedOnGPU("multiclass models are not supported")
-
-        if self.probability:
-            # XXX: Here we recreate a CalibratedClassifier wrapping a fit SVC.
-            # This is gross, since it requires touching several private classes
-            # in sklearn as well as rebuilding a SVC estimator wrapped by
-            # another SVC estimator. This can all be removed once `prob_svc`
-            # goes away.
-            from sklearn.calibration import (
-                CalibratedClassifierCV,
-                _CalibratedClassifier,
-                _SigmoidCalibration,
-            )
-
-            # Construct the nested fit SVC model (fit without probability)
-            params = {**self.get_params(), "probability": False, "output_type": "numpy"}
-            fit_svc = SVC(**params)
-            fit_svc._sync_attrs_from_cpu(model)
-
-            # Construct the calibrators from probA_ & probB_
-            calibrators = []
-            for a, b in zip(model.probA_, model.probB_):
-                cal = _SigmoidCalibration()
-                cal.a_ = np.float64(a)
-                cal.b_ = np.float64(b)
-                calibrators.append(cal)
-
-            # Construct the fit CalibratedClassifierCV
-            prob_svc = CalibratedClassifierCV(estimator=SVC(**params), ensemble=False)
-            prob_svc.calibrated_classifiers_ = [
-                _CalibratedClassifier(fit_svc, calibrators, classes=model.classes_)
-            ]
-            prob_svc.classes_ = model.classes_
-            prob_svc.n_features_in_ = model.n_features_in_
-
-            return {
-                "prob_svc": prob_svc,
-                "n_classes_": n_classes,
-                **super(SVMBase, self)._attrs_from_cpu(model),
-            }
         return {
             "n_classes_": n_classes,
-            "_unique_labels_": to_gpu(model.classes_.astype("float64"), order="F"),
+            "classes_": to_gpu(model.classes_),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
-        if self.n_classes_ > 2:
+        if hasattr(self, "_multiclass"):
             raise UnsupportedOnCPU(
                 "Converting multiclass models from GPU is not yet supported"
             )
 
-        if self.probability:
-            clf = self.prob_svc.calibrated_classifiers_[0]
-            out = super()._attrs_to_cpu(model, cu_model=clf.estimator)
-            out.update(
-                _probA=np.array([c.a_ for c in clf.calibrators], dtype="float64"),
-                _probB=np.array([c.b_ for c in clf.calibrators], dtype="float64"),
-            )
-        else:
-            out = super()._attrs_to_cpu(model)
+        out = super()._attrs_to_cpu(model)
 
         # sklearn's binary classification expects inverted
         # _dual_coef_ and _intercept_.
         out.update(
             _dual_coef_=-out["dual_coef_"],
             _intercept_=-out["intercept_"],
-            classes_=to_cpu(self.classes_).astype("int64"),
+            classes_=to_cpu(self.classes_),
         )
         return out
 
-    def __init__(self, *, handle=None, C=1.0, kernel='rbf', degree=3,
-                 gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
-                 max_iter=-1, nochange_steps=1000, verbose=False,
-                 output_type=None, probability=False, random_state=None,
-                 class_weight=None, decision_function_shape='ovo'):
+    def __init__(
+        self,
+        *,
+        handle=None,
+        C=1.0,
+        kernel="rbf",
+        degree=3,
+        gamma="scale",
+        coef0=0.0,
+        tol=1e-3,
+        cache_size=1024.0,
+        max_iter=-1,
+        nochange_steps=1000,
+        verbose=False,
+        output_type=None,
+        probability=False,
+        random_state=None,
+        class_weight=None,
+        decision_function_shape="ovo",
+    ):
         super().__init__(
             handle=handle,
             C=C,
@@ -458,43 +369,21 @@ class SVC(SVMBase,
             max_iter=max_iter,
             nochange_steps=nochange_steps,
             verbose=verbose,
-            output_type=output_type)
-
+            output_type=output_type,
+        )
         self.probability = probability
         self.random_state = random_state
-        if probability and random_state is not None:
-            warn("Random state is currently ignored by probabilistic SVC")
         self.class_weight = class_weight
-        self.svmType = C_SVC
-
         self.decision_function_shape = decision_function_shape
 
     @property
     @cuml.internals.api_base_return_array_skipall
-    def classes_(self):
-        if self.probability:
-            return self.prob_svc.classes_
-        elif self.n_classes_ > 2:
-            return self.multiclass_svc.classes_
-        else:
-            return self._unique_labels_
-
-    @classes_.setter
-    def classes_(self, value):
-        if self.probability:
-            self.prob_svc.classes_ = value
-        elif self.n_classes_ > 2:
-            self.multiclass_svc.classes_ = value
-        else:
-            self._unique_labels_ = CumlArray.from_input(value, convert_to_dtype=self.dtype)
-
-    @property
-    @cuml.internals.api_base_return_array_skipall
     def support_(self):
-        if self.n_classes_ > 2:
-            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+        if hasattr(self, "_multiclass"):
+            estimators = self._multiclass.multiclass_estimator.estimators_
             return cp.concatenate(
-                [cp.asarray(cls._support_) for cls in estimators])
+                [cp.asarray(cls._support_) for cls in estimators]
+            )
         else:
             return self._support_
 
@@ -505,39 +394,38 @@ class SVC(SVMBase,
     @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
-        if self.n_classes_ > 2:
-            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+        if hasattr(self, "_multiclass"):
+            estimators = self._multiclass.multiclass_estimator.estimators_
             return cp.concatenate(
-                [cp.asarray(cls._intercept_) for cls in estimators])
+                [cp.asarray(cls._intercept_) for cls in estimators]
+            )
         else:
-            return super()._intercept_
+            return self._intercept_
 
     @intercept_.setter
     def intercept_(self, value):
         self._intercept_ = value
 
-    def _get_num_classes(self, y):
-        """
-        Determine the number of unique classes in y.
-        """
-        y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
-        return len(cp.unique(cp.asarray(y_m)))
-
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
         if sample_weight is not None:
-            warn("Sample weights are currently ignored for multi class "
-                 "classification")
+            warn(
+                "Sample weights are currently ignored for multi class classification"
+            )
 
         params = self.get_params()
-        strategy = params.pop('decision_function_shape', 'ovo')
-        self.multiclass_svc = MulticlassClassifier(
-            estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
-            output_type=self.output_type, strategy=strategy)
-        self.multiclass_svc.fit(X, y)
+        strategy = params.pop("decision_function_shape", "ovo")
+        self._multiclass = MulticlassClassifier(
+            estimator=SVC(**params),
+            handle=self.handle,
+            verbose=self.verbose,
+            output_type=self.output_type,
+            strategy=strategy,
+        )
+        self._multiclass.fit(X, y)
 
         # if using one-vs-one we align support_ indices to those of
         # full dataset
-        if strategy == 'ovo':
+        if strategy == "ovo":
             y = cp.array(y)
             classes = cp.unique(y)
             n_classes = len(classes)
@@ -547,31 +435,34 @@ class SVC(SVMBase,
                 for j in range(i + 1, n_classes):
                     cond = cp.logical_or(y == classes[i], y == classes[j])
                     ovo_support = cp.array(
-                        self.multiclass_svc.multiclass_estimator.estimators_[
+                        self._multiclass.multiclass_estimator.estimators_[
                             estimator_index
-                        ].support_)
-                    self.multiclass_svc.multiclass_estimator.estimators_[
+                        ].support_
+                    )
+                    self._multiclass.multiclass_estimator.estimators_[
                         estimator_index
                     ].support_ = cp.nonzero(cond)[0][ovo_support]
                     estimator_index += 1
 
+        self.shape_fit_ = X.shape
         self.fit_status_ = 0
         return self
 
     def _fit_proba(self, X, y, sample_weight) -> "SVC":
         from sklearn.calibration import CalibratedClassifierCV
+        from sklearn.model_selection import StratifiedKFold
+
+        params = {
+            **self.get_params(),
+            "probability": False,
+            "output_type": "numpy",
+            "class_weight": None,
+        }
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
-        y = input_to_host_array(y).array
-        self.dtype = X.dtype
 
-        params = {**self.get_params(), "probability": False, "output_type": "numpy"}
-        self.prob_svc = CalibratedClassifierCV(SVC(**params), ensemble=False)
-
-        # Apply class weights to sample weights, necessary, so it doesn't crash
-        # when sample_weight is None
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,
@@ -579,177 +470,157 @@ class SVC(SVMBase,
             y,
             self.verbose,
             self.output_type,
-            self.dtype,
+            X.dtype,
         )
 
         if sample_weight is not None:
             # Convert cupy array to numpy array
             sample_weight = sample_weight.get()
 
-        with cuml.internals.exit_internal_api():
-            # Fit the model, sample_weight is either None or a numpy array
-            self.prob_svc.fit(X, y, sample_weight=sample_weight)
+        y = input_to_host_array(y).array
 
-        self.fit_status_ = 0
+        cv = StratifiedKFold(
+            n_splits=5,
+            random_state=check_random_seed(self.random_state),
+            shuffle=True,
+        )
+        cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
+
+        with cuml.internals.exit_internal_api():
+            cccv.fit(X, y, sample_weight=sample_weight)
+
+        cal_clf = cccv.calibrated_classifiers_[0]
+        svc = cal_clf.estimator
+
+        self._probA = np.array([cal.a_ for cal in cal_clf.calibrators])
+        self._probB = np.array([cal.b_ for cal in cal_clf.calibrators])
+
+        if hasattr(svc, "_multiclass"):
+            attrs = ["_multiclass", "fit_status_", "shape_fit_"]
+        else:
+            attrs = [
+                "support_",
+                "support_vectors_",
+                "dual_coef_",
+                "intercept_",
+                "n_support_",
+                "fit_status_",
+                "shape_fit_",
+                "_gamma",
+                "_sparse",
+            ]
+
+        # Forward on inner attributes
+        for attr in attrs:
+            setattr(self, attr, getattr(svc, attr))
+
         return self
 
-    @generate_docstring(y='dense_anydtype')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @generate_docstring(y="dense_anydtype")
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
-        self.n_classes_ = self._get_num_classes(y)
+        if hasattr(self, "_multiclass"):
+            del self._multiclass
 
-        # we need to check whether input X is sparse
-        # In that case we don't want to make a dense copy
-        _array_type, is_sparse = determine_array_type_full(X)
-        self._sparse = is_sparse
+        y = input_to_cupy_array(y, check_cols=1).array
+        classes = cp.unique(y)
+        n_classes = len(classes)
+
+        if n_classes < 2:
+            raise ValueError(
+                f"The number of classes has to be greater than one; got "
+                f"{n_classes} class"
+            )
+        self.n_classes_ = n_classes
+        self.classes_ = CumlArray(data=classes)
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
 
-        if self.n_classes_ > 2:
+        if n_classes > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
-        if is_sparse:
-            X_m = SparseCumlArray(X)
-            self.n_rows = X_m.shape[0]
-            self.n_features_in_ = X_m.shape[1]
-            self.dtype = X_m.dtype
+        if is_sparse(X):
+            X = SparseCumlArray(
+                X,
+                convert_to_dtype=(
+                    None if X.dtype in (np.float32, np.float64) else np.float32
+                ),
+            )
         else:
-            X_m, self.n_rows, self.n_features_in_, self.dtype = \
-                input_to_cuml_array(
-                    X,
-                    convert_to_dtype=(np.float32 if convert_dtype else None),
-                    check_dtype=[np.float32, np.float64],
-                    order="F"
-                )
-
-        # Fit binary classifier
-        convert_to_dtype = self.dtype if convert_dtype else None
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=convert_to_dtype,
-                                check_rows=self.n_rows, check_cols=1)
-
-        cdef uintptr_t y_ptr = y_m.ptr
+            X = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                check_rows=y.shape[0],
+                order="F",
+            ).array
 
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,
             self.class_weight,
-            y_m,
+            y,
             self.verbose,
             self.output_type,
-            self.dtype
+            X.dtype,
         )
-        cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    convert_to_dtype=convert_to_dtype,
-                                    check_rows=self.n_rows, check_cols=1)
-            sample_weight_ptr = sample_weight_m.ptr
+            sample_weight = input_to_cuml_array(
+                sample_weight,
+                check_dtype=X.dtype,
+                convert_to_dtype=(X.dtype if convert_dtype else None),
+                check_rows=X.shape[0],
+                check_cols=1,
+            ).array
 
-        self._dealloc()  # delete any previously fitted model
-        self.coef_ = None
+        # Encode y to -1/1 (like [0, 1, 0, 1] -> [1, -1, 1, -1])
+        y = CumlArray(
+            data=cp.array([1, -1], dtype=X.dtype).take(y == classes[0])
+        )
 
-        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef SvmParameter param = self._get_svm_params()
-        cdef SvmModel[float] *model_f
-        cdef SvmModel[double] *model_d
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        cdef int n_rows = self.n_rows
-        cdef int n_cols = self.n_features_in_
-
-        cdef int n_nnz = X_m.nnz if is_sparse else -1
-        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
-        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
-        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
-
-        if self.dtype == np.float32:
-            model_f = new SvmModel[float]()
-            if is_sparse:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFitSparse(
-                            deref(handle_), <int*>X_indptr, <int*>X_indices,
-                            <float*>X_data, n_rows, n_cols, n_nnz,
-                            <float*>y_ptr, param, _kernel_params,
-                            deref(model_f), <float*>sample_weight_ptr)
-            else:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFit(
-                            deref(handle_), <float*>X_data, n_rows, n_cols,
-                            <float*>y_ptr, param, _kernel_params,
-                            deref(model_f), <float*>sample_weight_ptr)
-            self._model = <uintptr_t>model_f
-        elif self.dtype == np.float64:
-            model_d = new SvmModel[double]()
-            if is_sparse:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFitSparse(
-                            deref(handle_), <int*>X_indptr, <int*>X_indices,
-                            <double*>X_data, n_rows, n_cols, n_nnz,
-                            <double*>y_ptr, param, _kernel_params,
-                            deref(model_d), <double*>sample_weight_ptr)
-            else:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFit(
-                            deref(handle_), <double*>X_data, n_rows, n_cols,
-                            <double*>y_ptr, param, _kernel_params,
-                            deref(model_d), <double*>sample_weight_ptr)
-            self._model = <uintptr_t>model_d
-        else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        self._unpack_model()
-        self.fit_status_ = 0
-        self.handle.sync()
-
-        del X_m
-        del y_m
+        self._fit(X, y, sample_weight)
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples, 1)",
+        }
+    )
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
+        if hasattr(self, "_multiclass"):
+            return self._multiclass.predict(X)
+
+        classes = self.classes_.to_output("cupy")
 
         if self.probability:
-            self._check_is_fitted('prob_svc')
-
-            X = input_to_host_array_with_sparse_support(X)
-
-            with cuml.internals.exit_internal_api():
-                preds = self.prob_svc.predict(X)
-                # prob_svc has numpy output type, change it if it is necessary:
-                return preds
-        elif self.n_classes_ > 2:
-            self._check_is_fitted('multiclass_svc')
-            return self.multiclass_svc.predict(X)
+            probs = self.predict_proba(X).to_output("cupy")
+            inds = cp.argmax(probs, axis=1)
         else:
-            return super(SVC, self).predict(X, True, convert_dtype)
+            res = self.decision_function(X, convert_dtype=convert_dtype)
+            inds = res.to_output("cupy") >= 0
+        return CumlArray(data=classes.take(inds))
 
-    @generate_docstring(skip_parameters_heading=True,
-                        return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted \
-                                       probabilities',
-                                       'shape': '(n_samples, n_classes)'})
+    @generate_docstring(
+        skip_parameters_heading=True,
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted probabilities",
+            "shape": "(n_samples, n_classes)",
+        },
+    )
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -762,31 +633,50 @@ class SVC(SVMBase,
              Whether to return log probabilities.
 
         """
+        from cupyx.scipy.special import expit
 
-        if self.probability:
-            self._check_is_fitted('prob_svc')
+        if not self.probability:
+            raise NotFittedError(
+                "This classifier is not fitted to predict "
+                "probabilities. Fit a new classifier with "
+                "probability=True to enable predict_proba."
+            )
+        preds = self.decision_function(X).to_output("cupy")
+        if preds.ndim == 1:
+            preds = preds[:, None]
 
-            X = input_to_host_array_with_sparse_support(X)
+        n_classes = len(self.classes_)
 
-            # Exit the internal API when calling sklearn code (forces numpy
-            # conversion)
-            with cuml.internals.exit_internal_api():
-                preds = self.prob_svc.predict_proba(X)
-                if (log):
-                    preds = np.log(preds)
-                # prob_svc has numpy output type, change it if it is necessary:
-                return preds
+        proba = cp.zeros((preds.shape[0], n_classes))
+        for i in range(preds.shape[1]):
+            a = self._probA[i]
+            b = self._probB[i]
+            ind = i + 1 if n_classes == 2 else i
+            proba[:, ind] = expit(-(a * preds[:, i] + b))
+
+        if n_classes == 2:
+            proba[:, 0] = 1.0 - proba[:, 1]
         else:
-            raise AttributeError("This classifier is not fitted to predict "
-                                 "probabilities. Fit a new classifier with "
-                                 "probability=True to enable predict_proba.")
+            den = cp.sum(proba, axis=1)
+            cp.divide(proba, den[:, None], out=proba)
+            # If all probabilities are 0, use a uniform distribution
+            proba[den == 0] = 1 / n_classes
+            # Clip to between 0 and 1 to handle rounding error
+            cp.clip(proba, 0, 1, out=proba)
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Log of predicted \
-                                       probabilities',
-                                       'shape': '(n_samples, n_classes)'})
-    @cuml.internals.api_base_return_array_skipall
+        if log:
+            proba = cp.log(proba)
+
+        return CumlArray(data=proba)
+
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Log of predicted probabilities",
+            "shape": "(n_samples, n_classes)",
+        }
+    )
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -796,24 +686,33 @@ class SVC(SVMBase,
         """
         return self.predict_proba(X, log=True)
 
-    @generate_docstring(return_values={'name': 'results',
-                                       'type': 'dense',
-                                       'description': 'Decision function \
-                                       values',
-                                       'shape': '(n_samples, 1)'})
-    def decision_function(self, X) -> CumlArray:
+    @generate_docstring(
+        return_values={
+            "name": "results",
+            "type": "dense",
+            "description": "Decision function values",
+            "shape": "(n_samples, 1)",
+        }
+    )
+    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.
 
         """
-        if self.probability:
-            self._check_is_fitted('prob_svc')
-            # Get the calibrated estimator
-            estimator = self.prob_svc.calibrated_classifiers_[0].estimator
-            with cuml.internals.exit_internal_api():
-                return estimator.decision_function(X)
-        elif self.n_classes_ > 2:
-            self._check_is_fitted('multiclass_svc')
-            return self.multiclass_svc.decision_function(X)
+        if hasattr(self, "_multiclass"):
+            return self._multiclass.decision_function(X)
+
+        dtype = self.support_vectors_.dtype
+
+        if is_sparse(X):
+            X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
-            return super().predict(X, False)
+            X = input_to_cuml_array(
+                X,
+                check_dtype=[dtype],
+                convert_to_dtype=(dtype if convert_dtype else None),
+                order="F",
+                check_cols=self.support_vectors_.shape[1],
+            ).array
+
+        return self._predict(X)

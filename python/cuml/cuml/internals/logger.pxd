@@ -13,16 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# distutils: language = c++
-
-
-from libcpp.string cimport string
-
-import sys
-
 from libcpp cimport bool
 from libcpp.memory cimport make_shared, shared_ptr
+from libcpp.string cimport string
 
 
 cdef extern from "rapids_logger/logger.hpp" namespace "rapids_logger" nogil:

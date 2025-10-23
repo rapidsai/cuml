@@ -14,11 +14,9 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-from libc.stdint cimport int64_t, uint64_t, uintptr_t
+from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.memory cimport unique_ptr
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
 

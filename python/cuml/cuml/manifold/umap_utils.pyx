@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
+import ctypes
 from typing import Literal
+
+import cupy as cp
+import cupyx
+import numpy as np
+import scipy
 
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
@@ -24,13 +28,6 @@ from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
 from cuml.manifold.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
-
-import ctypes
-
-import cupy as cp
-import cupyx
-import numpy as np
-import scipy
 
 
 cdef class GraphHolder:

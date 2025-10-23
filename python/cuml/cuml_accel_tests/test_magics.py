@@ -22,6 +22,8 @@ pytest.importorskip("IPython")
 
 
 SCRIPT_HEADER = """
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
 from IPython.core.interactiveshell import InteractiveShell
 from traitlets.config import Config
 c = Config()
