@@ -251,36 +251,5 @@ void kernel_dataset(const raft::handle_t& handle,
                       seed);
 }
 
-// Removed double instantiation to reduce binary size
-// Use float32 version and cast if needed in Python layer
-#if 0
-void kernel_dataset(const raft::handle_t& handle,
-                    float* X,
-                    int nrows_X,
-                    int ncols,
-                    double* background,
-                    int nrows_background,
-                    double* dataset,
-                    double* observation,
-                    int* nsamples,
-                    int len_nsamples,
-                    int maxsample,
-                    uint64_t seed)
-{
-  kernel_dataset_impl(handle,
-                      X,
-                      nrows_X,
-                      ncols,
-                      background,
-                      nrows_background,
-                      dataset,
-                      observation,
-                      nsamples,
-                      len_nsamples,
-                      maxsample,
-                      seed);
-}
-#endif
-
 }  // namespace Explainer
 }  // namespace ML
