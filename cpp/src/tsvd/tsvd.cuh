@@ -144,7 +144,8 @@ void signFlipComponents(math_t* components,
 {
   raft::handle_t handle{stream};
   rmm::device_uvector<math_t> max_vals(n_rows, stream);
-  auto components_view = raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols);
+  auto components_view =
+    raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols);
   auto max_vals_view = raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_rows);
 
   // Step 1: find component-wise max absolute values
@@ -161,7 +162,7 @@ void signFlipComponents(math_t* components,
       return abs_a > abs_b ? a : b;
     },
     raft::identity_op());
-  
+
   // Step 2: flip rows where needed
   raft::linalg::map_offset(
     handle,
