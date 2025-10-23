@@ -9,11 +9,28 @@ from rmm.librmm.device_uvector cimport device_uvector
 from cuml.metrics.distance_type cimport DistanceType
 
 
+cdef extern from "cuml/cluster/hdbscan.hpp" \
+        namespace "ML::HDBSCAN::Common::graph_build_params" nogil:
+    cdef cppclass nn_descent_params_hdbscan:
+        size_t graph_degree
+        size_t intermediate_graph_degree
+        size_t max_iterations
+        float termination_threshold
+
+    cdef cppclass graph_build_params:
+        size_t overlap_factor
+        size_t n_clusters
+        nn_descent_params_hdbscan nn_descent_params
+
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogil:
 
     ctypedef enum CLUSTER_SELECTION_METHOD:
         EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
         LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
+
+    ctypedef enum GRAPH_BUILD_ALGO:
+        BRUTE_FORCE_KNN "ML::HDBSCAN::Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN"
+        NN_DESCENT "ML::HDBSCAN::Common::GRAPH_BUILD_ALGO::NN_DESCENT"
 
     cdef cppclass CondensedHierarchy[value_idx, value_t]:
         CondensedHierarchy(const handle_t &handle, size_t n_leaves) except +
@@ -63,6 +80,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common" nogi
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method,
+        GRAPH_BUILD_ALGO build_algo,
+        graph_build_params build_params,
 
     cdef cppclass PredictionData[int64_t, float]:
         PredictionData(const handle_t &handle,
