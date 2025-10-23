@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,17 +76,6 @@ void permutation_shap_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-// Removed double instantiation to reduce binary size
-// Use float32 version and cast if needed in Python layer
-// void permutation_shap_dataset(const raft::handle_t& handle,
-//                               double* dataset,
-//                               const double* background,
-//                               int nrows_bg,
-//                               int ncols,
-//                               const double* row,
-//                               int* idx,
-//                               bool row_major);
-
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
  *  adding a forward and backward permutation pass of the observation `row`
@@ -131,17 +120,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-// Removed double instantiation to reduce binary size
-// Use float32 version and cast if needed in Python layer
-// void shap_main_effect_dataset(const raft::handle_t& handle,
-//                               double* dataset,
-//                               const double* background,
-//                               int nrows_bg,
-//                               int ncols,
-//                               const double* row,
-//                               int* idx,
-//                               bool row_major);
-
 /**
  * Function that aggregates averages of the averatge of results of the model
  * called with the permutation dataset, to estimate the SHAP values.
@@ -162,14 +140,6 @@ void update_perm_shap_values(const raft::handle_t& handle,
                              const float* y_hat,
                              const int ncols,
                              const int* idx);
-
-// Removed double instantiation to reduce binary size
-// Use float32 version and cast if needed in Python layer
-// void update_perm_shap_values(const raft::handle_t& handle,
-//                              double* shap_values,
-//                              const double* y_hat,
-//                              const int ncols,
-//                              const int* idx);
 
 }  // namespace Explainer
 }  // namespace ML

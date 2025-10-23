@@ -45,18 +45,6 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
         int* idx,
         bool rowMajor) except +
 
-    # Removed double instantiation to reduce binary size
-    # Use float32 version and cast if needed
-    # void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
-    #         const handle_t& handle,
-    #         double* dataset,
-    #         const double* background,
-    #         int nrows,
-    #         int ncols,
-    #         const double* row,
-    #         int* idx,
-    #         bool rowMajor) except +
-
 
 class SHAPBase():
     """
@@ -373,7 +361,7 @@ class SHAPBase():
         row_ptr = row.ptr
         idx_ptr = inds.__cuda_array_interface__['data'][0]
         row_major = self.masker.order == "C"
-        
+
         cdef uintptr_t masked_ptr_f32
         cdef uintptr_t bg_ptr_f32
         cdef uintptr_t row_ptr_f32
@@ -394,11 +382,11 @@ class SHAPBase():
             masked_inputs_f32 = masked_inputs.astype(cp.float32)
             background_f32 = cp.asarray(self.masker).astype(cp.float32)
             row_f32 = row.astype(cp.float32)
-            
+
             masked_ptr_f32 = masked_inputs_f32.__cuda_array_interface__['data'][0]
             bg_ptr_f32 = background_f32.__cuda_array_interface__['data'][0]
             row_ptr_f32 = row_f32.ptr
-            
+
             shap_main_effect_dataset(handle_[0],
                                      <float*> masked_ptr_f32,
                                      <float*> bg_ptr_f32,
@@ -407,7 +395,7 @@ class SHAPBase():
                                      <float*> row_ptr_f32,
                                      <int*> idx_ptr,
                                      <bool> row_major)
-            
+
             # Cast result back to float64
             masked_inputs[:] = masked_inputs_f32.astype(cp.float64)
 
