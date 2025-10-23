@@ -82,8 +82,9 @@ struct Params {
  * @param [in] y: the target data, shape=(nRows,)
  * @param [in] sampleWeight: non-negative weights for the training data, shape=(nRows,),
  * or nullptr if unweighted.
- * @param [out] w: the fitted weights, shape=(nRows, nCols) or (nRows, nCols + 1) if
- * `fit_intercept=true`. F-contiguous.
+ * @param [out] w: the fitted weights, shape=(nCoefs, nCols) or (nCoefs + 1, nCols + 1)
+ * if `fit_intercept=true`, where nCoefs = 1 for regression or if nClasses = 2, and
+ * nClasses otherwise. F-contiguous.
  * @param [out] probScale: the fitted probability scales, shape=(nClasses, 2),
  * F-contiguous. Pass nullptr to not fit probability scales.
  */

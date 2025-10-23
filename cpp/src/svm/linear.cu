@@ -252,10 +252,10 @@ void fit(const raft::handle_t& handle,
          T* probScale)
 {
   if (isRegression(params.loss)) {
-    ASSERT(nClasses == 0 || classes != nullptr, "Regression fit takes no classes");
+    ASSERT(nClasses == 0 && classes == nullptr, "Regression fit takes no classes");
     ASSERT(probScale == nullptr, "probability scaling not allowed for regressions");
   } else {
-    ASSERT(nClasses > 1, "Must have > 1 class for classification");
+    ASSERT(nClasses > 1 && classes != nullptr, "Must have > 1 class for classification");
   }
 
   cudaStream_t stream = handle.get_stream();

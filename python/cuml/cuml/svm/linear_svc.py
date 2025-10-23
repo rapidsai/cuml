@@ -76,8 +76,8 @@ class LinearSVC(Base, InteropMixin, ClassifierMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -285,6 +285,7 @@ class LinearSVC(Base, InteropMixin, ClassifierMixin):
             C=self.C,
             tol=self.tol,
             epsilon=0.0,
+            verbose=self.verbose,
         )
         self.coef_ = coef
         self.intercept_ = intercept

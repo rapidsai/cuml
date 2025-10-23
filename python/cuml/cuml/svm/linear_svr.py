@@ -67,8 +67,8 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -134,10 +134,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             )
 
         # Infer the penalty from the loss
-        penalty = {
-            "epsilon_insensitive": "l1",
-            "squared_epsilon_insensitive": "l2",
-        }.get(model.loss)
+        penalty = "l1" if model.loss == "epsilon_insensitive" else "l2"
 
         return {
             "epsilon": model.epsilon,
@@ -179,7 +176,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self,
         *,
         epsilon=0.0,
-        penalty="l2",
+        penalty="l1",
         loss="epsilon_insensitive",
         C=1.0,
         fit_intercept=True,
@@ -251,6 +248,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             C=self.C,
             tol=self.tol,
             epsilon=self.epsilon,
+            verbose=self.verbose,
         )
         self.coef_ = coef
         self.intercept_ = intercept

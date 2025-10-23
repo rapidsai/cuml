@@ -74,7 +74,7 @@ def _check_array(name, arr, dtype=None, shape=None, order=None):
         n_cols = shape[1] if len(shape) == 2 else 1
         ok_rows = arr.shape[0] == shape[0]
         ok_cols = arr.ndim == 1 and n_cols == 1 or arr.shape[1] == n_cols
-        if not ok_rows and ok_cols:
+        if not (ok_rows and ok_cols):
             raise RuntimeError(f"Expected `{name}` with {shape=}, got {arr.shape!r}")
     if order is not None and arr.order != order:
         raise RuntimeError(f"Expected `{name}` with {order=}, got {arr.order!r}")
@@ -98,6 +98,7 @@ def fit(
     C,
     tol,
     epsilon,
+    verbose,
 ):
     """Perform a Linear SVR or SVC fit.
 
@@ -169,6 +170,7 @@ def fit(
     params.epsilon = epsilon
     params.grad_tol = tol
     params.change_tol = 0.1 * tol
+    params.verbose = <level_enum>verbose
 
     # Extract dimensions
     cdef size_t n_rows = X.shape[0]

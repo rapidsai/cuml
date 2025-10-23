@@ -223,7 +223,7 @@ def test_linear_svc_predict_proba(fit_intercept, n_classes):
 
     sk_model = sklearn.svm.LinearSVC(fit_intercept=fit_intercept)
     sk_model.fit(X_train, y_train)
-    sk_score = cu_model.score(X_test, y_test)
+    sk_score = sk_model.score(X_test, y_test)
 
     assert cu_score >= sk_score - 0.05
 
