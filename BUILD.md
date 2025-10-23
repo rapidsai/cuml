@@ -24,7 +24,6 @@ These RAPIDS libraries must match the cuML version (e.g., all version 25.10 if b
 *C++ Libraries:*
 - [librmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager (C++ library)
 - [libraft](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms (C++ library)
-- [libraft-headers](https://github.com/rapidsai/raft) - RAPIDS RAFT headers
 - [libcuvs](https://github.com/rapidsai/cuvs) - CUDA Vector Search library
 - [libcumlprims](https://github.com/rapidsai/cuml) - cuML primitives
 
@@ -33,20 +32,17 @@ These RAPIDS libraries must match the cuML version (e.g., all version 25.10 if b
 - [pylibraft](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms (Python package)
 - [cuDF](https://github.com/rapidsai/cudf) - GPU DataFrame library (Python package)
 
-**Python Runtime Dependencies:**
-- scikit-learn (>= 1.4)
-- scipy (>= 1.8.0)
-- joblib (>= 0.11)
-- numpy (>= 1.23, < 3.0)
-- cuda-python (>= 12.9.2, < 13.0a0 for CUDA 12.x; >= 13.0.1, < 14.0a0 for CUDA 13.x)
-
 **Python Build Dependencies:**
-- scikit-build-core (>= 0.10.0)
-- rapids-build-backend (>= 0.4.0, < 0.5.0.dev0)
+- scikit-build-core
+- rapids-build-backend
+
+**Python Runtime Dependencies:**
+
+For detailed version requirements of runtime dependencies (numpy, scikit-learn, scipy, joblib, numba, cupy, treelite, etc.), please see [docs/source/supported_versions.rst](docs/source/supported_versions.rst).
 
 **Other External Libraries:**
-- treelite (4.4.1 or compatible) - tree model library for model deployment
-- rapids-logger (0.2.x) - logging library
+- treelite
+- rapids-logger
 
 **Multi-GPU Support:**
 
