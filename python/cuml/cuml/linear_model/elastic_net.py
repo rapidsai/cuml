@@ -2,10 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-from inspect import signature
-
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -16,7 +12,6 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers import CD, QN
@@ -25,89 +20,53 @@ from cuml.solvers import CD, QN
 class ElasticNet(
     Base, InteropMixin, LinearPredictMixin, RegressorMixin, FMajorInputTagMixin
 ):
-
     """
-    ElasticNet extends LinearRegression with combined L1 and L2 regularizations
-    on the coefficients when predicting response y with a linear combination of
-    the predictors in X. It can reduce the variance of the predictors, force
-    some coefficients to be small, and improves the conditioning of the
-    problem.
-
-    cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
-    descent to fit a linear model.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cudf
-        >>> from cuml.linear_model import ElasticNet
-        >>> enet = ElasticNet(alpha = 0.1, l1_ratio=0.5, solver='qn')
-        >>> X = cudf.DataFrame()
-        >>> X['col1'] = cp.array([0, 1, 2], dtype = cp.float32)
-        >>> X['col2'] = cp.array([0, 1, 2], dtype = cp.float32)
-        >>> y = cudf.Series(cp.array([0.0, 1.0, 2.0], dtype = cp.float32) )
-        >>> result_enet = enet.fit(X, y)
-        >>> print(result_enet.coef_)
-        0    0.445...
-        1    0.445...
-        dtype: float32
-        >>> print(result_enet.intercept_)
-        0.108433...
-        >>> X_new = cudf.DataFrame()
-        >>> X_new['col1'] = cp.array([3,2], dtype = cp.float32)
-        >>> X_new['col2'] = cp.array([5,5], dtype = cp.float32)
-        >>> preds = result_enet.predict(X_new)
-        >>> print(preds)
-        0    3.674...
-        1    3.228...
-        dtype: float32
+    Linear regression with combined L1 and L2 priors as regularizer.
 
     Parameters
     ----------
-    alpha : float (default = 1.0)
+    alpha : float, default=1.0
         Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression object.
         For numerical reasons, using alpha = 0 with the Lasso object is not
         advised.
         Given this, you should use the LinearRegression object.
-    l1_ratio : float (default = 0.5)
+    l1_ratio : float, default=0.5
         The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
         For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
         an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
-    fit_intercept : boolean (default = True)
+    fit_intercept : boolean, default=True
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
-    max_iter : int (default = 1000)
+    max_iter : int, default=1000
         The maximum number of iterations
-    tol : float (default = 1e-3)
+    tol : float, default=1e-3
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    solver : {'cd', 'qn'} (default='cd')
+    solver : {'cd', 'qn'}, default='cd'
         Choose an algorithm:
 
           * 'cd' - coordinate descent
           * 'qn' - quasi-newton
 
         You may find the alternative 'qn' algorithm is faster when the number
-        of features is sufficiently large, but the sample size is small.
-    selection : {'cyclic', 'random'} (default='cyclic')
-        If set to 'random', a random coefficient is updated every iteration
-        rather than looping over features sequentially by default.
-        This (setting to 'random') often leads to significantly faster
-        convergence especially when tol is higher than 1e-4.
+        of features is sufficiently large but the sample size is small.
+    selection : {'cyclic', 'random'}, default='cyclic'
+        How selections are made when `solver="cd"`. If set to 'random', a
+        random coefficient is updated every iteration rather than looping over
+        features sequentially by default. This (setting to 'random') often
+        leads to significantly faster convergence especially when tol is higher
+        than 1e-4.
+    normalize : boolean, default=False
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
+        If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -129,13 +88,39 @@ class ElasticNet(
     ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array
-        The independent term. If `fit_intercept` is False, will be 0.
+    intercept_ : float
+        The independent term, will be 0 if `fit_intercept` is False.
 
     Notes
     -----
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.linear_model import ElasticNet
+    >>> enet = ElasticNet(alpha = 0.1, l1_ratio=0.5, solver='qn')
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = cp.array([0, 1, 2], dtype = cp.float32)
+    >>> X['col2'] = cp.array([0, 1, 2], dtype = cp.float32)
+    >>> y = cudf.Series(cp.array([0.0, 1.0, 2.0], dtype = cp.float32) )
+    >>> result_enet = enet.fit(X, y)
+    >>> print(result_enet.coef_)
+    0    0.445...
+    1    0.445...
+    dtype: float32
+    >>> print(result_enet.intercept_)
+    0.108433...
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = cp.array([3,2], dtype = cp.float32)
+    >>> X_new['col2'] = cp.array([5,5], dtype = cp.float32)
+    >>> preds = result_enet.predict(X_new)
+    >>> print(preds)
+    0    3.674...
+    1    3.228...
+    dtype: float32
     """
 
     coef_ = CumlArrayDescriptor(order="F")
@@ -144,15 +129,16 @@ class ElasticNet(
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + [
+        return [
+            *super()._get_param_names(),
             "alpha",
             "l1_ratio",
             "fit_intercept",
-            "normalize",
             "max_iter",
             "tol",
             "solver",
             "selection",
+            "normalize",
         ]
 
     @classmethod
@@ -209,112 +195,31 @@ class ElasticNet(
 
     def __init__(
         self,
-        *,
         alpha=1.0,
+        *,
         l1_ratio=0.5,
         fit_intercept=True,
-        normalize=False,
         max_iter=1000,
         tol=1e-3,
         solver="cd",
         selection="cyclic",
+        normalize=False,
         handle=None,
         output_type=None,
         verbose=False,
     ):
-        """
-        Initializes the elastic-net regression class.
-
-        Parameters
-        ----------
-        alpha : float or double.
-        l1_ratio : float or double.
-        fit_intercept: boolean.
-        normalize: boolean.
-        max_iter: int
-        tol: float or double.
-        solver: str, 'cd' or 'qn'
-        selection : str, 'cyclic', or 'random'
-
-        For additional docs, see `scikitlearn's ElasticNet
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
-        """
-
-        # Hard-code verbosity as CoordinateDescent does not have verbosity
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
 
-        self._check_alpha(alpha)
-        self._check_l1_ratio(l1_ratio)
-
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
-        self.solver = solver
-        self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.solver_model = None
-        if selection in ["cyclic", "random"]:
-            self.selection = selection
-        else:
-            msg = "selection {!r} is not supported"
-            raise TypeError(msg.format(selection))
-
-        self.intercept_value = 0.0
-
-        shuffle = False
-        if self.selection == "random":
-            shuffle = True
-
-        if solver == "qn":
-            pams = signature(self.__init__).parameters
-            if pams["selection"].default != selection:
-                warn(
-                    "Parameter 'selection' has no effect "
-                    "when 'qn' solver is used."
-                )
-            if pams["normalize"].default != normalize:
-                warn(
-                    "Parameter 'normalize' has no effect "
-                    "when 'qn' solver is used."
-                )
-
-            self.solver_model = QN(
-                fit_intercept=self.fit_intercept,
-                l1_strength=self.alpha * self.l1_ratio,
-                l2_strength=self.alpha * (1.0 - self.l1_ratio),
-                max_iter=self.max_iter,
-                handle=self.handle,
-                loss="l2",
-                tol=self.tol,
-                penalty_normalized=False,
-                verbose=self.verbose,
-            )
-        elif solver == "cd":
-            self.solver_model = CD(
-                fit_intercept=self.fit_intercept,
-                normalize=self.normalize,
-                alpha=self.alpha,
-                l1_ratio=self.l1_ratio,
-                shuffle=shuffle,
-                max_iter=self.max_iter,
-                handle=self.handle,
-                tol=self.tol,
-            )
-        else:
-            raise TypeError(f"solver {solver} is not supported")
-
-    def _check_alpha(self, alpha):
-        if alpha <= 0.0:
-            msg = "alpha value has to be positive"
-            raise ValueError(msg.format(alpha))
-
-    def _check_l1_ratio(self, l1_ratio):
-        if l1_ratio < 0.0 or l1_ratio > 1.0:
-            msg = "l1_ratio value has to be between 0.0 and 1.0"
-            raise ValueError(msg.format(l1_ratio))
+        self.solver = solver
+        self.selection = selection
+        self.normalize = normalize
 
     @generate_docstring()
     def fit(
@@ -324,41 +229,59 @@ class ElasticNet(
         Fit the model with X and y.
 
         """
-        X_m, _, self.n_features_in_, self.dtype = input_to_cuml_array(X)
-        y_m, _, _, _ = input_to_cuml_array(y)
-        if hasattr(X_m, "index"):
-            self.feature_names_in_ = X_m.index
-
-        # Check for multi-target regression
-        if (self.solver in ["cd", "qn"]) and y_m.ndim > 1 and y_m.shape[1] > 1:
+        if self.alpha < 0.0:
+            raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
+        if self.selection not in ["cyclic", "random"]:
+            raise ValueError(f"selection {self.selection!r} is not supported")
+        if self.l1_ratio < 0.0 or self.l1_ratio > 1.0:
             raise ValueError(
-                f"The {self.solver} solver does not support "
-                "multi-target regression."
+                f"Expected 0.0 <= l1_ratio <= 1.0, got {self.l1_ratio}"
             )
 
-        self.solver_model.fit(
-            X_m, y_m, convert_dtype=convert_dtype, sample_weight=sample_weight
-        )
-        if isinstance(self.solver_model, QN):
-            coefs = self.solver_model.coef_
-            self.coef_ = CumlArray(
-                data=coefs,
-                index=coefs._index,
-                dtype=coefs.dtype,
-                order=coefs.order,
-                shape=(coefs.shape[1],),
+        if self.solver == "qn":
+            if self.normalize:
+                raise ValueError(
+                    "`normalize=True` is not supported with `solver='qn'"
+                )
+
+            solver = QN(
+                handle=self.handle,
+                verbose=self.verbose,
+                output_type=self.output_type,
+                fit_intercept=self.fit_intercept,
+                l1_strength=self.alpha * self.l1_ratio,
+                l2_strength=self.alpha * (1.0 - self.l1_ratio),
+                loss="l2",
+                penalty_normalized=False,
+                max_iter=self.max_iter,
+                tol=self.tol,
+            ).fit(
+                X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
             )
-            self.intercept_ = self.solver_model.intercept_.item()
+
+            coef = CumlArray(data=solver.coef_.to_output("cupy").flatten())
+            intercept = solver.intercept_.item()
+        elif self.solver == "cd":
+            solver = CD(
+                handle=self.handle,
+                output_type=self.output_type,
+                fit_intercept=self.fit_intercept,
+                l1_ratio=self.l1_ratio,
+                normalize=self.normalize,
+                alpha=self.alpha,
+                shuffle=self.selection == "random",
+                max_iter=self.max_iter,
+                tol=self.tol,
+            ).fit(
+                X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
+            )
+
+            coef = solver.coef_
+            intercept = solver.intercept_
         else:
-            self.coef_ = self.solver_model.coef_
-            self.intercept_ = self.solver_model.intercept_
+            raise ValueError(f"solver {self.solver} is not supported")
 
-        return self
+        self.coef_ = coef
+        self.intercept_ = intercept
 
-    def set_params(self, **params):
-        super().set_params(**params)
-        if "selection" in params:
-            params.pop("selection")
-            params["shuffle"] = self.selection == "random"
-        self.solver_model.set_params(**params)
         return self

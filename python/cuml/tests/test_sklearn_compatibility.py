@@ -542,7 +542,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "Lasso sets attributes during init",
-        "check_dont_overwrite_parameters": "Lasso overwrites parameters during fit",
         "check_estimators_unfitted": "Lasso does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "Lasso raises errors in init or set_params",
         "check_n_features_in_after_fitting": "Lasso does not check n_features_in consistency",
@@ -564,7 +563,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_non_transformer_estimators_n_iter": "Lasso does not have n_iter_ attribute",
         "check_parameters_default_constructible": "Lasso parameters are mutated on init",
         "check_fit2d_1sample": "Lasso does not handle single sample",
-        "check_set_params": "Lasso does not handle set_params properly",
         "check_fit1d": "Lasso does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "Lasso does not handle 1D prediction input gracefully",
         "check_requires_y_none": "Lasso does not handle y=None",
@@ -572,7 +570,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "ElasticNet sets attributes during init",
-        "check_dont_overwrite_parameters": "ElasticNet overwrites parameters during fit",
         "check_estimators_unfitted": "ElasticNet does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "ElasticNet raises errors in init or set_params",
         "check_n_features_in_after_fitting": "ElasticNet does not check n_features_in consistency",
@@ -594,7 +591,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_non_transformer_estimators_n_iter": "ElasticNet does not have n_iter_ attribute",
         "check_parameters_default_constructible": "ElasticNet parameters are mutated on init",
         "check_fit2d_1sample": "ElasticNet does not handle single sample",
-        "check_set_params": "ElasticNet does not handle set_params properly",
         "check_fit1d": "ElasticNet does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "ElasticNet does not handle 1D prediction input gracefully",
         "check_requires_y_none": "ElasticNet does not handle y=None",
