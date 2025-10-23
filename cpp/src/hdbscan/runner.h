@@ -78,7 +78,7 @@ void build_linkage(const raft::handle_t& handle,
     linkage_params;
   // (min_samples+1) is used to account for self-loops in the KNN graph
   // and be consistent with scikit-learn-contrib.
-  if (params.min_samples + 1 > m) {
+  if (static_cast<size_t>(params.min_samples + 1) > m) {
     RAFT_LOG_WARN(
       "min_samples (%d) must be less than the number of samples in X (%zu), setting min_samples to "
       "%zu",

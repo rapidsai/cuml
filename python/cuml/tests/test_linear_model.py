@@ -31,6 +31,7 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
@@ -51,8 +52,6 @@ from cuml.testing.datasets import (
 )
 from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_difference, array_equal
-
-ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
 @given(
@@ -182,9 +181,8 @@ def test_weighted_linear_regression(
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
     46340 rows"""
-    model = cuLinearRegression()
-    with pytest.warns(UserWarning):
-        model.fit(cp.random.rand(46341), cp.random.rand(46341))
+    model = cuml.LinearRegression()
+    model.fit(cp.random.rand(46341)[:, None], cp.random.rand(46341))
 
 
 # The assumptions required to have this test pass are relatively strong.
@@ -1129,42 +1127,77 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
+@pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
-    algorithm=st.sampled_from(ALGORITHMS),
-    xp=st.sampled_from([np, cp]),
-    copy=st.one_of(st.booleans(), st.just(...)),
-    dataset=standard_regression_datasets(
-        n_features=st.integers(min_value=1, max_value=10),
-    ),
+    algo=st.sampled_from(["eig", "qr", "svd", "svd-qr"]),
+    n_targets=st.integers(min_value=1, max_value=2),
+    fit_intercept=st.booleans(),
+    weighted=st.booleans(),
 )
-@example(
-    dataset=make_regression(n_features=1), algorithm="eig", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=2), algorithm="eig", xp=cp, copy=False
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=cp, copy=True
-)
-def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
-    X, y = dataset
-    X, y = xp.asarray(X), xp.asarray(y)
-    X_copy = X.copy()
+@example(algo="eig", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd-qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=2, fit_intercept=False, weighted=True)
+def test_linear_regression_input_mutation(
+    algo, n_targets, fit_intercept, weighted
+):
+    """Check that `LinearRegression.fit`:
+    - Never mutates y and sample_weight
+    - Only sometimes mutates X
+    """
+    # Only algo="svd" supports n_targets > 1. While we do fallback to svd
+    # automatically (with a warning), there's no need to have hypothesis
+    # explore those cases.
+    assume(n_targets == 1 or algo == "svd")
 
-    if copy is ...:  # no argument
-        cuLR = cuLinearRegression(algorithm=algorithm)
+    X, y = make_regression(n_targets=n_targets, random_state=42)
+    if weighted:
+        sample_weight = (
+            cp.random.default_rng(42)
+            .uniform(0.5, 1, y.shape[0])
+            .astype("float32")
+        )
+        sample_weight_orig = sample_weight.copy()
     else:
-        cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+        sample_weight = None
 
-    cuLR.fit(X, y)
+    # The solvers expected fortran-ordered inputs, and will always copy C
+    # ordered inputs. Mutation can only happen for F-ordered inputs.
+    X = cp.asarray(X, order="F", dtype="float32")
+    y = cp.asarray(y, order="F", dtype="float32")
+    X_orig = X.copy()
+    y_orig = y.copy()
 
-    if (X.shape[1] == 1 and xp is cp) and copy is False:
-        assert not array_equal(X, X_copy)
+    params = {"algorithm": algo, "fit_intercept": fit_intercept}
+
+    # Default never mutates inputs
+    cuml.LinearRegression(**params).fit(X, y, sample_weight=sample_weight)
+    cp.testing.assert_allclose(X, X_orig)
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+
+    cuml.LinearRegression(copy_X=False, **params).fit(
+        X, y, sample_weight=sample_weight
+    )
+    # y and sample_weight are never mutated
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+    # The interface doesn't actually care if X is mutated if copy_X=False,
+    # but if our solvers stop mutating (and we can avoid a copy) it'd be good
+    # to notice. Asserting the current behavior here for now.
+    if n_targets == 1 and algo in ["eig", "qr", "svd", "svd-qr"]:
+        # `eig` sometimes mutates and sometimes doesn't, the others always do
+        if algo != "eig":
+            assert not cp.array_equal(X, X_orig)
+    elif n_targets > 1 and not fit_intercept and weighted:
+        # The fallback solver also mutates in this case
+        assert not cp.array_equal(X, X_orig)
     else:
-        assert array_equal(X, X_copy)
+        # All other options don't mutate
+        cp.testing.assert_array_equal(X, X_orig)
 
 
 @given(
