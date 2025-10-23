@@ -117,10 +117,13 @@ def check_linear_svc(
     cu_model.fit(X_train, y_train)
     cu_score = cu_model.score(X_test, y_test)
 
+    dual = not (penalty == "l1" and loss == "squared_hinge")
+
     sk_model = sklearn.svm.LinearSVC(
         loss=loss,
         penalty=penalty,
         class_weight=class_weight,
+        dual=dual,
     )
     sk_model.fit(X_train, y_train)
     sk_score = sk_model.score(X_test, y_test)
