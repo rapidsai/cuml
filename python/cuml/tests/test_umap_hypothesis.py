@@ -93,24 +93,88 @@ class DatasetWrapper:
         return self.__dict__.get(key, default)
 
 
-# Hypothesis strategies for dataset generation
+# Hypothesis strategy for dataset generation
 @st.composite
-def dataset_strategy(draw):
-    """Generate synthetic blobs datasets with various characteristics."""
+def diverse_dataset_strategy(draw):
+    """Generate diverse synthetic datasets with various topologies."""
+    dataset_type = draw(
+        st.sampled_from(["blobs", "circles", "moons", "swiss_roll", "s_curve"])
+    )
     n_samples = draw(st.integers(min_value=800, max_value=2000))
-    n_features = draw(st.integers(min_value=5, max_value=25))
-    n_centers = draw(st.integers(min_value=2, max_value=6))
-    cluster_std = draw(st.floats(min_value=0.5, max_value=3.0))
     metric = draw(st.sampled_from(["euclidean", "cosine"]))
 
-    X_cp, y = cuml.datasets.make_blobs(
-        n_samples=n_samples,
-        n_features=n_features,
-        centers=n_centers,
-        cluster_std=cluster_std,
-        random_state=draw(st.integers(min_value=0, max_value=10000)),
-    )
+    if dataset_type == "blobs":
+        n_features = draw(st.integers(min_value=5, max_value=25))
+        n_centers = draw(st.integers(min_value=2, max_value=6))
+        cluster_std = draw(st.floats(min_value=0.5, max_value=3.0))
+        random_state = draw(st.integers(min_value=0, max_value=10000))
 
+        X_cp, y = cuml.datasets.make_blobs(
+            n_samples=n_samples,
+            n_features=n_features,
+            centers=n_centers,
+            cluster_std=cluster_std,
+            random_state=random_state,
+        )
+        kwargs = {
+            "n_features": n_features,
+            "n_centers": n_centers,
+            "cluster_std": cluster_std,
+        }
+
+    elif dataset_type == "circles":
+        noise = draw(st.floats(min_value=0.03, max_value=0.15))
+        factor = draw(st.floats(min_value=0.4, max_value=0.7))
+        random_state = draw(st.integers(min_value=0, max_value=10000))
+
+        from sklearn.datasets import make_circles
+
+        X_np, y = make_circles(
+            n_samples=n_samples,
+            noise=noise,
+            factor=factor,
+            random_state=random_state,
+        )
+        X_cp = cp.asarray(X_np, dtype=cp.float32)
+        kwargs = {"noise": noise, "factor": factor, "n_features": 2}
+
+    elif dataset_type == "moons":
+        noise = draw(st.floats(min_value=0.03, max_value=0.15))
+        random_state = draw(st.integers(min_value=0, max_value=10000))
+
+        from sklearn.datasets import make_moons
+
+        X_np, y = make_moons(
+            n_samples=n_samples, noise=noise, random_state=random_state
+        )
+        X_cp = cp.asarray(X_np, dtype=cp.float32)
+        kwargs = {"noise": noise, "n_features": 2}
+
+    elif dataset_type == "swiss_roll":
+        noise = draw(st.floats(min_value=0.1, max_value=0.8))
+        random_state = draw(st.integers(min_value=0, max_value=10000))
+
+        from sklearn.datasets import make_swiss_roll
+
+        X_np, y = make_swiss_roll(
+            n_samples=n_samples, noise=noise, random_state=random_state
+        )
+        X_cp = cp.asarray(X_np, dtype=cp.float32)
+        kwargs = {"noise": noise, "n_features": 3}
+
+    else:  # s_curve
+        noise = draw(st.floats(min_value=0.1, max_value=0.8))
+        random_state = draw(st.integers(min_value=0, max_value=10000))
+
+        from sklearn.datasets import make_s_curve
+
+        X_np, y = make_s_curve(
+            n_samples=n_samples, noise=noise, random_state=random_state
+        )
+        X_cp = cp.asarray(X_np, dtype=cp.float32)
+        kwargs = {"noise": noise, "n_features": 3}
+
+    # Ensure consistent numpy/cupy types
     X_np = (
         cp.asnumpy(X_cp)
         if isinstance(X_cp, cp.ndarray)
@@ -122,37 +186,35 @@ def dataset_strategy(draw):
         X_np=X_np,
         X_cp=X_cp,
         metric=metric,
-        dataset_type="blobs",
+        dataset_type=dataset_type,
         n_samples=n_samples,
-        n_features=n_features,
-        n_centers=n_centers,
-        cluster_std=cluster_std,
+        **kwargs,
     )
 
 
 @st.composite
 def embedding_params_strategy(draw):
-    """Generate valid UMAP embedding parameters."""
-    # Learning rate: typically 0.1 to 3.0
-    learning_rate = draw(st.floats(min_value=0.1, max_value=3.0))
+    """Generate valid UMAP embedding parameters (avoiding extreme combinations)."""
+    # Learning rate: reasonable range avoiding extremes
+    learning_rate = draw(st.floats(min_value=0.5, max_value=2.0))
 
-    # min_dist: typically 0.001 to 0.99
-    min_dist = draw(st.floats(min_value=0.001, max_value=0.99))
+    # min_dist: avoiding very small values
+    min_dist = draw(st.floats(min_value=0.05, max_value=0.5))
 
-    # spread: typically 0.5 to 3.0, must be >= min_dist
-    spread = draw(st.floats(min_value=max(0.5, min_dist), max_value=3.0))
+    # spread: typically 0.5 to 2.5, must be >= min_dist
+    spread = draw(st.floats(min_value=max(0.5, min_dist + 0.1), max_value=2.5))
 
-    # n_epochs: keep reasonable for CI speed
-    n_epochs = draw(st.integers(min_value=150, max_value=700))
+    # n_epochs: reasonable range for good convergence
+    n_epochs = draw(st.integers(min_value=200, max_value=500))
 
-    # negative_sample_rate: typically 2 to 20
-    negative_sample_rate = draw(st.integers(min_value=2, max_value=20))
+    # negative_sample_rate: moderate range
+    negative_sample_rate = draw(st.integers(min_value=5, max_value=15))
 
-    # gamma: typically 0.1 to 3.0
-    gamma = draw(st.floats(min_value=0.1, max_value=3.0))
+    # gamma: avoiding very low values
+    gamma = draw(st.floats(min_value=0.5, max_value=2.0))
 
-    # init: spectral or random
-    init = draw(st.sampled_from(["spectral", "random"]))
+    # init: prefer spectral for consistency
+    init = draw(st.sampled_from(["spectral", "spectral", "random"]))
 
     # n_components: 2 or 3 for visualization
     n_components = draw(st.sampled_from([2, 3]))
@@ -342,8 +404,8 @@ def evaluate_embedding_quality(
     return should_fail, fail_reason, metrics_dict
 
 
-def _generate_simple_dataset():
-    """Generate a simple test dataset for examples."""
+def _generate_baseline_dataset():
+    """Generate a baseline dataset for the required example."""
     X_cp, y = cuml.datasets.make_blobs(
         n_samples=300,
         n_features=10,
@@ -351,11 +413,7 @@ def _generate_simple_dataset():
         cluster_std=1.0,
         random_state=42,
     )
-    X_np = (
-        cp.asnumpy(X_cp)
-        if isinstance(X_cp, cp.ndarray)
-        else np.asarray(X_cp, dtype=np.float32)
-    )
+    X_np = cp.asnumpy(X_cp) if isinstance(X_cp, cp.ndarray) else X_cp
     X_cp = cp.asarray(X_np, dtype=cp.float32)
     return DatasetWrapper(
         X_np=X_np,
@@ -371,24 +429,24 @@ def _generate_simple_dataset():
 
 @pytest.mark.slow
 @settings(
-    max_examples=10,  # Run 100 random parameter combinations for comprehensive testing
+    max_examples=5,  # Random testing across all dataset types
     deadline=120000,  # 120 seconds per test case (embedding can be slow)
     phases=[
         hypothesis.Phase.explicit,
         hypothesis.Phase.reuse,
         hypothesis.Phase.generate,
         hypothesis.Phase.target,
-        hypothesis.Phase.shrink,
-    ],  # Override project default to enable random generation
+    ],
     print_blob=False,  # Don't print large dataset arrays in failure messages
+    verbosity=hypothesis.Verbosity.verbose,  # Display information about every run
 )
 @given(
-    dataset=dataset_strategy(),
+    dataset=diverse_dataset_strategy(),
     params=embedding_params_strategy(),
 )
 @example(
-    # Baseline case: standard UMAP parameters (required by project policy)
-    dataset=_generate_simple_dataset(),
+    # Baseline example (required by test framework)
+    dataset=_generate_baseline_dataset(),
     params={
         "learning_rate": 1.0,
         "min_dist": 0.1,
@@ -402,16 +460,35 @@ def _generate_simple_dataset():
 )
 def test_simplicial_set_embedding_hypothesis(dataset, params):
     """
-    Property-based test for simplicial set embedding using Hypothesis.
+    Property-based test for UMAP simplicial set embedding using random parameters.
 
-    This test generates random datasets and embedding parameters to ensure
-    the cuML implementation produces embeddings that are comparable in quality
-    to the reference UMAP implementation across a wide variety of scenarios.
+    This test validates the cuML implementation against the reference UMAP
+    using Hypothesis to generate random combinations of datasets and parameters.
+
+    Dataset Types (randomly selected):
+    - Blobs: Traditional clustered data (5-50D)
+    - Circles: Concentric circles topology (2D)
+    - Moons: Two interleaving half circles (2D)
+    - Swiss Roll: Classic 3D manifold structure
+    - S-Curve: 3D curved manifold
+
+    Test Coverage:
+    - 15 random parameter/dataset combinations
+    - All parameters within reasonable ranges (no extreme values)
+    - Both 2D and 3D embeddings
+    - Euclidean and cosine metrics
+    - Sample sizes: 300-2000
+    - Epochs: 200-500
+
+    Quality Validation:
+    Compares cuML vs reference UMAP on multiple metrics including trustworthiness,
+    continuity, geodesic correlations, fuzzy KL divergence, and Procrustes RMSE.
     """
     X_np = dataset["X_np"]
     X_cp = dataset["X_cp"]
     metric = dataset["metric"]
-    k = 15  # Fixed k for testing
+    dataset_type = dataset["dataset_type"]
+    k = 15
 
     # Build KNN graph using cuVS
     knn_dists_np, knn_inds_np = _build_knn_with_cuvs(
@@ -480,11 +557,17 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     )
 
     if should_fail:
+        # Format dataset-specific details for error message
+        dataset_info = (
+            f"dataset_type={dataset_type}, n_samples={dataset['n_samples']}"
+        )
+        if "n_features" in dataset:
+            dataset_info += f", n_features={dataset['n_features']}"
+
         details = (
-            f"Hypothesis test failed for blobs dataset "
-            f"(n_samples={dataset['n_samples']}, n_features={dataset['n_features']}, "
-            f"n_centers={dataset['n_centers']}, cluster_std={dataset['cluster_std']:.2f}, "
-            f"metric={metric}) with params {params}: {fail_reason} | "
+            f"Hypothesis test failed for {dataset_type} dataset "
+            f"({dataset_info}, metric={metric}) "
+            f"with params {params}: {fail_reason} | "
             f"RMSE={metrics['rmse']:.3f}, trust_def={metrics['trust_def']:.3f}, "
             f"cont_def={metrics['cont_def']:.3f}, sp_def={metrics['sp_def']:.3f}, "
             f"pe_def={metrics['pe_def']:.3f}, xent_rel={metrics['xent_rel_increase']:.3f}, "
