@@ -111,3 +111,14 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_dask.sh
+  wheel-tests-integrations:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    with:
+      build_type: ${{ inputs.build_type }}
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
+      script: ci/test_wheel_integrations.sh
+      # Test latest CUDA version with all Python versions
+      matrix_filter: group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by(.CUDA_VER|split(".")|map(tonumber))) | group_by(.PY_VER) | map(.[0])
