@@ -13,6 +13,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
 
 VALID_KERNELS = [
@@ -140,7 +141,7 @@ class KernelDensity(Base):
     bandwidth : float, default=1.0
         The bandwidth of the kernel.
     kernel : {'gaussian', 'tophat', 'epanechnikov', 'exponential', 'linear', \
-                 'cosine'}, default='gaussian'
+            'cosine'}, default='gaussian'
         The kernel to use.
     metric : str, default='euclidean'
         The distance metric to use.  Note that not all metrics are
@@ -169,16 +170,12 @@ class KernelDensity(Base):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> from cuml.neighbors import KernelDensity
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(42)
-        >>> X = rng.random_sample((100, 3))
-        >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
-        >>> log_density = kde.score_samples(X[:3])
-
+    >>> from cuml.neighbors import KernelDensity
+    >>> import cupy as cp
+    >>> rng = cp.random.RandomState(42)
+    >>> X = rng.random_sample((100, 3))
+    >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
+    >>> log_density = kde.score_samples(X[:3])
     """
 
     def __init__(
@@ -192,7 +189,7 @@ class KernelDensity(Base):
         handle=None,
         verbose=False,
     ):
-        super(KernelDensity, self).__init__(
+        super().__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
         self.bandwidth = bandwidth
@@ -200,26 +197,23 @@ class KernelDensity(Base):
         self.metric = metric
         self.metric_params = metric_params
 
-        if bandwidth <= 0:
-            raise ValueError("bandwidth must be positive")
-        if kernel not in VALID_KERNELS:
-            raise ValueError("invalid kernel: '{0}'".format(kernel))
-
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + [
+        return [
+            *super()._get_param_names(),
             "bandwidth",
             "kernel",
             "metric",
             "metric_params",
         ]
 
-    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True):
+    def fit(
+        self, X, y=None, sample_weight=None, *, convert_dtype=True
+    ) -> "KernelDensity":
         """Fit the Kernel Density model on the data.
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             List of n_features-dimensional data points.  Each row
             corresponds to a single data point.
@@ -230,10 +224,14 @@ class KernelDensity(Base):
 
         Returns
         -------
-
-        self : object
+        self
             Returns the instance itself.
         """
+        if self.bandwidth <= 0:
+            raise ValueError("Expected bandwidth > 0, got {self.bandwidth}")
+        if self.kernel not in VALID_KERNELS:
+            raise ValueError(f"kernel={self.kernel!r} is not supported")
+
         self.X_ = input_to_cupy_array(
             X,
             order="C",
@@ -261,14 +259,12 @@ class KernelDensity(Base):
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             An array of points to query.  Last dimension should match dimension
             of training data (n_features).
 
         Returns
         -------
-
         density : ndarray of shape (n_samples,)
             Log-likelihood of each sample in `X`. These are normalized to be
             probability densities, so values will be low for high-dimensional
@@ -276,6 +272,7 @@ class KernelDensity(Base):
         """
         if not hasattr(self, "X_"):
             raise NotFittedError()
+
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(self.X_.dtype if convert_dtype else None),
@@ -350,7 +347,6 @@ class KernelDensity(Base):
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             List of n_features-dimensional data points.  Each row
             corresponds to a single data point.
@@ -359,7 +355,6 @@ class KernelDensity(Base):
 
         Returns
         -------
-
         logprob : float
             Total log-likelihood of the data in X. This is normalized to be a
             probability density, so the value will be low for high-dimensional
@@ -367,9 +362,9 @@ class KernelDensity(Base):
         """
         return float(cp.sum(self.score_samples(X).to_output("cupy")))
 
-    def sample(self, n_samples=1, random_state=None):
-        """
-        Generate random samples from the model.
+    def sample(self, n_samples=1, random_state=None) -> CumlArray:
+        """Generate random samples from the model.
+
         Currently, this is implemented only for gaussian and tophat kernels,
         and the Euclidean metric.
 
@@ -377,7 +372,9 @@ class KernelDensity(Base):
         ----------
         n_samples : int, default=1
             Number of samples to generate.
-        random_state : int, cupy RandomState instance or None, default=None
+        random_state : int, RandomState instance or None, default=None
+            Determines random number generation used to generate
+            random samples.
 
         Returns
         -------
@@ -390,14 +387,11 @@ class KernelDensity(Base):
         supported_kernels = ["gaussian", "tophat"]
         if self.kernel not in supported_kernels or self.metric != "euclidean":
             raise NotImplementedError(
-                "Only {} kernels, and the euclidean"
-                " metric are supported.".format(supported_kernels)
+                f"Only {supported_kernels} kernels, with metric='euclidean' "
+                f"are supported."
             )
 
-        if isinstance(random_state, cp.random.RandomState):
-            rng = random_state
-        else:
-            rng = cp.random.RandomState(random_state)
+        rng = cp.random.RandomState(check_random_seed(random_state))
 
         u = rng.uniform(0, 1, size=n_samples)
         if self.sample_weight_ is None:
