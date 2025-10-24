@@ -307,7 +307,7 @@ def test_classes(output_type, multioutput):
     def check(cu, sk):
         if output_type == "cupy":
             assert isinstance(cu, cp.ndarray)
-            cu = cu.get()
+            cu = cp.asnumpy(cu)
         else:
             assert isinstance(cu, np.ndarray)
         np.testing.assert_array_equal(cu, sk)
@@ -426,7 +426,7 @@ def test_weights_predict(weights, n_neighbors):
 
     # Results should match scikit-learn
     if isinstance(pred_cu, cp.ndarray):
-        pred_cu = pred_cu.get()
+        pred_cu = cp.asnumpy(pred_cu)
     assert array_equal(pred_cu, pred_sk)
 
 
@@ -461,7 +461,7 @@ def test_weights_predict_proba(weights, n_neighbors):
 
     # Convert to numpy if needed
     if isinstance(proba_cu, cp.ndarray):
-        proba_cu = proba_cu.get()
+        proba_cu = cp.asnumpy(proba_cu)
 
     # scikit-learn model for comparison
     knn_sk = skKNN(n_neighbors=n_neighbors, weights=weights, algorithm="brute")
@@ -498,7 +498,7 @@ def test_weights_multioutput(weights):
     # Each probability distribution should sum to 1
     for p in proba:
         if isinstance(p, cp.ndarray):
-            p = p.get()
+            p = cp.asnumpy(p)
         elif hasattr(p, "to_numpy"):
             p = p.to_numpy()
         np.testing.assert_allclose(p.sum(axis=1), np.ones(len(X)), rtol=1e-5)

@@ -184,7 +184,7 @@ def test_weights_predict(weights, n_neighbors):
 
     # Results should match scikit-learn
     if isinstance(pred_cu, cp.ndarray):
-        pred_cu = pred_cu.get()
+        pred_cu = cp.asnumpy(pred_cu)
     np.testing.assert_allclose(pred_cu, pred_sk, rtol=1e-4, atol=1e-4)
 
 
@@ -216,7 +216,7 @@ def test_weights_multioutput(weights):
     pred_sk = knn_sk.predict(X_test)
 
     if isinstance(pred, cp.ndarray):
-        pred = pred.get()
+        pred = cp.asnumpy(pred)
     np.testing.assert_allclose(pred, pred_sk, rtol=1e-4, atol=1e-4)
 
 

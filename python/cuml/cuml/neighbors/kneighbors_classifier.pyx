@@ -25,159 +25,15 @@ from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.weights import (
+    apply_callable_weights,
+    apply_callable_weights_proba,
+    compute_weights,
+)
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
-
-
-def _compute_weights(distances, weights):
-    """
-    Compute weights from distances.
-
-    Parameters
-    ----------
-    distances : cupy.ndarray or array-like
-        The input distances (n_samples, k).
-
-    weights : {'uniform', 'distance'} or callable
-        The kind of weighting used.
-
-    Returns
-    -------
-    weights_arr : cupy.ndarray
-        Weights of shape (n_samples, k).
-        For uniform weights, returns array of 1/k (normalized).
-        For distance weights, returns raw inverse distances (not normalized).
-        For callable, returns raw result of callable(distances) (not normalized).
-    """
-    # Convert to cupy array if needed and ensure 2D
-    if not isinstance(distances, cp.ndarray):
-        distances = cp.asarray(distances)
-
-    # Ensure distances is 2D
-    if distances.ndim == 1:
-        distances = distances.reshape(-1, 1)
-    elif distances.ndim != 2:
-        raise ValueError(f"distances must be 1D or 2D, got shape {distances.shape}")
-
-    if weights in (None, 'uniform'):
-        # Uniform weights: all neighbors contribute equally
-        n_neighbors = distances.shape[1]
-        return cp.full_like(distances, 1.0 / n_neighbors, dtype=cp.float32)
-    elif weights == 'distance':
-        # Distance weights: inverse of distance (raw, not normalized)
-        # Match sklearn behavior: if any neighbor has distance 0, only those
-        # neighbors contribute (with equal weight)
-
-        # Compute 1/distance (this will produce inf for zero distances)
-        raw_weights = (1.0 / distances).astype(cp.float32)
-
-        # Handle infinite weights (from zero distances)
-        inf_mask = cp.isinf(raw_weights)
-        inf_row = cp.any(inf_mask, axis=1)
-
-        # For rows with any infinite weight, use binary mask:
-        # 1.0 for zero-distance neighbors, 0.0 for others
-        if cp.any(inf_row):
-            raw_weights[inf_row] = inf_mask[inf_row].astype(cp.float32)
-
-        return raw_weights
-    elif callable(weights):
-        # Custom callable weights (raw, not normalized)
-        raw_weights = weights(distances).astype(cp.float32)
-        # Return raw weights
-        return raw_weights
-    else:
-        raise ValueError(
-            f"weights must be 'uniform', 'distance', or a callable, got {weights}"
-        )
-
-
-def _apply_callable_weights(distances, weights_func, inds, y, classes, n_neighbors):
-    """
-    Apply callable weights for KNN classification.
-
-    This is a fallback for custom weight functions that cannot be GPU-accelerated.
-    """
-    weights_arr = weights_func(distances)
-    n_rows = distances.shape[0]
-    out_cols = y.shape[1] if len(y.shape) == 2 else 1
-
-    classes_ = classes if isinstance(classes, list) else [classes]
-    _y = y if out_cols > 1 else cp.asarray(y).reshape(-1, 1)
-
-    classes_array = cp.zeros((n_rows, out_cols), dtype=np.int32)
-    inds_cp = cp.asarray(inds)
-
-    for k, classes_k in enumerate(classes_):
-        # Get the labels of the k nearest neighbors
-        col = _y[:, k] if out_cols > 1 else _y[:, 0]
-        neigh_labels = col[inds_cp]
-
-        pred_labels = cp.zeros(n_rows, dtype=np.int32)
-        classes_k_cp = cp.asarray(classes_k)
-        for i in range(n_rows):
-            # Compute weighted votes for each class
-            weighted_votes = cp.zeros(len(classes_k_cp), dtype=cp.float32)
-            for j, label in enumerate(neigh_labels[i]):
-                # Find which class this label corresponds to
-                class_idx = cp.where(classes_k_cp == label)[0]
-                if len(class_idx) > 0:
-                    weighted_votes[class_idx[0]] += weights_arr[i, j]
-            # Select the class with the highest weighted vote
-            pred_labels[i] = classes_k_cp[cp.argmax(weighted_votes)]
-
-        classes_array[:, k] = pred_labels
-
-    return classes_array
-
-
-def _apply_callable_weights_proba(distances, weights_func, inds, y, classes, n_neighbors):
-    """
-    Apply callable weights for KNN class probabilities.
-
-    This is a fallback for custom weight functions that cannot be GPU-accelerated.
-    """
-    weights_arr = weights_func(distances)
-    n_rows = distances.shape[0]
-    inds_cp = cp.asarray(inds)
-
-    if y.ndim == 1 or y.shape[1] == 1:
-        n_classes = [len(classes)]
-        ys = [y]
-        classes_ = [classes]
-    else:
-        n_classes = [len(c) for c in classes]
-        ys = [y[:, i] for i in range(y.shape[1])]
-        classes_ = classes
-
-    probas = []
-    for n, y_col, classes_k in zip(n_classes, ys, classes_):
-        proba_k = cp.zeros((n_rows, n), dtype=cp.float32)
-        y_cp = cp.asarray(y_col)
-        classes_k_cp = cp.asarray(classes_k)
-
-        # Get the labels of the k nearest neighbors
-        neigh_labels = y_cp[inds_cp]
-
-        # Compute weighted probabilities
-        for i in range(n_rows):
-            for j, label in enumerate(neigh_labels[i]):
-                # Find which class this label corresponds to
-                class_idx = cp.where(classes_k_cp == label)[0]
-                if len(class_idx) > 0:
-                    proba_k[i, class_idx[0]] += weights_arr[i, j]
-
-        # Normalize to get probabilities
-        row_sums = proba_k.sum(axis=1, keepdims=True)
-        # Avoid division by zero
-        row_sums = cp.where(row_sums == 0, 1, row_sums)
-        proba_k /= row_sums
-
-        probas.append(proba_k)
-
-    return probas
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
@@ -358,7 +214,7 @@ class KNeighborsClassifier(ClassifierMixin,
             order='F',
             check_rows=self.n_samples_fit_,
             check_dtype=np.int32,
-            convert_to_dtype=(np.int32 if convert_dtype else None)
+            convert_to_dtype=(np.int32 if convert_dtype else None),
         ).array
 
         # For multilabel y, `classes_` is a list of classes per label,
@@ -402,27 +258,30 @@ class KNeighborsClassifier(ClassifierMixin,
         cdef handle_t* handle_
 
         # Get KNN results - always get distances to compute weights
-        knn_distances, knn_indices = self.kneighbors(X, return_distance=True,
-                                                     convert_dtype=convert_dtype)
+        knn_distances, knn_indices = self.kneighbors(
+            X, return_distance=True, convert_dtype=convert_dtype
+        )
 
-        inds, n_rows, _, _ = \
-            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
+        inds, n_rows, _, _ = input_to_cuml_array(
+            knn_indices,
+            order='C',
+            check_dtype=np.int64,
+            convert_to_dtype=(np.int64 if convert_dtype else None),
+        )
 
-        dists, _, _, _ = input_to_cuml_array(knn_distances, order='C',
-                                             check_dtype=np.float32,
-                                             convert_to_dtype=(np.float32
-                                                               if convert_dtype
-                                                               else None))
+        dists, _, _, _ = input_to_cuml_array(
+            knn_distances,
+            order='C',
+            check_dtype=np.float32,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        )
 
         out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
         # Handle callable weights separately (Python fallback)
         if callable(self.weights):
-            classes_array = _apply_callable_weights(
+            classes_array = apply_callable_weights(
                 cp.asarray(dists), self.weights, inds, self._y,
                 self._classes, self.n_neighbors
             )
@@ -433,8 +292,9 @@ class KNeighborsClassifier(ClassifierMixin,
             return classes
 
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
-        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
-                                  index=inds.index)
+        classes = CumlArray.zeros(
+            out_shape, dtype=np.int32, order="C", index=inds.index
+        )
 
         # Store Python attributes before nogil context
         cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
@@ -454,7 +314,7 @@ class KNeighborsClassifier(ClassifierMixin,
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
         if self.weights not in (None, 'uniform'):
-            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cp = compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
@@ -518,7 +378,7 @@ class KNeighborsClassifier(ClassifierMixin,
 
         # Handle callable weights separately (Python fallback)
         if callable(self.weights):
-            probas_list = _apply_callable_weights_proba(
+            probas_list = apply_callable_weights_proba(
                 cp.asarray(dists), self.weights, inds, self._y,
                 self._classes, self.n_neighbors
             )
@@ -535,10 +395,7 @@ class KNeighborsClassifier(ClassifierMixin,
         probas = []
         for n, y in zip(n_classes, ys):
             proba = CumlArray.zeros(
-                (n_rows, n),
-                dtype=np.float32,
-                order="C",
-                index=inds.index
+                (n_rows, n), dtype=np.float32, order="C", index=inds.index
             )
             probas.append(proba)
             proba_ptr = <float*><uintptr_t>proba.ptr
@@ -553,7 +410,7 @@ class KNeighborsClassifier(ClassifierMixin,
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
         if self.weights not in (None, 'uniform'):
-            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cp = compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 

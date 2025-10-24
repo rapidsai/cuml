@@ -24,73 +24,11 @@ from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.weights import compute_weights
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
-
-
-def _compute_weights(distances, weights):
-    """
-    Compute normalized weights from distances.
-
-    Parameters
-    ----------
-    distances : cupy.ndarray or array-like
-        The input distances (n_samples, k).
-
-    weights : {'uniform', 'distance'} or callable
-        The kind of weighting used.
-
-    Returns
-    -------
-    weights_arr : cupy.ndarray
-        Weights of shape (n_samples, k).
-        For uniform weights, returns array of 1/k (normalized).
-        For distance weights, returns raw inverse distances (not normalized).
-        For callable, returns raw result of callable(distances) (not normalized).
-    """
-    # Convert to cupy array if needed and ensure 2D
-    if not isinstance(distances, cp.ndarray):
-        distances = cp.asarray(distances)
-
-    # Ensure distances is 2D
-    if distances.ndim == 1:
-        distances = distances.reshape(-1, 1)
-    elif distances.ndim != 2:
-        raise ValueError(f"distances must be 1D or 2D, got shape {distances.shape}")
-
-    if weights in (None, 'uniform'):
-        # Uniform weights: all neighbors contribute equally
-        n_neighbors = distances.shape[1]
-        return cp.full_like(distances, 1.0 / n_neighbors, dtype=cp.float32)
-    elif weights == 'distance':
-        # Distance weights: inverse of distance (raw, not normalized)
-        # Match sklearn behavior: if any neighbor has distance 0, only those
-        # neighbors contribute (with equal weight)
-
-        # Compute 1/distance (this will produce inf for zero distances)
-        raw_weights = (1.0 / distances).astype(cp.float32)
-
-        # Handle infinite weights (from zero distances)
-        inf_mask = cp.isinf(raw_weights)
-        inf_row = cp.any(inf_mask, axis=1)
-
-        # For rows with any infinite weight, use binary mask:
-        # 1.0 for zero-distance neighbors, 0.0 for others
-        if cp.any(inf_row):
-            raw_weights[inf_row] = inf_mask[inf_row].astype(cp.float32)
-
-        return raw_weights
-    elif callable(weights):
-        # Custom callable weights (raw, not normalized)
-        raw_weights = weights(distances).astype(cp.float32)
-        # Return raw weights - normalization will be done in C++ kernel
-        return raw_weights
-    else:
-        raise ValueError(
-            f"weights must be 'uniform', 'distance', or a callable, got {weights}"
-        )
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
@@ -262,7 +200,6 @@ class KNeighborsRegressor(RegressorMixin,
             raise ValueError(
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
-        self._set_target_dtype(y)
 
         super().fit(X, convert_dtype=convert_dtype)
 
@@ -280,6 +217,7 @@ class KNeighborsRegressor(RegressorMixin,
             y,
             order='F',
             check_rows=self.n_samples_fit_,
+            check_dtype=np.float32,
             convert_to_dtype=(np.float32 if convert_dtype else None),
         )
         self._y = y_arr.array
@@ -305,20 +243,23 @@ class KNeighborsRegressor(RegressorMixin,
         cdef handle_t* handle_
 
         # Get KNN results - always get distances to compute weights
-        knn_distances, knn_indices = self.kneighbors(X, return_distance=True,
-                                                     convert_dtype=convert_dtype)
+        knn_distances, knn_indices = self.kneighbors(
+            X, return_distance=True, convert_dtype=convert_dtype
+        )
 
-        inds, n_rows, _n_cols, _dtype = \
-            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
+        inds, n_rows, _n_cols, _dtype = input_to_cuml_array(
+            knn_indices,
+            order='C',
+            check_dtype=np.int64,
+            convert_to_dtype=(np.int64 if convert_dtype else None),
+        )
 
-        dists, _, _, _ = input_to_cuml_array(knn_distances, order='C',
-                                             check_dtype=np.float32,
-                                             convert_to_dtype=(np.float32
-                                                               if convert_dtype
-                                                               else None))
+        dists, _, _, _ = input_to_cuml_array(
+            knn_distances,
+            order='C',
+            check_dtype=np.float32,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        )
 
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
@@ -326,9 +267,9 @@ class KNeighborsRegressor(RegressorMixin,
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
         # C++ kernel always uses float32, we'll convert after if needed
-        out = CumlArray.zeros(res_shape, dtype=np.float32,
-                              order="C",
-                              index=inds.index)
+        out = CumlArray.zeros(
+            res_shape, dtype=np.float32, order="C", index=inds.index
+        )
 
         out_ptr = <float*><uintptr_t>out.ptr
 
@@ -347,7 +288,7 @@ class KNeighborsRegressor(RegressorMixin,
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
         if self.weights not in (None, 'uniform'):
-            weights_cp = _compute_weights(cp.asarray(dists), self.weights)
+            weights_cp = compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
