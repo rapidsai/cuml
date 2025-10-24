@@ -32,6 +32,7 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.internals.logger as logger
+from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
@@ -1199,3 +1200,405 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+def test_rf_oob_score_classifier():
+    """Test OOB score for Random Forest Classifier"""
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Test with OOB score enabled
+    clf = curfc(
+        n_estimators=50,
+        max_depth=8,
+        oob_score=True,
+        bootstrap=True,
+        random_state=42,
+    )
+    clf.fit(X, y)
+
+    # Check that OOB score is available and reasonable
+    assert hasattr(clf, "oob_score_")
+    assert 0.0 <= clf.oob_score_ <= 1.0
+    assert (
+        clf.oob_score_ > 0.5
+    )  # Should be better than random for this dataset
+
+    # Test without bootstrap (OOB score should still work but be less meaningful)
+    clf_no_bootstrap = curfc(
+        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
+    )
+    clf_no_bootstrap.fit(X[:100], y[:100])
+
+    # Test error when accessing OOB score without enabling it
+    clf_no_oob = curfc(n_estimators=10, oob_score=False)
+    clf_no_oob.fit(X[:100], y[:100])
+    with pytest.raises(AttributeError):
+        _ = clf_no_oob.oob_score_
+
+
+def test_rf_oob_score_regressor():
+    """Test OOB score for Random Forest Regressor"""
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_informative=10,
+        noise=0.1,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    # Test with OOB score enabled
+    reg = curfr(
+        n_estimators=50,
+        max_depth=8,
+        oob_score=True,
+        bootstrap=True,
+        random_state=42,
+    )
+    reg.fit(X, y)
+
+    # Check that OOB score is available and reasonable
+    assert hasattr(reg, "oob_score_")
+    assert -1.0 <= reg.oob_score_ <= 1.0
+    assert reg.oob_score_ > 0.5  # Should have good R² for this dataset
+
+    # Test error when accessing OOB score without enabling it
+    reg_no_oob = curfr(n_estimators=10, oob_score=False)
+    reg_no_oob.fit(X[:100], y[:100])
+    with pytest.raises(AttributeError):
+        _ = reg_no_oob.oob_score_
+
+
+def test_rf_feature_importance_classifier():
+    """Test feature importance for Random Forest Classifier"""
+    # Create dataset with some informative and some noise features
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=5,
+        n_redundant=5,
+        n_repeated=0,
+        n_classes=2,
+        shuffle=False,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    clf = curfc(n_estimators=50, max_depth=8, random_state=42)
+    clf.fit(X, y)
+
+    # Check that feature importances are available
+    assert hasattr(clf, "feature_importances_")
+    importances = clf.feature_importances_
+
+    # Check properties of feature importances
+    assert len(importances) == X.shape[1]
+    assert np.all(importances >= 0)
+    assert np.abs(np.sum(importances) - 1.0) < 1e-5  # Should sum to 1
+
+    # Informative features should have higher importance
+    # (first 5 features are informative in this dataset)
+    avg_informative_importance = np.mean(importances[:5])
+    avg_noise_importance = np.mean(importances[10:])
+    assert avg_informative_importance > avg_noise_importance
+
+
+def test_rf_feature_importance_regressor():
+    """Test feature importance for Random Forest Regressor"""
+    # Create dataset with some informative and some noise features
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_informative=5,
+        noise=0.1,
+        shuffle=False,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    reg = curfr(n_estimators=50, max_depth=8, random_state=42)
+    reg.fit(X, y)
+
+    # Check that feature importances are available
+    assert hasattr(reg, "feature_importances_")
+    importances = reg.feature_importances_
+
+    # Check properties of feature importances
+    assert len(importances) == X.shape[1]
+    assert np.all(importances >= 0)
+    assert np.abs(np.sum(importances) - 1.0) < 1e-5  # Should sum to 1
+
+    # Informative features should have higher importance
+    # (first 5 features are informative in this dataset)
+    avg_informative_importance = np.mean(importances[:5])
+    avg_noise_importance = np.mean(importances[10:])
+    assert avg_informative_importance > avg_noise_importance
+
+
+def test_rf_oob_score_compare_sklearn_classifier():
+    X, y = make_classification(
+        n_samples=1200,
+        n_features=30,
+        n_informative=10,
+        n_redundant=5,
+        random_state=123,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu = curfc(
+        n_estimators=100,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    cu.fit(X, y)
+
+    sk = skrfc(
+        n_estimators=100,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    sk.fit(X, y)
+
+    # OOB scores should broadly agree within tolerance
+    assert 0.0 <= cu.oob_score_ <= 1.0
+    assert 0.0 <= sk.oob_score_ <= 1.0
+    assert abs(cu.oob_score_ - sk.oob_score_) <= 0.15
+
+
+def test_rf_oob_score_compare_sklearn_regressor():
+    X, y = make_regression(
+        n_samples=1200,
+        n_features=20,
+        n_informative=8,
+        noise=0.2,
+        random_state=123,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu = curfr(
+        n_estimators=120,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    cu.fit(X, y)
+
+    sk = skrfr(
+        n_estimators=120,
+        max_depth=12,
+        bootstrap=True,
+        oob_score=True,
+        random_state=123,
+    )
+    sk.fit(X, y)
+
+    # R^2 OOB should be within reasonable tolerance
+    assert -1.0 <= cu.oob_score_ <= 1.0
+    assert -1.0 <= sk.oob_score_ <= 1.0
+    assert abs(cu.oob_score_ - sk.oob_score_) <= 0.2
+
+
+def _topk_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
+    ai = set(np.argsort(a)[-k:])
+    bi = set(np.argsort(b)[-k:])
+    return len(ai & bi) / float(k)
+
+
+def test_rf_feature_importances_compare_sklearn_classifier():
+    X, y = make_classification(
+        n_samples=1200,
+        n_features=30,
+        n_informative=6,
+        n_redundant=6,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu = curfc(n_estimators=120, max_depth=14, random_state=42)
+    cu.fit(X, y)
+    sk = skrfc(n_estimators=120, max_depth=14, random_state=42)
+    sk.fit(X, y)
+
+    cu_imp = cu.feature_importances_
+    sk_imp = sk.feature_importances_
+    assert np.isclose(cu_imp.sum(), 1.0)
+    assert np.isclose(sk_imp.sum(), 1.0)
+    # Top-k important features should substantially overlap
+    overlap = _topk_overlap(cu_imp, sk_imp, k=6)
+    assert overlap >= 0.5
+
+
+def test_rf_feature_importances_compare_sklearn_regressor():
+    X, y = make_regression(
+        n_samples=1200,
+        n_features=25,
+        n_informative=7,
+        noise=0.2,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu = curfr(n_estimators=120, max_depth=14, random_state=42)
+    cu.fit(X, y)
+    sk = skrfr(n_estimators=120, max_depth=14, random_state=42)
+    sk.fit(X, y)
+
+    cu_imp = cu.feature_importances_
+    sk_imp = sk.feature_importances_
+    assert np.isclose(cu_imp.sum(), 1.0)
+    assert np.isclose(sk_imp.sum(), 1.0)
+    overlap = _topk_overlap(cu_imp, sk_imp, k=7)
+    assert overlap >= 0.5
+
+
+def test_rf_feature_importance_not_fitted():
+    """Test that accessing feature importances before fitting raises error"""
+    clf = curfc()
+    with pytest.raises(NotFittedError):
+        _ = clf.feature_importances_
+
+    reg = curfr()
+    with pytest.raises(NotFittedError):
+        _ = reg.feature_importances_
+
+
+def test_rf_feature_importance_exact_match_with_fixed_trees():
+    """Test that feature importances match exactly when trees are identical.
+
+    This test creates identical tree structures and verifies that the
+    feature importance calculation produces identical results.
+    """
+    # Create a simple dataset
+    X = np.array(
+        [
+            [0, 0, 0, 1],
+            [0, 0, 1, 1],
+            [0, 1, 0, 1],
+            [0, 1, 1, 1],
+            [1, 0, 0, 0],
+            [1, 0, 1, 0],
+            [1, 1, 0, 0],
+            [1, 1, 1, 0],
+        ],
+        dtype=np.float32,
+    )
+
+    y = np.array([0, 0, 0, 1, 1, 1, 1, 0], dtype=np.int32)
+
+    # Train with no randomness to get reproducible trees
+    cu_rf = curfc(
+        n_estimators=1,  # Single tree for simplicity
+        max_depth=2,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=1.0,  # Use all features
+        bootstrap=False,  # No bootstrapping
+        random_state=42,
+    )
+    cu_rf.fit(X, y)
+
+    # Get feature importances
+    cu_importances = cu_rf.feature_importances_
+
+    # The feature importances should sum to 1
+    assert np.allclose(
+        cu_importances.sum(), 1.0
+    ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
+
+    # Feature 0 should be most important as it perfectly splits the classes
+    assert (
+        np.argmax(cu_importances) == 0
+    ), f"Feature 0 should be most important, but importances are: {cu_importances}"
+
+    # Test with multiple trees
+    cu_rf2 = curfc(
+        n_estimators=10,
+        max_depth=2,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf2.fit(X, y)
+
+    cu_importances2 = cu_rf2.feature_importances_
+
+    # With no randomness, multiple trees should give same importances
+    # (since they're all built on the same data with same parameters)
+    assert np.allclose(
+        cu_importances, cu_importances2, rtol=1e-5
+    ), f"Importances differ with multiple trees:\nSingle: {cu_importances}\nMultiple: {cu_importances2}"
+
+
+def test_rf_feature_importance_consistency():
+    """Test that feature importances are consistent across multiple runs."""
+    X, y = make_classification(
+        n_samples=200,
+        n_features=10,
+        n_informative=5,
+        n_redundant=2,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Train the same model multiple times
+    importances_list = []
+    for i in range(3):
+        rf = curfc(
+            n_estimators=10,
+            max_depth=5,
+            min_samples_split=5,
+            max_features="sqrt",
+            bootstrap=True,
+            random_state=42,  # Same seed for reproducibility
+        )
+        rf.fit(X, y)
+        importances_list.append(rf.feature_importances_)
+
+    # All runs should produce identical importances
+    for i in range(1, len(importances_list)):
+        assert np.allclose(
+            importances_list[0], importances_list[i], rtol=1e-5
+        ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+
+
+def test_convert_methods_deprecated():
+    X, y = make_regression(n_samples=500)
+    model = cuml.RandomForestRegressor().fit(X, y)
+
+    with pytest.warns(FutureWarning, match="convert_to_treelite_model"):
+        tl = model.convert_to_treelite_model()
+
+    assert isinstance(tl, treelite.Model)
+
+    with pytest.warns(FutureWarning, match="convert_to_fil_model"):
+        fil = model.convert_to_fil_model()
+
+    assert isinstance(fil, cuml.fil.ForestInference)
