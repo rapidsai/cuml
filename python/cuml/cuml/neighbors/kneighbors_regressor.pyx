@@ -103,17 +103,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         size_t n_rows,
         size_t n_samples,
         int k,
-    ) except +
-
-    void knn_regress_weighted(
-        handle_t &handle,
-        float *out,
-        int64_t *knn_indices,
-        float *weights,
-        vector[float *] &y,
-        size_t n_rows,
-        size_t n_samples,
-        int k,
+        float *sample_weight
     ) except +
 
 
@@ -309,7 +299,6 @@ class KNeighborsRegressor(RegressorMixin,
 
         """
         cdef int64_t* inds_ctype
-        cdef float* weights_ctype
         cdef float* out_ptr
         cdef float* y_ptr
         cdef vector[float*] y_vec
@@ -355,36 +344,24 @@ class KNeighborsRegressor(RegressorMixin,
 
         handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Use unweighted function for uniform weights (more efficient)
-        if self.weights in (None, 'uniform'):
-            with nogil:
-                knn_regress(
-                    handle_[0],
-                    out_ptr,
-                    inds_ctype,
-                    y_vec,
-                    n_samples_fit,
-                    n_rows_size,
-                    n_neighbors_val
-                )
-        else:
-            # Compute weights on Python side for distance weighting
+        # Compute weights if needed (nullptr for uniform weights)
+        cdef float* weights_ctype = <float*>0  # nullptr
+        if self.weights not in (None, 'uniform'):
             weights_cp = _compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
-            # Use GPU-accelerated weighted C++ implementation
-            with nogil:
-                knn_regress_weighted(
-                    handle_[0],
-                    out_ptr,
-                    inds_ctype,
-                    weights_ctype,
-                    y_vec,
-                    n_samples_fit,
-                    n_rows_size,
-                    n_neighbors_val
-                )
+        with nogil:
+            knn_regress(
+                handle_[0],
+                out_ptr,
+                inds_ctype,
+                y_vec,
+                n_samples_fit,
+                n_rows_size,
+                n_neighbors_val,
+                weights_ctype
+            )
 
         self.handle.sync()
 
