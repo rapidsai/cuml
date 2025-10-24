@@ -168,6 +168,8 @@ void approx_knn_search(raft::handle_t& handle,
  * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
  * @param[in] n_query_rows number of samples in knn_indices
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_classify(raft::handle_t& handle,
                   int* out,
@@ -175,7 +177,8 @@ void knn_classify(raft::handle_t& handle,
                   std::vector<int*>& y,
                   size_t n_index_rows,
                   size_t n_query_rows,
-                  int k);
+                  int k,
+                  float* sample_weight = nullptr);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -190,6 +193,8 @@ void knn_classify(raft::handle_t& handle,
  * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
  * @param[in] n_query_rows number of samples in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_regress(raft::handle_t& handle,
                  float* out,
@@ -197,7 +202,8 @@ void knn_regress(raft::handle_t& handle,
                  std::vector<float*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k);
+                 int k,
+                 float* sample_weight = nullptr);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
@@ -212,6 +218,8 @@ void knn_regress(raft::handle_t& handle,
  * @param[in] n_index_rows number of labels in y
  * @param[in] n_query_rows number of rows in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_class_proba(raft::handle_t& handle,
                      std::vector<float*>& out,
@@ -219,5 +227,6 @@ void knn_class_proba(raft::handle_t& handle,
                      std::vector<int*>& y,
                      size_t n_index_rows,
                      size_t n_query_rows,
-                     int k);
+                     int k,
+                     float* sample_weight = nullptr);
 };  // namespace ML
