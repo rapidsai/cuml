@@ -491,6 +491,7 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+          - cuvs==25.12.*,>=0.0.0a0
   test_python_dask:
     common:
       - output_types: [conda, requirements, pyproject]
