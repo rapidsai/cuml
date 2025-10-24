@@ -551,7 +551,7 @@ struct rowsize {
  */
 template <typename math_t, typename LayoutPolicyIn>
 void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
-                 raft::device_csr_matrix<math_t, int, int, int> matrix_out,
+                 raft::device_csr_matrix<math_t, int, int, int>& matrix_out,
                  const int* row_indices,
                  int num_indices,
                  const raft::handle_t& handle)
