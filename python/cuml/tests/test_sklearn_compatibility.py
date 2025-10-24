@@ -5,6 +5,7 @@
 from functools import partial
 
 import pytest
+from cupy.cuda import get_local_runtime_version
 from sklearn.utils import estimator_checks
 
 from cuml.cluster import DBSCAN, HDBSCAN, AgglomerativeClustering, KMeans
@@ -41,6 +42,8 @@ from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
 # Skip these tests as parameterize_with_checks has a different signature in
 # older versions of scikit-learn.
 pytest.importorskip("sklearn", minversion="1.7")
+
+CUDA_13 = get_local_runtime_version() > 13000
 
 
 PER_ESTIMATOR_XFAIL_CHECKS = {
@@ -853,6 +856,11 @@ def test_sklearn_compatible_estimator(estimator, check):
     ):
         pytest.skip(
             "Estimator leads to additional MemoryErrors in other estimators (gh-7100)"
+        )
+
+    if isinstance(estimator, AgglomerativeClustering) and CUDA_13:
+        pytest.skip(
+            "Estimator causes persistent memory errors on CUDA 13 (gh-7345)"
         )
 
     check_name = _check_name(check)
