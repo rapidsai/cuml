@@ -25,11 +25,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
-from cuml.neighbors.weights import (
-    apply_callable_weights,
-    apply_callable_weights_proba,
-    compute_weights,
-)
+from cuml.neighbors.weights import compute_weights
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
@@ -279,18 +275,6 @@ class KNeighborsClassifier(ClassifierMixin,
         out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        # Handle callable weights separately (Python fallback)
-        if callable(self.weights):
-            classes_array = apply_callable_weights(
-                cp.asarray(dists), self.weights, inds, self._y,
-                self._classes, self.n_neighbors
-            )
-            if out_cols == 1:
-                classes = CumlArray(classes_array[:, 0], index=inds.index)
-            else:
-                classes = CumlArray(classes_array, index=inds.index)
-            return classes
-
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
         classes = CumlArray.zeros(
             out_shape, dtype=np.int32, order="C", index=inds.index
@@ -375,15 +359,6 @@ class KNeighborsClassifier(ClassifierMixin,
         else:
             n_classes = [len(c) for c in self._classes]
             ys = [self._y[:, i] for i in range(self._y.shape[1])]
-
-        # Handle callable weights separately (Python fallback)
-        if callable(self.weights):
-            probas_list = apply_callable_weights_proba(
-                cp.asarray(dists), self.weights, inds, self._y,
-                self._classes, self.n_neighbors
-            )
-            probas = [CumlArray(p, index=inds.index) for p in probas_list]
-            return probas[0] if len(probas) == 1 else probas
 
         inds_ctype = <int64_t*><uintptr_t>inds.ptr
 

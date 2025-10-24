@@ -108,7 +108,6 @@ def test_knn_classifier_p_parameter(classification_data, p):
     assert acc > 0.7, f"Accuracy should be reasonable with p={p}"
 
 
-@pytest.mark.xfail(reason="Dispatching with callable not supported yet")
 def test_knn_classifier_weights_callable(classification_data):
     X, y = classification_data
 
