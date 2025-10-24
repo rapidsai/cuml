@@ -7,47 +7,10 @@ from cuml.linear_model.elastic_net import ElasticNet
 
 
 class Lasso(ElasticNet):
-
     """
-    Lasso extends LinearRegression by providing L1 regularization on the
-    coefficients when predicting response y with a linear combination of the
-    predictors in X. It can zero some of the coefficients for feature
-    selection and improves the conditioning of the problem.
+    Linear Model trained with L1 prior as regularizer (aka the Lasso).
 
-    cuML's Lasso can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
-    compliant), in addition to cuDF objects. It uses coordinate descent to fit
-    a linear model.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        >>> import numpy as np
-        >>> import cudf
-        >>> from cuml.linear_model import Lasso
-        >>> ls = Lasso(alpha = 0.1, solver='qn')
-        >>> X = cudf.DataFrame()
-        >>> X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        >>> X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-        >>> y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-        >>> result_lasso = ls.fit(X, y)
-        >>> print(result_lasso.coef_)
-        0   0.425
-        1   0.425
-        dtype: float32
-        >>> print(result_lasso.intercept_)
-        0.150000...
-
-        >>> X_new = cudf.DataFrame()
-        >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
-        >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
-        >>> preds = result_lasso.predict(X_new)
-        >>> print(preds)
-        0   3.549997
-        1   3.124997
-        dtype: float32
+    This is the same as ``ElasticNet(l1_ratio=1.0)`` (no L2 penalty).
 
     Parameters
     ----------
@@ -61,13 +24,6 @@ class Lasso(ElasticNet):
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
     max_iter : int (default = 1000)
         The maximum number of iterations
     tol : float (default = 1e-3)
@@ -87,6 +43,13 @@ class Lasso(ElasticNet):
         rather than looping over features sequentially by default.
         This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
+    normalize : boolean (default = False)
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
+        If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -115,6 +78,33 @@ class Lasso(ElasticNet):
     -----
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import cudf
+    >>> from cuml.linear_model import Lasso
+    >>> ls = Lasso(alpha = 0.1, solver='qn')
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = np.array([0, 1, 2], dtype = np.float32)
+    >>> X['col2'] = np.array([0, 1, 2], dtype = np.float32)
+    >>> y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
+    >>> result_lasso = ls.fit(X, y)
+    >>> print(result_lasso.coef_)
+    0   0.425
+    1   0.425
+    dtype: float32
+    >>> print(result_lasso.intercept_)
+    0.150000...
+
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
+    >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
+    >>> preds = result_lasso.predict(X_new)
+    >>> print(preds)
+    0   3.549997
+    1   3.124997
+    dtype: float32
     """
 
     _cpu_class_path = "sklearn.linear_model.Lasso"
@@ -136,28 +126,28 @@ class Lasso(ElasticNet):
 
     def __init__(
         self,
-        *,
         alpha=1.0,
+        *,
         fit_intercept=True,
-        normalize=False,
         max_iter=1000,
         tol=1e-3,
         solver="cd",
         selection="cyclic",
+        normalize=False,
         handle=None,
         output_type=None,
         verbose=False,
     ):
         # Lasso is just a special case of ElasticNet
         super().__init__(
-            l1_ratio=1.0,
             alpha=alpha,
+            l1_ratio=1.0,
             fit_intercept=fit_intercept,
-            normalize=normalize,
             max_iter=max_iter,
             tol=tol,
             solver=solver,
             selection=selection,
+            normalize=normalize,
             handle=handle,
             output_type=output_type,
             verbose=verbose,

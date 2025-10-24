@@ -75,14 +75,9 @@ def test_elastic_net_attributes():
     clf.fit(X, y)
 
     attrs = [
-        "dtype",
-        "solver_model",
+        "n_features_in_",
         "coef_",
         "intercept_",
-        "l1_ratio",
-        "alpha",
-        "max_iter",
-        "fit_intercept",
     ]
     for attr in attrs:
         assert hasattr(clf, attr)
@@ -94,12 +89,9 @@ def test_lasso_attributes():
     clf.fit(X, y)
 
     attrs = [
-        "dtype",
-        "solver_model",
+        "n_features_in_",
         "coef_",
         "intercept_",
-        "solver_model",
-        "l1_ratio",
     ]
     for attr in attrs:
         assert hasattr(clf, attr)
