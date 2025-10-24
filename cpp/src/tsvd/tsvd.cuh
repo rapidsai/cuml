@@ -159,7 +159,7 @@ void signFlipComponents(math_t* components,
     [] __device__(math_t a, math_t b) {
       math_t abs_a = a >= 0 ? a : -a;
       math_t abs_b = b >= 0 ? b : -b;
-      return abs_a > abs_b ? a : b;
+      return abs_a >= abs_b ? a : b;
     },
     raft::identity_op());
 
