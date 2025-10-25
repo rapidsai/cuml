@@ -8,6 +8,8 @@
 #include <cuml/decomposition/params.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -29,6 +31,54 @@
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+
+namespace raft {
+namespace linalg {
+
+template <Apply apply,
+          typename InElementType,
+          typename LayoutPolicy,
+          typename OutElementType = InElementType,
+          typename IdxType        = std::uint32_t,
+          typename MainLambda     = raft::identity_op,
+          typename ReduceLambda   = raft::add_op,
+          typename FinalLambda    = raft::identity_op>
+void reduce2(raft::resources const& handle,
+             raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
+             raft::device_vector_view<OutElementType, IdxType> dots,
+             OutElementType init,
+             bool inplace           = false,
+             MainLambda main_op     = raft::identity_op(),
+             ReduceLambda reduce_op = raft::add_op(),
+             FinalLambda final_op   = raft::identity_op())
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
+
+  auto constexpr row_major  = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
+  bool constexpr along_rows = apply == Apply::ALONG_ROWS;
+
+  if constexpr (along_rows) {
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+  } else {
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+  }
+
+  reduce<row_major, along_rows>(dots.data_handle(),
+                                data.data_handle(),
+                                data.extent(1),
+                                data.extent(0),
+                                init,
+                                resource::get_cuda_stream(handle),
+                                inplace,
+                                main_op,
+                                reduce_op,
+                                final_op);
+}
+
+};  // end namespace linalg
+};  // end namespace raft
 
 namespace ML {
 
@@ -112,6 +162,53 @@ void calEig(const raft::handle_t& handle,
   raft::linalg::transpose(components, prms.n_cols, stream);
 
   raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
+}
+
+/**
+ * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
+ * vectors
+ * @param components: components matrix, used to determine the sign of max absolute value
+ * @param n_rows: number of rows of components matrix
+ * @param n_cols: number of columns of components matrix
+ * @param stream cuda stream
+ * @{
+ */
+template <typename math_t>
+void signFlipComponents(const raft::handle_t& handle,
+                        math_t* components,
+                        std::size_t n_rows,
+                        std::size_t n_cols,
+                        cudaStream_t stream)
+{
+  rmm::device_uvector<math_t> max_vals(n_rows, stream);
+  using layout_t = raft::col_major;
+  auto components_view =
+    raft::make_device_matrix_view<math_t, std::size_t, layout_t>(components, n_rows, n_cols);
+  auto max_vals_view = raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_rows);
+
+  // Step 1: find component-wise max absolute values
+  raft::linalg::reduce2<raft::Apply::ALONG_ROWS, math_t, layout_t, math_t, std::size_t>(
+    handle,
+    components_view,
+    max_vals_view,
+    math_t(0),
+    false,
+    raft::identity_op(),
+    [] __device__(math_t a, math_t b) {
+      math_t abs_a = a >= 0 ? a : -a;
+      math_t abs_b = b >= 0 ? b : -b;
+      return abs_a >= abs_b ? a : b;
+    },
+    raft::identity_op());
+
+  // Step 2: flip rows where needed
+  raft::linalg::map_offset(
+    handle, components_view, [components_view, max_vals_view, n_rows, n_cols] __device__(auto idx) {
+      std::size_t row    = idx % n_rows;
+      std::size_t column = idx / n_rows;
+      return (max_vals_view(row) < math_t(0)) ? (-components_view(row, column))
+                                              : components_view(row, column);
+    });
 }
 
 /**
@@ -224,6 +321,8 @@ void tsvdFit(const raft::handle_t& handle,
 
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
+
+  signFlipComponents(handle, components, prms.n_components, prms.n_cols, stream);
 }
 
 /**
@@ -255,8 +354,6 @@ void tsvdFitTransform(const raft::handle_t& handle,
 {
   tsvdFit(handle, input, components, singular_vals, prms, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
-
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 
   rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
   raft::stats::mean<false>(

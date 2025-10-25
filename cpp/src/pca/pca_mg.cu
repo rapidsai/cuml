@@ -7,7 +7,6 @@
 
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
-#include <cuml/decomposition/sign_flip_mg.hpp>
 
 #include <cumlprims/opg/linalg/qr_based_svd.hpp>
 #include <cumlprims/opg/matrix/matrix_utils.hpp>
@@ -64,6 +63,8 @@ void fit_impl(raft::handle_t& handle,
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, streams[0], true);
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
+
+  signFlipComponents(handle, components, prms.n_components, prms.n_cols, streams[0]);
 }
 
 /**
@@ -153,7 +154,7 @@ void fit_impl(raft::handle_t& handle,
                        rank);
 
     // sign flip
-    sign_flip(handle, uMatrixParts, input_desc, vMatrix.data(), prms.n_cols, streams, n_streams);
+    signFlipComponents(h, vMatrix.data(), prms.n_cols, prms.n_cols, stream);
 
     // Calculate instance variables
     rmm::device_uvector<T> explained_var_all(prms.n_cols, stream);
@@ -527,8 +528,6 @@ void fit_transform_impl(raft::handle_t& handle,
                  streams,
                  n_streams,
                  verbose);
-
-  sign_flip(handle, trans_data, input_desc, components, prms.n_components, streams, n_streams);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
