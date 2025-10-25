@@ -214,11 +214,11 @@ void signFlipComponents(math_t* components,
 
   // Step 2: flip rows where needed
   raft::linalg::map_offset(
-    handle,
-    components_view,
-    [components, max_vals = max_vals.data(), n_rows, n_cols] __device__(auto idx) {
-      std::size_t row = idx % n_rows;
-      return (max_vals[row] < math_t(0)) ? (-components[idx]) : components[idx];
+    handle, components_view, [components_view, max_vals_view, n_rows, n_cols] __device__(auto idx) {
+      std::size_t row    = idx % n_rows;
+      std::size_t column = idx / n_rows;
+      return (max_vals_view(row) < math_t(0)) ? (-components_view(row, column))
+                                              : components_view(row, column);
     });
 }
 
