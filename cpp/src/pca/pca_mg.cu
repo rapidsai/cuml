@@ -75,7 +75,7 @@ void fit_impl(raft::handle_t& handle,
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
-  signFlipComponents(components, prms.n_components, prms.n_cols, streams[0]);
+  signFlipComponents(handle, components, prms.n_components, prms.n_cols, streams[0]);
 }
 
 /**
@@ -165,7 +165,7 @@ void fit_impl(raft::handle_t& handle,
                        rank);
 
     // sign flip
-    signFlipComponents(vMatrix.data(), prms.n_cols, prms.n_cols, stream);
+    signFlipComponents(h, vMatrix.data(), prms.n_cols, prms.n_cols, stream);
 
     // Calculate instance variables
     rmm::device_uvector<T> explained_var_all(prms.n_cols, stream);

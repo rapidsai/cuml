@@ -185,12 +185,12 @@ void calEig(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t>
-void signFlipComponents(math_t* components,
+void signFlipComponents(const raft::handle_t& handle,
+                        math_t* components,
                         std::size_t n_rows,
                         std::size_t n_cols,
                         cudaStream_t stream)
 {
-  raft::handle_t handle{stream};
   rmm::device_uvector<math_t> max_vals(n_rows, stream);
   using layout_t = raft::col_major;
   auto components_view =
@@ -333,7 +333,7 @@ void tsvdFit(const raft::handle_t& handle,
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
 
-  signFlipComponents(components, prms.n_components, prms.n_cols, stream);
+  signFlipComponents(handle, components, prms.n_components, prms.n_cols, stream);
 }
 
 /**

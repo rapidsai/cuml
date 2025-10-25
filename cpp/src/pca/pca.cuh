@@ -137,7 +137,7 @@ void pcaFit(const raft::handle_t& handle,
 
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 
-  signFlipComponents(components, prms.n_components, prms.n_cols, stream);
+  signFlipComponents(handle, components, prms.n_components, prms.n_cols, stream);
 }
 
 /**
