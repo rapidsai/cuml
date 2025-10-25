@@ -43,6 +43,54 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+namespace raft {
+namespace linalg {
+
+template <Apply apply,
+          typename InElementType,
+          typename LayoutPolicy,
+          typename OutElementType = InElementType,
+          typename IdxType        = std::uint32_t,
+          typename MainLambda     = raft::identity_op,
+          typename ReduceLambda   = raft::add_op,
+          typename FinalLambda    = raft::identity_op>
+void reduce2(raft::resources const& handle,
+             raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
+             raft::device_vector_view<OutElementType, IdxType> dots,
+             OutElementType init,
+             bool inplace           = false,
+             MainLambda main_op     = raft::identity_op(),
+             ReduceLambda reduce_op = raft::add_op(),
+             FinalLambda final_op   = raft::identity_op())
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
+
+  auto constexpr row_major  = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
+  bool constexpr along_rows = apply == Apply::ALONG_ROWS;
+
+  if constexpr (along_rows) {
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+  } else {
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+  }
+
+  reduce<row_major, along_rows>(dots.data_handle(),
+                                data.data_handle(),
+                                data.extent(1),
+                                data.extent(0),
+                                init,
+                                resource::get_cuda_stream(handle),
+                                inplace,
+                                main_op,
+                                reduce_op,
+                                final_op);
+}
+
+};  // end namespace linalg
+};  // end namespace raft
+
 namespace ML {
 
 template <typename math_t>
@@ -144,16 +192,17 @@ void signFlipComponents(math_t* components,
 {
   raft::handle_t handle{stream};
   rmm::device_uvector<math_t> max_vals(n_rows, stream);
+  using layout_t = raft::col_major;
   auto components_view =
-    raft::make_device_matrix_view<math_t, std::size_t>(components, n_rows, n_cols);
+    raft::make_device_matrix_view<math_t, std::size_t, layout_t>(components, n_rows, n_cols);
   auto max_vals_view = raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_rows);
 
   // Step 1: find component-wise max absolute values
-  raft::linalg::reduce<raft::Apply::ALONG_COLUMNS, math_t, raft::row_major, math_t, std::size_t>(
+  raft::linalg::reduce2<raft::Apply::ALONG_ROWS, math_t, layout_t, math_t, std::size_t>(
     handle,
     components_view,
     max_vals_view,
-    math_t(0.0),
+    math_t(0),
     false,
     raft::identity_op(),
     [] __device__(math_t a, math_t b) {
