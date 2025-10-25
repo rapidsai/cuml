@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
@@ -118,19 +107,29 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         comms = Comms(comms_p2p=True)
         comms.init()
 
-        dbscan_fit = [
-            self.client.submit(
-                DBSCAN._func_fit(out_dtype),
-                comms.sessionId,
-                data,
-                **self.kwargs,
-                workers=[worker],
-                pure=False,
-            )
-            for worker in comms.worker_addresses
-        ]
+        # Get worker info to map workers to their RAFT ranks
+        worker_info = comms.worker_info(comms.worker_addresses)
 
-        wait_and_raise_from_futures(dbscan_fit)
+        # Create dict keyed by rank (not list indexed by worker order)
+        # This ensures we can explicitly get rank 0's result
+        dbscan_fit = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
+                        DBSCAN._func_fit(out_dtype),
+                        comms.sessionId,
+                        data,
+                        **self.kwargs,
+                        workers=[worker],
+                        pure=False,
+                    ),
+                )
+                for worker in comms.worker_addresses
+            ]
+        )
+
+        wait_and_raise_from_futures(list(dbscan_fit.values()))
 
         comms.destroy()
 
