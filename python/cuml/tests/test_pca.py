@@ -78,13 +78,12 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
         "explained_variance_",
         "explained_variance_ratio_",
     ]:
-        with_sign = False if attr in ["components_"] else True
         print(attr)
         print(getattr(cupca, attr))
         print(getattr(skpca, attr))
         cuml_res = getattr(cupca, attr)
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, tol, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, tol, with_sign=True)
 
     np.testing.assert_allclose(
         cupca.noise_variance_, skpca.noise_variance_, tol
