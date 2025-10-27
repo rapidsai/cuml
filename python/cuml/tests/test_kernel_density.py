@@ -6,6 +6,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn.neighbors
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -152,6 +153,15 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
             " and the euclidean metric are supported.",
         ):
             kde.sample(100)
+
+
+@pytest.mark.parametrize("bandwidth", ["scott", "silverman", 5.0])
+@pytest.mark.parametrize("n_rows, n_cols", [(13, 17), (17, 13)])
+def test_bandwidth(bandwidth, n_rows, n_cols):
+    X, _ = make_blobs(n_samples=n_rows, n_features=n_cols)
+    cu_model = cuml.KernelDensity(bandwidth=bandwidth).fit(X)
+    sk_model = sklearn.neighbors.KernelDensity(bandwidth=bandwidth).fit(X)
+    assert cu_model.bandwidth_ == sk_model.bandwidth_
 
 
 @pytest.mark.parametrize(

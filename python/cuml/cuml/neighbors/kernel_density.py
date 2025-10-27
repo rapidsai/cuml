@@ -138,7 +138,7 @@ class KernelDensity(Base):
 
     Parameters
     ----------
-    bandwidth : float, default=1.0
+    bandwidth : float or {"scott", "silverman"}, default=1.0
         The bandwidth of the kernel.
     kernel : {'gaussian', 'tophat', 'epanechnikov', 'exponential', 'linear', \
             'cosine'}, default='gaussian'
@@ -167,6 +167,14 @@ class KernelDensity(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features seen during fit.
+    bandwidth_ : float
+        Value of the bandwidth used, either given directly via ``bandwidth`` or
+        estimated with ``bandwidth="scott"`` or ``bandwidth="silverman"``.
 
     Examples
     --------
@@ -227,8 +235,22 @@ class KernelDensity(Base):
         self
             Returns the instance itself.
         """
-        if self.bandwidth <= 0:
+        if isinstance(self.bandwidth, str):
+            if self.bandwidth == "scott":
+                self.bandwidth_ = X.shape[0] ** (-1 / (X.shape[1] + 4))
+            elif self.bandwidth == "silverman":
+                self.bandwidth_ = (X.shape[0] * (X.shape[1] + 2) / 4) ** (
+                    -1 / (X.shape[1] + 4)
+                )
+            else:
+                raise ValueError(
+                    f"Expected bandwidth in ['scott', 'silverman'], got {self.bandwidth!r}"
+                )
+        elif self.bandwidth <= 0:
             raise ValueError("Expected bandwidth > 0, got {self.bandwidth}")
+        else:
+            self.bandwidth_ = self.bandwidth
+
         if self.kernel not in VALID_KERNELS:
             raise ValueError(f"kernel={self.kernel!r} is not supported")
 
@@ -297,7 +319,7 @@ class KernelDensity(Base):
 
         distances = cp.asarray(distances)
 
-        h = distances.dtype.type(self.bandwidth)
+        h = distances.dtype.type(self.bandwidth_)
         if self.kernel in log_probability_kernels_:
             # XXX: passing `h` as a 0-dim array works around dtype inference
             # issues in cupy.fuse. See https://github.com/cupy/cupy/issues/9400
@@ -401,7 +423,7 @@ class KernelDensity(Base):
             sum_weight = cumsum_weight[-1]
             i = cp.searchsorted(cumsum_weight, u * sum_weight)
         if self.kernel == "gaussian":
-            return cp.atleast_2d(rng.normal(self.X_[i], self.bandwidth))
+            return cp.atleast_2d(rng.normal(self.X_[i], self.bandwidth_))
 
         elif self.kernel == "tophat":
             # we first draw points from a d-dimensional normal distribution,
@@ -413,7 +435,7 @@ class KernelDensity(Base):
 
             correction = (
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)
-                * self.bandwidth
+                * self.bandwidth_
                 / cp.sqrt(s_sq)
             )
             return self.X_[i] + X * correction[:, np.newaxis]
