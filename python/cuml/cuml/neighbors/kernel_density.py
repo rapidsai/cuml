@@ -439,8 +439,7 @@ class KernelDensity(Base, InteropMixin):
     def sample(self, n_samples=1, random_state=None) -> CumlArray:
         """Generate random samples from the model.
 
-        Currently, this is implemented only for gaussian and tophat kernels,
-        and the Euclidean metric.
+        Currently, this is implemented only for gaussian and tophat kernels.
 
         Parameters
         ----------
@@ -459,10 +458,9 @@ class KernelDensity(Base, InteropMixin):
             raise NotFittedError()
 
         supported_kernels = ["gaussian", "tophat"]
-        if self.kernel not in supported_kernels or self.metric != "euclidean":
+        if self.kernel not in supported_kernels:
             raise NotImplementedError(
-                f"Only {supported_kernels} kernels, with metric='euclidean' "
-                f"are supported."
+                f"Only {supported_kernels} kernels are supported."
             )
 
         rng = cp.random.RandomState(check_random_seed(random_state))
