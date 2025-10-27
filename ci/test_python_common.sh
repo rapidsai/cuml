@@ -10,6 +10,10 @@ rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-github python)
 
+# Try using an earlier version of mamba
+rapids-mamba-retry install "mamba<=2.3.2" -y
+echo "mamba version = $(mamba --version)"
+
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
