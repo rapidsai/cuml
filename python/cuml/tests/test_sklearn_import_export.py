@@ -644,6 +644,41 @@ def test_kneighbors_classifier(random_state, sparse, n_labels):
     np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))
 
 
+@pytest.mark.parametrize("kernel", ["gaussian", "tophat"])
+@pytest.mark.parametrize("bandwidth", ["scott", 5.0])
+@pytest.mark.parametrize("metric", ["l1", "l2"])
+def test_kernel_density(random_state, kernel, bandwidth, metric):
+    opts = {"kernel": kernel, "bandwidth": bandwidth, "metric": metric}
+
+    X, _ = make_blobs(random_state=random_state)
+
+    cu_model = cuml.KernelDensity(**opts).fit(X)
+    sk_model = sklearn.neighbors.KernelDensity(**opts).fit(X)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KernelDensity.from_sklearn(sk_model)
+
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
+
+    def assert_kde_close(m1, m2):
+        scores1 = m1.score_samples(X)
+        scores2 = m2.score_samples(X)
+        np.testing.assert_allclose(scores1, scores2)
+
+    # Can infer on converted models
+    assert_kde_close(sk_model, sk_model2)
+    assert_kde_close(cu_model, cu_model2)
+
+    # Can refit on converted models
+    cu_model2.fit(X)
+    sk_model2.fit(X)
+
+    # Refit models have similar results
+    assert_kde_close(sk_model, sk_model2)
+    assert_kde_close(cu_model, cu_model2)
+
+
 def test_random_forest_classifier(random_state):
     X, y = make_classification(
         n_samples=200, n_features=5, n_informative=3, random_state=random_state

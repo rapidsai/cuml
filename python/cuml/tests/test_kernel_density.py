@@ -18,7 +18,7 @@ from sklearn.neighbors._ball_tree import kernel_norm
 import cuml
 from cuml.common.exceptions import NotFittedError
 from cuml.neighbors import VALID_KERNELS, KernelDensity
-from cuml.neighbors.kernel_density import logaddexp_reduce
+from cuml.neighbors.kernel_density import logsumexp
 from cuml.testing.utils import as_type
 
 
@@ -186,13 +186,13 @@ def test_score_samples_output_type_and_dtype(kernel, fit_dtype, score_dtype):
     assert isinstance(res, cp.ndarray)
 
 
-def test_logaddexp_reduce():
+def test_logsumexp():
     X = np.array([[0.0, 0.0], [0.0, 0.0]])
-    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
+    out = logsumexp(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
     X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
+    out = logsumexp(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
