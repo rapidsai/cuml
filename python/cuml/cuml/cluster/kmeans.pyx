@@ -537,12 +537,12 @@ class KMeans(Base,
                     "while a minimum of 1 is required by KMeans."
                 )
 
-        # Skip this check if running in multigpu mode. In that case we don't care if
-        # a single partition has fewer rows than clusters
-        if not multigpu and n_rows < self.n_clusters:
+        if n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
             )
+        if multigpu and self.init == "k-means++":
+            raise ValueError("k-means++ init not supported for multi-GPU KMeans")
 
         # Allocate output cluster_centers_
         if isinstance(self.init, str):
@@ -571,10 +571,6 @@ class KMeans(Base,
 
         # Prepare for libcuml call
         cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
-
-        if multigpu and self.init == "k-means++":
-            raise ValueError("k-means++ init not supported for multi-GPU KMeans")
-
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
