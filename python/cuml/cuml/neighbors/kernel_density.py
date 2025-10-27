@@ -9,7 +9,6 @@ import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
 
-import cuml.neighbors
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -17,6 +16,9 @@ from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
+from cuml.metrics.pairwise_distances import (
+    PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
+)
 
 VALID_KERNELS = [
     "gaussian",
@@ -201,7 +203,7 @@ class KernelDensity(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.metric not in cuml.neighbors.VALID_METRICS["brute"]:
+        if model.metric not in SUPPORTED_METRICS:
             raise UnsupportedOnGPU(
                 f"`metric={model.metric!r}` is not supported"
             )
@@ -308,12 +310,23 @@ class KernelDensity(Base, InteropMixin):
         if self.kernel not in VALID_KERNELS:
             raise ValueError(f"kernel={self.kernel!r} is not supported")
 
-        self._X = input_to_cupy_array(
+        self._X, n_rows, n_cols, _ = input_to_cupy_array(
             X,
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[cp.float32, cp.float64],
-        ).array
+        )
+
+        if n_rows < 1:
+            raise ValueError(
+                f"Found array with 0 sample(s) (shape={self._X.shape}) while "
+                f"a minimum of 1 is required by KernelDensity"
+            )
+        if n_cols < 1:
+            raise ValueError(
+                f"Found array with 0 feature(s) (shape={self._X.shape}) while "
+                f"a minimum of 1 is required by KernelDensity"
+            )
 
         if sample_weight is not None:
             self._sample_weight = input_to_cupy_array(
@@ -323,7 +336,7 @@ class KernelDensity(Base, InteropMixin):
                 check_cols=1,
                 check_rows=self._X.shape[0],
             ).array
-            if self._sample_weight.min() <= 0:
+            if self._sample_weight.min() < 0:
                 raise ValueError("sample_weight must have positive values")
         else:
             self._sample_weight = None
@@ -353,6 +366,7 @@ class KernelDensity(Base, InteropMixin):
             X,
             convert_to_dtype=(self._X.dtype if convert_dtype else None),
             check_dtype=[self._X.dtype],
+            check_cols=self.n_features_in_,
         ).array
         if self.metric_params:
             if len(self.metric_params) != 1:

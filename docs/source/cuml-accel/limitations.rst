@@ -407,6 +407,23 @@ Additional notes:
 - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
   implementation in cuml will always be used.
 
+KernelDensity
+^^^^^^^^^^^^^
+
+``KernelDensity`` will fall back to CPU in the following cases:
+
+- If ``metric`` is not one of the supported metrics (``"cityblock"``,
+  ``"cosine"``, ``"euclidean"``, ``"l1"``, ``"l2"``, ``"manhattan"``,
+  ``"sqeuclidean"``, ``"canberra"``, ``"chebyshev"``, ``"minkowski"``,
+  ``"hellinger"``, ``"correlation"``, ``"jensenshannon"``, ``"hamming"``,
+  ``"kldivergence"``, ``"russellrao"``, ``"nan_euclidean"``).
+
+Additional notes:
+
+- The ``algorithm``, ``atol``, ``rtol``, ``breadth_first``, and ``leaf_size``
+  parameters are ignored. The GPU accelerated pairwise brute-force
+  implementation in cuml will always be used.
+
 
 sklearn.svm
 -----------
