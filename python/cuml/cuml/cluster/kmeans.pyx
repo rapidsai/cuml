@@ -571,6 +571,10 @@ class KMeans(Base,
 
         # Prepare for libcuml call
         cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
+
+        if multigpu and self.init == "k-means++":
+            raise ValueError("k-means++ init not supported for multi-GPU KMeans")
+
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
