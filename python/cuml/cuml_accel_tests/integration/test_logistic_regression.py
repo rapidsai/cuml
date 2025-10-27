@@ -4,8 +4,8 @@
 #
 import pytest
 import sklearn
-from packaging.version import Version
 from packaging import version
+from packaging.version import Version
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -147,6 +147,13 @@ def test_logistic_regression_max_iter(classification_data, max_iter):
 @pytest.mark.filterwarnings(
     "ignore:.*multi_class.*was deprecated.*:FutureWarning"
 )
+# Ignore DeprecationWarning from sklearn's internal call to scipy.optimize.minimize
+# with the L-BFGS-B method. sklearn passes deprecated 'disp' and 'iprint' parameters
+# to scipy, which is not in our control. This filter can be removed once the minimum
+# supported sklearn version is 1.7.1+ (where this was fixed).
+@pytest.mark.filterwarnings(
+    "ignore:scipy.optimize.*disp.*iprint.*:DeprecationWarning"
+)
 @pytest.mark.xfail(
     version.parse(sklearn.__version__) >= version.parse("1.8.0"),
     reason="multi_class parameter removed in scikit-learn 1.8",
@@ -185,6 +192,13 @@ def test_logistic_regression_multi_class(
     accuracy_score(y, y_pred)
 
 
+# Ignore DeprecationWarning from sklearn's internal call to scipy.optimize.minimize
+# with the L-BFGS-B method (default solver). sklearn passes deprecated 'disp' and
+# 'iprint' parameters to scipy, which is not in our control. This filter can be
+# removed once the minimum supported sklearn version is 1.7.1+ (where this was fixed).
+@pytest.mark.filterwarnings(
+    "ignore:scipy.optimize.*disp.*iprint.*:DeprecationWarning"
+)
 @pytest.mark.parametrize("warm_start", [True, False])
 def test_logistic_regression_warm_start(classification_data, warm_start):
     X, y = classification_data
