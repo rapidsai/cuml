@@ -398,25 +398,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   label_t* labels,
                   int n_unique_labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity)
-{
-  RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
-  build_treelite_forest(model, &metadata, n_cols);
-}
-
-// Overload that also extracts bootstrap masks
-template <typename value_t, typename label_t>
-void fit_treelite_with_masks(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             value_t* input,
-                             int n_rows,
-                             int n_cols,
-                             label_t* labels,
-                             int n_unique_labels,
-                             RF_params rf_params,
-                             bool* bootstrap_masks,
-                             rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
@@ -627,24 +610,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_cols,
                   label_t* labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity)
-{
-  RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
-  build_treelite_forest(model, &metadata, n_cols);
-}
-
-// Overload that also extracts bootstrap masks (regression version)
-template <typename value_t, typename label_t>
-void fit_treelite_with_masks(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             value_t* input,
-                             int n_rows,
-                             int n_cols,
-                             label_t* labels,
-                             RF_params rf_params,
-                             bool* bootstrap_masks,
-                             rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
@@ -823,6 +790,7 @@ template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        int* labels,
                                        int n_unique_labels,
                                        RF_params rf_params,
+                                       bool* bootstrap_masks,
                                        rapids_logger::level_enum verbosity);
 template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         TreeliteModelHandle* model,
@@ -832,6 +800,7 @@ template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         int* labels,
                                         int n_unique_labels,
                                         RF_params rf_params,
+                                        bool* bootstrap_masks,
                                         rapids_logger::level_enum verbosity);
 template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          TreeliteModelHandle* model,
@@ -840,6 +809,7 @@ template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          int n_cols,
                                          float* labels,
                                          RF_params rf_params,
+                                         bool* bootstrap_masks,
                                          rapids_logger::level_enum verbosity);
 template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            TreeliteModelHandle* model,
@@ -848,46 +818,7 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            int n_cols,
                                            double* labels,
                                            RF_params rf_params,
+                                           bool* bootstrap_masks,
                                            rapids_logger::level_enum verbosity);
-
-// Template instantiations for fit_treelite_with_masks
-template void fit_treelite_with_masks<float, int>(const raft::handle_t& user_handle,
-                                                  TreeliteModelHandle* model,
-                                                  float* input,
-                                                  int n_rows,
-                                                  int n_cols,
-                                                  int* labels,
-                                                  int n_unique_labels,
-                                                  RF_params rf_params,
-                                                  bool* bootstrap_masks,
-                                                  rapids_logger::level_enum verbosity);
-template void fit_treelite_with_masks<double, int>(const raft::handle_t& user_handle,
-                                                   TreeliteModelHandle* model,
-                                                   double* input,
-                                                   int n_rows,
-                                                   int n_cols,
-                                                   int* labels,
-                                                   int n_unique_labels,
-                                                   RF_params rf_params,
-                                                   bool* bootstrap_masks,
-                                                   rapids_logger::level_enum verbosity);
-template void fit_treelite_with_masks<float, float>(const raft::handle_t& user_handle,
-                                                    TreeliteModelHandle* model,
-                                                    float* input,
-                                                    int n_rows,
-                                                    int n_cols,
-                                                    float* labels,
-                                                    RF_params rf_params,
-                                                    bool* bootstrap_masks,
-                                                    rapids_logger::level_enum verbosity);
-template void fit_treelite_with_masks<double, double>(const raft::handle_t& user_handle,
-                                                      TreeliteModelHandle* model,
-                                                      double* input,
-                                                      int n_rows,
-                                                      int n_cols,
-                                                      double* labels,
-                                                      RF_params rf_params,
-                                                      bool* bootstrap_masks,
-                                                      rapids_logger::level_enum verbosity);
 
 }  // End namespace ML

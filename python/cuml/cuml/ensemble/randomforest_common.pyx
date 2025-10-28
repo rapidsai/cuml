@@ -75,6 +75,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         int n_unique_labels,
         RF_params params,
+        bool* bootstrap_masks,
         level_enum verbosity
     ) except +
 
@@ -86,39 +87,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int n_cols,
         L* labels,
         RF_params params,
-        level_enum verbosity
-    ) except +
-
-    cdef void fit_treelite_with_masks[T, L](
-        handle_t& handle,
-        TreeliteModelHandle* model,
-        T* values,
-        int n_rows,
-        int n_cols,
-        L* labels,
-        int n_unique_labels,
-        RF_params params,
         bool* bootstrap_masks,
         level_enum verbosity
-    ) except +
-
-    cdef void fit_treelite_with_masks[T, L](
-        handle_t& handle,
-        TreeliteModelHandle* model,
-        T* values,
-        int n_rows,
-        int n_cols,
-        L* labels,
-        RF_params params,
-        bool* bootstrap_masks,
-        level_enum verbosity
-    ) except +
-
-    cdef void get_bootstrap_masks[T, L](
-        const void* forest,
-        bool* masks,
-        int n_trees,
-        int n_rows
     ) except +
 
 
@@ -501,106 +471,56 @@ class BaseRandomForestModel(Base, InteropMixin):
         with nogil:
             if is_classifier:
                 if is_float32:
-                    if use_oob_score:
-                        fit_treelite_with_masks(
-                            handle_[0],
-                            &tl_handle,
-                            <float*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <int*> y_ptr,
-                            n_classes,
-                            params,
-                            bootstrap_masks_ptr,
-                            verbose
-                        )
-                    else:
-                        fit_treelite(
-                            handle_[0],
-                            &tl_handle,
-                            <float*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <int*> y_ptr,
-                            n_classes,
-                            params,
-                            verbose
-                        )
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        bootstrap_masks_ptr,
+                        verbose
+                    )
                 else:
-                    if use_oob_score:
-                        fit_treelite_with_masks(
-                            handle_[0],
-                            &tl_handle,
-                            <double*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <int*> y_ptr,
-                            n_classes,
-                            params,
-                            bootstrap_masks_ptr,
-                            verbose
-                        )
-                    else:
-                        fit_treelite(
-                            handle_[0],
-                            &tl_handle,
-                            <double*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <int*> y_ptr,
-                            n_classes,
-                            params,
-                            verbose
-                        )
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        bootstrap_masks_ptr,
+                        verbose
+                    )
             else:
                 if is_float32:
-                    if use_oob_score:
-                        fit_treelite_with_masks(
-                            handle_[0],
-                            &tl_handle,
-                            <float*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <float*> y_ptr,
-                            params,
-                            bootstrap_masks_ptr,
-                            verbose
-                        )
-                    else:
-                        fit_treelite(
-                            handle_[0],
-                            &tl_handle,
-                            <float*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <float*> y_ptr,
-                            params,
-                            verbose
-                        )
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <float*> y_ptr,
+                        params,
+                        bootstrap_masks_ptr,
+                        verbose
+                    )
                 else:
-                    if use_oob_score:
-                        fit_treelite_with_masks(
-                            handle_[0],
-                            &tl_handle,
-                            <double*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <double*> y_ptr,
-                            params,
-                            bootstrap_masks_ptr,
-                            verbose
-                        )
-                    else:
-                        fit_treelite(
-                            handle_[0],
-                            &tl_handle,
-                            <double*> X_ptr,
-                            n_rows,
-                            n_cols,
-                            <double*> y_ptr,
-                            params,
-                            verbose
-                        )
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <double*> y_ptr,
+                        params,
+                        bootstrap_masks_ptr,
+                        verbose
+                    )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
         # manage ownership, and keep the loaded model around. However, this
