@@ -528,6 +528,25 @@ class RfSpecialisedTest {
       }
     }
   }
+
+  void TestFeatureImportances()
+  {
+    // Test feature importances for both regression and classification
+    auto importances = ML::get_feature_importances(forest.get());
+
+    // Basic checks for feature importances
+    EXPECT_EQ(importances.size(), static_cast<size_t>(params.n_cols));
+
+    double sum = 0.0;
+    for (auto v : importances) {
+      EXPECT_GE(v, 0.0);  // All importances should be non-negative
+      sum += v;
+    }
+
+    // Feature importances should sum to 1.0 (normalized)
+    EXPECT_NEAR(sum, 1.0, 1e-6);
+  }
+
   void Test()
   {
     TestAccuracyImprovement();
@@ -536,6 +555,7 @@ class RfSpecialisedTest {
     TestTreeSize();
     TestInstanceCounts();
     TestFilPredict();
+    TestFeatureImportances();
   }
 
   RF_metrics training_metrics;
@@ -1412,154 +1432,3 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 
 }  // end namespace DT
 }  // end namespace ML
-
-// // -------------------- New tests: OOB and Feature Importances -------------------- //
-
-// TEST(RfOOBAndImportances, ClassificationOOBAndImportances)
-// {
-//   using DataT  = float;
-//   using LabelT = int;
-//   int n_rows   = 800;
-//   int n_cols   = 16;
-
-//   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(2);
-//   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-
-//   thrust::device_vector<DataT> X(n_rows * n_cols);
-//   thrust::device_vector<LabelT> y(n_rows);
-
-//   // Simple synthetic dataset: make_blobs
-//   ML::Datasets::make_blobs(handle,
-//                            X.data().get(),
-//                            y.data().get(),
-//                            n_rows,
-//                            n_cols,
-//                            3,
-//                            false,
-//                            nullptr,
-//                            nullptr,
-//                            5.0,
-//                            false,
-//                            -5.0f,
-//                            5.0f,
-//                            42);
-
-//   ML::RF_params rf_params = ML::set_rf_params(8,      // max_depth
-//                                               -1,     // max_leaves
-//                                               1.0,    // max_features
-//                                               64,     // n_bins
-//                                               1,      // min_samples_leaf
-//                                               2,      // min_samples_split
-//                                               0.0f,   // min_impurity_decrease
-//                                               true,   // bootstrap
-//                                               50,     // n_trees
-//                                               0.9f,   // max_samples
-//                                               123,    // seed
-//                                               ML::CRITERION::GINI,
-//                                               2,      // n_streams
-//                                               128,    // max_batch_size
-//                                               true,   // oob_score
-//                                               true);  // compute_feature_importance
-
-//   auto forest     = std::make_shared<ML::RandomForestMetaData<DataT, LabelT>>();
-//   auto forest_ptr = forest.get();
-//   ML::fit(handle,
-//           forest_ptr,
-//           X.data().get(),
-//           n_rows,
-//           n_cols,
-//           y.data().get(),
-//           3,
-//           rf_params,
-//           rapids_logger::level_enum::info);
-
-//   // OOB score should be in [0,1]
-//   double oob = ML::get_oob_score(forest_ptr);
-//   ASSERT_GE(oob, 0.0);
-//   ASSERT_LE(oob, 1.0);
-
-//   // Feature importances basic checks
-//   auto importances = ML::get_feature_importances(forest_ptr);
-//   ASSERT_EQ(importances.size(), static_cast<size_t>(n_cols));
-//   double sum = 0.0;
-//   for (auto v : importances) {
-//     ASSERT_GE(v, 0.0);
-//     sum += v;
-//   }
-//   ASSERT_NEAR(sum, 1.0, 1e-6);
-// }
-
-// TEST(RfOOBAndImportances, RegressionOOBAndImportances)
-// {
-//   using DataT  = float;
-//   using LabelT = float;
-//   int n_rows   = 800;
-//   int n_cols   = 12;
-
-//   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(2);
-//   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-
-//   thrust::device_vector<DataT> X(n_rows * n_cols);
-//   thrust::device_vector<LabelT> y(n_rows);
-
-//   // Regression dataset derived from blobs centers
-//   ML::Datasets::make_blobs(handle,
-//                            X.data().get(),
-//                            reinterpret_cast<int*>(y.data().get()),
-//                            n_rows,
-//                            n_cols,
-//                            4,
-//                            false,
-//                            nullptr,
-//                            nullptr,
-//                            5.5,
-//                            false,
-//                            -3.0f,
-//                            3.0f,
-//                            7);
-//   // Convert labels to float target
-//   raft::linalg::unaryOp(handle, y.data(), n_rows, raft::cast_op<float>());
-
-//   ML::RF_params rf_params = ML::set_rf_params(8,      // max_depth
-//                                               -1,     // max_leaves
-//                                               1.0,    // max_features
-//                                               64,     // n_bins
-//                                               1,      // min_samples_leaf
-//                                               2,      // min_samples_split
-//                                               0.0f,   // min_impurity_decrease
-//                                               true,   // bootstrap
-//                                               40,     // n_trees
-//                                               0.9f,   // max_samples
-//                                               321,    // seed
-//                                               ML::CRITERION::MSE,
-//                                               2,      // n_streams
-//                                               128,    // max_batch_size
-//                                               true,   // oob_score
-//                                               true);  // compute_feature_importance
-
-//   auto forest     = std::make_shared<ML::RandomForestMetaData<DataT, LabelT>>();
-//   auto forest_ptr = forest.get();
-//   ML::fit(handle,
-//           forest_ptr,
-//           X.data().get(),
-//           n_rows,
-//           n_cols,
-//           y.data().get(),
-//           rf_params,
-//           rapids_logger::level_enum::info);
-
-//   // OOB R^2 can be negative but should be finite
-//   double oob = ML::get_oob_score(forest_ptr);
-//   ASSERT_TRUE(std::isfinite(oob));
-//   ASSERT_GE(oob, -1.0);
-//   ASSERT_LE(oob, 1.0);
-
-//   auto importances = ML::get_feature_importances(forest_ptr);
-//   ASSERT_EQ(importances.size(), static_cast<size_t>(n_cols));
-//   double sum = 0.0;
-//   for (auto v : importances) {
-//     ASSERT_GE(v, 0.0);
-//     sum += v;
-//   }
-//   ASSERT_NEAR(sum, 1.0, 1e-6);
-// }
