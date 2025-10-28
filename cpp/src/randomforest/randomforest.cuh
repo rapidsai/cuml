@@ -16,6 +16,8 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+#include <thrust/for_each.h>
 #include <thrust/sequence.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
@@ -32,24 +34,6 @@
 #include <map>
 
 namespace ML {
-
-// CUDA kernel to create boolean mask from selected row indices
-__global__ void create_bootstrap_mask_kernel(const int* selected_rows,
-                                             int n_sampled_rows,
-                                             bool* mask,
-                                             int n_rows)
-{
-  // Initialize all to false
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < n_rows) { mask[idx] = false; }
-  __syncthreads();
-
-  // Mark selected rows as true
-  if (idx < n_sampled_rows) {
-    int row_idx = selected_rows[idx];
-    if (row_idx >= 0 && row_idx < n_rows) { mask[row_idx] = true; }
-  }
-}
 
 template <class T, class L>
 class RandomForest {
@@ -206,11 +190,14 @@ class RandomForest {
         // Calculate pointer offset for this tree's mask
         bool* tree_mask = bootstrap_masks + (i * n_rows);
 
-        // Launch kernel to create boolean mask directly on device
-        int threads = 256;
-        int blocks  = (std::max(n_rows, n_sampled_rows) + threads - 1) / threads;
-        create_bootstrap_mask_kernel<<<blocks, threads, 0, s>>>(
-          selected_rows[stream_id].data(), n_sampled_rows, tree_mask, n_rows);
+        // Use Thrust to create boolean mask: first fill with false, then mark selected rows
+        thrust::fill(thrust::cuda::par.on(s), tree_mask, tree_mask + n_rows, false);
+        thrust::for_each(thrust::cuda::par.on(s),
+                         selected_rows[stream_id].data(),
+                         selected_rows[stream_id].data() + n_sampled_rows,
+                         [tree_mask, n_rows] __device__(int idx) {
+                           if (idx >= 0 && idx < n_rows) { tree_mask[idx] = true; }
+                         });
       }
     }
     // Cleanup
