@@ -303,7 +303,7 @@ class KernelDensity(Base, InteropMixin):
                     f"Expected bandwidth in ['scott', 'silverman'], got {self.bandwidth!r}"
                 )
         elif self.bandwidth <= 0:
-            raise ValueError("Expected bandwidth > 0, got {self.bandwidth}")
+            raise ValueError(f"Expected bandwidth > 0, got {self.bandwidth}")
         else:
             self.bandwidth_ = self.bandwidth
 
