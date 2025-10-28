@@ -187,7 +187,7 @@ RandomForestClassifier
 ``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable (custom scorer functions are not supported; only boolean values are accepted).
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -203,7 +203,7 @@ RandomForestRegressor
 ``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable (custom scorer functions are not supported; only boolean values are accepted).
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
