@@ -9,6 +9,7 @@ import pandas as pd
 
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
+    get_cai_ptr,
     get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
@@ -344,11 +345,11 @@ class SHAPBase():
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
 
-        masked_ptr = masked_inputs.__cuda_array_interface__['data'][0]
+        masked_ptr = get_cai_ptr(masked_inputs)
 
-        bg_ptr = self.masker.ptr
-        row_ptr = row.ptr
-        idx_ptr = inds.__cuda_array_interface__['data'][0]
+        bg_ptr = get_cai_ptr(self.masker)
+        row_ptr = get_cai_ptr(row)
+        idx_ptr = get_cai_ptr(inds)
         row_major = self.masker.order == "C"
 
         cdef uintptr_t masked_ptr_f32
@@ -372,9 +373,9 @@ class SHAPBase():
             background_f32 = cp.asarray(self.masker).astype(cp.float32)
             row_f32 = row.astype(cp.float32)
 
-            masked_ptr_f32 = masked_inputs_f32.__cuda_array_interface__['data'][0]
-            bg_ptr_f32 = background_f32.__cuda_array_interface__['data'][0]
-            row_ptr_f32 = row_f32.ptr
+            masked_ptr_f32 = get_cai_ptr(masked_inputs_f32)
+            bg_ptr_f32 = get_cai_ptr(background_f32)
+            row_ptr_f32 = get_cai_ptr(row_f32)
 
             shap_main_effect_dataset(handle_[0],
                                      <float*> masked_ptr_f32,
