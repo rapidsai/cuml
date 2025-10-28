@@ -211,18 +211,6 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
 
-template <typename T, typename L>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             T* input,
-                             int n_rows,
-                             int n_cols,
-                             L* labels,
-                             int n_unique_labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             T* feature_importances_out);
-
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
              const float* input,
