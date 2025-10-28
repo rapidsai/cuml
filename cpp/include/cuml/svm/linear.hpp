@@ -11,8 +11,9 @@
 
 namespace ML {
 namespace SVM {
+namespace linear {
 
-struct LinearSVMParams {
+struct Params {
   /** The regularization term. */
   enum Penalty {
     /** Abs. value of the weights: `sum |w|` */
@@ -42,8 +43,6 @@ struct LinearSVMParams {
    *  Enabling this feature forces an extra copying the input data X.
    */
   bool penalized_intercept = false;
-  /** Whether to estimate probabilities using Platt scaling (applicable to SVC). */
-  bool probability = false;
   /** Maximum number of iterations for the underlying QN solver. */
   int max_iter = 1000;
   /**
@@ -69,130 +68,58 @@ struct LinearSVMParams {
   double epsilon = 0.0;
 };
 
+/**
+ * @brief Fit a linear SVM model.
+ *
+ * @param [in] handle: the cuML handle.
+ * @param [in] params: the model parameters.
+ * @param [in] nRows: the number of input samples.
+ * @param [in] nCols: the number of feature dimensions.
+ * @param [in] nClasses: the number of input classes, or 0 for a regression problem.
+ * @param [in] classes: the unique input classes, shape=(nClasses,), or nullptr
+ * for a regression problem.
+ * @param [in] X: the training data, shape=(nRows, nCols), F-contiguous
+ * @param [in] y: the target data, shape=(nRows,)
+ * @param [in] sampleWeight: non-negative weights for the training data, shape=(nRows,),
+ * or nullptr if unweighted.
+ * @param [out] w: the fitted weights, shape=(nCoefs, nCols) or (nCoefs + 1, nCols + 1)
+ * if `fit_intercept=true`, where nCoefs = 1 for regression or if nClasses = 2, and
+ * nClasses otherwise. F-contiguous.
+ * @param [out] probScale: the fitted probability scales, shape=(nClasses, 2),
+ * F-contiguous. Pass nullptr to not fit probability scales.
+ */
 template <typename T>
-struct LinearSVMModel {
-  /**
-   * C-style (row-major) matrix of coefficients of size `(coefRows, coefCols)`
-   * where
-   *   coefRows = nCols + (params.fit_intercept ? 1 : 0)
-   *   coefCols = nClasses == 2 ? 1 : nClasses
-   */
-  T* w;
-  /** Sorted, unique values of input array `y`. */
-  T* classes = nullptr;
-  /**
-   * C-style (row-major) matrix of the probabolistic model calibration coefficients.
-   * It's empty if `LinearSVMParams.probability == false`.
-   * Otherwise, it's size is `(2, coefCols)`.
-   * where
-   *   coefCols = nClasses == 2 ? 1 : nClasses
-   */
-  T* probScale = nullptr;
-  /** Number of classes (not applicable for regression). */
-  std::size_t nClasses = 0;
-  /** Number of rows of `w`, which is the number of data features plus maybe bias. */
-  std::size_t coefRows;
+void fit(const raft::handle_t& handle,
+         const Params& params,
+         const std::size_t nRows,
+         const std::size_t nCols,
+         const int nClasses,
+         const T* classes,
+         const T* X,
+         const T* y,
+         const T* sampleWeight,
+         T* w,
+         T* probScale);
 
-  /** It's 1 for binary classification or regression; nClasses for multiclass. */
-  inline std::size_t coefCols() const { return nClasses <= 2 ? 1 : nClasses; }
+/**
+ * @brief Compute probabilities from decision function scores.
+ *
+ * @param [in] handle: the cuML handle.
+ * @param [in] nRows: the number of input samples.
+ * @param [in] nClasses: the number of input classes.
+ * @param [in] probScale: the probability scales, shape=(nClasses, 2), F-contiguous.
+ * @param [inout] scores: the decision function scores, shape=(nRows, nClasses),
+ * C-contiguous. Note that this array will be mutated in-place during the calculation.
+ * @param [out] out: the computed probabilities, shape=(nRows, nClasses), C-contiguous.
+ */
+template <typename T>
+void computeProbabilities(const raft::handle_t& handle,
+                          const std::size_t nRows,
+                          const int nClasses,
+                          const T* probScale,
+                          T* scores,
+                          T* out);
 
-  /**
-   * @brief Allocate and fit the LinearSVM model.
-   *
-   * @param [in] handle the cuML handle.
-   * @param [in] params the model parameters.
-   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
-   * @param [in] nRows the number of input samples.
-   * @param [in] nCols the number of feature dimensions.
-   * @param [in] y the target - a single vector of either real (regression) or
-   *               categorical (classification) values (nRows, ).
-   * @param [in] sampleWeight the non-negative weights for the training sample (nRows, ).
-   * @return the trained model (don't forget to call `free` on it after use).
-   */
-  static LinearSVMModel<T> fit(const raft::handle_t& handle,
-                               const LinearSVMParams& params,
-                               const T* X,
-                               const std::size_t nRows,
-                               const std::size_t nCols,
-                               const T* y,
-                               const T* sampleWeight);
-
-  /**
-   * @brief Explicitly allocate the data for the model without training it.
-   *
-   * @param [in] handle the cuML handle.
-   * @param [in] params the model parameters.
-   * @param [in] nCols the number of feature dimensions.
-   * @param [in] nClasses the number of classes in the dataset (not applicable for regression).
-   * @return the trained model (don't forget to call `free` on it after use).
-   */
-  static LinearSVMModel<T> allocate(const raft::handle_t& handle,
-                                    const LinearSVMParams& params,
-                                    const std::size_t nCols,
-                                    const std::size_t nClasses = 0);
-
-  /** @brief Free the allocated memory. The model is not usable after the call of this method. */
-  static void free(const raft::handle_t& handle, LinearSVMModel<T>& model);
-
-  /**
-   * @brief Predict using the trained LinearSVM model.
-   *
-   * @param [in] handle the cuML handle.
-   * @param [in] params the model parameters.
-   * @param [in] model the trained model.
-   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
-   * @param [in] nRows the number of input samples.
-   * @param [in] nCols the number of feature dimensions.
-   * @param [out] out the predictions (nRows, ).
-   */
-  static void predict(const raft::handle_t& handle,
-                      const LinearSVMParams& params,
-                      const LinearSVMModel<T>& model,
-                      const T* X,
-                      const std::size_t nRows,
-                      const std::size_t nCols,
-                      T* out);
-
-  /**
-   * @brief Calculate decision function value for samples in input.
-   * @param [in] handle the cuML handle.
-   * @param [in] params the model parameters.
-   * @param [in] model the trained model.
-   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
-   * @param [in] nRows number of vectors
-   * @param [in] nCols number of features
-   * @param [out] out the decision function value of size (nRows, n_classes <= 2 ? 1 : n_classes) in
-   * row-major format.
-   */
-  static void decisionFunction(const raft::handle_t& handle,
-                               const LinearSVMParams& params,
-                               const LinearSVMModel<T>& model,
-                               const T* X,
-                               const std::size_t nRows,
-                               const std::size_t nCols,
-                               T* out);
-
-  /**
-   * @brief For SVC, predict the probabilities for each outcome.
-   *
-   * @param [in] handle the cuML handle.
-   * @param [in] params the model parameters.
-   * @param [in] model the trained model.
-   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
-   * @param [in] nRows the number of input samples.
-   * @param [in] nCols the number of feature dimensions.
-   * @param [in] log whether to output log-probabilities instead of probabilities.
-   * @param [out] out the estimated probabilities (nRows, nClasses) in row-major format.
-   */
-  static void predictProba(const raft::handle_t& handle,
-                           const LinearSVMParams& params,
-                           const LinearSVMModel<T>& model,
-                           const T* X,
-                           const std::size_t nRows,
-                           const std::size_t nCols,
-                           const bool log,
-                           T* out);
-};
-
+}  // namespace linear
 }  // namespace SVM
 }  // namespace ML
