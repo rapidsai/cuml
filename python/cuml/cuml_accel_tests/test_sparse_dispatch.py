@@ -37,8 +37,8 @@ estimators = {
     "SVC": lambda: SVC(),
     "SVR": lambda: SVR(),
     "KernelRidge": lambda: KernelRidge(),
-    "LinearSVC": lambda: LinearSVC(),
-    "LinearSVR": lambda: LinearSVR(),
+    "LinearSVC": lambda: LinearSVC(dual="auto"),
+    "LinearSVR": lambda: LinearSVR(dual="auto"),
 }
 
 
