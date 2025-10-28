@@ -58,10 +58,7 @@ void tree_reduction(const raft::handle_t& handle,
       comm.isend(labels, N, my_rank - s, 0, &request);
     }
 
-    if (receiver || sender) {
-      CUML_LOG_DEBUG("--> Wait for request");
-      comm.waitall(1, &request);
-    }
+    if (receiver || sender) { comm.waitall(1, &request); }
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
