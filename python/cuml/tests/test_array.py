@@ -20,6 +20,7 @@ from numba import cuda
 from cuml import global_settings
 from cuml.internals.array import (
     CumlArray,
+    _determine_memory_order,
     _order_to_strides,
     array_to_memory_order,
 )
@@ -738,6 +739,29 @@ def test_sliced_array_owner(order, mem_type):
 def test_array_to_memory_order(input_type, dtype, shape, order):
     input_array = create_cuml_array_input(input_type, dtype, shape, order)
     assert array_to_memory_order(input_array, default=order) == order
+
+
+@example(dtype=np.float32, shape=(5, 5), order="C")
+@example(dtype=np.float32, shape=(1, 5), order="C")
+@example(dtype=np.float32, shape=(5, 1), order="C")
+@example(dtype=np.float32, shape=(5, 5), order="F")
+@example(dtype=np.float32, shape=(1, 5), order="F")
+@example(dtype=np.float32, shape=(5, 1), order="F")
+@given(
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(min_dims=1, max_dims=5),
+    order=cuml_array_orders(),
+)
+def test_determine_memory_order(dtype, shape, order):
+    x = create_cuml_array_input("numpy", dtype, shape, order)
+    if x.flags["C_CONTIGUOUS"] and x.flags["F_CONTIGUOUS"]:
+        assert _determine_memory_order(x.shape, x.strides, x.dtype, "C") == "C"
+        assert _determine_memory_order(x.shape, x.strides, x.dtype, "F") == "F"
+    else:
+        assert (
+            _determine_memory_order(x.shape, x.strides, x.dtype, order)
+            == order
+        )
 
 
 @example(input_type="numpy", dtype=np.float32, shape=(10, 10), order="C")
