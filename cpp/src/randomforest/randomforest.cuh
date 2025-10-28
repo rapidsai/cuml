@@ -54,7 +54,6 @@ class RandomForest {
   void get_row_sample(int tree_id,
                       int n_rows,
                       rmm::device_uvector<int>* selected_rows,
-                      std::vector<int>& oob_indices,
                       const cudaStream_t stream)
   {
     raft::common::nvtx::range fun_scope("bootstrapping row IDs @randomforest.cuh");
@@ -67,28 +66,9 @@ class RandomForest {
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
       rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
-
-      if (rf_params.oob_score) {
-        std::vector<int> h_selected_rows(selected_rows->size());
-        raft::update_host(
-          h_selected_rows.data(), selected_rows->data(), selected_rows->size(), stream);
-        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-
-        std::vector<bool> selected(n_rows, false);
-        for (int idx : h_selected_rows) {
-          selected[idx] = true;
-        }
-
-        oob_indices.clear();
-        for (int i = 0; i < n_rows; i++) {
-          if (!selected[i]) { oob_indices.push_back(i); }
-        }
-      }
-
     } else {
       // Use all the samples from the dataset
       thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
-      oob_indices.clear();
     }
   }
 
@@ -187,25 +167,14 @@ class RandomForest {
     forest->rf_type                      = rf_type;
     forest->n_unique_labels              = n_unique_labels;
     forest->feature_importances_computed = false;
-    forest->oob_score                    = -1.0;
     forest->feature_importances.clear();
-
-    // Initialize OOB tracking if needed
-    if (rf_params.oob_score && rf_params.bootstrap) {
-      forest->oob_indices_per_tree.resize(rf_params.n_trees);
-    }
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
       auto s        = handle.get_stream_from_stream_pool(stream_id);
 
-      std::vector<int> oob_indices;
-      this->get_row_sample(i, n_rows, &selected_rows[stream_id], oob_indices, s);
-
-      if (rf_params.oob_score && rf_params.bootstrap) {
-        forest->oob_indices_per_tree[i] = std::move(oob_indices);
-      }
+      this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -233,114 +202,8 @@ class RandomForest {
     handle.sync_stream_pool();
     handle.sync_stream();
 
-    // Compute OOB score if enabled (during training to avoid storing data)
-    if (rf_params.oob_score && rf_params.bootstrap) {
-      std::vector<std::vector<T>> oob_predictions(n_rows);
-      std::vector<int> oob_counts(n_rows, 0);
 
-      if (rf_type == RF_type::CLASSIFICATION) {
-        for (int i = 0; i < n_rows; i++) {
-          oob_predictions[i].resize(n_unique_labels, 0.0);
-        }
-      } else {
-        for (int i = 0; i < n_rows; i++) {
-          oob_predictions[i].resize(1, 0.0);
-        }
-      }
 
-      // Copy training data to host for predictions
-      std::vector<T> h_input(std::size_t(n_rows) * n_cols);
-      raft::update_host(h_input.data(), input, std::size_t(n_rows) * n_cols, handle.get_stream());
-      handle.sync_stream(handle.get_stream());
-
-      for (int tree_idx = 0; tree_idx < rf_params.n_trees; tree_idx++) {
-        const auto& oob_indices = forest->oob_indices_per_tree[tree_idx];
-        const auto& tree        = forest->trees[tree_idx];
-
-        for (int oob_idx : oob_indices) {
-          std::vector<T> row_prediction(tree->num_outputs);
-          DT::DecisionTree::predict(handle,
-                                    *tree,
-                                    &h_input[oob_idx * n_cols],
-                                    1,
-                                    n_cols,
-                                    row_prediction.data(),
-                                    tree->num_outputs,
-                                    rapids_logger::level_enum::info);
-
-          if (rf_type == RF_type::CLASSIFICATION) {
-            for (int k = 0; k < tree->num_outputs; k++) {
-              oob_predictions[oob_idx][k] += row_prediction[k];
-            }
-          } else {
-            oob_predictions[oob_idx][0] += row_prediction[0];
-          }
-          oob_counts[oob_idx]++;
-        }
-      }
-
-      std::vector<L> final_predictions(n_rows);
-      int valid_predictions = 0;
-
-      for (int i = 0; i < n_rows; i++) {
-        if (oob_counts[i] > 0) {
-          valid_predictions++;
-
-          if (rf_type == RF_type::CLASSIFICATION) {
-            int best_class = 0;
-            T best_score   = 0.0;
-            for (int k = 0; k < n_unique_labels; k++) {
-              T score = oob_predictions[i][k] / oob_counts[i];
-              if (score > best_score) {
-                best_score = score;
-                best_class = k;
-              }
-            }
-            final_predictions[i] = best_class;
-          } else {
-            final_predictions[i] = oob_predictions[i][0] / oob_counts[i];
-          }
-        }
-      }
-
-      // Copy training labels to host
-      std::vector<L> h_labels(n_rows);
-      raft::update_host(h_labels.data(), labels, n_rows, handle.get_stream());
-      handle.sync_stream(handle.get_stream());
-
-      if (rf_type == RF_type::CLASSIFICATION) {
-        int correct = 0;
-        for (int i = 0; i < n_rows; i++) {
-          if (oob_counts[i] > 0 && final_predictions[i] == h_labels[i]) { correct++; }
-        }
-        forest->oob_score = static_cast<double>(correct) / valid_predictions;
-      } else {
-        double sum_squared_errors = 0.0;
-        double sum_squared_total  = 0.0;
-        double mean_y             = 0.0;
-        int count                 = 0;
-
-        for (int i = 0; i < n_rows; i++) {
-          if (oob_counts[i] > 0) {
-            mean_y += h_labels[i];
-            count++;
-          }
-        }
-        mean_y /= count;
-
-        for (int i = 0; i < n_rows; i++) {
-          if (oob_counts[i] > 0) {
-            double error = h_labels[i] - final_predictions[i];
-            sum_squared_errors += error * error;
-            double diff = h_labels[i] - mean_y;
-            sum_squared_total += diff * diff;
-          }
-        }
-
-        forest->oob_score = 1.0 - (sum_squared_errors / sum_squared_total);
-      }
-    }
-    // Note: Feature importances are computed lazily when requested
   }
 
   /**

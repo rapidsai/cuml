@@ -73,8 +73,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         uint64_t seed,
         CRITERION split_criterion,
         int cfg_n_streams,
-        int max_batch_size,
-        bool oob_score,
+        int max_batch_size
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -110,7 +109,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int n_unique_labels,
         RF_params params,
         level_enum verbosity,
-        double* oob_score_out,
         T* feature_importances_out
     ) except +
 
@@ -123,7 +121,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         level_enum verbosity,
-        double* oob_score_out,
         T* feature_importances_out
     ) except +
 
@@ -225,7 +222,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "handle",
             "verbose",
             "output_type",
-            "oob_score",
         ]
 
     @classmethod
@@ -268,7 +264,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": model.min_impurity_decrease,
             "bootstrap": model.bootstrap,
             "random_state": model.random_state,
-            "oob_score": model.oob_score,
             **conditional_params
         }
 
@@ -290,7 +285,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
             "max_samples": self.max_samples,
-            "oob_score": self.oob_score,
         }
 
     def _attrs_from_cpu(self, model):
@@ -336,7 +330,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         handle=None,
         verbose=False,
         output_type=None,
-        oob_score=False,
     ):
         if handle is None:
             handle = Handle(n_streams=n_streams)
@@ -357,7 +350,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.max_batch_size = max_batch_size
         self.random_state = random_state
         self.n_streams = n_streams
-        self.oob_score = oob_score
+        self._feature_importances_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -473,11 +466,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             _normalize_split_criterion(self.split_criterion),
             self.n_streams,
             self.max_batch_size,
-            self.oob_score,
         )
 
         cdef TreeliteModelHandle tl_handle
-        cdef double oob_score_value = -1.0
         cdef object _fi_py
         if is_float32:
             _fi_py = np.empty(n_cols, dtype=np.float32)
@@ -499,7 +490,6 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         verbose,
-                        &oob_score_value,
                         <float*> _fi_ptr,
                     )
                 else:
@@ -513,7 +503,6 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         verbose,
-                        &oob_score_value,
                         <double*> _fi_ptr,
                     )
             else:
@@ -527,7 +516,6 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <float*> y_ptr,
                         params,
                         verbose,
-                        &oob_score_value,
                         <float*> _fi_ptr,
                     )
                 else:
@@ -540,7 +528,6 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <double*> y_ptr,
                         params,
                         verbose,
-                        &oob_score_value,
                         <double*> _fi_ptr,
                     )
 
@@ -570,8 +557,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         # Ensure cached fil model is reset
         self._fil_model = None
-        if self.oob_score:
-            self.oob_score_ = oob_score_value
         self.feature_importances_ = np.asarray(_fi_py)
         return self
 
