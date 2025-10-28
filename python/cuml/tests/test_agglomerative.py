@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -30,7 +19,6 @@ def test_duplicate_distances(connectivity):
         n_clusters=2,
         metric="euclidean",
         linkage="single",
-        n_neighbors=3,
         connectivity=connectivity,
     )
 
@@ -47,10 +35,10 @@ def test_duplicate_distances(connectivity):
 @pytest.mark.parametrize("nrows", [100, 1000])
 @pytest.mark.parametrize("ncols", [25, 50])
 @pytest.mark.parametrize("nclusters", [1, 2, 10, 50])
-@pytest.mark.parametrize("k", [3, 5, 15])
+@pytest.mark.parametrize("c", [3, 5, 15])
 @pytest.mark.parametrize("connectivity", ["knn", "pairwise"])
 def test_single_linkage_sklearn_compare(
-    nrows, ncols, nclusters, k, connectivity
+    nrows, ncols, nclusters, c, connectivity
 ):
 
     X, y = make_blobs(
@@ -61,7 +49,7 @@ def test_single_linkage_sklearn_compare(
         n_clusters=nclusters,
         metric="euclidean",
         linkage="single",
-        n_neighbors=k,
+        c=c,
         connectivity=connectivity,
     )
 
@@ -78,28 +66,44 @@ def test_single_linkage_sklearn_compare(
     assert cuml_agg.n_connected_components_ == sk_agg.n_connected_components_
     assert cuml_agg.n_leaves_ == sk_agg.n_leaves_
     assert cuml_agg.n_clusters_ == sk_agg.n_clusters_
+    # The children in the tree may differ, just compare shapes
+    assert cuml_agg.children_.shape == sk_agg.children_.shape
+
+
+def test_metric_none_deprecated():
+    X, _ = make_blobs()
+
+    model = AgglomerativeClustering(metric=None)
+    with pytest.warns(FutureWarning, match="metric=None"):
+        model.fit(X)
+
+    assert hasattr(model, "labels_")
+
+
+def test_n_neighobrs_deprecated():
+    X, _ = make_blobs()
+
+    model = AgglomerativeClustering(n_neighbors=15)
+    with pytest.warns(FutureWarning, match="n_neighbors"):
+        model.fit(X)
+
+    assert hasattr(model, "labels_")
 
 
 def test_invalid_inputs():
-
-    # Test bad metric
-    with pytest.raises(ValueError):
-        AgglomerativeClustering(metric="doesntexist")
+    X, _ = make_blobs()
 
     with pytest.raises(ValueError):
-        AgglomerativeClustering(linkage="doesntexist")
+        AgglomerativeClustering(metric="doesntexist").fit(X)
 
     with pytest.raises(ValueError):
-        AgglomerativeClustering(connectivity="doesntexist")
+        AgglomerativeClustering(linkage="doesntexist").fit(X)
 
     with pytest.raises(ValueError):
-        AgglomerativeClustering(n_neighbors=1)
+        AgglomerativeClustering(connectivity="doesntexist").fit(X)
 
     with pytest.raises(ValueError):
-        AgglomerativeClustering(n_neighbors=1024)
+        AgglomerativeClustering(n_clusters=0).fit(X)
 
     with pytest.raises(ValueError):
-        AgglomerativeClustering(n_clusters=0)
-
-    with pytest.raises(ValueError):
-        AgglomerativeClustering(n_clusters=500).fit(cp.ones((2, 5)))
+        AgglomerativeClustering(n_clusters=500).fit(X)
