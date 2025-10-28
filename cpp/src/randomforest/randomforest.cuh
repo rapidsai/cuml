@@ -34,11 +34,9 @@
 namespace ML {
 template <class T, class L>
 class RandomForest {
- public:
-  RF_type rf_type;  // CLASSIFICATION or REGRESSION
-
  protected:
   RF_params rf_params;  // structure containing RF hyperparameters
+  int rf_type;          // 0 for classification 1 for regression
 
   void get_row_sample(int tree_id,
                       int n_rows,
@@ -55,6 +53,7 @@ class RandomForest {
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
       rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
+
     } else {
       // Use all the samples from the dataset
       thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
@@ -83,9 +82,9 @@ class RandomForest {
   /**
    * @brief Construct RandomForest object.
    * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
-   * @param[in] cfg_rf_type: Task type: CLASSIFICATION or REGRESSION
+   * @param[in] cfg_rf_type: Task type: 0 for classification, 1 for regression
    */
-  RandomForest(RF_params cfg_rf_params, RF_type cfg_rf_type = RF_type::CLASSIFICATION)
+  RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
     : rf_params(cfg_rf_params), rf_type(cfg_rf_type) {};
 
   /**
@@ -152,9 +151,6 @@ class RandomForest {
     }
 
     forest->n_features                   = n_cols;
-    forest->n_rows                       = n_rows;
-    forest->rf_type                      = rf_type;
-    forest->n_unique_labels              = n_unique_labels;
     forest->feature_importances_computed = false;
     forest->feature_importances.clear();
 

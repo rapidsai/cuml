@@ -119,21 +119,6 @@ struct RandomForestMetaData {
    * Flag indicating whether feature importances have been computed.
    */
   bool feature_importances_computed = false;
-
-  /**
-   * Number of rows in training data.
-   */
-  int n_rows = 0;
-
-  /**
-   * RF type: CLASSIFICATION or REGRESSION.
-   */
-  RF_type rf_type = RF_type::CLASSIFICATION;
-
-  /**
-   * Number of unique labels (for classification only).
-   */
-  int n_unique_labels = 0;
 };
 
 template <class T, class L>
