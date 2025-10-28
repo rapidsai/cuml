@@ -5,75 +5,42 @@
 
 #pragma once
 
-#include <cuml/cluster/single_linkage_output.hpp>
 #include <cuml/common/distance_type.hpp>
 
 #include <raft/core/handle.hpp>
 
-namespace raft {
-class handle_t;
-}
-
 namespace ML {
+namespace linkage {
 
 /**
  * @brief Computes single-linkage hierarchical clustering on a dense input
  * feature matrix and outputs the labels, dendrogram, and minimum spanning tree.
- * Connectivities are constructed using the full n^2 pairwise distance matrix.
- * This can be very fast for smaller datasets when there is enough memory
- * available.
- * @param[in] handle raft handle to encapsulate expensive resources
- * @param[in] X dense feature matrix on device
- * @param[in] m number of rows in X
- * @param[in] n number of columns in X
- * @param[in] metric distance metric to use. Must be supported by the
- *              dense pairwise distances API.
- * @param[out] out container object for output arrays
- * @param[out] n_clusters number of clusters to cut from resulting dendrogram
+ *
+ * @param[in] handle: raft handle to encapsulate expensive resources
+ * @param[in] X: dense feature matrix on device, C contiguous
+ * @param[in] n_rows: number of rows in X
+ * @param[in] n_cols: number of columns in X
+ * @param[in] n_clusters: the number of clusters to fit.
+ * @param[in] metric: distance metric to use. Must be supported by the
+ *            dense pairwise distances API.
+ * @param[out] children: the output dendrogram, shape=(n_rows - 1, 2), C contiguous
+ * @param[out] labels: the output labels, shape=(n_rows,)
+ * @param[in] use_knn: whether to construct a knn graph instead of the full
+ *            n^2 pairwise distance matrix. This can be faster for very large
+ *            datasets or in cases where lower memory usage is required.
+ * @param[in] c: tunes the number of neighbors when `use_knn` is true, where
+ *            `n_neighbors=log(n_rows) + c`.
  */
-void single_linkage_pairwise(const raft::handle_t& handle,
-                             const float* X,
-                             size_t m,
-                             size_t n,
-                             ML::single_linkage_output<int>* out,
-                             ML::distance::DistanceType metric,
-                             int n_clusters = 5);
+void single_linkage(const raft::handle_t& handle,
+                    const float* X,
+                    int n_rows,
+                    int n_cols,
+                    size_t n_clusters,
+                    ML::distance::DistanceType metric,
+                    int* children,
+                    int* labels,
+                    bool use_knn = false,
+                    int c        = 15);
 
-/**
- * @brief Computes single-linkage hierarchical clustering on a dense input
- * feature matrix and outputs the labels, dendrogram, and minimum spanning tree.
- * Connectivities are constructed using a k-nearest neighbors graph. While this
- * strategy enables the algorithm to scale to much higher numbers of rows,
- * it comes with the downside that additional knn steps may need to be
- * executed to connect an otherwise unconnected k-nn graph.
- * @param[in] handle raft handle to encapsulate expensive resources
- * @param[in] X dense feature matrix on device
- * @param[in] m number of rows in X
- * @param[in] n number of columns in X
- * @param[in] metric distance metric to use. Must be supported by the
- *              dense pairwise distances API.
- * @param[out] out container object for output arrays
- * @param[out] c the optimal value of k is guaranteed to be at least log(n) + c
- * where c is some constant. This constant can usually be set to a fairly low
- * value, like 15, and still maintain good performance.
- * @param[out] n_clusters number of clusters to cut from resulting dendrogram
- */
-void single_linkage_neighbors(
-  const raft::handle_t& handle,
-  const float* X,
-  size_t m,
-  size_t n,
-  ML::single_linkage_output<int>* out,
-  ML::distance::DistanceType metric = ML::distance::DistanceType::L2Unexpanded,
-  int c                             = 15,
-  int n_clusters                    = 5);
-
-void single_linkage_pairwise(const raft::handle_t& handle,
-                             const float* X,
-                             size_t m,
-                             size_t n,
-                             ML::single_linkage_output<int64_t>* out,
-                             ML::distance::DistanceType metric,
-                             int n_clusters = 5);
-
+};  // namespace linkage
 };  // namespace ML
