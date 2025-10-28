@@ -180,6 +180,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         ).array
         return self._fit_forest(X_m, y_m)
 
+    def _compute_oob_score_metric(self, y_true, oob_predictions, valid_mask):
+        """
+        Compute R² score for regression OOB predictions.
+        """
+        return float(r2_score(y_true[valid_mask], oob_predictions[valid_mask]))
+
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python",

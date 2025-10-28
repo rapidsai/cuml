@@ -224,6 +224,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         return self._fit_forest(X_m, y_m)
 
+    def _compute_oob_score_metric(self, y_true, oob_predictions, valid_mask):
+        """
+        Compute accuracy score for classification OOB predictions.
+        """
+        # Get predicted classes (argmax of probabilities)
+        oob_pred_classes = cp.argmax(oob_predictions[valid_mask], axis=1)
+        y_valid = y_true[valid_mask]
+
+        # Compute accuracy
+        return float(accuracy_score(y_valid, oob_pred_classes))
+
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python",

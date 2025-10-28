@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from abc import abstractmethod
 from typing import Literal
 
 import cupy as cp
@@ -576,6 +577,27 @@ class BaseRandomForestModel(Base, InteropMixin):
             )
         return fil_model
 
+    @abstractmethod
+    def _compute_oob_score_metric(self, y_true, oob_predictions, valid_mask):
+        """
+        Compute the OOB score metric for the specific model type.
+
+        Parameters
+        ----------
+        y_true : array-like
+            True labels
+        oob_predictions : array-like
+            OOB predictions (1D for regression, 2D for classification)
+        valid_mask : array-like
+            Boolean mask indicating which samples have OOB predictions
+
+        Returns
+        -------
+        float
+            The computed score
+        """
+        pass
+
     def _compute_oob_score(self, X, y):
         """
         Compute OOB score using per-tree predictions and bootstrap masks.
@@ -587,64 +609,38 @@ class BaseRandomForestModel(Base, InteropMixin):
         #        (n_samples, n_trees, n_classes) for classification
 
         n_samples = X.shape[0]
-        is_classifier = self._estimator_type == "classifier"
 
-        if is_classifier:
-            # Classification: per_tree_preds shape is (n_samples, n_trees, n_classes)
-            n_classes = per_tree_preds.shape[2]
-            oob_predictions = cp.zeros((n_samples, n_classes), dtype=cp.float32)
-            oob_counts = cp.zeros(n_samples, dtype=cp.int32)
+        # Determine output shape based on prediction dimensionality
+        # For regression: (n_samples,)
+        # For classification: (n_samples, n_classes)
+        output_shape = (n_samples,) + per_tree_preds.shape[2:]
+        oob_predictions = cp.zeros(output_shape, dtype=cp.float32)
+        oob_counts = cp.zeros(n_samples, dtype=cp.int32)
 
-            # For each tree, accumulate predictions for OOB samples
-            for tree_idx in range(self.n_estimators):
-                # Get OOB mask for this tree (samples NOT in bootstrap)
-                in_bag_mask = self._bootstrap_masks_[tree_idx]
-                oob_mask = ~in_bag_mask
+        # For each tree, accumulate predictions for OOB samples
+        for tree_idx in range(self.n_estimators):
+            # Get OOB mask for this tree (samples NOT in bootstrap)
+            in_bag_mask = self._bootstrap_masks_[tree_idx]
+            oob_mask = ~in_bag_mask
 
-                # Accumulate predictions for OOB samples
-                oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx, :]
-                oob_counts[oob_mask] += 1
+            # Accumulate predictions for OOB samples
+            oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx]
+            oob_counts[oob_mask] += 1
 
-            # Average OOB predictions
-            valid_oob = oob_counts > 0
+        # Average OOB predictions (broadcasting handles both 1D and 2D cases)
+        valid_oob = oob_counts > 0
+        if oob_predictions.ndim > 1:
             oob_predictions[valid_oob] /= oob_counts[valid_oob, cp.newaxis]
-
-            # Compute OOB decision function and score
-            self._oob_decision_function_ = oob_predictions
-
-            # Get predicted classes (argmax of probabilities)
-            oob_pred_classes = cp.argmax(oob_predictions[valid_oob], axis=1)
-            y_valid = y[valid_oob]
-
-            # Compute accuracy
-            from cuml.metrics import accuracy_score
-            self._oob_score_ = float(accuracy_score(y_valid, oob_pred_classes))
-
         else:
-            # Regression: per_tree_preds shape is (n_samples, n_trees)
-            oob_predictions = cp.zeros(n_samples, dtype=cp.float32)
-            oob_counts = cp.zeros(n_samples, dtype=cp.int32)
-
-            # For each tree, accumulate predictions for OOB samples
-            for tree_idx in range(self.n_estimators):
-                # Get OOB mask for this tree (samples NOT in bootstrap)
-                in_bag_mask = self._bootstrap_masks_[tree_idx]
-                oob_mask = ~in_bag_mask
-
-                # Accumulate predictions for OOB samples
-                oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx]
-                oob_counts[oob_mask] += 1
-
-            # Average OOB predictions
-            valid_oob = oob_counts > 0
             oob_predictions[valid_oob] /= oob_counts[valid_oob]
 
-            # Compute OOB decision function and score
-            self._oob_decision_function_ = oob_predictions
+        # Store OOB decision function
+        self._oob_decision_function_ = oob_predictions
 
-            # Compute R² score
-            from cuml.metrics import r2_score
-            self._oob_score_ = float(r2_score(y[valid_oob], oob_predictions[valid_oob]))
+        # Compute the model-specific score
+        self._oob_score_ = self._compute_oob_score_metric(
+            y, oob_predictions, valid_oob
+        )
 
     @property
     def oob_score_(self):
