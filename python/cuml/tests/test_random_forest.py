@@ -1441,18 +1441,3 @@ def test_rf_feature_importance_consistency():
         assert np.allclose(
             importances_list[0], importances_list[i], rtol=1e-5
         ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
-
-
-def test_convert_methods_deprecated():
-    X, y = make_regression(n_samples=500)
-    model = cuml.RandomForestRegressor().fit(X, y)
-
-    with pytest.warns(FutureWarning, match="convert_to_treelite_model"):
-        tl = model.convert_to_treelite_model()
-
-    assert isinstance(tl, treelite.Model)
-
-    with pytest.warns(FutureWarning, match="convert_to_fil_model"):
-        fil = model.convert_to_fil_model()
-
-    assert isinstance(fil, cuml.fil.ForestInference)
