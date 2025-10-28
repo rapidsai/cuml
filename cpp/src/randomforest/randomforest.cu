@@ -620,7 +620,7 @@ void fit_treelite_with_stats(const raft::handle_t& user_handle,
                              int n_unique_labels,
                              RF_params rf_params,
                              rapids_logger::level_enum verbosity,
-                               value_t* feature_importances_out)
+                             value_t* feature_importances_out)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);

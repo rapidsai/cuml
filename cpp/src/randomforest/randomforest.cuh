@@ -190,9 +190,6 @@ class RandomForest {
     // Cleanup
     handle.sync_stream_pool();
     handle.sync_stream();
-
-
-
   }
 
   /**

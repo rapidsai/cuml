@@ -153,7 +153,6 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
 
-
 /**
  * @brief Get the feature importances of the trained RandomForest model.
  * Computes them lazily if not already computed.
