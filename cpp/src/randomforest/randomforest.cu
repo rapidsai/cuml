@@ -355,7 +355,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity)
+         rapids_logger::level_enum verbosity,
+         bool* bootstrap_masks)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -365,7 +366,8 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
     std::make_shared<RandomForest<float, int>>(rf_params, RF_type::CLASSIFICATION);
-  rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
+  rf_classifier->fit(
+    user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest, bootstrap_masks);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -376,7 +378,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity)
+         rapids_logger::level_enum verbosity,
+         bool* bootstrap_masks)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -386,7 +389,8 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
     std::make_shared<RandomForest<double, int>>(rf_params, RF_type::CLASSIFICATION);
-  rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
+  rf_classifier->fit(
+    user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest, bootstrap_masks);
 }
 
 template <typename value_t, typename label_t>
@@ -402,12 +406,17 @@ void fit_treelite(const raft::handle_t& user_handle,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
+  fit(user_handle,
+      &metadata,
+      input,
+      n_rows,
+      n_cols,
+      labels,
+      n_unique_labels,
+      rf_params,
+      verbosity,
+      bootstrap_masks);
   build_treelite_forest(model, &metadata, n_cols);
-  // Extract bootstrap masks if requested
-  if (bootstrap_masks != nullptr && rf_params.oob_score) {
-    get_bootstrap_masks(&metadata, bootstrap_masks, rf_params.n_trees, n_rows);
-  }
 }
 
 /** @} */
@@ -569,7 +578,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity)
+         rapids_logger::level_enum verbosity,
+         bool* bootstrap_masks)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -579,7 +589,7 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
+  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -589,7 +599,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity)
+         rapids_logger::level_enum verbosity,
+         bool* bootstrap_masks)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -599,7 +610,7 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
+  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks);
 }
 
 template <typename value_t, typename label_t>
@@ -614,12 +625,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
+  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity, bootstrap_masks);
   build_treelite_forest(model, &metadata, n_cols);
-  // Extract bootstrap masks if requested
-  if (bootstrap_masks != nullptr && rf_params.oob_score) {
-    get_bootstrap_masks(&metadata, bootstrap_masks, rf_params.n_trees, n_rows);
-  }
 }
 
 /** @} */
@@ -738,50 +745,6 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
                                                   int num_features);
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
-
-/**
- * @brief Extract bootstrap masks from RandomForestMetaData
- * @tparam T: data type for input data (float or double)
- * @tparam L: data type for labels (int for classification, T for regression)
- * @param[in] forest: CPU pointer to RandomForestMetaData object
- * @param[out] masks: output buffer for bootstrap masks (n_trees * n_rows)
- * @param[in] n_trees: number of trees in the forest
- * @param[in] n_rows: number of rows in the dataset
- */
-template <typename T, typename L>
-void get_bootstrap_masks(const RandomForestMetaData<T, L>* forest,
-                         bool* masks,
-                         int n_trees,
-                         int n_rows)
-{
-  for (int i = 0; i < n_trees; i++) {
-    const auto& tree_mask = forest->trees[i]->bootstrap_mask;
-    if (tree_mask.empty()) {
-      // If masks weren't stored (oob_score=False), fill with false
-      std::fill(masks + i * n_rows, masks + (i + 1) * n_rows, false);
-    } else {
-      // Copy the mask for this tree
-      std::copy(tree_mask.begin(), tree_mask.end(), masks + i * n_rows);
-    }
-  }
-}
-
-// Template instantiations for get_bootstrap_masks
-template void get_bootstrap_masks<float, int>(const RandomForestMetaData<float, int>* forest,
-                                              bool* masks,
-                                              int n_trees,
-                                              int n_rows);
-template void get_bootstrap_masks<double, int>(const RandomForestMetaData<double, int>* forest,
-                                               bool* masks,
-                                               int n_trees,
-                                               int n_rows);
-template void get_bootstrap_masks<float, float>(const RandomForestMetaData<float, float>* forest,
-                                                bool* masks,
-                                                int n_trees,
-                                                int n_rows);
-template void get_bootstrap_masks<double, double>(
-  const RandomForestMetaData<double, double>* forest, bool* masks, int n_trees, int n_rows);
-
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        TreeliteModelHandle* model,
                                        float* input,

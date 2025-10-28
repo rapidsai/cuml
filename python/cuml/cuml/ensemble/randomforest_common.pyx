@@ -460,13 +460,12 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef bool use_oob_score = self.oob_score
 
         # Allocate buffer for bootstrap masks if OOB score is enabled
-        bootstrap_masks_np = None
+        bootstrap_masks_cp = None
         cdef bool* bootstrap_masks_ptr = NULL
         cdef uintptr_t masks_ptr_val = 0
         if use_oob_score:
-            bootstrap_masks_np = np.zeros((self.n_estimators, n_rows), dtype=np.uint8)
-            # Get pointer value before nogil block
-            masks_ptr_val = bootstrap_masks_np.__array_interface__['data'][0]
+            bootstrap_masks_cp = cp.zeros((self.n_estimators, n_rows), dtype=cp.bool_)
+            masks_ptr_val = bootstrap_masks_cp.data.ptr
             bootstrap_masks_ptr = <bool*> masks_ptr_val
 
         with nogil:
@@ -552,7 +551,7 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         # Compute OOB score if requested
         if self.oob_score:
-            self._bootstrap_masks_ = cp.asarray(bootstrap_masks_np, dtype=cp.bool_)
+            self._bootstrap_masks_ = bootstrap_masks_cp
             self._compute_oob_score(X, y)
 
         return self

@@ -32,6 +32,25 @@
 #include <map>
 
 namespace ML {
+
+// CUDA kernel to create boolean mask from selected row indices
+__global__ void create_bootstrap_mask_kernel(const int* selected_rows,
+                                             int n_sampled_rows,
+                                             bool* mask,
+                                             int n_rows)
+{
+  // Initialize all to false
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < n_rows) { mask[idx] = false; }
+  __syncthreads();
+
+  // Mark selected rows as true
+  if (idx < n_sampled_rows) {
+    int row_idx = selected_rows[idx];
+    if (row_idx >= 0 && row_idx < n_rows) { mask[row_idx] = true; }
+  }
+}
+
 template <class T, class L>
 class RandomForest {
  protected:
@@ -102,6 +121,8 @@ class RandomForest {
   * @param[in] n_unique_labels: (meaningful only for classification) #unique label values (known
   during preprocessing)
   * @param[in] forest: CPU point to RandomForestMetaData struct.
+  * @param[out] bootstrap_masks: optional device pointer to store bootstrap masks
+  *   (n_trees * n_rows), only populated if oob_score is enabled
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -109,7 +130,8 @@ class RandomForest {
            int n_cols,
            L* labels,
            int n_unique_labels,
-           RandomForestMetaData<T, L>* forest)
+           RandomForestMetaData<T, L>* forest,
+           bool* bootstrap_masks = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
@@ -179,21 +201,16 @@ class RandomForest {
                                                quantiles,
                                                i);
 
-      // Store bootstrap mask if OOB score is enabled
-      if (this->rf_params.oob_score) {
-        // Copy selected row indices to host
-        std::vector<int> h_selected_rows(n_sampled_rows);
-        raft::update_host(
-          h_selected_rows.data(), selected_rows[stream_id].data(), n_sampled_rows, s);
-        // Wait for copy to complete
-        handle.sync_stream(s);
+      // Store bootstrap mask if OOB score is enabled and device buffer is provided
+      if (this->rf_params.oob_score && bootstrap_masks != nullptr) {
+        // Calculate pointer offset for this tree's mask
+        bool* tree_mask = bootstrap_masks + (i * n_rows);
 
-        // Create boolean mask
-        forest->trees[i]->bootstrap_mask.resize(n_rows, false);
-        for (int j = 0; j < n_sampled_rows; j++) {
-          int row_idx                               = h_selected_rows[j];
-          forest->trees[i]->bootstrap_mask[row_idx] = true;
-        }
+        // Launch kernel to create boolean mask directly on device
+        int threads = 256;
+        int blocks  = (std::max(n_rows, n_sampled_rows) + threads - 1) / threads;
+        create_bootstrap_mask_kernel<<<blocks, threads, 0, s>>>(
+          selected_rows[stream_id].data(), n_sampled_rows, tree_mask, n_rows);
       }
     }
     // Cleanup
