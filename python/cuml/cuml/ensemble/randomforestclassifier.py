@@ -204,6 +204,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        # Check for multiclass-multioutput when OOB scoring is requested
+        if self.oob_score:
+            from sklearn.utils.multiclass import type_of_target
+
+            target_type = type_of_target(y)
+            if target_type == "multiclass-multioutput":
+                raise ValueError(
+                    "The type of target cannot be used to compute "
+                    "OOB estimates"
+                )
+
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),

@@ -413,6 +413,10 @@ class BaseRandomForestModel(Base, InteropMixin):
         if self.max_depth <= 0:
             raise ValueError("Must specify max_depth > 0")
 
+        # Validate OOB score requirements
+        if self.oob_score and not self.bootstrap:
+            raise ValueError("Out of bag estimation only available if bootstrap=True")
+
         cdef float max_features = compute_max_features(self.max_features, n_cols)
         cdef uint64_t seed = (
             0 if self.random_state is None
@@ -629,13 +633,25 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         # Average OOB predictions (broadcasting handles both 1D and 2D cases)
         valid_oob = oob_counts > 0
+
+        # Warn if some samples don't have OOB predictions
+        if not valid_oob.all():
+            warnings.warn(
+                "Some inputs do not have OOB scores. This probably means "
+                "too few trees were used to compute any reliable OOB estimates.",
+                UserWarning
+            )
+
         if oob_predictions.ndim > 1:
             oob_predictions[valid_oob] /= oob_counts[valid_oob, cp.newaxis]
         else:
             oob_predictions[valid_oob] /= oob_counts[valid_oob]
 
-        # Store OOB decision function
-        self.oob_decision_function_ = oob_predictions
+        # Assign OOB predictions to the appropriate attribute based on estimator type
+        if self._estimator_type == "regressor":
+            self.oob_prediction_ = oob_predictions
+        else:
+            self.oob_decision_function_ = oob_predictions
 
         # Compute the model-specific score
         self.oob_score_ = self._compute_oob_score_metric(
