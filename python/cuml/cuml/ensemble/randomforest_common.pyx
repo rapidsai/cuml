@@ -270,9 +270,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         }
         # Transfer OOB attributes if present
         if hasattr(model, 'oob_score_'):
-            attrs["_oob_score_"] = model.oob_score_
+            attrs["oob_score_"] = model.oob_score_
         if hasattr(model, 'oob_decision_function_'):
-            attrs["_oob_decision_function_"] = model.oob_decision_function_
+            attrs["oob_decision_function_"] = model.oob_decision_function_
         return attrs
 
     def _attrs_to_cpu(self, model):
@@ -287,10 +287,10 @@ class BaseRandomForestModel(Base, InteropMixin):
             **super()._attrs_to_cpu(model)
         }
         # Transfer OOB attributes if present
-        if hasattr(self, '_oob_score_'):
-            attrs["oob_score_"] = self._oob_score_
-        if hasattr(self, '_oob_decision_function_'):
-            attrs["oob_decision_function_"] = self._oob_decision_function_
+        if hasattr(self, 'oob_score_'):
+            attrs["oob_score_"] = self.oob_score_
+        if hasattr(self, 'oob_decision_function_'):
+            attrs["oob_decision_function_"] = self.oob_decision_function_
         return attrs
 
     def __init__(
@@ -635,51 +635,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             oob_predictions[valid_oob] /= oob_counts[valid_oob]
 
         # Store OOB decision function
-        self._oob_decision_function_ = oob_predictions
+        self.oob_decision_function_ = oob_predictions
 
         # Compute the model-specific score
-        self._oob_score_ = self._compute_oob_score_metric(
+        self.oob_score_ = self._compute_oob_score_metric(
             y, oob_predictions, valid_oob
         )
-
-    @property
-    def oob_score_(self):
-        """
-        Out-of-bag score computed on training data.
-
-        Only available when oob_score=True.
-        - For classification: accuracy score
-        - For regression: R² score
-        """
-        if not self.oob_score:
-            raise AttributeError(
-                "OOB score is not available because oob_score=False. "
-                "Set oob_score=True before calling fit()."
-            )
-        if not hasattr(self, '_oob_score_'):
-            raise AttributeError(
-                "OOB score has not been computed yet. "
-                "This model may have been converted from sklearn."
-            )
-        return self._oob_score_
-
-    @property
-    def oob_decision_function_(self):
-        """
-        Out-of-bag predictions on the training set.
-
-        Only available when oob_score=True.
-        - For classification: predicted class probabilities of shape (n_samples, n_classes)
-        - For regression: predicted values of shape (n_samples,)
-        """
-        if not self.oob_score:
-            raise AttributeError(
-                "OOB decision function is not available because oob_score=False. "
-                "Set oob_score=True before calling fit()."
-            )
-        if not hasattr(self, '_oob_decision_function_'):
-            raise AttributeError(
-                "OOB decision function has not been computed yet. "
-                "This model may have been converted from sklearn."
-            )
-        return self._oob_decision_function_
