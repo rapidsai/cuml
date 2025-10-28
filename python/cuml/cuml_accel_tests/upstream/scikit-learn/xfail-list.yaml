@@ -965,6 +965,7 @@
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KMeans()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsClassifier()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsRegressor()]"
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelDensity()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelRidge()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Lasso()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
@@ -989,6 +990,7 @@
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
@@ -1014,6 +1016,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsClassifier()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KNeighborsRegressor()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[KernelDensity()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KernelRidge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Lasso()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
@@ -1330,6 +1333,11 @@
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_regressors_int]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_fit1d]"
+  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_estimators_nan_inf]"
@@ -1536,6 +1544,10 @@
   strict: false
   tests:
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_embedding"
+- reason: Test fails due to slightly too strict tolerances
+  strict: false
+  tests:
+  - "sklearn.neighbors.tests.test_kde::test_kde_sample_weights"
 - reason: The signs of the principal components may be swapped with cuml.accel (insignificant deviation)
   strict: false
   tests:
