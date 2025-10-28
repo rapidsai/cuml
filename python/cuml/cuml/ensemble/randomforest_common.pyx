@@ -8,6 +8,7 @@ import math
 import warnings
 from typing import Literal
 
+import cupy as cp
 import numpy as np
 import treelite.sklearn
 from pylibraft.common.handle import Handle
@@ -551,7 +552,6 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         # Compute OOB score if requested
         if self.oob_score:
-            import cupy as cp
             self._bootstrap_masks_ = cp.asarray(bootstrap_masks_np, dtype=cp.bool_)
             self._compute_oob_score(X, y)
 
@@ -581,8 +581,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         """
         Compute OOB score using per-tree predictions and bootstrap masks.
         """
-        import cupy as cp
-
         # Get per-tree predictions using FIL
         fil_model = self.as_fil()
         per_tree_preds = fil_model.predict_per_tree(X)
