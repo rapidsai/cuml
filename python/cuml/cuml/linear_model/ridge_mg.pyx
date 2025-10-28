@@ -47,44 +47,63 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
 class RidgeMG(MGFitMixin, Ridge):
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
-        cdef int algo = self._pre_fit()
+        # Validate alpha
+        if self.alpha < 0.0:
+            raise ValueError(f"alpha must be non-negative, got {self.alpha}")
 
-        cdef float float_intercept
-        cdef double double_intercept
+        # Validate and select solver
+        SUPPORTED_SOLVERS = ["auto", "eig", "svd"]
+        if (solver := self.solver) not in SUPPORTED_SOLVERS:
+            raise ValueError(
+                f"Expected `solver` to be one of {SUPPORTED_SOLVERS}, got {solver!r}"
+            )
+
+        if solver == "eig":
+            if self.n_features_in_ == 1:
+                raise ValueError(
+                    "solver='eig' doesn't support X with 1 column, please select "
+                    "solver='svd' instead"
+                )
+        elif solver == "auto":
+            solver = "svd" if self.n_features_in_ == 1 else "eig"
+
+        cdef int algo = {"svd": 0, "eig": 1}[solver]
+
+        cdef float intercept_f32
+        cdef double intercept_f64
+        cdef float alpha_f32 = self.alpha
+        cdef double alpha_f64 = self.alpha
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef float float_alpha = self.alpha
-        cdef double double_alpha = self.alpha
+        cdef bool use_float32 = self.dtype == np.float32
 
-        if self.dtype == np.float32:
+        if use_float32:
             fit(handle_[0],
                 deref(<vector[floatData_t*]*><uintptr_t>X),
                 deref(<PartDescriptor*><uintptr_t>input_desc),
                 deref(<vector[floatData_t*]*><uintptr_t>y),
-                <float*>&float_alpha,
+                &alpha_f32,
                 1,
                 <float*><size_t>coef_ptr,
-                <float*>&float_intercept,
+                <float*>&intercept_f32,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 algo,
                 False)
-
-            self.intercept_ = float_intercept
-
         else:
             fit(handle_[0],
                 deref(<vector[doubleData_t*]*><uintptr_t>X),
                 deref(<PartDescriptor*><uintptr_t>input_desc),
                 deref(<vector[doubleData_t*]*><uintptr_t>y),
-                <double*>&double_alpha,
+                &alpha_f64,
                 1,
                 <double*><size_t>coef_ptr,
-                <double*>&double_intercept,
+                <double*>&intercept_f64,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 algo,
                 False)
 
-            self.intercept_ = double_intercept
-
         self.handle.sync()
+
+        self.solver_ = solver
+        self.intercept_ = (intercept_f32 if use_float32 else intercept_f64)
