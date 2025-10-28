@@ -413,6 +413,13 @@ class BaseRandomForestModel(Base, InteropMixin):
         if self.max_depth <= 0:
             raise ValueError("Must specify max_depth > 0")
 
+        # Validate OOB score parameter
+        if callable(self.oob_score):
+            raise ValueError(
+                "oob_score must be a boolean. "
+                "Custom scorer functions are not supported."
+            )
+
         # Validate OOB score requirements
         if self.oob_score and not self.bootstrap:
             raise ValueError("Out of bag estimation only available if bootstrap=True")
@@ -461,7 +468,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef TreeliteModelHandle tl_handle
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
-        # Store oob_score in C variable before nogil block
+        # Store oob_score in C variable for nogil block
         cdef bool use_oob_score = self.oob_score
 
         # Allocate buffer for bootstrap masks if OOB score is enabled
