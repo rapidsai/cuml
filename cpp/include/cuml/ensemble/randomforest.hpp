@@ -69,6 +69,11 @@ struct RF_params {
    */
   float max_samples;
   /**
+   * Whether to compute out-of-bag score.
+   * If true, per-tree bootstrap masks are stored for OOB computation.
+   */
+  bool oob_score;
+  /**
    * Decision tree training hyper parameter struct.
    */
   /**
@@ -121,6 +126,12 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
 
+template <class T, class L>
+void get_bootstrap_masks(const RandomForestMetaData<T, L>* forest,
+                         bool* masks,
+                         int n_trees,
+                         int n_rows);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
@@ -155,6 +166,18 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
+
+template <typename T, typename L>
+void fit_treelite_with_masks(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             T* input,
+                             int n_rows,
+                             int n_cols,
+                             L* labels,
+                             int n_unique_labels,
+                             RF_params rf_params,
+                             bool* bootstrap_masks,
+                             rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -194,6 +217,7 @@ RF_params set_rf_params(int max_depth,
                         bool bootstrap,
                         int n_trees,
                         float max_samples,
+                        bool oob_score,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
@@ -230,6 +254,17 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
+
+template <typename T, typename L>
+void fit_treelite_with_masks(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             T* input,
+                             int n_rows,
+                             int n_cols,
+                             L* labels,
+                             RF_params rf_params,
+                             bool* bootstrap_masks,
+                             rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,

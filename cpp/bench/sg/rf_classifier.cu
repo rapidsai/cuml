@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -92,6 +92,7 @@ std::vector<Params> getInputs()
                        true,                /* bootstrap */
                        500,                 /* n_trees */
                        1.f,                 /* max_samples */
+                       false,               /* oob_score */
                        1234ULL,             /* seed */
                        ML::CRITERION::GINI, /* split_criterion */
                        8,                   /* n_streams */

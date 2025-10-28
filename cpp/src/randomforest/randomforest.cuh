@@ -178,6 +178,23 @@ class RandomForest {
                                                this->rf_params.seed,
                                                quantiles,
                                                i);
+
+      // Store bootstrap mask if OOB score is enabled
+      if (this->rf_params.oob_score) {
+        // Copy selected row indices to host
+        std::vector<int> h_selected_rows(n_sampled_rows);
+        raft::update_host(
+          h_selected_rows.data(), selected_rows[stream_id].data(), n_sampled_rows, s);
+        // Wait for copy to complete
+        handle.sync_stream(s);
+
+        // Create boolean mask
+        forest->trees[i]->bootstrap_mask.resize(n_rows, false);
+        for (int j = 0; j < n_sampled_rows; j++) {
+          int row_idx                               = h_selected_rows[j];
+          forest->trees[i]->bootstrap_mask[row_idx] = true;
+        }
+      }
     }
     // Cleanup
     handle.sync_stream_pool();

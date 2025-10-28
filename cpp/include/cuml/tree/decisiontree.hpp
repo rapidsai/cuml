@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -95,6 +95,7 @@ struct TreeMetaDataNode {
   std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
   int num_outputs;
+  std::vector<bool> bootstrap_mask;  // Only populated when oob_score=True
 };
 
 /**

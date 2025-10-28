@@ -1199,3 +1199,158 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_oob_score_classifier(datatype):
+    """Test OOB score computation for RandomForestClassifier"""
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=15,
+        n_redundant=5,
+        n_classes=3,
+        random_state=42,
+    )
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+
+    # Train with OOB score
+    clf = curfc(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    clf.fit(X, y)
+
+    # Check OOB attributes exist
+    assert hasattr(clf, "oob_score_"), "oob_score_ attribute should exist"
+    assert hasattr(
+        clf, "oob_decision_function_"
+    ), "oob_decision_function_ attribute should exist"
+
+    # Check OOB score is reasonable (between 0 and 1)
+    assert (
+        0.0 <= clf.oob_score_ <= 1.0
+    ), f"OOB score should be between 0 and 1, got {clf.oob_score_}"
+
+    # Check OOB decision function shape
+    assert clf.oob_decision_function_.shape == (
+        len(X),
+        3,
+    ), f"OOB decision function shape should be {(len(X), 3)}, got {clf.oob_decision_function_.shape}"
+
+    # Compare with sklearn (should be similar but not exactly the same due to implementation differences)
+    sk_clf = skrfc(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    sk_clf.fit(X, y)
+
+    # OOB scores should be reasonably close (within 0.2)
+    assert (
+        abs(clf.oob_score_ - sk_clf.oob_score_) < 0.2
+    ), f"OOB scores differ significantly: cuML={clf.oob_score_}, sklearn={sk_clf.oob_score_}"
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_oob_score_regressor(datatype):
+    """Test OOB score computation for RandomForestRegressor"""
+    X, y = make_regression(
+        n_samples=500, n_features=20, n_informative=15, random_state=42
+    )
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+
+    # Train with OOB score
+    reg = curfr(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    reg.fit(X, y)
+
+    # Check OOB attributes exist
+    assert hasattr(reg, "oob_score_"), "oob_score_ attribute should exist"
+    assert hasattr(
+        reg, "oob_decision_function_"
+    ), "oob_decision_function_ attribute should exist"
+
+    # Check OOB score is reasonable (R² score, typically between -1 and 1, but for good models > 0)
+    assert (
+        -1.0 <= reg.oob_score_ <= 1.0
+    ), f"OOB R² should be between -1 and 1, got {reg.oob_score_}"
+    assert (
+        reg.oob_score_ > 0
+    ), f"OOB R² should be positive for this dataset, got {reg.oob_score_}"
+
+    # Check OOB decision function shape
+    assert reg.oob_decision_function_.shape == (
+        len(X),
+    ), f"OOB decision function shape should be {(len(X),)}, got {reg.oob_decision_function_.shape}"
+
+
+def test_rf_oob_score_disabled():
+    """Test that OOB score attributes raise error when oob_score=False"""
+    X, y = make_classification(n_samples=100, n_features=10, random_state=42)
+
+    clf = curfc(n_estimators=10, oob_score=False, random_state=42)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
+
+    # Accessing OOB attributes should raise AttributeError
+    with pytest.raises(AttributeError, match="oob_score=False"):
+        _ = clf.oob_score_
+
+    with pytest.raises(AttributeError, match="oob_score=False"):
+        _ = clf.oob_decision_function_
+
+
+def test_rf_oob_without_bootstrap():
+    """Test OOB score with bootstrap=False (should still work but all samples used)"""
+    X, y = make_classification(n_samples=100, n_features=10, random_state=42)
+
+    clf = curfc(
+        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
+    )
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
+
+    # OOB score should exist but might be less meaningful
+    assert hasattr(clf, "oob_score_")
+
+
+def test_rf_oob_score_binary_classification():
+    """Test OOB score on binary classification"""
+    X, y = load_breast_cancer(return_X_y=True)
+    X = X.astype(np.float32)
+
+    clf = curfc(n_estimators=30, oob_score=True, max_depth=10, random_state=42)
+    clf.fit(X, y)
+
+    # OOB score should be reasonably high for this easy dataset
+    assert (
+        clf.oob_score_ > 0.85
+    ), f"OOB score should be > 0.85 for breast cancer dataset, got {clf.oob_score_}"
+
+    # OOB decision function should have 2 classes
+    assert clf.oob_decision_function_.shape[1] == 2

@@ -59,6 +59,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         bool bootstrap,
         int n_trees,
         float max_samples,
+        bool oob_score,
         uint64_t seed,
         CRITERION split_criterion,
         int cfg_n_streams,
@@ -86,6 +87,38 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         level_enum verbosity
+    ) except +
+
+    cdef void fit_treelite_with_masks[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        int n_unique_labels,
+        RF_params params,
+        bool* bootstrap_masks,
+        level_enum verbosity
+    ) except +
+
+    cdef void fit_treelite_with_masks[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        RF_params params,
+        bool* bootstrap_masks,
+        level_enum verbosity
+    ) except +
+
+    cdef void get_bootstrap_masks[T, L](
+        const void* forest,
+        bool* masks,
+        int n_trees,
+        int n_rows
     ) except +
 
 
@@ -183,6 +216,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             "random_state",
             "criterion",
             "n_streams",
+            "oob_score",
             "handle",
             "verbose",
             "output_type",
@@ -190,9 +224,6 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.oob_score:
-            raise UnsupportedOnGPU("`oob_score=True` is not supported")
-
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
@@ -231,6 +262,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": model.min_impurity_decrease,
             "bootstrap": model.bootstrap,
             "random_state": model.random_state,
+            "oob_score": model.oob_score,
             **conditional_params
         }
 
@@ -252,22 +284,29 @@ class BaseRandomForestModel(Base, InteropMixin):
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
             "max_samples": self.max_samples,
+            "oob_score": self.oob_score,
         }
 
     def _attrs_from_cpu(self, model):
         tl_model = treelite.sklearn.import_model(model)
-        return {
+        attrs = {
             "_treelite_model_bytes": tl_model.serialize_bytes(),
             "n_outputs_": model.n_outputs_,
             "_n_samples": model._n_samples,
             "_n_samples_bootstrap": model._n_samples_bootstrap,
             **super()._attrs_from_cpu(model)
         }
+        # Transfer OOB attributes if present
+        if hasattr(model, 'oob_score_'):
+            attrs["_oob_score_"] = model.oob_score_
+        if hasattr(model, 'oob_decision_function_'):
+            attrs["_oob_decision_function_"] = model.oob_decision_function_
+        return attrs
 
     def _attrs_to_cpu(self, model):
         tl_model = treelite.Model.deserialize_bytes(self._treelite_model_bytes)
         sk_model = treelite.sklearn.export_model(tl_model)
-        return {
+        attrs = {
             "estimator_": sk_model.estimator,
             "estimators_": sk_model.estimators_,
             "n_outputs_": self.n_outputs_,
@@ -275,6 +314,12 @@ class BaseRandomForestModel(Base, InteropMixin):
             "_n_samples_bootstrap": self._n_samples_bootstrap,
             **super()._attrs_to_cpu(model)
         }
+        # Transfer OOB attributes if present
+        if hasattr(self, '_oob_score_'):
+            attrs["oob_score_"] = self._oob_score_
+        if hasattr(self, '_oob_decision_function_'):
+            attrs["oob_decision_function_"] = self._oob_decision_function_
+        return attrs
 
     def __init__(
         self,
@@ -294,6 +339,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         random_state=None,
         criterion=None,
         n_streams=4,
+        oob_score=False,
         handle=None,
         verbose=False,
         output_type=None,
@@ -317,6 +363,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.max_batch_size = max_batch_size
         self.random_state = random_state
         self.n_streams = n_streams
+        self.oob_score = oob_score
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -428,6 +475,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             self.bootstrap,
             self.n_estimators,
             self.max_samples,
+            self.oob_score,
             seed,
             _normalize_split_criterion(self.split_criterion),
             self.n_streams,
@@ -437,55 +485,122 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef TreeliteModelHandle tl_handle
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
+        # Store oob_score in C variable before nogil block
+        cdef bool use_oob_score = self.oob_score
+
+        # Allocate buffer for bootstrap masks if OOB score is enabled
+        bootstrap_masks_np = None
+        cdef bool* bootstrap_masks_ptr = NULL
+        cdef uintptr_t masks_ptr_val = 0
+        if use_oob_score:
+            bootstrap_masks_np = np.zeros((self.n_estimators, n_rows), dtype=np.uint8)
+            # Get pointer value before nogil block
+            masks_ptr_val = bootstrap_masks_np.__array_interface__['data'][0]
+            bootstrap_masks_ptr = <bool*> masks_ptr_val
+
         with nogil:
             if is_classifier:
                 if is_float32:
-                    fit_treelite(
-                        handle_[0],
-                        &tl_handle,
-                        <float*> X_ptr,
-                        n_rows,
-                        n_cols,
-                        <int*> y_ptr,
-                        n_classes,
-                        params,
-                        verbose
-                    )
+                    if use_oob_score:
+                        fit_treelite_with_masks(
+                            handle_[0],
+                            &tl_handle,
+                            <float*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <int*> y_ptr,
+                            n_classes,
+                            params,
+                            bootstrap_masks_ptr,
+                            verbose
+                        )
+                    else:
+                        fit_treelite(
+                            handle_[0],
+                            &tl_handle,
+                            <float*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <int*> y_ptr,
+                            n_classes,
+                            params,
+                            verbose
+                        )
                 else:
-                    fit_treelite(
-                        handle_[0],
-                        &tl_handle,
-                        <double*> X_ptr,
-                        n_rows,
-                        n_cols,
-                        <int*> y_ptr,
-                        n_classes,
-                        params,
-                        verbose
-                    )
+                    if use_oob_score:
+                        fit_treelite_with_masks(
+                            handle_[0],
+                            &tl_handle,
+                            <double*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <int*> y_ptr,
+                            n_classes,
+                            params,
+                            bootstrap_masks_ptr,
+                            verbose
+                        )
+                    else:
+                        fit_treelite(
+                            handle_[0],
+                            &tl_handle,
+                            <double*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <int*> y_ptr,
+                            n_classes,
+                            params,
+                            verbose
+                        )
             else:
                 if is_float32:
-                    fit_treelite(
-                        handle_[0],
-                        &tl_handle,
-                        <float*> X_ptr,
-                        n_rows,
-                        n_cols,
-                        <float*> y_ptr,
-                        params,
-                        verbose
-                    )
+                    if use_oob_score:
+                        fit_treelite_with_masks(
+                            handle_[0],
+                            &tl_handle,
+                            <float*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <float*> y_ptr,
+                            params,
+                            bootstrap_masks_ptr,
+                            verbose
+                        )
+                    else:
+                        fit_treelite(
+                            handle_[0],
+                            &tl_handle,
+                            <float*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <float*> y_ptr,
+                            params,
+                            verbose
+                        )
                 else:
-                    fit_treelite(
-                        handle_[0],
-                        &tl_handle,
-                        <double*> X_ptr,
-                        n_rows,
-                        n_cols,
-                        <double*> y_ptr,
-                        params,
-                        verbose
-                    )
+                    if use_oob_score:
+                        fit_treelite_with_masks(
+                            handle_[0],
+                            &tl_handle,
+                            <double*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <double*> y_ptr,
+                            params,
+                            bootstrap_masks_ptr,
+                            verbose
+                        )
+                    else:
+                        fit_treelite(
+                            handle_[0],
+                            &tl_handle,
+                            <double*> X_ptr,
+                            n_rows,
+                            n_cols,
+                            <double*> y_ptr,
+                            params,
+                            verbose
+                        )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
         # manage ownership, and keep the loaded model around. However, this
@@ -513,6 +628,13 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         # Ensure cached fil model is reset
         self._fil_model = None
+
+        # Compute OOB score if requested
+        if self.oob_score:
+            import cupy as cp
+            self._bootstrap_masks_ = cp.asarray(bootstrap_masks_np, dtype=cp.bool_)
+            self._compute_oob_score(X, y)
+
         return self
 
     def _get_inference_fil_model(
@@ -534,3 +656,117 @@ class BaseRandomForestModel(Base, InteropMixin):
                 align_bytes=align_bytes,
             )
         return fil_model
+
+    def _compute_oob_score(self, X, y):
+        """
+        Compute OOB score using per-tree predictions and bootstrap masks.
+        """
+        import cupy as cp
+
+        # Get per-tree predictions using FIL
+        fil_model = self.as_fil()
+        per_tree_preds = fil_model.predict_per_tree(X)
+        # Shape: (n_samples, n_trees) for regression
+        #        (n_samples, n_trees, n_classes) for classification
+
+        n_samples = X.shape[0]
+        is_classifier = self._estimator_type == "classifier"
+
+        if is_classifier:
+            # Classification: per_tree_preds shape is (n_samples, n_trees, n_classes)
+            n_classes = per_tree_preds.shape[2]
+            oob_predictions = cp.zeros((n_samples, n_classes), dtype=cp.float32)
+            oob_counts = cp.zeros(n_samples, dtype=cp.int32)
+
+            # For each tree, accumulate predictions for OOB samples
+            for tree_idx in range(self.n_estimators):
+                # Get OOB mask for this tree (samples NOT in bootstrap)
+                in_bag_mask = self._bootstrap_masks_[tree_idx]
+                oob_mask = ~in_bag_mask
+
+                # Accumulate predictions for OOB samples
+                oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx, :]
+                oob_counts[oob_mask] += 1
+
+            # Average OOB predictions
+            valid_oob = oob_counts > 0
+            oob_predictions[valid_oob] /= oob_counts[valid_oob, cp.newaxis]
+
+            # Compute OOB decision function and score
+            self._oob_decision_function_ = oob_predictions
+
+            # Get predicted classes (argmax of probabilities)
+            oob_pred_classes = cp.argmax(oob_predictions[valid_oob], axis=1)
+            y_valid = y[valid_oob]
+
+            # Compute accuracy
+            from cuml.metrics import accuracy_score
+            self._oob_score_ = float(accuracy_score(y_valid, oob_pred_classes))
+
+        else:
+            # Regression: per_tree_preds shape is (n_samples, n_trees)
+            oob_predictions = cp.zeros(n_samples, dtype=cp.float32)
+            oob_counts = cp.zeros(n_samples, dtype=cp.int32)
+
+            # For each tree, accumulate predictions for OOB samples
+            for tree_idx in range(self.n_estimators):
+                # Get OOB mask for this tree (samples NOT in bootstrap)
+                in_bag_mask = self._bootstrap_masks_[tree_idx]
+                oob_mask = ~in_bag_mask
+
+                # Accumulate predictions for OOB samples
+                oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx]
+                oob_counts[oob_mask] += 1
+
+            # Average OOB predictions
+            valid_oob = oob_counts > 0
+            oob_predictions[valid_oob] /= oob_counts[valid_oob]
+
+            # Compute OOB decision function and score
+            self._oob_decision_function_ = oob_predictions
+
+            # Compute R² score
+            from cuml.metrics import r2_score
+            self._oob_score_ = float(r2_score(y[valid_oob], oob_predictions[valid_oob]))
+
+    @property
+    def oob_score_(self):
+        """
+        Out-of-bag score computed on training data.
+
+        Only available when oob_score=True.
+        - For classification: accuracy score
+        - For regression: R² score
+        """
+        if not self.oob_score:
+            raise AttributeError(
+                "OOB score is not available because oob_score=False. "
+                "Set oob_score=True before calling fit()."
+            )
+        if not hasattr(self, '_oob_score_'):
+            raise AttributeError(
+                "OOB score has not been computed yet. "
+                "This model may have been converted from sklearn."
+            )
+        return self._oob_score_
+
+    @property
+    def oob_decision_function_(self):
+        """
+        Out-of-bag predictions on the training set.
+
+        Only available when oob_score=True.
+        - For classification: predicted class probabilities of shape (n_samples, n_classes)
+        - For regression: predicted values of shape (n_samples,)
+        """
+        if not self.oob_score:
+            raise AttributeError(
+                "OOB decision function is not available because oob_score=False. "
+                "Set oob_score=True before calling fit()."
+            )
+        if not hasattr(self, '_oob_decision_function_'):
+            raise AttributeError(
+                "OOB decision function has not been computed yet. "
+                "This model may have been converted from sklearn."
+            )
+        return self._oob_decision_function_

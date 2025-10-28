@@ -308,6 +308,7 @@ auto TrainScore(
                                       params.bootstrap,
                                       params.n_trees,
                                       params.max_samples,
+                                      false,  // oob_score
                                       0,
                                       params.split_criterion,
                                       params.n_streams,
@@ -635,7 +636,7 @@ TEST(RfTests, IntegerOverflow)
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(4);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   RF_params rf_params =
-    set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 4, 128);
+    set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, false, 0, CRITERION::MSE, 4, 128);
   fit(handle, forest_ptr, X.data().get(), m, n, y.data().get(), rf_params);
 
   // Check we have actually learned something
@@ -885,8 +886,9 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestD, ::testing::ValuesI
 
 TEST(RfTest, TextDump)
 {
-  RF_params rf_params = set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
-  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+  RF_params rf_params =
+    set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, false, 1, 1.0, false, 0, GINI, 1, 128);
+  auto forest = std::make_shared<RandomForestMetaData<float, int>>();
 
   std::vector<float> X_host      = {1, 2, 3, 6, 7, 8};
   thrust::device_vector<float> X = X_host;
