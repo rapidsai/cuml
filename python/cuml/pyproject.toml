@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
@@ -107,7 +107,6 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
-    "cuvs==25.12.*,>=0.0.0a0",
     "cython>=3.0.0",
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",

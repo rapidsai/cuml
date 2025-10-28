@@ -494,6 +494,8 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+      - output_types: conda
+        packages:
           - cuvs==25.12.*,>=0.0.0a0
   test_python_dask:
     common:
