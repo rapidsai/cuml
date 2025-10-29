@@ -284,11 +284,8 @@ Ridge
 
 ``Ridge`` will fall back to CPU in the following cases:
 
-- If ``positive=True``.
-- If ``solver="lbfgs"``.
+- If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-- If ``X`` has more columns than rows.
-- If ``y`` is multioutput.
 
 Additionally, the following fitted attributes are currently not computed:
 
