@@ -5,8 +5,6 @@
 # cmake-format: on
 # =============================================================================
 
-
-
 set(cython_sources "")
 add_module_gpu_default("adjusted_rand_index.pyx" ${adjusted_rand_index_algo} ${metrics_algo})
 add_module_gpu_default("completeness_score.pyx" ${completeness_score_algo} ${metrics_algo})
