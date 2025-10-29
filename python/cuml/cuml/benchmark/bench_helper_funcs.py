@@ -25,8 +25,6 @@ try:
 except ImportError:
     xgb = None
 
-import os
-
 
 def call(m, func_name, X, y=None):
     def unwrap_and_get_args(func):
@@ -433,21 +431,16 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
     Returns:
         XGBoostTrainWrapper ready for training
     """
-    import xgboost as xgb
-    import os
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
-    # Make a copy to avoid modifying the original
     args_copy = args.copy()
 
-    # Extract configuration parameters
     use_quantile_dmatrix = args_copy.pop("use_quantile_dmatrix", False)
     max_bin = args_copy.pop("max_bin", 256)
     num_boost_round = args_copy.pop("n_estimators", 100)
     device = args_copy.pop("device", "cpu")
     
-    # Debug: Print device being used
     debug_mode = os.environ.get("XGBOOST_DEBUG", "0") == "1"
     if debug_mode:
         task_name = "Classifier" if task_type == "classification" else "Regressor"
@@ -455,11 +448,9 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
 
     # Task-specific label processing and parameter setup
     if task_type == "classification":
-        # Detect number of classes and normalize labels
         unique_labels = np.unique(train_label)
         n_classes = len(unique_labels)
         
-        # Create a label mapping to ensure labels are in [0, n_classes-1]
         label_map = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
         train_label_normalized = np.array([label_map[label] for label in train_label])
         
@@ -471,28 +462,23 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
             objective = "multi:softmax"
             eval_metric = "merror"
         
-        # Setup parameters for classification
         params = {
             "objective": objective,
             "eval_metric": eval_metric,
             "device": device,
         }
         
-        # Add num_class for multi-class classification
         if n_classes > 2:
             params["num_class"] = n_classes
     else:
-        # Regression: use labels as-is
         train_label_normalized = train_label
         
-        # Setup parameters for regression
         params = {
             "objective": "reg:squarederror",
             "eval_metric": "rmse",
             "device": device,
         }
 
-    # Create DMatrix or QuantileDMatrix
     if use_quantile_dmatrix:
         dtrain = xgb.QuantileDMatrix(
             train_data, label=train_label_normalized, max_bin=max_bin
@@ -500,7 +486,6 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
     else:
         dtrain = xgb.DMatrix(train_data, label=train_label_normalized)
 
-    # Update with remaining parameters
     params.update(args_copy)
     
     if debug_mode:
