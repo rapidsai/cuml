@@ -87,6 +87,13 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                            const paramsPCA &prms) except +
 
 
+def _flip_sign(components):
+    max_idx = cp.abs(components).argmax(axis=1)
+    signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
+    signs[signs == 0] = 1
+    return components * signs[:, cp.newaxis]
+
+
 class PCA(Base,
           InteropMixin,
           FMajorInputTagMixin,
@@ -435,7 +442,7 @@ class PCA(Base,
 
         explained_variance_sum = explained_variance.sum()
 
-        components = components.T[:self.n_components_, :]
+        components = _flip_sign(components.T[:self.n_components_, :])
         explained_variance = explained_variance[:self.n_components_]
 
         explained_variance_ratio = explained_variance / explained_variance_sum
