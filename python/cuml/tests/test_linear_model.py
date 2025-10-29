@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cudf
@@ -1231,10 +1220,7 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
 
     if ntargets > 1:
-        with pytest.raises(
-            ValueError,
-            match="The .* solver does not support multi-target regression.",
-        ):
+        with pytest.raises(ValueError, match="Expected 1 columns"):
             cuelastic.fit(X_train, y_train)
         return
 
