@@ -126,8 +126,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    oob_score: Boolean (default = False)
-        Whether to compute the out-of-bag score.
 
     Notes
     -----
@@ -145,7 +143,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         handle=None,
         verbose=False,
         output_type=None,
-        oob_score=False,
         **kwargs,
     ):
         super().__init__(
