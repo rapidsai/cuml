@@ -779,8 +779,10 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
   for (auto i = 0; i < n_cols; i++) {
     sum += importances[i];
   }
-  for (auto i = 0; i < n_cols; i++) {
-    forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
+  if (sum > 0) {
+    for (auto i = 0; i < n_cols; i++) {
+      forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
+    }
   }
 
   forest->feature_importances_computed = true;
