@@ -743,6 +743,7 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
                                                   int num_features);
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
+
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        TreeliteModelHandle* model,
                                        float* input,

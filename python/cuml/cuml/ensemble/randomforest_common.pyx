@@ -50,7 +50,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef struct RF_params:
         pass
 
-    cdef     RF_params set_rf_params(
+    cdef RF_params set_rf_params(
         int max_depth,
         int max_leaves,
         float max_features,
@@ -446,7 +446,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         else:
             n_bins = self.n_bins
 
-        cdef RF_params         params = set_rf_params(
+        cdef RF_params params = set_rf_params(
             self.max_depth,
             self.max_leaves,
             max_features,
