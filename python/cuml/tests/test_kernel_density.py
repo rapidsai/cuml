@@ -146,11 +146,10 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
             assert chi.sf(nearest.max(), X.shape[1], scale=bandwidth) > 1e-8
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
-    else:
+    elif kernel not in ["gaussian", "tophat"]:
         with pytest.raises(
             NotImplementedError,
-            match=r"Only \['gaussian', 'tophat'\] kernels,"
-            " and the euclidean metric are supported.",
+            match=r"Only \['gaussian', 'tophat'\] kernels are supported.",
         ):
             kde.sample(100)
 
