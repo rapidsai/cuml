@@ -88,13 +88,40 @@ def fit_kneighbors(m, x, y=None):
 
 
 def train_xgboost(m, x, y=None):
-    """Bench function for XGBoost that times the training phase"""
-    # m should have a retrain() method
+    """
+    Bench function for XGBoost that times the training phase.
+    
+    This function is designed to work with XGBoostTrainWrapper instances
+    that have been pre-configured by the setup functions. It calls the
+    retrain() method which performs the actual training that gets timed.
+    
+    Parameters
+    ----------
+    m : XGBoostTrainWrapper
+    x : array-like
+    y : array-like, optional
+    
+    Returns
+    -------
+    booster : xgboost.Booster or None
+        The trained XGBoost booster model
+    
+    Notes
+    -----
+    The x and y parameters are present for interface consistency with other
+    benchmark functions but are not used since the training data is already
+    contained in the pre-built DMatrix within the wrapper. This is because
+    The benchmarking framework always calls bench_func with 
+    (model, data[0], data[1]) or (model, data[0]).
+    """
     if hasattr(m, 'retrain'):
-        m.retrain()
+        return m.retrain()
     else:
-        # Fallback: just call predict
-        predict(m, x, y)
+        raise ValueError(
+            f"Expected XGBoostTrainWrapper with 'retrain' method, "
+            f"but got {type(m).__name__}. Ensure the setup function "
+            f"(_build_xgboost_*_for_training) was called correctly."
+        )
 
 
 def _training_data_to_numpy(X, y):
