@@ -749,15 +749,12 @@ def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
 
     def assert_model(pickled_model, data):
         if result["model"].probability:
-            print("Comparing probabilistic LinearSVC")
-            compare_probabilistic_svm(
-                result["model"], pickled_model, data[0], data[1], 0, 0
-            )
+            pred_before = result["model"].predict_proba(data[0])
+            pred_after = pickled_model.predict_proba(data[0])
         else:
-            print("comparing base LinearSVC")
             pred_before = result["model"].predict(data[0])
             pred_after = pickled_model.predict(data[0])
-            assert array_equal(pred_before, pred_after)
+        assert array_equal(pred_before, pred_after)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

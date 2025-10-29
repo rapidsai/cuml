@@ -60,21 +60,31 @@ def _determine_memory_order(shape, strides, dtype, default="C"):
     If order is neither C nor F contiguous, return None. If array is both C and
     F contiguous, return default if given or 'C' otherwise.
     """
-    if strides is None:
-        return "C"
-    if len(shape) < 2:
-        return "C" if default in (None, "K") else default
-    shape = np.array(shape)
-    strides = np.array(strides)
-    itemsize = np.dtype(dtype).itemsize
-    c_contiguous = False
-    f_contiguous = False
-    if strides[-1] == itemsize:
-        if np.all(strides[:-1] == shape[1:] * strides[1:]):
+    if strides is None or len(shape) < 2 or 0 in shape:
+        c_contiguous = f_contiguous = True
+    else:
+        itemsize = np.dtype(dtype).itemsize
+
+        # Check C contiguous
+        c_contiguous = False
+        sd = itemsize
+        for dim, stride in zip(reversed(shape), reversed(strides)):
+            if dim != 1 and stride != sd:
+                break
+            sd *= dim
+        else:
             c_contiguous = True
-    if strides[0] == itemsize:
-        if np.all(strides[1:] == shape[:-1] * strides[:-1]):
+
+        # Check F contiguous
+        f_contiguous = False
+        sd = itemsize
+        for dim, stride in zip(shape, strides):
+            if dim != 1 and stride != sd:
+                break
+            sd *= dim
+        else:
             f_contiguous = True
+
     if c_contiguous and f_contiguous:
         return "C" if default in (None, "K") else default
     elif c_contiguous:

@@ -407,6 +407,23 @@ Additional notes:
 - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
   implementation in cuml will always be used.
 
+KernelDensity
+^^^^^^^^^^^^^
+
+``KernelDensity`` will fall back to CPU in the following cases:
+
+- If ``metric`` is not one of the supported metrics (``"cityblock"``,
+  ``"cosine"``, ``"euclidean"``, ``"l1"``, ``"l2"``, ``"manhattan"``,
+  ``"sqeuclidean"``, ``"canberra"``, ``"chebyshev"``, ``"minkowski"``,
+  ``"hellinger"``, ``"correlation"``, ``"jensenshannon"``, ``"hamming"``,
+  ``"kldivergence"``, ``"russellrao"``, ``"nan_euclidean"``).
+
+Additional notes:
+
+- The ``algorithm``, ``atol``, ``rtol``, ``breadth_first``, and ``leaf_size``
+  parameters are ignored. The GPU accelerated pairwise brute-force
+  implementation in cuml will always be used.
+
 
 sklearn.svm
 -----------
@@ -463,8 +480,6 @@ Additional notes:
 
 - Sample weight functionality may not produce equivalent results to replicating data according to weights.
 - Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
-- Models may not be picklable; pickling or unpickling may fail.
-- Multi-class models may have coefficient shape differences that cause pickling failures.
 
 LinearSVR
 ^^^^^^^^^
@@ -481,7 +496,6 @@ The following fitted attributes are currently not computed:
 Additional notes:
 
 - Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
-- Models may not be picklable under certain conditions; pickling or unpickling may fail.
 
 umap
 ----

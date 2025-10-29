@@ -13,7 +13,12 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
+from cuml.metrics.pairwise_distances import (
+    PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
+)
 
 VALID_KERNELS = [
     "gaussian",
@@ -116,20 +121,19 @@ def norm_factor(kernel, h, d):
     return factor + d * np.log(h)
 
 
-# Implements a reduction similar to `numpy.logaddexp.reduce`. `cupy` currently
-# does not support this method natively: https://github.com/cupy/cupy/issues/9391
-logaddexp_reduce = cp.ReductionKernel(
+# Implements a faster (but simpler) version of `cupyx.scipy.special.logsumexp`
+logsumexp = cp.ReductionKernel(
     "T d",
     "T out",
     "exp(d)",
     "a + b",
     "out = log(a)",
     "0",
-    "logaddexp_reduce",
+    "logsumexp",
 )
 
 
-class KernelDensity(Base):
+class KernelDensity(Base, InteropMixin):
     """
     Kernel Density Estimation. Computes a non-parametric density estimate
     from a finite data sample, smoothing the estimate according to a
@@ -137,10 +141,10 @@ class KernelDensity(Base):
 
     Parameters
     ----------
-    bandwidth : float, default=1.0
+    bandwidth : float or {"scott", "silverman"}, default=1.0
         The bandwidth of the kernel.
     kernel : {'gaussian', 'tophat', 'epanechnikov', 'exponential', 'linear', \
-                 'cosine'}, default='gaussian'
+            'cosine'}, default='gaussian'
         The kernel to use.
     metric : str, default='euclidean'
         The distance metric to use.  Note that not all metrics are
@@ -167,19 +171,86 @@ class KernelDensity(Base):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features seen during fit.
+    bandwidth_ : float
+        Value of the bandwidth used, either given directly via ``bandwidth`` or
+        estimated with ``bandwidth="scott"`` or ``bandwidth="silverman"``.
+
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> from cuml.neighbors import KernelDensity
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(42)
-        >>> X = rng.random_sample((100, 3))
-        >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
-        >>> log_density = kde.score_samples(X[:3])
-
+    >>> from cuml.neighbors import KernelDensity
+    >>> import cupy as cp
+    >>> rng = cp.random.RandomState(42)
+    >>> X = rng.random_sample((100, 3))
+    >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
+    >>> log_density = kde.score_samples(X[:3])
     """
+
+    _cpu_class_path = "sklearn.neighbors.KernelDensity"
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "bandwidth",
+            "kernel",
+            "metric",
+            "metric_params",
+        ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.metric not in SUPPORTED_METRICS:
+            raise UnsupportedOnGPU(
+                f"`metric={model.metric!r}` is not supported"
+            )
+        return {
+            "bandwidth": model.bandwidth,
+            "kernel": model.kernel,
+            "metric": model.metric,
+            "metric_params": model.metric_params,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "bandwidth": self.bandwidth,
+            "kernel": self.kernel,
+            "metric": self.metric,
+            "metric_params": self.metric_params,
+        }
+
+    def _attrs_from_cpu(self, model):
+        X = cp.asarray(model.tree_.data, dtype=cp.float64)
+        sample_weight = (
+            None
+            if model.tree_.sample_weight is None
+            else cp.asarray(model.tree_.sample_weight, dtype=cp.float32)
+        )
+        return {
+            "bandwidth_": model.bandwidth_,
+            "_X": X,
+            "_sample_weight": sample_weight,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _sync_attrs_to_cpu(self, model):
+        # There's no way to create a `sklearn.neighbors.KernelDensity` instance
+        # from our stored state without fitting a new KernelDensity (since
+        # sklearn always uses a pre-fit tree rather than a brute-force method).
+        # As such, syncing to CPU is effectively just a refit. Fitting isn't
+        # that expensive here, and unlike other estimators it's not clear that
+        # a fit-on-gpu, predict-on-cpu model is useful given typical
+        # KernelDensity use cases. What we have here should be fine for now.
+        X = cp.asnumpy(self._X)
+        sample_weight = (
+            None
+            if self._sample_weight is None
+            else cp.asnumpy(self._sample_weight)
+        )
+        model.fit(X, sample_weight=sample_weight)
 
     def __init__(
         self,
@@ -192,7 +263,7 @@ class KernelDensity(Base):
         handle=None,
         verbose=False,
     ):
-        super(KernelDensity, self).__init__(
+        super().__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
         self.bandwidth = bandwidth
@@ -200,26 +271,13 @@ class KernelDensity(Base):
         self.metric = metric
         self.metric_params = metric_params
 
-        if bandwidth <= 0:
-            raise ValueError("bandwidth must be positive")
-        if kernel not in VALID_KERNELS:
-            raise ValueError("invalid kernel: '{0}'".format(kernel))
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "bandwidth",
-            "kernel",
-            "metric",
-            "metric_params",
-        ]
-
-    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True):
+    def fit(
+        self, X, y=None, sample_weight=None, *, convert_dtype=True
+    ) -> "KernelDensity":
         """Fit the Kernel Density model on the data.
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             List of n_features-dimensional data points.  Each row
             corresponds to a single data point.
@@ -230,29 +288,58 @@ class KernelDensity(Base):
 
         Returns
         -------
-
-        self : object
+        self
             Returns the instance itself.
         """
-        self.X_ = input_to_cupy_array(
+        if isinstance(self.bandwidth, str):
+            if self.bandwidth == "scott":
+                self.bandwidth_ = X.shape[0] ** (-1 / (X.shape[1] + 4))
+            elif self.bandwidth == "silverman":
+                self.bandwidth_ = (X.shape[0] * (X.shape[1] + 2) / 4) ** (
+                    -1 / (X.shape[1] + 4)
+                )
+            else:
+                raise ValueError(
+                    f"Expected bandwidth in ['scott', 'silverman'], got {self.bandwidth!r}"
+                )
+        elif self.bandwidth <= 0:
+            raise ValueError(f"Expected bandwidth > 0, got {self.bandwidth}")
+        else:
+            self.bandwidth_ = self.bandwidth
+
+        if self.kernel not in VALID_KERNELS:
+            raise ValueError(f"kernel={self.kernel!r} is not supported")
+
+        self._X, n_rows, n_cols, _ = input_to_cupy_array(
             X,
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[cp.float32, cp.float64],
-        ).array
+        )
+
+        if n_rows < 1:
+            raise ValueError(
+                f"Found array with 0 sample(s) (shape={self._X.shape}) while "
+                f"a minimum of 1 is required by KernelDensity"
+            )
+        if n_cols < 1:
+            raise ValueError(
+                f"Found array with 0 feature(s) (shape={self._X.shape}) while "
+                f"a minimum of 1 is required by KernelDensity"
+            )
 
         if sample_weight is not None:
-            self.sample_weight_ = input_to_cupy_array(
+            self._sample_weight = input_to_cupy_array(
                 sample_weight,
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 check_dtype=[cp.float32, cp.float64],
                 check_cols=1,
-                check_rows=self.X_.shape[0],
+                check_rows=self._X.shape[0],
             ).array
-            if self.sample_weight_.min() <= 0:
+            if self._sample_weight.min() < 0:
                 raise ValueError("sample_weight must have positive values")
         else:
-            self.sample_weight_ = None
+            self._sample_weight = None
 
         return self
 
@@ -261,26 +348,26 @@ class KernelDensity(Base):
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             An array of points to query.  Last dimension should match dimension
             of training data (n_features).
 
         Returns
         -------
-
         density : ndarray of shape (n_samples,)
             Log-likelihood of each sample in `X`. These are normalized to be
             probability densities, so values will be low for high-dimensional
             data.
         """
-        if not hasattr(self, "X_"):
+        if not hasattr(self, "_X"):
             raise NotFittedError()
-        X_m = input_to_cuml_array(
+
+        X = input_to_cuml_array(
             X,
-            convert_to_dtype=(self.X_.dtype if convert_dtype else None),
-            check_dtype=[self.X_.dtype],
-        )
+            convert_to_dtype=(self._X.dtype if convert_dtype else None),
+            check_dtype=[self._X.dtype],
+            check_cols=self.n_features_in_,
+        ).array
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
@@ -288,19 +375,17 @@ class KernelDensity(Base):
                 )
             metric_arg = list(self.metric_params.values())[0]
             distances = pairwise_distances(
-                X_m.array,
-                self.X_,
+                X,
+                self._X,
                 metric=self.metric,
                 metric_arg=metric_arg,
             )
         else:
-            distances = pairwise_distances(
-                X_m.array, self.X_, metric=self.metric
-            )
+            distances = pairwise_distances(X, self._X, metric=self.metric)
 
         distances = cp.asarray(distances)
 
-        h = distances.dtype.type(self.bandwidth)
+        h = distances.dtype.type(self.bandwidth_)
         if self.kernel in log_probability_kernels_:
             # XXX: passing `h` as a 0-dim array works around dtype inference
             # issues in cupy.fuse. See https://github.com/cupy/cupy/issues/9400
@@ -310,8 +395,8 @@ class KernelDensity(Base):
         else:
             raise ValueError("Unsupported kernel.")
 
-        if self.sample_weight_ is not None:
-            distances += cp.log(self.sample_weight_)
+        if self._sample_weight is not None:
+            distances += cp.log(self._sample_weight)
 
         # To avoid overflow, we apply
         # log(exp(x).sum()) -> log(exp(x - x.max())) + x.max()
@@ -319,7 +404,7 @@ class KernelDensity(Base):
         # since `distances` is no longer needed after this point.
         max_distances = distances.max(axis=1)
         distances -= max_distances[:, None]
-        log_probabilities = logaddexp_reduce(distances, axis=1)
+        log_probabilities = logsumexp(distances, axis=1)
         log_probabilities += max_distances
 
         # Note that sklearns user guide is wrong
@@ -329,18 +414,18 @@ class KernelDensity(Base):
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
         sum_weights = (
-            cp.sum(self.sample_weight_)
-            if self.sample_weight_ is not None
+            cp.sum(self._sample_weight)
+            if self._sample_weight is not None
             else distances.shape[1]
         )
         log_probabilities -= np.log(sum_weights)
 
         # norm
-        if len(X_m.array.shape) == 1:
+        if len(X.shape) == 1:
             # if X is one dimensional, we have 1 feature
             dimension = 1
         else:
-            dimension = X_m.array.shape[1]
+            dimension = X.shape[1]
         log_probabilities -= norm_factor(self.kernel, h, dimension)
 
         return log_probabilities
@@ -350,7 +435,6 @@ class KernelDensity(Base):
 
         Parameters
         ----------
-
         X : array-like of shape (n_samples, n_features)
             List of n_features-dimensional data points.  Each row
             corresponds to a single data point.
@@ -359,7 +443,6 @@ class KernelDensity(Base):
 
         Returns
         -------
-
         logprob : float
             Total log-likelihood of the data in X. This is normalized to be a
             probability density, so the value will be low for high-dimensional
@@ -367,59 +450,56 @@ class KernelDensity(Base):
         """
         return float(cp.sum(self.score_samples(X).to_output("cupy")))
 
-    def sample(self, n_samples=1, random_state=None):
-        """
-        Generate random samples from the model.
-        Currently, this is implemented only for gaussian and tophat kernels,
-        and the Euclidean metric.
+    def sample(self, n_samples=1, random_state=None) -> CumlArray:
+        """Generate random samples from the model.
+
+        Currently, this is implemented only for gaussian and tophat kernels.
 
         Parameters
         ----------
         n_samples : int, default=1
             Number of samples to generate.
-        random_state : int, cupy RandomState instance or None, default=None
+        random_state : int, RandomState instance or None, default=None
+            Determines random number generation used to generate
+            random samples.
 
         Returns
         -------
         X : cupy array of shape (n_samples, n_features)
             List of samples.
         """
-        if not hasattr(self, "X_"):
+        if not hasattr(self, "_X"):
             raise NotFittedError()
 
         supported_kernels = ["gaussian", "tophat"]
-        if self.kernel not in supported_kernels or self.metric != "euclidean":
+        if self.kernel not in supported_kernels:
             raise NotImplementedError(
-                "Only {} kernels, and the euclidean"
-                " metric are supported.".format(supported_kernels)
+                f"Only {supported_kernels} kernels are supported."
             )
 
-        if isinstance(random_state, cp.random.RandomState):
-            rng = random_state
-        else:
-            rng = cp.random.RandomState(random_state)
+        rng = cp.random.RandomState(check_random_seed(random_state))
 
         u = rng.uniform(0, 1, size=n_samples)
-        if self.sample_weight_ is None:
-            i = (u * self.X_.shape[0]).astype(np.int64)
+        if self._sample_weight is None:
+            i = (u * self._X.shape[0]).astype(np.int64)
         else:
-            cumsum_weight = cp.cumsum(self.sample_weight_)
+            cumsum_weight = cp.cumsum(self._sample_weight)
             sum_weight = cumsum_weight[-1]
             i = cp.searchsorted(cumsum_weight, u * sum_weight)
         if self.kernel == "gaussian":
-            return cp.atleast_2d(rng.normal(self.X_[i], self.bandwidth))
+            return cp.atleast_2d(rng.normal(self._X[i], self.bandwidth_))
 
         elif self.kernel == "tophat":
             # we first draw points from a d-dimensional normal distribution,
             # then use an incomplete gamma function to map them to a uniform
             # d-dimensional tophat distribution.
-            dim = self.X_.shape[1]
+            dim = self._X.shape[1]
             X = rng.normal(size=(n_samples, dim))
             s_sq = cp.einsum("ij,ij->i", X, X)
 
             correction = (
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)
-                * self.bandwidth
+                * self.bandwidth_
                 / cp.sqrt(s_sq)
             )
-            return self.X_[i] + X * correction[:, np.newaxis]
+            return self._X[i] + X * correction[:, np.newaxis]
