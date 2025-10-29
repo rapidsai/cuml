@@ -6,7 +6,12 @@
 import cuml.neighbors
 from cuml.accel.estimator_proxy import ProxyBase
 
-__all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
+__all__ = (
+    "NearestNeighbors",
+    "KNeighborsClassifier",
+    "KNeighborsRegressor",
+    "KernelDensity",
+)
 
 
 class NearestNeighbors(ProxyBase):
@@ -22,3 +27,7 @@ class KNeighborsClassifier(ProxyBase):
 class KNeighborsRegressor(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsRegressor
     _other_attributes = frozenset(("_fit_method", "_tree"))
+
+
+class KernelDensity(ProxyBase):
+    _gpu_class = cuml.neighbors.KernelDensity
