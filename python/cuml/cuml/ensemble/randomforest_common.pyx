@@ -215,6 +215,9 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.oob_score:
+            raise UnsupportedOnGPU("`oob_score=True` is not supported")
+
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
