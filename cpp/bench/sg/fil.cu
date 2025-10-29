@@ -170,7 +170,6 @@ std::vector<Params> getInputs()
                        true,               /* bootstrap */
                        1,                  /* n_trees */
                        1.f,                /* max_samples */
-                       false,              /* oob_score */
                        1234ULL,            /* seed */
                        ML::CRITERION::MSE, /* split_criterion */
                        8,                  /* n_streams */

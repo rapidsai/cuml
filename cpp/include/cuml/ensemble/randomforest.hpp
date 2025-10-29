@@ -69,11 +69,6 @@ struct RF_params {
    */
   float max_samples;
   /**
-   * Whether to compute out-of-bag score.
-   * If true, per-tree bootstrap masks are stored for OOB computation.
-   */
-  bool oob_score;
-  /**
    * Decision tree training hyper parameter struct.
    */
   /**
@@ -202,7 +197,6 @@ RF_params set_rf_params(int max_depth,
                         bool bootstrap,
                         int n_trees,
                         float max_samples,
-                        bool oob_score,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,

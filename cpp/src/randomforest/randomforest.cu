@@ -524,7 +524,6 @@ RF_params set_rf_params(int max_depth,
                         bool bootstrap,
                         int n_trees,
                         float max_samples,
-                        bool oob_score,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
@@ -545,7 +544,6 @@ RF_params set_rf_params(int max_depth,
   rf_params.n_trees     = n_trees;
   rf_params.bootstrap   = bootstrap;
   rf_params.max_samples = max_samples;
-  rf_params.oob_score   = oob_score;
   rf_params.seed        = seed;
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;

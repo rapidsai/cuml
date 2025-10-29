@@ -106,7 +106,7 @@ class RandomForest {
   during preprocessing)
   * @param[in] forest: CPU point to RandomForestMetaData struct.
   * @param[out] bootstrap_masks: optional device pointer to store bootstrap masks
-  *   (n_trees * n_rows), only populated if oob_score is enabled
+  *   (n_trees * n_rows), only populated if a non-null pointer is provided
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -185,8 +185,8 @@ class RandomForest {
                                                quantiles,
                                                i);
 
-      // Store bootstrap mask if OOB score is enabled and device buffer is provided
-      if (this->rf_params.oob_score && bootstrap_masks != nullptr) {
+      // Store bootstrap mask if device buffer is provided
+      if (bootstrap_masks != nullptr) {
         // Calculate pointer offset for this tree's mask
         bool* tree_mask = bootstrap_masks + (i * n_rows);
 
