@@ -90,31 +90,31 @@ def fit_kneighbors(m, x, y=None):
 def train_xgboost(m, x, y=None):
     """
     Bench function for XGBoost that times the training phase.
-    
+
     This function is designed to work with XGBoostTrainWrapper instances
     that have been pre-configured by the setup functions. It calls the
     retrain() method which performs the actual training that gets timed.
-    
+
     Parameters
     ----------
     m : XGBoostTrainWrapper
     x : array-like
     y : array-like, optional
-    
+
     Returns
     -------
     booster : xgboost.Booster or None
         The trained XGBoost booster model
-    
+
     Notes
     -----
     The x and y parameters are present for interface consistency with other
     benchmark functions but are not used since the training data is already
     contained in the pre-built DMatrix within the wrapper. This is because
-    The benchmarking framework always calls bench_func with 
+    The benchmarking framework always calls bench_func with
     (model, data[0], data[1]) or (model, data[0]).
     """
-    if hasattr(m, 'retrain'):
+    if hasattr(m, "retrain"):
         return m.retrain()
     else:
         raise ValueError(
@@ -438,23 +438,29 @@ class XGBoostTrainWrapper:
 
         debug_mode = os.environ.get("XGBOOST_DEBUG", "0") == "1"
         if debug_mode:
-            print(f"[XGBoost Retrain] Device: {self.device}, Rounds: {self.num_boost_round}")
+            print(
+                f"[XGBoost Retrain] Device: {self.device}, Rounds: {self.num_boost_round}"
+            )
 
-        self.booster = xgb.train(self.params, self.dtrain, self.num_boost_round)
+        self.booster = xgb.train(
+            self.params, self.dtrain, self.num_boost_round
+        )
         return self.booster
 
 
-def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification"):
+def _build_xgboost_for_training(
+    m, data, args, tmpdir, task_type="classification"
+):
     """
     Common setup function for XGBoost training - prepares but doesn't train (for timing training).
-    
+
     Args:
         m: Model (unused but required for interface consistency)
         data: Training data tuple (features, labels)
         args: Configuration arguments
         tmpdir: Temporary directory (unused)
         task_type: Either "classification" or "regression"
-    
+
     Returns:
         XGBoostTrainWrapper ready for training
     """
@@ -467,20 +473,27 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
     max_bin = args_copy.pop("max_bin", 256)
     num_boost_round = args_copy.pop("n_estimators", 100)
     device = args_copy.pop("device", "cpu")
-    
+
     debug_mode = os.environ.get("XGBOOST_DEBUG", "0") == "1"
     if debug_mode:
-        task_name = "Classifier" if task_type == "classification" else "Regressor"
+        task_name = (
+            "Classifier" if task_type == "classification" else "Regressor"
+        )
         print(f"[XGBoost Setup {task_name} for Training] Device: {device}")
 
     # Task-specific label processing and parameter setup
     if task_type == "classification":
         unique_labels = np.unique(train_label)
         n_classes = len(unique_labels)
-        
-        label_map = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
-        train_label_normalized = np.array([label_map[label] for label in train_label])
-        
+
+        label_map = {
+            old_label: new_label
+            for new_label, old_label in enumerate(unique_labels)
+        }
+        train_label_normalized = np.array(
+            [label_map[label] for label in train_label]
+        )
+
         # Determine objective based on number of classes
         if n_classes == 2:
             objective = "binary:logistic"
@@ -488,18 +501,18 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
         else:
             objective = "multi:softmax"
             eval_metric = "merror"
-        
+
         params = {
             "objective": objective,
             "eval_metric": eval_metric,
             "device": device,
         }
-        
+
         if n_classes > 2:
             params["num_class"] = n_classes
     else:
         train_label_normalized = train_label
-        
+
         params = {
             "objective": "reg:squarederror",
             "eval_metric": "rmse",
@@ -514,10 +527,14 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
         dtrain = xgb.DMatrix(train_data, label=train_label_normalized)
 
     params.update(args_copy)
-    
+
     if debug_mode:
-        task_name = "Classifier" if task_type == "classification" else "Regressor"
-        print(f"[XGBoost Setup {task_name} for Training] Final params: {params}")
+        task_name = (
+            "Classifier" if task_type == "classification" else "Regressor"
+        )
+        print(
+            f"[XGBoost Setup {task_name} for Training] Final params: {params}"
+        )
 
     # Return wrapper that can retrain (training will be timed)
     return XGBoostTrainWrapper(
@@ -530,9 +547,13 @@ def _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification
 
 def _build_xgboost_classifier_for_training(m, data, args, tmpdir):
     """Setup function for XGBoost classification - prepares but doesn't train (for timing training)"""
-    return _build_xgboost_for_training(m, data, args, tmpdir, task_type="classification")
+    return _build_xgboost_for_training(
+        m, data, args, tmpdir, task_type="classification"
+    )
 
 
 def _build_xgboost_regressor_for_training(m, data, args, tmpdir):
     """Setup function for XGBoost regression - prepares but doesn't train (for timing training)"""
-    return _build_xgboost_for_training(m, data, args, tmpdir, task_type="regression")
+    return _build_xgboost_for_training(
+        m, data, args, tmpdir, task_type="regression"
+    )

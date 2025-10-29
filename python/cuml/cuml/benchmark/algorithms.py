@@ -63,8 +63,8 @@ except ImportError:
 
 
 try:
-    from xgboost import XGBClassifier, XGBRegressor
     import xgboost as xgb
+    from xgboost import XGBClassifier, XGBRegressor
 except ImportError:
     XGBClassifier = None
     XGBRegressor = None
