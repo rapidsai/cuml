@@ -28,6 +28,10 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_gtil_classifier,
     _build_mnmg_umap,
     _build_optimized_fil_classifier,
+    _build_xgboost_classifier,
+    _build_xgboost_classifier_for_training,
+    _build_xgboost_regressor,
+    _build_xgboost_regressor_for_training,
     _training_data_to_numpy,
     _treelite_fil_accuracy_score,
     fit,
@@ -35,6 +39,7 @@ from cuml.benchmark.bench_helper_funcs import (
     fit_predict,
     fit_transform,
     predict,
+    train_xgboost,
     transform,
 )
 from cuml.preprocessing import (
@@ -61,9 +66,11 @@ except ImportError:
 
 try:
     from xgboost import XGBClassifier, XGBRegressor
+    import xgboost as xgb
 except ImportError:
     XGBClassifier = None
     XGBRegressor = None
+    xgb = None
 
 
 class AlgorithmPair:
@@ -364,6 +371,82 @@ def all_algorithms():
             name="xgboost-regression",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            xgb,
+            xgb,
+            shared_args={
+                "tree_method": "hist",
+                "n_estimators": 100,
+                "use_quantile_dmatrix": False,
+                "max_bin": 256,
+            },
+            cpu_args={"device": "cpu"},
+            cuml_args={"device": "cuda"},
+            name="xgboost-native-classification",
+            accepts_labels=False,
+            setup_cpu_func=_build_xgboost_classifier_for_training,
+            setup_cuml_func=_build_xgboost_classifier_for_training,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook,
+            accuracy_function=metrics.accuracy_score,
+            bench_func=train_xgboost,
+        ),
+        AlgorithmPair(
+            xgb,
+            xgb,
+            shared_args={
+                "tree_method": "hist",
+                "n_estimators": 100,
+                "use_quantile_dmatrix": True,
+                "max_bin": 256,
+            },
+            cpu_args={"device": "cpu"},
+            cuml_args={"device": "cuda"},
+            name="xgboost-native-classification-quantile",
+            accepts_labels=False,
+            setup_cpu_func=_build_xgboost_classifier_for_training,
+            setup_cuml_func=_build_xgboost_classifier_for_training,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook,
+            accuracy_function=metrics.accuracy_score,
+            bench_func=train_xgboost,
+        ),
+        AlgorithmPair(
+            xgb,
+            xgb,
+            shared_args={
+                "tree_method": "hist",
+                "n_estimators": 100,
+                "use_quantile_dmatrix": False,
+                "max_bin": 256,
+            },
+            cpu_args={"device": "cpu"},
+            cuml_args={"device": "cuda"},
+            name="xgboost-native-regression",
+            accepts_labels=False,
+            setup_cpu_func=_build_xgboost_regressor_for_training,
+            setup_cuml_func=_build_xgboost_regressor_for_training,
+            accuracy_function=metrics.r2_score,
+            bench_func=train_xgboost,
+        ),
+        AlgorithmPair(
+            xgb,
+            xgb,
+            shared_args={
+                "tree_method": "hist",
+                "n_estimators": 100,
+                "use_quantile_dmatrix": True,
+                "max_bin": 256,
+            },
+            cpu_args={"device": "cpu"},
+            cuml_args={"device": "cuda"},
+            name="xgboost-native-regression-quantile",
+            accepts_labels=False,
+            setup_cpu_func=_build_xgboost_regressor_for_training,
+            setup_cuml_func=_build_xgboost_regressor_for_training,
+            accuracy_function=metrics.r2_score,
+            bench_func=train_xgboost,
         ),
         AlgorithmPair(
             sklearn.manifold.TSNE,
