@@ -215,6 +215,8 @@ def generate_docstring(
         if (
             "X" in params or "y" in params or parameters
         ) and not skip_parameters_heading:
+            if not func.__doc__.endswith("\n"):
+                func.__doc__ += "\n"
             func.__doc__ += "\nParameters\n----------\n"
 
         # Check if we want to prepend the parameters
@@ -227,7 +229,7 @@ def generate_docstring(
         # Process each parameter
         for par, value in params.items():
             if par == "self":
-                pass
+                continue
 
             # X and y are the most common
             elif par == "X" and par not in skip_parameters:
