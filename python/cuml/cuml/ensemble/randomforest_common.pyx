@@ -571,15 +571,3 @@ class BaseRandomForestModel(Base, InteropMixin):
                 align_bytes=align_bytes,
             )
         return fil_model
-
-    def _handle_deprecated_predict_model(self, predict_model):
-        if predict_model != "deprecated":
-            warnings.warn(
-                (
-                    "`predict_model` is deprecated (and ignored) and will be removed "
-                    "in 25.12. To infer on CPU use `model.as_fil` to get "
-                    "a `FIL` instance which may then be used to perform inference on "
-                    "both CPU and GPU."
-                ),
-                FutureWarning,
-            )
