@@ -11,7 +11,6 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
