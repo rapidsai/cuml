@@ -11,6 +11,7 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
@@ -747,6 +748,9 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
     forest->feature_importances_computed = true;
     return;
   }
+  printf("Computing feature importances\n");
+  printf("Number of features: %d\n", forest->n_features);
+  printf("Number of streams: %d\n", forest->rf_params.n_streams);
 
   int n_cols = forest->n_features;
   std::vector<double> importances(n_cols, 0.0);
@@ -754,44 +758,29 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
   for (const auto& tree : forest->trees) {
     std::vector<double> tree_importances(n_cols, 0.0);
 
+    if (tree->sparsetree.empty()) continue;
+    double root_sample_count = static_cast<double>(tree->sparsetree[0].InstanceCount());
+
+    if (root_sample_count <= 0) continue;
+
     for (const auto& node : tree->sparsetree) {
       if (!node.IsLeaf()) {
         int feature_id = node.ColumnId();
-        if (feature_id >= 0 && feature_id < n_cols) {
-          double impurity_decrease = node.BestMetric() * node.InstanceCount();
-          tree_importances[feature_id] += impurity_decrease;
-        }
+        tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
       }
     }
-
-    double sum = 0.0;
-    for (double imp : tree_importances) {
-      sum += imp;
-    }
-
-    if (sum > 0) {
-      for (int i = 0; i < n_cols; i++) {
-        tree_importances[i] /= sum;
-        importances[i] += tree_importances[i];
-      }
+    for (auto i = 0; i < n_cols; i++) {
+      importances[i] += tree_importances[i] / root_sample_count;
     }
   }
 
   forest->feature_importances.resize(n_cols);
   double sum = 0.0;
-  for (int i = 0; i < n_cols; i++) {
-    importances[i] /= forest->rf_params.n_trees;
+  for (auto i = 0; i < n_cols; i++) {
     sum += importances[i];
   }
-
-  if (sum > 0) {
-    for (int i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
-    }
-  } else {
-    for (int i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = static_cast<T>(0);
-    }
+  for (auto i = 0; i < n_cols; i++) {
+    forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
   }
 
   forest->feature_importances_computed = true;
