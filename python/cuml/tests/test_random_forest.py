@@ -1218,15 +1218,12 @@ def test_rf_feature_importance_classifier():
     X = X.astype(np.float32)
     y = y.astype(np.int32)
 
-    # Train cuML model
     cu_clf = curfc(n_estimators=50, max_depth=8, random_state=42)
     cu_clf.fit(X, y)
 
-    # Check that feature importances are available
     assert hasattr(cu_clf, "feature_importances_")
     cu_importances = cu_clf.feature_importances_
 
-    # Check properties of feature importances
     assert len(cu_importances) == X.shape[1]
     assert np.all(cu_importances >= 0)
     assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
@@ -1237,7 +1234,6 @@ def test_rf_feature_importance_classifier():
     avg_noise_importance = np.mean(cu_importances[10:])
     assert avg_informative_importance > avg_noise_importance
 
-    # Compare with sklearn
     sk_clf = skrfc(n_estimators=50, max_depth=8, random_state=42)
     sk_clf.fit(X, y)
     sk_importances = sk_clf.feature_importances_
@@ -1260,15 +1256,12 @@ def test_rf_feature_importance_regressor():
     X = X.astype(np.float32)
     y = y.astype(np.float32)
 
-    # Train cuML model
     cu_reg = curfr(n_estimators=50, max_depth=8, random_state=42)
     cu_reg.fit(X, y)
 
-    # Check that feature importances are available
     assert hasattr(cu_reg, "feature_importances_")
     cu_importances = cu_reg.feature_importances_
 
-    # Check properties of feature importances
     assert len(cu_importances) == X.shape[1]
     assert np.all(cu_importances >= 0)
     assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
@@ -1277,7 +1270,6 @@ def test_rf_feature_importance_regressor():
     avg_noise_importance = np.mean(cu_importances[10:])
     assert avg_informative_importance > avg_noise_importance
 
-    # Compare with sklearn
     sk_reg = skrfr(n_estimators=50, max_depth=8, random_state=42)
     sk_reg.fit(X, y)
     sk_importances = sk_reg.feature_importances_
@@ -1327,10 +1319,8 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
     )
     cu_rf.fit(X, y)
 
-    # Get feature importances
     cu_importances = cu_rf.feature_importances_
 
-    # The feature importances should sum to 1 (or be all zeros if no splits)
     if cu_importances.sum() > 0:
         assert np.allclose(
             cu_importances.sum(), 1.0, rtol=1e-5
@@ -1382,7 +1372,7 @@ def test_rf_feature_importance_consistency():
             min_samples_split=5,
             max_features="sqrt",
             bootstrap=True,
-            random_state=42,  # Same seed for reproducibility
+            random_state=42,
         )
         rf.fit(X, y)
         importances_list.append(rf.feature_importances_)
