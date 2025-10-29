@@ -748,9 +748,6 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
     forest->feature_importances_computed = true;
     return;
   }
-  printf("Computing feature importances\n");
-  printf("Number of features: %d\n", forest->n_features);
-  printf("Number of streams: %d\n", forest->rf_params.n_streams);
 
   int n_cols = forest->n_features;
   std::vector<double> importances(n_cols, 0.0);
@@ -782,6 +779,11 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
       forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
+    }
+  } else {
+    // When all trees are stumps (no splits), explicitly set importances to 0
+    for (auto i = 0; i < n_cols; i++) {
+      forest->feature_importances[i] = static_cast<T>(0);
     }
   }
 
