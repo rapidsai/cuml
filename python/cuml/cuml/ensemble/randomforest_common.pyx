@@ -569,7 +569,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             )
         return fil_model
 
-
     def _handle_deprecated_predict_model(self, predict_model):
         if predict_model != "deprecated":
             warnings.warn(

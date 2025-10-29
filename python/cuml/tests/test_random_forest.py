@@ -1327,7 +1327,9 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
         ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
 
         top_features = np.argsort(cu_importances)[-2:]
-        assert 0 in top_features, f"Feature 0 not in top features. Importances: {cu_importances}"
+        assert (
+            0 in top_features
+        ), f"Feature 0 not in top features. Importances: {cu_importances}"
 
     cu_rf2 = curfc(
         n_estimators=5,
