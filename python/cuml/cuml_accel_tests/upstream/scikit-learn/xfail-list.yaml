@@ -1525,6 +1525,16 @@
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params4]"
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params5]"
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params6]"
+- reason: Ridge doesn't implement n_iter yet
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_n_iter"
+- reason: Ridge tests too strict of tolerances due to solver differences
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-lsqr-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sag-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-saga-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sparse_cg-None]"
 - reason: SpectralEmbedding does not expose affinity_matrix_ attribute in cuML
   tests:
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
@@ -1552,3 +1562,6 @@
   strict: false
   tests:
   - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
+- reason: The sklearn test has the error message accidentally flipped, our message is correct
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
