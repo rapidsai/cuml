@@ -134,7 +134,6 @@
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-randomized]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
-  - "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
   - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_backend_respected"
@@ -883,7 +882,6 @@
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
   tests:
-  - "sklearn.decomposition.tests.test_incremental_pca::test_incremental_pca_partial_fit_small_batch"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape0]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape1]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape2]"
