@@ -192,12 +192,11 @@ class RandomForest {
 
         // Use Thrust to create boolean mask: first fill with false, then mark selected rows
         thrust::fill(thrust::cuda::par.on(s), tree_mask, tree_mask + n_rows, false);
-        thrust::for_each(thrust::cuda::par.on(s),
-                         selected_rows[stream_id].data(),
-                         selected_rows[stream_id].data() + n_sampled_rows,
-                         [tree_mask, n_rows] __device__(int idx) {
-                           if (idx >= 0 && idx < n_rows) { tree_mask[idx] = true; }
-                         });
+        thrust::scatter(thrust::cuda::par.on(s),
+                        thrust::make_constant_iterator(true),
+                        thrust::make_constant_iterator(true) + n_sampled_rows,
+                        selected_rows[stream_id].data(),
+                        tree_mask);
       }
     }
     // Cleanup
