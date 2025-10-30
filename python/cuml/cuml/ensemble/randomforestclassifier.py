@@ -3,6 +3,7 @@
 
 import cupy as cp
 import numpy as np
+from sklearn.utils.multiclass import type_of_target
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -206,7 +207,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         """
         # Check for multiclass-multioutput when OOB scoring is requested
         if self.oob_score:
-            from sklearn.utils.multiclass import type_of_target
 
             target_type = type_of_target(y)
             if target_type == "multiclass-multioutput":
