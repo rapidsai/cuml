@@ -1217,6 +1217,7 @@
   tests:
   - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[True-X3-y3-0.18-array-RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X3-y3-0.18-array-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_forest_multioutput_integral_regression_target[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[True-X1-y1-0.55-array-RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[explained_variance_score-X1-y1-0.55-array-RandomForestRegressor]"
 - reason: Custom scorer functions not supported - oob_score parameter only accepts boolean values

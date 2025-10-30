@@ -171,13 +171,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             order="F",
         ).array
 
-        y_m = input_to_cuml_array(
+        y_m = self._validate_target_array(
             y,
             convert_to_dtype=(X_m.dtype if convert_dtype else None),
             check_dtype=X_m.dtype,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
+            n_rows=X_m.shape[0],
+        )
         return self._fit_forest(X_m, y_m)
 
     def _compute_oob_score_metric(self, y_true, oob_predictions, valid_mask):
