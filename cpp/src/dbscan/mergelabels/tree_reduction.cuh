@@ -39,11 +39,12 @@ void tree_reduction(const raft::handle_t& handle,
   const auto& comm = handle.get_comms();
   int my_rank      = comm.get_rank();
   int n_rank       = comm.get_size();
-  raft::comms::request_t request;
 
   int s = 1;
   while (s < n_rank) {
     CUML_LOG_DEBUG("Tree reduction, s=", s);
+
+    raft::comms::request_t request;
 
     // Find out whether the node is a receiver / sender / passive
     bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
@@ -57,7 +58,7 @@ void tree_reduction(const raft::handle_t& handle,
       comm.isend(labels, N, my_rank - s, 0, &request);
     }
 
-    comm.waitall(1, &request);
+    if (receiver || sender) { comm.waitall(1, &request); }
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
