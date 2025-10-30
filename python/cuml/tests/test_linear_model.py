@@ -1242,3 +1242,14 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
+
+
+@pytest.mark.parametrize(
+    "cls", [cuml.Ridge, cuml.ElasticNet, cuml.Lasso, cuml.LinearRegression]
+)
+def test_deprecated_normalize(cls):
+    X, y = make_regression()
+    model = cls(normalize=True)
+
+    with pytest.raises(FutureWarning, match="normalize"):
+        model.fit(X, y)
