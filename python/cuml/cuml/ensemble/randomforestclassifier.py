@@ -3,7 +3,6 @@
 
 import cupy as cp
 import numpy as np
-from sklearn.utils.multiclass import type_of_target
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -205,29 +204,35 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        # Check for multiclass-multioutput when OOB scoring is requested
-        if self.oob_score:
-
-            target_type = type_of_target(y)
-            if target_type == "multiclass-multioutput":
-                raise ValueError(
-                    "The type of target cannot be used to compute "
-                    "OOB estimates"
-                )
-
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
         ).array
-        y_m = input_to_cuml_array(
-            y,
-            convert_to_dtype=(np.int32 if convert_dtype else None),
-            check_dtype=np.int32,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
+
+        # Check for multiclass-multioutput when OOB scoring is requested
+        # The check_cols=1 validation will catch this, but we need to provide
+        # a more specific error message for OOB scoring
+        try:
+            y_m = input_to_cuml_array(
+                y,
+                convert_to_dtype=(np.int32 if convert_dtype else None),
+                check_dtype=np.int32,
+                check_rows=X_m.shape[0],
+                check_cols=1,
+            ).array
+        except ValueError as e:
+            if (
+                self.oob_score
+                and "Expected " in str(e)
+                and " columns but got " in str(e)
+            ):
+                raise ValueError(
+                    "The type of target cannot be used to compute "
+                    "OOB estimates"
+                ) from e
+            raise
         self.classes_ = cp.unique(y_m)
         self.n_classes_ = len(self.classes_)
         if not (self.classes_ == cp.arange(self.n_classes_)).all():
