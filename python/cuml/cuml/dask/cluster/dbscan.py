@@ -104,8 +104,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         data = self.client.scatter(X, broadcast=True)
 
-        comms = Comms(comms_p2p=True)
-        comms.init()
+        # Get the workers that actually hold the scattered data
+        who_has = self.client.who_has(data)
+        workers = list(who_has[data.key])
+
+        comms = Comms(comms_p2p=True, client=self.client)
+        comms.init(workers=workers)
 
         # Get worker info to map workers to their RAFT ranks
         worker_info = comms.worker_info(comms.worker_addresses)
