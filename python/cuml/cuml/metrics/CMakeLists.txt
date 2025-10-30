@@ -5,8 +5,6 @@
 # cmake-format: on
 # =============================================================================
 
-
-
 set(cython_sources "")
 add_module_gpu_default("kl_divergence.pyx" ${kl_divergence_algo} ${metrics_algo})
 add_module_gpu_default("pairwise_distances.pyx" ${pairwise_distances_algo} ${metrics_algo})
@@ -15,6 +13,5 @@ add_module_gpu_default("trustworthiness.pyx" ${trustworthiness_algo} ${metrics_a
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
-  MODULE_PREFIX metrics_
+  LINKED_LIBRARIES "${cuml_sg_libraries}" MODULE_PREFIX metrics_
 )
