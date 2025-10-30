@@ -1280,8 +1280,8 @@ def test_rf_oob_score_regressor(datatype):
     # Check OOB attributes exist
     assert hasattr(reg, "oob_score_"), "oob_score_ attribute should exist"
     assert hasattr(
-        reg, "oob_decision_function_"
-    ), "oob_decision_function_ attribute should exist"
+        reg, "oob_prediction_"
+    ), "oob_prediction_ attribute should exist"
 
     # Check OOB score is reasonable (R² score, typically between -1 and 1, but for good models > 0)
     assert (
@@ -1291,14 +1291,14 @@ def test_rf_oob_score_regressor(datatype):
         reg.oob_score_ > 0
     ), f"OOB R² should be positive for this dataset, got {reg.oob_score_}"
 
-    # Check OOB decision function shape
-    assert reg.oob_decision_function_.shape == (
+    # Check OOB prediction shape
+    assert reg.oob_prediction_.shape == (
         len(X),
-    ), f"OOB decision function shape should be {(len(X),)}, got {reg.oob_decision_function_.shape}"
+    ), f"OOB prediction shape should be {(len(X),)}, got {reg.oob_prediction_.shape}"
 
 
 def test_rf_oob_score_disabled():
-    """Test that OOB score attributes raise error when oob_score=False"""
+    """Test that OOB score attributes don't exist when oob_score=False"""
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
     clf = curfc(n_estimators=10, oob_score=False, random_state=42)
@@ -1311,32 +1311,29 @@ def test_rf_oob_score_disabled():
     with pytest.warns(UserWarning, match=warning_msg):
         clf.fit(X, y)
 
-    # Accessing OOB attributes should raise AttributeError
-    with pytest.raises(AttributeError, match="oob_score=False"):
-        _ = clf.oob_score_
-
-    with pytest.raises(AttributeError, match="oob_score=False"):
-        _ = clf.oob_decision_function_
+    # OOB attributes should not exist
+    assert not hasattr(
+        clf, "oob_score_"
+    ), "oob_score_ should not exist when oob_score=False"
+    assert not hasattr(
+        clf, "oob_decision_function_"
+    ), "oob_decision_function_ should not exist when oob_score=False"
 
 
 def test_rf_oob_without_bootstrap():
-    """Test OOB score with bootstrap=False (should still work but all samples used)"""
+    """Test OOB score with bootstrap=False (should raise ValueError)"""
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
     clf = curfc(
         n_estimators=10, oob_score=True, bootstrap=False, random_state=42
     )
 
-    # Capture and verify expected warning
-    warning_msg = (
-        "The number of bins, `n_bins` is greater than the number of samples "
-        "used for training"
-    )
-    with pytest.warns(UserWarning, match=warning_msg):
+    # Should raise ValueError when oob_score=True but bootstrap=False
+    with pytest.raises(
+        ValueError,
+        match="Out of bag estimation only available if bootstrap=True",
+    ):
         clf.fit(X, y)
-
-    # OOB score should exist but might be less meaningful
-    assert hasattr(clf, "oob_score_")
 
 
 def test_rf_oob_score_binary_classification():
