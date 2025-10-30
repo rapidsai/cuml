@@ -272,6 +272,8 @@ class BaseRandomForestModel(Base, InteropMixin):
             attrs["oob_score_"] = model.oob_score_
         if hasattr(model, 'oob_decision_function_'):
             attrs["oob_decision_function_"] = model.oob_decision_function_
+        if hasattr(model, 'oob_prediction_'):
+            attrs["oob_prediction_"] = model.oob_prediction_
         return attrs
 
     def _attrs_to_cpu(self, model):
@@ -290,6 +292,8 @@ class BaseRandomForestModel(Base, InteropMixin):
             attrs["oob_score_"] = self.oob_score_
         if hasattr(self, 'oob_decision_function_'):
             attrs["oob_decision_function_"] = self.oob_decision_function_
+        if hasattr(self, 'oob_prediction_'):
+            attrs["oob_prediction_"] = self.oob_prediction_
         return attrs
 
     def __init__(
@@ -623,7 +627,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         # For regression: (n_samples,)
         # For classification: (n_samples, n_classes)
         output_shape = (n_samples,) + per_tree_preds.shape[2:]
-        oob_predictions = cp.zeros(output_shape, dtype=cp.float32)
+        oob_predictions = cp.zeros(output_shape, dtype=cp.float64)
         oob_counts = cp.zeros(n_samples, dtype=cp.int32)
 
         # For each tree, accumulate predictions for OOB samples

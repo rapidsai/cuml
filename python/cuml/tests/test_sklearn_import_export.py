@@ -707,6 +707,30 @@ def test_random_forest_classifier(random_state):
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
 
+    # Test with OOB score computation
+    cu_model_oob = cuml.RandomForestClassifier(oob_score=True).fit(X, y)
+    sk_model_oob = sklearn.ensemble.RandomForestClassifier(oob_score=True).fit(
+        X, y
+    )
+
+    sk_model2_oob = cu_model_oob.as_sklearn()
+    cu_model2_oob = cuml.RandomForestClassifier.from_sklearn(sk_model_oob)
+
+    # Ensure params/attrs roundtrip with OOB score
+    # Exclude classes_ due to dtype differences between implementations
+    assert_roundtrip_consistency(
+        cu_model_oob, cu_model2_oob, exclude=("classes_",)
+    )
+
+    # Verify OOB attributes are present
+    assert hasattr(cu_model_oob, "oob_score_")
+    assert hasattr(cu_model2_oob, "oob_score_")
+    assert hasattr(sk_model2_oob, "oob_score_")
+
+    # Can infer on converted models with OOB
+    assert sk_model2_oob.score(X, y) > 0.7
+    assert cu_model2_oob.score(X, y) > 0.7
+
 
 def test_random_forest_regressor(random_state):
     X, y = make_regression(n_samples=200, random_state=random_state)
@@ -732,6 +756,27 @@ def test_random_forest_regressor(random_state):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
+
+    # Test with OOB score computation
+    cu_model_oob = cuml.RandomForestRegressor(oob_score=True).fit(X, y)
+    sk_model_oob = sklearn.ensemble.RandomForestRegressor(oob_score=True).fit(
+        X, y
+    )
+
+    sk_model2_oob = cu_model_oob.as_sklearn()
+    cu_model2_oob = cuml.RandomForestRegressor.from_sklearn(sk_model_oob)
+
+    # Ensure params/attrs roundtrip with OOB score
+    assert_roundtrip_consistency(cu_model_oob, cu_model2_oob)
+
+    # Verify OOB attributes are present
+    assert hasattr(cu_model_oob, "oob_score_")
+    assert hasattr(cu_model2_oob, "oob_score_")
+    assert hasattr(sk_model2_oob, "oob_score_")
+
+    # Can infer on converted models with OOB
+    assert sk_model2_oob.score(X, y) > 0.7
+    assert cu_model2_oob.score(X, y) > 0.7
 
 
 @pytest.mark.parametrize("prediction_data", [False, True])
