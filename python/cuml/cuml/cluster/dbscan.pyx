@@ -347,7 +347,7 @@ class DBSCAN(Base,
 
         if n_rows * n_cols > (2**31 - 1):
             out_dtype = "int64"
-            logger.warn("Using int64 for out_dtype because n_rows * n_cols >= INT_MAX")
+            logger.info("Using int64 for out_dtype because n_rows * n_cols >= INT_MAX")
 
         if n_rows == 0 or n_cols == 0:
             raise ValueError(
