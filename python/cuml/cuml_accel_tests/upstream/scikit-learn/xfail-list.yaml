@@ -1216,16 +1216,8 @@
   marker: cuml_accel_rf_multioutput_targets_not_supported
   tests:
   - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[True-X3-y3-0.18-array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X3-y3-0.18-array-RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_forest_multioutput_integral_regression_target[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[True-X1-y1-0.55-array-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[explained_variance_score-X1-y1-0.55-array-RandomForestRegressor]"
-- reason: Custom scorer functions not supported - oob_score parameter only accepts boolean values
-  marker: cuml_accel_rf_oob_custom_scorer_not_supported
-  tests:
-  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X0-y0-0.9-array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X1-y1-0.65-array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[explained_variance_score-X0-y0-0.7-array-RandomForestRegressor]"
 - reason: Missing feature_names_in_ attribute when fitting with pandas DataFrames
   marker: cuml_accel_rf_oob_feature_names_missing
   tests:
