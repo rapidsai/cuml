@@ -18,7 +18,7 @@ class RandomForestRegressor(ProxyBase):
         try:
             y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         except ValueError:
-            raise UnsupportedOnGPU("Unsupported target type")
+            raise
         else:
             if len(y.shape) > 1 and y.shape[1] > 1:
                 raise UnsupportedOnGPU(
@@ -51,7 +51,7 @@ class RandomForestClassifier(ProxyBase):
         try:
             y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         except ValueError:
-            raise UnsupportedOnGPU()
+            raise
         else:
             if len(y.shape) > 1 and y.shape[1] > 1:
                 if self.oob_score:

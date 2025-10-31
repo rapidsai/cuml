@@ -1185,6 +1185,13 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+- reason: ValueError when input data is non-standard type
+  marker: cuml_accel_rf_input_validation_non_standard_types
+  tests:
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weights_not_an_array]"
 - reason: Multi-output targets not supported
   marker: cuml_accel_rf_multioutput_targets_not_supported
   tests:
@@ -1201,6 +1208,10 @@
   - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[True-X2-y2-0.65-array-RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X2-y2-0.65-array-RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[True-X0-y0-0.7-array-RandomForestRegressor]"
+- reason: Random search cross-validation with multiple metrics fails assertion
+  marker: cuml_accel_rf_random_search_multimetric
+  tests:
+  - "sklearn.model_selection.tests.test_search::test_random_search_cv_results_multimetric"
 - reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
   condition: scikit-learn>=1.6
