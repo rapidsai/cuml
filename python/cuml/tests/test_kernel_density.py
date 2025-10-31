@@ -6,6 +6,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn.neighbors
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -17,7 +18,7 @@ from sklearn.neighbors._ball_tree import kernel_norm
 import cuml
 from cuml.common.exceptions import NotFittedError
 from cuml.neighbors import VALID_KERNELS, KernelDensity
-from cuml.neighbors.kernel_density import logaddexp_reduce
+from cuml.neighbors.kernel_density import logsumexp
 from cuml.testing.utils import as_type
 
 
@@ -145,13 +146,21 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
             assert chi.sf(nearest.max(), X.shape[1], scale=bandwidth) > 1e-8
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
-    else:
+    elif kernel not in ["gaussian", "tophat"]:
         with pytest.raises(
             NotImplementedError,
-            match=r"Only \['gaussian', 'tophat'\] kernels,"
-            " and the euclidean metric are supported.",
+            match=r"Only \['gaussian', 'tophat'\] kernels are supported.",
         ):
             kde.sample(100)
+
+
+@pytest.mark.parametrize("bandwidth", ["scott", "silverman", 5.0])
+@pytest.mark.parametrize("n_rows, n_cols", [(13, 17), (17, 13)])
+def test_bandwidth(bandwidth, n_rows, n_cols):
+    X, _ = make_blobs(n_samples=n_rows, n_features=n_cols)
+    cu_model = cuml.KernelDensity(bandwidth=bandwidth).fit(X)
+    sk_model = sklearn.neighbors.KernelDensity(bandwidth=bandwidth).fit(X)
+    assert cu_model.bandwidth_ == sk_model.bandwidth_
 
 
 @pytest.mark.parametrize(
@@ -176,13 +185,13 @@ def test_score_samples_output_type_and_dtype(kernel, fit_dtype, score_dtype):
     assert isinstance(res, cp.ndarray)
 
 
-def test_logaddexp_reduce():
+def test_logsumexp():
     X = np.array([[0.0, 0.0], [0.0, 0.0]])
-    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
+    out = logsumexp(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
     X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    out = logaddexp_reduce(cp.asarray(X), axis=1).get()
+    out = logsumexp(cp.asarray(X), axis=1).get()
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
