@@ -116,49 +116,135 @@ void calEig(const raft::handle_t& handle,
   raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
-/**
- * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
- * vectors
- * @param components: components matrix, used to determine the sign of max absolute value
- * @param n_rows: number of rows of components matrix
- * @param n_cols: number of columns of components matrix
- * @param stream cuda stream
- * @{
- */
 template <typename math_t>
-void signFlipComponents(const raft::handle_t& handle,
-                        math_t* components,
-                        std::size_t n_rows,
-                        std::size_t n_cols,
-                        cudaStream_t stream)
+void center_columns(const raft::handle_t& handle,
+                    raft::device_matrix_view<math_t, std::size_t, raft::col_major> input_view,
+                    cudaStream_t stream)
 {
-  rmm::device_uvector<math_t> max_vals(n_rows, stream);
-  auto components_view =
-    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(components, n_rows, n_cols);
-  auto max_vals_view = raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_rows);
+  const std::size_t n_rows = input_view.extent(0);
+  const std::size_t n_cols = input_view.extent(1);
 
-  // Step 1: find component-wise max absolute values
-  raft::linalg::reduce<false, true>(
-    max_vals.data(),
-    components,
+  // Step 1: Allocate device vector to store column means
+  rmm::device_uvector<math_t> col_means(n_cols, stream);
+  auto col_means_view =
+    raft::make_device_vector_view<math_t, std::size_t>(col_means.data(), n_rows);
+
+  // Step 2: Compute column-wise sum
+  raft::linalg::reduce<false, false>(
+    col_means.data(),
+    input_view.data_handle(),
     n_cols,
     n_rows,
     math_t(0),
     stream,
     false,
-    raft::identity_op(),
-    [] __device__(math_t a, math_t b) {
-      math_t abs_a = a >= 0 ? a : -a;
-      math_t abs_b = b >= 0 ? b : -b;
-      return abs_a >= abs_b ? a : b;
-    },
+    [n_rows] __device__(math_t x, auto idx) { return x / static_cast<math_t>(n_rows); },
+    raft::add_op(),
     raft::identity_op());
+
+  // Step 3: Subtract column mean from each element
+  raft::linalg::map_offset(
+    handle, input_view, [input_view, col_means_view, n_rows] __device__(auto idx) {
+      std::size_t row    = idx % n_rows;
+      std::size_t column = idx / n_rows;
+      return input_view(row, column) - col_means_view(column);
+    });
+}
+
+/**
+ * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
+ * vectors
+ * @param handle: resource handle
+ * @param components: components matrix, used to determine the sign of max absolute value
+ * @param input: input data
+ * @param n_rows: number of rows of components matrix
+ * @param n_cols: number of columns of components matrix
+ * @param n_samples: number of samples (number of rows of input)
+ * @param stream: cuda stream
+ * @param u_based_decision whether to determine signs by U (true) or V.T (false)
+ * @{
+ */
+template <typename math_t>
+void signFlipComponents(const raft::handle_t& handle,
+                        math_t* input,
+                        math_t* components,
+                        std::size_t n_samples,
+                        std::size_t n_features,
+                        std::size_t n_components,
+                        cudaStream_t stream,
+                        bool u_based_decision = true)
+{
+  rmm::device_uvector<math_t> max_vals(n_components, stream);
+  auto components_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+    components, n_components, n_features);
+  auto input_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+    input, n_samples, n_features);
+  auto max_vals_view =
+    raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_components);
+
+  // Step 1: find U or V max absolute values
+  // X = U @ S @ V
+  // X: column-centered input matrix, n_samples * n_features
+  // U: n_samples * n_components
+  // S: diagonal matrix of eigen-values, n_components * n_components
+  // V: components, n_components * n_features
+  // U @ S = X @ V.T, where the signs of U @ S are solely determined by U
+  if (u_based_decision) {
+    center_columns(handle, input_view, stream);
+    rmm::device_uvector<math_t> US(n_samples * n_components, stream);
+    raft::linalg::gemm<math_t, math_t, math_t, math_t>(handle,
+                                                       input,
+                                                       n_samples,
+                                                       n_features,
+                                                       components,
+                                                       US.data(),
+                                                       n_samples,
+                                                       n_components,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_T,
+                                                       math_t(1),
+                                                       math_t(0),
+                                                       stream);
+    raft::linalg::reduce<false, false>(
+      max_vals.data(),
+      US.data(),
+      n_components,
+      n_samples,
+      math_t(0),
+      stream,
+      false,
+      raft::identity_op(),
+      [] __device__(math_t a, math_t b) {
+        math_t abs_a = a >= math_t(0) ? a : -a;
+        math_t abs_b = b >= math_t(0) ? b : -b;
+        return abs_a >= abs_b ? a : b;
+      },
+      raft::identity_op());
+  } else {
+    raft::linalg::reduce<false, true>(
+      max_vals.data(),
+      components,
+      n_features,
+      n_components,
+      math_t(0),
+      stream,
+      false,
+      raft::identity_op(),
+      [] __device__(math_t a, math_t b) {
+        math_t abs_a = a >= math_t(0) ? a : -a;
+        math_t abs_b = b >= math_t(0) ? b : -b;
+        return abs_a >= abs_b ? a : b;
+      },
+      raft::identity_op());
+  }
 
   // Step 2: flip rows where needed
   raft::linalg::map_offset(
-    handle, components_view, [components_view, max_vals_view, n_rows, n_cols] __device__(auto idx) {
-      std::size_t row    = idx % n_rows;
-      std::size_t column = idx / n_rows;
+    handle,
+    components_view,
+    [components_view, max_vals_view, n_components, n_features] __device__(auto idx) {
+      std::size_t row    = idx % n_components;
+      std::size_t column = idx / n_components;
       return (max_vals_view(row) < math_t(0)) ? (-components_view(row, column))
                                               : components_view(row, column);
     });
@@ -232,7 +318,8 @@ void tsvdFit(const raft::handle_t& handle,
              math_t* components,
              math_t* singular_vals,
              const paramsTSVD& prms,
-             cudaStream_t stream)
+             cudaStream_t stream,
+             bool u_based_decision = true)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -275,7 +362,8 @@ void tsvdFit(const raft::handle_t& handle,
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
 
-  signFlipComponents(handle, components, prms.n_components, prms.n_cols, stream);
+  signFlipComponents(
+    handle, input, components, prms.n_rows, prms.n_cols, n_components, stream, u_based_decision);
 }
 
 /**

@@ -99,7 +99,8 @@ void pcaFit(const raft::handle_t& handle,
             math_t* mu,
             math_t* noise_vars,
             const paramsPCA& prms,
-            cudaStream_t stream)
+            cudaStream_t stream,
+            bool u_based_decision = true)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -126,7 +127,14 @@ void pcaFit(const raft::handle_t& handle,
 
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 
-  signFlipComponents(handle, components, prms.n_components, prms.n_cols, stream);
+  signFlipComponents(handle,
+                     input,
+                     components,
+                     prms.n_rows,
+                     prms.n_cols,
+                     prms.n_components,
+                     stream,
+                     u_based_decision);
 }
 
 /**
@@ -158,7 +166,8 @@ void pcaFitTransform(const raft::handle_t& handle,
                      math_t* mu,
                      math_t* noise_vars,
                      const paramsPCA& prms,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     bool u_based_decision = true)
 {
   pcaFit(handle,
          input,
@@ -169,7 +178,8 @@ void pcaFitTransform(const raft::handle_t& handle,
          mu,
          noise_vars,
          prms,
-         stream);
+         stream,
+         u_based_decision);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
 }
 

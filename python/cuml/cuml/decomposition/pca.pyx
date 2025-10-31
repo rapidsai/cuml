@@ -44,7 +44,8 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     const paramsPCA &prms) except +
+                     const paramsPCA &prms,
+                     bool u_based_decision) except +
 
     cdef void pcaFit(handle_t& handle,
                      double *input,
@@ -54,7 +55,8 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     const paramsPCA &prms) except +
+                     const paramsPCA &prms,
+                     bool u_based_decision) except +
 
     cdef void pcaInverseTransform(handle_t& handle,
                                   float *trans_input,
@@ -395,6 +397,7 @@ class PCA(Base,
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
 
         # Perform fit
         with nogil:
@@ -408,7 +411,8 @@ class PCA(Base,
                     <float*> singular_values_ptr,
                     <float*> mean_ptr,
                     <float*> noise_variance_ptr,
-                    params
+                    params,
+                    u_based_decision
                 )
             else:
                 pcaFit(
@@ -420,7 +424,8 @@ class PCA(Base,
                     <double*> singular_values_ptr,
                     <double*> mean_ptr,
                     <double*> noise_variance_ptr,
-                    params
+                    params,
+                    u_based_decision
                 )
         self.handle.sync()
 
@@ -452,7 +457,7 @@ class PCA(Base,
         components = _flip_sign(
             components.T[:self.n_components_, :],
             X,
-            u_based_decision=Version(sklearn.__version__) < Version("1.5.0")
+            Version(sklearn.__version__) < Version("1.5.0")
         )
         explained_variance = explained_variance[:self.n_components_]
 
