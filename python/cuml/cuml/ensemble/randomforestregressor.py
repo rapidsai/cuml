@@ -111,6 +111,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    oob_score : bool (default = False)
+        Whether to use out-of-bag samples to estimate the generalization
+        performance. Only available if ``bootstrap=True``. The out-of-bag
+        estimate provides a way to evaluate the model without requiring a
+        separate validation set. The OOB score is computed using R² (coefficient
+        of determination).
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -127,6 +133,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    oob_score_ : float
+        Score of the training dataset obtained using an out-of-bag estimate.
+        This attribute exists only when ``oob_score`` is True.
+
+    oob_prediction_ : ndarray of shape (n_samples,) or (n_samples, n_outputs)
+        Prediction computed with out-of-bag estimate on the training set.
+        This attribute exists only when ``oob_score`` is True.
 
     Notes
     -----
