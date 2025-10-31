@@ -15,7 +15,8 @@
 #include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <thrust/execution_policy.h>
+#include <rmm/exec_policy.hpp>
+
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/sequence.h>
@@ -59,7 +60,7 @@ class RandomForest {
 
     } else {
       // Use all the samples from the dataset
-      thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
+      thrust::sequence(rmm::exec_policy(stream), selected_rows->begin(), selected_rows->end());
     }
   }
 
@@ -191,8 +192,8 @@ class RandomForest {
         bool* tree_mask = bootstrap_masks + (i * n_rows);
 
         // Use Thrust to create boolean mask: first fill with false, then mark selected rows
-        thrust::fill(thrust::cuda::par.on(s), tree_mask, tree_mask + n_rows, false);
-        thrust::scatter(thrust::cuda::par.on(s),
+        thrust::fill(rmm::exec_policy(s), tree_mask, tree_mask + n_rows, false);
+        thrust::scatter(rmm::exec_policy(s),
                         thrust::make_constant_iterator(true),
                         thrust::make_constant_iterator(true) + n_sampled_rows,
                         selected_rows[stream_id].data(),
