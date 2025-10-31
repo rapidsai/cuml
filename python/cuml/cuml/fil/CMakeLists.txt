@@ -5,18 +5,15 @@
 # cmake-format: on
 # =============================================================================
 
-
 set(cython_sources "")
-add_module_gpu_default("fil.pyx" ${fil_algo} ${randomforestclassifier_algo} ${randomforestregressor_algo})
-
-set(linked_libraries
-  "${cuml_sg_libraries}"
-  "${CUML_PYTHON_TREELITE_TARGET}"
+add_module_gpu_default(
+  "fil.pyx" ${fil_algo} ${randomforestclassifier_algo} ${randomforestregressor_algo}
 )
+
+set(linked_libraries "${cuml_sg_libraries}" "${CUML_PYTHON_TREELITE_TARGET}")
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
-  MODULE_PREFIX fil_
+  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX fil_
 )

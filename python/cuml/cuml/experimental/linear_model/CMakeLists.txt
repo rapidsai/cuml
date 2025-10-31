@@ -5,14 +5,11 @@
 # cmake-format: on
 # =============================================================================
 
-
-
 set(cython_sources "")
 add_module_gpu_default("lars.pyx" ${lars_algo} ${linear_model_algo})
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
-  MODULE_PREFIX experimental_
+  LINKED_LIBRARIES "${cuml_sg_libraries}" MODULE_PREFIX experimental_
 )
