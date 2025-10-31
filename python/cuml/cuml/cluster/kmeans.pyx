@@ -541,8 +541,11 @@ class KMeans(Base,
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
             )
-        if multigpu and self.init == "k-means++":
-            raise ValueError("k-means++ init not supported for multi-GPU KMeans")
+        if multigpu and (self.init == "k-means++" or self.oversampling_factor <= 0):
+            raise ValueError(
+                "k-means++ init or oversampling_factor=0 not supported "
+                "for multi-GPU KMeans"
+            )
 
         # Allocate output cluster_centers_
         if isinstance(self.init, str):
