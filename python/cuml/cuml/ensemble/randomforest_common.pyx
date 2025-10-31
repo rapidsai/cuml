@@ -15,7 +15,6 @@ from pylibraft.common.handle import Handle
 
 from cuml.fil.fil import ForestInference
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
@@ -193,60 +192,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "verbose",
             "output_type",
         ]
-
-    def _validate_target_array(
-        self,
-        y,
-        convert_to_dtype,
-        check_dtype,
-        n_rows,
-    ):
-        """
-        Validate and convert target array with proper error handling for multioutput.
-
-        Parameters
-        ----------
-        y : array-like
-            Target values
-        convert_to_dtype : dtype or None
-            Target dtype to convert to
-        check_dtype : dtype or list of dtypes
-            Expected dtype(s)
-        n_rows : int
-            Expected number of rows
-
-        Returns
-        -------
-        y_m : CumlArray
-            Validated and converted target array
-
-        Raises
-        ------
-        ValueError
-            If multioutput target is provided when OOB scoring is enabled
-        """
-
-        try:
-            y_m = input_to_cuml_array(
-                y,
-                convert_to_dtype=convert_to_dtype,
-                check_dtype=check_dtype,
-                check_rows=n_rows,
-                check_cols=1,
-            ).array
-        except ValueError as e:
-            if (
-                self.oob_score
-                and "Expected " in str(e)
-                and " columns but got " in str(e)
-            ):
-                raise ValueError(
-                    "The type of target cannot be used to compute "
-                    "OOB estimates"
-                ) from e
-            raise
-
-        return y_m
 
     @classmethod
     def _params_from_cpu(cls, model):

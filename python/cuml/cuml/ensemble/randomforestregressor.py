@@ -171,12 +171,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             order="F",
         ).array
 
-        y_m = self._validate_target_array(
+        y_m = input_to_cuml_array(
             y,
             convert_to_dtype=(X_m.dtype if convert_dtype else None),
             check_dtype=X_m.dtype,
-            n_rows=X_m.shape[0],
-        )
+            check_rows=X_m.shape[0],
+        ).array
+        n_cols = y_m.shape[1] if len(y_m.shape) > 1 else 1
+        if n_cols > 1:
+            raise ValueError("Multi-output targets are not supported")
+
         return self._fit_forest(X_m, y_m)
 
     @nvtx.annotate(
