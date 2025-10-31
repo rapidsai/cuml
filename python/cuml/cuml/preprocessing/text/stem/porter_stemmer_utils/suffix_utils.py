@@ -66,6 +66,6 @@ def get_stem_series(word_str_ser, suffix_len, can_replace_mask):
     can_repalce_mask: bool array marking strings where to replace
     """
     starts = cudf.Series(cp.zeros(len(word_str_ser), dtype=cp.int32))
-    stops = (word_str_ser.str.len() - suffix_len).fillna(0)
+    stops = (word_str_ser.str.len() - suffix_len).fillna(0).astype(cp.int32)
     sliced = word_str_ser.str.slice_from(starts, stops)
     return sliced.where(can_replace_mask, word_str_ser)

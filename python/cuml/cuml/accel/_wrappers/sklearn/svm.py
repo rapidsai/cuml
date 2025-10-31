@@ -81,9 +81,7 @@ class SVR(ProxyBase):
 
 class LinearSVC(ProxyBase):
     _gpu_class = cuml.svm.LinearSVC
-    _not_implemented_attributes = frozenset(("n_iter_",))
 
 
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
-    _not_implemented_attributes = frozenset(("n_iter_",))

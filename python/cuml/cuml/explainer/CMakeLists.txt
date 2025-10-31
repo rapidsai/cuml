@@ -11,14 +11,10 @@ add_module_gpu_default("kernel_shap.pyx" ${kernel_shap_algo} ${explainer_algo})
 add_module_gpu_default("permutation_shap.pyx" ${permutation_shap_algo} ${explainer_algo})
 add_module_gpu_default("tree_shap.pyx" ${tree_shap_algo} ${explainer_algo})
 
-set(linked_libraries
-  "${cuml_sg_libraries}"
-  "${CUML_PYTHON_TREELITE_TARGET}"
-)
+set(linked_libraries "${cuml_sg_libraries}" "${CUML_PYTHON_TREELITE_TARGET}")
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
-  MODULE_PREFIX explainer_
+  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX explainer_
 )
