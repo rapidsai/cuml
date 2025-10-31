@@ -9,7 +9,6 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.cuh>
@@ -42,8 +41,7 @@ class RandomForest {
   RF_params rf_params;  // structure containing RF hyperparameters
   int rf_type;          // 0 for classification 1 for regression
 
-  void get_row_sample(const raft::handle_t& handle,
-                      int tree_id,
+  void get_row_sample(int tree_id,
                       int n_rows,
                       rmm::device_uvector<int>* selected_rows,
                       const cudaStream_t stream)
@@ -61,8 +59,7 @@ class RandomForest {
 
     } else {
       // Use all the samples from the dataset
-      thrust::sequence(
-        raft::resource::get_thrust_policy(handle), selected_rows->begin(), selected_rows->end());
+      thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
     }
   }
 
@@ -164,7 +161,7 @@ class RandomForest {
       int stream_id = omp_get_thread_num();
       auto s        = handle.get_stream_from_stream_pool(stream_id);
 
-      this->get_row_sample(handle, i, n_rows, &selected_rows[stream_id], s);
+      this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -194,9 +191,8 @@ class RandomForest {
         bool* tree_mask = bootstrap_masks + (i * n_rows);
 
         // Use Thrust to create boolean mask: first fill with false, then mark selected rows
-        thrust::fill(
-          raft::resource::get_thrust_policy(handle), tree_mask, tree_mask + n_rows, false);
-        thrust::scatter(raft::resource::get_thrust_policy(handle),
+        thrust::fill(thrust::cuda::par.on(s), tree_mask, tree_mask + n_rows, false);
+        thrust::scatter(thrust::cuda::par.on(s),
                         thrust::make_constant_iterator(true),
                         thrust::make_constant_iterator(true) + n_sampled_rows,
                         selected_rows[stream_id].data(),
