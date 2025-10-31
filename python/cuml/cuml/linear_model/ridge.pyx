@@ -504,34 +504,26 @@ class Ridge(Base,
             if n_cols == 1:
                 raise ValueError(
                     "solver='eig' doesn't support X with 1 column, please select "
-                    "solver='svd' instead"
+                    "solver='svd' or solver='auto' instead"
                 )
             if n_targets != 1:
                 raise ValueError(
                     "solver='eig' doesn't support multi-target y, please select "
-                    "solver='svd' instead"
+                    "solver='svd' or solver='auto' instead"
                 )
         elif solver == "auto":
             solver = "svd" if n_cols == 1 or n_targets != 1 else "eig"
 
-        if solver == "svd":
-            coef, intercept = self._fit_svd(
-                X_m,
-                y_m,
-                sample_weight_m,
-                alpha=alpha,
-                X_is_copy=X_is_copy,
-                y_is_copy=y_is_copy,
-            )
-        else:
-            coef, intercept = self._fit_eig(
-                X_m,
-                y_m,
-                sample_weight_m,
-                alpha=alpha,
-                X_is_copy=X_is_copy,
-                y_is_copy=y_is_copy,
-            )
+        # Perform fit
+        solver_func = self._fit_svd if solver == "svd" else self._fit_eig
+        coef, intercept = solver_func(
+            X_m,
+            y_m,
+            sample_weight_m,
+            alpha=alpha,
+            X_is_copy=X_is_copy,
+            y_is_copy=y_is_copy,
+        )
 
         self.coef_ = coef
         self.intercept_ = intercept
