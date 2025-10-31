@@ -217,15 +217,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             convert_to_dtype=(np.int32 if convert_dtype else None),
             check_dtype=np.int32,
             check_rows=X_m.shape[0],
+            check_cols=1,
         ).array
-        n_cols = y_m.shape[1] if len(y_m.shape) > 1 else 1
-        if n_cols > 1:
-            if self.oob_score:  # matching scikit-learn error message
-                raise ValueError(
-                    "The type of target cannot be used to compute OOB estimates"
-                )
-            else:
-                raise ValueError("Multi-output targets are not supported")
 
         self.classes_ = cp.unique(y_m)
         self.n_classes_ = len(self.classes_)

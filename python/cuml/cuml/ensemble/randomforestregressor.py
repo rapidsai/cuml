@@ -179,10 +179,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             convert_to_dtype=(X_m.dtype if convert_dtype else None),
             check_dtype=X_m.dtype,
             check_rows=X_m.shape[0],
+            check_cols=1,
         ).array
-        n_cols = y_m.shape[1] if len(y_m.shape) > 1 else 1
-        if n_cols > 1:
-            raise ValueError("Multi-output targets are not supported")
 
         return self._fit_forest(X_m, y_m)
 
