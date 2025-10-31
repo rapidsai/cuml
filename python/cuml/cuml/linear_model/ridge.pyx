@@ -13,7 +13,10 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import (
+    LinearPredictMixin,
+    check_deprecated_normalize,
+)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -134,13 +137,13 @@ class Ridge(Base,
     fit_intercept : boolean (default = True)
         If True, Ridge tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
+    normalize : boolean, default=False
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -283,6 +286,8 @@ class Ridge(Base,
         """
         Fit the model with X and y.
         """
+        check_deprecated_normalize(self)
+
         cdef size_t n_rows, n_cols
         X, n_rows, n_cols, dtype = input_to_cuml_array(
             X,

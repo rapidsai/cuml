@@ -1453,7 +1453,6 @@
   condition: scikit-learn>=1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
@@ -1502,7 +1501,6 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
@@ -1510,8 +1508,6 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
 - reason: LinearSVM test expects exact results on small data, which isn't guaranteed
   tests:
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"

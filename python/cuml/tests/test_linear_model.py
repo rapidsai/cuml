@@ -1046,6 +1046,16 @@ def test_logistic_regression_weighting(
     assert array_equal(skOut, cuOut, unit_tol=unit_tol, total_tol=total_tol)
 
 
+@pytest.mark.parametrize("penalty", ["l1", "l2"])
+def test_logistic_regression_max_iter_n_iter(penalty):
+    X, y = make_classification(random_state=42)
+    model = cuml.LogisticRegression(penalty=penalty).fit(X, y)
+    assert model.n_iter_.max() <= model.max_iter
+
+    model = cuml.LogisticRegression(penalty=penalty, max_iter=10).fit(X, y)
+    assert model.n_iter_.max() == 10
+
+
 @pytest.mark.parametrize("algo", [cuLog, cuRidge])
 # ignoring warning about change of solver
 @pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
@@ -1242,3 +1252,14 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
+
+
+@pytest.mark.parametrize(
+    "cls", [cuml.Ridge, cuml.ElasticNet, cuml.Lasso, cuml.LinearRegression]
+)
+def test_deprecated_normalize(cls):
+    X, y = make_regression()
+    model = cls(normalize=True)
+
+    with pytest.raises(FutureWarning, match="normalize"):
+        model.fit(X, y)

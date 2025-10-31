@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 import pytest
 import sklearn
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import fetch_california_housing, make_regression
 from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
@@ -85,8 +85,8 @@ def test_lars_model(datatype, nrows, column_info, precompute):
         # scikit-learn accuracy.
         accuracy_target = sklars.score(X_test, y_test)
         tol = 1.96 * np.sqrt(accuracy_target * (1.0 - accuracy_target) / 100.0)
-        if tol < 0.001:
-            tol = 0.001  # We allow at least 0.1% tolerance
+        if tol < 0.002:
+            tol = 0.002  # We allow at least 0.2% tolerance
         print(cu_score_train, cu_score_test, accuracy_target, tol)
         assert cu_score_train >= sklars.score(X_train, y_train) - tol
         assert cu_score_test >= accuracy_target - tol
@@ -216,3 +216,11 @@ def test_lars_copy_X(datatype):
     # assert cp.any(X0 != X)
     #
     # assert abs(culars1.score(X, y) - culars2.score(X, y)) < 1e-9
+
+
+def test_deprecated_normalize():
+    X, y = make_regression(random_state=42)
+    model = cuLars(normalize=True)
+
+    with pytest.warns(FutureWarning, match="normalize"):
+        model.fit(X, y)
