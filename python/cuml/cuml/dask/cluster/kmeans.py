@@ -15,6 +15,7 @@ from cuml.dask.common.base import (
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.utils import check_random_seed
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -141,6 +142,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         data = DistributedDataHandler.create(inputs, client=self.client)
         self.datatype = data.datatype
+
+        if 'random_state' in self.kwargs:
+            self.kwargs['random_state'] = check_random_seed(self.kwargs['random_state'])
 
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
