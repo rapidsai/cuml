@@ -145,6 +145,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     classes_ = CumlArrayDescriptor()
 
+    oob_decision_function_ = CumlArrayDescriptor(order="C")
+
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
     @classmethod

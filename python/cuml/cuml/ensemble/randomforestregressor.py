@@ -4,6 +4,7 @@ import numpy as np
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -134,6 +135,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
+
+    oob_prediction_ = CumlArrayDescriptor(order="C")
 
     def __init__(
         self,

@@ -605,8 +605,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         # For regression: (n_samples,)
         # For classification: (n_samples, n_classes)
         output_shape = (n_samples,) + per_tree_preds.shape[2:]
-        oob_predictions = cp.zeros(output_shape, dtype=cp.float64)
-        oob_counts = cp.zeros(n_samples, dtype=cp.int32)
+        oob_predictions = cp.zeros(output_shape, dtype=cp.float64, order="C")
+        oob_counts = cp.zeros(n_samples, dtype=cp.int32, order="C")
 
         # For each tree, accumulate predictions for OOB samples
         for tree_idx in range(self.n_estimators):
