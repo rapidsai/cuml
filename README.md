@@ -121,7 +121,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 
 See [the RAPIDS Release Selector](https://docs.rapids.ai/install#selector) for
 the command line to install either nightly or official release cuML packages
-via Conda or Docker.
+via conda, pip, or Docker.
 
 ## Build/Install from Source
 See the build [guide](BUILD.md).
