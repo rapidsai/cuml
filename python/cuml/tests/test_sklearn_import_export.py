@@ -679,13 +679,16 @@ def test_kernel_density(random_state, kernel, bandwidth, metric):
     assert_kde_close(cu_model, cu_model2)
 
 
-def test_random_forest_classifier(random_state):
+@pytest.mark.parametrize("oob_score", [False, True])
+def test_random_forest_classifier(random_state, oob_score):
     X, y = make_classification(
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
 
-    cu_model = cuml.RandomForestClassifier().fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestClassifier().fit(X, y)
+    cu_model = cuml.RandomForestClassifier(oob_score=oob_score).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(
+        oob_score=oob_score
+    ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestClassifier.from_sklearn(sk_model)
@@ -695,6 +698,16 @@ def test_random_forest_classifier(random_state):
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
 
+    # Ensure params/attrs roundtrip
+    # Exclude classes_ due to dtype differences between implementations
+    assert_roundtrip_consistency(cu_model, cu_model2, exclude=("classes_",))
+
+    # Verify OOB attributes are present when oob_score=True
+    if oob_score:
+        assert hasattr(cu_model, "oob_score_")
+        assert hasattr(cu_model2, "oob_score_")
+        assert hasattr(sk_model2, "oob_score_")
+
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
@@ -707,37 +720,16 @@ def test_random_forest_classifier(random_state):
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
 
-    # Test with OOB score computation
-    cu_model_oob = cuml.RandomForestClassifier(oob_score=True).fit(X, y)
-    sk_model_oob = sklearn.ensemble.RandomForestClassifier(oob_score=True).fit(
-        X, y
-    )
 
-    sk_model2_oob = cu_model_oob.as_sklearn()
-    cu_model2_oob = cuml.RandomForestClassifier.from_sklearn(sk_model_oob)
-
-    # Ensure params/attrs roundtrip with OOB score
-    # Exclude classes_ due to dtype differences between implementations
-    assert_roundtrip_consistency(
-        cu_model_oob, cu_model2_oob, exclude=("classes_",)
-    )
-
-    # Verify OOB attributes are present
-    assert hasattr(cu_model_oob, "oob_score_")
-    assert hasattr(cu_model2_oob, "oob_score_")
-    assert hasattr(sk_model2_oob, "oob_score_")
-
-    # Can infer on converted models with OOB
-    assert sk_model2_oob.score(X, y) > 0.7
-    assert cu_model2_oob.score(X, y) > 0.7
-
-
-def test_random_forest_regressor(random_state):
+@pytest.mark.parametrize("oob_score", [False, True])
+def test_random_forest_regressor(random_state, oob_score):
     X, y = make_regression(n_samples=200, random_state=random_state)
     X = X.astype("float32")
 
-    cu_model = cuml.RandomForestRegressor().fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestRegressor().fit(X, y)
+    cu_model = cuml.RandomForestRegressor(oob_score=oob_score).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor(oob_score=oob_score).fit(
+        X, y
+    )
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
@@ -745,6 +737,12 @@ def test_random_forest_regressor(random_state):
     # Ensure params/attrs roundtrip
     assert_roundtrip_consistency(cu_model, cu_model2)
 
+    # Verify OOB attributes are present when oob_score=True
+    if oob_score:
+        assert hasattr(cu_model, "oob_score_")
+        assert hasattr(cu_model2, "oob_score_")
+        assert hasattr(sk_model2, "oob_score_")
+
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
@@ -756,27 +754,6 @@ def test_random_forest_regressor(random_state):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
-
-    # Test with OOB score computation
-    cu_model_oob = cuml.RandomForestRegressor(oob_score=True).fit(X, y)
-    sk_model_oob = sklearn.ensemble.RandomForestRegressor(oob_score=True).fit(
-        X, y
-    )
-
-    sk_model2_oob = cu_model_oob.as_sklearn()
-    cu_model2_oob = cuml.RandomForestRegressor.from_sklearn(sk_model_oob)
-
-    # Ensure params/attrs roundtrip with OOB score
-    assert_roundtrip_consistency(cu_model_oob, cu_model2_oob)
-
-    # Verify OOB attributes are present
-    assert hasattr(cu_model_oob, "oob_score_")
-    assert hasattr(cu_model2_oob, "oob_score_")
-    assert hasattr(sk_model2_oob, "oob_score_")
-
-    # Can infer on converted models with OOB
-    assert sk_model2_oob.score(X, y) > 0.7
-    assert cu_model2_oob.score(X, y) > 0.7
 
 
 @pytest.mark.parametrize("prediction_data", [False, True])
