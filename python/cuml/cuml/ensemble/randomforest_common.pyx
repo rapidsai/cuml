@@ -650,9 +650,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         """
         # Get per-tree predictions using FIL
         fil_model = self.as_fil()
+        # Per tree predictions shape: (n_samples, n_trees) for regression
+        #                          or (n_samples, n_trees, n_classes) for classification
         per_tree_preds = fil_model.predict_per_tree(X)
-        # Shape: (n_samples, n_trees) for regression
-        #        (n_samples, n_trees, n_classes) for classification
 
         n_samples = X.shape[0]
 
