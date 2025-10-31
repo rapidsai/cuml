@@ -88,6 +88,31 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         level_enum verbosity
     ) except +
 
+    cdef void fit_treelite_with_stats[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        int n_unique_labels,
+        RF_params params,
+        level_enum verbosity,
+        T* feature_importances_out
+    ) except +
+
+    cdef void fit_treelite_with_stats[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        RF_params params,
+        level_enum verbosity,
+        T* feature_importances_out
+    ) except +
+
 
 _split_criterion_lookup = {
     "0": GINI,
@@ -317,6 +342,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.max_batch_size = max_batch_size
         self.random_state = random_state
         self.n_streams = n_streams
+        self._feature_importances_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -435,12 +461,18 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
 
         cdef TreeliteModelHandle tl_handle
+        cdef object _fi_py
+        if is_float32:
+            _fi_py = np.empty(n_cols, dtype=np.float32)
+        else:
+            _fi_py = np.empty(n_cols, dtype=np.float64)
+        cdef uintptr_t _fi_ptr = <uintptr_t> _fi_py.ctypes.data
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
         with nogil:
             if is_classifier:
                 if is_float32:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -449,10 +481,11 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <int*> y_ptr,
                         n_classes,
                         params,
-                        verbose
+                        verbose,
+                        <float*> _fi_ptr,
                     )
                 else:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -461,11 +494,12 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <int*> y_ptr,
                         n_classes,
                         params,
-                        verbose
+                        verbose,
+                        <double*> _fi_ptr,
                     )
             else:
                 if is_float32:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -473,10 +507,11 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_cols,
                         <float*> y_ptr,
                         params,
-                        verbose
+                        verbose,
+                        <float*> _fi_ptr,
                     )
                 else:
-                    fit_treelite(
+                    fit_treelite_with_stats(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -484,7 +519,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_cols,
                         <double*> y_ptr,
                         params,
-                        verbose
+                        verbose,
+                        <double*> _fi_ptr,
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
@@ -513,6 +549,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         # Ensure cached fil model is reset
         self._fil_model = None
+        self.feature_importances_ = np.asarray(_fi_py)
         return self
 
     def _get_inference_fil_model(

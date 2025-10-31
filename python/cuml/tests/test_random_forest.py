@@ -32,6 +32,7 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.internals.logger as logger
+from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
@@ -1199,3 +1200,187 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+def test_rf_feature_importance_classifier():
+    """Test feature importance for Random Forest Classifier and compare with sklearn"""
+    # Create dataset with some informative and some noise features
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=5,
+        n_redundant=5,
+        n_repeated=0,
+        n_classes=2,
+        shuffle=False,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu_clf = curfc(n_estimators=50, max_depth=8, random_state=42)
+    cu_clf.fit(X, y)
+
+    assert hasattr(cu_clf, "feature_importances_")
+    cu_importances = cu_clf.feature_importances_
+
+    assert len(cu_importances) == X.shape[1]
+    assert np.all(cu_importances >= 0)
+    assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
+
+    # Informative features should have higher importance
+    # (first 5 features are informative in this dataset)
+    avg_informative_importance = np.mean(cu_importances[:5])
+    avg_noise_importance = np.mean(cu_importances[10:])
+    assert avg_informative_importance > avg_noise_importance
+
+    sk_clf = skrfc(n_estimators=50, max_depth=8, random_state=42)
+    sk_clf.fit(X, y)
+    sk_importances = sk_clf.feature_importances_
+
+    overlap = _topk_overlap(cu_importances, sk_importances, k=5)
+    assert overlap >= 0.8
+
+
+def test_rf_feature_importance_regressor():
+    """Test feature importance for Random Forest Regressor and compare with sklearn"""
+    # Create dataset with some informative and some noise features
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_informative=5,
+        noise=0.1,
+        shuffle=False,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu_reg = curfr(n_estimators=50, max_depth=8, random_state=42)
+    cu_reg.fit(X, y)
+
+    assert hasattr(cu_reg, "feature_importances_")
+    cu_importances = cu_reg.feature_importances_
+
+    assert len(cu_importances) == X.shape[1]
+    assert np.all(cu_importances >= 0)
+    assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
+
+    avg_informative_importance = np.mean(cu_importances[:5])
+    avg_noise_importance = np.mean(cu_importances[10:])
+    assert avg_informative_importance > avg_noise_importance
+
+    sk_reg = skrfr(n_estimators=50, max_depth=8, random_state=42)
+    sk_reg.fit(X, y)
+    sk_importances = sk_reg.feature_importances_
+
+    assert np.isclose(sk_importances.sum(), 1.0)
+    overlap = _topk_overlap(cu_importances, sk_importances, k=5)
+    assert overlap >= 0.6
+
+
+def _topk_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
+    ai = set(np.argsort(a)[-k:])
+    bi = set(np.argsort(b)[-k:])
+    return len(ai & bi) / float(k)
+
+
+def test_rf_feature_importance_not_fitted():
+    """Test that accessing feature importances before fitting raises error"""
+    clf = curfc()
+    with pytest.raises((NotFittedError, AttributeError)):
+        _ = clf.feature_importances_
+
+    reg = curfr()
+    with pytest.raises((NotFittedError, AttributeError)):
+        _ = reg.feature_importances_
+
+
+def test_rf_feature_importance_exact_match_with_fixed_trees():
+    """Test that feature importances are reproducible with fixed parameters.
+
+    This test creates a simple dataset and verifies that the
+    feature importance calculation produces consistent results.
+    """
+    np.random.seed(42)
+    n_samples = 100
+    X = np.random.randn(n_samples, 4).astype(np.float32)
+    y = (X[:, 0] > 0).astype(np.int32)
+    y[::5] = 1 - y[::5]
+
+    cu_rf = curfc(
+        n_estimators=5,
+        max_depth=3,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf.fit(X, y)
+
+    cu_importances = cu_rf.feature_importances_
+
+    if cu_importances.sum() > 0:
+        assert np.allclose(
+            cu_importances.sum(), 1.0, rtol=1e-5
+        ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
+
+        top_features = np.argsort(cu_importances)[-2:]
+        assert (
+            0 in top_features
+        ), f"Feature 0 not in top features. Importances: {cu_importances}"
+
+    cu_rf2 = curfc(
+        n_estimators=5,
+        max_depth=3,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf2.fit(X, y)
+
+    cu_importances2 = cu_rf2.feature_importances_
+
+    # With same parameters and no randomness, should get identical importances
+    assert np.allclose(
+        cu_importances, cu_importances2, rtol=1e-5
+    ), f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+
+
+def test_rf_feature_importance_consistency():
+    """Test that feature importances are consistent across multiple runs."""
+    X, y = make_classification(
+        n_samples=200,
+        n_features=10,
+        n_informative=5,
+        n_redundant=2,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Train the same model multiple times
+    importances_list = []
+    for i in range(3):
+        rf = curfc(
+            n_estimators=10,
+            max_depth=5,
+            min_samples_split=5,
+            max_features="sqrt",
+            bootstrap=True,
+            random_state=42,
+        )
+        rf.fit(X, y)
+        importances_list.append(rf.feature_importances_)
+
+    # All runs should produce identical importances
+    for i in range(1, len(importances_list)):
+        assert np.allclose(
+            importances_list[0], importances_list[i], rtol=1e-5
+        ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"

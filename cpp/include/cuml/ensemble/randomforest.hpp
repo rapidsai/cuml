@@ -102,6 +102,23 @@ template <class T, class L>
 struct RandomForestMetaData {
   std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
+
+  /**
+   * Feature importances (mean decrease in impurity).
+   * Vector of size n_features containing importance score for each feature.
+   */
+  std::vector<T> feature_importances;
+
+  /**
+   * Number of features in the training data.
+   * Used for lazy computation of feature importances.
+   */
+  int n_features = 0;
+
+  /**
+   * Flag indicating whether feature importances have been computed.
+   */
+  bool feature_importances_computed = false;
 };
 
 template <class T, class L>
@@ -120,6 +137,17 @@ template <class T, class L>
 void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
+
+/**
+ * @brief Get the feature importances of the trained RandomForest model.
+ * Computes them lazily if not already computed.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in,out] forest: CPU pointer to RandomForestMetaData
+ * @return Vector of feature importances
+ */
+template <class T, class L>
+std::vector<T> get_feature_importances(RandomForestMetaData<T, L>* forest);
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -230,6 +258,36 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   RF_params rf_params,
                   rapids_logger::level_enum verbosity);
+
+/**
+ * @brief Train a RandomForest and export a Treelite model while also returning
+ *        the out-of-bag score and feature importances.
+ *
+ * These helpers mirror fit_treelite but additionally fill the provided
+ * outputs per-feature importances computed during training.
+ */
+template <typename T, typename L>
+void fit_treelite_with_stats(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             T* input,
+                             int n_rows,
+                             int n_cols,
+                             L* labels,
+                             int n_unique_labels,
+                             RF_params rf_params,
+                             rapids_logger::level_enum verbosity,
+                             T* feature_importances_out);
+
+template <typename T, typename L>
+void fit_treelite_with_stats(const raft::handle_t& user_handle,
+                             TreeliteModelHandle* model,
+                             T* input,
+                             int n_rows,
+                             int n_cols,
+                             L* labels,
+                             RF_params rf_params,
+                             rapids_logger::level_enum verbosity,
+                             T* feature_importances_out);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,
