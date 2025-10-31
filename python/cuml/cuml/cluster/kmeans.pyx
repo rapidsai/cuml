@@ -537,11 +537,14 @@ class KMeans(Base,
                     "while a minimum of 1 is required by KMeans."
                 )
 
-        # Skip this check if running in multigpu mode. In that case we don't care if
-        # a single partition has fewer rows than clusters
-        if not multigpu and n_rows < self.n_clusters:
+        if n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
+            )
+        if multigpu and (self.init == "k-means++" or self.oversampling_factor <= 0):
+            raise ValueError(
+                "k-means++ init or oversampling_factor=0 not supported "
+                "for multi-GPU KMeans"
             )
 
         # Allocate output cluster_centers_
