@@ -620,8 +620,7 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         # Compute OOB score if requested
         if self.oob_score:
-            self._bootstrap_masks_ = bootstrap_masks_cp
-            self._compute_oob_score(X, y)
+            self._compute_oob_score(X, y, bootstrap_masks_cp)
 
         return self
 
@@ -666,7 +665,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         """
         pass
 
-    def _compute_oob_score(self, X, y):
+    def _compute_oob_score(self, X, y, bootstrap_masks_cp):
         """
         Compute OOB score using per-tree predictions and bootstrap masks.
         """
@@ -688,7 +687,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         # For each tree, accumulate predictions for OOB samples
         for tree_idx in range(self.n_estimators):
             # Get OOB mask for this tree (samples NOT in bootstrap)
-            in_bag_mask = self._bootstrap_masks_[tree_idx]
+            in_bag_mask = bootstrap_masks_cp[tree_idx]
             oob_mask = ~in_bag_mask
 
             # Accumulate predictions for OOB samples
