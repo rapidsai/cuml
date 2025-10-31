@@ -1226,21 +1226,17 @@ def test_rf_oob_score_classifier(datatype):
     clf.fit(X, y)
 
     # Check OOB attributes exist
-    assert hasattr(clf, "oob_score_"), "oob_score_ attribute should exist"
-    assert hasattr(
-        clf, "oob_decision_function_"
-    ), "oob_decision_function_ attribute should exist"
+    assert hasattr(clf, "oob_score_")
+    assert hasattr(clf, "oob_decision_function_")
 
     # Check OOB score is reasonable (between 0 and 1)
-    assert (
-        0.0 <= clf.oob_score_ <= 1.0
-    ), f"OOB score should be between 0 and 1, got {clf.oob_score_}"
+    assert 0.0 <= clf.oob_score_ <= 1.0
 
     # Check OOB decision function shape
     assert clf.oob_decision_function_.shape == (
         len(X),
         3,
-    ), f"OOB decision function shape should be {(len(X), 3)}, got {clf.oob_decision_function_.shape}"
+    )
 
     # Compare with sklearn (should be similar but not exactly the same due to implementation differences)
     sk_clf = skrfc(
@@ -1253,9 +1249,7 @@ def test_rf_oob_score_classifier(datatype):
     sk_clf.fit(X, y)
 
     # OOB scores should be reasonably close (within 0.2)
-    assert (
-        abs(clf.oob_score_ - sk_clf.oob_score_) < 0.2
-    ), f"OOB scores differ significantly: cuML={clf.oob_score_}, sklearn={sk_clf.oob_score_}"
+    assert abs(clf.oob_score_ - sk_clf.oob_score_) < 0.2
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -1278,23 +1272,15 @@ def test_rf_oob_score_regressor(datatype):
     reg.fit(X, y)
 
     # Check OOB attributes exist
-    assert hasattr(reg, "oob_score_"), "oob_score_ attribute should exist"
-    assert hasattr(
-        reg, "oob_prediction_"
-    ), "oob_prediction_ attribute should exist"
+    assert hasattr(reg, "oob_score_")
+    assert hasattr(reg, "oob_prediction_")
 
     # Check OOB score is reasonable (R² score, typically between -1 and 1, but for good models > 0)
-    assert (
-        -1.0 <= reg.oob_score_ <= 1.0
-    ), f"OOB R² should be between -1 and 1, got {reg.oob_score_}"
-    assert (
-        reg.oob_score_ > 0
-    ), f"OOB R² should be positive for this dataset, got {reg.oob_score_}"
+    assert -1.0 <= reg.oob_score_ <= 1.0
+    assert reg.oob_score_ > 0
 
     # Check OOB prediction shape
-    assert reg.oob_prediction_.shape == (
-        len(X),
-    ), f"OOB prediction shape should be {(len(X),)}, got {reg.oob_prediction_.shape}"
+    assert reg.oob_prediction_.shape == (len(X),)
 
 
 def test_rf_oob_score_disabled():
@@ -1312,12 +1298,8 @@ def test_rf_oob_score_disabled():
         clf.fit(X, y)
 
     # OOB attributes should not exist
-    assert not hasattr(
-        clf, "oob_score_"
-    ), "oob_score_ should not exist when oob_score=False"
-    assert not hasattr(
-        clf, "oob_decision_function_"
-    ), "oob_decision_function_ should not exist when oob_score=False"
+    assert not hasattr(clf, "oob_score_")
+    assert not hasattr(clf, "oob_decision_function_")
 
 
 def test_rf_oob_without_bootstrap():
@@ -1345,9 +1327,7 @@ def test_rf_oob_score_binary_classification():
     clf.fit(X, y)
 
     # OOB score should be reasonably high for this easy dataset
-    assert (
-        clf.oob_score_ > 0.85
-    ), f"OOB score should be > 0.85 for breast cancer dataset, got {clf.oob_score_}"
+    assert clf.oob_score_ > 0.85
 
     # OOB decision function should have 2 classes
     assert clf.oob_decision_function_.shape[1] == 2
