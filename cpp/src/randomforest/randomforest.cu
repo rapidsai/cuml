@@ -765,8 +765,16 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
         tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
       }
     }
-    for (auto i = 0; i < n_cols; i++) {
-      importances[i] += tree_importances[i] / root_sample_count;
+    double sum = 0.0;
+    for (int i = 0; i < n_cols; i++) {
+      sum += tree_importances[i];
+    }
+
+    if (sum > 0) {
+      for (int i = 0; i < n_cols; i++) {
+        tree_importances[i] /= sum;
+        importances[i] += tree_importances[i];
+      }
     }
   }
 
@@ -780,7 +788,6 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
       forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
     }
   } else {
-    // When all trees are stumps (no splits), explicitly set importances to 0
     for (auto i = 0; i < n_cols; i++) {
       forest->feature_importances[i] = static_cast<T>(0);
     }
