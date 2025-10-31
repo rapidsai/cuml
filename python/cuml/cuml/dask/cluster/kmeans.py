@@ -143,8 +143,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(inputs, client=self.client)
         self.datatype = data.datatype
 
-        if 'random_state' in self.kwargs:
-            self.kwargs['random_state'] = check_random_seed(self.kwargs['random_state'])
+        if "random_state" in self.kwargs:
+            self.kwargs["random_state"] = check_random_seed(
+                self.kwargs["random_state"]
+            )
 
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
