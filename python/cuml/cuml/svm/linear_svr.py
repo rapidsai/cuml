@@ -81,6 +81,8 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
     intercept_ : array or float, shape (1,)
         The constant factor in the decision function. If
         ``fit_intercept=False`` this is instead a float with value 0.0.
+    n_iter_ : int
+        The number of iterations run during the fit.
 
     Notes
     -----
@@ -162,6 +164,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             "intercept_": to_gpu(
                 model.intercept_, order="F", dtype=np.float64
             ),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -169,6 +172,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         return {
             "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
             "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -233,7 +237,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
                 check_cols=1,
             ).array
 
-        coef, intercept, _ = cuml.svm.linear.fit(
+        coef, intercept, n_iter, _ = cuml.svm.linear.fit(
             self.handle,
             X,
             y,
@@ -252,4 +256,5 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         )
         self.coef_ = coef
         self.intercept_ = intercept
+        self.n_iter_ = n_iter
         return self
