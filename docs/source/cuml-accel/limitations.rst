@@ -196,6 +196,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
@@ -211,6 +212,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 
 sklearn.kernel_ridge
