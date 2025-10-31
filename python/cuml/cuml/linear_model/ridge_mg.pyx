@@ -5,6 +5,7 @@ import numpy as np
 
 import cuml.internals
 from cuml.linear_model import Ridge
+from cuml.linear_model.base import check_deprecated_normalize
 from cuml.linear_model.base_mg import MGFitMixin
 
 from cython.operator cimport dereference as deref
@@ -47,6 +48,8 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
 class RidgeMG(MGFitMixin, Ridge):
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
+        check_deprecated_normalize(self)
+
         cdef int algo = self._pre_fit()
 
         cdef float float_intercept

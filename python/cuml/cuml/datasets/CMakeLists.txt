@@ -12,6 +12,5 @@ add_module_gpu_default("regression.pyx" ${regression_algo} ${datasets_algo})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
-  MODULE_PREFIX datasets_
+  LINKED_LIBRARIES "${cuml_sg_libraries}" MODULE_PREFIX datasets_
 )
