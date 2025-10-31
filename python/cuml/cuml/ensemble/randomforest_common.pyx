@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import math
 import warnings
-from abc import abstractmethod
 from typing import Literal
 
 import cupy as cp
@@ -24,6 +23,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.treelite import safe_treelite_call
 from cuml.internals.utils import check_random_seed
+from cuml.metrics import accuracy_score, r2_score
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -644,27 +644,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             )
         return fil_model
 
-    @abstractmethod
-    def _compute_oob_score_metric(self, y_true, oob_predictions, valid_mask):
-        """
-        Compute the OOB score metric for the specific model type.
-
-        Parameters
-        ----------
-        y_true : array-like
-            True labels
-        oob_predictions : array-like
-            OOB predictions (1D for regression, 2D for classification)
-        valid_mask : array-like
-            Boolean mask indicating which samples have OOB predictions
-
-        Returns
-        -------
-        float
-            The computed score
-        """
-        pass
-
     def _compute_oob_score(self, X, y, bootstrap_masks_cp):
         """
         Compute OOB score using per-tree predictions and bootstrap masks.
@@ -710,13 +689,17 @@ class BaseRandomForestModel(Base, InteropMixin):
         else:
             oob_predictions[valid_oob] /= oob_counts[valid_oob]
 
-        # Assign OOB predictions to the appropriate attribute based on estimator type
-        if self._estimator_type == "regressor":
-            self.oob_prediction_ = oob_predictions
-        else:
+        # Assign OOB predictions to the appropriate attribute based on estimator
+        # type and compute the OOB score
+        if self._estimator_type == "classifier":
             self.oob_decision_function_ = oob_predictions
 
-        # Compute the model-specific score
-        self.oob_score_ = self._compute_oob_score_metric(
-            y, oob_predictions, valid_oob
-        )
+            # Compute accuracy score for classification
+            oob_pred_classes = cp.argmax(oob_predictions[valid_oob], axis=1)
+            y_valid = y[valid_oob]
+            self.oob_score_ = float(accuracy_score(y_valid, oob_pred_classes))
+        else:
+            self.oob_prediction_ = oob_predictions
+
+            # Compute R² score for regression
+            self.oob_score_ = float(r2_score(y[valid_oob], oob_predictions[valid_oob]))
