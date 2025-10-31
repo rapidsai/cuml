@@ -707,6 +707,8 @@ def test_random_forest_classifier(random_state, oob_score):
         assert hasattr(cu_model, "oob_score_")
         assert hasattr(cu_model2, "oob_score_")
         assert hasattr(sk_model2, "oob_score_")
+        assert cu_model.oob_score_ == sk_model2.oob_score_
+        assert cu_model2.oob_score_ == sk_model.oob_score_
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -742,6 +744,8 @@ def test_random_forest_regressor(random_state, oob_score):
         assert hasattr(cu_model, "oob_score_")
         assert hasattr(cu_model2, "oob_score_")
         assert hasattr(sk_model2, "oob_score_")
+        assert cu_model.oob_score_ == sk_model2.oob_score_
+        assert cu_model2.oob_score_ == sk_model.oob_score_
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
