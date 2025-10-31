@@ -286,6 +286,7 @@ class KNeighborsClassifier(ClassifierMixin,
 
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
+        weights_cuml = None
         if self.weights not in (None, 'uniform'):
             weights_cp = compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
@@ -373,6 +374,7 @@ class KNeighborsClassifier(ClassifierMixin,
 
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
+        weights_cuml = None
         if self.weights not in (None, 'uniform'):
             weights_cp = compute_weights(cp.asarray(dists), self.weights)
             weights_cuml = CumlArray(weights_cp)
