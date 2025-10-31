@@ -26,7 +26,6 @@
 #include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/all_neighbors.hpp>
-#include <cuvs/neighbors/reachability.hpp>
 #include <gtest/gtest.h>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
