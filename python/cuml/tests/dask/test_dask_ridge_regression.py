@@ -47,11 +47,10 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("ncols", [10])
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_ridge(
-    nrows, ncols, n_parts, fit_intercept, normalize, datatype, delayed, client
+    nrows, ncols, n_parts, fit_intercept, datatype, delayed, client
 ):
 
     from cuml.dask.linear_model import Ridge as cumlRidge_dask
@@ -63,9 +62,7 @@ def test_ridge(
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    lr = cumlRidge_dask(
-        alpha=0.5, fit_intercept=fit_intercept, normalize=normalize
-    )
+    lr = cumlRidge_dask(alpha=0.5, fit_intercept=fit_intercept)
 
     lr.fit(X_df, y_df)
 

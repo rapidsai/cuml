@@ -47,7 +47,6 @@ def test_lasso(
     lasso = Lasso(
         alpha=np.array([alpha]),
         fit_intercept=True,
-        normalize=False,
         max_iter=1000,
         selection=algorithm,
         tol=1e-10,
@@ -133,7 +132,6 @@ def test_elastic_net(
     elasticnet = ElasticNet(
         alpha=np.array([alpha]),
         fit_intercept=True,
-        normalize=False,
         max_iter=1000,
         selection=algorithm,
         tol=1e-10,

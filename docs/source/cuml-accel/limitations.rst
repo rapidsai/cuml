@@ -284,11 +284,8 @@ Ridge
 
 ``Ridge`` will fall back to CPU in the following cases:
 
-- If ``positive=True``.
-- If ``solver="lbfgs"``.
+- If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-- If ``X`` has more columns than rows.
-- If ``y`` is multioutput.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -472,14 +469,10 @@ LinearSVC
 - If ``intercept_scaling`` is not ``1``.
 - If ``multi_class`` is not ``"ovr"``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Sample weight functionality may not produce equivalent results to replicating data according to weights.
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 LinearSVR
 ^^^^^^^^^
@@ -489,13 +482,10 @@ LinearSVR
 - If ``X`` is sparse.
 - If ``intercept_scaling`` is not ``1``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 umap
 ----

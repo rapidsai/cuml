@@ -239,8 +239,13 @@ class CD(Base, FMajorInputTagMixin):
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        Whether to normalize the data or not.
+    normalize : boolean, default=False
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     max_iter : int (default = 1000)
         The number of times the model should iterate through the entire
         dataset during training
@@ -337,6 +342,9 @@ class CD(Base, FMajorInputTagMixin):
         """
         Fit the model with X and y.
         """
+        from cuml.linear_model.base import check_deprecated_normalize
+        check_deprecated_normalize(self)
+
         coef, intercept = fit_coordinate_descent(
             X,
             y,

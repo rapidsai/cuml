@@ -20,8 +20,12 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
+from cuml.internals.memory_utils import cuda_ptr
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import (
+    LinearPredictMixin,
+    check_deprecated_normalize,
+)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -83,13 +87,6 @@ _divide_non_zero = cp.ElementwiseKernel(
     "z = abs(y) < 1e-10 ? x : x / y",
     "divide_non_zero"
 )
-
-
-def _cuda_ptr(X):
-    """Returns a pointer to a backing device array, or None if not a device array"""
-    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
-        return interface["data"][0]
-    return None
 
 
 class LinearRegression(Base,
@@ -162,14 +159,13 @@ class LinearRegression(Base,
         If True, cuml will copy X when needed to avoid mutating the input array.
         If you're ok with X being overwritten, setting to False may avoid a copy,
         reducing memory usage for certain algorithms.
-    normalize : boolean (default = False)
-        This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
+    normalize : boolean, default=False
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -315,6 +311,8 @@ class LinearRegression(Base,
         Fit the model with X and y.
 
         """
+        check_deprecated_normalize(self)
+
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
@@ -350,8 +348,8 @@ class LinearRegression(Base,
 
         cdef int algo = self._select_algo(X_m, y_m)
 
-        X_is_copy = _cuda_ptr(X) != X_m.ptr
-        y_is_copy = _cuda_ptr(y) != y_m.ptr
+        X_is_copy = cuda_ptr(X) != X_m.ptr
+        y_is_copy = cuda_ptr(y) != y_m.ptr
 
         if y_m.ndim > 1 and y_m.shape[1] > 1:
             # Fallback to cupy SVD implementation for multi-target problems

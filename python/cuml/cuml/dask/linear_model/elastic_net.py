@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.base import BaseEstimator, check_deprecated_normalize
 from cuml.dask.solvers import CD
 
 
@@ -36,10 +36,13 @@ class ElasticNet(BaseEstimator):
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2
-        norm.
-        If False, no scaling will be done.
+    normalize : boolean, default=False
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     max_iter : int (default = 1000)
         The maximum number of iterations
     tol : float (default = 1e-3)
@@ -103,7 +106,7 @@ class ElasticNet(BaseEstimator):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
-
+        check_deprecated_normalize(self)
         self.solver.fit(X, y)
         return self
 

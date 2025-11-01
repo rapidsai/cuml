@@ -31,14 +31,24 @@ from cuml.metrics.distance_type cimport DistanceType
 
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
+    cdef bool multi_gpu = kmeans._multi_gpu
+
     params.n_clusters = kmeans.n_clusters
     params.max_iter = kmeans.max_iter
     params.tol = kmeans.tol
-    params.rng_state.seed = check_random_seed(kmeans.random_state)
     params.verbosity = <level_enum>(<int>kmeans.verbose)
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
     params.oversampling_factor = kmeans.oversampling_factor
+
+    # Ensure random_state is set when running on multi-gpu
+    if multi_gpu and kmeans.random_state is None:
+        raise ValueError(
+            "KMeansMG requires `random_state != None`, please select a consistent "
+            "non-None `random_state` to use across all partitions when calling "
+            "KMeansMG"
+        )
+    params.rng_state.seed = check_random_seed(kmeans.random_state)
 
     if isinstance(kmeans.init, str):
         if kmeans.init == "k-means++":
@@ -52,6 +62,11 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
             params.init = lib.InitMethod.Random
     else:
         params.init = lib.InitMethod.Array
+
+    if multi_gpu and params.oversampling_factor == 0:
+        raise ValueError(
+            "init='k-means++' or oversampling_factor=0 not supported for KMeansMG"
+        )
 
     if kmeans.n_init == "auto":
         if isinstance(kmeans.init, str) and params.init == lib.InitMethod.KMeansPlusPlus:
@@ -380,6 +395,8 @@ class KMeans(Base,
     For additional docs, see `scikitlearn's Kmeans
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
+    _multi_gpu = False
+
     labels_ = CumlArrayDescriptor(order="C")
     cluster_centers_ = CumlArrayDescriptor(order="C")
 
@@ -505,11 +522,6 @@ class KMeans(Base,
         Compute k-means clustering with X.
 
         """
-        return self._fit(X, y=y, sample_weight=sample_weight, convert_dtype=convert_dtype)
-
-    def _fit(
-        self, X, y=None, sample_weight=None, *, convert_dtype=True, multigpu=False
-    ) -> "KMeans":
         # Process input arrays
         X_m, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
@@ -537,9 +549,7 @@ class KMeans(Base,
                     "while a minimum of 1 is required by KMeans."
                 )
 
-        # Skip this check if running in multigpu mode. In that case we don't care if
-        # a single partition has fewer rows than clusters
-        if not multigpu and n_rows < self.n_clusters:
+        if n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
             )

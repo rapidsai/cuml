@@ -26,6 +26,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
+from cuml.linear_model.base import check_deprecated_normalize
 
 from pylibraft.common.handle cimport handle_t
 
@@ -78,14 +79,12 @@ class Lars(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by removing its mean
-        and dividing by it's variance. If False, then the solver expects that
-        the data is already normalized.
+    normalize : boolean, default=False
 
-        .. versionchanged:: 24.06
-            The default of `normalize` changed from `True` to `False`.
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
 
     copy_X : boolean (default = True)
         The solver permutes the columns of X. Set `copy_X` to True to prevent
@@ -157,7 +156,7 @@ class Lars(Base, RegressorMixin):
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, *, fit_intercept=True, normalize=True,
+    def __init__(self, *, fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None, copy_X=True,
                  fit_path=True, n_nonzero_coefs=500, eps=None,
                  precompute='auto'):
@@ -291,6 +290,8 @@ class Lars(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
+        check_deprecated_normalize(self)
+
         self._set_n_features_in(X)
         self._set_output_type(X)
 

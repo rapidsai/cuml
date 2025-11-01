@@ -65,6 +65,9 @@ Model Selection and Data Splitting
 
  .. autofunction:: cuml.model_selection.train_test_split
 
+ .. autoclass:: cuml.model_selection.KFold
+    :members:
+
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 

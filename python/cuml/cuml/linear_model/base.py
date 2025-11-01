@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -47,3 +49,17 @@ class LinearPredictMixin:
         out += intercept
 
         return CumlArray(out, index=X.index)
+
+
+def check_deprecated_normalize(model):
+    """Warn if the deprecated `normalize` option is used."""
+    if model.normalize:
+        cls_name = type(model).__name__
+        warnings.warn(
+            (
+                f"The `normalize` option to `{cls_name}` was deprecated in "
+                f"25.12 and will be removed in 26.02. Please use a `StandardScaler` "
+                f"to normalize your data external to `{cls_name}`."
+            ),
+            FutureWarning,
+        )

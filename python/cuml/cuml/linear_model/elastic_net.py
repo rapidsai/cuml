@@ -13,7 +13,10 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import (
+    LinearPredictMixin,
+    check_deprecated_normalize,
+)
 from cuml.solvers import QN
 from cuml.solvers.cd import fit_coordinate_descent
 
@@ -62,12 +65,12 @@ class ElasticNet(
         leads to significantly faster convergence especially when tol is higher
         than 1e-4.
     normalize : boolean, default=False
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -230,6 +233,8 @@ class ElasticNet(
         Fit the model with X and y.
 
         """
+        check_deprecated_normalize(self)
+
         if self.alpha < 0.0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
         if self.selection not in ["cyclic", "random"]:

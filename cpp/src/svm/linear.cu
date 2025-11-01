@@ -239,17 +239,17 @@ class WorkerHandle {
 };
 
 template <typename T>
-void fit(const raft::handle_t& handle,
-         const Params& params,
-         const std::size_t nRows,
-         const std::size_t nCols,
-         const int nClasses,
-         const T* classes,
-         const T* X,
-         const T* y,
-         const T* sampleWeight,
-         T* w,
-         T* probScale)
+int fit(const raft::handle_t& handle,
+        const Params& params,
+        const std::size_t nRows,
+        const std::size_t nCols,
+        const int nClasses,
+        const T* classes,
+        const T* X,
+        const T* y,
+        const T* sampleWeight,
+        T* w,
+        T* probScale)
 {
   if (isRegression(params.loss)) {
     ASSERT(nClasses == 0 && classes == nullptr, "Regression fit takes no classes");
@@ -330,7 +330,8 @@ void fit(const raft::handle_t& handle,
   // one-vs-rest logic goes over each class
   const int n_streams = coefCols > 1 ? handle.get_stream_pool_size() : 1;
   bool parallel       = n_streams > 1;
-#pragma omp parallel for num_threads(n_streams) if (parallel)
+  int max_n_iter      = 0;
+#pragma omp parallel for num_threads(n_streams) if (parallel) reduction(max : max_n_iter)
   for (int class_i = 0; class_i < coefCols; class_i++) {
     T* yi = y1 + nRows * class_i;
     T* wi = w1 + coefRows * class_i;
@@ -341,7 +342,7 @@ void fit(const raft::handle_t& handle,
         yi, y, nRows, OvrSelector<T>{classes, nClasses == 2 ? 1 : class_i}, worker.stream);
     }
     T target;
-    int num_iters;
+    int n_iter;
     GLM::qnFit<T>(worker.handle,
                   qn_pams,
                   X1,
@@ -353,9 +354,10 @@ void fit(const raft::handle_t& handle,
                   nClasses == 0 ? 1 : 2,
                   wi,
                   &target,
-                  &num_iters,
+                  &n_iter,
                   (T*)sampleWeight,
                   T(params.epsilon));
+    if (n_iter > max_n_iter) { max_n_iter = n_iter; }
 
     if (probScale == nullptr) continue;
     // Calibrate probabilities
@@ -374,8 +376,10 @@ void fit(const raft::handle_t& handle,
                   2,
                   psi,
                   &target,
-                  &num_iters,
+                  &n_iter,
                   (T*)sampleWeight);
+
+    if (n_iter > max_n_iter) { max_n_iter = n_iter; }
   }
   if (parallel) handle.sync_stream_pool();
 
@@ -385,6 +389,8 @@ void fit(const raft::handle_t& handle,
       raft::linalg::transpose(handle, ps1, probScale, 2, coefCols, stream);
     }
   }
+
+  return max_n_iter;
 }
 
 template <typename T>
@@ -414,28 +420,28 @@ void computeProbabilities(const raft::handle_t& handle,
 }
 
 // Explicit instantiations for library
-template void fit<float>(const raft::handle_t& handle,
+template int fit<float>(const raft::handle_t& handle,
+                        const Params& params,
+                        const std::size_t nRows,
+                        const std::size_t nCols,
+                        const int nClasses,
+                        const float* classes,
+                        const float* X,
+                        const float* y,
+                        const float* sampleWeight,
+                        float* w,
+                        float* probScale);
+template int fit<double>(const raft::handle_t& handle,
                          const Params& params,
                          const std::size_t nRows,
                          const std::size_t nCols,
                          const int nClasses,
-                         const float* classes,
-                         const float* X,
-                         const float* y,
-                         const float* sampleWeight,
-                         float* w,
-                         float* probScale);
-template void fit<double>(const raft::handle_t& handle,
-                          const Params& params,
-                          const std::size_t nRows,
-                          const std::size_t nCols,
-                          const int nClasses,
-                          const double* classes,
-                          const double* X,
-                          const double* y,
-                          const double* sampleWeight,
-                          double* w,
-                          double* probScale);
+                         const double* classes,
+                         const double* X,
+                         const double* y,
+                         const double* sampleWeight,
+                         double* w,
+                         double* probScale);
 template void computeProbabilities<float>(const raft::handle_t& handle,
                                           const std::size_t nRows,
                                           const int nClasses,

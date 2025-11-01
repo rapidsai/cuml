@@ -8,9 +8,13 @@ cuML includes tests to ensure full compatibility of these wrappers
 with CUDA-based data and cuML estimators, but all of the underlying code
 is due to the scikit-learn developers."""
 
-from cuml.model_selection._split import StratifiedKFold, train_test_split
+from cuml.model_selection._split import (
+    KFold,
+    StratifiedKFold,
+    train_test_split,
+)
 
-__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold"]
+__all__ = ["train_test_split", "KFold", "GridSearchCV", "StratifiedKFold"]
 
 
 def __getattr__(name):

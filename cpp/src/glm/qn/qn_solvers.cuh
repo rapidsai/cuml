@@ -237,6 +237,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
     step = T(1.0);
   }
   CUML_LOG_WARN("L-BFGS: max iterations reached");
+  *k = param.max_iterations;
   return OPT_MAX_ITERS_REACHED;
 }
 
@@ -395,6 +396,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
     step = T(1.0);
   }
   CUML_LOG_WARN("QWL-QN: max iterations reached");
+  *k = param.max_iterations;
   return OPT_MAX_ITERS_REACHED;
 }
 /*
