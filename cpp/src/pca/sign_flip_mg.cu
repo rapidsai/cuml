@@ -118,8 +118,8 @@ void col_means_mg(const raft::handle_t& handle,
   const auto& comm                                = handle.get_comms();
   int rank                                        = comm.get_rank();
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
-  rmm::device_uvector<T> col_means_raw(
-    std::max(size_t(comm.get_size()), local_blocks.size()) * n_cols, streams[0]);
+  std::size_t local_block_size = std::max(size_t(comm.get_size()), local_blocks.size());
+  rmm::device_uvector<T> col_means_raw(local_block_size * n_cols, streams[0]);
   for (std::size_t i = 0; i < input.size(); i++) {
     T* input_chunk           = input[i]->ptr;
     std::size_t n_rows_chunk = local_blocks[i]->size;
@@ -141,11 +141,11 @@ void col_means_mg(const raft::handle_t& handle,
   }
   // Compute sum(col_mean_chunk)
   auto col_means_raw_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-    col_means_raw.data(), input.size(), n_cols);
+    col_means_raw.data(), local_block_size, n_cols);
   raft::linalg::reduce<true, false>(dots.data(),
                                     col_means_raw_view.data_handle(),
                                     n_cols,
-                                    input.size(),
+                                    local_block_size,
                                     T(0),
                                     streams[0],
                                     false,
@@ -172,8 +172,8 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
 
   auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
     components, n_components, n_features);
-  rmm::device_uvector<T> max_vals_raw(
-    std::max(size_t(comm.get_size()), local_blocks.size()) * n_components, streams[0]);
+  std::size_t local_block_size = std::max(size_t(comm.get_size()), local_blocks.size());
+  rmm::device_uvector<T> max_vals_raw(local_block_size * n_components, streams[0]);
   rmm::device_uvector<T> max_vals(n_components, streams[0]);
   auto max_vals_view = raft::make_device_vector_view<T, std::size_t>(max_vals.data(), n_components);
 
@@ -234,7 +234,7 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
   raft::linalg::reduce<true, false>(max_vals.data(),
                                     max_vals_raw.data(),
                                     n_components,
-                                    input.size(),
+                                    local_block_size,
                                     T(0),
                                     streams[0],
                                     false,
