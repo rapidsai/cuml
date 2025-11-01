@@ -377,3 +377,10 @@ def determine_array_memtype(X):
     if isinstance(X, (pd.DataFrame, pd.Series)):
         return MemoryType.host
     return None
+
+
+def cuda_ptr(X):
+    """Returns a pointer to a backing device array, or None if not a device array"""
+    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
+        return interface["data"][0]
+    return None
