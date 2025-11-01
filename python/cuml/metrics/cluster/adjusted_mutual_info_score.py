@@ -98,17 +98,40 @@ def _expected_mutual_info(contingency):
 
 def adjusted_mutual_info_score(labels_true, labels_pred, average_method='arithmetic'):
     """
-    Compute AMI between two labelings.
+    Compute the Adjusted Mutual Information (AMI) score between two cluster label assignments.
+
+    The AMI measures the agreement between two clustering results while adjusting
+    for chance. It ranges from 0 (random labeling) to 1 (perfect agreement).
 
     Parameters
     ----------
-    labels_true, labels_pred : array-like
-    average_method : {'min','geometric','arithmetic','max'}
+    labels_true : array-like
+        Ground truth class labels.
+    labels_pred : array-like
+        Predicted cluster labels to evaluate.
+    average_method : {'min', 'geometric', 'arithmetic', 'max'}, default='arithmetic'
+        How to compute the normalizer used in the denominator.
 
     Returns
     -------
-    ami : float
+    float
+        The Adjusted Mutual Information score.
+
+    Notes
+    -----
+    This implementation aligns with the scikit-learn version of
+    ``sklearn.metrics.adjusted_mutual_info_score``.
+
+    Examples
+    --------
+    >>> from cuml.metrics.cluster import adjusted_mutual_info_score
+    >>> import numpy as np
+    >>> labels_true = np.array([0, 0, 1, 1])
+    >>> labels_pred = np.array([1, 1, 0, 0])
+    >>> adjusted_mutual_info_score(labels_true, labels_pred)
+    1.0
     """
+
     xp = _get_array_module(labels_true)
     contingency = _contingency_matrix(labels_true, labels_pred, xp=xp)
     # compute MI and entropies (use xp for arrays)
