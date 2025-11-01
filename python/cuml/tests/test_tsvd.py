@@ -56,12 +56,11 @@ def test_tsvd_fit(datatype, name, use_handle):
             "components_",
             "explained_variance_ratio_",
         ]:
-            with_sign = False if attr in ["components_"] else True
             assert array_equal(
                 getattr(cutsvd, attr),
                 getattr(sktsvd, attr),
                 0.4,
-                with_sign=with_sign,
+                with_sign=True,
             )
 
 

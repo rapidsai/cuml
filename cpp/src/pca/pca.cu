@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -19,7 +19,8 @@ void pcaFit(raft::handle_t& handle,
             float* singular_vals,
             float* mu,
             float* noise_vars,
-            const paramsPCA& prms)
+            const paramsPCA& prms,
+            bool u_based_decision = true)
 {
   pcaFit(handle,
          input,
@@ -30,7 +31,8 @@ void pcaFit(raft::handle_t& handle,
          mu,
          noise_vars,
          prms,
-         handle.get_stream());
+         handle.get_stream(),
+         u_based_decision);
 }
 
 void pcaFit(raft::handle_t& handle,
@@ -41,7 +43,8 @@ void pcaFit(raft::handle_t& handle,
             double* singular_vals,
             double* mu,
             double* noise_vars,
-            const paramsPCA& prms)
+            const paramsPCA& prms,
+            bool u_based_decision = true)
 {
   pcaFit(handle,
          input,
@@ -52,7 +55,8 @@ void pcaFit(raft::handle_t& handle,
          mu,
          noise_vars,
          prms,
-         handle.get_stream());
+         handle.get_stream(),
+         u_based_decision);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -64,7 +68,8 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* singular_vals,
                      float* mu,
                      float* noise_vars,
-                     const paramsPCA& prms)
+                     const paramsPCA& prms,
+                     bool u_based_decision = true)
 {
   pcaFitTransform(handle,
                   input,
@@ -76,7 +81,8 @@ void pcaFitTransform(raft::handle_t& handle,
                   mu,
                   noise_vars,
                   prms,
-                  handle.get_stream());
+                  handle.get_stream(),
+                  u_based_decision);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -88,7 +94,8 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* singular_vals,
                      double* mu,
                      double* noise_vars,
-                     const paramsPCA& prms)
+                     const paramsPCA& prms,
+                     bool u_based_decision = true)
 {
   pcaFitTransform(handle,
                   input,
@@ -100,7 +107,8 @@ void pcaFitTransform(raft::handle_t& handle,
                   mu,
                   noise_vars,
                   prms,
-                  handle.get_stream());
+                  handle.get_stream(),
+                  u_based_decision);
 }
 
 void pcaInverseTransform(raft::handle_t& handle,

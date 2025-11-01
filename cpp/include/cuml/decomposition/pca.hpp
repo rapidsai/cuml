@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,7 +21,8 @@ void pcaFit(raft::handle_t& handle,
             float* singular_vals,
             float* mu,
             float* noise_vars,
-            const paramsPCA& prms);
+            const paramsPCA& prms,
+            bool u_based_decision);
 void pcaFit(raft::handle_t& handle,
             double* input,
             double* components,
@@ -30,7 +31,8 @@ void pcaFit(raft::handle_t& handle,
             double* singular_vals,
             double* mu,
             double* noise_vars,
-            const paramsPCA& prms);
+            const paramsPCA& prms,
+            bool u_based_decision);
 void pcaFitTransform(raft::handle_t& handle,
                      float* input,
                      float* trans_input,
@@ -40,7 +42,8 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* singular_vals,
                      float* mu,
                      float* noise_vars,
-                     const paramsPCA& prms);
+                     const paramsPCA& prms,
+                     bool u_based_decision);
 void pcaFitTransform(raft::handle_t& handle,
                      double* input,
                      double* trans_input,
@@ -50,7 +53,8 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* singular_vals,
                      double* mu,
                      double* noise_vars,
-                     const paramsPCA& prms);
+                     const paramsPCA& prms,
+                     bool u_based_decision);
 void pcaInverseTransform(raft::handle_t& handle,
                          float* trans_input,
                          float* components,

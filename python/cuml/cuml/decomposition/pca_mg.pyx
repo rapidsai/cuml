@@ -4,6 +4,8 @@
 #
 
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.decomposition import PCA
@@ -36,7 +38,8 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
                   float *mu,
                   float *noise_vars,
                   paramsPCAMG &prms,
-                  bool verbose) except +
+                  bool verbose,
+                  bool u_based_decision) except +
 
     cdef void fit(handle_t& handle,
                   vector[doubleData_t *] input_data,
@@ -48,7 +51,8 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
                   double *mu,
                   double *noise_vars,
                   paramsPCAMG &prms,
-                  bool verbose) except +
+                  bool verbose,
+                  bool u_based_decision) except +
 
 
 class PCAMG(BaseDecompositionMG, PCA):
@@ -90,6 +94,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool use_float32 = (dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
 
         # Perform fit
         with nogil:
@@ -105,7 +110,8 @@ class PCAMG(BaseDecompositionMG, PCA):
                     <float*> mean_ptr,
                     <float*> noise_variance_ptr,
                     params,
-                    False
+                    False,
+                    u_based_decision
                 )
             else:
                 fit(
@@ -119,7 +125,8 @@ class PCAMG(BaseDecompositionMG, PCA):
                     <double*> mean_ptr,
                     <double*> noise_variance_ptr,
                     params,
-                    False
+                    False,
+                    u_based_decision
                 )
         self.handle.sync()
 
