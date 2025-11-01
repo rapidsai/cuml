@@ -380,7 +380,6 @@ KNeighborsClassifier
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -397,7 +396,6 @@ KNeighborsRegressor
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 

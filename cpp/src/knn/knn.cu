@@ -320,7 +320,8 @@ void knn_classify(raft::handle_t& handle,
                   std::vector<int*>& y,
                   size_t n_index_rows,
                   size_t n_query_rows,
-                  int k)
+                  int k,
+                  float* sample_weight)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -334,8 +335,21 @@ void knn_classify(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  MLCommon::Selection::knn_classify(
-    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  if (sample_weight == nullptr) {
+    MLCommon::Selection::knn_classify(
+      handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  } else {
+    MLCommon::Selection::knn_classify_weighted(handle,
+                                               out,
+                                               knn_indices,
+                                               sample_weight,
+                                               y,
+                                               n_index_rows,
+                                               n_query_rows,
+                                               k,
+                                               uniq_labels,
+                                               n_unique);
+  }
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -344,9 +358,15 @@ void knn_regress(raft::handle_t& handle,
                  std::vector<float*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k)
+                 int k,
+                 float* sample_weight)
 {
-  MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
+  if (sample_weight == nullptr) {
+    MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
+  } else {
+    MLCommon::Selection::knn_regress_weighted(
+      handle, out, knn_indices, sample_weight, y, n_index_rows, n_query_rows, k);
+  }
 }
 
 void knn_class_proba(raft::handle_t& handle,
@@ -355,7 +375,8 @@ void knn_class_proba(raft::handle_t& handle,
                      std::vector<int*>& y,
                      size_t n_index_rows,
                      size_t n_query_rows,
-                     int k)
+                     int k,
+                     float* sample_weight)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -369,8 +390,21 @@ void knn_class_proba(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  MLCommon::Selection::class_probs(
-    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  if (sample_weight == nullptr) {
+    MLCommon::Selection::class_probs(
+      handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  } else {
+    MLCommon::Selection::class_probs_weighted(handle,
+                                              out,
+                                              knn_indices,
+                                              sample_weight,
+                                              y,
+                                              n_index_rows,
+                                              n_query_rows,
+                                              k,
+                                              uniq_labels,
+                                              n_unique);
+  }
 }
 
 };  // END NAMESPACE ML
