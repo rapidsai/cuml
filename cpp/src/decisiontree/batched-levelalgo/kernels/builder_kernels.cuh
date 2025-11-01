@@ -217,8 +217,9 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     // compute the mask
     // compute the adjacent differences according to the functor
     // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
+    // Use -1 as the initial value since it can't match any valid column index [0, n-1]
     BlockAdjacentDifferenceT(temp_storage.diff)
-      .SubtractLeft(items, mask, CustomDifference<IdxT>(), mask[0]);
+      .SubtractLeft(items, mask, CustomDifference<IdxT>(), IdxT(-1));
 
     __syncthreads();
 
