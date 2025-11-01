@@ -7,6 +7,7 @@
 
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+#include <cuml/decomposition/sign_flip_mg.hpp>
 
 #include <cumlprims/opg/linalg/qr_based_svd.hpp>
 #include <cumlprims/opg/matrix/matrix_utils.hpp>
@@ -42,7 +43,8 @@ void fit_impl(raft::handle_t& handle,
               paramsPCAMG prms,
               cudaStream_t* streams,
               std::uint32_t n_streams,
-              bool verbose)
+              bool verbose,
+              bool u_based_decision = true)
 {
   const auto& comm = handle.get_comms();
 
@@ -64,14 +66,26 @@ void fit_impl(raft::handle_t& handle,
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
-  signFlipComponents(handle,
-                     input_data[0]->ptr,
-                     components,
-                     prms.n_rows,
-                     prms.n_cols,
-                     prms.n_components,
-                     streams[0],
-                     false);
+  if (u_based_decision) {
+    sign_flip_components_u(handle,
+                           input_data,
+                           input_desc,
+                           components,
+                           prms.n_rows,
+                           prms.n_cols,
+                           prms.n_components,
+                           streams,
+                           n_streams);
+  } else {
+    signFlipComponents(handle,
+                       input_data[0]->ptr,
+                       components,
+                       prms.n_rows,
+                       prms.n_cols,
+                       prms.n_components,
+                       streams[0],
+                       false);
+  }
 }
 
 /**
@@ -99,7 +113,8 @@ void fit_impl(raft::handle_t& handle,
               T* mu,
               T* noise_vars,
               paramsPCAMG prms,
-              bool verbose)
+              bool verbose,
+              bool u_based_decision = true)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -124,7 +139,8 @@ void fit_impl(raft::handle_t& handle,
              prms,
              streams,
              n_streams,
-             verbose);
+             verbose,
+             u_based_decision);
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t& h = handle;
     cudaStream_t stream     = h.get_stream();
@@ -161,8 +177,26 @@ void fit_impl(raft::handle_t& handle,
                        rank);
 
     // sign flip
-    signFlipComponents(
-      h, input_data[0]->ptr, vMatrix.data(), prms.n_rows, prms.n_cols, prms.n_cols, stream, false);
+    if (u_based_decision) {
+      sign_flip_components_u(handle,
+                             input_data,
+                             input_desc,
+                             vMatrix.data(),
+                             prms.n_rows,
+                             prms.n_cols,
+                             prms.n_cols,
+                             streams,
+                             n_streams);
+    } else {
+      signFlipComponents(h,
+                         input_data[0]->ptr,
+                         vMatrix.data(),
+                         prms.n_rows,
+                         prms.n_cols,
+                         prms.n_cols,
+                         stream,
+                         false);
+    }
 
     // Calculate instance variables
     rmm::device_uvector<T> explained_var_all(prms.n_cols, stream);
@@ -495,7 +529,8 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* mu,
                         T* noise_vars,
                         paramsPCAMG prms,
-                        bool verbose)
+                        bool verbose,
+                        bool u_based_decision = true)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -523,7 +558,8 @@ void fit_transform_impl(raft::handle_t& handle,
            prms,
            streams,
            n_streams,
-           verbose);
+           verbose,
+           u_based_decision);
 
   transform_impl(handle,
                  input_data,
@@ -556,7 +592,8 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose)
+         bool verbose,
+         bool u_based_decision)
 {
   fit_impl(handle,
            input_data,
@@ -568,7 +605,8 @@ void fit(raft::handle_t& handle,
            mu,
            noise_vars,
            prms,
-           verbose);
+           verbose,
+           u_based_decision);
 }
 
 void fit(raft::handle_t& handle,
@@ -581,7 +619,8 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose)
+         bool verbose,
+         bool u_based_decision)
 {
   fit_impl(handle,
            input_data,
@@ -593,7 +632,8 @@ void fit(raft::handle_t& handle,
            mu,
            noise_vars,
            prms,
-           verbose);
+           verbose,
+           u_based_decision);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -608,7 +648,8 @@ void fit_transform(raft::handle_t& handle,
                    float* mu,
                    float* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose)
+                   bool verbose,
+                   bool u_based_decision = true)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -622,7 +663,8 @@ void fit_transform(raft::handle_t& handle,
                      mu,
                      noise_vars,
                      prms,
-                     verbose);
+                     verbose,
+                     u_based_decision);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -637,7 +679,8 @@ void fit_transform(raft::handle_t& handle,
                    double* mu,
                    double* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose)
+                   bool verbose,
+                   bool u_based_decision = true)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -651,7 +694,8 @@ void fit_transform(raft::handle_t& handle,
                      mu,
                      noise_vars,
                      prms,
-                     verbose);
+                     verbose,
+                     u_based_decision);
 }
 
 void transform(raft::handle_t& handle,

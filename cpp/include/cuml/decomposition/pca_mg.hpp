@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -38,7 +38,8 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose = false);
+         bool verbose          = false,
+         bool u_based_decision = true);
 
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -50,7 +51,8 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose = false);
+         bool verbose          = false,
+         bool u_based_decision = true);
 
 /**
  * @brief performs MNMG fit and transform operation for the pca
@@ -80,7 +82,8 @@ void fit_transform(raft::handle_t& handle,
                    float* mu,
                    float* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose);
+                   bool verbose,
+                   bool u_based_decision);
 
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -94,7 +97,8 @@ void fit_transform(raft::handle_t& handle,
                    double* mu,
                    double* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose);
+                   bool verbose,
+                   bool u_based_decision);
 
 /**
  * @brief performs MNMG transform operation for the pca
