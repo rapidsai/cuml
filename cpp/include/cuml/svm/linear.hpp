@@ -87,19 +87,20 @@ struct Params {
  * nClasses otherwise. F-contiguous.
  * @param [out] probScale: the fitted probability scales, shape=(nClasses, 2),
  * F-contiguous. Pass nullptr to not fit probability scales.
+ * @return n_iter: the maximum number of iterations run across all classes.
  */
 template <typename T>
-void fit(const raft::handle_t& handle,
-         const Params& params,
-         const std::size_t nRows,
-         const std::size_t nCols,
-         const int nClasses,
-         const T* classes,
-         const T* X,
-         const T* y,
-         const T* sampleWeight,
-         T* w,
-         T* probScale);
+int fit(const raft::handle_t& handle,
+        const Params& params,
+        const std::size_t nRows,
+        const std::size_t nCols,
+        const int nClasses,
+        const T* classes,
+        const T* X,
+        const T* y,
+        const T* sampleWeight,
+        T* w,
+        T* probScale);
 
 /**
  * @brief Compute probabilities from decision function scores.

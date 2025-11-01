@@ -6,6 +6,7 @@ import math
 import numpy as np
 import pytest
 import sklearn.svm
+from pylibraft.common import Handle
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
@@ -273,3 +274,29 @@ def test_linear_svc_input_types(kind, weighted):
     # predict output type matches input type
     assert type(y_pred).__module__.split(".")[0] == kind
     assert y_pred.dtype == y.dtype
+
+
+@pytest.mark.parametrize(
+    "loss", ["epsilon_insensitive", "squared_epsilon_insensitive"]
+)
+def test_linear_svr_n_iter_max_iter(loss):
+    X, y = make_regression(random_state=42)
+    model = cuml.LinearSVR(loss=loss).fit(X, y)
+    assert model.n_iter_ <= model.max_iter
+
+    model = cuml.LinearSVR(loss=loss, max_iter=10).fit(X, y)
+    assert model.n_iter_ == 10
+
+
+@pytest.mark.parametrize("penalty", ["l1", "l2"])
+@pytest.mark.parametrize("parallel_streams", [False, True])
+def test_linear_svc_n_iter_max_iter(penalty, parallel_streams):
+    handle = Handle(n_streams=4) if parallel_streams else None
+    X, y = make_classification(random_state=42)
+    model = cuml.LinearSVC(penalty=penalty, handle=handle).fit(X, y)
+    assert model.n_iter_ <= model.max_iter
+
+    model = cuml.LinearSVC(penalty=penalty, handle=handle, max_iter=10).fit(
+        X, y
+    )
+    assert model.n_iter_ == 10
