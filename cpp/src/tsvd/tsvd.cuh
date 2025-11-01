@@ -172,13 +172,12 @@ void signFlipComponents(const raft::handle_t& handle,
                         std::size_t n_features,
                         std::size_t n_components,
                         cudaStream_t stream,
+                        bool center,
                         bool u_based_decision = true)
 {
   rmm::device_uvector<math_t> max_vals(n_components, stream);
   auto components_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
     components, n_components, n_features);
-  auto input_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
-    input, n_samples, n_features);
   auto max_vals_view =
     raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_components);
 
@@ -190,7 +189,11 @@ void signFlipComponents(const raft::handle_t& handle,
   // V: components, n_components * n_features
   // U @ S = X @ V.T, where the signs of U @ S are solely determined by U
   if (u_based_decision) {
-    center_columns(handle, input_view, stream);
+    if (center) {
+      auto input_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+        input, n_samples, n_features);
+      center_columns(handle, input_view, stream);
+    }
     rmm::device_uvector<math_t> US(n_samples * n_components, stream);
     raft::linalg::gemm<math_t, math_t, math_t, math_t>(handle,
                                                        input,
@@ -362,8 +365,15 @@ void tsvdFit(const raft::handle_t& handle,
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
 
-  signFlipComponents(
-    handle, input, components, prms.n_rows, prms.n_cols, n_components, stream, u_based_decision);
+  signFlipComponents(handle,
+                     input,
+                     components,
+                     prms.n_rows,
+                     prms.n_cols,
+                     n_components,
+                     stream,
+                     false,
+                     u_based_decision);
 }
 
 /**
@@ -391,9 +401,10 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       math_t* explained_var_ratio,
                       math_t* singular_vals,
                       const paramsTSVD& prms,
-                      cudaStream_t stream)
+                      cudaStream_t stream,
+                      bool u_based_decision = true)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, stream);
+  tsvdFit(handle, input, components, singular_vals, prms, stream, u_based_decision);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
 
   rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);

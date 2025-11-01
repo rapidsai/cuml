@@ -134,6 +134,7 @@ void pcaFit(const raft::handle_t& handle,
                      prms.n_cols,
                      prms.n_components,
                      stream,
+                     true,
                      u_based_decision);
 }
 

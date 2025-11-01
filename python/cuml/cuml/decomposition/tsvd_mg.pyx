@@ -4,6 +4,8 @@
 #
 
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.decomposition import TruncatedSVD
@@ -36,7 +38,8 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             float *explained_var_ratio,
                             float *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose) except +
+                            bool verbose,
+                            bool u_based_decision) except +
 
     cdef void fit_transform(handle_t& handle,
                             vector[doubleData_t *] input_data,
@@ -48,7 +51,8 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             double *explained_var_ratio,
                             double *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose) except +
+                            bool verbose,
+                            bool u_based_decision) except +
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
@@ -90,6 +94,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef bool use_float32 = dtype == np.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
 
         # Perform Fit
         with nogil:
@@ -105,7 +110,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
                     params,
-                    False
+                    False,
+                    u_based_decision
                 )
             else:
                 fit_transform(
@@ -119,7 +125,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
                     params,
-                    False
+                    False,
+                    u_based_decision
                 )
         self.handle.sync()
 

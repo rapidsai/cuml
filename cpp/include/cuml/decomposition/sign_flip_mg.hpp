@@ -35,7 +35,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                             std::size_t n_features,
                             std::size_t n_components,
                             cudaStream_t* streams,
-                            std::uint32_t n_stream);
+                            std::uint32_t n_stream,
+                            bool center);
 
 void sign_flip_components_u(raft::handle_t& handle,
                             std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -45,7 +46,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                             std::size_t n_features,
                             std::size_t n_components,
                             cudaStream_t* streams,
-                            std::uint32_t n_stream);
+                            std::uint32_t n_stream,
+                            bool center);
 
 /**
  * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen

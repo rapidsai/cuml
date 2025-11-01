@@ -163,7 +163,8 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
                                 std::size_t n_features,
                                 std::size_t n_components,
                                 cudaStream_t* streams,
-                                std::uint32_t n_stream)
+                                std::uint32_t n_stream,
+                                bool center)
 {
   const auto& comm = handle.get_comms();
   int rank         = comm.get_rank();
@@ -193,16 +194,18 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
   for (std::size_t i = 0; i < input.size(); i++) {
     T* input_chunk              = input[i]->ptr;
     std::size_t n_samples_chunk = local_blocks[i]->size;
-    auto input_chunk_view       = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      input_chunk, n_samples_chunk, n_features);
-    raft::linalg::map_offset(
-      handle,
-      input_chunk_view,
-      [input_chunk_view, col_means_view, n_samples_chunk] __device__(auto idx) {
-        std::size_t row    = idx % n_samples_chunk;
-        std::size_t column = idx / n_samples_chunk;
-        return input_chunk_view(row, column) - col_means_view(column);
-      });
+    if (center) {
+      auto input_chunk_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+        input_chunk, n_samples_chunk, n_features);
+      raft::linalg::map_offset(
+        handle,
+        input_chunk_view,
+        [input_chunk_view, col_means_view, n_samples_chunk] __device__(auto idx) {
+          std::size_t row    = idx % n_samples_chunk;
+          std::size_t column = idx / n_samples_chunk;
+          return input_chunk_view(row, column) - col_means_view(column);
+        });
+    }
     rmm::device_uvector<T> US_chunk(n_samples_chunk * n_components, streams[i]);
     raft::linalg::gemm(handle,
                        input_chunk,
@@ -323,7 +326,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                             std::size_t n_features,
                             std::size_t n_components,
                             cudaStream_t* streams,
-                            std::uint32_t n_stream)
+                            std::uint32_t n_stream,
+                            bool center)
 {
   sign_flip_components_u_imp(handle,
                              input_data,
@@ -333,7 +337,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                              n_features,
                              n_components,
                              streams,
-                             n_stream);
+                             n_stream,
+                             center);
 }
 
 void sign_flip_components_u(raft::handle_t& handle,
@@ -344,7 +349,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                             std::size_t n_features,
                             std::size_t n_components,
                             cudaStream_t* streams,
-                            std::uint32_t n_stream)
+                            std::uint32_t n_stream,
+                            bool center)
 {
   sign_flip_components_u_imp(handle,
                              input_data,
@@ -354,7 +360,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                              n_features,
                              n_components,
                              streams,
-                             n_stream);
+                             n_stream,
+                             center);
 }
 
 void sign_flip(raft::handle_t& handle,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,12 +17,14 @@ void tsvdFit(raft::handle_t& handle,
              float* input,
              float* components,
              float* singular_vals,
-             const paramsTSVD& prms);
+             const paramsTSVD& prms,
+             bool u_based_decision);
 void tsvdFit(raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
-             const paramsTSVD& prms);
+             const paramsTSVD& prms,
+             bool u_based_decision);
 void tsvdInverseTransform(raft::handle_t& handle,
                           float* trans_input,
                           float* components,
@@ -50,7 +52,8 @@ void tsvdFitTransform(raft::handle_t& handle,
                       float* explained_var,
                       float* explained_var_ratio,
                       float* singular_vals,
-                      const paramsTSVD& prms);
+                      const paramsTSVD& prms,
+                      bool u_based_decision);
 void tsvdFitTransform(raft::handle_t& handle,
                       double* input,
                       double* trans_input,
@@ -58,6 +61,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                       double* explained_var,
                       double* explained_var_ratio,
                       double* singular_vals,
-                      const paramsTSVD& prms);
+                      const paramsTSVD& prms,
+                      bool u_based_decision);
 
 }  // namespace ML

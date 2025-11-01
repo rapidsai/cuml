@@ -75,7 +75,8 @@ void fit_impl(raft::handle_t& handle,
                            prms.n_cols,
                            prms.n_components,
                            streams,
-                           n_streams);
+                           n_streams,
+                           true);
   } else {
     signFlipComponents(handle,
                        input_data[0]->ptr,
@@ -84,6 +85,7 @@ void fit_impl(raft::handle_t& handle,
                        prms.n_cols,
                        prms.n_components,
                        streams[0],
+                       true,
                        false);
   }
 }
@@ -186,7 +188,8 @@ void fit_impl(raft::handle_t& handle,
                              prms.n_cols,
                              prms.n_cols,
                              streams,
-                             n_streams);
+                             n_streams,
+                             true);
     } else {
       signFlipComponents(h,
                          input_data[0]->ptr,
@@ -195,6 +198,7 @@ void fit_impl(raft::handle_t& handle,
                          prms.n_cols,
                          prms.n_cols,
                          stream,
+                         true,
                          false);
     }
 

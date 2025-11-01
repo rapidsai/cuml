@@ -4,6 +4,8 @@
 #
 
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -30,7 +32,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -39,7 +42,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -315,6 +319,7 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
+        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -357,7 +362,8 @@ class TruncatedSVD(Base,
                     <float*> explained_variance_ptr,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
-                    params
+                    params,
+                    u_based_decision
                 )
             else:
                 tsvdFitTransform(
@@ -368,7 +374,8 @@ class TruncatedSVD(Base,
                     <double*> explained_variance_ptr,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
-                    params
+                    params,
+                    u_based_decision
                 )
         self.handle.sync()
 
