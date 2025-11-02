@@ -100,7 +100,7 @@ void pcaFit(const raft::handle_t& handle,
             math_t* noise_vars,
             const paramsPCA& prms,
             cudaStream_t stream,
-            bool u_based_decision = true)
+            bool u_based_decision = false)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -168,7 +168,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      math_t* noise_vars,
                      const paramsPCA& prms,
                      cudaStream_t stream,
-                     bool u_based_decision = true)
+                     bool u_based_decision = false)
 {
   pcaFit(handle,
          input,

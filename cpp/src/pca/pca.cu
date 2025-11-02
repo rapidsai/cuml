@@ -20,7 +20,7 @@ void pcaFit(raft::handle_t& handle,
             float* mu,
             float* noise_vars,
             const paramsPCA& prms,
-            bool u_based_decision = true)
+            bool u_based_decision = false)
 {
   pcaFit(handle,
          input,
@@ -44,7 +44,7 @@ void pcaFit(raft::handle_t& handle,
             double* mu,
             double* noise_vars,
             const paramsPCA& prms,
-            bool u_based_decision = true)
+            bool u_based_decision = false)
 {
   pcaFit(handle,
          input,
@@ -69,7 +69,7 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* mu,
                      float* noise_vars,
                      const paramsPCA& prms,
-                     bool u_based_decision = true)
+                     bool u_based_decision = false)
 {
   pcaFitTransform(handle,
                   input,
@@ -95,7 +95,7 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* mu,
                      double* noise_vars,
                      const paramsPCA& prms,
-                     bool u_based_decision = true)
+                     bool u_based_decision = false)
 {
   pcaFitTransform(handle,
                   input,

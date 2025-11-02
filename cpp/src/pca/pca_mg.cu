@@ -44,7 +44,7 @@ void fit_impl(raft::handle_t& handle,
               cudaStream_t* streams,
               std::uint32_t n_streams,
               bool verbose,
-              bool u_based_decision = true)
+              bool u_based_decision = false)
 {
   const auto& comm = handle.get_comms();
 
@@ -116,7 +116,7 @@ void fit_impl(raft::handle_t& handle,
               T* noise_vars,
               paramsPCAMG prms,
               bool verbose,
-              bool u_based_decision = true)
+              bool u_based_decision = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -534,7 +534,7 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* noise_vars,
                         paramsPCAMG prms,
                         bool verbose,
-                        bool u_based_decision = true)
+                        bool u_based_decision = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -653,7 +653,7 @@ void fit_transform(raft::handle_t& handle,
                    float* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision = true)
+                   bool u_based_decision = false)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -684,7 +684,7 @@ void fit_transform(raft::handle_t& handle,
                    double* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision = true)
+                   bool u_based_decision = false)
 {
   fit_transform_impl(handle,
                      rank_sizes,

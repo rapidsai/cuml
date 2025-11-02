@@ -173,7 +173,7 @@ void signFlipComponents(const raft::handle_t& handle,
                         std::size_t n_components,
                         cudaStream_t stream,
                         bool center,
-                        bool u_based_decision = true)
+                        bool u_based_decision = false)
 {
   rmm::device_uvector<math_t> max_vals(n_components, stream);
   auto components_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
@@ -322,7 +322,7 @@ void tsvdFit(const raft::handle_t& handle,
              math_t* singular_vals,
              const paramsTSVD& prms,
              cudaStream_t stream,
-             bool u_based_decision = true)
+             bool u_based_decision = false)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -402,7 +402,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       math_t* singular_vals,
                       const paramsTSVD& prms,
                       cudaStream_t stream,
-                      bool u_based_decision = true)
+                      bool u_based_decision = false)
 {
   tsvdFit(handle, input, components, singular_vals, prms, stream, u_based_decision);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
