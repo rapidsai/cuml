@@ -25,6 +25,7 @@ namespace opg {
  * @param[in] n_components: number of rows of components matrix
  * @param[in] streams: cuda streams
  * @param[in] n_stream: number of streams
+ * @param[in] center: whether to center input_data by columns
  * @{
  */
 void sign_flip_components_u(raft::handle_t& handle,
