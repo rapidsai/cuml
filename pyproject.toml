@@ -22,6 +22,7 @@ ignore = "[.]cu$|_deps|examples/kmeans/"
 
 [tool.ruff]
 line-length = 79
+extend-include = ["*.pyx", "*.pxd"]
 extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
