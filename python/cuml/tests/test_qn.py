@@ -20,7 +20,6 @@ from cuml.solvers import QN as cuQN
 @pytest.mark.parametrize("l2_strength", [0.00, 0.10])
 @pytest.mark.parametrize("fit_intercept", [True, False])
 def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
-
     if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
         pytest.skip("`none` penalty does not take l1/l2_strength")
 

@@ -80,7 +80,6 @@ def test_lasso(datatype, alpha, algorithm, nrows, column_info):
     "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
 def test_lasso_default(datatype, nrows, column_info):
-
     ncols, n_info = column_info
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
@@ -218,7 +217,6 @@ def test_elastic_net(datatype, alpha, algorithm, nrows, column_info):
     "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
 def test_elastic_net_default(datatype, nrows, column_info):
-
     ncols, n_info = column_info
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0

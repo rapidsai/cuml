@@ -82,7 +82,6 @@ def to_sparse_dask_array(cudf_or_array, client=None):
         return cudf_or_array.map_blocks(_conv_array_to_sparse, meta=meta)
 
     else:
-
         ret = _conv_array_to_sparse(ret)
 
         # Push to worker

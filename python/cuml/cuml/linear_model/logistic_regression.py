@@ -277,7 +277,6 @@ class LogisticRegression(
         handle=None,
         output_type=None,
     ):
-
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
@@ -287,8 +286,7 @@ class LogisticRegression(
 
         if solver not in supported_solvers:
             raise ValueError(
-                "Only quasi-newton `qn` solver is "
-                " supported, not %s" % solver
+                "Only quasi-newton `qn` solver is  supported, not %s" % solver
             )
         self.solver = solver
         self.C = C
@@ -301,7 +299,7 @@ class LogisticRegression(
         if self.penalty == "elasticnet":
             if l1_ratio is None:
                 raise ValueError(
-                    "l1_ratio has to be specified for" "loss='elasticnet'"
+                    "l1_ratio has to be specified forloss='elasticnet'"
                 )
             if l1_ratio < 0.0 or l1_ratio > 1.0:
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
@@ -394,8 +392,9 @@ class LogisticRegression(
 
             if n_rows != n_weights or D != 1:
                 raise ValueError(
-                    "sample_weight.shape == {}, "
-                    "expected ({},)!".format(sample_weight.shape, n_rows)
+                    "sample_weight.shape == {}, expected ({},)!".format(
+                        sample_weight.shape, n_rows
+                    )
                 )
 
             def check_expl_spec_weights():

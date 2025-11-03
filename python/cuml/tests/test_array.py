@@ -343,7 +343,6 @@ def cudf_compatible_dtypes(dtype):
 )
 @settings(deadline=None)
 def test_output(inp, input_mem_type, output_type):
-
     # Required assumptions for cudf outputs:
     if output_type in ("cudf", "dataframe", "series"):
         assume(inp.dtype not in UNSUPPORTED_CUDF_DTYPES)
@@ -465,7 +464,6 @@ def test_end_to_end_conversion_via_intermediate(inp, output_type, mem_type):
 )
 @settings(deadline=None)
 def test_output_dtype(output_type, shape, dtype, order, out_dtype, mem_type):
-
     with using_memory_type(mem_type):
         # Required assumptions for cudf outputs:
         if output_type in ("cudf", "dataframe", "series"):

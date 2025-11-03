@@ -17,7 +17,6 @@ from cuml.naive_bayes import MultinomialNB as MNB
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
-
     """
     Distributed Naive Bayes classifier for multinomial models
 
@@ -87,7 +86,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
     @staticmethod
     @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
-
         X, y = Xy
 
         model = MNB(**kwargs)

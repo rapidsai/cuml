@@ -8,7 +8,6 @@ from cuml.dask.solvers import CD
 
 
 class ElasticNet(BaseEstimator):
-
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
     on the coefficients when predicting response y with a linear combination of

@@ -298,7 +298,6 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
     )
 
     if return_sparse:
-
         assert isinstance(i_sparse, cupyx.scipy.sparse.csr_matrix)
 
         assert array_equal(

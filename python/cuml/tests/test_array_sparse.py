@@ -19,7 +19,6 @@ test_input_types = ["cupy", "scipy"]
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("convert_format", [True, False])
 def test_input(input_type, sparse_format, dtype, convert_format):
-
     rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
 
     X = rand_func.random(
@@ -48,7 +47,6 @@ def test_input(input_type, sparse_format, dtype, convert_format):
 
 
 def test_nonsparse_input_fails():
-
     X = cp.random.random((100, 100))
 
     with pytest.raises(ValueError):
@@ -57,7 +55,6 @@ def test_nonsparse_input_fails():
 
 @pytest.mark.parametrize("input_type", test_input_types)
 def test_convert_to_dtype(input_type):
-
     rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
 
     X = rand_func.random(100, 100, format="csr", density=0.5, dtype=cp.float64)
@@ -77,7 +74,6 @@ def test_convert_to_dtype(input_type):
 
 @pytest.mark.parametrize("input_type", test_input_types)
 def test_convert_index(input_type):
-
     rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
 
     X = rand_func.random(100, 100, format="csr", density=0.5, dtype=cp.float64)
@@ -102,7 +98,6 @@ def test_convert_index(input_type):
 @pytest.mark.parametrize("output_type", test_input_types)
 @pytest.mark.parametrize("output_format", [None, "coo", "csc"])
 def test_output(input_type, output_type, dtype, output_format):
-
     rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
 
     X = rand_func.random(100, 100, format="csr", density=0.5, dtype=dtype)

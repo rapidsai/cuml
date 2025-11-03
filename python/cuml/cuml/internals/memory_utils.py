@@ -74,7 +74,6 @@ def class_with_cupy_rmm(
     skip_dunder=True,
     ignore_pattern: list = [],
 ):
-
     regex_list = ignore_pattern
 
     if skip_private:
@@ -94,15 +93,12 @@ def class_with_cupy_rmm(
     final_regex = "(?:%s)" % "|".join(regex_list)
 
     def inner(klass):
-
         for attributeName, attribute in klass.__dict__.items():
-
             # Skip patters that dont match
             if re.match(final_regex, attributeName):
                 continue
 
             if callable(attribute):
-
                 # Passed the ignore patters. Wrap the function (will do nothing
                 # if already wrapped)
                 setattr(klass, attributeName, with_cupy_rmm(attribute))

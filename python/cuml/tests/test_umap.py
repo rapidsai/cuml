@@ -44,7 +44,6 @@ dataset_names = ["iris", "digits", "wine", "blobs"]
 )
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_blobs_cluster(nrows, n_feats, build_algo):
-
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
@@ -78,7 +77,6 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 )
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_score(nrows, n_feats, build_algo):
-
     n_samples = nrows
     n_features = n_feats
 
@@ -139,7 +137,6 @@ def test_umap_trustworthiness_on_iris():
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_iris(target_metric):
-
     iris = datasets.load_iris()
 
     iris_selection = np.random.RandomState(42).choice(
@@ -171,7 +168,6 @@ def test_umap_transform_on_iris(target_metric):
 def test_umap_transform_on_digits_sparse(
     target_metric, input_type, xform_method
 ):
-
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
@@ -218,7 +214,6 @@ def test_umap_transform_on_digits_sparse(
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_digits(target_metric):
-
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
@@ -249,7 +244,6 @@ def test_umap_transform_on_digits(target_metric):
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.parametrize("name", dataset_names)
 def test_umap_fit_transform_trust(name, target_metric):
-
     if name == "iris":
         iris = datasets.load_iris()
         data = iris.data
@@ -300,7 +294,6 @@ def test_umap_data_formats(
     target_metric,
     build_algo,
 ):
-
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = nrows
     n_feats = n_feats
@@ -330,7 +323,6 @@ def test_umap_data_formats(
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_score_default(target_metric, build_algo):
-
     n_samples = 500
     n_features = 20
 
@@ -354,7 +346,6 @@ def test_umap_fit_transform_score_default(target_metric, build_algo):
 
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_against_fit_and_transform(build_algo):
-
     n_samples = 500
     n_features = 20
 
@@ -404,7 +395,6 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
     ],
 )
 def test_umap_fit_transform_reproducibility(n_components, random_state):
-
     n_samples = 8000
     n_features = 200
 
@@ -452,7 +442,6 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     ],
 )
 def test_umap_transform_reproducibility(n_components, random_state):
-
     n_samples = 5000
     n_features = 200
 

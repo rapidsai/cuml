@@ -101,7 +101,6 @@ def test_extract_partitions_shape(
 def test_extract_partitions_futures(
     nrows, ncols, n_parts, X_delayed, y_delayed, colocated, client
 ):
-
     X = cp.random.standard_normal((nrows, ncols))
     y = cp.random.standard_normal((nrows,))
 

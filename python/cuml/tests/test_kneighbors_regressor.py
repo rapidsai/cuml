@@ -63,7 +63,6 @@ def test_kneighborsRegressor_multioutput_uniform_weight():
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
-
     # Using make_blobs here to check averages and neighborhoods
     X, y = make_blobs(
         n_samples=nrows,
@@ -110,7 +109,6 @@ def test_score_dtype(dtype):
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):
-
     X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 

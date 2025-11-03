@@ -16,7 +16,6 @@ from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 
 class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
-
     """
     Distributed TF-IDF  transformer
 
@@ -65,7 +64,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-
         """
         Create new  distributed TF-IDF transformer instance
 
@@ -108,7 +106,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     @with_cupy_rmm
     def fit(self, X, y=None):
-
         """
         Fit distributed TFIDF Transformer
 

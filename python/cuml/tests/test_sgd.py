@@ -17,7 +17,6 @@ from cuml.solvers import SGD as cumlSGD
 @pytest.mark.parametrize("loss", ["hinge", "log", "squared_loss"])
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_sgd(dtype, lrate, penalty, loss, datatype):
-
     X, y = make_blobs(n_samples=100, n_features=3, centers=2, random_state=0)
     X = X.astype(dtype)
     y = y.astype(dtype)
@@ -69,7 +68,6 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_sgd_default(dtype, datatype):
-
     X, y = make_blobs(n_samples=100, n_features=3, centers=2, random_state=0)
     X = X.astype(dtype)
     y = y.astype(dtype)

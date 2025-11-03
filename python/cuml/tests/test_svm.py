@@ -156,7 +156,6 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
 
     # Default to numpy for testing
     with cuml.using_output_type("numpy"):
-
         cuSVC = cu_svm.SVC(**params)
         cuSVC.fit(X_train, y_train)
 
@@ -183,7 +182,6 @@ def test_svm_skl_cmp_multiclass(
 
     # Default to numpy for testing
     with cuml.using_output_type("numpy"):
-
         cuSVC = cu_svm.SVC(**params)
         cuSVC.fit(X_train, y_train)
 
@@ -203,7 +201,6 @@ def test_svm_skl_cmp_multiclass(
     ],
 )
 def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
-
     X_train, X_test, y_train, y_test = make_dataset(
         "classification1", n_rows, n_cols
     )

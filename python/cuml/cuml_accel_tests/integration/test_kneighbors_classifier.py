@@ -34,9 +34,9 @@ def test_knn_classifier_n_neighbors(classification_data, n_neighbors):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with n_neighbors={n_neighbors}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with n_neighbors={n_neighbors}"
+    )
 
 
 @pytest.mark.parametrize("weights", ["uniform", "distance"])
@@ -58,9 +58,9 @@ def test_knn_classifier_algorithm(classification_data, algorithm):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with algorithm={algorithm}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with algorithm={algorithm}"
+    )
 
 
 @pytest.mark.parametrize("leaf_size", [10, 30, 50])
@@ -70,9 +70,9 @@ def test_knn_classifier_leaf_size(classification_data, leaf_size):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with leaf_size={leaf_size}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with leaf_size={leaf_size}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -174,11 +174,11 @@ def test_knn_classifier_multilabel():
     model.fit(X, y)
     y_pred = model.predict(X)
     # Check that the predicted shape matches the true labels
-    assert (
-        y_pred.shape == y.shape
-    ), "Predicted labels should have the same shape as true labels"
+    assert y_pred.shape == y.shape, (
+        "Predicted labels should have the same shape as true labels"
+    )
     # Calculate accuracy for multi-label
     acc = (y_pred == y).mean()
-    assert (
-        acc > 0.7
-    ), "Accuracy should be reasonable for multi-label classification"
+    assert acc > 0.7, (
+        "Accuracy should be reasonable for multi-label classification"
+    )

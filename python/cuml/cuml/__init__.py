@@ -78,7 +78,6 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 
 def __getattr__(name):
-
     if name == "global_settings":
         try:
             return _global_settings_data.settings

@@ -166,7 +166,6 @@ def determine_df_obj_type(X):
 
 
 def determine_array_dtype(X):
-
     if X is None:
         return None
 

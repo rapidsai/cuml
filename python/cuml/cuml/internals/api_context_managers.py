@@ -143,13 +143,11 @@ class InternalAPIContext(contextlib.ExitStack):
         return new_stack
 
     def __enter__(self) -> int:
-
         self._count += 1
 
         return self._count
 
     def __exit__(self, *exc_details):
-
         self._count -= 1
 
         return
@@ -198,7 +196,6 @@ class ProcessEnter(object):
         self._process_enter_cbs: typing.Deque[typing.Callable] = deque()
 
     def process_enter(self):
-
         for cb in self._process_enter_cbs:
             cb()
 
@@ -214,7 +211,6 @@ class ProcessReturn(object):
         ] = deque()
 
     def process_return(self, ret_val):
-
         for cb in self._process_return_cbs:
             ret_val = cb(ret_val)
 
@@ -228,7 +224,6 @@ ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
 class InternalAPIContextBase(
     contextlib.ExitStack, typing.Generic[EnterT, ProcessT]
 ):
-
     ProcessEnter_Type: typing.Type[EnterT] = None
     ProcessReturn_Type: typing.Type[ProcessT] = None
 
@@ -246,7 +241,6 @@ class InternalAPIContextBase(
         self._process_obj: ProcessReturn = None
 
     def __enter__(self):
-
         # Enter the root context to know if we are the root cm
         self.is_root = self.enter_context(self.root_cm) == 1
 
@@ -262,17 +256,15 @@ class InternalAPIContextBase(
         return super().__enter__()
 
     def process_return(self, ret_val):
-
         return self._process_obj.process_return(ret_val)
 
     def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
-
         param_names = [
             param.__name__ if hasattr(param, "__name__") else str(param)
             for param in params
         ]
 
-        type_name = f'{cls.__name__}[{", ".join(param_names)}]'
+        type_name = f"{cls.__name__}[{', '.join(param_names)}]"
 
         ns = {
             "ProcessEnter_Type": params[0],
@@ -300,7 +292,6 @@ class ProcessEnterReturnArray(ProcessEnter):
         self._process_enter_cbs.append(self.push_output_types)
 
     def push_output_types(self):
-
         self._context.enter_context(self._context.root_cm.push_output_types())
 
 
@@ -321,7 +312,6 @@ class ProcessEnterBaseReturnArray(
             self._process_enter_cbs.append(self.base_output_type_callback)
 
     def base_output_type_callback(self):
-
         root_cm = self._context.root_cm
 
         def set_output_type():
@@ -366,7 +356,6 @@ class ProcessReturnArray(ProcessReturn):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
-
         # Get the output type
         (
             ret_val_type_str,
@@ -391,7 +380,6 @@ class ProcessReturnArray(ProcessReturn):
         return ret_val
 
     def convert_to_outputtype(self, ret_val):
-
         output_type = GlobalSettings().output_type
         memory_type = GlobalSettings().memory_type
 
@@ -409,7 +397,7 @@ class ProcessReturnArray(ProcessReturn):
             output_type is not None
             and output_type != "mirror"
             and output_type != "input"
-        ), ("Invalid root_cm.output_type: " "'{}'.").format(output_type)
+        ), ("Invalid root_cm.output_type: '{}'.").format(output_type)
 
         return ret_val.to_output(
             output_type=output_type,
@@ -420,7 +408,6 @@ class ProcessReturnArray(ProcessReturn):
 
 class ProcessReturnSparseArray(ProcessReturnArray):
     def convert_to_cumlarray(self, ret_val):
-
         # Get the output type
         (
             ret_val_type_str,
@@ -464,34 +451,27 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
     def process_tuple(self, ret_val: tuple):
-
         # Convert to a list
         out_val = list(ret_val)
 
         for idx, item in enumerate(out_val):
-
             out_val[idx] = self.process_generic(item)
 
         return tuple(out_val)
 
     def process_dict(self, ret_val):
-
         for name, item in ret_val.items():
-
             ret_val[name] = self.process_generic(item)
 
         return ret_val
 
     def process_list(self, ret_val):
-
         for idx, item in enumerate(ret_val):
-
             ret_val[idx] = self.process_generic(item)
 
         return ret_val
 
     def process_generic(self, ret_val):
-
         if cuml.internals.input_utils.is_array_like(ret_val):
             return self.process_single(ret_val)
 

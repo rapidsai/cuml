@@ -105,7 +105,6 @@ class DistributedDataHandler:
     """ Methods to calculate further attributes """
 
     def calculate_worker_and_rank_info(self, comms):
-
         self.worker_info = comms.worker_info(comms.worker_addresses)
         self.ranks = dict()
 
@@ -113,7 +112,6 @@ class DistributedDataHandler:
             self.ranks[w] = self.worker_info[w]["rank"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
-
         if self.worker_info is None and comms is not None:
             self.calculate_worker_and_rank_info(comms)
 
@@ -249,14 +247,13 @@ def _workers_to_parts(futures):
 
 
 def _get_ary_meta(ary):
-
     if isinstance(ary, (np.ndarray, cp.ndarray)):
         return ary.shape, ary.dtype
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))
     else:
         raise ValueError(
-            "Expected dask.Dataframe " "or dask.Array, received %s" % type(ary)
+            "Expected dask.Dataframe or dask.Array, received %s" % type(ary)
         )
 
 
@@ -269,7 +266,6 @@ def _get_rows(objs, multiple):
 
 
 def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
-
     wait(futures)
 
     c = default_client() if client is None else client

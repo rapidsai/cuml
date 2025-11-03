@@ -187,7 +187,7 @@ class RegressorMixin:
         return_values={
             "name": "score",
             "type": "float",
-            "description": "R^2 of self.predict(X) " "wrt. y.",
+            "description": "R^2 of self.predict(X) wrt. y.",
         }
     )
     @api_base_return_any_skipall

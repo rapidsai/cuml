@@ -44,7 +44,6 @@ def test_register_naive_bayes_serialization():
 
 
 def test_sparse_cumlarray_serialization():
-
     X = cupyx.scipy.sparse.random(10, 5, format="csr", density=0.9)
 
     X_m = SparseCumlArray(X)

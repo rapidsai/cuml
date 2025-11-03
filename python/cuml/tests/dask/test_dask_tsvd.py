@@ -84,7 +84,6 @@ def test_pca_fit(data_info, input_type, client):
     [unit_param([1000, 20, 46]), stress_param([int(9e6), 5000, 46])],
 )
 def test_pca_fit_transform_fp32(data_info, client):
-
     nrows, ncols, n_parts = data_info
     from cuml.dask.datasets import make_blobs
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
@@ -109,7 +108,6 @@ def test_pca_fit_transform_fp32(data_info, client):
     [unit_param([1000, 20, 33]), stress_param([int(9e6), 5000, 33])],
 )
 def test_pca_fit_transform_fp64(data_info, client):
-
     nrows, ncols, n_parts = data_info
 
     from cuml.dask.datasets import make_blobs
