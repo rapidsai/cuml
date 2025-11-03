@@ -17,8 +17,8 @@ from cuml.linear_model.base import (
     LinearPredictMixin,
     check_deprecated_normalize,
 )
-from cuml.solvers import QN
 from cuml.solvers.cd import fit_coordinate_descent
+from cuml.solvers.qn import fit_qn
 
 
 class ElasticNet(
@@ -249,24 +249,23 @@ class ElasticNet(
                 raise ValueError(
                     "`normalize=True` is not supported with `solver='qn'"
                 )
-
-            solver = QN(
-                handle=self.handle,
-                verbose=self.verbose,
-                output_type=self.output_type,
+            coef, intercept, _ = fit_qn(
+                X,
+                y,
+                sample_weight=sample_weight,
+                convert_dtype=convert_dtype,
+                loss="l2",
                 fit_intercept=self.fit_intercept,
                 l1_strength=self.alpha * self.l1_ratio,
                 l2_strength=self.alpha * (1.0 - self.l1_ratio),
-                loss="l2",
-                penalty_normalized=False,
                 max_iter=self.max_iter,
                 tol=self.tol,
-            ).fit(
-                X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
+                penalty_normalized=False,
+                verbose=self.verbose,
+                handle=self.handle,
             )
-
-            coef = CumlArray(data=solver.coef_.to_output("cupy").flatten())
-            intercept = solver.intercept_.item()
+            coef = CumlArray(data=coef.to_output("cupy").flatten())
+            intercept = intercept.item()
         elif self.solver == "cd":
             coef, intercept = fit_coordinate_descent(
                 X,
