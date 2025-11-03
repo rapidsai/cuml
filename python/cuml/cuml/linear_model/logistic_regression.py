@@ -301,7 +301,7 @@ class LogisticRegression(
         if self.penalty == "elasticnet":
             if l1_ratio is None:
                 raise ValueError(
-                    "l1_ratio has to be specified for" "loss='elasticnet'"
+                    "l1_ratio has to be specified for loss='elasticnet'"
                 )
             if l1_ratio < 0.0 or l1_ratio > 1.0:
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
