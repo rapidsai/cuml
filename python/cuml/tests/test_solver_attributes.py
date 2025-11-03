@@ -34,15 +34,10 @@ def test_logistic_regression_attributes():
     clf = cuLog().fit(X, y, convert_dtype=True)
 
     attrs = [
-        "dtype",
-        "solver_model",
         "coef_",
         "intercept_",
-        "l1_ratio",
-        "C",
-        "penalty",
-        "fit_intercept",
-        "solver",
+        "n_iter_",
+        "n_features_in_",
     ]
 
     for attr in attrs:

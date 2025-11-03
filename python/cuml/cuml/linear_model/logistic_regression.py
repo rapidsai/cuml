@@ -122,8 +122,6 @@ class LogisticRegression(
     >>> X = cp.array([[1, 1], [1, 2], [2, 2], [2, 3]])
     >>> y = cp.array([0, 0, 1, 1])
     >>> model = cuml.LogisticRegression().fit(X, y)
-    >>> model.coef_
-    array([[0.6986104, 0.57005763]], dtype=float32)
     >>> model.predict(X)
     array([0, 0, 1, 1])
     """
@@ -327,11 +325,12 @@ class LogisticRegression(
 
         l1_strength, l2_strength = self._get_l1_l2_strength()
 
-        coef, intercept, n_iter = fit_qn(
+        coef, intercept, n_iter, _ = fit_qn(
             X,
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
+            n_classes=n_classes,
             loss=("softmax" if n_classes > 2 else "sigmoid"),
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,

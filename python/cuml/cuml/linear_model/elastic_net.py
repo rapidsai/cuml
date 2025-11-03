@@ -249,7 +249,7 @@ class ElasticNet(
                 raise ValueError(
                     "`normalize=True` is not supported with `solver='qn'"
                 )
-            coef, intercept, _ = fit_qn(
+            coef, intercept, _, _ = fit_qn(
                 X,
                 y,
                 sample_weight=sample_weight,

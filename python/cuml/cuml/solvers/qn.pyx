@@ -24,19 +24,18 @@ from cuml.internals.logger cimport level_enum
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
-    cdef enum qn_loss_type "ML::GLM::qn_loss_type":
-        QN_LOSS_LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
-        QN_LOSS_SQUARED  "ML::GLM::QN_LOSS_SQUARED"
-        QN_LOSS_SOFTMAX  "ML::GLM::QN_LOSS_SOFTMAX"
-        QN_LOSS_SVC_L1   "ML::GLM::QN_LOSS_SVC_L1"
-        QN_LOSS_SVC_L2   "ML::GLM::QN_LOSS_SVC_L2"
-        QN_LOSS_SVR_L1   "ML::GLM::QN_LOSS_SVR_L1"
-        QN_LOSS_SVR_L2   "ML::GLM::QN_LOSS_SVR_L2"
-        QN_LOSS_ABS      "ML::GLM::QN_LOSS_ABS"
-        QN_LOSS_UNKNOWN  "ML::GLM::QN_LOSS_UNKNOWN"
+    cdef enum Loss "ML::GLM::qn_loss_type":
+        LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
+        SQUARED  "ML::GLM::QN_LOSS_SQUARED"
+        SOFTMAX  "ML::GLM::QN_LOSS_SOFTMAX"
+        SVC_L1   "ML::GLM::QN_LOSS_SVC_L1"
+        SVC_L2   "ML::GLM::QN_LOSS_SVC_L2"
+        SVR_L1   "ML::GLM::QN_LOSS_SVR_L1"
+        SVR_L2   "ML::GLM::QN_LOSS_SVR_L2"
+        ABS      "ML::GLM::QN_LOSS_ABS"
 
     cdef struct qn_params:
-        qn_loss_type loss
+        Loss loss
         double penalty_l1
         double penalty_l2
         double grad_tol
@@ -80,16 +79,16 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
 
 SUPPORTED_LOSSES = {
-    "sigmoid": qn_loss_type.QN_LOSS_LOGISTIC,
-    "logistic": qn_loss_type.QN_LOSS_LOGISTIC,
-    "softmax": qn_loss_type.QN_LOSS_SOFTMAX,
-    "normal": qn_loss_type.QN_LOSS_SQUARED,
-    "l2": qn_loss_type.QN_LOSS_SQUARED,
-    "l1": qn_loss_type.QN_LOSS_ABS,
-    "svc_l1": qn_loss_type.QN_LOSS_SVC_L1,
-    "svc_l2": qn_loss_type.QN_LOSS_SVC_L2,
-    "svr_l1": qn_loss_type.QN_LOSS_SVR_L1,
-    "svr_l2": qn_loss_type.QN_LOSS_SVR_L2,
+    "sigmoid": Loss.LOGISTIC,
+    "logistic": Loss.LOGISTIC,
+    "softmax": Loss.SOFTMAX,
+    "normal": Loss.SQUARED,
+    "l2": Loss.SQUARED,
+    "l1": Loss.ABS,
+    "svc_l1": Loss.SVC_L1,
+    "svc_l2": Loss.SVC_L2,
+    "svr_l1": Loss.SVR_L1,
+    "svr_l2": Loss.SVR_L2,
 }
 
 
@@ -99,6 +98,7 @@ def fit_qn(
     sample_weight=None,
     *,
     convert_dtype=True,
+    int n_classes=0,
     loss="sigmoid",
     bool fit_intercept=True,
     double l1_strength=0.0,
@@ -125,6 +125,9 @@ def fit_qn(
         The sample weights.
     convert_to_dtype : bool, default=True
         When set to True, will convert array inputs to be of the proper dtypes.
+    n_classes : int, default=0
+        The number of classes in `y` if fitting a classifier, or 0 if fitting a
+        regressor.
     **kwargs
         Remaining keyword arguments match the hyperparameters
         to ``QN``, see the ``QN`` docs for more information.
@@ -142,7 +145,7 @@ def fit_qn(
         handle = Handle()
 
     cdef bool sparse_X = is_sparse(X)
-    cdef int n_rows, n_cols, n_classes
+    cdef int n_rows, n_cols
 
     if sparse_X:
         X_m = SparseCumlArray(X, convert_index=np.int32)
@@ -173,9 +176,25 @@ def fit_qn(
             convert_to_dtype=(dtype if convert_dtype else None)
         ).array
 
-    cdef qn_params params
+    # Validate hyperparameters
     if (loss_type := SUPPORTED_LOSSES.get(loss)) is None:
         raise ValueError(f"{loss=!r} is unsupported")
+    if loss_type == Loss.SOFTMAX:
+        if n_classes <= 2:
+            raise ValueError(
+                f"loss='softmax' requires n_classes > 2 (got {n_classes})"
+            )
+    elif loss_type in {Loss.LOGISTIC, Loss.SVC_L1, Loss.SVC_L2}:
+        if n_classes != 2:
+            raise ValueError(
+                f"loss={loss!r} requires n_classes == 2 (got {n_classes})"
+            )
+    elif n_classes != 0:
+        raise ValueError(
+            f"loss={loss!r} does not support classification (got {n_classes=})"
+        )
+
+    cdef qn_params params
     params.loss = loss_type
     params.penalty_l1 = l1_strength
     params.penalty_l2 = l2_strength
@@ -187,29 +206,6 @@ def fit_qn(
     params.verbose = <int>verbose
     params.fit_intercept = fit_intercept
     params.penalty_normalized = penalty_normalized
-
-    is_classification = params.loss in (
-        qn_loss_type.QN_LOSS_LOGISTIC,
-        qn_loss_type.QN_LOSS_SOFTMAX,
-        qn_loss_type.QN_LOSS_SVC_L1,
-        qn_loss_type.QN_LOSS_SVC_L2
-    )
-    is_multiclass = params.loss == qn_loss_type.QN_LOSS_SOFTMAX
-
-    if is_classification:
-        n_classes = len(cp.unique(y_m))
-    else:
-        n_classes = 1
-
-    if not is_multiclass and n_classes > 2:
-        raise ValueError(
-            f"The selected solver ({loss}) does not support"
-            f" more than 2 classes ({n_classes} discovered)."
-        )
-    elif is_multiclass and n_classes <= 2:
-        raise ValueError(
-            "Two classes or less cannot be trained with softmax (multinomial)."
-        )
 
     coef_n_cols = n_classes if n_classes > 2 else 1
     coef_n_rows = n_cols + 1 if fit_intercept else n_cols
@@ -262,7 +258,7 @@ def fit_qn(
                     <float*> y_ptr,
                     n_rows,
                     n_cols,
-                    n_classes,
+                    n_classes or 1,
                     <float*> coef_ptr,
                     &objective_f32,
                     &n_iter,
@@ -279,7 +275,7 @@ def fit_qn(
                     <double*> y_ptr,
                     n_rows,
                     n_cols,
-                    n_classes,
+                    n_classes or 1,
                     <double*> coef_ptr,
                     &objective_f64,
                     &n_iter,
@@ -295,7 +291,7 @@ def fit_qn(
                     <float*> y_ptr,
                     n_rows,
                     n_cols,
-                    n_classes,
+                    n_classes or 1,
                     <float*> coef_ptr,
                     &objective_f32,
                     &n_iter,
@@ -310,7 +306,7 @@ def fit_qn(
                     <double*> y_ptr,
                     n_rows,
                     n_cols,
-                    n_classes,
+                    n_classes or 1,
                     <double*> coef_ptr,
                     &objective_f64,
                     &n_iter,
@@ -319,19 +315,21 @@ def fit_qn(
 
     handle.sync()
 
+    objective = objective_f32 if use_float32 else objective_f64
+
     coef = coef.to_output("cupy")
 
     if fit_intercept:
-        intercept = coef[-1]
+        intercept = CumlArray(data=coef[-1])
         coef = CumlArray(data=coef[:-1].T)
     else:
-        if n_classes == 2:
+        if n_classes <= 2:
             intercept = CumlArray.zeros(shape=1)
         else:
             intercept = CumlArray.zeros(shape=n_classes)
         coef = CumlArray(data=coef.T)
 
-    return coef, intercept, n_iter
+    return coef, intercept, n_iter, objective
 
 
 class QN(Base):
@@ -446,22 +444,24 @@ class QN(Base):
 
     Notes
     -----
-       This class contains implementations of two popular Quasi-Newton methods:
+    This class contains implementations of two popular Quasi-Newton methods:
 
-         - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
-           Wright - Numerical Optimization (1999)]
+        - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
+          Wright - Numerical Optimization (1999)]
 
-         - `Orthant-wise limited-memory quasi-newton (OWL-QN)
-           [Andrew, Gao - ICML 2007]
-           <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
+        - `Orthant-wise limited-memory quasi-newton (OWL-QN)
+          [Andrew, Gao - ICML 2007]
+          <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
 
     Examples
     --------
     >>> import cupy as cp
     >>> from cuml.solvers import QN
     >>> X = cp.array([[1, 1], [1, 2], [2, 2], [2, 3]])
-    >>> y = cp.array([0.0, 0.0, 1.0, 1.0])
-    >>> solver = QN().fit(X, y)
+    >>> y = cp.array([0, 0, 1, 1])
+    >>> solver = QN(loss="sigmoid").fit(X, y)
+    >>> solver.predict(X)
+    array([0, 0, 1, 1], dtype=int32)
     """
 
     coef_ = CumlArrayDescriptor()
@@ -521,12 +521,26 @@ class QN(Base):
         """
         Fit the model with X and y.
         """
-        # TODO: warm_start
-        coef, intercept, n_iter = fit_qn(
+        if self.loss in {"logistic", "sigmoid", "softmax", "svc_l1", "svc_l2"}:
+            self.n_classes_ = len(np.unique(y))
+        else:
+            self.n_classes_ = 0
+
+        if self.warm_start and hasattr(self, "coef_"):
+            init_coef = self.coef_.to_output("cupy").T
+            if self.fit_intercept:
+                init_coef = cp.concatenate(
+                    [init_coef, self.intercept_.to_output("cupy")[None, :]]
+                )
+        else:
+            init_coef = None
+
+        coef, intercept, n_iter, objective = fit_qn(
             X,
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
+            n_classes=self.n_classes_,
             loss=self.loss,
             fit_intercept=self.fit_intercept,
             l1_strength=self.l1_strength,
@@ -537,21 +551,50 @@ class QN(Base):
             linesearch_max_iter=self.linesearch_max_iter,
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
-            init_coef=None,
+            init_coef=init_coef,
             verbose=self.verbose,
             handle=self.handle,
         )
         self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = n_iter
+        self.objective = objective
 
         return self
 
     @generate_docstring(X="dense_sparse")
-    def predict(self, X) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """Predicts the y for X."""
-        # TODO
-        raise NotImplementedError
+        if is_sparse(X):
+            X = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype).to_output("cupy")
+            out_index = None
+        else:
+            X_m = input_to_cuml_array(
+                X,
+                check_dtype=self.coef_.dtype,
+                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+                check_cols=self.n_features_in_,
+                order="K",
+            ).array
+            out_index = X_m.index
+            X = X_m.to_output("cupy")
+
+        coef = self.coef_.to_output("cupy")
+        intercept = self.intercept_.to_output("cupy")
+
+        out = X @ coef.T
+        out += intercept
+
+        if out.ndim > 1 and out.shape[1] == 1:
+            out = out.reshape(-1)
+
+        if self.n_classes_ >= 2:
+            if out.ndim == 1:
+                out = (out > 0).astype(np.int32)
+            else:
+                out = cp.argmax(out, axis=1)
+
+        return CumlArray(data=out, index=out_index)
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
