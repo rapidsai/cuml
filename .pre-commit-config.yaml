@@ -19,6 +19,13 @@ repos:
               (?x)
                 ^python/.*/_thirdparty/|
                 ^python/cuml/cuml/feature_extraction/_stop_words[.]py$
+    - repo: https://github.com/pycqa/isort
+      rev: 5.13.2
+      hooks:
+          - id: isort
+            files: python/.*
+            args: ["--settings-path", "python/cuml/pyproject.toml"]
+            exclude: ^python/.*/_thirdparty/
     - repo: https://github.com/MarcoGorelli/cython-lint
       rev: v0.16.6
       hooks:
