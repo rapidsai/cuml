@@ -33,7 +33,7 @@ void fit(raft::handle_t& handle,
          float* singular_vals,
          paramsTSVDMG& prms,
          bool verbose          = false,
-         bool u_based_decision = true);
+         bool u_based_decision = false);
 
 void fit(raft::handle_t& handle,
          MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -43,7 +43,7 @@ void fit(raft::handle_t& handle,
          double* singular_vals,
          paramsTSVDMG& prms,
          bool verbose          = false,
-         bool u_based_decision = true);
+         bool u_based_decision = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the tsvd.
