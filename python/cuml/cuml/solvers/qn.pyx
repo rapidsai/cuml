@@ -12,41 +12,14 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.logger import level_enum
 from cuml.metrics import accuracy_score
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-from cuml.internals.logger cimport level_enum
-
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
-
-    cdef enum Loss "ML::GLM::qn_loss_type":
-        LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
-        SQUARED  "ML::GLM::QN_LOSS_SQUARED"
-        SOFTMAX  "ML::GLM::QN_LOSS_SOFTMAX"
-        SVC_L1   "ML::GLM::QN_LOSS_SVC_L1"
-        SVC_L2   "ML::GLM::QN_LOSS_SVC_L2"
-        SVR_L1   "ML::GLM::QN_LOSS_SVR_L1"
-        SVR_L2   "ML::GLM::QN_LOSS_SVR_L2"
-        ABS      "ML::GLM::QN_LOSS_ABS"
-
-    cdef struct qn_params:
-        Loss loss
-        double penalty_l1
-        double penalty_l2
-        double grad_tol
-        double change_tol
-        int max_iter
-        int linesearch_max_iter
-        int lbfgs_memory
-        int verbose
-        bool fit_intercept
-        bool penalty_normalized
-
     void qnFit[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
@@ -90,6 +63,53 @@ SUPPORTED_LOSSES = {
     "svr_l1": Loss.SVR_L1,
     "svr_l2": Loss.SVR_L2,
 }
+
+
+cdef void init_qn_params(
+    qn_params &params,
+    int n_classes,
+    loss,
+    bool fit_intercept,
+    double l1_strength,
+    double l2_strength,
+    int max_iter,
+    double tol,
+    delta,
+    int linesearch_max_iter,
+    int lbfgs_memory,
+    bool penalty_normalized,
+    level_enum verbose,
+):
+    """Initialize a `qn_params` from the corresponding python parameters."""
+    # Validate hyperparameters
+    if (loss_type := SUPPORTED_LOSSES.get(loss)) is None:
+        raise ValueError(f"{loss=!r} is unsupported")
+    if loss_type == Loss.SOFTMAX:
+        if n_classes <= 2:
+            raise ValueError(
+                f"loss='softmax' requires n_classes > 2 (got {n_classes})"
+            )
+    elif loss_type in {Loss.LOGISTIC, Loss.SVC_L1, Loss.SVC_L2}:
+        if n_classes != 2:
+            raise ValueError(
+                f"loss={loss!r} requires n_classes == 2 (got {n_classes})"
+            )
+    elif n_classes != 0:
+        raise ValueError(
+            f"loss={loss!r} does not support classification (got {n_classes=})"
+        )
+
+    params.loss = loss_type
+    params.penalty_l1 = l1_strength
+    params.penalty_l2 = l2_strength
+    params.grad_tol = tol
+    params.change_tol = delta if delta is not None else tol * 0.01
+    params.max_iter = max_iter
+    params.linesearch_max_iter = linesearch_max_iter
+    params.lbfgs_memory = lbfgs_memory
+    params.verbose = <int>verbose
+    params.fit_intercept = fit_intercept
+    params.penalty_normalized = penalty_normalized
 
 
 def fit_qn(
@@ -140,6 +160,8 @@ def fit_qn(
         Intercept added to the decision function.
     n_iter : int
         The number of iterations taken by the solver.
+    objective : float
+        The value of the objective function.
     """
     if handle is None:
         handle = Handle()
@@ -176,36 +198,23 @@ def fit_qn(
             convert_to_dtype=(dtype if convert_dtype else None)
         ).array
 
-    # Validate hyperparameters
-    if (loss_type := SUPPORTED_LOSSES.get(loss)) is None:
-        raise ValueError(f"{loss=!r} is unsupported")
-    if loss_type == Loss.SOFTMAX:
-        if n_classes <= 2:
-            raise ValueError(
-                f"loss='softmax' requires n_classes > 2 (got {n_classes})"
-            )
-    elif loss_type in {Loss.LOGISTIC, Loss.SVC_L1, Loss.SVC_L2}:
-        if n_classes != 2:
-            raise ValueError(
-                f"loss={loss!r} requires n_classes == 2 (got {n_classes})"
-            )
-    elif n_classes != 0:
-        raise ValueError(
-            f"loss={loss!r} does not support classification (got {n_classes=})"
-        )
-
+    # Validate and process hyperparameters
     cdef qn_params params
-    params.loss = loss_type
-    params.penalty_l1 = l1_strength
-    params.penalty_l2 = l2_strength
-    params.grad_tol = tol
-    params.change_tol = delta if delta is not None else tol * 0.01
-    params.max_iter = max_iter
-    params.linesearch_max_iter = linesearch_max_iter
-    params.lbfgs_memory = lbfgs_memory
-    params.verbose = <int>verbose
-    params.fit_intercept = fit_intercept
-    params.penalty_normalized = penalty_normalized
+    init_qn_params(
+        params,
+        n_classes=n_classes,
+        loss=loss,
+        fit_intercept=fit_intercept,
+        l1_strength=l1_strength,
+        l2_strength=l2_strength,
+        max_iter=max_iter,
+        tol=tol,
+        delta=delta,
+        linesearch_max_iter=linesearch_max_iter,
+        lbfgs_memory=lbfgs_memory,
+        penalty_normalized=penalty_normalized,
+        verbose=verbose,
+    )
 
     coef_n_cols = n_classes if n_classes > 2 else 1
     coef_n_rows = n_cols + 1 if fit_intercept else n_cols
