@@ -15,7 +15,10 @@
 #include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <thrust/execution_policy.h>
+#include <rmm/exec_policy.hpp>
+
+#include <thrust/fill.h>
+#include <thrust/for_each.h>
 #include <thrust/sequence.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
@@ -32,6 +35,7 @@
 #include <map>
 
 namespace ML {
+
 template <class T, class L>
 class RandomForest {
  protected:
@@ -56,7 +60,7 @@ class RandomForest {
 
     } else {
       // Use all the samples from the dataset
-      thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
+      thrust::sequence(rmm::exec_policy(stream), selected_rows->begin(), selected_rows->end());
     }
   }
 
@@ -102,6 +106,8 @@ class RandomForest {
   * @param[in] n_unique_labels: (meaningful only for classification) #unique label values (known
   during preprocessing)
   * @param[in] forest: CPU point to RandomForestMetaData struct.
+  * @param[out] bootstrap_masks: optional device pointer to store bootstrap masks
+  *   (n_trees * n_rows), only populated if a non-null pointer is provided
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -109,7 +115,8 @@ class RandomForest {
            int n_cols,
            L* labels,
            int n_unique_labels,
-           RandomForestMetaData<T, L>* forest)
+           RandomForestMetaData<T, L>* forest,
+           bool* bootstrap_masks = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
@@ -178,6 +185,20 @@ class RandomForest {
                                                this->rf_params.seed,
                                                quantiles,
                                                i);
+
+      // Store bootstrap mask if device buffer is provided
+      if (bootstrap_masks != nullptr) {
+        // Calculate pointer offset for this tree's mask
+        bool* tree_mask = bootstrap_masks + (i * n_rows);
+
+        // Use Thrust to create boolean mask: first fill with false, then mark selected rows
+        thrust::fill(rmm::exec_policy(s), tree_mask, tree_mask + n_rows, false);
+        thrust::scatter(rmm::exec_policy(s),
+                        thrust::make_constant_iterator(true),
+                        thrust::make_constant_iterator(true) + n_sampled_rows,
+                        selected_rows[stream_id].data(),
+                        tree_mask);
+      }
     }
     // Cleanup
     handle.sync_stream_pool();
