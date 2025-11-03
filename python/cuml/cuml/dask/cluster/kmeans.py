@@ -88,7 +88,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
-        from cuml.cluster.kmeans import KMeans
+        from cuml.cluster.kmeans_mg import KMeansMG
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
@@ -99,8 +99,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return KMeans(handle=handle, output_type=datatype, **kwargs)._fit(
-            inp_data, sample_weight=inp_weights, multigpu=True
+        return KMeansMG(handle=handle, output_type=datatype, **kwargs).fit(
+            inp_data, sample_weight=inp_weights
         )
 
     @staticmethod
@@ -143,12 +143,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(inputs, client=self.client)
         self.datatype = data.datatype
 
-        if "random_state" not in self.kwargs:
-            self.kwargs["random_state"] = None
-
-        self.kwargs["random_state"] = check_random_seed(
-            self.kwargs["random_state"]
-        )
+        # Ensure a consistent `random_state` across all calls
+        kwargs = self.kwargs.copy()
+        kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
 
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
@@ -161,7 +158,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                 wf[1],
                 self.datatype,
                 data.multiple,
-                **self.kwargs,
+                **kwargs,
                 workers=[wf[0]],
                 pure=False,
             )

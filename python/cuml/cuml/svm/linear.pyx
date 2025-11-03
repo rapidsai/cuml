@@ -40,7 +40,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
         double change_tol
         double epsilon
 
-    cdef void cpp_fit "ML::SVM::linear::fit"[T](
+    cdef int cpp_fit "ML::SVM::linear::fit"[T](
         const handle_t& handle,
         const Params& params,
         const size_t nRows,
@@ -132,6 +132,8 @@ def fit(
         sklearn behavior). Otherwise returns a 1-element array for regression
         and binary classification, or `n_classes` elements for multi-class
         classification.
+    n_iter_ : int
+        The maximum number of iterations run across all classes.
     prob_scale_ : None or CumlArray, shape = (n_classes, 2)
         The probability scales (if `probability=True`), `None` otherwise.
     """
@@ -223,11 +225,12 @@ def fit(
     cdef uintptr_t classes_ptr = 0 if classes is None else classes.ptr
     cdef uintptr_t w_ptr = w.ptr
     cdef uintptr_t prob_scale_ptr = 0 if prob_scale is None else prob_scale.ptr
+    cdef int n_iter
 
     # Perform fit
     with nogil:
         if is_float32:
-            cpp_fit[float](
+            n_iter = cpp_fit[float](
                 handle_[0],
                 params,
                 n_rows,
@@ -241,7 +244,7 @@ def fit(
                 <float*>prob_scale_ptr,
             )
         else:
-            cpp_fit[double](
+            n_iter = cpp_fit[double](
                 handle_[0],
                 params,
                 n_rows,
@@ -268,7 +271,7 @@ def fit(
         coef = w
         intercept = 0.0
 
-    return coef, intercept, prob_scale
+    return coef, intercept, n_iter, prob_scale
 
 
 def compute_probabilities(handle, scores, prob_scale):
