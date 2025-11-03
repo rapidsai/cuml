@@ -8,29 +8,17 @@ repos:
       hooks:
           - id: trailing-whitespace
           - id: end-of-file-fixer
-    - repo: https://github.com/psf/black
-      rev: 22.10.0
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.14.1
       hooks:
-          - id: black
-            files: python/.*
-            args: [--config, python/cuml/pyproject.toml]
-    - repo: https://github.com/pycqa/isort
-      rev: 5.13.2
-      hooks:
-          - id: isort
-            files: python/.*
-            args: ["--settings-path", "python/cuml/pyproject.toml"]
+          - id: ruff-check
+            args: [--fix]
             exclude: ^python/.*/_thirdparty/
-    - repo: https://github.com/PyCQA/flake8
-      rev: 7.1.1
-      hooks:
-          - id: flake8
-            args: [--config=python/cuml/.flake8]
-            files: python/.*$
-            types: [file]
-            types_or: [python, cython]
-            exclude: thirdparty
-            additional_dependencies: [flake8-force]
+          - id: ruff-format
+            exclude: |
+              (?x)
+                ^python/.*/_thirdparty/|
+                ^python/cuml/cuml/feature_extraction/_stop_words[.]py$
     - repo: https://github.com/MarcoGorelli/cython-lint
       rev: v0.16.6
       hooks:

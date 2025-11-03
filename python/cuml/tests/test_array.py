@@ -168,7 +168,7 @@ def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     values = bytes(_get_size_from_shape(shape, dtype)[0])
 
     # Convert to data_type to be tested if needed.
-    if data_type != bytes:
+    if data_type is not bytes:
         values = data_type(values)
 
     array = CumlArray(

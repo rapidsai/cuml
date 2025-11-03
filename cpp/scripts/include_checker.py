@@ -9,8 +9,6 @@ import re
 import os
 import argparse
 import io
-from functools import reduce
-import operator
 import dataclasses
 import typing
 

@@ -116,7 +116,7 @@ def get_gpu_archs(command):
 def get_index(arr, item):
     try:
         return arr.index(item)
-    except:
+    except ValueError:
         return -1
 
 

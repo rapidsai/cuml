@@ -19,3 +19,18 @@ max-line-length = 95
 
 [tool.run-clang-tidy]
 ignore = "[.]cu$|_deps|examples/kmeans/"
+
+[tool.ruff]
+line-length = 79
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+extend-ignore = [
+    "F811",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyx" = ["E999", "E225", "E226", "E227"]
+"*.pxd" = ["E999", "E225", "E226", "E227"]
+"__init__.py" = ["F401"]
+"cpp/examples/**" = ["F401"]
