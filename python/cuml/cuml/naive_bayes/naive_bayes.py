@@ -725,6 +725,30 @@ class _BaseDiscreteNB(_BaseNB):
         self.handle = None
 
     def _check_X_y(self, X, y):
+        # Validate X and y shapes to prevent CUDA_ERROR_ILLEGAL_ADDRESS
+        if hasattr(X, "shape"):
+            n_samples_X = X.shape[0]
+        else:
+            raise ValueError("X must have a shape attribute")
+
+        # Get number of samples in y
+        if hasattr(y, "shape"):
+            n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
+        elif hasattr(y, "__len__"):
+            n_samples_y = len(y)
+        else:
+            n_samples_y = 1
+
+        # Check shape compatibility
+        if n_samples_X != n_samples_y:
+            raise ValueError(
+                f"X and y have incompatible shapes. "
+                f"X has {n_samples_X} samples, but y has {n_samples_y} samples."
+            )
+
+        if n_samples_X == 0:
+            raise ValueError("X has 0 samples, cannot fit model on empty data")
+
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
@@ -798,13 +822,31 @@ class _BaseDiscreteNB(_BaseNB):
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
+        # Ensure GPU operations are synchronized before starting
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                pass
+
         # TODO: use SparseCumlArray
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
+            try:
+                X = input_to_cupy_array(
+                    X,
+                    order="K",
+                    check_dtype=[cp.float32, cp.float64, cp.int32],
+                ).array
+            except Exception as e:
+                if "CUDA" in str(e) or "cuda" in str(e):
+                    raise RuntimeError(
+                        f"CUDA error during input conversion. "
+                        f"This may indicate GPU memory corruption. "
+                        f"Original error: {str(e)}"
+                    )
+                raise
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -848,6 +890,19 @@ class _BaseDiscreteNB(_BaseNB):
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
+
+        # Ensure GPU operations are synchronized after fit
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors but log them if verbose
+                if self.verbose:
+                    import warnings
+
+                    warnings.warn(
+                        "GPU synchronization failed, continuing anyway"
+                    )
 
         return self
 
@@ -1290,12 +1345,69 @@ class BernoulliNB(_BaseDiscreteNB):
         return X
 
     def _check_X_y(self, X, y):
+        """
+        Enhanced validation to prevent CUDA errors
+        """
+        # First call parent's validation
         X, y = super()._check_X_y(X, y)
-        if self.binarize is not None:
+
+        # Additional validation for BernoulliNB
+        if hasattr(X, "shape"):
+            # Check for empty arrays
+            if X.size == 0:
+                raise ValueError("X cannot be empty")
+
+            # Check for valid dimensions
+            if len(X.shape) != 2:
+                raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+
+            # Ensure we have at least one sample and one feature
+            if X.shape[0] < 1 or X.shape[1] < 1:
+                raise ValueError(
+                    f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+                )
+
+        # Validate y
+        if hasattr(y, "shape"):
+            if y.size == 0:
+                raise ValueError("y cannot be empty")
+
+            # Ensure y is 1D or can be squeezed to 1D
+            if len(y.shape) > 2:
+                raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+
+            if len(y.shape) == 2 and y.shape[1] != 1:
+                raise ValueError(
+                    f"y must be a column vector if 2D, got shape {y.shape}"
+                )
+
+        # Check for NaN or Inf values before binarization
+        if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
             if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
+                if cp.any(cp.isnan(X.data)) or cp.any(cp.isinf(X.data)):
+                    raise ValueError("Input X contains NaN or infinite values")
             else:
-                X = binarize(X, threshold=self.binarize)
+                if cp.any(cp.isnan(X)) or cp.any(cp.isinf(X)):
+                    raise ValueError("Input X contains NaN or infinite values")
+
+        # Apply binarization with validation
+        if self.binarize is not None:
+            try:
+                if cupyx.scipy.sparse.isspmatrix(X):
+                    X.data = binarize(X.data, threshold=self.binarize)
+                else:
+                    X = binarize(X, threshold=self.binarize)
+            except Exception as e:
+                raise ValueError(f"Error during binarization: {str(e)}")
+
+        # Ensure GPU operations are synchronized
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors
+                pass
+
         return X, y
 
     def _joint_log_likelihood(self, X):
@@ -1332,6 +1444,54 @@ class BernoulliNB(_BaseDiscreteNB):
         self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
             smoothed_cc.reshape(-1, 1)
         )
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier with enhanced error handling
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Weights applied to individual samples (1. for unweighted).
+
+        Returns
+        -------
+        self : object
+        """
+        # Reset internal state to ensure clean fit
+        self.fit_called_ = False
+
+        try:
+            # Call parent's fit through partial_fit
+            return super().fit(X, y, sample_weight)
+
+        except MemoryError as e:
+            # Handle CUDA memory errors specifically
+            if "CUDA error" in str(e) or "cudaError" in str(e):
+                raise RuntimeError(
+                    "CUDA memory error detected. This may be due to:\n"
+                    "1. Insufficient GPU memory\n"
+                    "2. Prior GPU memory corruption\n"
+                    "3. Invalid input data\n"
+                    "Try restarting your Python session or checking your input data.\n"
+                    f"Original error: {str(e)}"
+                )
+            else:
+                raise
+        except Exception as e:
+            # Reset state on error
+            self.fit_called_ = False
+            # Provide more context for other errors
+            raise type(e)(
+                f"Error in BernoulliNB.fit: {str(e)}\n"
+                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
+                f"y={getattr(y, 'shape', 'unknown')}"
+            ) from e
 
     @classmethod
     def _get_param_names(cls):
@@ -1596,12 +1756,49 @@ class CategoricalNB(_BaseDiscreteNB):
         )
 
     def _check_X_y(self, X, y):
+        # First call parent's validation to check shapes
+        X, y = super()._check_X_y(X, y)
+
+        # Additional validation for CategoricalNB to prevent GPU corruption
+        if hasattr(X, "shape"):
+            # Check for empty arrays
+            if X.size == 0:
+                raise ValueError("X cannot be empty")
+
+            # Check for valid dimensions
+            if len(X.shape) != 2:
+                raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+
+            # Ensure we have at least one sample and one feature
+            if X.shape[0] < 1 or X.shape[1] < 1:
+                raise ValueError(
+                    f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+                )
+
+        # Validate y
+        if hasattr(y, "shape"):
+            if y.size == 0:
+                raise ValueError("y cannot be empty")
+
+            # Ensure y is 1D or can be squeezed to 1D
+            if len(y.shape) > 2:
+                raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+
+            if len(y.shape) == 2 and y.shape[1] != 1:
+                raise ValueError(
+                    f"y must be a column vector if 2D, got shape {y.shape}"
+                )
+
+        # Now do CategoricalNB-specific validation
         if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn(
                 "X dtype is not int32. X will be "
                 "converted, which will increase memory consumption"
             )
             X.data = X.data.astype(cp.int32)
+            # Check for empty sparse matrix
+            if X.data.size == 0:
+                raise ValueError("Sparse matrix X has no non-zero elements")
             x_min = X.data.min()
         else:
             if X.dtype not in [cp.int32]:
@@ -1613,9 +1810,22 @@ class CategoricalNB(_BaseDiscreteNB):
                 X = input_to_cupy_array(
                     X, order="K", convert_to_dtype=cp.int32
                 ).array
+            # Check if conversion resulted in valid data
+            if X.size == 0:
+                raise ValueError("X has no elements after conversion")
             x_min = X.min()
+
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
+
+        # Ensure GPU operations are synchronized
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors
+                pass
+
         return X, y
 
     def _check_X(self, X):
