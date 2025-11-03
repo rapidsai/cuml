@@ -19,6 +19,7 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -116,41 +117,6 @@ void calEig(const raft::handle_t& handle,
   raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
-template <typename math_t>
-void center_columns(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t, std::size_t, raft::col_major> input_view,
-                    cudaStream_t stream)
-{
-  const std::size_t n_rows = input_view.extent(0);
-  const std::size_t n_cols = input_view.extent(1);
-
-  // Step 1: Allocate device vector to store column means
-  rmm::device_uvector<math_t> col_means(n_cols, stream);
-  auto col_means_view =
-    raft::make_device_vector_view<math_t, std::size_t>(col_means.data(), n_rows);
-
-  // Step 2: Compute column-wise sum
-  raft::linalg::reduce<false, false>(
-    col_means.data(),
-    input_view.data_handle(),
-    n_cols,
-    n_rows,
-    math_t(0),
-    stream,
-    false,
-    [n_rows] __device__(math_t x, auto idx) { return x / static_cast<math_t>(n_rows); },
-    raft::add_op(),
-    raft::identity_op());
-
-  // Step 3: Subtract column mean from each element
-  raft::linalg::map_offset(
-    handle, input_view, [input_view, col_means_view, n_rows] __device__(auto idx) {
-      std::size_t row    = idx % n_rows;
-      std::size_t column = idx / n_rows;
-      return input_view(row, column) - col_means_view(column);
-    });
-}
-
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
@@ -183,16 +149,19 @@ void signFlipComponents(const raft::handle_t& handle,
 
   // Step 1: find U or V max absolute values
   // X = U @ S @ V
-  // X: column-centered input matrix, n_samples * n_features
+  // X: input matrix, n_samples * n_features
   // U: n_samples * n_components
   // S: diagonal matrix of eigen-values, n_components * n_components
   // V: components, n_components * n_features
   // U @ S = X @ V.T, where the signs of U @ S are solely determined by U
   if (u_based_decision) {
     if (center) {
-      auto input_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
-        input, n_samples, n_features);
-      center_columns(handle, input_view, stream);
+      // If center, X -= X.mean(axis=0)
+      rmm::device_uvector<math_t> col_means(n_features, stream);
+      raft::stats::mean<false, math_t, std::size_t>(
+        col_means.data(), input, n_features, n_samples, stream);
+      raft::stats::meanCenter<false, false, math_t, std::size_t>(
+        input, input, col_means.data(), n_features, n_samples, stream);
     }
     rmm::device_uvector<math_t> US(n_samples * n_components, stream);
     raft::linalg::gemm<math_t, math_t, math_t, math_t>(handle,
