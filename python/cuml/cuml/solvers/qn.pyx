@@ -171,7 +171,7 @@ def fit_qn(
             check_rows=n_rows,
             check_cols=1,
             convert_to_dtype=(dtype if convert_dtype else None)
-        )
+        ).array
 
     cdef qn_params params
     if (loss_type := SUPPORTED_LOSSES.get(loss)) is None:
@@ -211,7 +211,7 @@ def fit_qn(
             "Two classes or less cannot be trained with softmax (multinomial)."
         )
 
-    coef_n_cols = max(n_classes - 1, 1)
+    coef_n_cols = n_classes if n_classes > 2 else 1
     coef_n_rows = n_cols + 1 if fit_intercept else n_cols
 
     if init_coef is None:
@@ -224,7 +224,7 @@ def fit_qn(
             convert_to_dtype=(dtype if convert_dtype else None),
             check_rows=coef_n_rows,
             check_cols=coef_n_cols,
-        )
+        ).array
 
     cdef uintptr_t X_ptr, X_indices_ptr, X_indptr_ptr
     cdef int X_nnz
