@@ -16,24 +16,30 @@ test_seeds = ["int", "cupy", "numpy"]
 
 
 @pytest.fixture(
-    params=[cuda.to_device, cp.asarray, cudf, pd],
+    params=[
+        (cuda.to_device, "numba"),
+        (cp.asarray, "cupy"),
+        (cudf, "rmm"),
+        (pd, "pandas"),
+    ],
     ids=["to_numba", "to_cupy", "to_cudf", "to_pandas"],
 )
 def convert_to_type(request):
-    if request.param in (cudf, pd):
+    converter, type_name = request.param
+    if converter in (cudf, pd):
 
         def ctor(X):
-            if isinstance(X, cp.ndarray) and request.param == pd:
+            if isinstance(X, cp.ndarray) and converter == pd:
                 X = X.get()
 
             if X.ndim > 1:
-                return request.param.DataFrame(X)
+                return converter.DataFrame(X)
             else:
-                return request.param.Series(X)
+                return converter.Series(X)
 
-        return (ctor, request.id)
+        return (ctor, type_name)
 
-    return (request.param, request.id)
+    return (converter, type_name)
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
