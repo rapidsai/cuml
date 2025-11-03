@@ -120,5 +120,5 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_integrations.sh
-      # Test latest CUDA version with all Python versions
-      matrix_filter: group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by(.CUDA_VER|split(".")|map(tonumber))) | group_by(.PY_VER) | map(.[0])
+      # Test all CUDA major versions with latest dependencies and respective latest Python version
+      matrix_filter: map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
