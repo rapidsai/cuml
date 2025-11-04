@@ -205,10 +205,15 @@ def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
         assert cuda.devicearray.is_cuda_ndarray(y_test)
 
     if type_name in ["cudf", "pandas"]:
-        assert isinstance(X_train, cudf.Series)
-        assert isinstance(X_test, cudf.Series)
-        assert isinstance(y_train, cudf.Series)
-        assert isinstance(y_test, cudf.Series)
+        expected_type = (
+            cudf.DataFrame
+            if type(X) in [cudf.DataFrame, pd.DataFrame]
+            else cudf.Series
+        )
+        assert isinstance(X_train, expected_type)
+        assert isinstance(X_test, expected_type)
+        assert isinstance(y_train, expected_type)
+        assert isinstance(y_test, expected_type)
 
     if train_size is not None:
         assert X_train.shape[0] == X.shape[0] * train_size
