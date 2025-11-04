@@ -16,7 +16,7 @@ from cuml.testing.utils import array_equal, stress_param, unit_param
     [unit_param([1000, 20, 30]), stress_param([int(9e6), 5000, 30])],
 )
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_dask_tsvd_fit(data_info, input_type, client):
+def test_tsvd_fit(data_info, input_type, client):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -83,7 +83,7 @@ def test_dask_tsvd_fit(data_info, input_type, client):
     "data_info",
     [unit_param([1000, 20, 46]), stress_param([int(9e6), 5000, 46])],
 )
-def test_dask_tsvd_fit_transform_fp32(data_info, client):
+def test_tsvd_fit_transform_fp32(data_info, client):
 
     nrows, ncols, n_parts = data_info
     from cuml.dask.datasets import make_blobs
@@ -108,7 +108,7 @@ def test_dask_tsvd_fit_transform_fp32(data_info, client):
     "data_info",
     [unit_param([1000, 20, 33]), stress_param([int(9e6), 5000, 33])],
 )
-def test_dask_tsvd_fit_transform_fp64(data_info, client):
+def test_tsvd_fit_transform_fp64(data_info, client):
 
     nrows, ncols, n_parts = data_info
 
@@ -127,3 +127,28 @@ def test_dask_tsvd_fit_transform_fp64(data_info, client):
 
     cutsvd = daskTPCA(n_components=15)
     cutsvd.fit_transform(X_cudf)
+
+
+@pytest.mark.mg
+def test_tsvd_n_components_exceeds_features(client):
+    from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
+
+    # Create dataset with 20 features
+    X, _ = make_blobs(
+        n_samples=100,
+        n_features=20,
+        centers=1,
+        n_parts=2,
+        cluster_std=0.5,
+        random_state=10,
+        dtype=np.float32,
+    )
+
+    # Try to create TruncatedSVD with n_components > n_features (20)
+    cutsvd = daskTPCA(n_components=25)
+
+    with pytest.raises(
+        ValueError, match=r"`n_components` \(25\) must be <= than"
+    ):
+        cutsvd.fit(X)
