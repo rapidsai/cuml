@@ -7,7 +7,7 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
 import scipy.sparse as sp
-from sklearn.datasets import make_circles
+from sklearn.datasets import load_digits, make_circles
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import pairwise_distances
@@ -15,15 +15,17 @@ from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
 from cuml.manifold.umap import fuzzy_simplicial_set
-from cuml.testing.datasets import (
-    generate_mnist_like_dataset,
-    load_digits_dataset,
-    make_pattern,
-)
+from cuml.testing.datasets import generate_mnist_like_dataset, make_pattern
 
 # Test parameters
 N_NEIGHBORS = 15
 N_COMPONENTS = 2
+
+
+def load_digits_dataset(n_samples=None):
+    """Load digits dataset (n_samples is ignored as dataset has fixed size)."""
+    digits = load_digits()
+    return digits.data
 
 
 @pytest.mark.parametrize(
@@ -64,10 +66,9 @@ def test_spectral_embedding_trustworthiness(
     if dataset_source in ["s_curve", "swiss_roll"]:
         X, _ = make_pattern(dataset_source, n_samples)[0]
     elif dataset_source == "mnist_like":
-        X_train, _, _, _ = generate_mnist_like_dataset(n_samples)
-        X = X_train
+        X, _, _, _ = generate_mnist_like_dataset(n_samples)
     elif dataset_source == "digits":
-        X, _ = load_digits_dataset()
+        X = load_digits_dataset()
 
     if affinity == "precomputed":
         if graph_type == "fuzzy_knn":

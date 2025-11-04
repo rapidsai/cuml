@@ -246,23 +246,6 @@ def generate_mnist_like_dataset(n_samples, datatype=np.float32):
     return X_train, X_test, y_train, y_test
 
 
-def load_digits_dataset():
-    """Load the digits dataset from sklearn.
-
-    This is a small dataset of 8x8 images of digits (0-9) that's useful
-    for quick testing of manifold learning and classification algorithms.
-
-    Returns
-    -------
-    tuple
-        (X, y) where X is the flattened image data and y is the labels
-    """
-    from sklearn.datasets import load_digits
-
-    digits = load_digits()
-    return digits.data, digits.target
-
-
 def make_pattern(name, n_samples):
     """Get a specific pattern dataset for clustering and manifold learning.
 
@@ -366,7 +349,6 @@ __all__ = [
     "is_cuml_compatible_dataset",
     # Dataset generation
     "generate_mnist_like_dataset",
-    "load_digits_dataset",
     "make_classification",
     "make_classification_dataset",
     "make_pattern",
