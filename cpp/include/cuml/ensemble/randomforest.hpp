@@ -162,7 +162,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -171,7 +172,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -182,6 +184,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   int n_unique_labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
@@ -239,7 +242,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
          double* input,
@@ -247,7 +251,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -257,6 +262,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_cols,
                   L* labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity);
 
 /**
