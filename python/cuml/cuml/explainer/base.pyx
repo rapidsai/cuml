@@ -367,7 +367,7 @@ class SHAPBase():
                                      <bool> row_major)
         else:
             # Cast double arrays to float32 for kernel call
-            masked_inputs_f32 = masked_inputs.astype(cp.float32)
+            masked_inputs_f32 = cp.empty_like(masked_inputs, dtype=cp.float32)
             background_f32 = cp.asarray(self.masker).astype(cp.float32)
             row_f32 = row.astype(cp.float32)
 

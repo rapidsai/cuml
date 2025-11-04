@@ -315,7 +315,7 @@ class KernelExplainer(SHAPBase):
         if self.dtype == np.float64:
             # Cast double arrays to float32 for kernel call
             background_f32 = self.background.astype(np.float32)
-            synth_data_f32 = self._synth_data.astype(np.float32)
+            synth_data_f32 = cp.empty_like(self._synth_data, dtype=np.float32)
             row_f32 = row.astype(np.float32)
 
             bg_ptr_f32 = get_cai_ptr(background_f32)

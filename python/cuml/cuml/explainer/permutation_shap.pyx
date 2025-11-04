@@ -266,7 +266,7 @@ class PermutationExplainer(SHAPBase):
                                          <bool> row_major)
             else:
                 # Cast double arrays to float32 for kernel call
-                synth_data_f32 = self._synth_data.astype(cp.float32)
+                synth_data_f32 = cp.empty_like(self._synth_data, dtype=cp.float32)
                 background_f32 = self.background.astype(cp.float32)
                 row_f32 = row.astype(cp.float32)
 
