@@ -16,7 +16,7 @@ from cuml.testing.utils import array_equal, stress_param, unit_param
     [unit_param([1000, 20, 30]), stress_param([int(9e6), 5000, 30])],
 )
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_pca_fit(data_info, input_type, client):
+def test_dask_tsvd_fit(data_info, input_type, client):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -83,7 +83,7 @@ def test_pca_fit(data_info, input_type, client):
     "data_info",
     [unit_param([1000, 20, 46]), stress_param([int(9e6), 5000, 46])],
 )
-def test_pca_fit_transform_fp32(data_info, client):
+def test_dask_tsvd_fit_transform_fp32(data_info, client):
 
     nrows, ncols, n_parts = data_info
     from cuml.dask.datasets import make_blobs
@@ -99,7 +99,7 @@ def test_pca_fit_transform_fp32(data_info, client):
         dtype=np.float32,
     )
 
-    cutsvd = daskTPCA(n_components=20)
+    cutsvd = daskTPCA(n_components=15)
     cutsvd.fit_transform(X_cudf)
 
 
@@ -108,7 +108,7 @@ def test_pca_fit_transform_fp32(data_info, client):
     "data_info",
     [unit_param([1000, 20, 33]), stress_param([int(9e6), 5000, 33])],
 )
-def test_pca_fit_transform_fp64(data_info, client):
+def test_dask_tsvd_fit_transform_fp64(data_info, client):
 
     nrows, ncols, n_parts = data_info
 
@@ -125,5 +125,5 @@ def test_pca_fit_transform_fp64(data_info, client):
         dtype=np.float64,
     )
 
-    cutsvd = daskTPCA(n_components=30)
+    cutsvd = daskTPCA(n_components=15)
     cutsvd.fit_transform(X_cudf)
