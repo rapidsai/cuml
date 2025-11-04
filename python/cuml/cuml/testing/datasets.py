@@ -223,8 +223,59 @@ def small_classification_dataset(datatype):
     return X_train, X_test, y_train, y_test
 
 
+def generate_mnist_like_dataset(n_samples, datatype=np.float32):
+    """Generate a classification dataset with MNIST-like characteristics.
+
+    This function creates a synthetic dataset similar to MNIST for testing
+    purposes, with customizable parameters. The data is normalized to [0, 1]
+    range like real MNIST data.
+
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples to generate
+    datatype : numpy.dtype, default=np.float32
+        Data type to cast the arrays to
+
+    Returns
+    -------
+    tuple
+        (X_train, X_test, y_train, y_test) normalized to [0, 1] range
+    """
+    X_train, X_test, y_train, y_test = make_classification_dataset(
+        datatype=datatype,
+        nrows=n_samples,
+        ncols=784,  # Same as MNIST features (28x28 pixels)
+        n_info=100,  # Number of informative features
+        num_classes=10,  # Same as MNIST classes (digits 0-9)
+    )
+
+    # Normalize to [0, 1] range like MNIST
+    X_train = (X_train - X_train.min()) / (X_train.max() - X_train.min())
+    X_test = (X_test - X_test.min()) / (X_test.max() - X_test.min())
+
+    return X_train, X_test, y_train, y_test
+
+
+def load_digits_dataset():
+    """Load the digits dataset from sklearn.
+
+    This is a small dataset of 8x8 images of digits (0-9) that's useful
+    for quick testing of manifold learning and classification algorithms.
+
+    Returns
+    -------
+    tuple
+        (X, y) where X is the flattened image data and y is the labels
+    """
+    from sklearn.datasets import load_digits
+
+    digits = load_digits()
+    return digits.data, digits.target
+
+
 def make_pattern(name, n_samples):
-    """Get a specific pattern dataset for clustering.
+    """Get a specific pattern dataset for clustering and manifold learning.
 
     Parameters
     ----------
@@ -236,6 +287,8 @@ def make_pattern(name, n_samples):
         - 'blobs'
         - 'aniso'
         - 'no_structure'
+        - 's_curve'
+        - 'swiss_roll'
     n_samples : int
         Number of samples to generate
 
@@ -285,6 +338,18 @@ def make_pattern(name, n_samples):
         data = np.random.rand(n_samples, 2), None
         params = {}
 
+    elif name == "s_curve":
+        from sklearn.datasets import make_s_curve
+
+        data = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+        params = {}
+
+    elif name == "swiss_roll":
+        from sklearn.datasets import make_swiss_roll
+
+        data = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
+        params = {}
+
     return [data, params]
 
 
@@ -311,6 +376,8 @@ __all__ = [
     "is_sklearn_compatible_dataset",
     "is_cuml_compatible_dataset",
     # Dataset generation
+    "generate_mnist_like_dataset",
+    "load_digits_dataset",
     "make_classification",
     "make_classification_dataset",
     "make_pattern",
