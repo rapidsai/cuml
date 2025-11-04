@@ -158,9 +158,8 @@ void signFlipComponents(const raft::handle_t& handle,
     if (center) {
       // If center, X -= X.mean(axis=0)
       rmm::device_uvector<math_t> col_means(n_features, stream);
-      raft::stats::mean<false, math_t, std::size_t>(
-        col_means.data(), input, n_features, n_samples, stream);
-      raft::stats::meanCenter<false, false, math_t, std::size_t>(
+      raft::stats::mean<false>(col_means.data(), input, n_features, n_samples, stream);
+      raft::stats::meanCenter<false, true>(
         input, input, col_means.data(), n_features, n_samples, stream);
     }
     rmm::device_uvector<math_t> US(n_samples * n_components, stream);
