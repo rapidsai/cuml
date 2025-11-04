@@ -149,6 +149,6 @@ def test_tsvd_n_components_exceeds_features(client):
     cutsvd = daskTPCA(n_components=25)
 
     with pytest.raises(
-        ValueError, match=r"`n_components` \(25\) must be <= than"
+        RuntimeError, match=r"`n_components` \(25\) must be <= than"
     ):
         cutsvd.fit(X)
