@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 """
@@ -53,11 +42,17 @@ umap_dev_tools_path = os.path.join(
 if os.path.exists(umap_dev_tools_path):
     sys.path.insert(0, umap_dev_tools_path)
 
-from umap_metrics import (  # noqa: E402
-    _build_knn_with_cuvs,
-    compute_simplicial_set_embedding_metrics,
-    procrustes_rmse,
-)
+try:
+    from umap_metrics import (  # noqa: E402
+        _build_knn_with_cuvs,
+        compute_simplicial_set_embedding_metrics,
+        procrustes_rmse,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import umap_metrics. Ensure the umap_dev_tools module is "
+        f"available at {umap_dev_tools_path}. Original error: {e}"
+    ) from e
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
@@ -101,7 +96,15 @@ def diverse_dataset_strategy(draw):
         st.sampled_from(["blobs", "circles", "moons", "swiss_roll", "s_curve"])
     )
     n_samples = draw(st.integers(min_value=800, max_value=2000))
-    metric = draw(st.sampled_from(["euclidean", "cosine"]))
+
+    # Cosine metric only makes sense for high-dimensional feature vectors (blobs).
+    # For 2D/3D manifold datasets (circles, moons, swiss_roll, s_curve),
+    # cosine distance is mathematically inappropriate and can cause NaN/Inf values
+    # that hang the geodesic correlation computation.
+    if dataset_type == "blobs":
+        metric = draw(st.sampled_from(["euclidean", "cosine"]))
+    else:
+        metric = "euclidean"
 
     if dataset_type == "blobs":
         n_features = draw(st.integers(min_value=5, max_value=25))
@@ -202,7 +205,10 @@ def embedding_params_strategy(draw):
     min_dist = draw(st.floats(min_value=0.05, max_value=0.5))
 
     # spread: typically 0.5 to 2.5, must be >= min_dist
-    spread = draw(st.floats(min_value=max(0.5, min_dist + 0.1), max_value=2.5))
+    # Cap min_value at 2.5 to ensure it doesn't exceed max_value
+    spread = draw(
+        st.floats(min_value=min(2.5, max(0.5, min_dist + 0.1)), max_value=2.5)
+    )
 
     # n_epochs: reasonable range for good convergence
     n_epochs = draw(st.integers(min_value=200, max_value=500))
@@ -251,6 +257,10 @@ def evaluate_embedding_quality(
     """
     Evaluate embedding quality by comparing cuML against reference.
 
+    Note: For KL divergence metrics, thresholds represent relative increases when
+    reference values are >= 1e-6, or absolute differences when reference values
+    are very small (< 1e-6) to avoid instability from near-zero denominators.
+
     Returns:
         tuple: (should_fail, fail_reason, metrics_dict)
     """
@@ -286,10 +296,27 @@ def evaluate_embedding_quality(
     cont_def = max(0.0, cont_ref - cont_cu)
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
-    xent_rel_increase = max(
-        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
-    )
-    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    # For divergence metrics, use hybrid approach to avoid instability with near-zero values:
+    # - If reference is very small (< 1e-6), use absolute difference
+    # - Otherwise use relative increase, capped at 10.0 to avoid spurious failures
+    xent_abs_threshold = 1e-6
+    if abs(xent_ref) < xent_abs_threshold:
+        # Use absolute difference for small reference values
+        xent_rel_increase = max(0.0, xent_cu - xent_ref)
+    else:
+        # Use relative increase, capped at 10.0
+        xent_rel_increase = min(
+            10.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+        )
+
+    kl_abs_threshold = 1e-6
+    if abs(kl_ref) < kl_abs_threshold:
+        # Use absolute difference for small reference values
+        kl_rel_increase = max(0.0, kl_cu - kl_ref)
+    else:
+        # Use relative increase, capped at 10.0
+        kl_rel_increase = min(10.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []
@@ -466,18 +493,18 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     using Hypothesis to generate random combinations of datasets and parameters.
 
     Dataset Types (randomly selected):
-    - Blobs: Traditional clustered data (5-50D)
-    - Circles: Concentric circles topology (2D)
-    - Moons: Two interleaving half circles (2D)
-    - Swiss Roll: Classic 3D manifold structure
-    - S-Curve: 3D curved manifold
+    - Blobs: Traditional clustered data (5-25D, euclidean or cosine)
+    - Circles: Concentric circles topology (2D, euclidean only)
+    - Moons: Two interleaving half circles (2D, euclidean only)
+    - Swiss Roll: Classic 3D manifold structure (euclidean only)
+    - S-Curve: 3D curved manifold (euclidean only)
 
     Test Coverage:
-    - 15 random parameter/dataset combinations
+    - 5 random parameter/dataset combinations
     - All parameters within reasonable ranges (no extreme values)
     - Both 2D and 3D embeddings
-    - Euclidean and cosine metrics
-    - Sample sizes: 300-2000
+    - Euclidean metric for all; cosine metric only for high-dimensional blobs
+    - Sample sizes: 800-2000
     - Epochs: 200-500
 
     Quality Validation:
