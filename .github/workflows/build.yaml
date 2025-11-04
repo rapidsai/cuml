@@ -37,10 +37,12 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      node_type: cpu8
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/build_cpp.sh
       sha: ${{ inputs.sha }}
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
     if: github.ref_type == 'branch'
     needs: [python-build]
@@ -65,6 +67,7 @@ jobs:
       date: ${{ inputs.date }}
       script: ci/build_python.sh
       sha: ${{ inputs.sha }}
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   upload-conda:
     needs: [cpp-build, python-build]
     secrets: inherit
@@ -87,6 +90,7 @@ jobs:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libcuml
       package-type: cpp
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-libcuml:
     needs: wheel-build-libcuml
     secrets: inherit
@@ -110,6 +114,7 @@ jobs:
       script: ci/build_wheel_cuml.sh
       package-name: cuml
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit
