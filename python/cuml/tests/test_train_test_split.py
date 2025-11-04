@@ -307,8 +307,13 @@ def test_split_array_single_argument(
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
     if type_name in ["cudf", "pandas"]:
-        assert isinstance(X_train, cudf.Series)
-        assert isinstance(X_test, cudf.Series)
+        expected_type = (
+            cudf.DataFrame
+            if type(X) in [cudf.DataFrame, pd.DataFrame]
+            else cudf.Series
+        )
+        assert isinstance(X_train, expected_type)
+        assert isinstance(X_test, expected_type)
 
     if train_size is not None:
         assert X_train.shape[0] == (int)(X.shape[0] * train_size)
@@ -365,8 +370,13 @@ def test_stratified_split(convert_to_type, test_size, train_size):
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
     if type_name in ["cudf", "pandas"]:
-        assert isinstance(X_train, cudf.Series)
-        assert isinstance(X_test, cudf.Series)
+        expected_type = (
+            cudf.DataFrame
+            if type(X) in [cudf.DataFrame, pd.DataFrame]
+            else cudf.Series
+        )
+        assert isinstance(X_train, expected_type)
+        assert isinstance(X_test, expected_type)
 
 
 @pytest.mark.parametrize("seed_type", test_seeds)
