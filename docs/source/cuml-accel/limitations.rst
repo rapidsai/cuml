@@ -442,7 +442,6 @@ SVC
 Additionally, the following fitted attributes are currently not computed:
 
 - ``class_weight_``
-- ``n_iter_``
 
 SVR
 ^^^
@@ -451,10 +450,6 @@ SVR
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 LinearSVC
 ^^^^^^^^^
