@@ -187,7 +187,7 @@ RandomForestClassifier
 ``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -196,6 +196,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
@@ -203,7 +204,7 @@ RandomForestRegressor
 ``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -211,6 +212,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 
 sklearn.kernel_ridge
@@ -284,11 +286,8 @@ Ridge
 
 ``Ridge`` will fall back to CPU in the following cases:
 
-- If ``positive=True``.
-- If ``solver="lbfgs"``.
+- If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-- If ``X`` has more columns than rows.
-- If ``y`` is multioutput.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -407,6 +406,23 @@ Additional notes:
 - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
   implementation in cuml will always be used.
 
+KernelDensity
+^^^^^^^^^^^^^
+
+``KernelDensity`` will fall back to CPU in the following cases:
+
+- If ``metric`` is not one of the supported metrics (``"cityblock"``,
+  ``"cosine"``, ``"euclidean"``, ``"l1"``, ``"l2"``, ``"manhattan"``,
+  ``"sqeuclidean"``, ``"canberra"``, ``"chebyshev"``, ``"minkowski"``,
+  ``"hellinger"``, ``"correlation"``, ``"jensenshannon"``, ``"hamming"``,
+  ``"kldivergence"``, ``"russellrao"``, ``"nan_euclidean"``).
+
+Additional notes:
+
+- The ``algorithm``, ``atol``, ``rtol``, ``breadth_first``, and ``leaf_size``
+  parameters are ignored. The GPU accelerated pairwise brute-force
+  implementation in cuml will always be used.
+
 
 sklearn.svm
 -----------
@@ -455,16 +471,10 @@ LinearSVC
 - If ``intercept_scaling`` is not ``1``.
 - If ``multi_class`` is not ``"ovr"``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Sample weight functionality may not produce equivalent results to replicating data according to weights.
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
-- Models may not be picklable; pickling or unpickling may fail.
-- Multi-class models may have coefficient shape differences that cause pickling failures.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 LinearSVR
 ^^^^^^^^^
@@ -474,14 +484,10 @@ LinearSVR
 - If ``X`` is sparse.
 - If ``intercept_scaling`` is not ``1``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
-- Models may not be picklable under certain conditions; pickling or unpickling may fail.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 umap
 ----

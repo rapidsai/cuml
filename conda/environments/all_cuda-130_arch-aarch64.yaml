@@ -16,6 +16,7 @@ dependencies:
 - cuda-version=13.0
 - cudf==25.12.*,>=0.0.0a0
 - cupy>=13.6.0
+- cuvs==25.12.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.0.0
 - dask-cuda==25.12.*,>=0.0.0a0
@@ -78,6 +79,6 @@ dependencies:
 - statsmodels
 - sysroot_linux-aarch64==2.28
 - tenacity
-- treelite==4.4.1
+- treelite
 - umap-learn==0.5.7
 name: all_cuda-130_arch-aarch64
