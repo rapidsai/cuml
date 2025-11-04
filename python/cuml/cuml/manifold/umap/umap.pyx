@@ -31,9 +31,7 @@ from cuml.internals.interop import (
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
-from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
-from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
-from cuml.manifold.umap_utils import (
+from cuml.manifold.umap.umap_utils import (
     HostGraphHolder,
     coerce_metric,
     find_ab_params,
@@ -47,7 +45,7 @@ from pylibraft.common.handle cimport handle_t
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 from cuml.internals.logger cimport level_enum
-from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap.umap_utils cimport *
 
 
 cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:

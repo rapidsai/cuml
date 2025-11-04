@@ -11,13 +11,17 @@ import cuml
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
+from cuml.manifold.umap.umap_utils import (
+    GraphHolder,
+    coerce_metric,
+    find_ab_params,
+)
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp.memory cimport unique_ptr
 from pylibraft.common.handle cimport handle_t
 
-from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap.umap_utils cimport *
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:

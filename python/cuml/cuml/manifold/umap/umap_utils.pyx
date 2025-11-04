@@ -15,7 +15,7 @@ from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
-from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
 
 
