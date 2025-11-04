@@ -13,6 +13,8 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -109,7 +111,7 @@ template <typename T>
 void col_means_mg(const raft::handle_t& handle,
                   std::vector<Matrix::Data<T>*>& input,
                   Matrix::PartDescriptor& input_desc,
-                  rmm::device_uvector<T>& dots,
+                  T* dots,
                   std::size_t n_rows,
                   std::size_t n_cols,
                   cudaStream_t* streams,
@@ -124,34 +126,22 @@ void col_means_mg(const raft::handle_t& handle,
     T* input_chunk           = input[i]->ptr;
     std::size_t n_rows_chunk = local_blocks[i]->size;
     // Compute col_mean_chunk = sum(col_values) / n_rows
-    raft::linalg::reduce<false, false>(
-      col_means_raw.data() + (i * n_cols),
-      input_chunk,
-      n_cols,
-      n_rows_chunk,
-      T(0),
-      streams[i],
-      false,
-      [n_rows] __device__(T x, auto idx) { return x / static_cast<T>(n_rows); },
-      raft::add_op(),
-      raft::identity_op());
+    raft::linalg::reduce<false, false>(col_means_raw.data() + (i * n_cols),
+                                       input_chunk,
+                                       n_cols,
+                                       n_rows_chunk,
+                                       T(0),
+                                       streams[i],
+                                       false,
+                                       raft::identity_op(),
+                                       raft::add_op(),
+                                       raft::div_const_op<T>(n_rows));
   }
   for (std::uint32_t i = 0; i < n_stream; i++) {
     handle.sync_stream(streams[i]);
   }
   // Compute sum(col_mean_chunk)
-  auto col_means_raw_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-    col_means_raw.data(), local_block_size, n_cols);
-  raft::linalg::reduce<true, false>(dots.data(),
-                                    col_means_raw_view.data_handle(),
-                                    n_cols,
-                                    local_block_size,
-                                    T(0),
-                                    streams[0],
-                                    false,
-                                    raft::identity_op(),
-                                    raft::add_op(),
-                                    raft::identity_op());
+  raft::stats::sum<true>(dots, col_means_raw.data(), n_cols, local_block_size, streams[0]);
 }
 
 template <typename T>
@@ -186,8 +176,8 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
 
   // Step 1: compute column means from input and center input
   rmm::device_uvector<T> col_means(n_features, streams[0]);
-  col_means_mg<T>(handle, input, input_desc, col_means, n_samples, n_features, streams, n_stream);
-  auto col_means_view = raft::make_device_vector_view<T, std::size_t>(col_means.data(), n_features);
+  col_means_mg<T>(
+    handle, input, input_desc, col_means.data(), n_samples, n_features, streams, n_stream);
   handle.sync_stream(streams[0]);
 
   // Step 2: compute col-wise max abs per chunk
@@ -195,16 +185,8 @@ void sign_flip_components_u_imp(raft::handle_t& handle,
     T* input_chunk              = input[i]->ptr;
     std::size_t n_samples_chunk = local_blocks[i]->size;
     if (center) {
-      auto input_chunk_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-        input_chunk, n_samples_chunk, n_features);
-      raft::linalg::map_offset(
-        handle,
-        input_chunk_view,
-        [input_chunk_view, col_means_view, n_samples_chunk] __device__(auto idx) {
-          std::size_t row    = idx % n_samples_chunk;
-          std::size_t column = idx / n_samples_chunk;
-          return input_chunk_view(row, column) - col_means_view(column);
-        });
+      raft::stats::meanCenter<false, true>(
+        input_chunk, input_chunk, col_means.data(), n_features, n_samples_chunk, streams[i]);
     }
     rmm::device_uvector<T> US_chunk(n_samples_chunk * n_components, streams[i]);
     raft::linalg::gemm(handle,
