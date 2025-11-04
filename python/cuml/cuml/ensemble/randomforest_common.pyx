@@ -77,6 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int n_unique_labels,
         RF_params params,
         bool* bootstrap_masks,
+        float* feature_importances,
         level_enum verbosity
     ) except +
 
@@ -89,32 +90,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         bool* bootstrap_masks,
+        float* feature_importances,
         level_enum verbosity
-    ) except +
-
-    cdef void fit_treelite_with_stats[T, L](
-        handle_t& handle,
-        TreeliteModelHandle* model,
-        T* values,
-        int n_rows,
-        int n_cols,
-        L* labels,
-        int n_unique_labels,
-        RF_params params,
-        level_enum verbosity,
-        T* feature_importances_out
-    ) except +
-
-    cdef void fit_treelite_with_stats[T, L](
-        handle_t& handle,
-        TreeliteModelHandle* model,
-        T* values,
-        int n_rows,
-        int n_cols,
-        L* labels,
-        RF_params params,
-        level_enum verbosity,
-        T* feature_importances_out
     ) except +
 
 
@@ -367,7 +344,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.random_state = random_state
         self.n_streams = n_streams
         self.oob_score = oob_score
-        self._feature_importances_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -497,12 +473,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
 
         cdef TreeliteModelHandle tl_handle
-        cdef object _fi_py
-        if is_float32:
-            _fi_py = np.empty(n_cols, dtype=np.float32)
-        else:
-            _fi_py = np.empty(n_cols, dtype=np.float64)
-        cdef uintptr_t _fi_ptr = <uintptr_t> _fi_py.ctypes.data
         cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
 
         # Store oob_score in C variable for nogil block
@@ -517,10 +487,14 @@ class BaseRandomForestModel(Base, InteropMixin):
             masks_ptr_val = bootstrap_masks_cp.data.ptr
             bootstrap_masks_ptr = <bool*> masks_ptr_val
 
+        # Prepare for feature importances (always float32)
+        cdef object _fi_py = np.empty(n_cols, dtype=np.float32)
+        cdef uintptr_t _fi_ptr = <uintptr_t> _fi_py.ctypes.data
+
         with nogil:
             if is_classifier:
                 if is_float32:
-                    fit_treelite_with_stats(
+                    fit_treelite(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -534,7 +508,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         verbose
                     )
                 else:
-                    fit_treelite_with_stats(
+                    fit_treelite(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -544,12 +518,12 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         bootstrap_masks_ptr,
-                        <double*> _fi_ptr,
+                        <float*> _fi_ptr,
                         verbose
                     )
             else:
                 if is_float32:
-                    fit_treelite_with_stats(
+                    fit_treelite(
                         handle_[0],
                         &tl_handle,
                         <float*> X_ptr,
@@ -562,7 +536,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         verbose
                     )
                 else:
-                    fit_treelite_with_stats(
+                    fit_treelite(
                         handle_[0],
                         &tl_handle,
                         <double*> X_ptr,
@@ -571,7 +545,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <double*> y_ptr,
                         params,
                         bootstrap_masks_ptr,
-                        <double*> _fi_ptr,
+                        <float*> _fi_ptr,
                         verbose
                     )
 

@@ -185,7 +185,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  rapids_logger::level_enum verbosity);
+                  float* feature_importances,
+                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -263,37 +264,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  rapids_logger::level_enum verbosity);
-
-/**
- * @brief Train a RandomForest and export a Treelite model while also returning
- *        the out-of-bag score and feature importances.
- *
- * These helpers mirror fit_treelite but additionally fill the provided
- * outputs per-feature importances computed during training.
- */
-template <typename T, typename L>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             T* input,
-                             int n_rows,
-                             int n_cols,
-                             L* labels,
-                             int n_unique_labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             T* feature_importances_out);
-
-template <typename T, typename L>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             T* input,
-                             int n_rows,
-                             int n_cols,
-                             L* labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             T* feature_importances_out);
+                  float* feature_importances,
+                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,

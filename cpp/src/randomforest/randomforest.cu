@@ -403,6 +403,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
+                  float* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
@@ -416,6 +417,19 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks);
+
+  // Compute feature importances if requested
+  if (feature_importances != nullptr) {
+    std::vector<value_t> fi = get_feature_importances(&metadata);
+    // Convert to float if needed
+    if constexpr (std::is_same_v<value_t, float>) {
+      std::copy(fi.begin(), fi.end(), feature_importances);
+    } else {
+      std::transform(
+        fi.begin(), fi.end(), feature_importances, [](value_t v) { return static_cast<float>(v); });
+    }
+  }
+
   build_treelite_forest(model, &metadata, n_cols);
 }
 
@@ -620,51 +634,24 @@ void fit_treelite(const raft::handle_t& user_handle,
                   label_t* labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
+                  float* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity, bootstrap_masks);
-  build_treelite_forest(model, &metadata, n_cols);
-}
 
-template <typename value_t, typename label_t>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             value_t* input,
-                             int n_rows,
-                             int n_cols,
-                             label_t* labels,
-                             int n_unique_labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             value_t* feature_importances_out)
-{
-  RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, n_unique_labels, rf_params, verbosity);
-  if (feature_importances_out != nullptr) {
+  // Compute feature importances if requested
+  if (feature_importances != nullptr) {
     std::vector<value_t> fi = get_feature_importances(&metadata);
-    std::copy(fi.begin(), fi.end(), feature_importances_out);
+    // Convert to float if needed
+    if constexpr (std::is_same_v<value_t, float>) {
+      std::copy(fi.begin(), fi.end(), feature_importances);
+    } else {
+      std::transform(
+        fi.begin(), fi.end(), feature_importances, [](value_t v) { return static_cast<float>(v); });
+    }
   }
-  build_treelite_forest(model, &metadata, n_cols);
-}
 
-template <typename value_t, typename label_t>
-void fit_treelite_with_stats(const raft::handle_t& user_handle,
-                             TreeliteModelHandle* model,
-                             value_t* input,
-                             int n_rows,
-                             int n_cols,
-                             label_t* labels,
-                             RF_params rf_params,
-                             rapids_logger::level_enum verbosity,
-                             value_t* feature_importances_out)
-{
-  RandomForestMetaData<value_t, label_t> metadata;
-  fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity);
-  if (feature_importances_out != nullptr) {
-    std::vector<value_t> fi = get_feature_importances(&metadata);
-    std::copy(fi.begin(), fi.end(), feature_importances_out);
-  }
   build_treelite_forest(model, &metadata, n_cols);
 }
 
@@ -865,6 +852,7 @@ template std::vector<float> get_feature_importances<float, float>(
 template std::vector<double> get_feature_importances<double, double>(
   RandomForestMetaData<double, double>* forest);
 
+// Template instantiations for fit_treelite
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        TreeliteModelHandle* model,
                                        float* input,
@@ -874,6 +862,7 @@ template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        int n_unique_labels,
                                        RF_params rf_params,
                                        bool* bootstrap_masks,
+                                       float* feature_importances,
                                        rapids_logger::level_enum verbosity);
 template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         TreeliteModelHandle* model,
@@ -884,6 +873,7 @@ template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         int n_unique_labels,
                                         RF_params rf_params,
                                         bool* bootstrap_masks,
+                                        float* feature_importances,
                                         rapids_logger::level_enum verbosity);
 template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          TreeliteModelHandle* model,
@@ -893,6 +883,7 @@ template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          float* labels,
                                          RF_params rf_params,
                                          bool* bootstrap_masks,
+                                         float* feature_importances,
                                          rapids_logger::level_enum verbosity);
 template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            TreeliteModelHandle* model,
@@ -902,44 +893,6 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            double* labels,
                                            RF_params rf_params,
                                            bool* bootstrap_masks,
+                                           float* feature_importances,
                                            rapids_logger::level_enum verbosity);
-
-template void fit_treelite_with_stats<float, int>(const raft::handle_t& user_handle,
-                                                  TreeliteModelHandle* model,
-                                                  float* input,
-                                                  int n_rows,
-                                                  int n_cols,
-                                                  int* labels,
-                                                  int n_unique_labels,
-                                                  RF_params rf_params,
-                                                  rapids_logger::level_enum verbosity,
-                                                  float* feature_importances_out);
-template void fit_treelite_with_stats<double, int>(const raft::handle_t& user_handle,
-                                                   TreeliteModelHandle* model,
-                                                   double* input,
-                                                   int n_rows,
-                                                   int n_cols,
-                                                   int* labels,
-                                                   int n_unique_labels,
-                                                   RF_params rf_params,
-                                                   rapids_logger::level_enum verbosity,
-                                                   double* feature_importances_out);
-template void fit_treelite_with_stats<float, float>(const raft::handle_t& user_handle,
-                                                    TreeliteModelHandle* model,
-                                                    float* input,
-                                                    int n_rows,
-                                                    int n_cols,
-                                                    float* labels,
-                                                    RF_params rf_params,
-                                                    rapids_logger::level_enum verbosity,
-                                                    float* feature_importances_out);
-template void fit_treelite_with_stats<double, double>(const raft::handle_t& user_handle,
-                                                      TreeliteModelHandle* model,
-                                                      double* input,
-                                                      int n_rows,
-                                                      int n_cols,
-                                                      double* labels,
-                                                      RF_params rf_params,
-                                                      rapids_logger::level_enum verbosity,
-                                                      double* feature_importances_out);
 }  // End namespace ML
