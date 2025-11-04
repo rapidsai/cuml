@@ -204,17 +204,11 @@ def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
         assert cuda.devicearray.is_cuda_ndarray(y_train)
         assert cuda.devicearray.is_cuda_ndarray(y_test)
 
-    if type_name == "cudf":
-        assert isinstance(X_train, cudf.DataFrame)
-        assert isinstance(X_test, cudf.DataFrame)
-        assert isinstance(y_train, cudf.DataFrame)
-        assert isinstance(y_test, cudf.DataFrame)
-
-    if type_name == "pandas":
-        assert isinstance(X_train, pd.DataFrame)
-        assert isinstance(X_test, pd.DataFrame)
-        assert isinstance(y_train, pd.DataFrame)
-        assert isinstance(y_test, pd.DataFrame)
+    if type_name in ["cudf", "pandas"]:
+        assert isinstance(X_train, cudf.Series)
+        assert isinstance(X_test, cudf.Series)
+        assert isinstance(y_train, cudf.Series)
+        assert isinstance(y_test, cudf.Series)
 
     if train_size is not None:
         assert X_train.shape[0] == X.shape[0] * train_size
@@ -307,13 +301,9 @@ def test_split_array_single_argument(
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if type_name == "cudf":
-        assert isinstance(X_train, cudf.DataFrame)
-        assert isinstance(X_test, cudf.DataFrame)
-
-    if type_name == "pandas":
-        assert isinstance(X_train, pd.DataFrame)
-        assert isinstance(X_test, pd.DataFrame)
+    if type_name in ["cudf", "pandas"]:
+        assert isinstance(X_train, cudf.Series)
+        assert isinstance(X_test, cudf.Series)
 
     if train_size is not None:
         assert X_train.shape[0] == (int)(X.shape[0] * train_size)
@@ -369,13 +359,9 @@ def test_stratified_split(convert_to_type, test_size, train_size):
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if type_name == "cudf":
-        assert isinstance(X_train, cudf.DataFrame)
-        assert isinstance(X_test, cudf.DataFrame)
-
-    if type_name == "pandas":
-        assert isinstance(X_train, pd.DataFrame)
-        assert isinstance(X_test, pd.DataFrame)
+    if type_name in ["cudf", "pandas"]:
+        assert isinstance(X_train, cudf.Series)
+        assert isinstance(X_test, cudf.Series)
 
 
 @pytest.mark.parametrize("seed_type", test_seeds)
