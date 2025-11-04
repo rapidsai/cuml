@@ -68,7 +68,7 @@ def test_spectral_embedding_trustworthiness(
     elif dataset_source == "mnist_like":
         X, _, _, _ = generate_mnist_like_dataset(n_samples)
     elif dataset_source == "digits":
-        X = load_digits_dataset()
+        X = load_digits().data
 
     if affinity == "precomputed":
         if graph_type == "fuzzy_knn":
