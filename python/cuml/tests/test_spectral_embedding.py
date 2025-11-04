@@ -22,12 +22,6 @@ N_NEIGHBORS = 15
 N_COMPONENTS = 2
 
 
-def load_digits_dataset(n_samples=None):
-    """Load digits dataset (n_samples is ignored as dataset has fixed size)."""
-    digits = load_digits()
-    return digits.data
-
-
 @pytest.mark.parametrize(
     "affinity,graph_type",
     [
