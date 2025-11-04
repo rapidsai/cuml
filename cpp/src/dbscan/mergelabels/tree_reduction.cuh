@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -50,11 +39,12 @@ void tree_reduction(const raft::handle_t& handle,
   const auto& comm = handle.get_comms();
   int my_rank      = comm.get_rank();
   int n_rank       = comm.get_size();
-  raft::comms::request_t request;
 
   int s = 1;
   while (s < n_rank) {
     CUML_LOG_DEBUG("Tree reduction, s=", s);
+
+    raft::comms::request_t request;
 
     // Find out whether the node is a receiver / sender / passive
     bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
@@ -68,7 +58,7 @@ void tree_reduction(const raft::handle_t& handle,
       comm.isend(labels, N, my_rank - s, 0, &request);
     }
 
-    comm.waitall(1, &request);
+    if (receiver || sender) { comm.waitall(1, &request); }
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");

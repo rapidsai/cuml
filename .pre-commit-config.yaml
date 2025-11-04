@@ -1,5 +1,6 @@
 ---
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -111,20 +112,60 @@ repos:
             args: ['format', '--cleanup']
             additional_dependencies: ['pyyaml>=6.0', 'packaging>=21.0']
     - repo: https://github.com/rapidsai/pre-commit-hooks
-      rev: v0.6.0
+      rev: v1.1.0
       hooks:
         - id: verify-copyright
+          name: verify-copyright-cuml
+          args: [--fix, --spdx]
           files: |
             (?x)
-                [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
-                CMakeLists[.]txt$|
-                CMakeLists_standalone[.]txt$|
-                [.]flake8[.]cython$|
-                meta[.]yaml$
+              [.](cmake|c|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|bat)$|
+              CMakeLists[.]txt$|
+              CMakeLists_standalone[.]txt$|
+              [.]flake8[.]cython$|
+              meta[.]yaml$|
+              ^[.]pre-commit-config[.]yaml$|
+              [.]flake8$|
+              pyproject[.]toml$|
+              recipe[.]yaml$|
+              Makefile$|
+              dependencies[.]yaml$|
+              pytest[.]ini$
           exclude: |
-            (?x)
-                cpp/src/tsne/cannylab/bh[.]cu$|
-                python/cuml/cuml/_thirdparty
+            (?x)^(
+              cpp/src/tsne/cannylab/bh[.]cu$|
+              python/cuml/cuml/_thirdparty/_sklearn_compat[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/|
+              python/cuml/cuml/_thirdparty/sklearn/utils/|
+              docs/source/sphinxext/github_link[.]py$|
+              python/cuml/cuml/feature_extraction/_stop_words[.]py$
+            )
+        - id: verify-copyright
+          name: verify-copyright-scikit-learn-bsd
+          args: [--fix, --spdx, "--spdx-license-identifier=BSD-3-Clause"]
+          files: |
+            (?x)^(
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/__init__[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_column_transformer[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_function_transformer[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_imputation[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/__init__[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/extmath[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/skl_dependencies[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/sparsefuncs[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/validation[.]py$|
+              python/cuml/cuml/feature_extraction/_stop_words[.]py$
+            )
+        - id: verify-copyright
+          name: verify-copyright-scikit-learn-dual
+          args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+          files: |
+            (?x)^(
+              python/cuml/cuml/_thirdparty/_sklearn_compat[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_data[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_discretization[.]py$|
+              docs/source/sphinxext/github_link[.]py$
+            )
         - id: verify-alpha-spec
         - id: verify-codeowners
           args: [--fix, --project-prefix=cuml]

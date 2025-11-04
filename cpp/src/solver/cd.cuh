@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -222,8 +211,9 @@ void cdFit(const raft::handle_t& handle,
     math_t scalar = math_t(n_rows) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
+    /* (n_cols * n_rows) may overflow, upcast for indexing */
     raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
-      squared.data(), input, n_cols, n_rows, stream);
+      squared.data(), input, int64_t(n_cols), int64_t(n_rows), stream);
     raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
   }
 
@@ -244,10 +234,10 @@ void cdFit(const raft::handle_t& handle,
 
     for (int j = 0; j < n_cols; j++) {
       raft::common::nvtx::range iter_scope("ML::Solver::cdFit::col-%d", j);
-      int ci                = ri[j];
+      int64_t ci            = ri[j];
       math_t* coef_loc      = coef + ci;
       math_t* squared_loc   = squared.data() + ci;
-      math_t* input_col_loc = input + (ci * n_rows);
+      math_t* input_col_loc = input + (ci * int64_t(n_rows));
 
       // remember current coef
       raft::copy(&(convStateLoc->coef), coef_loc, 1, stream);

@@ -1,23 +1,7 @@
-# Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
 import numpy as np
-
-from libc.stdint cimport uintptr_t
 
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -26,12 +10,14 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
+__all__ = ("fit_coordinate_descent", "CD")
+
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
-
     cdef void cdFit(handle_t& handle,
                     float *input,
                     int n_rows,
@@ -85,8 +71,149 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                         int loss) except +
 
 
-class CD(Base,
-         FMajorInputTagMixin):
+def fit_coordinate_descent(
+    X,
+    y,
+    sample_weight=None,
+    *,
+    convert_dtype=True,
+    loss="squared_loss",
+    double alpha=0.0001,
+    double l1_ratio=0.15,
+    bool fit_intercept=True,
+    bool normalize=False,
+    int max_iter=1000,
+    double tol=1e-3,
+    bool shuffle=True,
+    handle=None,
+):
+    """Fit a linear model using coordinate descent.
+
+    Parameters
+    ----------
+    X : array-like, shape=(n_samples, n_features)
+        The training data.
+    y : array-like, shape=(n_samples,)
+        The target values.
+    sample_weight : None or array-like, shape=(n_samples,)
+        The sample weights.
+    convert_to_dtype : bool, default=True
+        When set to True, will convert array inputs to be of the proper dtypes.
+    **kwargs
+        Remaining keyword arguments match the hyperparameters
+        to ``CD``, see the ``CD`` docs for more information.
+
+    Returns
+    -------
+    coef : CumlArray, shape=(n_features,)
+        The fit coefficients
+    intercept : float
+        The fit intercept, or 0 if `fit_intercept=False`
+    """
+    # Process and validate parameters
+    if loss != "squared_loss":
+        raise ValueError(f"{loss=!r} is not supported")
+
+    if alpha < 0.0:
+        raise ValueError(f"Expected alpha >= 0, got {alpha}")
+
+    # Process and validate input arrays
+    cdef int n_rows, n_cols
+    X, n_rows, n_cols, _ = input_to_cuml_array(
+        X,
+        convert_to_dtype=(np.float32 if convert_dtype else None),
+        check_dtype=[np.float32, np.float64],
+    )
+
+    if n_rows < 2:
+        raise ValueError(
+            f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
+            f"minimum of 2 is required."
+        )
+    if n_cols < 1:
+        raise ValueError(
+            f"Found array with {n_cols} feature(s) (shape={X.shape}) while "
+            f"a minimum of 1 is required."
+        )
+
+    y = input_to_cuml_array(
+        y,
+        check_dtype=X.dtype,
+        convert_to_dtype=(X.dtype if convert_dtype else None),
+        check_rows=n_rows,
+        check_cols=1,
+    ).array
+
+    if sample_weight is not None:
+        sample_weight = input_to_cuml_array(
+            sample_weight,
+            check_dtype=X.dtype,
+            convert_to_dtype=(X.dtype if convert_dtype else None),
+            check_rows=n_rows,
+            check_cols=1,
+        ).array
+
+    # Allocate outputs
+    coef = CumlArray.zeros(n_cols, dtype=X.dtype)
+
+    cdef uintptr_t X_ptr = X.ptr
+    cdef uintptr_t y_ptr = y.ptr
+    cdef uintptr_t sample_weight_ptr = (
+        0 if sample_weight is None else sample_weight.ptr
+    )
+    cdef uintptr_t coef_ptr = coef.ptr
+
+    cdef float intercept_f32
+    cdef double intercept_f64
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef bool is_float32 = X.dtype == np.float32
+
+    # Perform fit
+    with nogil:
+        if is_float32:
+            cdFit(
+                handle_[0],
+                <float*>X_ptr,
+                n_rows,
+                n_cols,
+                <float*>y_ptr,
+                <float*>coef_ptr,
+                &intercept_f32,
+                fit_intercept,
+                normalize,
+                max_iter,
+                0,
+                <float>alpha,
+                <float>l1_ratio,
+                shuffle,
+                <float>tol,
+                <float*>sample_weight_ptr
+            )
+        else:
+            cdFit(
+                handle_[0],
+                <double*>X_ptr,
+                n_rows,
+                n_cols,
+                <double*>y_ptr,
+                <double*>coef_ptr,
+                &intercept_f64,
+                fit_intercept,
+                normalize,
+                max_iter,
+                0,
+                alpha,
+                l1_ratio,
+                shuffle,
+                tol,
+                <double*>sample_weight_ptr
+            )
+    handle.sync()
+
+    return coef, intercept_f32 if is_float32 else intercept_f64
+
+
+class CD(Base, FMajorInputTagMixin):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
@@ -94,40 +221,6 @@ class CD(Base,
     cuML's CD algorithm accepts a numpy matrix or a cuDF DataFrame as the
     input dataset.algorithm The CD algorithm currently works with linear
     regression and ridge, lasso, and elastic-net penalties.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cudf
-        >>> from cuml.solvers import CD as cumlCD
-
-        >>> cd = cumlCD(alpha=0.0)
-
-        >>> X = cudf.DataFrame()
-        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
-        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
-
-        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
-
-        >>> cd.fit(X,y)
-        CD()
-        >>> print(cd.coef_) # doctest: +SKIP
-        0 1.001...
-        1 1.998...
-        dtype: float32
-        >>> print(cd.intercept_) # doctest: +SKIP
-        3.00...
-        >>> X_new = cudf.DataFrame()
-        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
-        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
-
-        >>> preds = cd.predict(X_new)
-        >>> print(preds) # doctest: +SKIP
-        0 15.997...
-        1 14.995...
-        dtype: float32
 
     Parameters
     ----------
@@ -146,8 +239,13 @@ class CD(Base,
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        Whether to normalize the data or not.
+    normalize : boolean, default=False
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     max_iter : int (default = 1000)
         The number of times the model should iterate through the entire
         dataset during training
@@ -176,21 +274,59 @@ class CD(Base,
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    """
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.solvers import CD
 
+    >>> cd = CD(alpha=0.0)
+
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+    >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+
+    >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+
+    >>> cd.fit(X,y)
+    CD()
+    >>> print(cd.coef_) # doctest: +SKIP
+    0 1.001...
+    1 1.998...
+    dtype: float32
+    >>> print(cd.intercept_) # doctest: +SKIP
+    3.00...
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+    >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+
+    >>> preds = cd.predict(X_new)
+    >>> print(preds) # doctest: +SKIP
+    0 15.997...
+    1 14.995...
+    dtype: float32
+    """
     coef_ = CumlArrayDescriptor()
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "loss",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "shuffle",
+        ]
 
     def __init__(self, *, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
                  shuffle=True, handle=None, output_type=None, verbose=False):
 
-        if loss not in ['squared_loss']:
-            msg = "loss {!r} is not supported"
-            raise NotImplementedError(msg.format(loss))
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.loss = loss
         self.alpha = alpha
@@ -200,107 +336,32 @@ class CD(Base,
         self.max_iter = max_iter
         self.tol = tol
         self.shuffle = shuffle
-        self.intercept_value = 0.0
-        self.coef_ = None
-        self.intercept_ = None
-
-    def _check_alpha(self, alpha):
-        for el in alpha:
-            if el <= 0.0:
-                msg = "alpha values have to be positive"
-                raise TypeError(msg.format(alpha))
-
-    def _get_loss_int(self):
-        return {
-            'squared_loss': 0,
-        }[self.loss]
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
-
         """
-        cdef uintptr_t sample_weight_ptr
-        X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64])
+        from cuml.linear_model.base import check_deprecated_normalize
+        check_deprecated_normalize(self)
 
-        y_m, *_ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-
-        if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    convert_to_dtype=(
-                                        self.dtype if convert_dtype else None),
-                                    check_rows=n_rows, check_cols=1)
-            sample_weight_ptr = sample_weight_m.ptr
-        else:
-            sample_weight_ptr = 0
-
-        cdef uintptr_t _X_ptr = X_m.ptr
-        cdef uintptr_t _y_ptr = y_m.ptr
-
-        self.n_alpha = 1
-
-        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
-
-        cdef float _c_intercept_f32
-        cdef double _c_intercept2_f64
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            cdFit(handle_[0],
-                  <float*>_X_ptr,
-                  <int>n_rows,
-                  <int>self.n_cols,
-                  <float*>_y_ptr,
-                  <float*>_coef_ptr,
-                  <float*>&_c_intercept_f32,
-                  <bool>self.fit_intercept,
-                  <bool>self.normalize,
-                  <int>self.max_iter,
-                  <int>self._get_loss_int(),
-                  <float>self.alpha,
-                  <float>self.l1_ratio,
-                  <bool>self.shuffle,
-                  <float>self.tol,
-                  <float*>sample_weight_ptr)
-
-            self.intercept_ = _c_intercept_f32
-        else:
-            cdFit(handle_[0],
-                  <double*>_X_ptr,
-                  <int>n_rows,
-                  <int>self.n_cols,
-                  <double*>_y_ptr,
-                  <double*>_coef_ptr,
-                  <double*>&_c_intercept2_f64,
-                  <bool>self.fit_intercept,
-                  <bool>self.normalize,
-                  <int>self.max_iter,
-                  <int>self._get_loss_int(),
-                  <double>self.alpha,
-                  <double>self.l1_ratio,
-                  <bool>self.shuffle,
-                  <double>self.tol,
-                  <double*>sample_weight_ptr)
-
-            self.intercept_ = _c_intercept2_f64
-
-        self.handle.sync()
-        del X_m
-        del y_m
-        if sample_weight is not None:
-            del sample_weight_m
+        coef, intercept = fit_coordinate_descent(
+            X,
+            y,
+            sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
+            loss=self.loss,
+            alpha=self.alpha,
+            l1_ratio=self.l1_ratio,
+            fit_intercept=self.fit_intercept,
+            normalize=self.normalize,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            shuffle=self.shuffle,
+            handle=self.handle,
+        )
+        self.coef_ = coef
+        self.intercept_ = intercept
 
         return self
 
@@ -311,57 +372,47 @@ class CD(Base,
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
-
         """
-        X_m, n_rows, _n_cols, _ = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
+        cdef int n_rows, n_cols
+        X, n_rows, n_cols, _ = input_to_cuml_array(
+            X,
+            check_dtype=self.coef_.dtype,
+            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+            check_cols=self.coef_.shape[0],
+        )
 
-        cdef uintptr_t _X_ptr = X_m.ptr
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
+        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype,
-                                index=X_m.index)
-        cdef uintptr_t _preds_ptr = preds.ptr
-
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t preds_ptr = preds.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef double intercept = self.intercept_
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef bool is_float32 = self.coef_.dtype == np.float32
 
-        if self.dtype == np.float32:
-            cdPredict(handle_[0],
-                      <float*>_X_ptr,
-                      <int>n_rows,
-                      <int>_n_cols,
-                      <float*>_coef_ptr,
-                      <float>self.intercept_,
-                      <float*>_preds_ptr,
-                      <int>self._get_loss_int())
-        else:
-            cdPredict(handle_[0],
-                      <double*>_X_ptr,
-                      <int>n_rows,
-                      <int>_n_cols,
-                      <double*>_coef_ptr,
-                      <double>self.intercept_,
-                      <double*>_preds_ptr,
-                      <int>self._get_loss_int())
-
+        with nogil:
+            if is_float32:
+                cdPredict(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>coef_ptr,
+                    <float>intercept,
+                    <float*>preds_ptr,
+                    0,
+                )
+            else:
+                cdPredict(
+                    handle_[0],
+                    <double*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*>coef_ptr,
+                    intercept,
+                    <double*>preds_ptr,
+                    0,
+                )
         self.handle.sync()
 
-        del X_m
-
         return preds
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "loss",
-            "alpha",
-            "l1_ratio",
-            "fit_intercept",
-            "normalize",
-            "max_iter",
-            "tol",
-            "shuffle",
-        ]

@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import os
@@ -170,6 +159,7 @@ def test_set_fil_device_type_context_nested(reset_fil_device_type):
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_fil_classification(
     train_device,
     infer_device,
@@ -235,6 +225,7 @@ def test_fil_classification(
 @pytest.mark.parametrize(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_fil_regression(
     train_device,
     infer_device,
@@ -489,6 +480,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_precision_xgboost(
     train_device, infer_device, precision, small_classifier_and_preds
 ):
@@ -512,6 +504,7 @@ def test_precision_xgboost(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("layout", ["depth_first", "breadth_first", "layered"])
 @pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_performance_hyperparameters(
     train_device, infer_device, layout, chunk_size, small_classifier_and_preds
 ):
@@ -532,6 +525,7 @@ def test_performance_hyperparameters(
 
 
 @pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32, 64, 128, 256])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_chunk_size(chunk_size, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(
@@ -554,6 +548,7 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_output_args(train_device, infer_device, small_classifier_and_preds):
     with set_fil_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
@@ -685,6 +680,7 @@ def test_lightgbm(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.parametrize("num_boost_round", [10, 100])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
@@ -790,6 +786,7 @@ def test_predict_per_tree_with_vector_leaf(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_apply(train_device, infer_device, n_classes, tmp_path):
     n_rows = 1000
     n_columns = 30
@@ -883,6 +880,7 @@ def test_missing_categorical(category_list):
 
 @pytest.mark.parametrize("device_id", [None, 0, 1, 2])
 @pytest.mark.parametrize("model_kind", ["sklearn", "xgboost", "cuml"])
+@pytest.mark.xfail(reason="https://github.com/dmlc/treelite/issues/633")
 def test_device_selection(device_id, model_kind, tmp_path):
     current_device = cp.cuda.runtime.getDevice()
 
