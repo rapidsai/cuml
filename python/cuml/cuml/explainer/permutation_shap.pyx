@@ -255,8 +255,6 @@ class PermutationExplainer(SHAPBase):
             idx_ptr = get_cai_ptr(inds)
             row_major = self.order == "C"
 
-            # Convert to float32 if needed to reduce binary size
-            # (removed double instantiation of kernels)
             if self.dtype == cp.float32:
                 permutation_shap_dataset(handle_[0],
                                          <float*> ds_ptr,

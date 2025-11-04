@@ -356,8 +356,6 @@ class SHAPBase():
         cdef uintptr_t bg_ptr_f32
         cdef uintptr_t row_ptr_f32
 
-        # Convert to float32 if needed to reduce binary size
-        # (removed double instantiation of kernels)
         if self.masker.order.dtype == cp.float32:
             shap_main_effect_dataset(handle_[0],
                                      <float*> masked_ptr,

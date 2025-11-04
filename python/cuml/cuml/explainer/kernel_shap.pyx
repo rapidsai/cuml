@@ -308,8 +308,6 @@ class KernelExplainer(SHAPBase):
         if self.random_state is None:
             self.random_state = randint(0, 10**18)
 
-        # Convert to float32 if needed to reduce binary size
-        # (removed double instantiation of kernels)
         cdef uintptr_t bg_ptr_f32
         cdef uintptr_t ds_ptr_f32
         cdef uintptr_t row_ptr_f32
