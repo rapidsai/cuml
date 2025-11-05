@@ -335,21 +335,16 @@ void knn_classify(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  if (sample_weight == nullptr) {
-    MLCommon::Selection::knn_classify(
-      handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
-  } else {
-    MLCommon::Selection::knn_classify_weighted(handle,
-                                               out,
-                                               knn_indices,
-                                               sample_weight,
-                                               y,
-                                               n_index_rows,
-                                               n_query_rows,
-                                               k,
-                                               uniq_labels,
-                                               n_unique);
-  }
+  MLCommon::Selection::knn_classify(handle,
+                                    out,
+                                    knn_indices,
+                                    y,
+                                    n_index_rows,
+                                    n_query_rows,
+                                    k,
+                                    uniq_labels,
+                                    n_unique,
+                                    sample_weight);
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -361,12 +356,8 @@ void knn_regress(raft::handle_t& handle,
                  int k,
                  float* sample_weight)
 {
-  if (sample_weight == nullptr) {
-    MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
-  } else {
-    MLCommon::Selection::knn_regress_weighted(
-      handle, out, knn_indices, sample_weight, y, n_index_rows, n_query_rows, k);
-  }
+  MLCommon::Selection::knn_regress(
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, sample_weight);
 }
 
 void knn_class_proba(raft::handle_t& handle,
@@ -390,21 +381,16 @@ void knn_class_proba(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  if (sample_weight == nullptr) {
-    MLCommon::Selection::class_probs(
-      handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
-  } else {
-    MLCommon::Selection::class_probs_weighted(handle,
-                                              out,
-                                              knn_indices,
-                                              sample_weight,
-                                              y,
-                                              n_index_rows,
-                                              n_query_rows,
-                                              k,
-                                              uniq_labels,
-                                              n_unique);
-  }
+  MLCommon::Selection::class_probs(handle,
+                                   out,
+                                   knn_indices,
+                                   y,
+                                   n_index_rows,
+                                   n_query_rows,
+                                   k,
+                                   uniq_labels,
+                                   n_unique,
+                                   sample_weight);
 }
 
 };  // END NAMESPACE ML
