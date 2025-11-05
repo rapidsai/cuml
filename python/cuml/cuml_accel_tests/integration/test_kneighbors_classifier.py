@@ -2,8 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
@@ -149,6 +147,14 @@ def test_knn_classifier_predict_proba(classification_data):
         X.shape[0],
         len(np.unique(y)),
     ), "Probability matrix shape should be (n_samples, n_classes)"
+
+
+def test_knn_classifier_private_attrs(classification_data):
+    model = KNeighborsClassifier().fit(*classification_data)
+    assert isinstance(model._fit_X, np.ndarray)
+    assert isinstance(model._y, np.ndarray)
+    assert model._tree is None
+    assert model._fit_method == "brute"
 
 
 def test_knn_classifier_sparse_input():

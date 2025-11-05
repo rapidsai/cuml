@@ -139,7 +139,6 @@
   - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_backend_respected"
   - "sklearn.ensemble.tests.test_forest::test_class_weights[RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_classes_shape[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_dtype_convert"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-False-1]"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-False-None]"
@@ -168,33 +167,13 @@
   - "sklearn.ensemble.tests.test_forest::test_missing_value_is_predictive[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_missing_value_is_predictive[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_missing_values_is_resilient[make_regression-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_multioutput[RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_multioutput[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_multioutput_string[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_oob_not_computed_twice[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_oob_not_computed_twice[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_poisson_y_positive_check"
   - "sklearn.ensemble.tests.test_forest::test_probability[RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[coo_array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[coo_array-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[coo_matrix-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[coo_matrix-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csc_array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csc_array-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csc_matrix-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csc_matrix-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_array-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_array-RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_matrix-RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_sparse_input[csr_matrix-RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-auto]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[False-predict]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[True-auto]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_auto_predict[True-predict]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_multilabel_predict_proba[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_classification-StackingClassifier-LogisticRegression]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_regression-StackingRegressor-LinearRegression]"
   - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
@@ -204,11 +183,8 @@
   - "sklearn.feature_selection.tests.test_from_model::test_feature_importances"
   - "sklearn.feature_selection.tests.test_from_model::test_prefit_get_feature_names_out"
   - "sklearn.feature_selection.tests.test_from_model::test_threshold_string"
-  - "sklearn.feature_selection.tests.test_rfe::test_multioutput[RFECV]"
-  - "sklearn.feature_selection.tests.test_rfe::test_multioutput[RFE]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_cv_groups"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_features_importance"
-  - "sklearn.inspection.tests.test_partial_dependence::test_multiclass_multioutput[RandomForestClassifier]"
   - "sklearn.inspection.tests.test_partial_dependence::test_recursion_decision_tree_vs_forest_and_gbdt[0]"
   - "sklearn.inspection.tests.test_permutation_importance::test_robustness_to_high_cardinality_noisy_feature[0.5-1]"
   - "sklearn.inspection.tests.test_permutation_importance::test_robustness_to_high_cardinality_noisy_feature[0.5-2]"
@@ -304,8 +280,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_verbose"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1-float64-1e-08-0.99]"
   - "sklearn.metrics.tests.test_pairwise::test_euclidean_distances_extreme_values[1000000-float64-1e-08-0.99]"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf"
-  - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_with_method_multilabel_rf_rare_class"
   - "sklearn.neighbors.tests.test_neighbors::test_KNeighborsRegressor_multioutput_uniform_weight"
   - "sklearn.neighbors.tests.test_neighbors::test_auto_algorithm[X3-euclidean-None-kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_dtype_convert"
@@ -396,7 +370,6 @@
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_overwrite_params]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_dont_overwrite_parameters]"
   - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_overwrite_params]"
-  - "sklearn.tests.test_multioutput::test_multi_output_classes_[estimator0]"
   - "sklearn.tests.test_multioutput::test_multi_output_classification_sample_weights"
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[bsr_array]"
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[bsr_matrix]"
@@ -621,6 +594,7 @@
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_complex_data]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_dtype_object]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_fit1d]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_search_cv[GridSearchCV(cv=2,estimator=Ridge(),param_grid={'alpha':[0.1,1.0]})-check_supervised_y_2d]"
@@ -645,6 +619,8 @@
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_dtype_object1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf1]"
+  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit1d0]"
+  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit1d1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_1sample0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_1sample1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_predict1d0]"
@@ -653,6 +629,8 @@
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_regressor_data_not_an_array1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_2d0]"
   - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_2d1]"
+  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_no_nan0]"
+  - "sklearn.tests.test_common::test_search_cv[HalvingGridSearchCV(cv=2,estimator=Ridge(),min_resources='smallest',param_grid={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_no_nan1]"
   - "sklearn.tests.test_common::test_search_cv[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_search_cv[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_dtype_object]"
   - "sklearn.tests.test_common::test_search_cv[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_empty_data_messages]"
@@ -694,6 +672,7 @@
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_complex_data]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_dtype_object]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_fit1d]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_search_cv[RandomizedSearchCV(cv=2,estimator=Ridge(),param_distributions={'alpha':[0.1,1.0]},random_state=0)-check_supervised_y_2d]"
@@ -1215,6 +1194,29 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+- reason: ValueError when input data is non-standard type
+  marker: cuml_accel_rf_input_validation_non_standard_types
+  tests:
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weights_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_requires_y_none]"
+  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weights_not_an_array]"
+- reason: Multi-output targets not supported
+  marker: cuml_accel_rf_multioutput_targets_not_supported
+  tests:
+  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[True-X3-y3-0.18-array-RandomForestClassifier]"
+- reason: Missing feature_names_in_ attribute when fitting with pandas DataFrames
+  marker: cuml_accel_rf_oob_feature_names_missing
+  tests:
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestClassifier(oob_score=True)]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[RandomForestRegressor(oob_score=True)]"
+- reason: OOB score accuracy slightly below sklearn
+  marker: cuml_accel_rf_oob_score_accuracy
+  strict: false
+  tests:
+  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[True-X2-y2-0.65-array-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_forest_classifier_oob[oob_score1-X2-y2-0.65-array-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[True-X0-y0-0.7-array-RandomForestRegressor]"
 - reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
   condition: scikit-learn>=1.6
@@ -1376,12 +1378,8 @@
   - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[PCA()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifier_multioutput]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_classes]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_decision_function]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_predict]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_predict_proba]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_representation_invariance]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train]"
@@ -1390,7 +1388,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_dtype_object]"
@@ -1398,8 +1395,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_multioutput]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_dtype_object]"
@@ -1457,7 +1452,6 @@
   condition: scikit-learn>=1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
@@ -1506,7 +1500,6 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
@@ -1514,8 +1507,6 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVC-LinearSVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[LinearSVR-LinearSVR]"
 - reason: LinearSVM test expects exact results on small data, which isn't guaranteed
   tests:
   - "sklearn.svm.tests.test_svm::test_bad_input[lil_array]"
@@ -1527,6 +1518,17 @@
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params4]"
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params5]"
   - "sklearn.svm.tests.test_svm::test_linearsvm_liblinear_sample_weight[LinearSVR-params6]"
+- reason: Ridge doesn't implement n_iter yet
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_n_iter"
+- reason: Ridge tests too strict of tolerances due to solver differences
+  condition: scikit-learn>=1.7
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-lsqr-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sag-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-saga-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-sparse_cg-None]"
 - reason: SpectralEmbedding does not expose affinity_matrix_ attribute in cuML
   tests:
   - "sklearn.manifold.tests.test_spectral_embedding::test_spectral_embedding_precomputed_affinity[float32-arpack-None]"
@@ -1554,3 +1556,6 @@
   strict: false
   tests:
   - "sklearn.decomposition.tests.test_sparse_pca::test_equivalence_components_pca_spca[42]"
+- reason: The sklearn test has the error message accidentally flipped, our message is correct
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
