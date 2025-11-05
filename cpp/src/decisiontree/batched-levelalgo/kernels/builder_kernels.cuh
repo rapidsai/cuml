@@ -121,8 +121,8 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 
 template <typename IdxT>
 struct CustomDifference {
-  CustomDifference(IdxT discard_value) : discard_value(discard_value) {}
-  IdxT discard_value = cuda::std::max<IdxT>();
+  __device__ CustomDifference(IdxT discard_value) : discard_value(discard_value) {}
+  IdxT discard_value;
   __device__ IdxT operator()(const IdxT& lhs, const IdxT& rhs)
   {
     if (lhs == rhs or rhs == discard_value)
