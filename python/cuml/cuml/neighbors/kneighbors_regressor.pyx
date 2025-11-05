@@ -225,17 +225,12 @@ class KNeighborsRegressor(RegressorMixin,
         predict the labels for X
 
         """
-        cdef int64_t* inds_ctype
-        cdef float* out_ptr
-        cdef float* y_ptr
-        cdef vector[float*] y_vec
-        cdef handle_t* handle_
-
         # Get KNN results - always get distances to compute weights
         knn_distances, knn_indices = self.kneighbors(
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
+        cdef size_t n_rows
         inds, n_rows, _n_cols, _dtype = input_to_cuml_array(
             knn_indices,
             order='C',
@@ -250,7 +245,7 @@ class KNeighborsRegressor(RegressorMixin,
             convert_to_dtype=(np.float32 if convert_dtype else None),
         )
 
-        inds_ctype = <int64_t*><uintptr_t>inds.ptr
+        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
         res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
@@ -260,19 +255,16 @@ class KNeighborsRegressor(RegressorMixin,
             res_shape, dtype=np.float32, order="C", index=inds.index
         )
 
-        out_ptr = <float*><uintptr_t>out.ptr
+        cdef float* out_ptr = <float*><uintptr_t>out.ptr
 
-        # Store Python attributes before nogil context
-        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
-        cdef size_t n_rows_size = <size_t>n_rows
-        cdef int n_neighbors_val = <int>self.n_neighbors
-
+        cdef vector[float*] y_vec
+        cdef float* y_ptr
         for col_num in range(res_cols):
             col = self._y if res_cols == 1 else self._y[:, col_num]
             y_ptr = <float*><uintptr_t>col.ptr
             y_vec.push_back(y_ptr)
 
-        handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
@@ -282,6 +274,8 @@ class KNeighborsRegressor(RegressorMixin,
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
+        cdef size_t n_samples_fit = self._y.shape[0]
+        cdef int n_neighbors = self.n_neighbors
         with nogil:
             knn_regress(
                 handle_[0],
@@ -289,8 +283,8 @@ class KNeighborsRegressor(RegressorMixin,
                 inds_ctype,
                 y_vec,
                 n_samples_fit,
-                n_rows_size,
-                n_neighbors_val,
+                n_rows,
+                n_neighbors,
                 weights_ctype
             )
 

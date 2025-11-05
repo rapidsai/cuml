@@ -236,17 +236,12 @@ class KNeighborsClassifier(ClassifierMixin,
         predict the labels for X
 
         """
-        cdef int64_t* inds_ctype
-        cdef vector[int*] y_vec
-        cdef int* y_ptr
-        cdef int* classes_ptr
-        cdef handle_t* handle_
-
         # Get KNN results - always get distances to compute weights
         knn_distances, knn_indices = self.kneighbors(
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
+        cdef size_t n_rows
         inds, n_rows, _, _ = input_to_cuml_array(
             knn_indices,
             order='C',
@@ -264,25 +259,22 @@ class KNeighborsClassifier(ClassifierMixin,
         out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        inds_ctype = <int64_t*><uintptr_t>inds.ptr
+        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
         classes = CumlArray.zeros(
             out_shape, dtype=np.int32, order="C", index=inds.index
         )
 
-        # Store Python attributes before nogil context
-        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
-        cdef size_t n_rows_size = <size_t>n_rows
-        cdef int n_neighbors_val = <int>self.n_neighbors
-
         # If necessary, separate columns of y to support multilabel
         # classification
+        cdef vector[int*] y_vec
+        cdef int* y_ptr
         for i in range(out_cols):
             col = self._y if out_cols == 1 else self._y[:, i]
             y_ptr = <int*><uintptr_t>col.ptr
             y_vec.push_back(y_ptr)
 
-        classes_ptr = <int*><uintptr_t>classes.ptr
-        handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef int* classes_ptr = <int*><uintptr_t>classes.ptr
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
@@ -292,6 +284,8 @@ class KNeighborsClassifier(ClassifierMixin,
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
+        cdef size_t n_samples_fit = self._y.shape[0]
+        cdef int n_neighbors = self.n_neighbors
         with nogil:
             knn_classify(
                 handle_[0],
@@ -299,8 +293,8 @@ class KNeighborsClassifier(ClassifierMixin,
                 inds_ctype,
                 y_vec,
                 n_samples_fit,
-                n_rows_size,
-                n_neighbors_val,
+                n_rows,
+                n_neighbors,
                 weights_ctype
             )
 
@@ -319,16 +313,12 @@ class KNeighborsClassifier(ClassifierMixin,
         predict the label probabilities for X
 
         """
-        cdef int64_t* inds_ctype
-        cdef vector[float*] out_vec
-        cdef float* proba_ptr
-        cdef handle_t* handle_
-
         # Get KNN results - always get distances to compute weights
         knn_distances, knn_indices = self.kneighbors(
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
+        cdef size_t n_rows
         inds, n_rows, _, _ = input_to_cuml_array(
             knn_indices,
             order='C',
@@ -350,13 +340,10 @@ class KNeighborsClassifier(ClassifierMixin,
             n_classes = [len(c) for c in self._classes]
             ys = [self._y[:, i] for i in range(self._y.shape[1])]
 
-        inds_ctype = <int64_t*><uintptr_t>inds.ptr
+        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
-        # Store Python attributes before nogil context
-        cdef size_t n_samples_fit = <size_t>self.n_samples_fit_
-        cdef size_t n_rows_size = <size_t>n_rows
-        cdef int n_neighbors_val = <int>self.n_neighbors
-
+        cdef vector[float*] out_vec
+        cdef float* proba_ptr
         probas = []
         for n, y in zip(n_classes, ys):
             proba = CumlArray.zeros(
@@ -370,7 +357,7 @@ class KNeighborsClassifier(ClassifierMixin,
         for y in ys:
             y_vec.push_back(<int*><uintptr_t>y.ptr)
 
-        handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Compute weights if needed (nullptr for uniform weights)
         cdef float* weights_ctype = <float*>0  # nullptr
@@ -380,6 +367,8 @@ class KNeighborsClassifier(ClassifierMixin,
             weights_cuml = CumlArray(weights_cp)
             weights_ctype = <float*><uintptr_t>weights_cuml.ptr
 
+        cdef size_t n_samples_fit = self._y.shape[0]
+        cdef int n_neighbors = self.n_neighbors
         with nogil:
             knn_class_proba(
                 handle_[0],
@@ -387,8 +376,8 @@ class KNeighborsClassifier(ClassifierMixin,
                 inds_ctype,
                 y_vec,
                 n_samples_fit,
-                n_rows_size,
-                n_neighbors_val,
+                n_rows,
+                n_neighbors,
                 weights_ctype
             )
         self.handle.sync()
