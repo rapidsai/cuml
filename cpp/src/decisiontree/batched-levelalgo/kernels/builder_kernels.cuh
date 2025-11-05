@@ -121,9 +121,11 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 
 template <typename IdxT>
 struct CustomDifference {
+  CustomDifference(IdxT discard_value) : discard_value(discard_value) {}
+  IdxT discard_value = cuda::std::max<IdxT>();
   __device__ IdxT operator()(const IdxT& lhs, const IdxT& rhs)
   {
-    if (lhs == rhs)
+    if (lhs == rhs or rhs == discard_value)
       return 0;
     else
       return 1;
@@ -189,7 +191,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
           gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
       else if (mask[thread_local_sample_idx] ==
                0)  // indices that exceed `n_parallel_samples` will not generate
-        items[thread_local_sample_idx] = n - 1;
+        items[thread_local_sample_idx] = n;
       else
         continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
@@ -219,7 +221,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
     // Use -1 as the initial value since it can't match any valid column index [0, n-1]
     BlockAdjacentDifferenceT(temp_storage.diff)
-      .SubtractLeft(items, mask, CustomDifference<IdxT>(), IdxT(-1));
+      .SubtractLeft(items, mask, CustomDifference<IdxT>(n), IdxT(-1));
 
     __syncthreads();
 
