@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
 import numpy as np
@@ -128,6 +117,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    oob_score : bool (default = False)
+        Whether to use out-of-bag samples to estimate the generalization
+        accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
+        provides a way to evaluate the model without requiring a separate
+        validation set. The OOB score is computed using accuracy.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -145,6 +139,19 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    oob_score_ : float
+        Score of the training dataset obtained using an out-of-bag estimate.
+        This attribute exists only when ``oob_score`` is True.
+
+    oob_decision_function_ : ndarray of shape (n_samples, n_classes)
+        Decision function computed with out-of-bag estimate on the training
+        set. If n_estimators is small it might be possible that a data point
+        was never left out during the bootstrap. In this case,
+        ``oob_decision_function_`` might contain NaN. This attribute exists
+        only when ``oob_score`` is True.
+
     Notes
     -----
     While training the model for multi class classification problems, using
@@ -155,6 +162,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     """
 
     classes_ = CumlArrayDescriptor()
+
+    oob_decision_function_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
@@ -228,6 +237,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             check_rows=X_m.shape[0],
             check_cols=1,
         ).array
+
         self.classes_ = cp.unique(y_m)
         self.n_classes_ = len(self.classes_)
         if not (self.classes_ == cp.arange(self.n_classes_)).all():
@@ -253,7 +263,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ) -> CumlArray:
         """
         Predicts the labels for X.
@@ -275,19 +284,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         align_bytes : int, optional (default = None)
             If specified, trees will be padded to this byte alignment, which can
             improve performance. Typical values are 0 or 128 on GPU.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
         y : {}
         """
-        self._handle_deprecated_predict_model(predict_model)
-
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
@@ -369,10 +370,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-        predict_model="deprecated",
     ):
         """
-        Calculates the accuracy metric score of the model for X.
+        Calculates the accuracy score of the model on test data.
 
         Parameters
         ----------
@@ -395,12 +395,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             a multiple of this value. This can improve performance by guaranteeing
             that memory reads from trees begin on a cache line boundary.
             Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
-        predict_model : string (default = 'deprecated')
-
-            .. deprecated:: 25.10
-                `predict_model` is deprecated (and ignored) and will be removed
-                in 25.12. To infer on CPU use `model.as_fil` to get a `FIL` instance
-                which may then be used to perform inference on both CPU and GPU.
 
         Returns
         -------
@@ -411,7 +405,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             X,
             threshold=threshold,
             convert_dtype=convert_dtype,
-            predict_model=predict_model,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,

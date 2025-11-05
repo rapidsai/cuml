@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
@@ -41,6 +42,10 @@ rapids-pip-retry install \
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
+
+# Run linkage test for libcuml
+rapids-logger "Testing libcuml linkage"
+python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v
 
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \

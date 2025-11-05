@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import time
 from functools import lru_cache
@@ -133,11 +122,9 @@ class KernelExplainer(SHAPBase):
         the model's computations, so users can run different models
         concurrently in different streams by creating handles in several
         streams.
-    dtype : np.float32 or np.float64 (default = None)
+    dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
-        model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will default to
-        np.float32.
+        model.
     output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.
         If not specified, the explainer will default to 'numpy' for the time
@@ -194,7 +181,7 @@ class KernelExplainer(SHAPBase):
                  random_state=None,
                  is_gpu_model=None,
                  handle=None,
-                 dtype=None,
+                 dtype=np.float32,
                  output_type=None):
 
         super().__init__(

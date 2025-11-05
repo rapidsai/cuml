@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import random
@@ -552,6 +541,9 @@ def test_sparse_from_dense(reg_dtype, client):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.filterwarnings(
+    "ignore:The max_iter was reached which means the coef_ did not converge:sklearn.exceptions.ConvergenceWarning"
+)
 def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X, y = nlp_20news
@@ -1094,6 +1086,9 @@ def test_standardization_sparse_with_shift_scale(
 
 @pytest.mark.parametrize("standardization", [False, True])
 @pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:invalid value encountered in divide:RuntimeWarning:sklearn"
+)
 def test_sparse_all_zeroes(
     standardization, fit_intercept, client, X=None, y=None, n_parts=2
 ):

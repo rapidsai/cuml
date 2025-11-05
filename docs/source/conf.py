@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.

@@ -92,6 +92,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
+| | Spectral Embedding | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
@@ -120,7 +121,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 
 See [the RAPIDS Release Selector](https://docs.rapids.ai/install#selector) for
 the command line to install either nightly or official release cuML packages
-via Conda or Docker.
+via conda, pip, or Docker.
 
 ## Build/Install from Source
 See the build [guide](BUILD.md).

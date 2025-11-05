@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import pytest
@@ -85,3 +74,12 @@ def bench_svr_rbf(gpubenchmark, bench_step, regression1):  # noqa: F811
 
 def bench_svr_linear(gpubenchmark, bench_step, regression2):  # noqa: F811
     _benchmark_algo(gpubenchmark, "SVR-Linear", bench_step, regression2)
+
+
+def bench_xgboost_regression(
+    gpubenchmark, bench_step, regression1  # noqa: F811
+):
+    pytest.importorskip("xgboost")
+    _benchmark_algo(
+        gpubenchmark, "xgboost-regression", bench_step, regression1
+    )

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -38,6 +27,8 @@
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/util/cuda_utils.cuh>
+
+#include <rmm/device_buffer.hpp>
 
 #include <cuda_runtime.h>
 #include <thrust/count.h>
@@ -306,7 +297,7 @@ template <typename value_idx, typename value_t, typename umap_inputs, typename n
 void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
-          value_t* embeddings,
+          std::unique_ptr<rmm::device_buffer>& embeddings,
           raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
@@ -324,26 +315,32 @@ void _fit(const raft::handle_t& handle,
 
   trim_graph(handle, graph, n_epochs);
 
+  // Allocate embeddings buffer just before initialization
+  std::size_t embeddings_size =
+    static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
+  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
+  value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
+
   /**
    * Run initialization method
    */
   raft::common::nvtx::push_range("umap::embedding");
   InitEmbed::run<value_t, nnz_t>(
-    handle, inputs.n, inputs.d, &graph, params, embeddings, stream, params->init);
+    handle, inputs.n, inputs.d, &graph, params, embeddings_ptr, stream, params->init);
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
-    params->callback->on_preprocess_end(embeddings);
+    params->callback->on_preprocess_end(embeddings_ptr);
   }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings, n_epochs, stream);
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream);
   raft::common::nvtx::pop_range();
 
-  if (params->callback) params->callback->on_train_end(embeddings);
+  if (params->callback) params->callback->on_train_end(embeddings_ptr);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
@@ -352,7 +349,7 @@ template <typename value_idx, typename value_t, typename umap_inputs, typename n
 void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
-                     value_t* embeddings,
+                     std::unique_ptr<rmm::device_buffer>& embeddings,
                      raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
@@ -370,26 +367,32 @@ void _fit_supervised(const raft::handle_t& handle,
 
   trim_graph(handle, graph, n_epochs);
 
+  // Allocate embeddings buffer just before initialization
+  std::size_t embeddings_size =
+    static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
+  if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
+  value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
+
   /**
    * Initialize embeddings
    */
   raft::common::nvtx::push_range("umap::supervised::fit");
   InitEmbed::run<value_t, nnz_t>(
-    handle, inputs.n, inputs.d, &graph, params, embeddings, stream, params->init);
+    handle, inputs.n, inputs.d, &graph, params, embeddings_ptr, stream, params->init);
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
-    params->callback->on_preprocess_end(embeddings);
+    params->callback->on_preprocess_end(embeddings_ptr);
   }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings, n_epochs, stream);
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream);
   raft::common::nvtx::pop_range();
 
-  if (params->callback) params->callback->on_train_end(embeddings);
+  if (params->callback) params->callback->on_train_end(embeddings_ptr);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

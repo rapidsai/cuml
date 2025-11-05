@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -20,6 +9,8 @@
 
 #include <raft/core/host_coo_matrix.hpp>
 #include <raft/sparse/coo.hpp>
+
+#include <rmm/device_buffer.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -117,7 +108,8 @@ void init_and_refine(const raft::handle_t& handle,
  * @param[in] knn_indices: pointer to knn_indices of input (optional)
  * @param[in] knn_dists: pointer to knn_dists of input (optional)
  * @param[in] params: pointer to ML::UMAPParams object
- * @param[out] embeddings: pointer to embedding produced through projection
+ * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
+ * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
  */
 void fit(const raft::handle_t& handle,
@@ -128,7 +120,7 @@ void fit(const raft::handle_t& handle,
          int64_t* knn_indices,
          float* knn_dists,
          UMAPParams* params,
-         float* embeddings,
+         std::unique_ptr<rmm::device_buffer>& embeddings,
          raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**
@@ -145,7 +137,8 @@ void fit(const raft::handle_t& handle,
  * @param[in] knn_indices: pointer to knn_indices of input (optional)
  * @param[in] knn_dists: pointer to knn_dists of input (optional)
  * @param[in] params: pointer to ML::UMAPParams object
- * @param[out] embeddings: pointer to embedding produced through projection
+ * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
+ * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
  */
 void fit_sparse(const raft::handle_t& handle,
@@ -159,7 +152,7 @@ void fit_sparse(const raft::handle_t& handle,
                 int* knn_indices,
                 float* knn_dists,
                 UMAPParams* params,
-                float* embeddings,
+                std::unique_ptr<rmm::device_buffer>& embeddings,
                 raft::host_coo_matrix<float, int, int, uint64_t>& graph);
 
 /**

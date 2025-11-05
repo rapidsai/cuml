@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -68,27 +57,6 @@ def get_handle_from_cuml_model_func(func, create_new=False):
 
     handle = Handle() if create_new else None
     return handle
-
-
-def get_dtype_from_model_func(func, default=None):
-    """
-    Function detect if model that `func` is bound to prefers data of certain
-    data type. It checks the attribute model.dtype.
-
-    Parameters
-    ----------
-    func: object
-        Function to check whether the object it is bound to has a _get_tags
-        attribute, and return tags from it.
-    create_new: boolean (default = False)
-        Whether to return a new RAFT handle if none could be fetched. Otherwise
-        the function will return None.
-    """
-    dtype = getattr(getattr(func, "__self__", None), "dtype", None)
-
-    dtype = default if dtype is None else dtype
-
-    return dtype
 
 
 def model_func_call(X, model_func, gpu_model=False):

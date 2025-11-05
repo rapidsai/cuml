@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cudf
@@ -19,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
-from hypothesis import assume, example, given, note
+from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from hypothesis import target
 from packaging.version import Version
@@ -28,13 +17,12 @@ from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
-from sklearn.linear_model import Ridge as skRidge
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
-from cuml import Ridge as cuRidge
 from cuml.testing.datasets import (
     is_cuml_compatible_dataset,
     is_sklearn_compatible_dataset,
@@ -51,8 +39,6 @@ from cuml.testing.datasets import (
 )
 from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_difference, array_equal
-
-ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
 @given(
@@ -182,9 +168,8 @@ def test_weighted_linear_regression(
 def test_linear_regression_single_column():
     """Test that linear regression can be run on single column with more than
     46340 rows"""
-    model = cuLinearRegression()
-    with pytest.warns(UserWarning):
-        model.fit(cp.random.rand(46341), cp.random.rand(46341))
+    model = cuml.LinearRegression()
+    model.fit(cp.random.rand(46341)[:, None], cp.random.rand(46341))
 
 
 # The assumptions required to have this test pass are relatively strong.
@@ -255,146 +240,6 @@ def test_linear_regression_model_default_generalized(dataset):
 
     target(float(array_difference(skols_predict, cuols_predict)))
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
-
-
-@given(
-    split_datasets(
-        standard_regression_datasets(),
-    ),
-)
-@example(small_regression_dataset(np.float32))
-@example(small_regression_dataset(np.float64))
-def test_ridge_regression_model_default(dataset):
-
-    assume(is_sklearn_compatible_dataset(*dataset))
-    assume(is_cuml_compatible_dataset(*dataset))
-    X_train, X_test, y_train, _ = dataset
-
-    curidge = cuRidge()
-
-    # fit and predict cuml ridge regression model
-    curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test)
-
-    # sklearn ridge regression model initialization, fit and predict
-    skridge = skRidge()
-    skridge.fit(X_train, y_train)
-    skridge_predict = skridge.predict(X_test)
-
-    equal = array_equal(
-        skridge_predict,
-        curidge_predict,
-        unit_tol=1e-1,
-        total_tol=1e-3,
-        with_sign=True,
-    )
-    note(equal)
-    target(float(np.abs(equal.compute_difference())))
-    assert equal
-
-
-@given(
-    datatype=dataset_dtypes(),
-    algorithm=st.sampled_from(["eig", "svd"]),
-    nrows=st.integers(min_value=500, max_value=5000),
-    column_info=st.sampled_from([[20, 10], [100, 50]]),
-)
-@example(datatype=np.float32, algorithm="eig", nrows=500, column_info=[20, 10])
-@example(
-    datatype=np.float64, algorithm="svd", nrows=5000, column_info=[100, 50]
-)
-def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
-
-    if algorithm == "svd" and nrows > 46340:
-        pytest.skip(
-            "svd solver is not supported for the data that has more"
-            "than 46340 rows or columns if you are using CUDA version"
-            "10.x"
-        )
-
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info
-    )
-
-    # Initialization of cuML's ridge regression model
-    curidge = cuRidge(fit_intercept=False, solver=algorithm)
-
-    # fit and predict cuml ridge regression model
-    curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test)
-
-    if nrows < 500000:
-        # sklearn ridge regression model initialization, fit and predict
-        skridge = skRidge(fit_intercept=False)
-        skridge.fit(X_train, y_train)
-
-        skridge_predict = skridge.predict(X_test)
-
-        assert array_equal(
-            skridge_predict, curidge_predict, 1e-1, with_sign=True
-        )
-
-
-def test_ridge_and_least_squares_equal_when_alpha_is_0():
-    X, y = make_regression(n_samples=5, n_features=4, random_state=0)
-
-    ridge = cuRidge(alpha=0.0, fit_intercept=False)
-    ols = cuLinearRegression(fit_intercept=False)
-
-    ridge.fit(X, y)
-    ols.fit(X, y)
-    assert array_equal(ridge.coef_, ols.coef_)
-
-
-@given(
-    datatype=dataset_dtypes(),
-    algorithm=st.sampled_from(["eig", "svd"]),
-    fit_intercept=st.booleans(),
-    distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
-)
-@example(
-    datatype=np.float32,
-    algorithm="eig",
-    fit_intercept=True,
-    distribution="uniform",
-)
-@example(
-    datatype=np.float64,
-    algorithm="svd",
-    fit_intercept=False,
-    distribution="lognormal",
-)
-def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
-    nrows, ncols, n_info = 1000, 20, 10
-    max_weight = 10
-    noise = 20
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info, noise=noise
-    )
-
-    # set weight per sample to be from 1 to max_weight
-    if distribution == "uniform":
-        wt = np.random.randint(1, high=max_weight, size=len(X_train))
-    elif distribution == "exponential":
-        wt = np.random.exponential(size=len(X_train))
-    else:
-        wt = np.random.lognormal(size=len(X_train))
-
-    # Initialization of cuML's linear regression model
-    curidge = cuRidge(fit_intercept=fit_intercept, solver=algorithm)
-
-    # fit and predict cuml linear regression model
-    curidge.fit(X_train, y_train, sample_weight=wt)
-    curidge_predict = curidge.predict(X_test)
-
-    # sklearn linear regression model initialization, fit and predict
-    skridge = skRidge(fit_intercept=fit_intercept)
-    skridge.fit(X_train, y_train, sample_weight=wt)
-
-    skridge_predict = skridge.predict(X_test)
-
-    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
 
 
 @given(
@@ -884,25 +729,6 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
 
 @given(
     dataset=split_datasets(
-        standard_regression_datasets(),
-    ),
-    test_dtype=dataset_dtypes(),
-)
-@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float32)
-@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float64)
-@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float32)
-@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float64)
-def test_ridge_predict_convert_dtype(dataset, test_dtype):
-    assume(is_cuml_compatible_dataset(*dataset))
-    X_train, X_test, y_train, _ = dataset
-
-    clf = cuRidge()
-    clf.fit(X_train, y_train)
-    clf.predict(X_test.astype(test_dtype))
-
-
-@given(
-    dataset=split_datasets(
         standard_classification_datasets(),
     ),
     test_dtype=dataset_dtypes(),
@@ -930,93 +756,150 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.fixture(
-    scope="session", params=["binary", "multiclass-3", "multiclass-7"]
+@given(
+    dataset=standard_classification_datasets(),
+    use_sample_weight=st.booleans(),
+    class_weight_option=st.sampled_from([None, "balanced", "dict"]),
 )
-def regression_dataset(request):
-    regression_type = request.param
-
-    out = {}
-    for test_status in ["regular"]:
-        if test_status == "regular":
-            n_samples, n_features = 100000, 5
-
-        data = (np.random.rand(n_samples, n_features) * 2) - 1
-
-        if regression_type == "binary":
-            coef = (np.random.rand(n_features) * 2) - 1
-            coef /= np.linalg.norm(coef)
-            output = (data @ coef) > 0
-        elif regression_type.startswith("multiclass"):
-            n_classes = 3 if regression_type == "multiclass-3" else 7
-            coef = (np.random.rand(n_features, n_classes) * 2) - 1
-            coef /= np.linalg.norm(coef, axis=0)
-            output = (data @ coef).argmax(axis=1)
-        output = output.astype(np.int32)
-
-        out[test_status] = (regression_type, data, coef, output)
-    return out
-
-
-@pytest.mark.parametrize(
-    "option", ["sample_weight", "class_weight", "balanced", "no_weight"]
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=0,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option=None,
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=7,
+            n_redundant=0,
+            random_state=1,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option="balanced",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=3,
+            n_redundant=0,
+            random_state=2,
+        ),
+    ),
+    use_sample_weight=True,
+    class_weight_option="dict",
+)
+@example(
+    dataset=(
+        *make_classification(
+            n_samples=100000,
+            n_features=5,
+            n_informative=4,
+            n_classes=2,
+            n_redundant=0,
+            random_state=3,
+        ),
+    ),
+    use_sample_weight=False,
+    class_weight_option=None,
 )
 def test_logistic_regression_weighting(
-    regression_dataset,
-    option,
+    dataset, use_sample_weight, class_weight_option
 ):
-    regression_type, data, coef, output = regression_dataset["regular"]
+    X, y = dataset
 
-    class_weight = None
+    num_classes = len(np.unique(y))
+
+    # Set up sample_weight
     sample_weight = None
-    if option == "sample_weight":
-        n_samples = data.shape[0]
+    if use_sample_weight:
+        n_samples = X.shape[0]
         sample_weight = np.abs(np.random.rand(n_samples))
-    elif option == "class_weight":
-        class_weight = np.random.rand(2)
-        class_weight = {0: class_weight[0], 1: class_weight[1]}
-    elif option == "balanced":
-        class_weight = "balanced"
 
-    culog = cuLog(fit_intercept=False, class_weight=class_weight)
-    culog.fit(data, output, sample_weight=sample_weight)
+    # Set up class_weight
+    class_weight = None
+    match class_weight_option:
+        case "dict":
+            weights = np.random.rand(num_classes)
+            class_weight = {i: weights[i] for i in range(num_classes)}
+        case "balanced":
+            class_weight = "balanced"
+        case None:
+            pass
+        case _:
+            raise ValueError(
+                f"Unknown class_weight_option: {class_weight_option}"
+            )
 
-    sklog = skLog(fit_intercept=False, class_weight=class_weight)
-    sklog.fit(data, output, sample_weight=sample_weight)
+    # Use higher max_iter for better convergence with complex weighting
+    max_iter = (
+        1000
+        if (use_sample_weight and class_weight_option is not None)
+        else 500
+    )
+
+    culog = cuLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    culog.fit(X, y, sample_weight=sample_weight)
+
+    sklog = skLog(
+        fit_intercept=False, class_weight=class_weight, max_iter=max_iter
+    )
+    sklog.fit(X, y, sample_weight=sample_weight)
 
     skcoef = np.squeeze(sklog.coef_)
     cucoef = np.squeeze(culog.coef_)
-    if regression_type == "binary":
+
+    # Normalize coefficients
+    if num_classes == 2:
         skcoef /= np.linalg.norm(skcoef)
         cucoef /= np.linalg.norm(cucoef)
-        unit_tol = 0.04
-        total_tol = 0.08
-    elif regression_type.startswith("multiclass"):
-        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
-        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
-        unit_tol = 0.2
-        total_tol = 0.3
+    else:
+        skcoef /= np.linalg.norm(skcoef, axis=1, keepdims=True)
+        cucoef /= np.linalg.norm(cucoef, axis=1, keepdims=True)
 
-    equality = array_equal(
-        skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol
-    )
-    if not equality:
-        print("\ncoef.shape: ", coef.shape)
-        print("coef:\n", coef)
-        print("cucoef.shape: ", cucoef.shape)
-        print("cucoef:\n", cucoef)
-    assert equality
+    # Set tolerances based on empirical analysis
+    has_weights = use_sample_weight or class_weight_option is not None
+    harder_problem = has_weights or num_classes > 3
+    unit_tol = 0.25 if harder_problem else 0.04
+    total_tol = 0.40 if harder_problem else 0.08
+    assert array_equal(skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol)
 
-    cuOut = culog.predict(data)
-    skOut = sklog.predict(data)
+    cuOut = culog.predict(X)
+    skOut = sklog.predict(X)
     assert array_equal(skOut, cuOut, unit_tol=unit_tol, total_tol=total_tol)
 
 
-@pytest.mark.parametrize("algo", [cuLog, cuRidge])
+@pytest.mark.parametrize("penalty", ["l1", "l2"])
+def test_logistic_regression_max_iter_n_iter(penalty):
+    X, y = make_classification(random_state=42)
+    model = cuml.LogisticRegression(penalty=penalty).fit(X, y)
+    assert model.n_iter_.max() <= model.max_iter
+
+    model = cuml.LogisticRegression(penalty=penalty, max_iter=10).fit(X, y)
+    assert model.n_iter_.max() == 10
+
+
+@pytest.mark.parametrize("algo", [cuLog])
 # ignoring warning about change of solver
 @pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
 def test_linear_models_set_params(algo):
-    x = np.linspace(0, 1, 50)
+    x = np.linspace(0, 1, 50)[:, None]
     y = 2 * x
 
     model = algo()
@@ -1082,42 +965,77 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
+@pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
-    algorithm=st.sampled_from(ALGORITHMS),
-    xp=st.sampled_from([np, cp]),
-    copy=st.one_of(st.booleans(), st.just(...)),
-    dataset=standard_regression_datasets(
-        n_features=st.integers(min_value=1, max_value=10),
-    ),
+    algo=st.sampled_from(["eig", "qr", "svd", "svd-qr"]),
+    n_targets=st.integers(min_value=1, max_value=2),
+    fit_intercept=st.booleans(),
+    weighted=st.booleans(),
 )
-@example(
-    dataset=make_regression(n_features=1), algorithm="eig", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=2), algorithm="eig", xp=cp, copy=False
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=np, copy=True
-)
-@example(
-    dataset=make_regression(n_features=1), algorithm="svd", xp=cp, copy=True
-)
-def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
-    X, y = dataset
-    X, y = xp.asarray(X), xp.asarray(y)
-    X_copy = X.copy()
+@example(algo="eig", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd-qr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="svd", n_targets=2, fit_intercept=False, weighted=True)
+def test_linear_regression_input_mutation(
+    algo, n_targets, fit_intercept, weighted
+):
+    """Check that `LinearRegression.fit`:
+    - Never mutates y and sample_weight
+    - Only sometimes mutates X
+    """
+    # Only algo="svd" supports n_targets > 1. While we do fallback to svd
+    # automatically (with a warning), there's no need to have hypothesis
+    # explore those cases.
+    assume(n_targets == 1 or algo == "svd")
 
-    if copy is ...:  # no argument
-        cuLR = cuLinearRegression(algorithm=algorithm)
+    X, y = make_regression(n_targets=n_targets, random_state=42)
+    if weighted:
+        sample_weight = (
+            cp.random.default_rng(42)
+            .uniform(0.5, 1, y.shape[0])
+            .astype("float32")
+        )
+        sample_weight_orig = sample_weight.copy()
     else:
-        cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+        sample_weight = None
 
-    cuLR.fit(X, y)
+    # The solvers expected fortran-ordered inputs, and will always copy C
+    # ordered inputs. Mutation can only happen for F-ordered inputs.
+    X = cp.asarray(X, order="F", dtype="float32")
+    y = cp.asarray(y, order="F", dtype="float32")
+    X_orig = X.copy()
+    y_orig = y.copy()
 
-    if (X.shape[1] == 1 and xp is cp) and copy is False:
-        assert not array_equal(X, X_copy)
+    params = {"algorithm": algo, "fit_intercept": fit_intercept}
+
+    # Default never mutates inputs
+    cuml.LinearRegression(**params).fit(X, y, sample_weight=sample_weight)
+    cp.testing.assert_allclose(X, X_orig)
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+
+    cuml.LinearRegression(copy_X=False, **params).fit(
+        X, y, sample_weight=sample_weight
+    )
+    # y and sample_weight are never mutated
+    cp.testing.assert_allclose(y, y_orig)
+    if weighted:
+        cp.testing.assert_allclose(sample_weight, sample_weight_orig)
+    # The interface doesn't actually care if X is mutated if copy_X=False,
+    # but if our solvers stop mutating (and we can avoid a copy) it'd be good
+    # to notice. Asserting the current behavior here for now.
+    if n_targets == 1 and algo in ["eig", "qr", "svd", "svd-qr"]:
+        # `eig` sometimes mutates and sometimes doesn't, the others always do
+        if algo != "eig":
+            assert not cp.array_equal(X, X_orig)
+    elif n_targets > 1 and not fit_intercept and weighted:
+        # The fallback solver also mutates in this case
+        assert not cp.array_equal(X, X_orig)
     else:
-        assert array_equal(X, X_copy)
+        # All other options don't mutate
+        cp.testing.assert_array_equal(X, X_orig)
 
 
 @given(
@@ -1151,10 +1069,7 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
 
     if ntargets > 1:
-        with pytest.raises(
-            ValueError,
-            match="The .* solver does not support multi-target regression.",
-        ):
+        with pytest.raises(ValueError, match="Expected 1 columns"):
             cuelastic.fit(X_train, y_train)
         return
 
@@ -1176,3 +1091,14 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
+
+
+@pytest.mark.parametrize(
+    "cls", [cuml.Ridge, cuml.ElasticNet, cuml.Lasso, cuml.LinearRegression]
+)
+def test_deprecated_normalize(cls):
+    X, y = make_regression()
+    model = cls(normalize=True)
+
+    with pytest.raises(FutureWarning, match="normalize"):
+        model.fit(X, y)

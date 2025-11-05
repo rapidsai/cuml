@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -405,11 +394,7 @@ void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t>& work,
     ++request_idx;
   }
 
-  try {
-    handle.get_comms().waitall(requests.size(), requests.data());
-  } catch (raft::exception& e) {
-    CUML_LOG_DEBUG("FAILURE!");
-  }
+  handle.get_comms().waitall(requests.size(), requests.data());
 }
 
 /*!
@@ -674,11 +659,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     }
   }
 
-  try {
-    handle.get_comms().waitall(requests.size(), requests.data());
-  } catch (raft::exception& e) {
-    CUML_LOG_DEBUG("FAILURE!");
-  }
+  handle.get_comms().waitall(requests.size(), requests.data());
 }
 
 /*!
@@ -968,7 +949,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                                  *(params.uniq_labels),
                                                  *(params.n_unique));
       break;
-    default: CUML_LOG_DEBUG("FAILURE!");
+    default: CUML_LOG_DEBUG("Not a valid operation.");
   }
 }
 

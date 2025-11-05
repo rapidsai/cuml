@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import inspect
@@ -65,7 +54,10 @@ def test_base_n_features_in(datatype, use_integer_n_features):
         assert clf.n_features_in_ == X_train.shape[1]
 
 
-@pytest.mark.parametrize("child_class", list(all_base_children.keys()))
+@pytest.mark.parametrize(
+    "child_class",
+    [name for name in all_base_children.keys() if "Base" not in name],
+)
 def test_base_subclass_init_matches_docs(child_class: str):
     """
     This test is comparing the docstrings for arguments in __init__ for any

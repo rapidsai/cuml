@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import math
@@ -496,6 +485,10 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     assert_array_equal(y_hat, y_hat_sk)
 
 
+@pytest.mark.filterwarnings("ignore:X dtype is not int32.*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Changing the sparsity structure of a csr_matrix is expensive.*:scipy.sparse._base.SparseEfficiencyWarning"
+)
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
@@ -535,6 +528,10 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
+@pytest.mark.filterwarnings("ignore:X dtype is not int32.*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Changing the sparsity structure of a csr_matrix is expensive.*:scipy.sparse._base.SparseEfficiencyWarning"
+)
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
@@ -579,6 +576,10 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
     assert expected_score - THRES <= cuml_score <= expected_score + THRES
 
 
+@pytest.mark.filterwarnings("ignore:X dtype is not int32.*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Changing the sparsity structure of a csr_matrix is expensive.*:scipy.sparse._base.SparseEfficiencyWarning"
+)
 @pytest.mark.parametrize("class_prior", [None, "balanced", "unbalanced"])
 @pytest.mark.parametrize("alpha", [0.1, 0.5, 1.5])
 @pytest.mark.parametrize("fit_prior", [False, True])

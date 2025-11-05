@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "../prims/test_utils.h"
@@ -36,7 +25,7 @@
 
 #include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/distance/distance.hpp>
-#include <cuvs/neighbors/reachability.hpp>
+#include <cuvs/neighbors/all_neighbors.hpp>
 #include <gtest/gtest.h>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
@@ -133,7 +122,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
   double score;
 };
 
-typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
+typedef HDBSCANTest<float, int64_t> HDBSCANTestF_Int;
 TEST_P(HDBSCANTestF_Int, Result) { EXPECT_TRUE(score >= 0.85); }
 
 INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int, ::testing::ValuesIn(hdbscan_inputsf2));
@@ -239,7 +228,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 #if 0
 // gtest-1.11.0 makes it a runtime error to define and not instantiate this test case.
 
-typedef ClusterCondensingTest<float, int> ClusterCondensingTestF_Int;
+typedef ClusterCondensingTest<float, int64_t> ClusterCondensingTestF_Int;
 TEST_P(ClusterCondensingTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 // This will be reactivate in 21.08 with better, contrived examples to
@@ -313,7 +302,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    params.cluster_selection_method,
                                                    inverse_label_map,
                                                    params.allow_single_cluster,
-                                                   0,
+                                                   static_cast<IdxT>(0),
                                                    params.cluster_selection_epsilon);
 
     handle.sync_stream(handle.get_stream());
@@ -340,7 +329,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
   T score;
 };
 
-typedef ClusterSelectionTest<float, int> ClusterSelectionTestF_Int;
+typedef ClusterSelectionTest<float, int64_t> ClusterSelectionTestF_Int;
 TEST_P(ClusterSelectionTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
@@ -353,7 +342,7 @@ void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map
   thrust::transform(
     handle.get_thrust_policy(), labels, labels + m, labels, [label_map] __device__(IdxT label) {
       if (label != -1) return label_map[label];
-      return -1;
+      return static_cast<IdxT>(-1);
     });
 }
 
@@ -441,7 +430,7 @@ class AllPointsMembershipVectorsTest
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
@@ -481,7 +470,7 @@ class AllPointsMembershipVectorsTest
   // T score;
 };
 
-typedef AllPointsMembershipVectorsTest<float, int> AllPointsMembershipVectorsTestF_Int;
+typedef AllPointsMembershipVectorsTest<float, int64_t> AllPointsMembershipVectorsTestF_Int;
 TEST_P(AllPointsMembershipVectorsTestF_Int, Result) { EXPECT_TRUE(true); }
 
 INSTANTIATE_TEST_CASE_P(AllPointsMembershipVectorsTest,
@@ -491,7 +480,6 @@ INSTANTIATE_TEST_CASE_P(AllPointsMembershipVectorsTest,
 template <typename T, typename IdxT>
 class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredictInputs<T, IdxT>> {
  public:
- protected:
   void basicTest()
   {
     raft::handle_t handle;
@@ -562,7 +550,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> core_dists{static_cast<size_t>(params.n_row), handle.get_stream()};
@@ -574,15 +562,63 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
 
-    cuvs::neighbors::reachability::mutual_reachability_graph(
+    auto exec_policy     = raft::resource::get_thrust_policy(handle);
+    auto new_min_samples = params.min_samples + 1;
+    auto inds  = raft::make_device_matrix<IdxT, IdxT>(handle, params.n_row, new_min_samples);
+    auto dists = raft::make_device_matrix<T, IdxT>(handle, params.n_row, new_min_samples);
+
+    cuvs::neighbors::all_neighbors::all_neighbors_params all_neigh_p;
+    all_neigh_p.metric                = cuvs::distance::DistanceType::L2SqrtExpanded;
+    auto brute_force_p                = cuvs::neighbors::graph_build_params::brute_force_params{};
+    brute_force_p.build_params.metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+    all_neigh_p.graph_build_params    = brute_force_p;
+    cuvs::neighbors::all_neighbors::build(
       handle,
-      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-      params.min_samples + 1,
-      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
+      all_neigh_p,
+      raft::make_device_matrix_view<const T, int64_t>(data.data(), params.n_row, params.n_col),
+      inds.view(),
+      dists.view(),
       raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-      mutual_reachability_coo,
-      cuvs::distance::DistanceType::L2SqrtExpanded,
       1.0);
+
+    // self-loops get max distance
+    rmm::device_uvector<IdxT> coo_rows(new_min_samples * params.n_row, stream);
+    auto coo_rows_counting_itr = thrust::make_counting_iterator<IdxT>(0);
+    thrust::transform(exec_policy,
+                      coo_rows_counting_itr,
+                      coo_rows_counting_itr + (params.n_row * new_min_samples),
+                      coo_rows.data(),
+                      [new_min_samples] __device__(IdxT c) -> IdxT { return c / new_min_samples; });
+
+    raft::sparse::linalg::symmetrize(handle,
+                                     coo_rows.data(),
+                                     inds.data_handle(),
+                                     dists.data_handle(),
+                                     static_cast<IdxT>(params.n_row),
+                                     static_cast<IdxT>(params.n_row),
+                                     static_cast<size_t>(new_min_samples * params.n_row),
+                                     mutual_reachability_coo);
+
+    raft::sparse::convert::sorted_coo_to_csr(mutual_reachability_coo.rows(),
+                                             mutual_reachability_coo.nnz,
+                                             mutual_reachability_indptr.data(),
+                                             (int)params.n_row + 1,
+                                             stream);
+
+    auto transform_in =
+      thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
+                                                   mutual_reachability_coo.cols(),
+                                                   mutual_reachability_coo.vals()));
+
+    thrust::transform(exec_policy,
+                      transform_in,
+                      transform_in + mutual_reachability_coo.nnz,
+                      mutual_reachability_coo.vals(),
+                      [=] __device__(const thrust::tuple<IdxT, IdxT, T>& tup) {
+                        return thrust::get<0>(tup) == thrust::get<1>(tup)
+                                 ? std::numeric_limits<T>::max()
+                                 : thrust::get<2>(tup);
+                      });
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
     ML::HDBSCAN::Common::generate_prediction_data(handle,
@@ -633,7 +669,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
   // T score;
 };
 
-typedef ApproximatePredictTest<float, int> ApproximatePredictTestF_Int;
+typedef ApproximatePredictTest<float, int64_t> ApproximatePredictTestF_Int;
 TEST_P(ApproximatePredictTestF_Int, Result) { EXPECT_TRUE(true); }
 
 INSTANTIATE_TEST_CASE_P(ApproximatePredictTest,
@@ -642,7 +678,7 @@ INSTANTIATE_TEST_CASE_P(ApproximatePredictTest,
 
 template <typename T, typename IdxT>
 class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInputs<T, IdxT>> {
- protected:
+ public:
   void basicTest()
   {
     raft::handle_t handle;
@@ -713,7 +749,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                      params.cluster_selection_method,
                                                      inverse_label_map,
                                                      params.allow_single_cluster,
-                                                     0,
+                                                     static_cast<IdxT>(0),
                                                      params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> membership_vec(params.n_points_to_predict * n_selected_clusters,
@@ -728,15 +764,63 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
 
-    cuvs::neighbors::reachability::mutual_reachability_graph(
+    auto exec_policy     = raft::resource::get_thrust_policy(handle);
+    auto new_min_samples = params.min_samples + 1;
+    auto inds  = raft::make_device_matrix<IdxT, IdxT>(handle, params.n_row, new_min_samples);
+    auto dists = raft::make_device_matrix<T, IdxT>(handle, params.n_row, new_min_samples);
+
+    cuvs::neighbors::all_neighbors::all_neighbors_params all_neigh_p;
+    all_neigh_p.metric                = cuvs::distance::DistanceType::L2SqrtExpanded;
+    auto brute_force_p                = cuvs::neighbors::graph_build_params::brute_force_params{};
+    brute_force_p.build_params.metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+    all_neigh_p.graph_build_params    = brute_force_p;
+    cuvs::neighbors::all_neighbors::build(
       handle,
-      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
-      params.min_samples + 1,
-      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
+      all_neigh_p,
+      raft::make_device_matrix_view<const T, int64_t>(data.data(), params.n_row, params.n_col),
+      inds.view(),
+      dists.view(),
       raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
-      mutual_reachability_coo,
-      cuvs::distance::DistanceType::L2SqrtExpanded,
       1.0);
+
+    // self-loops get max distance
+    rmm::device_uvector<IdxT> coo_rows(new_min_samples * params.n_row, stream);
+    auto coo_rows_counting_itr = thrust::make_counting_iterator<IdxT>(0);
+    thrust::transform(exec_policy,
+                      coo_rows_counting_itr,
+                      coo_rows_counting_itr + (params.n_row * new_min_samples),
+                      coo_rows.data(),
+                      [new_min_samples] __device__(IdxT c) -> IdxT { return c / new_min_samples; });
+
+    raft::sparse::linalg::symmetrize(handle,
+                                     coo_rows.data(),
+                                     inds.data_handle(),
+                                     dists.data_handle(),
+                                     static_cast<IdxT>(params.n_row),
+                                     static_cast<IdxT>(params.n_row),
+                                     static_cast<size_t>(new_min_samples * params.n_row),
+                                     mutual_reachability_coo);
+
+    raft::sparse::convert::sorted_coo_to_csr(mutual_reachability_coo.rows(),
+                                             mutual_reachability_coo.nnz,
+                                             mutual_reachability_indptr.data(),
+                                             (int)params.n_row + 1,
+                                             stream);
+
+    auto transform_in =
+      thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
+                                                   mutual_reachability_coo.cols(),
+                                                   mutual_reachability_coo.vals()));
+
+    thrust::transform(exec_policy,
+                      transform_in,
+                      transform_in + mutual_reachability_coo.nnz,
+                      mutual_reachability_coo.vals(),
+                      [=] __device__(const thrust::tuple<IdxT, IdxT, T>& tup) {
+                        return thrust::get<0>(tup) == thrust::get<1>(tup)
+                                 ? std::numeric_limits<T>::max()
+                                 : thrust::get<2>(tup);
+                      });
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 
@@ -773,7 +857,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
   // T score;
 };
 
-typedef MembershipVectorTest<float, int> MembershipVectorTestF_Int;
+typedef MembershipVectorTest<float, int64_t> MembershipVectorTestF_Int;
 TEST_P(MembershipVectorTestF_Int, Result) { EXPECT_TRUE(true); }
 
 INSTANTIATE_TEST_CASE_P(MembershipVectorTest,

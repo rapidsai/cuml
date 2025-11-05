@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numbers
@@ -214,7 +203,6 @@ class IncrementalPCA(PCA):
             output_type=output_type,
         )
         self.batch_size = batch_size
-        self._sparse_model = True
 
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
@@ -246,7 +234,7 @@ class IncrementalPCA(PCA):
             # is done by PCA, which IncrementalPCA inherits from. PCA's
             # transform and inverse transform convert the output to the
             # required type.
-            X, n_samples, n_features, self.dtype = input_to_cupy_array(
+            X, n_samples, n_features, _ = input_to_cupy_array(
                 X,
                 order="K",
                 convert_to_dtype=(cp.float32 if convert_dtype else None),
@@ -302,21 +290,33 @@ class IncrementalPCA(PCA):
                 )
 
             self._set_output_type(X)
+            self._set_n_features_in(X)
 
-            X, n_samples, n_features, self.dtype = input_to_cupy_array(
+            X, n_samples, n_features, _ = input_to_cupy_array(
                 X, order="K", check_dtype=[cp.float32, cp.float64]
             )
         else:
             n_samples, n_features = X.shape
 
-        if not hasattr(self, "components_"):
-            self.components_ = None
+        if getattr(self, "n_samples_seen_", 0) == 0:
+            # This is the first partial_fit
+            self.n_samples_seen_ = 0
+            mean = 0.0
+            var = 0.0
+            singular_values = None
+            components = None
+        else:
+            with cuml.using_output_type("cupy"):
+                mean = self.mean_
+                var = self.var_
+                singular_values = self.singular_values_
+                components = self.components_
 
         if self.n_components is None:
-            if self.components_ is None:
+            if components is None:
                 self.n_components_ = min(n_samples, n_features)
             else:
-                self.n_components_ = self.components_.shape[0]
+                self.n_components_ = components.shape[0]
         elif not 1 <= self.n_components <= n_features:
             raise ValueError(
                 "n_components=%r invalid for n_features=%d, need "
@@ -332,26 +332,21 @@ class IncrementalPCA(PCA):
         else:
             self.n_components_ = self.n_components
 
-        if (self.components_ is not None) and (
-            self.components_.shape[0] != self.n_components_
+        if (components is not None) and (
+            components.shape[0] != self.n_components_
         ):
             raise ValueError(
                 "Number of input features has changed from %i "
                 "to %i between calls to partial_fit! Try "
                 "setting n_components to a fixed value."
-                % (self.components_.shape[0], self.n_components_)
+                % (components.shape[0], self.n_components_)
             )
-        # This is the first partial_fit
-        if not hasattr(self, "n_samples_seen_"):
-            self.n_samples_seen_ = 0
-            self.mean_ = 0.0
-            self.var_ = 0.0
 
         # Update stats - they are 0 if this is the first step
         col_mean, col_var, n_total_samples = _incremental_mean_and_var(
             X,
-            last_mean=self.mean_,
-            last_variance=self.var_,
+            last_mean=mean,
+            last_variance=var,
             last_sample_count=cp.repeat(
                 cp.asarray([self.n_samples_seen_]), X.shape[1]
             ),
@@ -368,10 +363,10 @@ class IncrementalPCA(PCA):
             # Build matrix of combined previous basis and new data
             mean_correction = cp.sqrt(
                 (self.n_samples_seen_ * n_samples) / n_total_samples
-            ) * (self.mean_ - col_batch_mean)
+            ) * (mean - col_batch_mean)
             X = cp.vstack(
                 (
-                    self.singular_values_.reshape((-1, 1)) * self.components_,
+                    singular_values.reshape((-1, 1)) * components,
                     X,
                     mean_correction,
                 )
@@ -382,20 +377,25 @@ class IncrementalPCA(PCA):
         explained_variance = S**2 / (n_total_samples - 1)
         explained_variance_ratio = S**2 / cp.sum(col_var * n_total_samples)
 
+        # Store results
         self.n_samples_ = n_total_samples
         self.n_samples_seen_ = n_total_samples
-        self.components_ = V[: self.n_components_]
-        self.singular_values_ = S[: self.n_components_]
-        self.mean_ = col_mean
+        self.components_ = CumlArray(
+            data=cp.asfortranarray(V[: self.n_components_])
+        )
+        self.singular_values_ = CumlArray(data=S[: self.n_components_])
+        self.mean_ = CumlArray(data=col_mean)
         self.var_ = col_var
-        self.explained_variance_ = explained_variance[: self.n_components_]
-        self.explained_variance_ratio_ = explained_variance_ratio[
-            : self.n_components_
-        ]
+        self.explained_variance_ = CumlArray(
+            data=explained_variance[: self.n_components_]
+        )
+        self.explained_variance_ratio_ = CumlArray(
+            data=explained_variance_ratio[: self.n_components_]
+        )
         if self.n_components_ < n_features:
-            self.noise_variance_ = explained_variance[
-                self.n_components_ :
-            ].mean()
+            self.noise_variance_ = float(
+                explained_variance[self.n_components_ :].mean()
+            )
         else:
             self.noise_variance_ = 0.0
 

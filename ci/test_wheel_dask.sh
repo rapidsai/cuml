@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
@@ -17,13 +18,13 @@ rapids-generate-pip-constraints test_python ./constraints.txt
 
 # notes:
 #
-#   * echo to expand wildcard before adding `[test,experimental]` requires for pip
+#   * echo to expand wildcard before adding `[...]` extras for pip
 #   * need to provide --constraint="${PIP_CONSTRAINT}" because that environment variable is
 #     ignored if any other --constraint are passed via the CLI
 #
 rapids-pip-retry install \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
-  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[test]" \
+  "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[dask,test,test-dask]" \
   --constraint ./constraints.txt \
   --constraint "${PIP_CONSTRAINT}"
 

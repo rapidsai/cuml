@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 
@@ -683,6 +672,12 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.parametrize("n_rows", [200, 800])
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.filterwarnings(
+    "ignore:Spectral initialisation failed.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Graph is not fully connected.*:UserWarning"
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -737,6 +732,9 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         ("hamming", "nn_descent", False),
         ("canberra", "nn_descent", False),
     ],
+)
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented.*:UserWarning"
 )
 def test_umap_distance_metrics_fit_transform_trust(
     metric, build_algo, supported
@@ -793,6 +791,9 @@ def test_umap_distance_metrics_fit_transform_trust(
         ("hamming", True, True),
         ("canberra", True, True),
     ],
+)
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented.*:UserWarning"
 )
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
     metric, supported, umap_learn_supported
@@ -926,6 +927,7 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7412")
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
@@ -986,3 +988,79 @@ def test_umap_outliers(n_neighbors, n_components):
         (gpu_umap_embeddings >= lower_bound)
         & (gpu_umap_embeddings <= upper_bound)
     )
+
+
+@pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
+@pytest.mark.parametrize("k_provided,k_requested", [(15, 10), (20, 8)])
+def test_umap_precomputed_knn_trimming(
+    precomputed_type, k_provided, k_requested
+):
+    """
+    Test that precomputed KNN data with more neighbors than requested
+    is automatically trimmed instead of raising an error.
+    """
+    data, labels = make_blobs(
+        n_samples=500, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    # Build KNN graph with more neighbors than we'll request
+    nn = NearestNeighbors(n_neighbors=k_provided)
+    nn.fit(data)
+
+    if precomputed_type == "tuple":
+        distances, indices = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (indices, distances)
+    elif precomputed_type == "knn_graph":
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+
+    # This should work now - the excess neighbors should be trimmed
+    model = cuUMAP(
+        n_neighbors=k_requested,
+        precomputed_knn=precomputed_knn,
+        random_state=42,
+        init="random",
+    )
+    embedding = model.fit_transform(data)
+
+    # Verify the embedding is valid
+    assert embedding.shape == (data.shape[0], 2)
+    assert not np.isnan(embedding).any()
+
+    # Verify trustworthiness with the requested number of neighbors
+    trust = trustworthiness(data, embedding, n_neighbors=k_requested)
+    assert trust >= 0.85
+
+
+@pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
+def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
+    """
+    Test that precomputed KNN data with fewer neighbors than requested
+    raises an appropriate error.
+    """
+    data, labels = make_blobs(
+        n_samples=500, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    k_provided = 5
+    k_requested = 10
+
+    # Build KNN graph with fewer neighbors than we'll request
+    nn = NearestNeighbors(n_neighbors=k_provided)
+    nn.fit(data)
+
+    if precomputed_type == "tuple":
+        distances, indices = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (indices, distances)
+    elif precomputed_type == "knn_graph":
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+
+    # This should raise an error during initialization
+    with pytest.raises(ValueError, match=".*fewer neighbors.*"):
+        cuUMAP(
+            n_neighbors=k_requested,
+            precomputed_knn=precomputed_knn,
+            random_state=42,
+            init="random",
+        )

@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import typing
 
@@ -35,38 +24,52 @@ from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-cimport cuml.cluster.cpp.kmeans as kmeans_cpp
-from cuml.cluster.kmeans_utils cimport InitMethod, KMeansParams
+cimport cuml.cluster.cpp.kmeans as lib
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef _kmeans_init_params(kmeans, KMeansParams& params):
+cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
+    cdef bool multi_gpu = kmeans._multi_gpu
+
     params.n_clusters = kmeans.n_clusters
     params.max_iter = kmeans.max_iter
     params.tol = kmeans.tol
-    params.rng_state.seed = check_random_seed(kmeans.random_state)
     params.verbosity = <level_enum>(<int>kmeans.verbose)
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
     params.oversampling_factor = kmeans.oversampling_factor
+
+    # Ensure random_state is set when running on multi-gpu
+    if multi_gpu and kmeans.random_state is None:
+        raise ValueError(
+            "KMeansMG requires `random_state != None`, please select a consistent "
+            "non-None `random_state` to use across all partitions when calling "
+            "KMeansMG"
+        )
+    params.rng_state.seed = check_random_seed(kmeans.random_state)
 
     if isinstance(kmeans.init, str):
         if kmeans.init == "k-means++":
             # K-means++ is the constrained case of k-means|| w/
             # oversampling factor = 0
             params.oversampling_factor = 0
-            params.init = InitMethod.KMeansPlusPlus
+            params.init = lib.InitMethod.KMeansPlusPlus
         elif kmeans.init in ('scalable-k-means++', 'k-means||'):
-            params.init = InitMethod.KMeansPlusPlus
+            params.init = lib.InitMethod.KMeansPlusPlus
         elif kmeans.init == "random":
-            params.init = InitMethod.Random
+            params.init = lib.InitMethod.Random
     else:
-        params.init = InitMethod.Array
+        params.init = lib.InitMethod.Array
+
+    if multi_gpu and params.oversampling_factor == 0:
+        raise ValueError(
+            "init='k-means++' or oversampling_factor=0 not supported for KMeansMG"
+        )
 
     if kmeans.n_init == "auto":
-        if isinstance(kmeans.init, str) and params.init == InitMethod.KMeansPlusPlus:
+        if isinstance(kmeans.init, str) and params.init == lib.InitMethod.KMeansPlusPlus:
             params.n_init = 1
         else:
             params.n_init = 10
@@ -76,7 +79,7 @@ cdef _kmeans_init_params(kmeans, KMeansParams& params):
 
 cdef _kmeans_fit(
     handle_t& handle,
-    KMeansParams& params,
+    lib.KMeansParams& params,
     X,
     sample_weight,
     centers,
@@ -100,7 +103,7 @@ cdef _kmeans_fit(
     with nogil:
         if values_f32:
             if indices_i32:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <float *>X_ptr,
@@ -112,7 +115,7 @@ cdef _kmeans_fit(
                     n_iter_32,
                 )
             else:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <float *>X_ptr,
@@ -125,7 +128,7 @@ cdef _kmeans_fit(
                 )
         else:
             if indices_i32:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <double *>X_ptr,
@@ -137,7 +140,7 @@ cdef _kmeans_fit(
                     n_iter_32,
                 )
             else:
-                kmeans_cpp.fit(
+                lib.fit(
                     handle,
                     params,
                     <double *>X_ptr,
@@ -153,7 +156,7 @@ cdef _kmeans_fit(
 
 cdef _kmeans_predict(
     handle_t& handle,
-    KMeansParams &params,
+    lib.KMeansParams &params,
     X,
     sample_weight,
     centers,
@@ -184,7 +187,7 @@ cdef _kmeans_predict(
     with nogil:
         if values_f32:
             if indices_i32:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <float*>centers_ptr,
@@ -197,7 +200,7 @@ cdef _kmeans_predict(
                     inertia_f32,
                 )
             else:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <float*>centers_ptr,
@@ -211,7 +214,7 @@ cdef _kmeans_predict(
                 )
         else:
             if indices_i32:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <double*>centers_ptr,
@@ -224,7 +227,7 @@ cdef _kmeans_predict(
                     inertia_f64,
                 )
             else:
-                kmeans_cpp.predict(
+                lib.predict(
                     handle,
                     params,
                     <double*>centers_ptr,
@@ -392,6 +395,8 @@ class KMeans(Base,
     For additional docs, see `scikitlearn's Kmeans
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
+    _multi_gpu = False
+
     labels_ = CumlArrayDescriptor(order="C")
     cluster_centers_ = CumlArrayDescriptor(order="C")
 
@@ -517,11 +522,6 @@ class KMeans(Base,
         Compute k-means clustering with X.
 
         """
-        return self._fit(X, y=y, sample_weight=sample_weight, convert_dtype=convert_dtype)
-
-    def _fit(
-        self, X, y=None, sample_weight=None, *, convert_dtype=True, multigpu=False
-    ) -> "KMeans":
         # Process input arrays
         X_m, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
@@ -549,9 +549,7 @@ class KMeans(Base,
                     "while a minimum of 1 is required by KMeans."
                 )
 
-        # Skip this check if running in multigpu mode. In that case we don't care if
-        # a single partition has fewer rows than clusters
-        if not multigpu and n_rows < self.n_clusters:
+        if n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
             )
@@ -583,7 +581,7 @@ class KMeans(Base,
 
         # Prepare for libcuml call
         cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
         labels, inertia = _kmeans_predict(handle_[0], params, X_m, sample_weight_m, centers)
@@ -661,7 +659,7 @@ class KMeans(Base,
             )
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         labels, inertia = _kmeans_predict(
@@ -718,7 +716,7 @@ class KMeans(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef KMeansParams params
+        cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         cdef bool values_f32 = dtype == np.float32
@@ -727,7 +725,7 @@ class KMeans(Base,
         with nogil:
             if values_f32:
                 if indices_i32:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <float*>centers_ptr,
@@ -737,7 +735,7 @@ class KMeans(Base,
                         <float*>out_ptr,
                     )
                 else:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <float*>centers_ptr,
@@ -748,7 +746,7 @@ class KMeans(Base,
                     )
             else:
                 if indices_i32:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <double*>centers_ptr,
@@ -758,7 +756,7 @@ class KMeans(Base,
                         <double*>out_ptr,
                     )
                 else:
-                    kmeans_cpp.transform(
+                    lib.transform(
                         handle_[0],
                         params,
                         <double*>centers_ptr,

@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
@@ -33,7 +22,6 @@ from cuml.internals.interop import (
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
@@ -47,7 +35,8 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 
 
-cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralEmbedding":
+cdef extern from "cuml/manifold/spectral_embedding.hpp" \
+        namespace "ML::SpectralEmbedding" nogil:
 
     cdef cppclass params:
         int n_components
@@ -74,7 +63,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" namespace "ML::SpectralE
 @cuml.internals.api_return_array(get_output_type=True)
 def spectral_embedding(A,
                        *,
-                       n_components=8,
+                       int n_components=8,
                        affinity="nearest_neighbors",
                        random_state=None,
                        n_neighbors=None,
@@ -151,12 +140,19 @@ def spectral_embedding(A,
     """
     if handle is None:
         handle = Handle()
-    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
+
+    cdef float* affinity_data_ptr = NULL
+    cdef int* affinity_rows_ptr = NULL
+    cdef int* affinity_cols_ptr = NULL
+    cdef int affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
         A = input_to_cupy_array(
             A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
         ).array
+
+        affinity_data_ptr = <float*><uintptr_t>A.data.ptr
+
         isfinite = cp.isfinite(A).all()
     elif affinity == "precomputed":
         # Coerce `A` to a canonical float32 COO sparse matrix
@@ -184,6 +180,10 @@ def spectral_embedding(A,
             affinity_cols = affinity_cols[valid]
             affinity_nnz = len(affinity_data)
 
+        affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
+        affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
+        affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+
         isfinite = cp.isfinite(affinity_data).all()
     else:
         raise ValueError(
@@ -191,6 +191,7 @@ def spectral_embedding(A,
             "['nearest_neighbors', 'precomputed']"
         )
 
+    cdef int n_samples, n_features
     n_samples, n_features = A.shape
 
     if not isfinite:
@@ -209,6 +210,11 @@ def spectral_embedding(A,
             f"a minimum of 2 is required."
         )
 
+    # Allocate output array
+    eigenvectors = CumlArray.empty(
+        (A.shape[0], n_components), dtype=np.float32, order='F'
+    )
+
     cdef params config
     config.seed = check_random_seed(random_state)
     config.norm_laplacian = norm_laplacian
@@ -219,42 +225,33 @@ def spectral_embedding(A,
         if n_neighbors is not None
         else max(int(A.shape[0] / 10), 1)
     )
+    cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
+    cdef bool precomputed = affinity == "precomputed"
+    cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
-    eigenvectors = CumlArray.empty(
-        (A.shape[0], n_components), dtype=np.float32, order='F'
-    )
-
-    if affinity == "precomputed":
-        transform(
-            deref(h),
-            config,
-            make_device_vector_view(<int *><uintptr_t>affinity_rows.data.ptr,
-                                    <int>affinity_nnz),
-            make_device_vector_view(<int *><uintptr_t>affinity_cols.data.ptr,
-                                    <int>affinity_nnz),
-            make_device_vector_view(<float *><uintptr_t>affinity_data.data.ptr,
-                                    <int>affinity_nnz),
-            make_device_matrix_view[float, int, col_major](
-                <float *><uintptr_t>eigenvectors.ptr,
-                <int>eigenvectors.shape[0],
-                <int>eigenvectors.shape[1],
+    with nogil:
+        if precomputed:
+            transform(
+                handle_[0],
+                config,
+                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                make_device_matrix_view[float, int, col_major](
+                    eigenvectors_ptr, n_samples, n_components,
+                )
             )
-        )
-    else:
-        transform(
-            deref(h),
-            config,
-            make_device_matrix_view[float, int, row_major](
-                <float *><uintptr_t>A.data.ptr,
-                <int>A.shape[0],
-                <int>A.shape[1],
-            ),
-            make_device_matrix_view[float, int, col_major](
-                <float *><uintptr_t>eigenvectors.ptr,
-                <int>eigenvectors.shape[0],
-                <int>eigenvectors.shape[1],
+        else:
+            transform(
+                handle_[0],
+                config,
+                make_device_matrix_view[float, int, row_major](
+                    affinity_data_ptr, n_samples, n_features,
+                ),
+                make_device_matrix_view[float, int, col_major](
+                    eigenvectors_ptr, n_samples, n_components,
+                )
             )
-        )
 
     return eigenvectors
 

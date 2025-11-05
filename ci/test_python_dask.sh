@@ -1,10 +1,12 @@
 #!/bin/bash
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test_python_dask.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit
 
 # Common setup steps shared by Python test jobs
+export DEPENDENCY_FILE_KEY=test_python_dask
 source ./ci/test_python_common.sh
 
 EXITCODE=0

@@ -1,16 +1,5 @@
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import math
@@ -315,18 +304,6 @@ class BaseRandomForestModel(object):
             return delayed_res
         else:
             return delayed_res.persist()
-
-    def _handle_deprecated_predict_model(self, predict_model):
-        if predict_model != "deprecated":
-            warnings.warn(
-                (
-                    "`predict_model` is deprecated (and ignored) and will be removed "
-                    "in 25.12. The default of `predict_model='GPU'` should suffice in "
-                    "all situations. When inferring on small datasets you may also "
-                    "want to try setting ``broadcast_data=True``."
-                ),
-                FutureWarning,
-            )
 
 
 def _func_fit(model, input_data, convert_dtype):

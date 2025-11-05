@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -26,7 +15,6 @@ from cuml import LinearRegression as reg
 from cuml.datasets import make_regression
 from cuml.explainer.common import (
     get_cai_ptr,
-    get_dtype_from_model_func,
     get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
@@ -59,40 +47,6 @@ _default_tags = [
     "requires_y",
     "pairwise",
 ]
-
-
-def test_get_dtype_from_model_func():
-    X, y = make_regression(
-        n_samples=81,
-        n_features=10,
-        noise=0.1,
-        random_state=42,
-        dtype=np.float32,
-    )
-
-    # checking model with float32 dtype
-    model_f32 = reg().fit(X, y)
-
-    assert get_dtype_from_model_func(model_f32.predict) == np.float32
-
-    # checking model with float64 dtype
-    X = X.astype(np.float64)
-    y = y.astype(np.float64)
-
-    model_f64 = reg().fit(X, y)
-
-    assert get_dtype_from_model_func(model_f64.predict) == np.float64
-
-    # checking model that has not been fitted yet
-    model_not_fit = reg()
-
-    assert get_dtype_from_model_func(model_not_fit.predict) is None
-
-    # checking arbitrary function
-    def dummy_func(x):
-        return x + x
-
-    assert get_dtype_from_model_func(dummy_func) is None
 
 
 def test_get_gpu_tag_from_model_func():

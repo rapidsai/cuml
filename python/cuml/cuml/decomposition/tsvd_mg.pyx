@@ -1,35 +1,27 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# distutils: language = c++
 
 import numpy as np
+
+import cuml.internals
+from cuml.decomposition import TruncatedSVD
+from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-import cuml.internals
-
-from cuml.common.opg_data_utils_mg cimport *
-from cuml.decomposition.utils cimport *
-from cuml.decomposition.utils_mg cimport *
-
-from cuml.decomposition import TruncatedSVD
-from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    doubleData_t,
+    floatData_t,
+)
+from cuml.decomposition.common cimport mg_solver, paramsTSVDMG
 
 
 cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogil:
@@ -60,60 +52,85 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
-
-    def __init__(self, **kwargs):
-        super(TSVDMG, self).__init__(**kwargs)
-
-    def _build_params(self, n_rows, n_cols):
-        cdef paramsTSVDMG *params = new paramsTSVDMG()
+    @cuml.internals.api_base_return_any_skipall
+    def _mg_fit_transform(
+        self, X_ptr, n_rows, n_cols, dtype, trans_ptr, input_desc_ptr, trans_desc_ptr
+    ):
+        # Validate and initialize parameters
+        cdef paramsTSVDMG params
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.n_iterations = self.n_iter
         params.tol = self.tol
-        params.algorithm = <mg_solver> (<underlying_type_t_solver> (
-            self.c_algorithm))
+        if self.algorithm in ("auto", "full"):
+            params.algorithm = mg_solver.COV_EIG_DQ
+        elif self.algorithm == "jacobi":
+            params.algorithm = mg_solver.COV_EIG_JACOBI
+        else:
+            raise ValueError(
+                f"Expected `algorithm` to be one of ['auto', 'full', 'jacobi'], "
+                f"got {self.algorithm!r}"
+            )
 
-        return <size_t>params
+        if self.n_components > n_cols:
+            raise ValueError(
+                f"`n_components` ({self.n_components}) must be <= than the "
+                f"number of features in X ({n_cols})"
+            )
 
-    @cuml.internals.api_base_return_any_skipall
-    def _call_fit(self, X, trans, rank, input_desc,
-                  trans_desc, arg_params):
+        # Allocate output arrays
+        components = CumlArray.zeros((self.n_components, n_cols), dtype=dtype)
+        explained_variance = CumlArray.zeros(self.n_components, dtype=dtype)
+        explained_variance_ratio = CumlArray.zeros(self.n_components, dtype=dtype)
+        singular_values = CumlArray.zeros(self.n_components, dtype=dtype)
 
-        cdef uintptr_t comp_ptr = self.components_.ptr
-        cdef uintptr_t explained_var_ptr = self.explained_variance_.ptr
-        cdef uintptr_t explained_var_ratio_ptr = \
-            self.explained_variance_ratio_.ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+        cdef uintptr_t c_X_ptr = X_ptr
+        cdef uintptr_t c_trans_ptr = trans_ptr
+        cdef PartDescriptor *input_desc = <PartDescriptor*><uintptr_t>input_desc_ptr
+        cdef PartDescriptor *trans_desc = <PartDescriptor*><uintptr_t>trans_desc_ptr
+
+        cdef uintptr_t components_ptr = components.ptr
+        cdef uintptr_t explained_variance_ptr = explained_variance.ptr
+        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
+        cdef uintptr_t singular_values_ptr = singular_values.ptr
+        cdef bool use_float32 = dtype == np.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef paramsTSVDMG *params = <paramsTSVDMG*><size_t>arg_params
-
-        if self.dtype == np.float32:
-
-            fit_transform(handle_[0],
-                          deref(<vector[floatData_t*]*><uintptr_t>X),
-                          deref(<PartDescriptor*><uintptr_t>input_desc),
-                          deref(<vector[floatData_t*]*><uintptr_t>trans),
-                          deref(<PartDescriptor*><uintptr_t>trans_desc),
-                          <float*> comp_ptr,
-                          <float*> explained_var_ptr,
-                          <float*> explained_var_ratio_ptr,
-                          <float*> singular_vals_ptr,
-                          deref(params),
-                          <bool>False)
-        else:
-
-            fit_transform(handle_[0],
-                          deref(<vector[doubleData_t*]*><uintptr_t>X),
-                          deref(<PartDescriptor*><uintptr_t>input_desc),
-                          deref(<vector[doubleData_t*]*><uintptr_t>trans),
-                          deref(<PartDescriptor*><uintptr_t>trans_desc),
-                          <double*> comp_ptr,
-                          <double*> explained_var_ptr,
-                          <double*> explained_var_ratio_ptr,
-                          <double*> singular_vals_ptr,
-                          deref(params),
-                          <bool>False)
-
+        # Perform Fit
+        with nogil:
+            if use_float32:
+                fit_transform(
+                    handle_[0],
+                    deref(<vector[floatData_t*]*>c_X_ptr),
+                    deref(input_desc),
+                    deref(<vector[floatData_t*]*>c_trans_ptr),
+                    deref(trans_desc),
+                    <float*> components_ptr,
+                    <float*> explained_variance_ptr,
+                    <float*> explained_variance_ratio_ptr,
+                    <float*> singular_values_ptr,
+                    params,
+                    False
+                )
+            else:
+                fit_transform(
+                    handle_[0],
+                    deref(<vector[doubleData_t*]*>c_X_ptr),
+                    deref(input_desc),
+                    deref(<vector[doubleData_t*]*>c_trans_ptr),
+                    deref(trans_desc),
+                    <double*> components_ptr,
+                    <double*> explained_variance_ptr,
+                    <double*> explained_variance_ratio_ptr,
+                    <double*> singular_values_ptr,
+                    params,
+                    False
+                )
         self.handle.sync()
+
+        # Store results
+        self.components_ = components
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.singular_values_ = singular_values

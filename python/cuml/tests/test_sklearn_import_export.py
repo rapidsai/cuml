@@ -1,16 +1,5 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -351,8 +340,16 @@ def test_svr(random_state, sparse):
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
 
-    cu_score = cuml.SVR.from_sklearn(sk_model).score(X, y)
+    cu_model_from_sklearn = cuml.SVR.from_sklearn(sk_model)
+
+    cu_score = cu_model_from_sklearn.score(X, y)
     assert cu_score > 0.7
+
+    # Check n_support is set correctly
+    assert (
+        cu_model_from_sklearn.n_support_
+        == cu_model_from_sklearn.support_vectors_.shape[0]
+    )
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -392,6 +389,54 @@ def test_svc(random_state, sparse, probability):
             assert isinstance(val, np.ndarray)
             assert val.dtype == "float64"
             assert val.shape == (1,)
+
+    # Check n_support_ is correctly set
+    assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+
+
+@pytest.mark.parametrize("kind", ["SVC", "SVR"])
+def test_svm_big_sparse(random_state, kind):
+    """SVC/SVR models are only sparse if fit with a sparse matrix AND storing
+    `support_vectors_` as dense exceeds a limit (currently 1 GiB). Here we
+    create a large enough input matrix to ensure a sparse repr, and check that
+    the conversion is plumbed through properly"""
+    n_samples = 1024
+    noise_cols = 300000
+    noise_density = 0.0001
+    n_noise = int(noise_cols * n_samples * noise_density)
+
+    if kind == "SVR":
+        X, y = make_regression(
+            n_samples=n_samples, n_features=4, random_state=random_state
+        )
+        model = cuml.SVR(kernel="linear")
+    else:
+        X, y = make_classification(
+            n_samples=n_samples, n_features=4, random_state=random_state
+        )
+        model = cuml.SVC()
+
+    rng = np.random.default_rng(random_state)
+    rows = rng.integers(0, n_samples, size=n_noise)
+    cols = rng.integers(0, noise_cols, size=n_noise)
+    data = rng.uniform(size=n_noise)
+
+    X = scipy.sparse.hstack(
+        [
+            scipy.sparse.csr_matrix(X),
+            scipy.sparse.coo_matrix(
+                (data, (rows, cols)), shape=(n_samples, noise_cols)
+            ).asformat("csr"),
+        ]
+    )
+
+    model.fit(X, y)
+
+    sk_model = model.as_sklearn()
+    assert scipy.sparse.issparse(sk_model.support_vectors_)
+
+    score = sk_model.score(X[:100], y[:100])
+    assert score > 0.7
 
 
 def test_svc_multiclass_unsupported(random_state):
@@ -599,13 +644,51 @@ def test_kneighbors_classifier(random_state, sparse, n_labels):
     np.testing.assert_array_equal(cu_model.predict(X), cu_model2.predict(X))
 
 
-def test_random_forest_classifier(random_state):
+@pytest.mark.parametrize("kernel", ["gaussian", "tophat"])
+@pytest.mark.parametrize("bandwidth", ["scott", 5.0])
+@pytest.mark.parametrize("metric", ["l1", "l2"])
+def test_kernel_density(random_state, kernel, bandwidth, metric):
+    opts = {"kernel": kernel, "bandwidth": bandwidth, "metric": metric}
+
+    X, _ = make_blobs(random_state=random_state)
+
+    cu_model = cuml.KernelDensity(**opts).fit(X)
+    sk_model = sklearn.neighbors.KernelDensity(**opts).fit(X)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.KernelDensity.from_sklearn(sk_model)
+
+    # Ensure params/attrs roundtrip
+    assert_roundtrip_consistency(cu_model, cu_model2)
+
+    def assert_kde_close(m1, m2):
+        scores1 = m1.score_samples(X)
+        scores2 = m2.score_samples(X)
+        np.testing.assert_allclose(scores1, scores2)
+
+    # Can infer on converted models
+    assert_kde_close(sk_model, sk_model2)
+    assert_kde_close(cu_model, cu_model2)
+
+    # Can refit on converted models
+    cu_model2.fit(X)
+    sk_model2.fit(X)
+
+    # Refit models have similar results
+    assert_kde_close(sk_model, sk_model2)
+    assert_kde_close(cu_model, cu_model2)
+
+
+@pytest.mark.parametrize("oob_score", [False, True])
+def test_random_forest_classifier(random_state, oob_score):
     X, y = make_classification(
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
 
-    cu_model = cuml.RandomForestClassifier().fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestClassifier().fit(X, y)
+    cu_model = cuml.RandomForestClassifier(oob_score=oob_score).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(
+        oob_score=oob_score
+    ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestClassifier.from_sklearn(sk_model)
@@ -614,6 +697,18 @@ def test_random_forest_classifier(random_state):
     assert isinstance(sk_model2.classes_, np.ndarray)
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
+
+    # Ensure params/attrs roundtrip
+    # Exclude classes_ due to dtype differences between implementations
+    assert_roundtrip_consistency(cu_model, cu_model2, exclude=("classes_",))
+
+    # Verify OOB attributes are present when oob_score=True
+    if oob_score:
+        assert hasattr(cu_model, "oob_score_")
+        assert hasattr(cu_model2, "oob_score_")
+        assert hasattr(sk_model2, "oob_score_")
+        assert cu_model.oob_score_ == sk_model2.oob_score_
+        assert cu_model2.oob_score_ == sk_model.oob_score_
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -628,18 +723,29 @@ def test_random_forest_classifier(random_state):
     assert cu_model2.score(X, y) > 0.7
 
 
-def test_random_forest_regressor(random_state):
+@pytest.mark.parametrize("oob_score", [False, True])
+def test_random_forest_regressor(random_state, oob_score):
     X, y = make_regression(n_samples=200, random_state=random_state)
     X = X.astype("float32")
 
-    cu_model = cuml.RandomForestRegressor().fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestRegressor().fit(X, y)
+    cu_model = cuml.RandomForestRegressor(oob_score=oob_score).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor(oob_score=oob_score).fit(
+        X, y
+    )
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
 
     # Ensure params/attrs roundtrip
     assert_roundtrip_consistency(cu_model, cu_model2)
+
+    # Verify OOB attributes are present when oob_score=True
+    if oob_score:
+        assert hasattr(cu_model, "oob_score_")
+        assert hasattr(cu_model2, "oob_score_")
+        assert hasattr(sk_model2, "oob_score_")
+        assert cu_model.oob_score_ == sk_model2.oob_score_
+        assert cu_model2.oob_score_ == sk_model.oob_score_
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -714,15 +820,16 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
 
 def test_linear_svr(random_state):
     X, y = make_regression(n_samples=100, random_state=random_state)
-    # For `dual=False`, scikit-learn only supports the squared epsilon-insensitive loss
-    original = cuml.LinearSVR(loss="squared_epsilon_insensitive")
+    original = cuml.LinearSVR(loss="squared_epsilon_insensitive", penalty="l2")
     assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
 
     # Check inference works after conversion
-    cu_model = cuml.LinearSVR(loss="squared_epsilon_insensitive").fit(X, y)
-    sk_model = sklearn.svm.LinearSVR(
-        loss="squared_epsilon_insensitive", dual=False
+    cu_model = cuml.LinearSVR(
+        loss="squared_epsilon_insensitive", penalty="l2"
     ).fit(X, y)
+    sk_model = sklearn.svm.LinearSVR(loss="squared_epsilon_insensitive").fit(
+        X, y
+    )
 
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7

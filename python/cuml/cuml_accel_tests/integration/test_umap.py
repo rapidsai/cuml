@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the “License”);
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import pytest
@@ -65,6 +54,15 @@ def test_umap_min_dist(manifold_data, min_dist):
         "mahalanobis",
         "haversine",
     ],
+)
+@pytest.mark.filterwarnings(
+    "ignore:gradient function is not yet implemented:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:n_jobs value .* overridden to .* by setting random_state:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:overflow encountered in cast:RuntimeWarning"
 )
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
@@ -177,6 +175,9 @@ def test_umap_angular_rp_forest(manifold_data, angular_rp_forest):
 
 
 @pytest.mark.parametrize("densmap", [True, False])
+@pytest.mark.filterwarnings(
+    "ignore:n_jobs value .* overridden to .* by setting random_state:UserWarning"
+)
 def test_umap_densmap(manifold_data, densmap):
     X = manifold_data
     umap = UMAP(densmap=densmap, random_state=42)

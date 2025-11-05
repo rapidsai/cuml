@@ -1,11 +1,20 @@
 #!/bin/bash
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test_python_singlegpu.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 
 # Common setup steps shared by Python test jobs
 source ./ci/test_python_common.sh
+
+# We want to error if dask is installed in this environment so
+if python -c 'import dask' 2>/dev/null; then
+  echo "ERROR: dask is installed in this environment! This means we are not \
+  testing that cuml works without dask. Please adjust the environment so the \
+  main test environment doesn't install dask."
+  exit 1
+fi
 
 EXITCODE=0
 trap "EXITCODE=1" ERR

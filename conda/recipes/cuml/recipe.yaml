@@ -1,4 +1,5 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
 context:
@@ -64,9 +65,8 @@ requirements:
     - pip
     - pylibraft =${{ minor_version }}
     - python =${{ py_version }}
-    - raft-dask =${{ minor_version }}
     - rapids-build-backend >=0.4.0,<0.5.0.dev0
-    - rapids-logger =0.1
+    - rapids-logger =0.2
     - scikit-build-core >=0.10.0
     - treelite ${{ treelite_version }}
     - cuda-cudart-dev
@@ -77,7 +77,6 @@ requirements:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
     - cupy >=13.6.0
-    - dask-cudf =${{ minor_version }}
     - joblib >=0.11
     - libcuml =${{ version }}
     - libcumlprims =${{ minor_version }}
@@ -88,9 +87,7 @@ requirements:
     - packaging
     - pylibraft =${{ minor_version }}
     - python
-    - raft-dask =${{ minor_version }}
-    - rapids-dask-dependency =${{ minor_version }}
-    - rapids-logger =0.1
+    - rapids-logger =0.2
     - rich
     - treelite ${{ treelite_version }}
     - cuda-cudart

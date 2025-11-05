@@ -1,37 +1,23 @@
 #
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
 
 import cupyx
 import numpy as np
+from pylibraft.common.handle import Handle
 
 import cuml
-from cuml.manifold.umap_utils cimport *
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
+from libc.stdint cimport int64_t, uintptr_t
+from libcpp.memory cimport unique_ptr
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
-from libc.stdint cimport uintptr_t
-from libcpp.memory cimport unique_ptr
+from cuml.manifold.umap_utils cimport *
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:

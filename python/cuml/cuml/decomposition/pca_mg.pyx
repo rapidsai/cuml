@@ -1,39 +1,27 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# distutils: language = c++
-
 
 import numpy as np
+
+import cuml.internals
+from cuml.decomposition import PCA
+from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-
-import cuml.internals
-
+from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.decomposition import PCA
-from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
-from cuml.internals.array import CumlArray
-
-from cuml.decomposition.utils cimport *
-from cuml.decomposition.utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    doubleData_t,
+    floatData_t,
+)
+from cuml.decomposition.common cimport mg_solver, paramsPCAMG
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
@@ -64,82 +52,81 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
 
 class PCAMG(BaseDecompositionMG, PCA):
-
-    def __init__(self, **kwargs):
-        super(PCAMG, self).__init__(**kwargs)
-
-    def _get_algorithm_c_name(self, algorithm):
-        algo_map = {
-            'full': MGSolver.COV_EIG_DQ,
-            'auto': MGSolver.COV_EIG_JACOBI,
-            'jacobi': MGSolver.COV_EIG_JACOBI,
-            # 'arpack': NOT_SUPPORTED,
-            # 'randomized': NOT_SUPPORTED,
-        }
-        if algorithm not in algo_map:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
-
-        return algo_map[algorithm]
-
-    def _build_params(self, n_rows, n_cols):
-        cdef paramsPCAMG *params = new paramsPCAMG()
+    @cuml.internals.api_base_return_any_skipall
+    def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
+        # Validate and initialize parameters
+        cdef paramsPCAMG params
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
         params.tol = self.tol
-        params.algorithm = <mg_solver> (<underlying_type_t_solver> (
-            self.c_algorithm))
-        self.n_features_ = n_cols
+        if self.svd_solver in ("auto", "full"):
+            params.algorithm = mg_solver.COV_EIG_DQ
+        elif self.svd_solver == "jacobi":
+            params.algorithm = mg_solver.COV_EIG_JACOBI
+        else:
+            raise ValueError(
+                f"Expected `svd_solver` to be one of ['auto', 'full', 'jacobi'], "
+                f"got {self.svd_solver!r}"
+            )
 
-        return <size_t>params
+        # Allocate output arrays
+        components = CumlArray.zeros((self.n_components_, n_cols), dtype=dtype)
+        explained_variance = CumlArray.zeros(self.n_components_, dtype=dtype)
+        explained_variance_ratio = CumlArray.zeros(self.n_components_, dtype=dtype)
+        mean = CumlArray.zeros(n_cols, dtype=dtype)
+        singular_values = CumlArray.zeros(self.n_components_, dtype=dtype)
+        noise_variance = CumlArray.zeros(1, dtype=dtype)
 
-    @cuml.internals.api_base_return_any_skipall
-    def _call_fit(self, X, rank, part_desc, arg_params):
+        cdef uintptr_t c_X_ptr = X_ptr
+        cdef PartDescriptor *input_desc = <PartDescriptor*><uintptr_t>input_desc_ptr
 
-        cdef uintptr_t comp_ptr = self.components_.ptr
-        cdef uintptr_t explained_var_ptr = self.explained_variance_.ptr
-        cdef uintptr_t explained_var_ratio_ptr = \
-            self.explained_variance_ratio_.ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
-        cdef uintptr_t mean_ptr = self.mean_.ptr
-
-        noise_variance = CumlArray.zeros(1, dtype=self.dtype)
-        cdef uintptr_t noise_vars_ptr = noise_variance.ptr
-
+        cdef uintptr_t components_ptr = components.ptr
+        cdef uintptr_t explained_variance_ptr = explained_variance.ptr
+        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
+        cdef uintptr_t singular_values_ptr = singular_values.ptr
+        cdef uintptr_t mean_ptr = mean.ptr
+        cdef uintptr_t noise_variance_ptr = noise_variance.ptr
+        cdef bool use_float32 = (dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
-
-        if self.dtype == np.float32:
-
-            fit(handle_[0],
-                deref(<vector[floatData_t*]*><uintptr_t>X),
-                deref(<PartDescriptor*><uintptr_t>part_desc),
-                <float*> comp_ptr,
-                <float*> explained_var_ptr,
-                <float*> explained_var_ratio_ptr,
-                <float*> singular_vals_ptr,
-                <float*> mean_ptr,
-                <float*> noise_vars_ptr,
-                deref(params),
-                False)
-        else:
-
-            fit(handle_[0],
-                deref(<vector[doubleData_t*]*><uintptr_t>X),
-                deref(<PartDescriptor*><uintptr_t>part_desc),
-                <double*> comp_ptr,
-                <double*> explained_var_ptr,
-                <double*> explained_var_ratio_ptr,
-                <double*> singular_vals_ptr,
-                <double*> mean_ptr,
-                <double*> noise_vars_ptr,
-                deref(params),
-                False)
-
+        # Perform fit
+        with nogil:
+            if use_float32:
+                fit(
+                    handle_[0],
+                    deref(<vector[floatData_t*]*>c_X_ptr),
+                    deref(input_desc),
+                    <float*> components_ptr,
+                    <float*> explained_variance_ptr,
+                    <float*> explained_variance_ratio_ptr,
+                    <float*> singular_values_ptr,
+                    <float*> mean_ptr,
+                    <float*> noise_variance_ptr,
+                    params,
+                    False
+                )
+            else:
+                fit(
+                    handle_[0],
+                    deref(<vector[doubleData_t*]*>c_X_ptr),
+                    deref(input_desc),
+                    <double*> components_ptr,
+                    <double*> explained_variance_ptr,
+                    <double*> explained_variance_ratio_ptr,
+                    <double*> singular_values_ptr,
+                    <double*> mean_ptr,
+                    <double*> noise_variance_ptr,
+                    params,
+                    False
+                )
         self.handle.sync()
 
-        # Store noise_variance_ as a float
+        # Store results
+        self.components_ = components
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.mean_ = mean
+        self.singular_values_ = singular_values
         self.noise_variance_ = float(noise_variance.to_output("numpy"))

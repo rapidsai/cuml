@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -78,7 +67,7 @@ void build_linkage(const raft::handle_t& handle,
     linkage_params;
   // (min_samples+1) is used to account for self-loops in the KNN graph
   // and be consistent with scikit-learn-contrib.
-  if (params.min_samples + 1 > m) {
+  if (static_cast<size_t>(params.min_samples + 1) > m) {
     RAFT_LOG_WARN(
       "min_samples (%d) must be less than the number of samples in X (%zu), setting min_samples to "
       "%zu",
@@ -89,22 +78,75 @@ void build_linkage(const raft::handle_t& handle,
   } else {
     linkage_params.min_samples = params.min_samples + 1;
   }
-  linkage_params.alpha = params.alpha;
+  linkage_params.alpha                       = params.alpha;
+  linkage_params.all_neighbors_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+  linkage_params.all_neighbors_params.overlap_factor = params.build_params.overlap_factor;
+  linkage_params.all_neighbors_params.n_clusters     = params.build_params.n_clusters;
 
-  cuvs::cluster::agglomerative::helpers::build_linkage(
-    handle,
-    raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
-    linkage_params,
-    static_cast<cuvs::distance::DistanceType>(metric),
-    raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
-      out.get_mst_weights(),
-      raft::make_device_coordinate_structure_view(
-        out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
-    raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
-    raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
-    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
-    std::make_optional<raft::device_vector_view<value_t, value_idx>>(
-      raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+  if (params.build_algo == Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN) {
+    auto brute_force_params = cuvs::neighbors::graph_build_params::brute_force_params{};
+    brute_force_params.build_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+    linkage_params.all_neighbors_params.graph_build_params = brute_force_params;
+  } else if (params.build_algo == Common::GRAPH_BUILD_ALGO::NN_DESCENT) {
+    auto nn_descent_params           = cuvs::neighbors::graph_build_params::nn_descent_params{};
+    nn_descent_params.max_iterations = params.build_params.nn_descent_params.max_iterations;
+    nn_descent_params.graph_degree   = params.build_params.nn_descent_params.graph_degree;
+    nn_descent_params.intermediate_graph_degree =
+      params.build_params.nn_descent_params.intermediate_graph_degree;
+    nn_descent_params.termination_threshold =
+      params.build_params.nn_descent_params.termination_threshold;
+    if (static_cast<int>(nn_descent_params.graph_degree) < linkage_params.min_samples) {
+      // linkage_params.min_samples functions as the k for the knn
+      RAFT_LOG_WARN(
+        "NN Descent graph_degree (%d) must be larger than or equal to min_samples + 1 (%zu), "
+        "setting graph_degree to min_samples + 1 and scaling intermediate_graph_degree accordingly "
+        "to 2*graph_degree",
+        static_cast<int>(nn_descent_params.graph_degree),
+        static_cast<int>(linkage_params.min_samples));
+      nn_descent_params.graph_degree              = linkage_params.min_samples;
+      nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 2;
+    }
+    nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+    linkage_params.all_neighbors_params.graph_build_params = nn_descent_params;
+  } else {
+    RAFT_FAIL("Unsupported build algo. build algo must be either brute force or nn descent");
+  }
+
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
+  bool data_on_device = attr.type == cudaMemoryTypeDevice;
+
+  if (data_on_device) {
+    cuvs::cluster::agglomerative::helpers::build_linkage(
+      handle,
+      raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
+      linkage_params,
+      static_cast<cuvs::distance::DistanceType>(metric),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
+        out.get_mst_weights(),
+        raft::make_device_coordinate_structure_view(
+          out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
+      raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
+      raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
+      raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
+      std::make_optional<raft::device_vector_view<value_t, value_idx>>(
+        raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+  } else {
+    cuvs::cluster::agglomerative::helpers::build_linkage(
+      handle,
+      raft::make_host_matrix_view<const value_t, value_idx>(X, m, n),
+      linkage_params,
+      static_cast<cuvs::distance::DistanceType>(metric),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
+        out.get_mst_weights(),
+        raft::make_device_coordinate_structure_view(
+          out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
+      raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
+      raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
+      raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
+      std::make_optional<raft::device_vector_view<value_t, value_idx>>(
+        raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+  }
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
