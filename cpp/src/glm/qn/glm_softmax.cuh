@@ -8,11 +8,12 @@
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
 
-#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>
+
+#include <cuda/functional>
 
 namespace ML {
 namespace GLM {
@@ -76,7 +77,7 @@ CUML_KERNEL void logSoftmaxKernel(
       etaMax = raft::max<T>(myEta, etaMax);
     }
   }
-  T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, ML::detail::maximum{});
+  T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cuda::maximum{});
   if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = tmpMax; }
   __syncthreads();
   etaMax = shm.sh_val[threadIdx.y];
