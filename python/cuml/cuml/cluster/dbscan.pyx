@@ -8,6 +8,7 @@ import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
@@ -343,6 +344,10 @@ class DBSCAN(Base,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64]
         )
+
+        if n_rows * n_cols > (2**31 - 1):
+            out_dtype = "int64"
+            logger.info("Using int64 for out_dtype because n_rows * n_cols >= INT_MAX")
 
         if n_rows == 0 or n_cols == 0:
             raise ValueError(
