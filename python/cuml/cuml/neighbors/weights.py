@@ -18,15 +18,15 @@ def compute_weights(distances, weights):
 
     Returns
     -------
-    weights_arr : cupy.ndarray
-        Weights of shape (n_samples, k).
-        For uniform weights, returns array of 1/k (normalized).
+    weights_arr : cupy.ndarray or None
+        Weights of shape (n_samples, k), or None for uniform weights.
+        For uniform weights, returns None (handled as nullptr in C++).
         For distance weights, returns raw inverse distances (not normalized).
         For callable, returns raw result of callable(distances) (not normalized).
     """
-    # Convert to cupy array if needed and ensure 2D
-    if not isinstance(distances, cp.ndarray):
-        distances = cp.asarray(distances)
+    if weights in (None, "uniform"):
+        # Uniform weights: return None to signal no weights array needed
+        return None
 
     # Ensure distances is 2D
     if distances.ndim == 1:
@@ -36,11 +36,7 @@ def compute_weights(distances, weights):
             f"distances must be 1D or 2D, got shape {distances.shape}"
         )
 
-    if weights in (None, "uniform"):
-        # Uniform weights: all neighbors contribute equally
-        n_neighbors = distances.shape[1]
-        return cp.full_like(distances, 1.0 / n_neighbors, dtype=cp.float32)
-    elif weights == "distance":
+    if weights == "distance":
         # Distance weights: inverse of distance (raw, not normalized)
         # Match sklearn behavior: if any neighbor has distance 0, only those
         # neighbors contribute (with equal weight)
@@ -60,7 +56,7 @@ def compute_weights(distances, weights):
         return raw_weights
     elif callable(weights):
         # Custom callable weights (raw, not normalized)
-        raw_weights = weights(distances).astype(cp.float32)
+        raw_weights = cp.asarray(weights(distances), dtype=cp.float32)
         # Return raw weights - normalization will be done in C++ kernel
         return raw_weights
     else:

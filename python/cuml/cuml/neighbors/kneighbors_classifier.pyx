@@ -276,13 +276,11 @@ class KNeighborsClassifier(ClassifierMixin,
         cdef int* classes_ptr = <int*><uintptr_t>classes.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Compute weights if needed (nullptr for uniform weights)
-        cdef float* weights_ctype = <float*>0  # nullptr
-        weights_cuml = None
-        if self.weights not in (None, 'uniform'):
-            weights_cp = compute_weights(cp.asarray(dists), self.weights)
-            weights_cuml = CumlArray(weights_cp)
-            weights_ctype = <float*><uintptr_t>weights_cuml.ptr
+        # Compute weights (returns None for uniform weights)
+        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        cdef float* weights_ctype = <float*><uintptr_t>(
+            0 if weights_cp is None else weights_cp.data.ptr
+        )
 
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
@@ -359,13 +357,11 @@ class KNeighborsClassifier(ClassifierMixin,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Compute weights if needed (nullptr for uniform weights)
-        cdef float* weights_ctype = <float*>0  # nullptr
-        weights_cuml = None
-        if self.weights not in (None, 'uniform'):
-            weights_cp = compute_weights(cp.asarray(dists), self.weights)
-            weights_cuml = CumlArray(weights_cp)
-            weights_ctype = <float*><uintptr_t>weights_cuml.ptr
+        # Compute weights (returns None for uniform weights)
+        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        cdef float* weights_ctype = <float*><uintptr_t>(
+            0 if weights_cp is None else weights_cp.data.ptr
+        )
 
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
