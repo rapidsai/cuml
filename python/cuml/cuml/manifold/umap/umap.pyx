@@ -2,14 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import ctypes
 import warnings
 
-import cupy
+import cupy as cp
 import cupyx.scipy.sparse
 import joblib
 import numpy as np
 import scipy.sparse
+from pylibraft.common.handle import Handle
 
 import cuml.accel
 import cuml.internals
@@ -21,7 +22,7 @@ from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -31,84 +32,20 @@ from cuml.internals.interop import (
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
-from cuml.manifold.umap.umap_utils import (
-    HostGraphHolder,
-    coerce_metric,
-    find_ab_params,
-)
 
 from cython.operator cimport dereference
-from libc.stdint cimport int64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
+from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
+from rmm.librmm.device_buffer cimport device_buffer
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
+cimport cuml.manifold.umap.lib as lib
 from cuml.internals.logger cimport level_enum
-from cuml.manifold.umap.umap_utils cimport *
-
-
-cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
-    cdef cppclass device_buffer:
-        device_buffer() except +
-        void* data() except +
-        size_t size() except +
-
-
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
-
-    void fit(handle_t & handle,
-             float * X,
-             float * y,
-             int n,
-             int d,
-             int64_t * knn_indices,
-             float * knn_dists,
-             UMAPParams * params,
-             unique_ptr[device_buffer] & embeddings,
-             cppHostCOO & graph) except +
-
-    void fit_sparse(handle_t &handle,
-                    int *indptr,
-                    int *indices,
-                    float *data,
-                    size_t nnz,
-                    float *y,
-                    int n,
-                    int d,
-                    int * knn_indices,
-                    float * knn_dists,
-                    UMAPParams *params,
-                    unique_ptr[device_buffer] & embeddings,
-                    cppHostCOO & graph) except +
-
-    void transform(handle_t & handle,
-                   float * X,
-                   int n,
-                   int d,
-                   float * orig_X,
-                   int orig_n,
-                   float * embedding,
-                   int embedding_n,
-                   UMAPParams * params,
-                   float * out) except +
-
-    void transform_sparse(handle_t &handle,
-                          int *indptr,
-                          int *indices,
-                          float *data,
-                          size_t nnz,
-                          int n,
-                          int d,
-                          int *orig_x_indptr,
-                          int *orig_x_indices,
-                          float *orig_x_data,
-                          size_t orig_nnz,
-                          int orig_n,
-                          float *embedding,
-                          int embedding_n,
-                          UMAPParams *params,
-                          float *transformed) except +
+from cuml.metrics.distance_type cimport DistanceType
 
 
 def _joblib_hash(X):
@@ -123,10 +60,244 @@ def _joblib_hash(X):
     return joblib.hash(X)
 
 
-class UMAP(Base,
-           InteropMixin,
-           CMajorInputTagMixin,
-           SparseInputTagMixin):
+def find_ab_params(spread, min_dist):
+    """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
+    Fit a, b params for the differentiable curve used in lower
+    dimensional fuzzy simplicial complex construction. We want the
+    smooth curve (from a pre-defined family with simple gradient) that
+    best matches an offset exponential decay.
+    """
+    from scipy.optimize import curve_fit
+
+    def curve(x, a, b):
+        return 1.0 / (1.0 + a * x ** (2 * b))
+
+    xv = np.linspace(0, spread * 3, 300)
+    yv = np.zeros(xv.shape)
+    yv[xv < min_dist] = 1.0
+    yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+    params, _ = curve_fit(curve, xv, yv)
+    return params[0], params[1]
+
+
+_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "taxicab": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "linf": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "hamming": DistanceType.HammingUnexpanded,
+    "jaccard": DistanceType.JaccardExpanded,
+    "canberra": DistanceType.Canberra
+}
+
+
+_SUPPORTED_METRICS = {
+    "nn_descent": {
+        "sparse": frozenset(),
+        "dense": frozenset((
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.CosineExpanded,
+        ))
+    },
+    "brute_force_knn": {
+        "sparse": frozenset((
+            DistanceType.Canberra,
+            DistanceType.CorrelationExpanded,
+            DistanceType.CosineExpanded,
+            DistanceType.HammingUnexpanded,
+            DistanceType.HellingerExpanded,
+            DistanceType.JaccardExpanded,
+            DistanceType.L1,
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.Linf,
+            DistanceType.LpUnexpanded,
+        )),
+        "dense": frozenset((
+            DistanceType.Canberra,
+            DistanceType.CorrelationExpanded,
+            DistanceType.CosineExpanded,
+            DistanceType.HammingUnexpanded,
+            DistanceType.HellingerExpanded,
+            # DistanceType.JaccardExpanded,  # not supported
+            DistanceType.L1,
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.Linf,
+            DistanceType.LpUnexpanded,
+        ))
+    }
+}
+
+
+def coerce_metric(metric, sparse=False, build_algo="brute_force_knn"):
+    """Coerce a metric string to a `DistanceType`.
+
+    Also checks that the metric is valid and supported.
+    """
+    if not isinstance(metric, str):
+        raise TypeError(f"Expected `metric` to be a str, got {type(metric).__name__}")
+
+    try:
+        out = _METRICS[metric.lower()]
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric!r}")
+
+    kind = "sparse" if sparse else "dense"
+    supported = _SUPPORTED_METRICS[build_algo][kind]
+    if out not in supported:
+        raise NotImplementedError(
+            f"Metric {metric!r} not supported for {kind} inputs with {build_algo=}"
+        )
+
+    return out
+
+
+cdef class GraphHolder:
+    cdef unique_ptr[lib.COO] c_graph
+
+    @staticmethod
+    cdef GraphHolder new_graph(cuda_stream_view stream):
+        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
+        graph.c_graph.reset(new lib.COO(stream))
+        return graph
+
+    @staticmethod
+    cdef GraphHolder from_ptr(unique_ptr[lib.COO]& ptr):
+        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
+        graph.c_graph = move(ptr)
+        return graph
+
+    @staticmethod
+    cdef GraphHolder from_coo_array(handle, coo_array):
+        def copy_from_array(dst_raft_coo_ptr, src_cp_coo):
+            size = src_cp_coo.size
+            itemsize = np.dtype(src_cp_coo.dtype).itemsize
+            dest_buff = cp.cuda.UnownedMemory(ptr=dst_raft_coo_ptr,
+                                              size=size * itemsize,
+                                              owner=None,
+                                              device_id=-1)
+            dest_mptr = cp.cuda.memory.MemoryPointer(dest_buff, 0)
+            src_buff = cp.cuda.UnownedMemory(ptr=src_cp_coo.data.ptr,
+                                             size=size * itemsize,
+                                             owner=None,
+                                             device_id=-1)
+            src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
+            dest_mptr.copy_from_device(src_mptr, size * itemsize)
+
+        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        graph.c_graph.reset(new lib.COO(handle_.get_stream()))
+        graph.get().allocate(coo_array.nnz,
+                             coo_array.shape[0],
+                             False,
+                             handle_.get_stream())
+        handle_.sync_stream()
+
+        copy_from_array(graph.vals(), coo_array.data.astype('float32'))
+        copy_from_array(graph.rows(), coo_array.row.astype('int32'))
+        copy_from_array(graph.cols(), coo_array.col.astype('int32'))
+
+        return graph
+
+    cdef inline lib.COO* get(self) noexcept:
+        return self.c_graph.get()
+
+    cdef uintptr_t vals(self):
+        return <uintptr_t>self.get().vals()
+
+    cdef uintptr_t rows(self):
+        return <uintptr_t>self.get().rows()
+
+    cdef uintptr_t cols(self):
+        return <uintptr_t>self.get().cols()
+
+    cdef uint64_t get_nnz(self):
+        return self.get().nnz
+
+    def get_cupy_coo(self):
+        def create_nonowning_cp_array(ptr, dtype):
+            mem = cp.cuda.UnownedMemory(ptr=ptr,
+                                        size=(self.get_nnz() *
+                                              np.dtype(dtype).itemsize),
+                                        owner=self,
+                                        device_id=-1)
+            memptr = cp.cuda.memory.MemoryPointer(mem, 0)
+            return cp.ndarray(self.get_nnz(), dtype=dtype, memptr=memptr)
+
+        vals = create_nonowning_cp_array(self.vals(), np.float32)
+        rows = create_nonowning_cp_array(self.rows(), np.int32)
+        cols = create_nonowning_cp_array(self.cols(), np.int32)
+
+        return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
+
+    def __dealloc__(self):
+        self.c_graph.reset(NULL)
+
+
+cdef class HostGraphHolder:
+    cdef unique_ptr[lib.host_COO] c_graph
+
+    @staticmethod
+    cdef HostGraphHolder new_graph():
+        cdef HostGraphHolder graph = HostGraphHolder.__new__(HostGraphHolder)
+        graph.c_graph.reset(new lib.host_COO())
+        return graph
+
+    cdef uintptr_t vals(self):
+        return <uintptr_t>self.get().vals()
+
+    cdef uintptr_t rows(self):
+        return <uintptr_t>self.get().rows()
+
+    cdef uintptr_t cols(self):
+        return <uintptr_t>self.get().cols()
+
+    cdef uint64_t get_nnz(self):
+        return self.get().get_nnz()
+
+    def get_scipy_coo(self):
+        """Convert the host graph to a SciPy COO sparse matrix.
+
+        Returns
+        -------
+        scipy.sparse.coo_matrix
+            A copy of the graph data as a SciPy COO sparse matrix.
+            Note that this returns a copy of the data, not a view.
+        """
+        def create_nonowning_numpy_array(ptr, dtype):
+            c_type = np.ctypeslib.as_ctypes_type(dtype)
+            c_pointer = ctypes.cast(ptr, ctypes.POINTER(c_type))
+            return np.ctypeslib.as_array(c_pointer, shape=(self.get_nnz(),))
+
+        vals = create_nonowning_numpy_array(self.vals(), np.float32)
+        rows = create_nonowning_numpy_array(self.rows(), np.int32)
+        cols = create_nonowning_numpy_array(self.cols(), np.int32)
+
+        graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
+        return graph
+
+    cdef inline lib.host_COO* get(self) noexcept:
+        return self.c_graph.get()
+
+    cdef inline lib.cppHostCOO* ref(self) noexcept:
+        return <lib.cppHostCOO*>self.c_graph.get()
+
+    def __dealloc__(self):
+        self.c_graph.reset(NULL)
+
+
+class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -473,7 +644,7 @@ class UMAP(Base,
         if scipy.sparse.issparse(model._raw_data):
             raw_data = SparseCumlArray(
                 model._raw_data,
-                convert_to_dtype=cupy.float32,
+                convert_to_dtype=cp.float32,
                 convert_format=True
             )
         else:
@@ -649,7 +820,7 @@ class UMAP(Base,
             raise ValueError("min_dist should be <= spread")
 
     def _build_umap_params(self, sparse):
-        cdef UMAPParams* params = new UMAPParams()
+        cdef lib.UMAPParams* params = new lib.UMAPParams()
         params.n_neighbors = <int> self.n_neighbors
         params.n_components = <int> self.n_components
         params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
@@ -676,9 +847,9 @@ class UMAP(Base,
             params.init = <int> 0
 
         if self.target_metric in {"euclidean", "l2"}:
-            params.target_metric = MetricType.EUCLIDEAN
+            params.target_metric = lib.MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
-            params.target_metric = MetricType.CATEGORICAL
+            params.target_metric = lib.MetricType.CATEGORICAL
 
         params.metric = coerce_metric(
             self.metric, sparse=sparse, build_algo=self.build_algo
@@ -690,7 +861,7 @@ class UMAP(Base,
             params.p = <float>self.metric_kwds.get('p')
 
         if self.build_algo == "brute_force_knn":
-            params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
         elif self.build_algo == "nn_descent":
             kwds = self.build_kwds or {}
             params.build_params.n_clusters = <uint64_t> kwds.get("nnd_n_clusters", 1)
@@ -705,7 +876,7 @@ class UMAP(Base,
                 )
             if params.build_params.n_clusters < 1:
                 raise ValueError("nnd_n_clusters must be >= 1")
-            params.build_algo = graph_build_algo.NN_DESCENT
+            params.build_algo = lib.graph_build_algo.NN_DESCENT
 
             params.build_params.nn_descent_params.graph_degree = (
                 <uint64_t> kwds.get("nnd_graph_degree", 64)
@@ -744,13 +915,13 @@ class UMAP(Base,
         cdef uintptr_t callback_ptr = 0
         if self.callback:
             callback_ptr = self.callback.get_native_callback()
-            params.callback = <GraphBasedDimRedCallback*>callback_ptr
+            params.callback = <lib.GraphBasedDimRedCallback*>callback_ptr
 
         return <size_t>params
 
     @staticmethod
     def _destroy_umap_params(ptr):
-        cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
+        cdef lib.UMAPParams* umap_params = <lib.UMAPParams*> <size_t> ptr
         del umap_params
 
     @staticmethod
@@ -811,7 +982,7 @@ class UMAP(Base,
         # Handle sparse inputs
         if is_sparse(X):
 
-            self._raw_data = SparseCumlArray(X, convert_to_dtype=cupy.float32,
+            self._raw_data = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
@@ -897,37 +1068,40 @@ class UMAP(Base,
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
         fss_graph = HostGraphHolder.new_graph()
-        cdef UMAPParams* umap_params = \
-            <UMAPParams*> <size_t> self._build_umap_params(
-                                                           self.sparse_fit)
+        cdef lib.UMAPParams* umap_params = \
+            <lib.UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
 
         cdef unique_ptr[device_buffer] embeddings_buffer
 
         if self.sparse_fit:
-            fit_sparse(handle_[0],
-                       <int*><uintptr_t> self._raw_data.indptr.ptr,
-                       <int*><uintptr_t> self._raw_data.indices.ptr,
-                       <float*><uintptr_t> self._raw_data.data.ptr,
-                       <size_t> self._raw_data.nnz,
-                       <float*> _y_raw_ptr,
-                       <int> self.n_rows,
-                       <int> self.n_dims,
-                       <int*> _knn_indices_ptr,
-                       <float*> _knn_dists_ptr,
-                       <UMAPParams*> umap_params,
-                       embeddings_buffer,
-                       dereference(fss_graph.ref()))
+            lib.fit_sparse(
+                handle_[0],
+                <int*><uintptr_t> self._raw_data.indptr.ptr,
+                <int*><uintptr_t> self._raw_data.indices.ptr,
+                <float*><uintptr_t> self._raw_data.data.ptr,
+                <size_t> self._raw_data.nnz,
+                <float*> _y_raw_ptr,
+                <int> self.n_rows,
+                <int> self.n_dims,
+                <int*> _knn_indices_ptr,
+                <float*> _knn_dists_ptr,
+                <lib.UMAPParams*> umap_params,
+                embeddings_buffer,
+                dereference(fss_graph.ref())
+            )
         else:
-            fit(handle_[0],
+            lib.fit(
+                handle_[0],
                 <float*><uintptr_t> self._raw_data.ptr,
                 <float*> _y_raw_ptr,
                 <int> self.n_rows,
                 <int> self.n_dims,
                 <int64_t*> _knn_indices_ptr,
                 <float*> _knn_dists_ptr,
-                <UMAPParams*>umap_params,
+                <lib.UMAPParams*>umap_params,
                 embeddings_buffer,
-                dereference(fss_graph.ref()))
+                dereference(fss_graph.ref())
+            )
 
         self.handle.sync()
 
@@ -935,11 +1109,11 @@ class UMAP(Base,
         self._embeddings_buffer = DeviceBuffer.c_from_unique_ptr(
             move(embeddings_buffer)
         )
-        embeddings_cupy = cupy.ndarray(
+        embeddings_cupy = cp.ndarray(
             shape=(self.n_rows, self.n_components),
             dtype=np.float32,
-            memptr=cupy.cuda.MemoryPointer(
-                cupy.cuda.UnownedMemory(
+            memptr=cp.cuda.MemoryPointer(
+                cp.cuda.UnownedMemory(
                     self._embeddings_buffer.ptr,
                     self._embeddings_buffer.size,
                     self._embeddings_buffer
@@ -1052,7 +1226,7 @@ class UMAP(Base,
             X = cupyx.scipy.sparse.csr_matrix(X)
 
         if is_sparse(X):
-            X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                   convert_format=False)
             index = None
         else:
@@ -1091,41 +1265,390 @@ class UMAP(Base,
             # non-deterministic calculations do not work with limited number of samples
             self.deterministic = True
 
-        cdef UMAPParams* umap_params = (
-            <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
+        cdef lib.UMAPParams* umap_params = (
+            <lib.UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
         )
         cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
         if self.sparse_fit:
-            transform_sparse(handle_[0],
-                             <int*><uintptr_t> X_m.indptr.ptr,
-                             <int*><uintptr_t> X_m.indices.ptr,
-                             <float*><uintptr_t> X_m.data.ptr,
-                             <size_t> X_m.nnz,
-                             <int> X_m.shape[0],
-                             <int> X_m.shape[1],
-                             <int*><uintptr_t> self._raw_data.indptr.ptr,
-                             <int*><uintptr_t> self._raw_data.indices.ptr,
-                             <float*><uintptr_t> self._raw_data.data.ptr,
-                             <size_t> self._raw_data.nnz,
-                             <int> self._raw_data.shape[0],
-                             <float*> _embed_ptr,
-                             <int> self._raw_data.shape[0],
-                             <UMAPParams*> umap_params,
-                             <float*> _xformed_ptr)
+            lib.transform_sparse(
+                handle_[0],
+                <int*><uintptr_t> X_m.indptr.ptr,
+                <int*><uintptr_t> X_m.indices.ptr,
+                <float*><uintptr_t> X_m.data.ptr,
+                <size_t> X_m.nnz,
+                <int> X_m.shape[0],
+                <int> X_m.shape[1],
+                <int*><uintptr_t> self._raw_data.indptr.ptr,
+                <int*><uintptr_t> self._raw_data.indices.ptr,
+                <float*><uintptr_t> self._raw_data.data.ptr,
+                <size_t> self._raw_data.nnz,
+                <int> self._raw_data.shape[0],
+                <float*> _embed_ptr,
+                <int> self._raw_data.shape[0],
+                <lib.UMAPParams*> umap_params,
+                <float*> _xformed_ptr,
+            )
         else:
-            transform(handle_[0],
-                      <float*><uintptr_t> X_m.ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <float*><uintptr_t>self._raw_data.ptr,
-                      <int> self._raw_data.shape[0],
-                      <float*> _embed_ptr,
-                      <int> n_rows,
-                      <UMAPParams*> umap_params,
-                      <float*> _xformed_ptr)
+            lib.transform(
+                handle_[0],
+                <float*><uintptr_t> X_m.ptr,
+                <int> n_rows,
+                <int> n_cols,
+                <float*><uintptr_t>self._raw_data.ptr,
+                <int> self._raw_data.shape[0],
+                <float*> _embed_ptr,
+                <int> n_rows,
+                <lib.UMAPParams*> umap_params,
+                <float*> _xformed_ptr
+            )
         self.handle.sync()
 
         UMAP._destroy_umap_params(<size_t>umap_params)
 
         del X_m
         return embedding
+
+
+def fuzzy_simplicial_set(X,
+                         n_neighbors,
+                         random_state=None,
+                         metric="euclidean",
+                         metric_kwds=None,
+                         knn_indices=None,
+                         knn_dists=None,
+                         set_op_mix_ratio=1.0,
+                         local_connectivity=1.0,
+                         verbose=False):
+    """Given a set of data X, a neighborhood size, and a measure of distance
+    compute the fuzzy simplicial set (here represented as a fuzzy graph in
+    the form of a sparse matrix) associated to the data. This is done by
+    locally approximating geodesic distance at each point, creating a fuzzy
+    simplicial set for each such point, and then combining all the local
+    fuzzy simplicial sets into a global one via a fuzzy union.
+
+    Parameters
+    ----------
+    X: array of shape (n_samples, n_features)
+        The data to be modelled as a fuzzy simplicial set.
+    n_neighbors: int
+        The number of neighbors to use to approximate geodesic distance.
+        Larger numbers induce more global estimates of the manifold that can
+        miss finer detail, while smaller values will focus on fine manifold
+        structure to the detriment of the larger picture.
+    random_state: numpy RandomState or equivalent
+        A state capable being used as a numpy random state.
+    metric: string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
+    knn_indices: array of shape (n_samples, n_neighbors) (optional)
+        If the k-nearest neighbors of each point has already been calculated
+        you can pass them in here to save computation time. This should be
+        an array with the indices of the k-nearest neighbors as a row for
+        each data point.
+    knn_dists: array of shape (n_samples, n_neighbors) (optional)
+        If the k-nearest neighbors of each point has already been calculated
+        you can pass them in here to save computation time. This should be
+        an array with the distances of the k-nearest neighbors as a row for
+        each data point.
+    set_op_mix_ratio: float (optional, default 1.0)
+        Interpolate between (fuzzy) union and intersection as the set operation
+        used to combine local fuzzy simplicial sets to obtain a global fuzzy
+        simplicial sets. Both fuzzy set operations use the product t-norm.
+        The value of this parameter should be between 0.0 and 1.0; a value of
+        1.0 will use a pure fuzzy union, while 0.0 will use a pure fuzzy
+        intersection.
+    local_connectivity: int (optional, default 1)
+        The local connectivity required -- i.e. the number of nearest
+        neighbors that should be assumed to be connected at a local level.
+        The higher this value the more connected the manifold becomes
+        locally. In practice this should be not more than the local intrinsic
+        dimension of the manifold.
+    verbose: bool (optional, default False)
+        Whether to report information on the current progress of the algorithm.
+    Returns
+    -------
+    fuzzy_simplicial_set: coo_matrix
+        A fuzzy simplicial set represented as a sparse matrix. The (i,
+        j) entry of the matrix represents the membership strength of the
+        1-simplex between the ith and jth sample points.
+    """
+
+    if metric_kwds is None:
+        metric_kwds = {}
+
+    deterministic = random_state is not None
+    if not isinstance(random_state, int):
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        else:
+            rs = np.random.RandomState(random_state)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
+
+    cdef lib.UMAPParams umap_params
+    umap_params.n_neighbors = <int> n_neighbors
+    umap_params.random_state = <uint64_t> random_state
+    umap_params.deterministic = <bool> deterministic
+    umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
+    umap_params.local_connectivity = <float> local_connectivity
+    umap_params.metric = coerce_metric(metric)
+    if metric_kwds is None:
+        umap_params.p = <float> 2.0
+    else:
+        umap_params.p = <float> metric_kwds.get("p", 2.0)
+    umap_params.verbosity = logger._verbose_to_level(verbose)
+
+    X_m, _, _, _ = \
+        input_to_cuml_array(X,
+                            order='C',
+                            check_dtype=np.float32,
+                            convert_to_dtype=np.float32)
+
+    if knn_indices is not None and knn_dists is not None:
+        knn_indices_m, _, _, _ = \
+            input_to_cuml_array(knn_indices,
+                                order='C',
+                                check_dtype=np.int64,
+                                convert_to_dtype=np.int64)
+        knn_dists_m, _, _, _ = \
+            input_to_cuml_array(knn_dists,
+                                order='C',
+                                check_dtype=np.float32,
+                                convert_to_dtype=np.float32)
+        X_ptr = 0
+        knn_indices_ptr = knn_indices_m.ptr
+        knn_dists_ptr = knn_dists_m.ptr
+    else:
+        X_m, _, _, _ = \
+            input_to_cuml_array(X,
+                                order='C',
+                                check_dtype=np.float32,
+                                convert_to_dtype=np.float32)
+        X_ptr = X_m.ptr
+        knn_indices_ptr = 0
+        knn_dists_ptr = 0
+
+    handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef unique_ptr[lib.COO] fss_graph_ptr = lib.get_graph(
+        handle_[0],
+        <float*><uintptr_t> X_ptr,
+        <float*><uintptr_t> NULL,
+        <int> X.shape[0],
+        <int> X.shape[1],
+        <int64_t*><uintptr_t> knn_indices_ptr,
+        <float*><uintptr_t> knn_dists_ptr,
+        &umap_params)
+    fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
+
+    return fss_graph.get_cupy_coo()
+
+
+@cuml.internals.api_return_array(get_output_type=True)
+def simplicial_set_embedding(
+    data,
+    graph,
+    n_components=2,
+    initial_alpha=1.0,
+    a=None,
+    b=None,
+    gamma=1.0,
+    negative_sample_rate=5,
+    n_epochs=None,
+    init="spectral",
+    random_state=None,
+    metric="euclidean",
+    metric_kwds=None,
+    output_metric="euclidean",
+    output_metric_kwds=None,
+    convert_dtype=True,
+    verbose=False,
+):
+    """Perform a fuzzy simplicial set embedding, using a specified
+    initialisation method and then minimizing the fuzzy set cross entropy
+    between the 1-skeletons of the high and low dimensional fuzzy simplicial
+    sets.
+
+    Parameters
+    ----------
+    data: array of shape (n_samples, n_features)
+        The source data to be embedded by UMAP.
+    graph: sparse matrix
+        The 1-skeleton of the high dimensional fuzzy simplicial set as
+        represented by a graph for which we require a sparse matrix for the
+        (weighted) adjacency matrix.
+    n_components: int
+        The dimensionality of the euclidean space into which to embed the data.
+    initial_alpha: float
+        Initial learning rate for the SGD.
+    a: float
+        Parameter of differentiable approximation of right adjoint functor
+    b: float
+        Parameter of differentiable approximation of right adjoint functor
+    gamma: float
+        Weight to apply to negative samples.
+    negative_sample_rate: int (optional, default 5)
+        The number of negative samples to select per positive sample
+        in the optimization process. Increasing this value will result
+        in greater repulsive force being applied, greater optimization
+        cost, but slightly more accuracy.
+    n_epochs: int (optional, default 0)
+        The number of training epochs to be used in optimizing the
+        low dimensional embedding. Larger values result in more accurate
+        embeddings. If 0 is specified a value will be selected based on
+        the size of the input dataset (200 for large datasets, 500 for small).
+    init: string
+        How to initialize the low dimensional embedding. Options are:
+            * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
+            * 'random': assign initial embedding positions at random.
+            * An array-like with initial embedding positions.
+    random_state: numpy RandomState or equivalent
+        A state capable being used as a numpy random state.
+    metric: string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
+    output_metric: function
+        Function returning the distance between two points in embedding space
+        and the gradient of the distance wrt the first argument.
+    output_metric_kwds: dict
+        Key word arguments to be passed to the output_metric function.
+    verbose: bool (optional, default False)
+        Whether to report information on the current progress of the algorithm.
+    Returns
+    -------
+    embedding: array of shape (n_samples, n_components)
+        The optimized of ``graph`` into an ``n_components`` dimensional
+        euclidean space.
+    """
+
+    if metric_kwds is None:
+        metric_kwds = {}
+
+    if output_metric_kwds is None:
+        output_metric_kwds = {}
+
+    if output_metric not in ['euclidean', 'categorical']:
+        raise Exception("Invalid output metric: {}" % output_metric)
+
+    n_epochs = n_epochs if n_epochs else 0
+
+    if a is None or b is None:
+        spread = 1.0
+        min_dist = 0.1
+        a, b = find_ab_params(spread, min_dist)
+
+    deterministic = random_state is not None
+    if not isinstance(random_state, int):
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        else:
+            rs = np.random.RandomState(random_state)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
+
+    cdef lib.UMAPParams umap_params
+    umap_params.n_components = <int> n_components
+    umap_params.initial_alpha = <float> initial_alpha
+    umap_params.learning_rate = <float> initial_alpha
+    umap_params.a = <float> a
+    umap_params.b = <float> b
+    umap_params.repulsion_strength = <float> gamma
+    umap_params.negative_sample_rate = <int> negative_sample_rate
+    umap_params.n_epochs = <int> n_epochs
+    umap_params.random_state = <uint64_t> random_state
+    umap_params.deterministic = <bool> deterministic
+    if isinstance(init, str):
+        if init == "random":
+            umap_params.init = <int> 0
+        elif init == 'spectral':
+            umap_params.init = <int> 1
+        else:
+            raise ValueError("Invalid initialization strategy")
+
+    umap_params.metric = coerce_metric(metric)
+    if metric_kwds is None:
+        umap_params.p = <float> 2.0
+    else:
+        umap_params.p = <float> metric_kwds.get("p", 2.0)
+    if output_metric == 'euclidean':
+        umap_params.target_metric = lib.MetricType.EUCLIDEAN
+    else:  # output_metric == 'categorical'
+        umap_params.target_metric = lib.MetricType.CATEGORICAL
+    umap_params.target_weight = <float> output_metric_kwds['p'] \
+        if 'p' in output_metric_kwds else 0.5
+    umap_params.verbosity = logger._verbose_to_level(verbose)
+
+    X_m, _, _, _ = \
+        input_to_cuml_array(data,
+                            order='C',
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=np.float32)
+
+    graph = graph.tocoo()
+    graph.sum_duplicates()
+    if not isinstance(graph, cupyx.scipy.sparse.coo_matrix):
+        graph = cupyx.scipy.sparse.coo_matrix(graph)
+
+    handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
+
+    if isinstance(init, str):
+        if init in ['spectral', 'random']:
+            embedding = CumlArray.zeros((X_m.shape[0], n_components),
+                                        order="C", dtype=np.float32,
+                                        index=X_m.index)
+            lib.init_and_refine(
+                handle_[0],
+                <float*><uintptr_t> X_m.ptr,
+                <int> X_m.shape[0],
+                <int> X_m.shape[1],
+                <lib.COO*> fss_graph.get(),
+                &umap_params,
+                <float*><uintptr_t> embedding.ptr
+            )
+        else:
+            raise ValueError("Invalid initialization strategy")
+    elif is_array_like(init):
+        embedding, _, _, _ = \
+            input_to_cuml_array(init,
+                                order='C',
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=np.float32,
+                                check_rows=X_m.shape[0],
+                                check_cols=n_components)
+        lib.refine(
+            handle_[0],
+            <float*><uintptr_t> X_m.ptr,
+            <int> X_m.shape[0],
+            <int> X_m.shape[1],
+            <lib.COO*> fss_graph.get(),
+            &umap_params,
+            <float*><uintptr_t> embedding.ptr
+        )
+    else:
+        raise ValueError(
+            "Initialization not supported. Please provide a valid "
+            "initialization strategy or a pre-initialized embedding.")
+
+    return embedding
