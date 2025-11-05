@@ -176,6 +176,23 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i)
     mask[i] = 0;
 
+  // Specialize BlockRadixSort types
+  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
+  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD, IdxT>
+    BlockRadixSortPairsT;
+  // BlockAdjacentDifference
+  typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
+  // BlockScan
+  typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
+
+  // Shared memory - union allows reuse for different operations
+  __shared__ union TempStorage {
+    typename BlockRadixSortT::TempStorage sort;
+    typename BlockRadixSortPairsT::TempStorage sort_pairs;
+    typename BlockAdjacentDifferenceT::TempStorage diff;
+    typename BlockScanT::TempStorage scan;
+  } temp_storage;
+
   do {
     // blocked arrangement
     for (int cta_sample_idx = MAX_SAMPLES_PER_THREAD * threadIdx.x, thread_local_sample_idx = 0;
@@ -196,20 +213,6 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
         continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
     }
-
-    // Specialize BlockRadixSort type for our thread block
-    typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
-    // BlockAdjacentDifference
-    typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
-    // BlockScan
-    typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
-
-    // Shared memory
-    __shared__ union TempStorage {
-      typename BlockRadixSortT::TempStorage sort;
-      typename BlockAdjacentDifferenceT::TempStorage diff;
-      typename BlockScanT::TempStorage scan;
-    } temp_storage;
 
     // collectively sort items
     BlockRadixSortT(temp_storage.sort).Sort(items);
@@ -232,13 +235,34 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
 
   } while (n_uniques < k);
 
-  // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
+  // Use random rotation to select k features uniformly from the n_uniques sorted features
+  // This avoids the bias of always taking the first k sorted values
+
+  // Generate a random offset to rotate the selection window
+  // Thread 0 generates the offset so all threads use the same value
+  __shared__ IdxT random_offset;
+  if (threadIdx.x == 0) {
+    raft::random::UniformIntDistParams<IdxT, uint64_t> offset_dist_params;
+    offset_dist_params.start = 0;
+    offset_dist_params.end   = n_uniques;
+    offset_dist_params.diff  = uint64_t(n_uniques);
+    raft::random::custom_next(gen, &random_offset, offset_dist_params, IdxT(0), IdxT(0));
+  }
+  __syncthreads();
+
+  // Write items to output with circular rotation based on random_offset
+  // For each unique feature at position i, its rotated position is (i + random_offset) % n_uniques
+  // We only output features where the rotated position is < k
   IdxT col_offset = k * blockIdx.x;
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-    if (mask[i] and col_indices[i] < k) {
-      colids[col_offset + col_indices[i]] = items[i];
-      // DEBUG: Track feature sampling frequencies to expose bias
-      if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
+    if (mask[i]) {
+      // Calculate rotated position: (original_position + offset) % total_uniques
+      IdxT rotated_pos = (col_indices[i] + random_offset) % n_uniques;
+      if (rotated_pos < k) {
+        colids[col_offset + rotated_pos] = items[i];
+        // DEBUG: Track feature sampling frequencies to expose bias
+        if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
+      }
     }
   }
 }
