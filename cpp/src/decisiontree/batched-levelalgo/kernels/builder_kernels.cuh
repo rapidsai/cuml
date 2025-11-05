@@ -147,7 +147,9 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   uint64_t seed,
   size_t n /* total cols to sample from*/,
   size_t k /* number of unique cols to sample */,
-  int n_parallel_samples /* number of cols to sample with replacement */)
+  int n_parallel_samples /* number of cols to sample with replacement */,
+  unsigned long long* feature_sample_counts =
+    nullptr /* optional: track feature sampling for debugging */)
 {
   if (blockIdx.x >= work_items_size) return;
 
@@ -233,7 +235,11 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
   IdxT col_offset = k * blockIdx.x;
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-    if (mask[i] and col_indices[i] < k) { colids[col_offset + col_indices[i]] = items[i]; }
+    if (mask[i] and col_indices[i] < k) {
+      colids[col_offset + col_indices[i]] = items[i];
+      // DEBUG: Track feature sampling frequencies to expose bias
+      if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
+    }
   }
 }
 
