@@ -16,17 +16,17 @@ __all__ = (
 
 class NearestNeighbors(ProxyBase):
     _gpu_class = cuml.neighbors.NearestNeighbors
-    _other_attributes = frozenset(("_fit_method", "_tree"))
+    _other_attributes = frozenset(("_fit_method", "_tree", "_fit_X"))
 
 
 class KNeighborsClassifier(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsClassifier
-    _other_attributes = frozenset(("_fit_method", "_tree"))
+    _other_attributes = frozenset(("_fit_method", "_tree", "_fit_X", "_y"))
 
 
 class KNeighborsRegressor(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsRegressor
-    _other_attributes = frozenset(("_fit_method", "_tree"))
+    _other_attributes = frozenset(("_fit_method", "_tree", "_fit_X", "_y"))
 
 
 class KernelDensity(ProxyBase):
