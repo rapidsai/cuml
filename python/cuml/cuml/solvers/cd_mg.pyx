@@ -22,7 +22,7 @@ from cuml.common.opg_data_utils_mg cimport (
 
 
 cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg" nogil:
-    cdef void fit(
+    cdef int fit(
         handle_t& handle,
         vector[floatData_t *] input_data,
         PartDescriptor &input_desc,
@@ -39,7 +39,7 @@ cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg" nogil:
         bool verbose
     ) except +
 
-    cdef void fit(
+    cdef int fit(
         handle_t& handle,
         vector[doubleData_t *] input_data,
         PartDescriptor &input_desc,
@@ -74,10 +74,11 @@ class CDMG(MGFitMixin, CD):
         cdef double tol = self.tol
         cdef float intercept_f32
         cdef double intercept_f64
+        cdef int n_iter
 
         with nogil:
             if use_f32:
-                fit(
+                n_iter = fit(
                     handle_[0],
                     deref(<vector[floatData_t*]*>X),
                     deref(<PartDescriptor*>input_desc),
@@ -94,7 +95,7 @@ class CDMG(MGFitMixin, CD):
                     False
                 )
             else:
-                fit(
+                n_iter = fit(
                     handle_[0],
                     deref(<vector[doubleData_t*]*>X),
                     deref(<PartDescriptor*>input_desc),
@@ -113,3 +114,4 @@ class CDMG(MGFitMixin, CD):
         self.handle.sync()
 
         self.intercept_ = intercept_f32 if use_f32 else intercept_f64
+        self.n_iter_ = n_iter
