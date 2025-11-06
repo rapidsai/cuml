@@ -33,7 +33,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 
-from libc.stdint cimport int64_t, uint64_t, uintptr_t
+from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
@@ -58,11 +58,12 @@ def _joblib_hash(X):
 
 
 def find_ab_params(spread=1.0, min_dist=0.1):
-    """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
-    Fit a, b params for the differentiable curve used in lower
+    """Fit a, b params for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
+
+    Borrowed from upstream umap: https://github.com/lmcinnes/umap.
     """
     from scipy.optimize import curve_fit
 
@@ -75,6 +76,76 @@ def find_ab_params(spread=1.0, min_dist=0.1):
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, _ = curve_fit(curve, xv, yv)
     return params[0], params[1]
+
+
+cdef class RaftCOO:
+    """A wrapper around a `raft::sparse::COO`"""
+    cdef unique_ptr[lib.COO] ptr
+
+    def __dealloc__(self):
+        self.ptr.reset(NULL)
+
+    @staticmethod
+    cdef RaftCOO from_ptr(unique_ptr[lib.COO]& ptr):
+        """Create a new instance, taking ownership of an existing `unique_ptr[COO]`"""
+        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
+        self.ptr = move(ptr)
+        return self
+
+    @staticmethod
+    cdef RaftCOO from_cupy_coo(handle, arr):
+        """Create a new instance as a copy of a `cupyx.scipy.sparse.coo_matrix"""
+        def copy_from_cupy(dst_ptr, src, dtype):
+            src = src.astype(dtype, copy=False)
+            size = src.size * src.dtype.itemsize
+            dest_mem = cp.cuda.UnownedMemory(dst_ptr, size, owner=None)
+            dest_mptr = cp.cuda.memory.MemoryPointer(dest_mem, 0)
+            src_mem = cp.cuda.UnownedMemory(src.data.ptr, size, owner=None)
+            src_mptr = cp.cuda.memory.MemoryPointer(src_mem, 0)
+            dest_mptr.copy_from_device(src_mptr, size)
+
+        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef lib.COO* coo = new lib.COO(handle_.get_stream())
+        self.ptr.reset(coo)
+        coo.allocate(arr.nnz, arr.shape[0], False, handle_.get_stream())
+        handle_.sync_stream()
+
+        copy_from_cupy(<uintptr_t>coo.vals(), arr.data, np.float32)
+        copy_from_cupy(<uintptr_t>coo.rows(), arr.row, np.int32)
+        copy_from_cupy(<uintptr_t>coo.cols(), arr.col, np.int32)
+
+        return self
+
+    def view_cupy_coo(self):
+        """Create a new `cupyx.scipy.sparse.coo_matrix` as a view of this COO"""
+        cdef lib.COO* coo = self.get()
+
+        def view_as_cupy(ptr, dtype):
+            dtype = np.dtype(dtype)
+            mem = cp.cuda.UnownedMemory(ptr, (coo.nnz * dtype.itemsize), owner=self)
+            memptr = cp.cuda.memory.MemoryPointer(mem, 0)
+            return cp.ndarray(coo.nnz, dtype=dtype, memptr=memptr)
+
+        vals = view_as_cupy(<uintptr_t>coo.vals(), np.float32)
+        rows = view_as_cupy(<uintptr_t>coo.rows(), np.int32)
+        cols = view_as_cupy(<uintptr_t>coo.cols(), np.int32)
+
+        return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
+
+    cdef inline lib.COO* get(self) noexcept nogil:
+        return self.ptr.get()
+
+
+cdef copy_raft_host_coo_to_scipy_coo(lib.HostCOO &coo):
+    """Copy a `raft::host_coo_matrix` to a `scipy.sparse.coo_matrix`"""
+    nnz = coo.get_nnz()
+    i32 = ctypes.POINTER(ctypes.c_int)
+    f32 = ctypes.POINTER(ctypes.c_float)
+    vals = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.vals(), f32), shape=(nnz,))
+    rows = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.rows(), i32), shape=(nnz,))
+    cols = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.cols(), i32), shape=(nnz,))
+    return scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
 
 
 _BUILD_ALGOS = {"auto", "brute_force_knn", "nn_descent"}
@@ -169,79 +240,167 @@ def coerce_metric(metric, sparse=False, build_algo="brute_force_knn"):
     return out
 
 
-cdef class RaftCOO:
-    """A wrapper around a `raft::sparse::COO`"""
-    cdef unique_ptr[lib.COO] ptr
+cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=True):
+    """Initialize a UMAPParams instance from a UMAP model.
 
-    def __dealloc__(self):
-        self.ptr.reset(NULL)
+    This would be a method, except cdef methods aren't allowed on non cdef classes.
 
-    @staticmethod
-    cdef RaftCOO from_ptr(unique_ptr[lib.COO]& ptr):
-        """Create a new instance, taking ownership of an existing `unique_ptr[COO]`"""
-        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
-        self.ptr = move(ptr)
-        return self
+    Parameters
+    ----------
+    self : UMAP
+        The UMAP model.
+    params : lib.UMAPParams
+        The params to instantiate.
+    n_rows : int
+        The number of rows in X for either fit or transform.
+    is_sparse : bool
+        Whether X is sparse for either fit or transform.
+    is_fit : bool
+        Whether these parameters are for a fit call.
+    """
+    if self.n_components < 1:
+        raise ValueError(f"Expected `n_components >= 1`, got {self.n_components}")
+    if self.n_neighbors < 1:
+        raise ValueError(f"Expected `n_neighbors >= 1`, got {self.n_neighbors}")
+    if self.min_dist > self.spread:
+        raise ValueError(f"Expected min_dist ({self.min_dist}) <= spread ({self.spread})")
 
-    @staticmethod
-    cdef RaftCOO from_cupy_coo(handle, arr):
-        """Create a new instance as a copy of a `cupyx.scipy.sparse.coo_matrix"""
-        def copy_from_cupy(dst_ptr, src, dtype):
-            src = src.astype(dtype, copy=False)
-            size = src.size * src.dtype.itemsize
-            dest_mem = cp.cuda.UnownedMemory(dst_ptr, size, owner=None)
-            dest_mptr = cp.cuda.memory.MemoryPointer(dest_mem, 0)
-            src_mem = cp.cuda.UnownedMemory(src.data.ptr, size, owner=None)
-            src_mptr = cp.cuda.memory.MemoryPointer(src_mem, 0)
-            dest_mptr.copy_from_device(src_mptr, size)
+    if is_fit:
+        build_algo = self.build_algo
 
-        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef lib.COO* coo = new lib.COO(handle_.get_stream())
-        self.ptr.reset(coo)
-        coo.allocate(arr.nnz, arr.shape[0], False, handle_.get_stream())
-        handle_.sync_stream()
+        # Compute and stash some inferred params when fitting
+        if self.a is None or self.b is None:
+            self._a, self._b = find_ab_params(self.spread, self.min_dist)
+        else:
+            self._a, self._b = self.a, self.b
+        self._n_neighbors = min(n_rows, self.n_neighbors)
+        if self._n_neighbors != self.n_neighbors:
+            warnings.warn(
+                f"n_neighbors ({self.n_neighbors}) is larger than n_samples ({n_rows}) "
+                f"truncating to {self._n_neighbors}"
+            )
+    else:
+        # Only brute_force_knn supported for transform
+        build_algo = "brute_force_knn"
+        # Use the larger of the input shapes when inferring deterministic behavior
+        n_rows = max(self._raw_data.shape[0], n_rows)
 
-        copy_from_cupy(<uint64_t>coo.vals(), arr.data, np.float32)
-        copy_from_cupy(<uint64_t>coo.rows(), arr.row, np.int32)
-        copy_from_cupy(<uint64_t>coo.cols(), arr.col, np.int32)
+    if build_algo == "auto":
+        if self.random_state is not None:
+            # TODO: for now, users should be able to see the same results
+            # as previous version (i.e. running brute force knn) when they
+            # explicitly pass random_state
+            # https://github.com/rapidsai/cuml/issues/5985
+            build_algo ="brute_force_knn"
+        elif n_rows <= 50_000 or is_sparse:
+            # brute force is faster for small datasets
+            build_algo = "brute_force_knn"
+        else:
+            build_algo = "nn_descent"
+        logger.debug(f"Building knn graph using build_algo={build_algo!r}")
+    elif build_algo not in _BUILD_ALGOS:
+        raise ValueError(
+            f"Expected `build_algo` to be one of {list(_BUILD_ALGOS)}, "
+            f"got {build_algo!r}"
+        )
 
-        return self
+    if build_algo == "nn_descent" and n_rows < 150:
+        # https://github.com/rapidsai/cuvs/issues/184
+        warnings.warn(
+            "using build_algo='nn_descent' on a small dataset (< 150 samples) "
+            "is unstable"
+        )
 
-    def view_cupy_coo(self):
-        """Create a new `cupyx.scipy.sparse.coo_matrix` as a view of this COO"""
-        cdef lib.COO* coo = self.get()
+    params.n_neighbors = self._n_neighbors
+    params.n_components = self.n_components
+    params.n_epochs = self.n_epochs or 0
+    params.learning_rate = self.learning_rate
+    params.initial_alpha = self.learning_rate
+    params.min_dist = self.min_dist
+    params.spread = self.spread
+    params.set_op_mix_ratio = self.set_op_mix_ratio
+    params.local_connectivity = self.local_connectivity
+    params.repulsion_strength = self.repulsion_strength
+    params.negative_sample_rate = self.negative_sample_rate
+    params.transform_queue_size = self.transform_queue_size
+    params.verbosity = self.verbose
+    params.a = self._a
+    params.b = self._b
+    params.target_n_neighbors = self.target_n_neighbors
+    params.target_weight = self.target_weight
+    params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
+    params.p = (self.metric_kwds or {}).get("p", 2.0)
+    params.random_state = check_random_seed(self.random_state)
 
-        def view_as_cupy(ptr, dtype):
-            dtype = np.dtype(dtype)
-            mem = cp.cuda.UnownedMemory(ptr, (coo.nnz * dtype.itemsize), owner=self)
-            memptr = cp.cuda.memory.MemoryPointer(mem, 0)
-            return cp.ndarray(coo.nnz, dtype=dtype, memptr=memptr)
+    # deterministic if a random_state provided or when run on very small inputs
+    params.deterministic = self.random_state is not None or n_rows < 300
 
-        vals = view_as_cupy(<uint64_t>coo.vals(), np.float32)
-        rows = view_as_cupy(<uint64_t>coo.rows(), np.int32)
-        cols = view_as_cupy(<uint64_t>coo.cols(), np.int32)
+    if self.init in _INITS:
+        params.init = _INITS[self.init]
+    else:
+        raise ValueError(
+            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
+        )
 
-        return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
+    if self.target_metric in _TARGET_METRICS:
+        params.target_metric = _TARGET_METRICS[self.target_metric]
+    else:
+        raise ValueError(
+            f"Expected `target_metric` to be one of {list(_TARGET_METRICS)}, "
+            f"got {self.target_metric!r}"
+        )
 
-    cdef inline lib.COO* get(self) noexcept nogil:
-        return self.ptr.get()
+    if self.callback is not None:
+        params.callback = (
+            <lib.GraphBasedDimRedCallback*><uintptr_t>self.callback.get_native_callback()
+        )
 
+    if build_algo == "brute_force_knn":
+        params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
+    else:
+        params.build_algo = lib.graph_build_algo.NN_DESCENT
 
-cdef copy_raft_host_coo_to_scipy_coo(lib.HostCOO &coo):
-    """Copy a `raft::host_coo_matrix` to a `scipy.sparse.coo_matrix`"""
-    nnz = coo.get_nnz()
-    i32 = ctypes.POINTER(ctypes.c_int)
-    f32 = ctypes.POINTER(ctypes.c_float)
-    vals = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.vals(), f32), shape=(nnz,))
-    rows = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.rows(), i32), shape=(nnz,))
-    cols = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.cols(), i32), shape=(nnz,))
-    return scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
+        build_kwds = self.build_kwds or {}
+        n_clusters = build_kwds.get("nnd_n_clusters", 1)
+        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
+        max_iterations = build_kwds.get("nnd_max_iterations", 20)
+        termination_threshold = build_kwds.get("nnd_termination_threshold", 0.0001)
+        graph_degree = build_kwds.get("nnd_graph_degree", 64)
+        intermediate_graph_degree = build_kwds.get("nnd_intermediate_graph_degree", 128)
+
+        if n_clusters < 1:
+            raise ValueError(f"Expected `nnd_n_clusters >= 1`, got {n_clusters}")
+        elif n_clusters > 1 and overlap_factor >= n_clusters:
+            raise ValueError(
+                f"`nnd_n_clusters > 1` requires `nnd_n_clusters ({n_clusters}) > "
+                f"nnd_overlap_factor ({overlap_factor})`"
+            )
+
+        if graph_degree < self._n_neighbors:
+            logger.warn(
+                f"build_algo='nn_descent' requires `nnd_graph_degree >= n_neighbors`. "
+                f"Setting nnd_graph_degree to {self._n_neighbors}"
+            )
+            graph_degree = self._n_neighbors
+
+        if intermediate_graph_degree < graph_degree:
+            logger.warn(
+                f"build_algo='nn_descent' requires `nnd_intermediate_graph_degree >= "
+                f"nnd_graph_degree`. Setting nnd_intermediate_graph_degree to "
+                f"{graph_degree}"
+            )
+            intermediate_graph_degree = graph_degree
+
+        params.build_params.n_clusters = n_clusters
+        params.build_params.overlap_factor = overlap_factor
+        params.build_params.nnd.max_iterations = max_iterations
+        params.build_params.nnd.termination_threshold = termination_threshold
+        params.build_params.nnd.graph_degree = graph_degree
+        params.build_params.nnd.intermediate_graph_degree = intermediate_graph_degree
 
 
 class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
-    """
-    Uniform Manifold Approximation and Projection
+    """Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
@@ -896,24 +1055,15 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Parameters
         ----------
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
-            A sparse array containing the k-nearest neighbors of X,
-            where the columns are the nearest neighbor indices
-            for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
-            with their own run of the KNN algorithm. This allows the user
-            to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
-            The custom distance function should match the metric used
-            to train UMAP embeddings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
-            when performing a grid search.
-            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            CSR/COO preferred other formats will go through conversion to CSR
+        knn_graph : array / sparse array / tuple, optional (device or host)
+            Either one of a tuple (indices, distances) of
+            arrays of shape (n_samples, n_neighbors), a pairwise distances
+            dense array of shape (n_samples, n_samples) or a KNN graph
+            sparse array (preferably CSR/COO). This feature allows
+            the precomputation of the KNN outside of UMAP
+            and also allows the use of a custom distance function. This function
+            should match the metric used to train the UMAP embeedings.
+            Takes precedence over the precomputed_knn parameter.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
@@ -1366,155 +1516,3 @@ def simplicial_set_embedding(
             <float*> embedding_ptr
         )
     return embedding
-
-
-cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=True):
-    """Initialize a UMAPParams instance."""
-    if self.n_components < 1:
-        raise ValueError(f"Expected `n_components >= 1`, got {self.n_components}")
-    if self.n_neighbors < 1:
-        raise ValueError(f"Expected `n_neighbors >= 1`, got {self.n_neighbors}")
-    if self.min_dist > self.spread:
-        raise ValueError(f"Expected min_dist ({self.min_dist}) <= spread ({self.spread})")
-
-    if is_fit:
-        build_algo = self.build_algo
-
-        # Compute and stash some inferred params when fitting
-        if self.a is None or self.b is None:
-            self._a, self._b = find_ab_params(self.spread, self.min_dist)
-        else:
-            self._a, self._b = self.a, self.b
-        self._n_neighbors = min(n_rows, self.n_neighbors)
-        if self._n_neighbors != self.n_neighbors:
-            warnings.warn(
-                f"n_neighbors ({self.n_neighbors}) is larger than n_samples ({n_rows}) "
-                f"truncating to {self._n_neighbors}"
-            )
-    else:
-        # Only brute_force_knn supported for transform
-        build_algo = "brute_force_knn"
-        # Use the larger of the input shapes when inferring deterministic behavior
-        n_rows = max(self._raw_data.shape[0], n_rows)
-
-    if build_algo == "auto":
-        if self.random_state is not None:
-            # TODO: for now, users should be able to see the same results
-            # as previous version (i.e. running brute force knn) when they
-            # explicitly pass random_state
-            # https://github.com/rapidsai/cuml/issues/5985
-            build_algo ="brute_force_knn"
-        elif n_rows <= 50_000 or is_sparse:
-            # brute force is faster for small datasets
-            build_algo = "brute_force_knn"
-        else:
-            build_algo = "nn_descent"
-    elif build_algo not in _BUILD_ALGOS:
-        raise ValueError(
-            f"Expected `build_algo` to be one of {list(_BUILD_ALGOS)}, "
-            f"got {build_algo!r}"
-        )
-
-    if build_algo == "nn_descent" and n_rows < 150:
-        # https://github.com/rapidsai/cuvs/issues/184
-        warnings.warn(
-            "using build_algo='nn_descent' on a small dataset (< 150 samples) "
-            "is unstable"
-        )
-
-    params.n_neighbors = self._n_neighbors
-    params.n_components = self.n_components
-    params.n_epochs = self.n_epochs or 0
-    params.learning_rate = self.learning_rate
-    params.initial_alpha = self.learning_rate
-    params.min_dist = self.min_dist
-    params.spread = self.spread
-    params.set_op_mix_ratio = self.set_op_mix_ratio
-    params.local_connectivity = self.local_connectivity
-    params.repulsion_strength = self.repulsion_strength
-    params.negative_sample_rate = self.negative_sample_rate
-    params.transform_queue_size = self.transform_queue_size
-    params.verbosity = self.verbose
-    params.a = self._a
-    params.b = self._b
-    params.target_n_neighbors = self.target_n_neighbors
-    params.target_weight = self.target_weight
-    params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
-    params.p = (self.metric_kwds or {}).get("p", 2.0)
-    params.random_state = check_random_seed(self.random_state)
-
-    # deterministic if a random_state provided or when run on very small inputs
-    params.deterministic = self.random_state is not None or n_rows < 300
-
-    if self.init in _INITS:
-        params.init = _INITS[self.init]
-    else:
-        raise ValueError(
-            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
-        )
-
-    if self.target_metric in _TARGET_METRICS:
-        params.target_metric = _TARGET_METRICS[self.target_metric]
-    else:
-        raise ValueError(
-            f"Expected `target_metric` to be one of {list(_TARGET_METRICS)}, "
-            f"got {self.target_metric!r}"
-        )
-
-    if self.callback is not None:
-        params.callback = (
-            <lib.GraphBasedDimRedCallback*><uintptr_t>self.callback.get_native_callback()
-        )
-
-    if build_algo == "brute_force_knn":
-        params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
-    else:
-        params.build_algo = lib.graph_build_algo.NN_DESCENT
-
-        build_kwds = self.build_kwds or {}
-        params.build_params.n_clusters = build_kwds.get("nnd_n_clusters", 1)
-        params.build_params.overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
-        params.build_params.nn_descent_params.graph_degree = (
-            build_kwds.get("nnd_graph_degree", 64)
-        )
-        params.build_params.nn_descent_params.intermediate_graph_degree = (
-            build_kwds.get("nnd_intermediate_graph_degree", 128)
-        )
-        params.build_params.nn_descent_params.max_iterations = (
-            build_kwds.get("nnd_max_iterations", 20)
-        )
-        params.build_params.nn_descent_params.termination_threshold = (
-            build_kwds.get("nnd_termination_threshold", 0.0001)
-        )
-
-        if (
-            params.build_params.n_clusters > 1
-            and params.build_params.overlap_factor >= params.build_params.n_clusters
-        ):
-            raise ValueError(
-                "If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly "
-                "smaller than n_clusters."
-            )
-
-        if params.build_params.n_clusters < 1:
-            raise ValueError("nnd_n_clusters must be >= 1")
-
-        if params.build_params.nn_descent_params.graph_degree < self._n_neighbors:
-            logger.warn(
-                "to use nn descent as the build algo, nnd_graph_degree should be larger "
-                "than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors."
-            )
-            params.build_params.nn_descent_params.graph_degree = self._n_neighbors
-
-        if (
-            params.build_params.nn_descent_params.intermediate_graph_degree
-            < params.build_params.nn_descent_params.graph_degree
-        ):
-            logger.warn(
-                "to use nn descent as the build algo, nnd_intermediate_graph_degree "
-                "should be larger than or equal to nnd_graph_degree. setting "
-                "nnd_intermediate_graph_degree to nnd_graph_degree"
-            )
-            params.build_params.nn_descent_params.intermediate_graph_degree = (
-                params.build_params.nn_descent_params.graph_degree
-            )
