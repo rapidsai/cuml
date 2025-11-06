@@ -78,18 +78,27 @@ NEXT_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(
 # Set branch references based on RUN_CONTEXT
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
     RAPIDS_BRANCH_NAME="main"
-    RAPIDS_BRANCH_NAME_ENCODED="main"
     echo "Preparing development branch update $CURRENT_TAG => $NEXT_FULL_TAG (targeting main branch)"
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     RAPIDS_BRANCH_NAME="release/${NEXT_SHORT_TAG}"
-    RAPIDS_BRANCH_NAME_ENCODED="release%2F${NEXT_SHORT_TAG}"
     echo "Preparing release branch update $CURRENT_TAG => $NEXT_FULL_TAG (targeting release/${NEXT_SHORT_TAG} branch)"
 fi
+
+# URL encode function for branch names
+function url_encode() {
+    local string="${1}"
+    # Replace forward slashes with %2F for GitHub URLs
+    echo "${string}" | sed 's|/|%2F|g'
+}
+
+# URL encode the branch name for use in GitHub URLs
+RAPIDS_BRANCH_NAME_ENCODED=$(url_encode "${RAPIDS_BRANCH_NAME}")
 
 # Inplace sed replace; workaround for Linux and Mac
 function sed_runner() {
     sed -i.bak ''"$1"'' "$2" && rm -f "${2}".bak
 }
+
 
 
 # Centralized version file update
