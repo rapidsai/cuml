@@ -84,15 +84,6 @@ elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     echo "Preparing release branch update $CURRENT_TAG => $NEXT_FULL_TAG (targeting release/${NEXT_SHORT_TAG} branch)"
 fi
 
-# URL encode function for branch names
-function url_encode() {
-    local string="${1}"
-    # Replace forward slashes with %2F for GitHub URLs
-    echo "${string}" | sed 's|/|%2F|g'
-}
-
-# URL encode the branch name for use in GitHub URLs
-RAPIDS_BRANCH_NAME_ENCODED=$(url_encode "${RAPIDS_BRANCH_NAME}")
 
 # Inplace sed replace; workaround for Linux and Mac
 function sed_runner() {
@@ -136,11 +127,11 @@ done
 # CI image tags of the form {rapids_version}-{something}
 sed_runner "s/:[0-9]*\\.[0-9]*-/:${NEXT_SHORT_TAG}-/g" ./CONTRIBUTING.md
 
-# branch references in docs - use URL encoded version for GitHub URLs
-sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" README.md
-sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" README.md
-sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" python/cuml/README.md
-sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" python/cuml/README.md
+# branch references in docs
+sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME}/|g" README.md
+sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME}/|g" README.md
+sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME}/|g" python/cuml/README.md
+sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME}/|g" python/cuml/README.md
 
 # CI files
 for FILE in .github/workflows/*.yaml .github/workflows/*.yml; do
