@@ -235,18 +235,18 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
 
   } while (n_uniques < k);
 
-  // Use random rotation to select k features uniformly from the n_uniques sorted features
+  // Use deterministic rotation to select k features uniformly from the n_uniques sorted features
   // This avoids the bias of always taking the first k sorted values
+  // Uses hash-based offset instead of RNG to avoid consuming additional random numbers
 
-  // Generate a random offset to rotate the selection window
-  // Thread 0 generates the offset so all threads use the same value
+  // Generate a deterministic offset using hash of nodeid and treeid
+  // Thread 0 computes the offset so all threads use the same value
   __shared__ IdxT random_offset;
   if (threadIdx.x == 0) {
-    raft::random::UniformIntDistParams<IdxT, uint64_t> offset_dist_params;
-    offset_dist_params.start = 0;
-    offset_dist_params.end   = n_uniques;
-    offset_dist_params.diff  = uint64_t(n_uniques);
-    raft::random::custom_next(gen, &random_offset, offset_dist_params, IdxT(0), IdxT(0));
+    uint32_t hash = fnv1a32_basis;
+    hash          = fnv1a32(hash, uint32_t(nodeid));
+    hash          = fnv1a32(hash, uint32_t(treeid));
+    random_offset = IdxT(hash % n_uniques);
   }
   __syncthreads();
 
