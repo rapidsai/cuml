@@ -8,6 +8,8 @@ package_name=$1
 package_dir=$2
 
 source rapids-configure-sccache
+export SCCACHE_NO_CACHE=1
+sccache --stop-server
 source rapids-date-string
 source rapids-init-pip
 
