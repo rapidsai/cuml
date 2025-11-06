@@ -498,10 +498,10 @@ class GetResultsTest : public ::testing::Test {
   {
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
     auto stream                              = this->handle.get_stream();
-    rmm_alloc.deallocate_async(support_matrix.data,
-                               n_coefs * n_cols * sizeof(math_t),
-                               rmm::CUDA_ALLOCATION_ALIGNMENT,
-                               stream);
+    rmm_alloc.deallocate(stream,
+                         support_matrix.data,
+                         n_coefs * n_cols * sizeof(math_t),
+                         rmm::CUDA_ALLOCATION_ALIGNMENT);
     support_matrix.data = nullptr;
   }
 
