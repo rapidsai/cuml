@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
@@ -17,6 +16,7 @@
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/functional>
 #include <cuda_runtime.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
@@ -159,11 +159,9 @@ CUML_KERNEL void min_max_kernel(
   }
 
   value_t block_min, block_max;
-  if (find_min) {
-    block_min = BlockReduce(temp_storage_min).Reduce(thread_min, ML::detail::minimum{});
-  }
+  if (find_min) { block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cuda::minimum{}); }
 
-  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, ML::detail::maximum{});
+  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cuda::maximum{});
 
   // results stored in first thread of block
 
