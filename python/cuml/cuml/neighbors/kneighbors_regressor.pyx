@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupy as cp
 import numpy as np
 
 import cuml.internals
@@ -191,6 +192,16 @@ class KNeighborsRegressor(RegressorMixin,
 
         super().fit(X, convert_dtype=convert_dtype)
 
+        # First get the original dtype before conversion
+        y_temp = input_to_cuml_array(
+            y,
+            order='F',
+            check_rows=self.n_samples_fit_,
+            convert_to_dtype=None,  # Don't convert yet, just to get original dtype
+        )
+        self._y_original_dtype = y_temp.dtype
+
+        # Now convert to float32 for internal use
         y_arr = input_to_cuml_array(
             y,
             order='F',
@@ -207,7 +218,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @cuml.internals.api_base_return_array(get_output_dtype=False)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
@@ -276,5 +287,10 @@ class KNeighborsRegressor(RegressorMixin,
             )
 
         self.handle.sync()
+
+        # Match float precision of original input labels (int labels → float32)
+        orig_dtype = getattr(self, '_y_original_dtype', self._y.dtype)
+        if np.issubdtype(orig_dtype, np.floating) and orig_dtype != np.float32:
+            out = CumlArray(cp.asarray(out).astype(orig_dtype))
 
         return out
