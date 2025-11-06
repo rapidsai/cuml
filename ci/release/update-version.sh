@@ -78,10 +78,12 @@ NEXT_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(
 # Set branch references based on RUN_CONTEXT
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
     RAPIDS_BRANCH_NAME="main"
+    RAPIDS_BRANCH_NAME_ENCODED="main"
     WORKFLOW_BRANCH_REF="main"
     echo "Preparing development branch update $CURRENT_TAG => $NEXT_FULL_TAG (targeting main branch)"
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     RAPIDS_BRANCH_NAME="release/${NEXT_SHORT_TAG}"
+    RAPIDS_BRANCH_NAME_ENCODED="release%2F${NEXT_SHORT_TAG}"
     WORKFLOW_BRANCH_REF="release/${NEXT_SHORT_TAG}"
     echo "Preparing release branch update $CURRENT_TAG => $NEXT_FULL_TAG (targeting release/${NEXT_SHORT_TAG} branch)"
 fi
@@ -127,11 +129,16 @@ done
 # CI image tags of the form {rapids_version}-{something}
 sed_runner "s/:[0-9]*\\.[0-9]*-/:${NEXT_SHORT_TAG}-/g" ./CONTRIBUTING.md
 
-# branch references in docs
-sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME}/|g" README.md
-sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME}/|g" README.md
-sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME}/|g" python/cuml/README.md
-sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME}/|g" python/cuml/README.md
+# branch references in docs - use URL encoded version for GitHub URLs
+sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" README.md
+sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" README.md
+sed_runner "s|/release/[^/]*/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" python/cuml/README.md
+sed_runner "s|/main/|/${RAPIDS_BRANCH_NAME_ENCODED}/|g" python/cuml/README.md
+
+# External RAFT references - always use release branch with URL encoding
+RAFT_BRANCH_ENCODED="branch%2F${NEXT_SHORT_TAG}"
+sed_runner "s|rapidsai/raft/blob/[^/]*/|rapidsai/raft/blob/${RAFT_BRANCH_ENCODED}/|g" cpp/README.md
+sed_runner "s|rapidsai/raft/blob/[^/]*/|rapidsai/raft/blob/${RAFT_BRANCH_ENCODED}/|g" python/cuml/README.md
 
 # CI files
 for FILE in .github/workflows/*.yaml .github/workflows/*.yml; do
