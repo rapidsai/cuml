@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -73,19 +73,6 @@ void kernel_dataset(const raft::handle_t& handle,
                     int nrows_background,
                     float* dataset,
                     float* observation,
-                    int* nsamples,
-                    int len_nsamples,
-                    int maxsample,
-                    uint64_t seed = 0ULL);
-
-void kernel_dataset(const raft::handle_t& handle,
-                    float* X,
-                    int nrows_X,
-                    int ncols,
-                    double* background,
-                    int nrows_background,
-                    double* dataset,
-                    double* observation,
                     int* nsamples,
                     int len_nsamples,
                     int maxsample,

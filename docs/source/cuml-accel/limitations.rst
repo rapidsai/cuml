@@ -187,7 +187,7 @@ RandomForestClassifier
 ``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -196,6 +196,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
@@ -203,7 +204,7 @@ RandomForestRegressor
 ``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -211,6 +212,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 
 sklearn.kernel_ridge
