@@ -120,12 +120,10 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 }
 
 template <typename IdxT>
-__device__ struct CustomDifference {
-  __device__ CustomDifference(IdxT discard_value) : discard_value(discard_value) {}
-  IdxT discard_value = cuda::std::max<IdxT>();
+struct CustomDifference {
   __device__ IdxT operator()(const IdxT& lhs, const IdxT& rhs)
   {
-    if (lhs == rhs or rhs == discard_value)
+    if (lhs == rhs)
       return 0;
     else
       return 1;
@@ -191,7 +189,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
           gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
       else if (mask[thread_local_sample_idx] ==
                0)  // indices that exceed `n_parallel_samples` will not generate
-        items[thread_local_sample_idx] = n;
+        items[thread_local_sample_idx] = n - 1;
       else
         continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
