@@ -44,7 +44,6 @@ from rmm.librmm.device_buffer cimport device_buffer
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 cimport cuml.manifold.umap.lib as lib
-from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -60,7 +59,7 @@ def _joblib_hash(X):
     return joblib.hash(X)
 
 
-def find_ab_params(spread, min_dist):
+def find_ab_params(spread=1.0, min_dist=0.1):
     """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
     Fit a, b params for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
@@ -79,6 +78,16 @@ def find_ab_params(spread, min_dist):
     params, _ = curve_fit(curve, xv, yv)
     return params[0], params[1]
 
+
+_BUILD_ALGOS = {"auto", "brute_force_knn", "nn_descent"}
+
+_INITS = {"random": 0, "spectral": 1}
+
+_TARGET_METRICS = {
+    "euclidean": lib.MetricType.EUCLIDEAN,
+    "l2": lib.MetricType.EUCLIDEAN,
+    "categorical": lib.MetricType.CATEGORICAL,
+}
 
 _METRICS = {
     "l2": DistanceType.L2SqrtExpanded,
@@ -204,25 +213,25 @@ cdef class GraphHolder:
                              handle_.get_stream())
         handle_.sync_stream()
 
-        copy_from_array(graph.vals(), coo_array.data.astype('float32'))
-        copy_from_array(graph.rows(), coo_array.row.astype('int32'))
-        copy_from_array(graph.cols(), coo_array.col.astype('int32'))
+        copy_from_array(graph.vals(), coo_array.data.astype("float32"))
+        copy_from_array(graph.rows(), coo_array.row.astype("int32"))
+        copy_from_array(graph.cols(), coo_array.col.astype("int32"))
 
         return graph
 
-    cdef inline lib.COO* get(self) noexcept:
+    cdef inline lib.COO* get(self) noexcept nogil:
         return self.c_graph.get()
 
-    cdef uintptr_t vals(self):
+    cdef uintptr_t vals(self) noexcept nogil:
         return <uintptr_t>self.get().vals()
 
-    cdef uintptr_t rows(self):
+    cdef uintptr_t rows(self) noexcept nogil:
         return <uintptr_t>self.get().rows()
 
-    cdef uintptr_t cols(self):
+    cdef uintptr_t cols(self) noexcept nogil:
         return <uintptr_t>self.get().cols()
 
-    cdef uint64_t get_nnz(self):
+    cdef uint64_t get_nnz(self) noexcept nogil:
         return self.get().nnz
 
     def get_cupy_coo(self):
@@ -254,16 +263,16 @@ cdef class HostGraphHolder:
         graph.c_graph.reset(new lib.host_COO())
         return graph
 
-    cdef uintptr_t vals(self):
+    cdef uintptr_t vals(self) noexcept nogil:
         return <uintptr_t>self.get().vals()
 
-    cdef uintptr_t rows(self):
+    cdef uintptr_t rows(self) noexcept nogil:
         return <uintptr_t>self.get().rows()
 
-    cdef uintptr_t cols(self):
+    cdef uintptr_t cols(self) noexcept nogil:
         return <uintptr_t>self.get().cols()
 
-    cdef uint64_t get_nnz(self):
+    cdef uint64_t get_nnz(self) noexcept nogil:
         return self.get().get_nnz()
 
     def get_scipy_coo(self):
@@ -287,10 +296,10 @@ cdef class HostGraphHolder:
         graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
         return graph
 
-    cdef inline lib.host_COO* get(self) noexcept:
+    cdef inline lib.host_COO* get(self) noexcept nogil:
         return self.c_graph.get()
 
-    cdef inline lib.cppHostCOO* ref(self) noexcept:
+    cdef inline lib.cppHostCOO* ref(self) noexcept nogil:
         return <lib.cppHostCOO*>self.c_graph.get()
 
     def __dealloc__(self):
@@ -528,8 +537,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-
-    embedding_ = CumlArrayDescriptor(order='C')
+    embedding_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "umap.UMAP"
 
@@ -566,7 +574,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not (isinstance(model.init, str) and model.init in ("spectral", "random")):
+        if not (isinstance(model.init, str) and model.init in _INITS):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -574,7 +582,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         except (ValueError, TypeError, NotImplementedError):
             raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
-        if model.target_metric not in ("categorical", "l2", "euclidean"):
+        if model.target_metric not in _TARGET_METRICS:
             raise UnsupportedOnGPU(f"`target_metric={model.target_metric!r}` is not supported")
 
         if model.unique:
@@ -655,7 +663,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
-            "sparse_fit": model._sparse_data,
+            "_sparse_data": model._sparse_data,
+            "_a": model._a,
+            "_b": model._b,
+            "_n_neighbors": model._n_neighbors,
             "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
@@ -682,12 +693,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "graph_dists_": None,
             "_raw_data": raw_data,
             "_input_hash": input_hash,
-            "_sparse_data": self.sparse_fit,
-            "_a": self.a,
-            "_b": self.b,
+            "_sparse_data": self._sparse_data,
+            "_a": self._a,
+            "_b": self._b,
             "_disconnection_distance": disconnection_distance,
             "_initial_alpha": self.learning_rate,
-            "_n_neighbors": self.n_neighbors,
+            "_n_neighbors": self._n_neighbors,
             "_supervised": self._supervised,
             "_small_data": False,
             "_knn_dists": knn_dists,
@@ -709,59 +720,45 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         # _validate_parameters constructs the rest of umap.UMAP's internal state
         model._validate_parameters()
 
-    def __init__(self, *,
-                 n_neighbors=15,
-                 n_components=2,
-                 metric="euclidean",
-                 metric_kwds=None,
-                 n_epochs=None,
-                 learning_rate=1.0,
-                 min_dist=0.1,
-                 spread=1.0,
-                 set_op_mix_ratio=1.0,
-                 local_connectivity=1.0,
-                 repulsion_strength=1.0,
-                 negative_sample_rate=5,
-                 transform_queue_size=4.0,
-                 init="spectral",
-                 a=None,
-                 b=None,
-                 target_n_neighbors=-1,
-                 target_weight=0.5,
-                 target_metric="categorical",
-                 hash_input=False,
-                 random_state=None,
-                 precomputed_knn=None,
-                 callback=None,
-                 handle=None,
-                 verbose=False,
-                 build_algo="auto",
-                 build_kwds=None,
-                 output_type=None):
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        self.hash_input = hash_input
+    def __init__(
+        self,
+        *,
+        n_neighbors=15,
+        n_components=2,
+        metric="euclidean",
+        metric_kwds=None,
+        n_epochs=None,
+        learning_rate=1.0,
+        min_dist=0.1,
+        spread=1.0,
+        set_op_mix_ratio=1.0,
+        local_connectivity=1.0,
+        repulsion_strength=1.0,
+        negative_sample_rate=5,
+        transform_queue_size=4.0,
+        init="spectral",
+        a=None,
+        b=None,
+        target_n_neighbors=-1,
+        target_weight=0.5,
+        target_metric="categorical",
+        hash_input=False,
+        random_state=None,
+        precomputed_knn=None,
+        callback=None,
+        build_algo="auto",
+        build_kwds=None,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
         self.metric = metric
         self.metric_kwds = metric_kwds
         self.n_epochs = n_epochs
-
-        if init == "spectral" or init == "random":
-            self.init = init
-        else:
-            raise Exception(f"Initialization strategy not supported: {init}")
-
-        if a is None or b is None:
-            a, b = type(self).find_ab_params(spread, min_dist)
-
-        self.a = a
-        self.b = b
-
         self.learning_rate = learning_rate
         self.min_dist = min_dist
         self.spread = spread
@@ -770,386 +767,189 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.repulsion_strength = repulsion_strength
         self.negative_sample_rate = negative_sample_rate
         self.transform_queue_size = transform_queue_size
+        self.init = init
+        self.a = a
+        self.b = b
         self.target_n_neighbors = target_n_neighbors
         self.target_weight = target_weight
-
-        self.deterministic = random_state is not None
-
+        self.target_metric = target_metric
+        self.hash_input = hash_input
         self.random_state = random_state
-
-        if target_metric in {"euclidean", "l2", "categorical"}:
-            self.target_metric = target_metric
-        else:
-            raise Exception(f"Invalid target metric: {target_metric}")
-
-        self.callback = callback  # prevent callback destruction
-
-        self.validate_hyperparams()
-
-        self.sparse_fit = False
-        self._input_hash = None
-
-        self.precomputed_knn = extract_knn_graph(precomputed_knn, n_neighbors)
-
-        if build_algo in {"auto", "brute_force_knn", "nn_descent"}:
-            if self.deterministic and build_algo == "auto":
-                # TODO: for now, users should be able to see the same results
-                # as previous version (i.e. running brute force knn) when they
-                # explicitly pass random_state
-                # https://github.com/rapidsai/cuml/issues/5985
-                with logger.set_level(logger._verbose_to_level(verbose)):
-                    logger.info(
-                        "build_algo set to brute_force_knn because random_state is given"
-                    )
-                self.build_algo ="brute_force_knn"
-            else:
-                self.build_algo = build_algo
-        else:
-            raise Exception(
-                f"Invalid build algo: {build_algo}. Only support 'auto', "
-                "'brute_force_knn' and 'nn_descent'"
-            )
-
+        self.precomputed_knn = precomputed_knn
+        self.callback = callback
+        self.build_algo = build_algo
         self.build_kwds = build_kwds
-        if self.build_kwds and self.build_kwds.get("nnd_n_clusters", 1) < 1:
-            raise ValueError("nnd_n_clusters must be >= 1")
 
-    def validate_hyperparams(self):
-
-        if self.min_dist > self.spread:
-            raise ValueError("min_dist should be <= spread")
-
-    def _build_umap_params(self, sparse):
-        cdef lib.UMAPParams* params = new lib.UMAPParams()
-        params.n_neighbors = <int> self.n_neighbors
-        params.n_components = <int> self.n_components
-        params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
-        params.learning_rate = <float> self.learning_rate
-        params.initial_alpha = <float> self.learning_rate
-        params.min_dist = <float> self.min_dist
-        params.spread = <float> self.spread
-        params.set_op_mix_ratio = <float> self.set_op_mix_ratio
-        params.local_connectivity = <float> self.local_connectivity
-        params.repulsion_strength = <float> self.repulsion_strength
-        params.negative_sample_rate = <int> self.negative_sample_rate
-        params.transform_queue_size = <int> self.transform_queue_size
-        params.verbosity = <level_enum> self.verbose
-        params.a = <float> self.a
-        params.b = <float> self.b
-        params.target_n_neighbors = <int> self.target_n_neighbors
-        params.target_weight = <float> self.target_weight
-        params.random_state = <uint64_t> check_random_seed(self.random_state)
-        params.deterministic = <bool> self.deterministic
-
-        if self.init == "spectral":
-            params.init = <int> 1
-        else:  # self.init == "random"
-            params.init = <int> 0
-
-        if self.target_metric in {"euclidean", "l2"}:
-            params.target_metric = lib.MetricType.EUCLIDEAN
-        else:  # self.target_metric == "categorical"
-            params.target_metric = lib.MetricType.CATEGORICAL
-
-        params.metric = coerce_metric(
-            self.metric, sparse=sparse, build_algo=self.build_algo
-        )
-
-        if self.metric_kwds is None:
-            params.p = <float> 2.0
-        else:
-            params.p = <float>self.metric_kwds.get('p')
-
-        if self.build_algo == "brute_force_knn":
-            params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
-        elif self.build_algo == "nn_descent":
-            kwds = self.build_kwds or {}
-            params.build_params.n_clusters = <uint64_t> kwds.get("nnd_n_clusters", 1)
-            params.build_params.overlap_factor = <uint64_t> kwds.get("nnd_overlap_factor", 2)
-            if (
-                params.build_params.n_clusters > 1
-                and params.build_params.overlap_factor >= params.build_params.n_clusters
-            ):
-                raise ValueError(
-                    "If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly "
-                    "smaller than n_clusters."
-                )
-            if params.build_params.n_clusters < 1:
-                raise ValueError("nnd_n_clusters must be >= 1")
-            params.build_algo = lib.graph_build_algo.NN_DESCENT
-
-            params.build_params.nn_descent_params.graph_degree = (
-                <uint64_t> kwds.get("nnd_graph_degree", 64)
-            )
-            params.build_params.nn_descent_params.intermediate_graph_degree = (
-                <uint64_t> kwds.get("nnd_intermediate_graph_degree", 128)
-            )
-            params.build_params.nn_descent_params.max_iterations = (
-                <uint64_t> kwds.get("nnd_max_iterations", 20)
-            )
-            params.build_params.nn_descent_params.termination_threshold = (
-                <float> kwds.get("nnd_termination_threshold", 0.0001)
-            )
-
-            if params.build_params.nn_descent_params.graph_degree < self.n_neighbors:
-                logger.warn(
-                    "to use nn descent as the build algo, nnd_graph_degree should be larger "
-                    "than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors."
-                )
-                params.build_params.nn_descent_params.graph_degree = self.n_neighbors
-            if (
-                params.build_params.nn_descent_params.intermediate_graph_degree
-                < params.build_params.nn_descent_params.graph_degree
-            ):
-                logger.warn(
-                    "to use nn descent as the build algo, nnd_intermediate_graph_degree "
-                    "should be larger than or equal to nnd_graph_degree. setting "
-                    "nnd_intermediate_graph_degree to nnd_graph_degree"
-                )
-                params.build_params.nn_descent_params.intermediate_graph_degree = (
-                    params.build_params.nn_descent_params.graph_degree
-                )
-        else:
-            raise ValueError(f"Unsupported value for `build_algo`: {self.build_algo}")
-
-        cdef uintptr_t callback_ptr = 0
-        if self.callback:
-            callback_ptr = self.callback.get_native_callback()
-            params.callback = <lib.GraphBasedDimRedCallback*>callback_ptr
-
-        return <size_t>params
-
-    @staticmethod
-    def _destroy_umap_params(ptr):
-        cdef lib.UMAPParams* umap_params = <lib.UMAPParams*> <size_t> ptr
-        del umap_params
-
-    @staticmethod
-    def find_ab_params(spread, min_dist):
-        return find_ab_params(spread, min_dist)
-
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        X='dense_sparse',
-                        skip_parameters_heading=True)
-    def fit(
-        self,
-        X,
-        y=None,
-        *,
-        convert_dtype=True,
-        knn_graph=None
-    ) -> "UMAP":
+    @generate_docstring(
+        convert_dtype_cast="np.float32",
+        X="dense_sparse",
+        skip_parameters_heading=True,
+    )
+    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
 
         Parameters
         ----------
         knn_graph : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of UMAP
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
-        Takes precedence over the precomputed_knn parameter.
+            Either one of a tuple (indices, distances) of
+            arrays of shape (n_samples, n_neighbors), a pairwise distances
+            dense array of shape (n_samples, n_samples) or a KNN graph
+            sparse array (preferably CSR/COO). This feature allows
+            the precomputation of the KNN outside of UMAP
+            and also allows the use of a custom distance function. This function
+            should match the metric used to train the UMAP embeedings.
+            Takes precedence over the precomputed_knn parameter.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
 
-        if self.n_components < 1:
-            raise ValueError("n_components must be an integer greater than or equal to 1")
+        cdef int n_rows = X.shape[0]
+        cdef int n_dims = X.shape[1]
 
-        if y is not None and knn_graph is not None\
-                and self.target_metric != "categorical":
-            raise ValueError("Cannot provide a KNN graph when in \
-            semi-supervised mode with categorical target_metric for now.")
-
-        # Set build_algo based on n_rows
-        if self.build_algo == "auto":
-            if X.shape[0] <= 50000 or self.sparse_fit:
-                # brute force is faster for small datasets
-                logger.info(
-                    "Building knn graph using brute force (configured from build_algo='auto')"
-                )
-                self.build_algo = "brute_force_knn"
-            else:
-                logger.info(
-                    "Building knn graph using nn descent (configured from build_algo='auto')"
-                )
-                self.build_algo = "nn_descent"
-
-        # Handle sparse inputs
-        if is_sparse(X):
-
-            self._raw_data = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                                             convert_format=False)
-            self.n_rows, self.n_dims = self._raw_data.shape
-            self.sparse_fit = True
-            self._sparse_data = True
-            if self.build_algo == "nn_descent":
-                raise ValueError("NN Descent does not support sparse inputs")
-
-        # Handle dense inputs
-        else:
-            self._sparse_data = False
-
-            # automatically put data on host for nn descent regardless of nnd_n_clusters
-            if self.build_algo == "nn_descent":
-                convert_to_mem_type = MemoryType.host
-            else:
-                convert_to_mem_type = MemoryType.device
-
-            self._raw_data, self.n_rows, self.n_dims, _ = \
-                input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None),
-                                    convert_to_mem_type=convert_to_mem_type)
-
-        if self.n_rows <= 1:
-            raise ValueError("There needs to be more than 1 sample to "
-                             "build nearest the neighbors graph")
-
-        if self.n_dims < 1:
+        if n_rows < 2:
             raise ValueError(
-                f"0 feature(s) (shape=({self.n_rows}, {self.n_dims})) "
+                f"Found an array with {n_rows} sample(s) (shape={X.shape}) "
+                f"while a minimum of 2 is required."
+            )
+        if n_dims < 1:
+            raise ValueError(
+                f"Found an array with 0 feature(s) (shape={X.shape}) "
                 f"while a minimum of 1 is required."
             )
 
-        if self.build_algo == "nn_descent" and self.n_rows < 150:
-            # https://github.com/rapidsai/cuvs/issues/184
-            warnings.warn(
-                "using nn_descent as build_algo on a small dataset (< 150 samples) is unstable"
-            )
+        cdef bool X_is_sparse = is_sparse(X)
 
-        if self.n_rows <= 300:
-            # non-deterministic calculations do not work with limited number of samples
-            self.deterministic = True
+        cdef lib.UMAPParams params
+        init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse)
 
-        cdef uintptr_t _knn_dists_ptr = 0
-        cdef uintptr_t _knn_indices_ptr = 0
-        if knn_graph is not None or self.precomputed_knn is not None:
-            if knn_graph is not None:
-                knn_indices, knn_dists = extract_knn_graph(knn_graph,
-                                                           self.n_neighbors)
-            elif self.precomputed_knn is not None:
-                knn_indices, knn_dists = self.precomputed_knn
+        cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
+        cdef size_t X_nnz = 0
+        if X_is_sparse:
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
+            X_ptr = X_m.data.ptr
+            X_indices_ptr = X_m.indices.ptr
+            X_indptr_ptr = X_m.indptr.ptr
+            X_nnz = X_m.nnz
+        else:
+            X_m = input_to_cuml_array(
+                X,
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                convert_to_mem_type=(
+                    MemoryType.host
+                    if params.build_algo == lib.graph_build_algo.NN_DESCENT
+                    else MemoryType.device
+                )
+            ).array
+            X_ptr = X_m.ptr
 
-            if self.sparse_fit:
-                knn_indices, _, _, _ = \
-                    input_to_cuml_array(knn_indices, convert_to_dtype=np.int32)
-
-            _knn_dists_ptr = knn_dists.ptr
-            _knn_indices_ptr = knn_indices.ptr
-            self._knn_dists = knn_dists
-            self._knn_indices = knn_indices
-
-        self.n_neighbors = min(self.n_rows, self.n_neighbors)
-
-        self.n_features_in_ = self.n_dims
-
-        if self.hash_input:
-            self._input_hash = _joblib_hash(self._raw_data.to_output('numpy'))
-
-        cdef uintptr_t _y_raw_ptr = 0
-
+        cdef uintptr_t y_ptr = 0
         if y is not None:
-            y_m, _, _, _ = \
-                input_to_cuml_array(y, check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
-            _y_raw_ptr = y_m.ptr
-            self._supervised = True
+            y_m = input_to_cuml_array(
+                y,
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_rows=n_rows,
+                check_cols=1,
+            ).array
+            y_ptr = y_m.ptr
+
+        cdef uintptr_t knn_dists_ptr = 0, knn_indices_ptr = 0
+        if knn_graph is not None or self.precomputed_knn is not None:
+            if y is not None and self.target_metric != "categorical":
+                raise ValueError(
+                    "Cannot provide a KNN graph when in semi-supervised mode "
+                    "with categorical target_metric for now."
+                )
+
+            knn_indices, knn_dists = extract_knn_graph(
+                (knn_graph if knn_graph is not None else self.precomputed_knn),
+                self._n_neighbors,
+            )
+            if X_is_sparse:
+                knn_indices = input_to_cuml_array(
+                    knn_indices, convert_to_dtype=np.int32
+                ).array
+            knn_indices_ptr = knn_indices.ptr
+            knn_dists_ptr = knn_dists.ptr
         else:
-            self._supervised = False
+            knn_indices = knn_dists = None
 
-        cdef handle_t * handle_ = \
-            <handle_t*> <size_t> self.handle.getHandle()
-        fss_graph = HostGraphHolder.new_graph()
-        cdef lib.UMAPParams* umap_params = \
-            <lib.UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
-
+        cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
+        fss_graph = HostGraphHolder.new_graph()
 
-        if self.sparse_fit:
-            lib.fit_sparse(
-                handle_[0],
-                <int*><uintptr_t> self._raw_data.indptr.ptr,
-                <int*><uintptr_t> self._raw_data.indices.ptr,
-                <float*><uintptr_t> self._raw_data.data.ptr,
-                <size_t> self._raw_data.nnz,
-                <float*> _y_raw_ptr,
-                <int> self.n_rows,
-                <int> self.n_dims,
-                <int*> _knn_indices_ptr,
-                <float*> _knn_dists_ptr,
-                <lib.UMAPParams*> umap_params,
-                embeddings_buffer,
-                dereference(fss_graph.ref())
-            )
-        else:
-            lib.fit(
-                handle_[0],
-                <float*><uintptr_t> self._raw_data.ptr,
-                <float*> _y_raw_ptr,
-                <int> self.n_rows,
-                <int> self.n_dims,
-                <int64_t*> _knn_indices_ptr,
-                <float*> _knn_dists_ptr,
-                <lib.UMAPParams*>umap_params,
-                embeddings_buffer,
-                dereference(fss_graph.ref())
-            )
-
+        with nogil:
+            if X_is_sparse:
+                lib.fit_sparse(
+                    handle_[0],
+                    <int*><uintptr_t> X_indptr_ptr,
+                    <int*><uintptr_t> X_indices_ptr,
+                    <float*><uintptr_t> X_ptr,
+                    X_nnz,
+                    <float*> y_ptr,
+                    n_rows,
+                    n_dims,
+                    <int*> knn_indices_ptr,
+                    <float*> knn_dists_ptr,
+                    &params,
+                    embeddings_buffer,
+                    dereference(fss_graph.ref())
+                )
+            else:
+                lib.fit(
+                    handle_[0],
+                    <float*> X_ptr,
+                    <float*> y_ptr,
+                    n_rows,
+                    n_dims,
+                    <int64_t*> knn_indices_ptr,
+                    <float*> knn_dists_ptr,
+                    &params,
+                    embeddings_buffer,
+                    dereference(fss_graph.ref())
+                )
         self.handle.sync()
 
-        # Transfer ownership of embeddings_buffer to self._embeddings_buffer
-        self._embeddings_buffer = DeviceBuffer.c_from_unique_ptr(
-            move(embeddings_buffer)
-        )
-        embeddings_cupy = cp.ndarray(
-            shape=(self.n_rows, self.n_components),
+        buffer = DeviceBuffer.c_from_unique_ptr(move(embeddings_buffer))
+        embedding = cp.ndarray(
+            shape=(n_rows, self.n_components),
             dtype=np.float32,
             memptr=cp.cuda.MemoryPointer(
-                cp.cuda.UnownedMemory(
-                    self._embeddings_buffer.ptr,
-                    self._embeddings_buffer.size,
-                    self._embeddings_buffer
-                ),
-                0
+                cp.cuda.UnownedMemory(buffer.ptr, buffer.size, buffer), 0
             ),
-            order='C'
+            order="C"
         )
-        self.embedding_ = CumlArray(
-            data=embeddings_cupy,
-            index=self._raw_data.index
-        )
-
+        self.embedding_ = CumlArray(data=embedding, index=X_m.index)
         self.graph_ = fss_graph.get_scipy_coo()
-        del fss_graph
+        self._raw_data = X_m
+        self._sparse_data = X_is_sparse
+        self._supervised = y is not None
+        self._knn_indices = knn_indices
+        self._knn_dists = knn_dists
 
-        UMAP._destroy_umap_params(<size_t>umap_params)
+        if self.hash_input:
+            self._input_hash = _joblib_hash(X_m.to_output("numpy"))
+        else:
+            self._input_hash = None
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        skip_parameters_heading=True,
-                        return_values={'name': 'X_new',
-                                       'type': 'dense',
-                                       'description': 'Embedding of the \
-                                                       data in \
-                                                       low-dimensional space.',
-                                       'shape': '(n_samples, n_components)'})
+    @generate_docstring(
+        convert_dtype_cast="np.float32",
+        skip_parameters_heading=True,
+        return_values={
+            "name": "X_new",
+            "type": "dense",
+            "description": "Embedding of the data in low-dimensional space.",
+            "shape": "(n_samples, n_components)"
+        }
+    )
     @cuml.internals.api_base_fit_transform()
     def fit_transform(
-        self,
-        X,
-        y=None,
-        *,
-        convert_dtype=True,
-        knn_graph=None
+        self, X, y=None, *, convert_dtype=True, knn_graph=None
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -1182,21 +982,18 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
-        self.fit(
-            X,
-            y,
-            convert_dtype=convert_dtype,
-            knn_graph=knn_graph
-        )
+        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
-                                       'type': 'dense',
-                                       'description': 'Embedding of the \
-                                                       data in \
-                                                       low-dimensional space.',
-                                       'shape': '(n_samples, n_components)'})
+    @generate_docstring(
+        convert_dtype_cast="np.float32",
+        return_values={
+            "name": "X_new",
+            "type": "dense",
+            "description": "Embedding of the data in low-dimensional space.",
+            "shape": "(n_samples, n_components)"
+        }
+    )
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
@@ -1208,117 +1005,138 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
-
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
 
-        if is_sparse(X) and not self.sparse_fit:
-            logger.warn("Model was trained on dense data but sparse "
-                        "data was provided to transform(). Converting "
-                        "to dense.")
-            X = X.todense()
-
-        elif not is_sparse(X) and self.sparse_fit:
-            logger.warn("Model was trained on sparse data but dense "
-                        "data was provided to transform(). Converting "
-                        "to sparse.")
-            X = cupyx.scipy.sparse.csr_matrix(X)
-
         if is_sparse(X):
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                                  convert_format=False)
+            X = SparseCumlArray(X, convert_to_dtype=cp.float32)
             index = None
         else:
-            X_m, n_rows, n_cols, _ = \
-                input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
-            index = X_m.index
-        n_rows = X_m.shape[0]
-        n_cols = X_m.shape[1]
+            X = input_to_cuml_array(
+                X,
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+            ).array
+            index = X.index
+
+        if self._sparse_data and not isinstance(X, SparseCumlArray):
+            logger.warn(
+                "Model was trained on sparse data but dense data was provided to "
+                "transform(). Converting to sparse."
+            )
+            X = SparseCumlArray(
+                cupyx.scipy.sparse.csr_matrix(X.to_output("cupy")),
+                convert_to_dtype=cp.float32
+            )
+        elif not self._sparse_data and isinstance(X, SparseCumlArray):
+            logger.warn(
+                "Model was trained on dense data but sparse data was provided to "
+                "transform(). Converting to dense."
+            )
+            X = input_to_cuml_array(
+                X.to_output("cupy").todense(),
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+            ).array
+
+        cdef bool X_is_sparse = self._sparse_data
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        cdef int orig_n_rows = self._raw_data.shape[0]
 
         if n_cols != self.n_features_in_:
             raise ValueError(
-                'X has {} features, but {} is expecting {} features '
-                'as input'.format(n_cols, self.__class__.__name__, self.n_features_in_)
+                f"X has {n_cols} features, but UMAP is expecting "
+                f"{self.n_features_in_} features as input"
             )
 
         if self.hash_input:
-            if _joblib_hash(X_m.to_output('numpy')) == self._input_hash:
+            if _joblib_hash(X.to_output("numpy")) == self._input_hash:
                 return self.embedding_
 
-        embedding = CumlArray.zeros((n_rows, self.n_components),
-                                    order="C", dtype=np.float32,
-                                    index=index)
-        cdef uintptr_t _xformed_ptr = embedding.ptr
+        cdef lib.UMAPParams params
+        init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse, is_fit=False)
 
-        cdef uintptr_t _embed_ptr = self.embedding_.ptr
-
-        # NN Descent doesn't support transform yet
-        if self.build_algo == "nn_descent" or self.build_algo == "auto":
-            self.build_algo = "brute_force_knn"
-            logger.info("Transform can only be run with brute force. Using brute force.")
-
-        if n_rows <= 300 and self._raw_data.shape[0] <= 300:
-            # non-deterministic calculations do not work with limited number of samples
-            self.deterministic = True
-
-        cdef lib.UMAPParams* umap_params = (
-            <lib.UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
+        out = CumlArray.zeros(
+            (n_rows, self.n_components),
+            order="C",
+            dtype=np.float32,
+            index=index
         )
-        cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
-        if self.sparse_fit:
-            lib.transform_sparse(
-                handle_[0],
-                <int*><uintptr_t> X_m.indptr.ptr,
-                <int*><uintptr_t> X_m.indices.ptr,
-                <float*><uintptr_t> X_m.data.ptr,
-                <size_t> X_m.nnz,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <int*><uintptr_t> self._raw_data.indptr.ptr,
-                <int*><uintptr_t> self._raw_data.indices.ptr,
-                <float*><uintptr_t> self._raw_data.data.ptr,
-                <size_t> self._raw_data.nnz,
-                <int> self._raw_data.shape[0],
-                <float*> _embed_ptr,
-                <int> self._raw_data.shape[0],
-                <lib.UMAPParams*> umap_params,
-                <float*> _xformed_ptr,
-            )
+
+        cdef uintptr_t X_ptr, X_indptr_ptr, X_indices_ptr
+        cdef uintptr_t orig_ptr, orig_indptr_ptr, orig_indices_ptr
+        cdef size_t X_nnz, orig_nnz
+        if X_is_sparse:
+            X_indptr_ptr = X.indptr.ptr
+            X_indices_ptr = X.indices.ptr
+            X_ptr = X.data.ptr
+            X_nnz = X.nnz
+            orig_indptr_ptr = self._raw_data.indptr.ptr
+            orig_indices_ptr = self._raw_data.indices.ptr
+            orig_ptr = self._raw_data.data.ptr
+            orig_nnz = self._raw_data.nnz
         else:
-            lib.transform(
-                handle_[0],
-                <float*><uintptr_t> X_m.ptr,
-                <int> n_rows,
-                <int> n_cols,
-                <float*><uintptr_t>self._raw_data.ptr,
-                <int> self._raw_data.shape[0],
-                <float*> _embed_ptr,
-                <int> n_rows,
-                <lib.UMAPParams*> umap_params,
-                <float*> _xformed_ptr
-            )
+            X_ptr = X.ptr
+            orig_ptr = self._raw_data.ptr
+
+        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t embedding_ptr = self.embedding_.ptr
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+
+        with nogil:
+            if X_is_sparse:
+                lib.transform_sparse(
+                    handle_[0],
+                    <int*> X_indptr_ptr,
+                    <int*> X_indices_ptr,
+                    <float*> X_ptr,
+                    X_nnz,
+                    n_rows,
+                    n_cols,
+                    <int*> orig_indptr_ptr,
+                    <int*> orig_indices_ptr,
+                    <float*> orig_ptr,
+                    orig_nnz,
+                    orig_n_rows,
+                    <float*> embedding_ptr,
+                    orig_n_rows,
+                    &params,
+                    <float*> out_ptr,
+                )
+            else:
+                lib.transform(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>orig_ptr,
+                    orig_n_rows,
+                    <float*> embedding_ptr,
+                    orig_n_rows,
+                    &params,
+                    <float*> out_ptr
+                )
         self.handle.sync()
 
-        UMAP._destroy_umap_params(<size_t>umap_params)
-
-        del X_m
-        return embedding
+        return out
 
 
-def fuzzy_simplicial_set(X,
-                         n_neighbors,
-                         random_state=None,
-                         metric="euclidean",
-                         metric_kwds=None,
-                         knn_indices=None,
-                         knn_dists=None,
-                         set_op_mix_ratio=1.0,
-                         local_connectivity=1.0,
-                         verbose=False):
+def fuzzy_simplicial_set(
+    X,
+    n_neighbors,
+    random_state=None,
+    metric="euclidean",
+    metric_kwds=None,
+    knn_indices=None,
+    knn_dists=None,
+    set_op_mix_ratio=1.0,
+    local_connectivity=1.0,
+    verbose=False,
+):
     """Given a set of data X, a neighborhood size, and a measure of distance
     compute the fuzzy simplicial set (here represented as a fuzzy graph in
     the form of a sparse matrix) associated to the data. This is done by
@@ -1373,66 +1191,53 @@ def fuzzy_simplicial_set(X,
         dimension of the manifold.
     verbose: bool (optional, default False)
         Whether to report information on the current progress of the algorithm.
+
     Returns
     -------
     fuzzy_simplicial_set: coo_matrix
-        A fuzzy simplicial set represented as a sparse matrix. The (i,
-        j) entry of the matrix represents the membership strength of the
-        1-simplex between the ith and jth sample points.
+        A fuzzy simplicial set represented as a sparse matrix. The (i, j) entry
+        of the matrix represents the membership strength of the 1-simplex
+        between the ith and jth sample points.
     """
+    X_m = input_to_cuml_array(
+        X,
+        order="C",
+        check_dtype=np.float32,
+        convert_to_dtype=np.float32
+    ).array
 
-    if metric_kwds is None:
-        metric_kwds = {}
+    cdef int n_rows = X_m.shape[0]
+    cdef int n_cols = X_m.shape[1]
 
-    deterministic = random_state is not None
-    if not isinstance(random_state, int):
-        if isinstance(random_state, np.random.RandomState):
-            rs = random_state
-        else:
-            rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=0,
-                                  high=np.iinfo(np.uint64).max,
-                                  dtype=np.uint64)
+    cdef lib.UMAPParams params
+    params.n_neighbors = n_neighbors
+    params.random_state = check_random_seed(random_state)
+    params.deterministic = (random_state is not None or n_rows < 300)
+    params.set_op_mix_ratio = set_op_mix_ratio
+    params.local_connectivity = local_connectivity
+    params.metric = coerce_metric(metric)
+    params.p = (metric_kwds or {}).get("p", 2.0)
+    params.verbosity = logger._verbose_to_level(verbose)
 
-    cdef lib.UMAPParams umap_params
-    umap_params.n_neighbors = <int> n_neighbors
-    umap_params.random_state = <uint64_t> random_state
-    umap_params.deterministic = <bool> deterministic
-    umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
-    umap_params.local_connectivity = <float> local_connectivity
-    umap_params.metric = coerce_metric(metric)
-    if metric_kwds is None:
-        umap_params.p = <float> 2.0
-    else:
-        umap_params.p = <float> metric_kwds.get("p", 2.0)
-    umap_params.verbosity = logger._verbose_to_level(verbose)
-
-    X_m, _, _, _ = \
-        input_to_cuml_array(X,
-                            order='C',
-                            check_dtype=np.float32,
-                            convert_to_dtype=np.float32)
-
+    cdef uintptr_t X_ptr, knn_indices_ptr, knn_dists_ptr
     if knn_indices is not None and knn_dists is not None:
-        knn_indices_m, _, _, _ = \
-            input_to_cuml_array(knn_indices,
-                                order='C',
-                                check_dtype=np.int64,
-                                convert_to_dtype=np.int64)
-        knn_dists_m, _, _, _ = \
-            input_to_cuml_array(knn_dists,
-                                order='C',
-                                check_dtype=np.float32,
-                                convert_to_dtype=np.float32)
+        knn_indices_m = input_to_cuml_array(
+            knn_indices,
+            order="C",
+            check_dtype=np.int64,
+            convert_to_dtype=np.int64
+        ).array
+        knn_dists_m = input_to_cuml_array(
+            knn_dists,
+            order="C",
+            check_dtype=np.float32,
+            convert_to_dtype=np.float32
+        ).array
+
         X_ptr = 0
         knn_indices_ptr = knn_indices_m.ptr
         knn_dists_ptr = knn_dists_m.ptr
     else:
-        X_m, _, _, _ = \
-            input_to_cuml_array(X,
-                                order='C',
-                                check_dtype=np.float32,
-                                convert_to_dtype=np.float32)
         X_ptr = X_m.ptr
         knn_indices_ptr = 0
         knn_dists_ptr = 0
@@ -1441,15 +1246,15 @@ def fuzzy_simplicial_set(X,
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef unique_ptr[lib.COO] fss_graph_ptr = lib.get_graph(
         handle_[0],
-        <float*><uintptr_t> X_ptr,
-        <float*><uintptr_t> NULL,
-        <int> X.shape[0],
-        <int> X.shape[1],
-        <int64_t*><uintptr_t> knn_indices_ptr,
-        <float*><uintptr_t> knn_dists_ptr,
-        &umap_params)
+        <float*> X_ptr,
+        NULL,
+        n_rows,
+        n_cols,
+        <int64_t*> knn_indices_ptr,
+        <float*> knn_dists_ptr,
+        &params
+    )
     fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
-
     return fss_graph.get_cupy_coo()
 
 
@@ -1531,77 +1336,70 @@ def simplicial_set_embedding(
         Key word arguments to be passed to the output_metric function.
     verbose: bool (optional, default False)
         Whether to report information on the current progress of the algorithm.
+
     Returns
     -------
     embedding: array of shape (n_samples, n_components)
         The optimized of ``graph`` into an ``n_components`` dimensional
         euclidean space.
     """
+    X = input_to_cuml_array(
+        data,
+        order="C",
+        convert_to_dtype=(np.float32 if convert_dtype else None),
+        check_dtype=np.float32,
+    ).array
 
-    if metric_kwds is None:
-        metric_kwds = {}
-
-    if output_metric_kwds is None:
-        output_metric_kwds = {}
-
-    if output_metric not in ['euclidean', 'categorical']:
-        raise Exception("Invalid output metric: {}" % output_metric)
-
-    n_epochs = n_epochs if n_epochs else 0
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
 
     if a is None or b is None:
-        spread = 1.0
-        min_dist = 0.1
-        a, b = find_ab_params(spread, min_dist)
+        a, b = find_ab_params()
 
-    deterministic = random_state is not None
-    if not isinstance(random_state, int):
-        if isinstance(random_state, np.random.RandomState):
-            rs = random_state
-        else:
-            rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=0,
-                                  high=np.iinfo(np.uint64).max,
-                                  dtype=np.uint64)
+    cdef lib.UMAPParams params
+    params.n_components = n_components
+    params.initial_alpha = initial_alpha
+    params.learning_rate = initial_alpha
+    params.a = a
+    params.b = b
+    params.repulsion_strength = gamma
+    params.negative_sample_rate = negative_sample_rate
+    params.n_epochs = n_epochs or 0
+    params.random_state = check_random_seed(random_state)
+    params.deterministic = (random_state is not None or n_rows < 300)
+    params.metric = coerce_metric(metric)
+    params.p = (metric_kwds or {}).get("p", 2.0)
+    params.target_weight = (output_metric_kwds or {}).get("p", 0.5)
+    params.verbosity = logger._verbose_to_level(verbose)
 
-    cdef lib.UMAPParams umap_params
-    umap_params.n_components = <int> n_components
-    umap_params.initial_alpha = <float> initial_alpha
-    umap_params.learning_rate = <float> initial_alpha
-    umap_params.a = <float> a
-    umap_params.b = <float> b
-    umap_params.repulsion_strength = <float> gamma
-    umap_params.negative_sample_rate = <int> negative_sample_rate
-    umap_params.n_epochs = <int> n_epochs
-    umap_params.random_state = <uint64_t> random_state
-    umap_params.deterministic = <bool> deterministic
-    if isinstance(init, str):
-        if init == "random":
-            umap_params.init = <int> 0
-        elif init == 'spectral':
-            umap_params.init = <int> 1
-        else:
-            raise ValueError("Invalid initialization strategy")
-
-    umap_params.metric = coerce_metric(metric)
-    if metric_kwds is None:
-        umap_params.p = <float> 2.0
+    if output_metric in _TARGET_METRICS:
+        params.target_metric = _TARGET_METRICS[output_metric]
     else:
-        umap_params.p = <float> metric_kwds.get("p", 2.0)
-    if output_metric == 'euclidean':
-        umap_params.target_metric = lib.MetricType.EUCLIDEAN
-    else:  # output_metric == 'categorical'
-        umap_params.target_metric = lib.MetricType.CATEGORICAL
-    umap_params.target_weight = <float> output_metric_kwds['p'] \
-        if 'p' in output_metric_kwds else 0.5
-    umap_params.verbosity = logger._verbose_to_level(verbose)
+        raise ValueError(
+            f"Expected `output_metric` to be one of {list(_TARGET_METRICS)}, "
+            f"got {output_metric!r}"
+        )
 
-    X_m, _, _, _ = \
-        input_to_cuml_array(data,
-                            order='C',
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=np.float32)
+    cdef bool initialized = is_array_like(init)
+    if initialized:
+        embedding = input_to_cuml_array(
+            init,
+            order="C",
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=np.float32,
+            check_rows=n_rows,
+            check_cols=n_components,
+        ).array
+    elif isinstance(init, str) and init in _INITS:
+        params.init = _INITS[init]
+        embedding = CumlArray.zeros(
+            (n_rows, n_components), order="C", dtype=np.float32, index=X.index,
+        )
+    else:
+        raise ValueError(
+            "Expected `init` to be an array or one of ['random', 'spectral'], "
+            " got `{init!r}`"
+        )
 
     graph = graph.tocoo()
     graph.sum_duplicates()
@@ -1611,44 +1409,179 @@ def simplicial_set_embedding(
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
+    cdef uintptr_t embedding_ptr = embedding.ptr
+    cdef uintptr_t X_ptr = X.ptr
 
-    if isinstance(init, str):
-        if init in ['spectral', 'random']:
-            embedding = CumlArray.zeros((X_m.shape[0], n_components),
-                                        order="C", dtype=np.float32,
-                                        index=X_m.index)
-            lib.init_and_refine(
-                handle_[0],
-                <float*><uintptr_t> X_m.ptr,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <lib.COO*> fss_graph.get(),
-                &umap_params,
-                <float*><uintptr_t> embedding.ptr
-            )
-        else:
-            raise ValueError("Invalid initialization strategy")
-    elif is_array_like(init):
-        embedding, _, _, _ = \
-            input_to_cuml_array(init,
-                                order='C',
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=np.float32,
-                                check_rows=X_m.shape[0],
-                                check_cols=n_components)
+    if initialized:
         lib.refine(
             handle_[0],
-            <float*><uintptr_t> X_m.ptr,
-            <int> X_m.shape[0],
-            <int> X_m.shape[1],
-            <lib.COO*> fss_graph.get(),
-            &umap_params,
-            <float*><uintptr_t> embedding.ptr
+            <float*> X_ptr,
+            n_rows,
+            n_cols,
+            fss_graph.get(),
+            &params,
+            <float*> embedding_ptr
         )
     else:
-        raise ValueError(
-            "Initialization not supported. Please provide a valid "
-            "initialization strategy or a pre-initialized embedding.")
-
+        lib.init_and_refine(
+            handle_[0],
+            <float*> X_ptr,
+            n_rows,
+            n_cols,
+            fss_graph.get(),
+            &params,
+            <float*> embedding_ptr
+        )
     return embedding
+
+
+cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=True):
+    """Initialize a UMAPParams instance."""
+    if self.n_components < 1:
+        raise ValueError(f"Expected `n_components >= 1`, got {self.n_components}")
+    if self.n_neighbors < 1:
+        raise ValueError(f"Expected `n_neighbors >= 1`, got {self.n_neighbors}")
+    if self.min_dist > self.spread:
+        raise ValueError(f"Expected min_dist ({self.min_dist}) <= spread ({self.spread})")
+
+    if is_fit:
+        build_algo = self.build_algo
+
+        # Compute and stash some inferred params when fitting
+        if self.a is None or self.b is None:
+            self._a, self._b = find_ab_params(self.spread, self.min_dist)
+        else:
+            self._a, self._b = self.a, self.b
+        self._n_neighbors = min(n_rows, self.n_neighbors)
+        if self._n_neighbors != self.n_neighbors:
+            warnings.warn(
+                f"n_neighbors ({self.n_neighbors}) is larger than n_samples ({n_rows}) "
+                f"truncating to {self._n_neighbors}"
+            )
+    else:
+        # Only brute_force_knn supported for transform
+        build_algo = "brute_force_knn"
+        # Use the larger of the input shapes when inferring deterministic behavior
+        n_rows = max(self._raw_data.shape[0], n_rows)
+
+    if build_algo == "auto":
+        if self.random_state is not None:
+            # TODO: for now, users should be able to see the same results
+            # as previous version (i.e. running brute force knn) when they
+            # explicitly pass random_state
+            # https://github.com/rapidsai/cuml/issues/5985
+            build_algo ="brute_force_knn"
+        elif n_rows <= 50_000 or is_sparse:
+            # brute force is faster for small datasets
+            build_algo = "brute_force_knn"
+        else:
+            build_algo = "nn_descent"
+    elif build_algo not in _BUILD_ALGOS:
+        raise ValueError(
+            f"Expected `build_algo` to be one of {list(_BUILD_ALGOS)}, "
+            f"got {build_algo!r}"
+        )
+
+    if build_algo == "nn_descent" and n_rows < 150:
+        # https://github.com/rapidsai/cuvs/issues/184
+        warnings.warn(
+            "using build_algo='nn_descent' on a small dataset (< 150 samples) "
+            "is unstable"
+        )
+
+    params.n_neighbors = self._n_neighbors
+    params.n_components = self.n_components
+    params.n_epochs = self.n_epochs or 0
+    params.learning_rate = self.learning_rate
+    params.initial_alpha = self.learning_rate
+    params.min_dist = self.min_dist
+    params.spread = self.spread
+    params.set_op_mix_ratio = self.set_op_mix_ratio
+    params.local_connectivity = self.local_connectivity
+    params.repulsion_strength = self.repulsion_strength
+    params.negative_sample_rate = self.negative_sample_rate
+    params.transform_queue_size = self.transform_queue_size
+    params.verbosity = self.verbose
+    params.a = self._a
+    params.b = self._b
+    params.target_n_neighbors = self.target_n_neighbors
+    params.target_weight = self.target_weight
+    params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
+    params.p = (self.metric_kwds or {}).get("p", 2.0)
+    params.random_state = check_random_seed(self.random_state)
+
+    # deterministic if a random_state provided or when run on very small inputs
+    params.deterministic = self.random_state is not None or n_rows < 300
+
+    if self.init in _INITS:
+        params.init = _INITS[self.init]
+    else:
+        raise ValueError(
+            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
+        )
+
+    if self.target_metric in _TARGET_METRICS:
+        params.target_metric = _TARGET_METRICS[self.target_metric]
+    else:
+        raise ValueError(
+            f"Expected `target_metric` to be one of {list(_TARGET_METRICS)}, "
+            f"got {self.target_metric!r}"
+        )
+
+    if self.callback is not None:
+        params.callback = (
+            <lib.GraphBasedDimRedCallback*><uintptr_t>self.callback.get_native_callback()
+        )
+
+    if build_algo == "brute_force_knn":
+        params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
+    else:
+        params.build_algo = lib.graph_build_algo.NN_DESCENT
+
+        build_kwds = self.build_kwds or {}
+        params.build_params.n_clusters = build_kwds.get("nnd_n_clusters", 1)
+        params.build_params.overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
+        params.build_params.nn_descent_params.graph_degree = (
+            build_kwds.get("nnd_graph_degree", 64)
+        )
+        params.build_params.nn_descent_params.intermediate_graph_degree = (
+            build_kwds.get("nnd_intermediate_graph_degree", 128)
+        )
+        params.build_params.nn_descent_params.max_iterations = (
+            build_kwds.get("nnd_max_iterations", 20)
+        )
+        params.build_params.nn_descent_params.termination_threshold = (
+            build_kwds.get("nnd_termination_threshold", 0.0001)
+        )
+
+        if (
+            params.build_params.n_clusters > 1
+            and params.build_params.overlap_factor >= params.build_params.n_clusters
+        ):
+            raise ValueError(
+                "If nnd_n_clusters > 1, then nnd_overlap_factor must be strictly "
+                "smaller than n_clusters."
+            )
+
+        if params.build_params.n_clusters < 1:
+            raise ValueError("nnd_n_clusters must be >= 1")
+
+        if params.build_params.nn_descent_params.graph_degree < self._n_neighbors:
+            logger.warn(
+                "to use nn descent as the build algo, nnd_graph_degree should be larger "
+                "than or equal to n_neigbors. setting nnd_graph_degree to n_neighbors."
+            )
+            params.build_params.nn_descent_params.graph_degree = self._n_neighbors
+
+        if (
+            params.build_params.nn_descent_params.intermediate_graph_degree
+            < params.build_params.nn_descent_params.graph_degree
+        ):
+            logger.warn(
+                "to use nn descent as the build algo, nnd_intermediate_graph_degree "
+                "should be larger than or equal to nnd_graph_degree. setting "
+                "nnd_intermediate_graph_degree to nnd_graph_degree"
+            )
+            params.build_params.nn_descent_params.intermediate_graph_degree = (
+                params.build_params.nn_descent_params.graph_degree
+            )
