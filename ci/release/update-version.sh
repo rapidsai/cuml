@@ -6,8 +6,9 @@
 ########################
 
 ## Usage
-# Primary interface:   bash update-version.sh <new_version> [--run-context=main|release]
-# Fallback interface:  [RAPIDS_RUN_CONTEXT=main|release] bash update-version.sh <new_version>
+# NOTE: This script must be run from the repository root, not from the ci/release/ directory
+# Primary interface:   bash ci/release/update-version.sh <new_version> [--run-context=main|release]
+# Fallback interface:  [RAPIDS_RUN_CONTEXT=main|release] bash ci/release/update-version.sh <new_version>
 # CLI arguments take precedence over environment variables
 # Defaults to main when no run-context is specified
 
