@@ -176,19 +176,14 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i)
     mask[i] = 0;
 
-  // Specialize BlockRadixSort types
+  // Specialize CUB collective types for this thread block
   typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
-  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD, IdxT>
-    BlockRadixSortPairsT;
-  // BlockAdjacentDifference
   typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
-  // BlockScan
   typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
 
   // Shared memory - union allows reuse for different operations
   __shared__ union TempStorage {
     typename BlockRadixSortT::TempStorage sort;
-    typename BlockRadixSortPairsT::TempStorage sort_pairs;
     typename BlockAdjacentDifferenceT::TempStorage diff;
     typename BlockScanT::TempStorage scan;
   } temp_storage;
