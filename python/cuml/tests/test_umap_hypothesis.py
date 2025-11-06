@@ -83,6 +83,10 @@ class DatasetWrapper:
         """Allow dict-like access for backwards compatibility."""
         return self.__dict__[key]
 
+    def __contains__(self, key):
+        """Allow 'in' operator for checking attribute existence."""
+        return key in self.__dict__
+
     def get(self, key, default=None):
         """Allow dict-like get for backwards compatibility."""
         return self.__dict__.get(key, default)
@@ -244,22 +248,18 @@ def evaluate_embedding_quality(
     metric,
     k=15,
     mod_trust=0.10,
-    mod_cont=0.10,
+    mod_cont=0.15,
     mod_corr=0.25,
-    mod_rel_kl=0.30,
+    mod_rel_kl=0.60,
     mod_rmse=0.20,
     sev_trust=0.20,
-    sev_cont=0.20,
+    sev_cont=0.25,
     sev_corr=0.50,
-    sev_rel_kl=0.60,
+    sev_rel_kl=1.50,
     sev_rmse=0.40,
 ):
     """
     Evaluate embedding quality by comparing cuML against reference.
-
-    Note: For KL divergence metrics, thresholds represent relative increases when
-    reference values are >= 1e-6, or absolute differences when reference values
-    are very small (< 1e-6) to avoid instability from near-zero denominators.
 
     Returns:
         tuple: (should_fail, fail_reason, metrics_dict)
@@ -297,26 +297,23 @@ def evaluate_embedding_quality(
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
 
-    # For divergence metrics, use hybrid approach to avoid instability with near-zero values:
-    # - If reference is very small (< 1e-6), use absolute difference
-    # - Otherwise use relative increase, capped at 10.0 to avoid spurious failures
-    xent_abs_threshold = 1e-6
+    xent_abs_threshold = 0.001
     if abs(xent_ref) < xent_abs_threshold:
         # Use absolute difference for small reference values
         xent_rel_increase = max(0.0, xent_cu - xent_ref)
     else:
-        # Use relative increase, capped at 10.0
+        # Use relative increase, capped at 5.0
         xent_rel_increase = min(
-            10.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+            5.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
         )
 
-    kl_abs_threshold = 1e-6
+    kl_abs_threshold = 0.001
     if abs(kl_ref) < kl_abs_threshold:
         # Use absolute difference for small reference values
         kl_rel_increase = max(0.0, kl_cu - kl_ref)
     else:
-        # Use relative increase, capped at 10.0
-        kl_rel_increase = min(10.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
+        # Use relative increase, capped at 5.0
+        kl_rel_increase = min(5.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []

@@ -4,8 +4,6 @@
 
 import typing as t
 
-import cudf
-import cugraph
 import cupy as cp
 import numpy as np
 from cuvs.common import MultiGpuResources
@@ -13,10 +11,18 @@ from cuvs.distance import pairwise_distance
 from cuvs.neighbors import all_neighbors, brute_force, nn_descent
 from scipy.linalg import orthogonal_procrustes
 from scipy.sparse import csr_matrix
-
-# from scipy.sparse.csgraph import shortest_path  # replaced by cuGraph for speed
+from scipy.sparse.csgraph import shortest_path
 from scipy.stats import pearsonr, spearmanr
 from sklearn.neighbors import NearestNeighbors
+
+# Try to import cuGraph for GPU-accelerated shortest path computation
+try:
+    import cudf
+    import cugraph
+
+    HAS_CUGRAPH = True
+except ImportError:
+    HAS_CUGRAPH = False
 
 # Reference UMAP implementation
 from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
@@ -278,19 +284,28 @@ def _align_edge_weights(g1, g2, reduce: str = "max"):
         return d
 
     d1, d2 = build_dict(c1), build_dict(c2)
+
+    # Only compare edges that exist in at least one graph with non-trivial weight
+    # Use intersection + edges with significant weight in either graph
     edges = d1.keys() | d2.keys()
     p = np.array([d1.get(e, 0.0) for e in edges])
     q = np.array([d2.get(e, 0.0) for e in edges])
-    mask = np.isfinite(p) & np.isfinite(q)
+
+    # Filter: keep edges where at least one graph has weight > 1e-6
+    # This avoids extreme KL values from comparing near-zero weights
+    mask = np.isfinite(p) & np.isfinite(q) & ((p > 1e-6) | (q > 1e-6))
     return p[mask], q[mask]
 
 
 def compute_fuzzy_kl_divergence(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """KL divergence KL(P||Q) between aligned Bernoulli edge weights of g1 and g2.
 
     Returns the sum over edges by default; set average=True for mean per-edge KL.
+
+    Note: eps is used to clip probabilities away from 0 and 1 to avoid log(0).
+    A larger eps reduces sensitivity to structural differences (missing edges).
     """
     p, q = _align_edge_weights(g1, g2)
     if p.size == 0:
@@ -307,7 +322,7 @@ def compute_fuzzy_kl_divergence(
 
 
 def compute_fuzzy_kl_sym(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """Symmetric KL divergence: KL(P||Q) + KL(Q||P)."""
     return compute_fuzzy_kl_divergence(
@@ -316,7 +331,7 @@ def compute_fuzzy_kl_sym(
 
 
 def compute_fuzzy_js_divergence(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """Jensen–Shannon divergence between aligned Bernoulli edge weights.
 
@@ -365,8 +380,8 @@ def compute_edge_jaccard(g1, g2, eps: float = 0.0) -> float:
 
 
 def compute_fuzzy_simplicial_set_metrics(ref_fss_graph, cu_fss_graph):
-    # Symmetric KL divergence between the two fuzzy graphs
-    kl_sym = compute_fuzzy_kl_sym(ref_fss_graph, cu_fss_graph)
+    # Symmetric KL divergence between the two fuzzy graphs (per-edge average for scale-invariance)
+    kl_sym = compute_fuzzy_kl_sym(ref_fss_graph, cu_fss_graph, average=True)
 
     # Jaccard over undirected edges (ignore near-zero weights for stability)
     jacc = compute_edge_jaccard(ref_fss_graph, cu_fss_graph, eps=1e-6)
@@ -545,37 +560,54 @@ def _compute_geodesic_correlations(
     dst_all = np.concatenate([dst_sub, src_sub])
     w_all = np.concatenate([w_sub, w_sub]).astype(np.float32, copy=False)
 
-    # cuGraph on GPU
-    edgelist = cudf.DataFrame(
-        {
-            "src": cp.asarray(src_all),
-            "dst": cp.asarray(dst_all),
-            "w": cp.asarray(w_all),
-        }
-    )
-    G = cugraph.Graph(directed=False)
-    G.from_cudf_edgelist(
-        edgelist,
-        source="src",
-        destination="dst",
-        edge_attr="w",
-        renumber=False,
-    )
-
     # Sources inside the subgraph (heuristic applied to subset)
     num_sources = int(max(256, 0.05 * subset_size))
     num_sources = max(1, min(subset_size - 1, num_sources))
     sources_local = rng.choice(subset_size, size=num_sources, replace=False)
 
-    # Compute distances from multiple sources with per-source SSSP (version-compatible)
+    # Compute distances from multiple sources with per-source SSSP
     high_geo = np.full((num_sources, subset_size), np.inf, dtype=np.float32)
-    for r, s in enumerate(sources_local):
-        res = cugraph.sssp(G, source=int(s))
-        v_np = res["vertex"].to_numpy()
-        d_np = res["distance"].to_numpy()
-        if d_np.dtype != np.float32:
-            d_np = d_np.astype(np.float32, copy=False)
-        high_geo[r, v_np] = d_np
+
+    if HAS_CUGRAPH:
+        # GPU-accelerated path using cuGraph
+        edgelist = cudf.DataFrame(
+            {
+                "src": cp.asarray(src_all),
+                "dst": cp.asarray(dst_all),
+                "w": cp.asarray(w_all),
+            }
+        )
+        G = cugraph.Graph(directed=False)
+        G.from_cudf_edgelist(
+            edgelist,
+            source="src",
+            destination="dst",
+            edge_attr="w",
+            renumber=False,
+        )
+
+        for r, s in enumerate(sources_local):
+            res = cugraph.sssp(G, source=int(s))
+            v_np = res["vertex"].to_numpy()
+            d_np = res["distance"].to_numpy()
+            if d_np.dtype != np.float32:
+                d_np = d_np.astype(np.float32, copy=False)
+            high_geo[r, v_np] = d_np
+    else:
+        # CPU fallback using scipy
+        graph_csr = csr_matrix(
+            (w_all, (src_all, dst_all)), shape=(subset_size, subset_size)
+        )
+
+        for r, s in enumerate(sources_local):
+            dist_matrix = shortest_path(
+                graph_csr,
+                method="auto",
+                directed=False,
+                indices=int(s),
+                return_predecessors=False,
+            )
+            high_geo[r, :] = dist_matrix.astype(np.float32, copy=False)
 
     # Low-d Euclidean distances on GPU, restricted to the same subset/sources
     Y_cp_sub = Y_cp[subset]
@@ -675,8 +707,13 @@ def compute_simplicial_set_embedding_metrics(
         knn_indices=cp.asarray(ld_inds_np),
         knn_dists=cp.asarray(ld_dists_np),
     )
-    metrics["fuzzy_kl_divergence"] = float(compute_fuzzy_kl_divergence(hg, lg))
-    metrics["fuzzy_sym_kl_divergence"] = float(compute_fuzzy_kl_sym(hg, lg))
+    # Use average=True to get per-edge KL, making it scale-invariant and comparable across datasets
+    metrics["fuzzy_kl_divergence"] = float(
+        compute_fuzzy_kl_divergence(hg, lg, average=True)
+    )
+    metrics["fuzzy_sym_kl_divergence"] = float(
+        compute_fuzzy_kl_sym(hg, lg, average=True)
+    )
 
     # 4) Topology Preservation via Persistent Homology (CPU via ripser)
 

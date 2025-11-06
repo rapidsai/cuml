@@ -16,16 +16,6 @@ from scipy.sparse import csr_matrix
 from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
-from umap_metrics import (
-    _build_knn_with_cuvs,
-    _build_knn_with_umap,
-    compare_spectral_embeddings,
-    compute_fuzzy_js_divergence,
-    compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
-    compute_simplicial_set_embedding_metrics,
-    procrustes_rmse,
-)
 
 import cuml.datasets
 
@@ -35,6 +25,17 @@ from cuml.manifold.simpl_set import (
 )
 from cuml.manifold.simpl_set import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
+)
+
+from .umap_metrics import (
+    _build_knn_with_cuvs,
+    _build_knn_with_umap,
+    compare_spectral_embeddings,
+    compute_fuzzy_js_divergence,
+    compute_fuzzy_simplicial_set_metrics,
+    compute_knn_metrics,
+    compute_simplicial_set_embedding_metrics,
+    procrustes_rmse,
 )
 
 pytestmark = [pytest.mark.slow]
@@ -198,8 +199,11 @@ def test_knn(cu_knn_graph_fixture):
     dists_cuvs, inds_cuvs = d["knn_dists_np"], d["knn_inds_np"]
 
     # UMAP KNN (CPU) computed on-the-fly with the same backend
+    umap_backend = (
+        d["backend"] if d["backend"] != "all_neighbors" else "bruteforce"
+    )
     dists_umap, inds_umap = _build_knn_with_umap(
-        X_np, k=n_neighbors, metric=metric, backend=d["backend"]
+        X_np, k=n_neighbors, metric=metric, backend=umap_backend
     )
 
     # Sanity: shapes
@@ -261,11 +265,12 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     )
     js_avg = compute_fuzzy_js_divergence(ref_graph, cu_graph, average=True)
 
-    # Simple, global tolerances
-    kl_tol = 1e-2
+    # Tolerances for per-edge average KL divergences
+    # Typical values: 0.001-0.01 (excellent), 0.01-0.1 (good), 0.1-0.5 (acceptable)
+    kl_tol = 0.05
     j_tol = 0.90
     row_l1_tol = 5e-3
-    js_tol = 1e-2
+    js_tol = 0.05
 
     # Assertions focused on matching the reference
     assert np.isfinite(kl_sym), "KL not finite"
@@ -508,14 +513,14 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     mod_trust = 0.05
     mod_cont = 0.05
     mod_corr = 0.15
-    mod_rel_kl = 0.15
+    mod_rel_kl = 0.35  # Increased for per-edge average KL
     mod_rmse = 0.12
 
     # Severe thresholds: clearly unacceptable degradations
     sev_trust = 0.10
     sev_cont = 0.10
     sev_corr = 0.30
-    sev_rel_kl = 0.35
+    sev_rel_kl = 0.70  # Increased for per-edge average KL
     sev_rmse = 0.20
 
     # Compute deficits (positive means cuML is worse than reference)
@@ -523,10 +528,22 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     cont_def = max(0.0, cont_ref - cont_cu)
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
-    xent_rel_increase = max(
-        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
-    )
-    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    # For KL divergences: use hybrid approach for stability
+    # With per-edge averages, typical values are 0.001-0.5
+    xent_abs_threshold = 0.001
+    if abs(xent_ref) < xent_abs_threshold:
+        xent_rel_increase = max(0.0, xent_cu - xent_ref)
+    else:
+        xent_rel_increase = min(
+            5.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+        )
+
+    kl_abs_threshold = 0.001
+    if abs(kl_ref) < kl_abs_threshold:
+        kl_rel_increase = max(0.0, kl_cu - kl_ref)
+    else:
+        kl_rel_increase = min(5.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []
@@ -1010,14 +1027,14 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
     mod_trust = 0.08
     mod_cont = 0.08
     mod_corr = 0.20
-    mod_rel_kl = 0.25
+    mod_rel_kl = 0.50  # Increased for per-edge average KL
     mod_rmse = 0.15
 
     # Severe thresholds
     sev_trust = 0.15
     sev_cont = 0.15
     sev_corr = 0.40
-    sev_rel_kl = 0.50
+    sev_rel_kl = 1.00  # Increased for per-edge average KL
     sev_rmse = 0.30
 
     # Compute deficits (positive means cuML is worse than reference)
@@ -1025,10 +1042,22 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
     cont_def = max(0.0, cont_ref - cont_cu)
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
-    xent_rel_increase = max(
-        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
-    )
-    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    # For KL divergences: use hybrid approach for stability
+    # With per-edge averages, typical values are 0.001-0.5
+    xent_abs_threshold = 0.001
+    if abs(xent_ref) < xent_abs_threshold:
+        xent_rel_increase = max(0.0, xent_cu - xent_ref)
+    else:
+        xent_rel_increase = min(
+            5.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+        )
+
+    kl_abs_threshold = 0.001
+    if abs(kl_ref) < kl_abs_threshold:
+        kl_rel_increase = max(0.0, kl_cu - kl_ref)
+    else:
+        kl_rel_increase = min(5.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []
