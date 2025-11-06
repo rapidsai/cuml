@@ -38,7 +38,6 @@ from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 from rmm.librmm.device_buffer cimport device_buffer
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
@@ -170,86 +169,63 @@ def coerce_metric(metric, sparse=False, build_algo="brute_force_knn"):
     return out
 
 
-cdef class GraphHolder:
-    cdef unique_ptr[lib.COO] c_graph
+cdef class RaftCOO:
+    """A wrapper around a `raft::sparse::COO`"""
+    cdef unique_ptr[lib.COO] ptr
+
+    def __dealloc__(self):
+        self.ptr.reset(NULL)
 
     @staticmethod
-    cdef GraphHolder new_graph(cuda_stream_view stream):
-        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
-        graph.c_graph.reset(new lib.COO(stream))
-        return graph
+    cdef RaftCOO from_ptr(unique_ptr[lib.COO]& ptr):
+        """Create a new instance, taking ownership of an existing `unique_ptr[COO]`"""
+        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
+        self.ptr = move(ptr)
+        return self
 
     @staticmethod
-    cdef GraphHolder from_ptr(unique_ptr[lib.COO]& ptr):
-        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
-        graph.c_graph = move(ptr)
-        return graph
+    cdef RaftCOO from_cupy_coo(handle, arr):
+        """Create a new instance as a copy of a `cupyx.scipy.sparse.coo_matrix"""
+        def copy_from_cupy(dst_ptr, src, dtype):
+            src = src.astype(dtype, copy=False)
+            size = src.size * src.dtype.itemsize
+            dest_mem = cp.cuda.UnownedMemory(dst_ptr, size, owner=None)
+            dest_mptr = cp.cuda.memory.MemoryPointer(dest_mem, 0)
+            src_mem = cp.cuda.UnownedMemory(src.data.ptr, size, owner=None)
+            src_mptr = cp.cuda.memory.MemoryPointer(src_mem, 0)
+            dest_mptr.copy_from_device(src_mptr, size)
 
-    @staticmethod
-    cdef GraphHolder from_coo_array(handle, coo_array):
-        def copy_from_array(dst_raft_coo_ptr, src_cp_coo):
-            size = src_cp_coo.size
-            itemsize = np.dtype(src_cp_coo.dtype).itemsize
-            dest_buff = cp.cuda.UnownedMemory(ptr=dst_raft_coo_ptr,
-                                              size=size * itemsize,
-                                              owner=None,
-                                              device_id=-1)
-            dest_mptr = cp.cuda.memory.MemoryPointer(dest_buff, 0)
-            src_buff = cp.cuda.UnownedMemory(ptr=src_cp_coo.data.ptr,
-                                             size=size * itemsize,
-                                             owner=None,
-                                             device_id=-1)
-            src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
-            dest_mptr.copy_from_device(src_mptr, size * itemsize)
-
-        cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
+        cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        graph.c_graph.reset(new lib.COO(handle_.get_stream()))
-        graph.get().allocate(coo_array.nnz,
-                             coo_array.shape[0],
-                             False,
-                             handle_.get_stream())
+        cdef lib.COO* coo = new lib.COO(handle_.get_stream())
+        self.ptr.reset(coo)
+        coo.allocate(arr.nnz, arr.shape[0], False, handle_.get_stream())
         handle_.sync_stream()
 
-        copy_from_array(graph.vals(), coo_array.data.astype("float32"))
-        copy_from_array(graph.rows(), coo_array.row.astype("int32"))
-        copy_from_array(graph.cols(), coo_array.col.astype("int32"))
+        copy_from_cupy(<uint64_t>coo.vals(), arr.data, np.float32)
+        copy_from_cupy(<uint64_t>coo.rows(), arr.row, np.int32)
+        copy_from_cupy(<uint64_t>coo.cols(), arr.col, np.int32)
 
-        return graph
+        return self
 
-    cdef inline lib.COO* get(self) noexcept nogil:
-        return self.c_graph.get()
+    def view_cupy_coo(self):
+        """Create a new `cupyx.scipy.sparse.coo_matrix` as a view of this COO"""
+        cdef lib.COO* coo = self.get()
 
-    cdef uintptr_t vals(self) noexcept nogil:
-        return <uintptr_t>self.get().vals()
-
-    cdef uintptr_t rows(self) noexcept nogil:
-        return <uintptr_t>self.get().rows()
-
-    cdef uintptr_t cols(self) noexcept nogil:
-        return <uintptr_t>self.get().cols()
-
-    cdef uint64_t get_nnz(self) noexcept nogil:
-        return self.get().nnz
-
-    def get_cupy_coo(self):
-        def create_nonowning_cp_array(ptr, dtype):
-            mem = cp.cuda.UnownedMemory(ptr=ptr,
-                                        size=(self.get_nnz() *
-                                              np.dtype(dtype).itemsize),
-                                        owner=self,
-                                        device_id=-1)
+        def view_as_cupy(ptr, dtype):
+            dtype = np.dtype(dtype)
+            mem = cp.cuda.UnownedMemory(ptr, (coo.nnz * dtype.itemsize), owner=self)
             memptr = cp.cuda.memory.MemoryPointer(mem, 0)
-            return cp.ndarray(self.get_nnz(), dtype=dtype, memptr=memptr)
+            return cp.ndarray(coo.nnz, dtype=dtype, memptr=memptr)
 
-        vals = create_nonowning_cp_array(self.vals(), np.float32)
-        rows = create_nonowning_cp_array(self.rows(), np.int32)
-        cols = create_nonowning_cp_array(self.cols(), np.int32)
+        vals = view_as_cupy(<uint64_t>coo.vals(), np.float32)
+        rows = view_as_cupy(<uint64_t>coo.rows(), np.int32)
+        cols = view_as_cupy(<uint64_t>coo.cols(), np.int32)
 
         return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
 
-    def __dealloc__(self):
-        self.c_graph.reset(NULL)
+    cdef inline lib.COO* get(self) noexcept nogil:
+        return self.ptr.get()
 
 
 cdef copy_raft_host_coo_to_scipy_coo(lib.HostCOO &coo):
@@ -1211,8 +1187,8 @@ def fuzzy_simplicial_set(
         <float*> knn_dists_ptr,
         &params
     )
-    fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
-    return fss_graph.get_cupy_coo()
+    fss_graph = RaftCOO.from_ptr(fss_graph_ptr)
+    return fss_graph.view_cupy_coo()
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -1365,7 +1341,7 @@ def simplicial_set_embedding(
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(handle, graph)
+    cdef RaftCOO fss_graph = RaftCOO.from_cupy_coo(handle, graph)
     cdef uintptr_t embedding_ptr = embedding.ptr
     cdef uintptr_t X_ptr = X.ptr
 
