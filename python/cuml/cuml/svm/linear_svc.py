@@ -18,12 +18,13 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin
+from cuml.linear_model.base import LinearClassifierMixin
 from cuml.svm.svc import apply_class_weight
 
 __all__ = ("LinearSVC",)
 
 
-class LinearSVC(Base, InteropMixin, ClassifierMixin):
+class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     """
     Linear Support Vector Classification.
 
@@ -297,36 +298,6 @@ class LinearSVC(Base, InteropMixin, ClassifierMixin):
         self.n_iter_ = n_iter
         self.prob_scale_ = prob_scale
         return self
-
-    @generate_docstring(
-        return_values={
-            "name": "score",
-            "type": "dense",
-            "description": "Confidence score",
-            "shape": "(n_samples,) or (n_samples, n_classes)",
-        },
-    )
-    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
-        """Predict confidence scores for samples."""
-        X = input_to_cuml_array(
-            X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
-            order="K",
-        ).array
-        X_cp = X.to_output("cupy")
-
-        coef = self.coef_.to_output("cupy")
-        intercept = self.intercept_
-        if isinstance(intercept, CumlArray):
-            intercept = intercept.to_output("cupy")
-
-        out = X_cp @ coef.T
-        out += intercept
-        if out.ndim > 1 and out.shape[1] == 1:
-            out = out.reshape(-1)
-        return CumlArray(out, index=X.index)
 
     @generate_docstring(
         return_values={

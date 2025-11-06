@@ -240,32 +240,5 @@ void kernel_dataset(const raft::handle_t& handle,
                       seed);
 }
 
-void kernel_dataset(const raft::handle_t& handle,
-                    float* X,
-                    int nrows_X,
-                    int ncols,
-                    double* background,
-                    int nrows_background,
-                    double* dataset,
-                    double* observation,
-                    int* nsamples,
-                    int len_nsamples,
-                    int maxsample,
-                    uint64_t seed)
-{
-  kernel_dataset_impl(handle,
-                      X,
-                      nrows_X,
-                      ncols,
-                      background,
-                      nrows_background,
-                      dataset,
-                      observation,
-                      nsamples,
-                      len_nsamples,
-                      maxsample,
-                      seed);
-}
-
 }  // namespace Explainer
 }  // namespace ML
