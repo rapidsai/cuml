@@ -81,10 +81,10 @@ cdef extern from "raft/sparse/coo.hpp" nogil:
 
 cdef extern from "raft/core/host_coo_matrix.hpp" nogil:
     """
-    class host_COO : raft::host_coo_matrix<float, int, int, uint64_t>
+    class HostCOO : public raft::host_coo_matrix<float, int, int, uint64_t>
     {
         public:
-            host_COO()
+            HostCOO()
                 : raft::host_coo_matrix<float, int, int, uint64_t>(
                     raft::resources{}, 0, 0, 0) {}
             uint64_t get_nnz() {
@@ -105,15 +105,12 @@ cdef extern from "raft/core/host_coo_matrix.hpp" nogil:
     };
     """
 
-    cdef cppclass host_COO:
-        host_COO()
+    cdef cppclass HostCOO:
+        HostCOO()
         uint64_t get_nnz()
         int* rows()
         int* cols()
         float* vals()
-
-    cdef cppclass cppHostCOO "raft::host_coo_matrix<float, int, int, uint64_t>":
-        pass
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
@@ -126,7 +123,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              float * knn_dists,
              UMAPParams * params,
              unique_ptr[device_buffer] & embeddings,
-             cppHostCOO & graph) except +
+             HostCOO & graph) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -140,7 +137,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                     float * knn_dists,
                     UMAPParams *params,
                     unique_ptr[device_buffer] & embeddings,
-                    cppHostCOO & graph) except +
+                    HostCOO & graph) except +
 
     void transform(handle_t & handle,
                    float * X,

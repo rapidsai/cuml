@@ -33,7 +33,6 @@ from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.utils import check_random_seed
 
-from cython.operator cimport dereference
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
@@ -107,7 +106,6 @@ _METRICS = {
     "jaccard": DistanceType.JaccardExpanded,
     "canberra": DistanceType.Canberra
 }
-
 
 _SUPPORTED_METRICS = {
     "nn_descent": {
@@ -254,56 +252,15 @@ cdef class GraphHolder:
         self.c_graph.reset(NULL)
 
 
-cdef class HostGraphHolder:
-    cdef unique_ptr[lib.host_COO] c_graph
-
-    @staticmethod
-    cdef HostGraphHolder new_graph():
-        cdef HostGraphHolder graph = HostGraphHolder.__new__(HostGraphHolder)
-        graph.c_graph.reset(new lib.host_COO())
-        return graph
-
-    cdef uintptr_t vals(self) noexcept nogil:
-        return <uintptr_t>self.get().vals()
-
-    cdef uintptr_t rows(self) noexcept nogil:
-        return <uintptr_t>self.get().rows()
-
-    cdef uintptr_t cols(self) noexcept nogil:
-        return <uintptr_t>self.get().cols()
-
-    cdef uint64_t get_nnz(self) noexcept nogil:
-        return self.get().get_nnz()
-
-    def get_scipy_coo(self):
-        """Convert the host graph to a SciPy COO sparse matrix.
-
-        Returns
-        -------
-        scipy.sparse.coo_matrix
-            A copy of the graph data as a SciPy COO sparse matrix.
-            Note that this returns a copy of the data, not a view.
-        """
-        def create_nonowning_numpy_array(ptr, dtype):
-            c_type = np.ctypeslib.as_ctypes_type(dtype)
-            c_pointer = ctypes.cast(ptr, ctypes.POINTER(c_type))
-            return np.ctypeslib.as_array(c_pointer, shape=(self.get_nnz(),))
-
-        vals = create_nonowning_numpy_array(self.vals(), np.float32)
-        rows = create_nonowning_numpy_array(self.rows(), np.int32)
-        cols = create_nonowning_numpy_array(self.cols(), np.int32)
-
-        graph = scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
-        return graph
-
-    cdef inline lib.host_COO* get(self) noexcept nogil:
-        return self.c_graph.get()
-
-    cdef inline lib.cppHostCOO* ref(self) noexcept nogil:
-        return <lib.cppHostCOO*>self.c_graph.get()
-
-    def __dealloc__(self):
-        self.c_graph.reset(NULL)
+cdef copy_raft_host_coo_to_scipy_coo(lib.HostCOO &coo):
+    """Copy a `raft::host_coo_matrix` to a `scipy.sparse.coo_matrix`"""
+    nnz = coo.get_nnz()
+    i32 = ctypes.POINTER(ctypes.c_int)
+    f32 = ctypes.POINTER(ctypes.c_float)
+    vals = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.vals(), f32), shape=(nnz,))
+    rows = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.rows(), i32), shape=(nnz,))
+    cols = np.ctypeslib.as_array(ctypes.cast(<uintptr_t>coo.cols(), i32), shape=(nnz,))
+    return scipy.sparse.coo_matrix((vals.copy(), (rows.copy(), cols.copy())))
 
 
 class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
@@ -879,7 +836,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
-        fss_graph = HostGraphHolder.new_graph()
+        cdef lib.HostCOO fss_graph = lib.HostCOO()
 
         with nogil:
             if X_is_sparse:
@@ -896,7 +853,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     <float*> knn_dists_ptr,
                     &params,
                     embeddings_buffer,
-                    dereference(fss_graph.ref())
+                    fss_graph,
                 )
             else:
                 lib.fit(
@@ -909,7 +866,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     <float*> knn_dists_ptr,
                     &params,
                     embeddings_buffer,
-                    dereference(fss_graph.ref())
+                    fss_graph,
                 )
         self.handle.sync()
 
@@ -923,7 +880,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             order="C"
         )
         self.embedding_ = CumlArray(data=embedding, index=X_m.index)
-        self.graph_ = fss_graph.get_scipy_coo()
+        self.graph_ = copy_raft_host_coo_to_scipy_coo(fss_graph)
         self._raw_data = X_m
         self._sparse_data = X_is_sparse
         self._supervised = y is not None
