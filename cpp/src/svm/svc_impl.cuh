@@ -64,8 +64,7 @@ void svcFitX(const raft::handle_t& handle,
     rmm::device_uvector<math_t> unique_labels(0, stream);
     model.n_classes = raft::label::getUniquelabels(unique_labels, labels, n_rows, stream);
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-    model.unique_labels                      = (math_t*)rmm_alloc.allocate_async(
-      model.n_classes * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+    model.unique_labels = (math_t*)rmm_alloc.allocate(stream, model.n_classes * sizeof(math_t));
     raft::copy(model.unique_labels, unique_labels.data(), model.n_classes, stream);
     handle_impl.sync_stream(stream);
   }
@@ -352,43 +351,25 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
   cudaStream_t stream                      = handle.get_stream();
   rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-  if (m.dual_coefs)
-    rmm_alloc.deallocate_async(
-      m.dual_coefs, m.n_support * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-  if (m.support_idx)
-    rmm_alloc.deallocate_async(
-      m.support_idx, m.n_support * sizeof(int), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+  if (m.dual_coefs) rmm_alloc.deallocate(stream, m.dual_coefs, m.n_support * sizeof(math_t));
+  if (m.support_idx) rmm_alloc.deallocate(stream, m.support_idx, m.n_support * sizeof(int));
   if (m.support_matrix.indptr) {
-    rmm_alloc.deallocate_async(m.support_matrix.indptr,
-                               (m.n_support + 1) * sizeof(int),
-                               rmm::CUDA_ALLOCATION_ALIGNMENT,
-                               stream);
+    rmm_alloc.deallocate(stream, m.support_matrix.indptr, (m.n_support + 1) * sizeof(int));
     m.support_matrix.indptr = nullptr;
   }
   if (m.support_matrix.indices) {
-    rmm_alloc.deallocate_async(m.support_matrix.indices,
-                               m.support_matrix.nnz * sizeof(int),
-                               rmm::CUDA_ALLOCATION_ALIGNMENT,
-                               stream);
+    rmm_alloc.deallocate(stream, m.support_matrix.indices, m.support_matrix.nnz * sizeof(int));
     m.support_matrix.indices = nullptr;
   }
   if (m.support_matrix.data) {
     if (m.support_matrix.nnz == -1) {
-      rmm_alloc.deallocate_async(m.support_matrix.data,
-                                 m.n_support * m.n_cols * sizeof(math_t),
-                                 rmm::CUDA_ALLOCATION_ALIGNMENT,
-                                 stream);
+      rmm_alloc.deallocate(stream, m.support_matrix.data, m.n_support * m.n_cols * sizeof(math_t));
     } else {
-      rmm_alloc.deallocate_async(m.support_matrix.data,
-                                 m.support_matrix.nnz * sizeof(math_t),
-                                 rmm::CUDA_ALLOCATION_ALIGNMENT,
-                                 stream);
+      rmm_alloc.deallocate(stream, m.support_matrix.data, m.support_matrix.nnz * sizeof(math_t));
     }
   }
   m.support_matrix.nnz = -1;
-  if (m.unique_labels)
-    rmm_alloc.deallocate_async(
-      m.unique_labels, m.n_classes * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+  if (m.unique_labels) rmm_alloc.deallocate(stream, m.unique_labels, m.n_classes * sizeof(math_t));
   m.dual_coefs    = nullptr;
   m.support_idx   = nullptr;
   m.unique_labels = nullptr;

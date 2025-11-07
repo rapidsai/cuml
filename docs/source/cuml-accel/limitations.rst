@@ -279,7 +279,6 @@ ElasticNet
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 Ridge
 ^^^^^
@@ -288,10 +287,6 @@ Ridge
 
 - If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 Lasso
 ^^^^^
@@ -306,7 +301,6 @@ Lasso
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 
 sklearn.manifold

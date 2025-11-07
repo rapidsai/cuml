@@ -5,7 +5,6 @@
 
 #include <common/nvtx.hpp>
 
-#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>
@@ -27,6 +26,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
+#include <cuda/functional>
 #include <cuda/std/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
@@ -80,7 +80,7 @@ CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nCl
       maxVal = raft::max<T>(maxVal, t);
     }
     j -= BX;
-    maxVal = WarpRed(warpStore).Reduce(maxVal, ML::detail::maximum{});
+    maxVal = WarpRed(warpStore).Reduce(maxVal, cuda::maximum{});
     maxVal = cub::ShuffleIndex<BX>(maxVal, 0, 0xFFFFFFFFU);
   }
   // At this point, either `j` refers to the last valid column idx worked
