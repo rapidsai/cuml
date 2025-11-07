@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -155,7 +155,7 @@ class Fixture : public ::benchmark::Fixture {
   {
     auto nBytes  = len * sizeof(T);
     auto d_alloc = rmm::mr::get_current_device_resource();
-    ptr          = (T*)d_alloc->allocate(nBytes, stream);
+    ptr          = (T*)d_alloc->allocate(stream, nBytes);
     if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
 
@@ -163,7 +163,7 @@ class Fixture : public ::benchmark::Fixture {
   void dealloc(T* ptr, size_t len)
   {
     auto d_alloc = rmm::mr::get_current_device_resource();
-    d_alloc->deallocate(ptr, len * sizeof(T), stream);
+    d_alloc->deallocate(stream, ptr, len * sizeof(T));
   }
 
   cudaStream_t stream = 0;

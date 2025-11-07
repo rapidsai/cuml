@@ -77,6 +77,12 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                 f"got {self.algorithm!r}"
             )
 
+        if self.n_components > n_cols:
+            raise ValueError(
+                f"`n_components` ({self.n_components}) must be <= than the "
+                f"number of features in X ({n_cols})"
+            )
+
         # Allocate output arrays
         components = CumlArray.zeros((self.n_components, n_cols), dtype=dtype)
         explained_variance = CumlArray.zeros(self.n_components, dtype=dtype)

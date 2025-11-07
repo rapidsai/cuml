@@ -74,7 +74,8 @@ class ElasticNet(BaseEstimator):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
-
+    n_iter_ : int
+        The number of iterations taken by the solver.
 
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
