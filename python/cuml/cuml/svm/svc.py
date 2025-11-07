@@ -479,6 +479,7 @@ class SVC(SVMBase, ClassifierMixin):
                 convert_to_dtype=(
                     None if X.dtype in (np.float32, np.float64) else np.float32
                 ),
+                check_rows=y.shape[0],
             )
         else:
             X = input_to_cuml_array(

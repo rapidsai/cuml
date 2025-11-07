@@ -435,7 +435,6 @@ SVC
 ``SVC`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 - If ``y`` is multiclass.
 
 SVR
@@ -444,7 +443,6 @@ SVR
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 
 LinearSVC
 ^^^^^^^^^
