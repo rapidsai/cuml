@@ -1460,10 +1460,20 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     RAFT_CUDA_TRY(
       cudaMemsetAsync(d_counts.data(), 0, params.n_features * sizeof(unsigned long long), stream));
 
-    // Calculate n_parallel_samples (similar to actual implementation)
+    // Calculate n_parallel_samples using the same formula as in builder.cuh
     const int BLOCK_THREADS          = 128;
     const int MAX_SAMPLES_PER_THREAD = 1;
-    int n_parallel_samples           = BLOCK_THREADS * MAX_SAMPLES_PER_THREAD;
+    // Formula: log(1 - k/n) / log(1 - 1/n)
+    // where k = params.k (features to sample), n = params.n_features (total features)
+    int n_parallel_samples = std::ceil(raft::log(1 - double(params.k) / double(params.n_features)) /
+                                       raft::log(1 - 1.0 / double(params.n_features)));
+
+    // Verify that test conditions ensure excess_sample_with_replacement_kernel is used
+    // (instead of falling back to algo_L_sample_kernel)
+    ASSERT_GE(MAX_SAMPLES_PER_THREAD * BLOCK_THREADS, n_parallel_samples)
+      << "Test parameters would trigger reservoir sampling instead of excess sampling. "
+      << "n_parallel_samples=" << n_parallel_samples
+      << ", max capacity=" << (MAX_SAMPLES_PER_THREAD * BLOCK_THREADS);
 
     // Run the sampling kernel with diagnostics enabled
     excess_sample_with_replacement_kernel<int, MAX_SAMPLES_PER_THREAD, BLOCK_THREADS>
