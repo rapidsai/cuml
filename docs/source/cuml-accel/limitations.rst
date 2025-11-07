@@ -313,6 +313,7 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``init='pca'`` and X is sparse
 - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
