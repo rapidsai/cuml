@@ -167,6 +167,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   __shared__ IdxT saved_random_value;
   __shared__ bool random_value_saved;
   __shared__ IdxT random_offset;
+  __shared__ IdxT last_item;  // For broadcasting the globally last item to all threads
 
   const uint32_t nodeid = work_items[blockIdx.x].idx;
 
@@ -208,7 +209,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
           gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
       else if (mask[thread_local_sample_idx] ==
                0)  // indices that exceed `n_parallel_samples` will not generate
-        items[thread_local_sample_idx] = n - 1;
+        items[thread_local_sample_idx] = n;  // n is outside valid range [0, n-1]
       else
         continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
@@ -238,7 +239,14 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     // do a scan on the mask to get the indices for gathering
     BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
 
+    // Broadcast the globally last item to all threads
+    if (threadIdx.x == blockDim.x - 1) { last_item = items[MAX_SAMPLES_PER_THREAD - 1]; }
+
     __syncthreads();
+
+    // Exclude placeholder values from unique count
+    // All threads independently check the same condition and decrement their local n_uniques
+    if (last_item >= n && n_uniques > 0) { n_uniques--; }
 
   } while (n_uniques < k);
 
@@ -261,7 +269,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     if (mask[i]) {
       // Calculate rotated position: (original_position + offset) % total_uniques
       IdxT rotated_pos = (col_indices[i] + random_offset) % n_uniques;
-      if (rotated_pos < k) {
+      if (rotated_pos < k && items[i] < n) {  // Exclude placeholder values
         colids[col_offset + rotated_pos] = items[i];
         // DEBUG: Track feature sampling frequencies to expose bias
         if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
