@@ -121,8 +121,14 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 
 template <typename IdxT>
 struct CustomDifference {
+  IdxT n;  // Threshold for valid values
+  __device__ CustomDifference(IdxT n_) : n(n_) {}
   __device__ IdxT operator()(const IdxT& lhs, const IdxT& rhs)
   {
+    // Filter out placeholders (value == n)
+    if (lhs == n || rhs == n) return 0;  // Filter out placeholders
+
+    // Both are valid features [0, n-1] or one is the initial value (UINT_MAX)
     if (lhs == rhs)
       return 0;
     else
@@ -167,7 +173,6 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   __shared__ IdxT saved_random_value;
   __shared__ bool random_value_saved;
   __shared__ IdxT random_offset;
-  __shared__ IdxT last_item;  // For broadcasting the globally last item to all threads
 
   const uint32_t nodeid = work_items[blockIdx.x].idx;
 
@@ -232,21 +237,14 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
     // Use -1 as the initial value since it can't match any valid column index [0, n-1]
     BlockAdjacentDifferenceT(temp_storage.diff)
-      .SubtractLeft(items, mask, CustomDifference<IdxT>(), IdxT(-1));
+      .SubtractLeft(items, mask, CustomDifference<IdxT>(n), IdxT(-1));
 
     __syncthreads();
 
     // do a scan on the mask to get the indices for gathering
     BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
 
-    // Broadcast the globally last item to all threads
-    if (threadIdx.x == blockDim.x - 1) { last_item = items[MAX_SAMPLES_PER_THREAD - 1]; }
-
     __syncthreads();
-
-    // Exclude placeholder values from unique count
-    // All threads independently check the same condition and decrement their local n_uniques
-    if (last_item >= n && n_uniques > 0) { n_uniques--; }
 
   } while (n_uniques < k);
 
@@ -266,10 +264,9 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   // We only output features where the rotated position is < k
   IdxT col_offset = k * blockIdx.x;
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-    if (mask[i]) {
-      // Calculate rotated position: (original_position + offset) % total_uniques
+    if (mask[i]) {  // mask[i] is only set for unique, valid (non-placeholder) items
       IdxT rotated_pos = (col_indices[i] + random_offset) % n_uniques;
-      if (rotated_pos < k && items[i] < n) {  // Exclude placeholder values
+      if (rotated_pos < k) {
         colids[col_offset + rotated_pos] = items[i];
         // DEBUG: Track feature sampling frequencies to expose bias
         if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
