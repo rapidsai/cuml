@@ -279,7 +279,6 @@ ElasticNet
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 Ridge
 ^^^^^
@@ -302,7 +301,6 @@ Lasso
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 
 sklearn.manifold

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -33,22 +33,22 @@ namespace CD {
 namespace opg {
 
 template <typename T>
-void fit_impl(raft::handle_t& handle,
-              std::vector<Matrix::Data<T>*>& input_data,
-              Matrix::PartDescriptor& input_desc,
-              std::vector<Matrix::Data<T>*>& labels,
-              T* coef,
-              T* intercept,
-              bool fit_intercept,
-              bool normalize,
-              int epochs,
-              T alpha,
-              T l1_ratio,
-              bool shuffle,
-              T tol,
-              cudaStream_t* streams,
-              int n_streams,
-              bool verbose)
+int fit_impl(raft::handle_t& handle,
+             std::vector<Matrix::Data<T>*>& input_data,
+             Matrix::PartDescriptor& input_desc,
+             std::vector<Matrix::Data<T>*>& labels,
+             T* coef,
+             T* intercept,
+             bool fit_intercept,
+             bool normalize,
+             int epochs,
+             T alpha,
+             T l1_ratio,
+             bool shuffle,
+             T tol,
+             cudaStream_t* streams,
+             int n_streams,
+             bool verbose)
 {
   const auto& comm = handle.get_comms();
 
@@ -138,8 +138,9 @@ void fit_impl(raft::handle_t& handle,
     rs += partsToRanks[i]->size;
   }
 
-  for (int i = 0; i < epochs; i++) {
-    if (i > 0 && shuffle) {
+  int n_iter = 0;
+  while (n_iter < epochs) {
+    if (n_iter > 0 && shuffle) {
       if (comm.get_rank() == 0) {
         Solver::shuffle(ri, g);
         for (std::size_t k = 0; k < input_desc.N; k++) {
@@ -223,12 +224,9 @@ void fit_impl(raft::handle_t& handle,
       }
     }
 
-    bool flag_continue = true;
-    if (coef_max == T(0)) { flag_continue = false; }
-
-    if ((d_coef_max / coef_max) < tol) { flag_continue = false; }
-
-    if (!flag_continue) { break; }
+    // Iteration completed, increase n_iter and check early stopping criteria
+    n_iter++;
+    if (coef_max == T(0) || (d_coef_max / coef_max) < tol) break;
   }
 
   RAFT_CUDA_TRY(cudaHostUnregister(ri_h));
@@ -257,6 +255,7 @@ void fit_impl(raft::handle_t& handle,
   } else {
     *intercept = T(0);
   }
+  return n_iter;
 }
 
 /**
@@ -273,20 +272,20 @@ void fit_impl(raft::handle_t& handle,
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t& handle,
-              std::vector<Matrix::Data<T>*>& input_data,
-              Matrix::PartDescriptor& input_desc,
-              std::vector<Matrix::Data<T>*>& labels,
-              T* coef,
-              T* intercept,
-              bool fit_intercept,
-              bool normalize,
-              int epochs,
-              T alpha,
-              T l1_ratio,
-              bool shuffle,
-              T tol,
-              bool verbose)
+int fit_impl(raft::handle_t& handle,
+             std::vector<Matrix::Data<T>*>& input_data,
+             Matrix::PartDescriptor& input_desc,
+             std::vector<Matrix::Data<T>*>& labels,
+             T* coef,
+             T* intercept,
+             bool fit_intercept,
+             bool normalize,
+             int epochs,
+             T alpha,
+             T l1_ratio,
+             bool shuffle,
+             T tol,
+             bool verbose)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -300,22 +299,22 @@ void fit_impl(raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
-  fit_impl(handle,
-           input_data,
-           input_desc,
-           labels,
-           coef,
-           intercept,
-           fit_intercept,
-           normalize,
-           epochs,
-           alpha,
-           l1_ratio,
-           shuffle,
-           tol,
-           streams,
-           n_streams,
-           verbose);
+  int n_iter = fit_impl(handle,
+                        input_data,
+                        input_desc,
+                        labels,
+                        coef,
+                        intercept,
+                        fit_intercept,
+                        normalize,
+                        epochs,
+                        alpha,
+                        l1_ratio,
+                        shuffle,
+                        tol,
+                        streams,
+                        n_streams,
+                        verbose);
 
   for (int i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
@@ -324,6 +323,7 @@ void fit_impl(raft::handle_t& handle,
   for (int i = 0; i < n_streams; i++) {
     RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
+  return n_iter;
 }
 
 template <typename T>
@@ -401,66 +401,66 @@ void predict_impl(raft::handle_t& handle,
   }
 }
 
-void fit(raft::handle_t& handle,
-         std::vector<Matrix::Data<float>*>& input_data,
-         Matrix::PartDescriptor& input_desc,
-         std::vector<Matrix::Data<float>*>& labels,
-         float* coef,
-         float* intercept,
-         bool fit_intercept,
-         bool normalize,
-         int epochs,
-         float alpha,
-         float l1_ratio,
-         bool shuffle,
-         float tol,
-         bool verbose)
+int fit(raft::handle_t& handle,
+        std::vector<Matrix::Data<float>*>& input_data,
+        Matrix::PartDescriptor& input_desc,
+        std::vector<Matrix::Data<float>*>& labels,
+        float* coef,
+        float* intercept,
+        bool fit_intercept,
+        bool normalize,
+        int epochs,
+        float alpha,
+        float l1_ratio,
+        bool shuffle,
+        float tol,
+        bool verbose)
 {
-  fit_impl(handle,
-           input_data,
-           input_desc,
-           labels,
-           coef,
-           intercept,
-           fit_intercept,
-           normalize,
-           epochs,
-           alpha,
-           l1_ratio,
-           shuffle,
-           tol,
-           verbose);
+  return fit_impl(handle,
+                  input_data,
+                  input_desc,
+                  labels,
+                  coef,
+                  intercept,
+                  fit_intercept,
+                  normalize,
+                  epochs,
+                  alpha,
+                  l1_ratio,
+                  shuffle,
+                  tol,
+                  verbose);
 }
 
-void fit(raft::handle_t& handle,
-         std::vector<Matrix::Data<double>*>& input_data,
-         Matrix::PartDescriptor& input_desc,
-         std::vector<Matrix::Data<double>*>& labels,
-         double* coef,
-         double* intercept,
-         bool fit_intercept,
-         bool normalize,
-         int epochs,
-         double alpha,
-         double l1_ratio,
-         bool shuffle,
-         double tol,
-         bool verbose)
+int fit(raft::handle_t& handle,
+        std::vector<Matrix::Data<double>*>& input_data,
+        Matrix::PartDescriptor& input_desc,
+        std::vector<Matrix::Data<double>*>& labels,
+        double* coef,
+        double* intercept,
+        bool fit_intercept,
+        bool normalize,
+        int epochs,
+        double alpha,
+        double l1_ratio,
+        bool shuffle,
+        double tol,
+        bool verbose)
 {
-  fit_impl(handle,
-           input_data,
-           input_desc,
-           labels,
-           coef,
-           intercept,
-           fit_intercept,
-           normalize,
-           epochs,
-           alpha,
-           l1_ratio,
-           shuffle,
-           tol,
-           verbose);
+  return fit_impl(handle,
+                  input_data,
+                  input_desc,
+                  labels,
+                  coef,
+                  intercept,
+                  fit_intercept,
+                  normalize,
+                  epochs,
+                  alpha,
+                  l1_ratio,
+                  shuffle,
+                  tol,
+                  verbose);
 }
 
 void predict(raft::handle_t& handle,
