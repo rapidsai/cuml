@@ -4,9 +4,11 @@
 
 import inspect
 
+import numpy as np
 import numpydoc.docscrape
 import pytest
 from pylibraft.common.cuda import Stream
+from sklearn.datasets import make_regression
 
 import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
@@ -294,3 +296,23 @@ def test_common_signatures(cls, method):
             inspect.Parameter.VAR_KEYWORD,
         }
         assert param.name not in {"X", "y", "sample_weight"}
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cls
+        for cls in all_base_children.values()
+        if getattr(cls, "_estimator_type", None) == "regressor"
+    ],
+)
+@pytest.mark.parametrize("X_dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
+def test_regression_predict_dtype(cls, X_dtype, y_dtype):
+    X, y = make_regression(n_samples=200, random_state=42)
+    X = X.astype(X_dtype)
+    y = y.astype(y_dtype)
+
+    model = cls().fit(X, y)
+    y_pred = model.predict(X)
+    assert y_pred.dtype == X_dtype
