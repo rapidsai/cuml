@@ -41,15 +41,15 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t, typename MatrixViewType>
-void svcFitX(const raft::handle_t& handle,
-             MatrixViewType matrix,
-             int n_rows,
-             int n_cols,
-             math_t* labels,
-             const SvmParameter& param,
-             ML::matrix::KernelParams& kernel_params,
-             SvmModel<math_t>& model,
-             const math_t* sample_weight)
+int svcFitX(const raft::handle_t& handle,
+            MatrixViewType matrix,
+            int n_rows,
+            int n_cols,
+            math_t* labels,
+            const SvmParameter& param,
+            ML::matrix::KernelParams& kernel_params,
+            SvmModel<math_t>& model,
+            const math_t* sample_weight)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
@@ -91,46 +91,49 @@ void svcFitX(const raft::handle_t& handle,
             &(model.support_matrix),
             &(model.support_idx),
             &(model.b),
-            param.max_iter);
+            param.max_iter,
+            param.max_outer_iter);
   model.n_cols = n_cols;
   handle_impl.sync_stream(stream);
   delete kernel;
+  return smo.GetNIter();
 }
 
 template <typename math_t>
-void svcFit(const raft::handle_t& handle,
-            math_t* input,
-            int n_rows,
-            int n_cols,
-            math_t* labels,
-            const SvmParameter& param,
-            ML::matrix::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight)
+int svcFit(const raft::handle_t& handle,
+           math_t* input,
+           int n_rows,
+           int n_cols,
+           math_t* labels,
+           const SvmParameter& param,
+           ML::matrix::KernelParams& kernel_params,
+           SvmModel<math_t>& model,
+           const math_t* sample_weight)
 {
   auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
     input, n_rows, n_cols, 0);
-  svcFitX(handle, dense_view, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
+  return svcFitX(
+    handle, dense_view, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
 }
 
 template <typename math_t>
-void svcFitSparse(const raft::handle_t& handle,
-                  int* indptr,
-                  int* indices,
-                  math_t* data,
-                  int n_rows,
-                  int n_cols,
-                  int nnz,
-                  math_t* labels,
-                  const SvmParameter& param,
-                  ML::matrix::KernelParams& kernel_params,
-                  SvmModel<math_t>& model,
-                  const math_t* sample_weight)
+int svcFitSparse(const raft::handle_t& handle,
+                 int* indptr,
+                 int* indices,
+                 math_t* data,
+                 int n_rows,
+                 int n_cols,
+                 int nnz,
+                 math_t* labels,
+                 const SvmParameter& param,
+                 ML::matrix::KernelParams& kernel_params,
+                 SvmModel<math_t>& model,
+                 const math_t* sample_weight)
 {
   auto csr_structure_view = raft::make_device_compressed_structure_view<int, int, int>(
     indptr, indices, n_rows, n_cols, nnz);
   auto csr_matrix_view = raft::make_device_csr_matrix_view(data, csr_structure_view);
-  svcFitX(
+  return svcFitX(
     handle, csr_matrix_view, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
 }
 

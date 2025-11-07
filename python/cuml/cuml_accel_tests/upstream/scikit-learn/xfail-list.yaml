@@ -1166,7 +1166,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
@@ -1230,13 +1229,6 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
-- reason: SVM missing certain fit attributes
-  marker: cuml_accel_svm_missing_fit_attributes
-  tests:
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
   marker: cuml_accel_svm_sample_weight
   tests:
@@ -1260,7 +1252,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"

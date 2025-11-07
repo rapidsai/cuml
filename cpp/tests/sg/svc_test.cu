@@ -580,6 +580,7 @@ SvmParameter getDefaultSvmParameter()
   param.tol            = 0.001;
   param.cache_size     = 200;
   param.max_iter       = -1;
+  param.max_outer_iter = -1;
   param.nochange_steps = 1000;
   param.verbosity      = rapids_logger::level_enum::info;
   param.epsilon        = 0.1;
@@ -729,7 +730,7 @@ struct smoInput {
   math_t C;
   math_t tol;
   KernelParams kernel_params;
-  int max_iter;
+  int max_outer_iter;
   int max_inner_iter;
 };
 
@@ -1099,7 +1100,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     SvmParameter param = getDefaultSvmParameter();
     param.C            = p.C;
     param.tol          = p.tol;
-    // param.max_iter = p.max_iter;
+    // param.max_outer_iter = p.max_outer_iter;
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params.to_cuvs());
     SmoSolver<TypeParam> smo(
       this->handle,
@@ -1121,7 +1122,8 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 &model1.support_matrix,
                 &model1.support_idx,
                 &model1.b,
-                p.max_iter,
+                -1,
+                p.max_outer_iter,
                 p.max_inner_iter);
       checkResults(model1, exp, stream);
       svmFreeBuffers(this->handle, model1);
@@ -1147,7 +1149,8 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 &model2.support_matrix,
                 &model2.support_idx,
                 &model2.b,
-                p.max_iter,
+                -1,
+                p.max_outer_iter,
                 p.max_inner_iter);
       checkResults(model2, exp, stream);
       svmFreeBuffers(this->handle, model2);
@@ -1496,13 +1499,13 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
       rmm::device_uvector<TypeParam> y(p.n_rows, stream);
       rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
       make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
-      const int max_iter = 2;
+      const int max_outer_iter = 2;
       SVC<TypeParam> svc(this->handle,
                          p.C,
                          p.tol,
                          p.kernel_params,
                          0,
-                         max_iter,
+                         max_outer_iter,
                          50,
                          rapids_logger::level_enum::debug);
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
@@ -1664,8 +1667,8 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
       rmm::device_uvector<TypeParam> dense_input(input.n_rows * input.n_cols, stream);
       initializeTestMatrix(this->handle, dense_input.data(), input.n_rows, input.n_cols, y.data());
 
-      SvmParameter param = getDefaultSvmParameter();
-      param.max_iter     = 2;
+      SvmParameter param   = getDefaultSvmParameter();
+      param.max_outer_iter = 2;
 
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
@@ -1735,8 +1738,8 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
 
       auto csr_structure = csr_input.structure_view();
 
-      SvmParameter param = getDefaultSvmParameter();
-      param.max_iter     = 2;
+      SvmParameter param   = getDefaultSvmParameter();
+      param.max_outer_iter = 2;
 
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
@@ -1959,7 +1962,7 @@ class SvrTest : public ::testing::Test {
     auto stream = this->handle.get_stream();
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
-         SvmParameter{1, 0, 1, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 1, -1, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1969,7 +1972,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         SvmParameter{1, 10, 1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 10, 1, -1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1979,7 +1982,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         SvmParameter{1, 0, 1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 1, -1, 1, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
@@ -1989,7 +1992,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 1.3, {0.8, 0.0}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         SvmParameter{1, 0, 100, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, -1, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
@@ -2005,7 +2008,7 @@ class SvrTest : public ::testing::Test {
                           {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}},
       // Almost same as above, but with sample weights
       {SvrInput<math_t>{
-         SvmParameter{1, 0, 100, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, -1, 10, 1e-3, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                       // n_rows
          1,                       // n_cols
@@ -2016,7 +2019,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{
          6, {}, -15.5, {3.9}, {1.0, 2.0, 3.0, 4.0, 6.0, 7.0}, {0, 1, 2, 3, 5, 6}, {}}},
       {SvrInput<math_t>{
-         SvmParameter{1, 0, 100, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, -1, 10, 1e-6, rapids_logger::level_enum::info, 0.1, EPSILON_SVR},
          KernelParams{KernelType::LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
