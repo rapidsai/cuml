@@ -186,6 +186,10 @@
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_cv_groups"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_features_importance"
   - "sklearn.inspection.tests.test_partial_dependence::test_recursion_decision_tree_vs_forest_and_gbdt[0]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression_pandas[0.5-1]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression_pandas[0.5-2]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression_pandas[1.0-1]"
+  - "sklearn.inspection.tests.test_permutation_importance::test_permutation_importance_correlated_feature_regression_pandas[1.0-2]"
   - "sklearn.inspection.tests.test_permutation_importance::test_robustness_to_high_cardinality_noisy_feature[0.5-1]"
   - "sklearn.inspection.tests.test_permutation_importance::test_robustness_to_high_cardinality_noisy_feature[0.5-2]"
   - "sklearn.inspection.tests.test_permutation_importance::test_robustness_to_high_cardinality_noisy_feature[1.0-1]"
@@ -463,7 +467,6 @@
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[coo_array]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csc_array]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csr_array]"
-  - "sklearn.ensemble.tests.test_voting::test_tie_situation"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_final_model_fit_sample_weight"
   - "sklearn.linear_model.tests.test_sag::test_classifier_results[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_classifier_single_class"
@@ -801,7 +804,6 @@
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[coo_array]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csc_array]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csr_array]"
-  - "sklearn.ensemble.tests.test_voting::test_tie_situation"
   - "sklearn.linear_model.tests.test_sag::test_binary_classifier_class_weight[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_binary_classifier_class_weight[csr_matrix]"
   - "sklearn.linear_model.tests.test_sag::test_classifier_results[csr_array]"
@@ -1027,6 +1029,7 @@
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
   - "sklearn.ensemble.tests.test_voting::test_parallel_fit[42]"
+  - "sklearn.ensemble.tests.test_voting::test_tie_situation"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
@@ -1163,7 +1166,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
@@ -1227,13 +1229,6 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
-- reason: SVM missing certain fit attributes
-  marker: cuml_accel_svm_missing_fit_attributes
-  tests:
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
   marker: cuml_accel_svm_sample_weight
   tests:
@@ -1257,7 +1252,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
@@ -1290,7 +1284,6 @@
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_regressor_multioutput]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_requires_y_none]"
@@ -1332,7 +1325,6 @@
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_fit1d]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_regressor_multioutput]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_requires_y_none]"
