@@ -6,8 +6,6 @@
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
-import sklearn
-from packaging.version import Version
 
 import cuml.internals
 from cuml.common import using_output_type
@@ -89,18 +87,6 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                            double *singular_vals,
                            double *mu,
                            const paramsPCA &prms) except +
-
-
-def _flip_sign(components, X, u_based_decision=True):
-    if u_based_decision:
-        US = (X - X.mean(axis=0)) @ components.T
-        max_idx = cp.abs(US).argmax(axis=0)
-        signs = cp.sign(US[max_idx, cp.arange(US.shape[1])])
-    else:
-        max_idx = cp.abs(components).argmax(axis=1)
-        signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
-    signs[signs == 0] = 1
-    return components * signs[:, cp.newaxis]
 
 
 class PCA(Base,
@@ -266,6 +252,7 @@ class PCA(Base,
     mean_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.PCA"
+    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -359,6 +346,28 @@ class PCA(Base,
         # Exposed to support sklearn's `get_feature_names_out`
         return self.components_.shape[0]
 
+    def _flip_sign_u_based(self, components, X):
+        """Flip sign based on U matrix (sklearn < 1.5.0)."""
+        US = (X - X.mean(axis=0)) @ components.T
+        max_idx = cp.abs(US).argmax(axis=0)
+        signs = cp.sign(US[max_idx, cp.arange(US.shape[1])])
+        signs[signs == 0] = 1
+        return components * signs[:, cp.newaxis]
+
+    def _flip_sign_component_based(self, components, X):
+        """Flip sign based on components matrix (sklearn >= 1.5.0)."""
+        max_idx = cp.abs(components).argmax(axis=1)
+        signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
+        signs[signs == 0] = 1
+        return components * signs[:, cp.newaxis]
+
+    def _flip_sign(self, components, X):
+        """Flip sign of components based on scikit-learn version."""
+        if self._u_based_sign_flip:
+            return self._flip_sign_u_based(components, X)
+        else:
+            return self._flip_sign_component_based(components, X)
+
     def _fit_dense(self, X):
         # Initialize parameters
         cdef paramsPCA params
@@ -397,7 +406,7 @@ class PCA(Base,
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
+        cdef bool u_based_decision = self._u_based_sign_flip
 
         # Perform fit
         with nogil:
@@ -454,10 +463,9 @@ class PCA(Base,
 
         explained_variance_sum = explained_variance.sum()
 
-        components = _flip_sign(
+        components = self._flip_sign(
             components.T[:self.n_components_, :],
-            X,
-            Version(sklearn.__version__) < Version("1.5.0")
+            X
         )
         explained_variance = explained_variance[:self.n_components_]
 
@@ -706,3 +714,12 @@ class PCA(Base,
             msg = ("This instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
+
+
+class _PCAWithUBasedSignFlipEnabled(PCA):
+    """PCA implementation for U-based sign flip."""
+    _u_based_sign_flip = True
+
+
+_PCAWithUBasedSignFlipEnabled.__name__ = "PCA"
+_PCAWithUBasedSignFlipEnabled.__qualname__ = "PCA"

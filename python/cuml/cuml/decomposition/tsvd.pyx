@@ -4,8 +4,6 @@
 #
 
 import numpy as np
-import sklearn
-from packaging.version import Version
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -211,6 +209,7 @@ class TruncatedSVD(Base,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
+    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -319,7 +318,7 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
-        cdef bool u_based_decision = (Version(sklearn.__version__) < Version("1.5.0"))
+        cdef bool u_based_decision = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -491,3 +490,12 @@ class TruncatedSVD(Base,
         self.handle.sync()
 
         return out
+
+
+class _TruncatedSVDWithUBasedSignFlipEnabled(TruncatedSVD):
+    """TruncatedSVD implementation for U-based sign flip."""
+    _u_based_sign_flip = True
+
+
+_TruncatedSVDWithUBasedSignFlipEnabled.__name__ = "TruncatedSVD"
+_TruncatedSVDWithUBasedSignFlipEnabled.__qualname__ = "TruncatedSVD"
