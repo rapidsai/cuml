@@ -490,12 +490,3 @@ class TruncatedSVD(Base,
         self.handle.sync()
 
         return out
-
-
-class _TruncatedSVDWithUBasedSignFlipEnabled(TruncatedSVD):
-    """TruncatedSVD implementation for U-based sign flip."""
-    _u_based_sign_flip = True
-
-
-_TruncatedSVDWithUBasedSignFlipEnabled.__name__ = "TruncatedSVD"
-_TruncatedSVDWithUBasedSignFlipEnabled.__qualname__ = "TruncatedSVD"

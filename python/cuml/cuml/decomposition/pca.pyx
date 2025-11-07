@@ -346,27 +346,19 @@ class PCA(Base,
         # Exposed to support sklearn's `get_feature_names_out`
         return self.components_.shape[0]
 
-    def _flip_sign_u_based(self, components, X):
-        """Flip sign based on U matrix (sklearn < 1.5.0)."""
-        US = (X - X.mean(axis=0)) @ components.T
-        max_idx = cp.abs(US).argmax(axis=0)
-        signs = cp.sign(US[max_idx, cp.arange(US.shape[1])])
-        signs[signs == 0] = 1
-        return components * signs[:, cp.newaxis]
-
-    def _flip_sign_component_based(self, components, X):
-        """Flip sign based on components matrix (sklearn >= 1.5.0)."""
-        max_idx = cp.abs(components).argmax(axis=1)
-        signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
-        signs[signs == 0] = 1
-        return components * signs[:, cp.newaxis]
-
     def _flip_sign(self, components, X):
         """Flip sign of components based on scikit-learn version."""
         if self._u_based_sign_flip:
-            return self._flip_sign_u_based(components, X)
+            # Flip sign based on U matrix (sklearn < 1.5.0)
+            US = (X - X.mean(axis=0)) @ components.T
+            max_idx = cp.abs(US).argmax(axis=0)
+            signs = cp.sign(US[max_idx, cp.arange(US.shape[1])])
         else:
-            return self._flip_sign_component_based(components, X)
+            # Flip sign based on components matrix (sklearn >= 1.5.0)
+            max_idx = cp.abs(components).argmax(axis=1)
+            signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
+        signs[signs == 0] = 1
+        return components * signs[:, cp.newaxis]
 
     def _fit_dense(self, X):
         # Initialize parameters
@@ -714,12 +706,3 @@ class PCA(Base,
             msg = ("This instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
-
-
-class _PCAWithUBasedSignFlipEnabled(PCA):
-    """PCA implementation for U-based sign flip."""
-    _u_based_sign_flip = True
-
-
-_PCAWithUBasedSignFlipEnabled.__name__ = "PCA"
-_PCAWithUBasedSignFlipEnabled.__qualname__ = "PCA"
