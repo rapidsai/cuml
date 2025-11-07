@@ -492,7 +492,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Pipeline(steps=[('logisticregression',LogisticRegression(C=1))])]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
