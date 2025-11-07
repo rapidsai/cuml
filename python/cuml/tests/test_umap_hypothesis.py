@@ -36,23 +36,38 @@ from cuml.manifold.simpl_set import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
 
-umap_dev_tools_path = os.path.join(
-    os.path.dirname(__file__), "..", "umap_dev_tools"
-)
-if os.path.exists(umap_dev_tools_path):
-    sys.path.insert(0, umap_dev_tools_path)
-
+# Check if cuvs is available (required for this test)
 try:
-    from umap_metrics import (  # noqa: E402
-        _build_knn_with_cuvs,
-        compute_simplicial_set_embedding_metrics,
-        procrustes_rmse,
+    import cuvs  # noqa: F401
+
+    HAS_CUVS = True
+except ImportError:
+    HAS_CUVS = False
+
+# Only import umap_metrics if cuvs is available (umap_metrics depends on cuvs)
+if HAS_CUVS:
+    umap_dev_tools_path = os.path.join(
+        os.path.dirname(__file__), "..", "umap_dev_tools"
     )
-except ImportError as e:
-    raise ImportError(
-        f"Failed to import umap_metrics. Ensure the umap_dev_tools module is "
-        f"available at {umap_dev_tools_path}. Original error: {e}"
-    ) from e
+    if os.path.exists(umap_dev_tools_path):
+        sys.path.insert(0, umap_dev_tools_path)
+
+    try:
+        from umap_metrics import (  # noqa: E402
+            _build_knn_with_cuvs,
+            compute_simplicial_set_embedding_metrics,
+            procrustes_rmse,
+        )
+    except ImportError as e:
+        raise ImportError(
+            f"Failed to import umap_metrics. Ensure the umap_dev_tools module is "
+            f"available at {umap_dev_tools_path}. Original error: {e}"
+        ) from e
+else:
+    # Define dummy functions to avoid NameError, tests will be skipped anyway
+    _build_knn_with_cuvs = None
+    compute_simplicial_set_embedding_metrics = None
+    procrustes_rmse = None
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
@@ -451,6 +466,7 @@ def _generate_baseline_dataset():
     )
 
 
+@pytest.mark.skipif(not HAS_CUVS, reason="cuvs package not available")
 @pytest.mark.slow
 @settings(
     max_examples=5,  # Random testing across all dataset types
