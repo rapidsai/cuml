@@ -153,6 +153,21 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
 {
   if (blockIdx.x >= work_items_size) return;
 
+  // Specialize CUB collective types for this thread block
+  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
+  typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
+  typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
+
+  // Shared memory declarations
+  __shared__ union TempStorage {
+    typename BlockRadixSortT::TempStorage sort;
+    typename BlockAdjacentDifferenceT::TempStorage diff;
+    typename BlockScanT::TempStorage scan;
+  } temp_storage;
+  __shared__ IdxT saved_random_value;
+  __shared__ bool random_value_saved;
+  __shared__ IdxT random_offset;
+
   const uint32_t nodeid = work_items[blockIdx.x].idx;
 
   uint64_t subsequence(fnv1a32_basis);
@@ -175,22 +190,6 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   // populate this
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i)
     mask[i] = 0;
-
-  // Specialize CUB collective types for this thread block
-  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
-  typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
-  typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
-
-  // Shared memory - union allows reuse for different operations
-  __shared__ union TempStorage {
-    typename BlockRadixSortT::TempStorage sort;
-    typename BlockAdjacentDifferenceT::TempStorage diff;
-    typename BlockScanT::TempStorage scan;
-  } temp_storage;
-
-  // Save a random value for offset calculation before sorting destroys the randomness
-  __shared__ IdxT saved_random_value;
-  __shared__ bool random_value_saved;
   if (threadIdx.x == 0) { random_value_saved = false; }
   __syncthreads();
 
@@ -248,7 +247,6 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   // Reuses a saved random sample as offset to avoid extra RNG consumption
 
   // Use the saved random value (from before sorting) to derive the offset
-  __shared__ IdxT random_offset;
   if (threadIdx.x == 0) {
     // saved_random_value is a random value in [0, n-1], use it for offset
     random_offset = saved_random_value % n_uniques;
