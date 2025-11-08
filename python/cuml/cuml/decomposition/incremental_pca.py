@@ -373,7 +373,7 @@ class IncrementalPCA(PCA):
             )
 
         U, S, V = cp.linalg.svd(X, full_matrices=False)
-        U, V = _svd_flip(U, V, u_based_decision=False)
+        U, V = _svd_flip(U, V, flip_signs_based_on_U=False)
         explained_variance = S**2 / (n_total_samples - 1)
         explained_variance_ratio = S**2 / cp.sum(col_var * n_total_samples)
 
@@ -653,7 +653,7 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
     return updated_mean, updated_variance, updated_sample_count
 
 
-def _svd_flip(u, v, u_based_decision=True):
+def _svd_flip(u, v, flip_signs_based_on_U=True):
     """
     Sign correction to ensure deterministic output from SVD.
     Adjusts the columns of u and the rows of v such that the loadings in the
@@ -666,7 +666,7 @@ def _svd_flip(u, v, u_based_decision=True):
         u and v are the output of `cupy.linalg.svd`
     v : cupy.ndarray
         u and v are the output of `cupy.linalg.svd`
-    u_based_decision : boolean, (default=True)
+    flip_signs_based_on_U : boolean, (default=True)
         If True, use the columns of u as the basis for sign flipping.
         Otherwise, use the rows of v. The choice of which variable to base the
         decision on is generally algorithm dependent.
@@ -676,7 +676,7 @@ def _svd_flip(u, v, u_based_decision=True):
     u_adjusted, v_adjusted : arrays with the same dimensions as the input.
 
     """
-    if u_based_decision:
+    if flip_signs_based_on_U:
         # columns of u, rows of v
         max_abs_cols = cp.argmax(cp.abs(u), axis=0)
         signs = cp.sign(u[max_abs_cols, list(range(u.shape[1]))])

@@ -18,13 +18,13 @@ void tsvdFit(raft::handle_t& handle,
              float* components,
              float* singular_vals,
              const paramsTSVD& prms,
-             bool u_based_decision);
+             bool flip_signs_based_on_U);
 void tsvdFit(raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
              const paramsTSVD& prms,
-             bool u_based_decision);
+             bool flip_signs_based_on_U);
 void tsvdInverseTransform(raft::handle_t& handle,
                           float* trans_input,
                           float* components,
@@ -53,7 +53,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                       float* explained_var_ratio,
                       float* singular_vals,
                       const paramsTSVD& prms,
-                      bool u_based_decision);
+                      bool flip_signs_based_on_U);
 void tsvdFitTransform(raft::handle_t& handle,
                       double* input,
                       double* trans_input,
@@ -62,6 +62,6 @@ void tsvdFitTransform(raft::handle_t& handle,
                       double* explained_var_ratio,
                       double* singular_vals,
                       const paramsTSVD& prms,
-                      bool u_based_decision);
+                      bool flip_signs_based_on_U);
 
 }  // namespace ML

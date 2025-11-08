@@ -16,9 +16,10 @@ void tsvdFit(raft::handle_t& handle,
              float* components,
              float* singular_vals,
              const paramsTSVD& prms,
-             bool u_based_decision = false)
+             bool flip_signs_based_on_U = false)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream(), u_based_decision);
+  tsvdFit(
+    handle, input, components, singular_vals, prms, handle.get_stream(), flip_signs_based_on_U);
 }
 
 void tsvdFit(raft::handle_t& handle,
@@ -26,9 +27,10 @@ void tsvdFit(raft::handle_t& handle,
              double* components,
              double* singular_vals,
              const paramsTSVD& prms,
-             bool u_based_decision = false)
+             bool flip_signs_based_on_U = false)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream(), u_based_decision);
+  tsvdFit(
+    handle, input, components, singular_vals, prms, handle.get_stream(), flip_signs_based_on_U);
 }
 
 void tsvdFitTransform(raft::handle_t& handle,
@@ -39,7 +41,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                       float* explained_var_ratio,
                       float* singular_vals,
                       const paramsTSVD& prms,
-                      bool u_based_decision = false)
+                      bool flip_signs_based_on_U = false)
 {
   tsvdFitTransform(handle,
                    input,
@@ -50,7 +52,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                    singular_vals,
                    prms,
                    handle.get_stream(),
-                   u_based_decision);
+                   flip_signs_based_on_U);
 }
 
 void tsvdFitTransform(raft::handle_t& handle,
@@ -61,7 +63,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                       double* explained_var_ratio,
                       double* singular_vals,
                       const paramsTSVD& prms,
-                      bool u_based_decision = false)
+                      bool flip_signs_based_on_U = false)
 {
   tsvdFitTransform(handle,
                    input,
@@ -72,7 +74,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                    singular_vals,
                    prms,
                    handle.get_stream(),
-                   u_based_decision);
+                   flip_signs_based_on_U);
 }
 
 void tsvdTransform(raft::handle_t& handle,

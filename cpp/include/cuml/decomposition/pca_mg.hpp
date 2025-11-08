@@ -27,7 +27,7 @@ namespace opg {
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] u_based_decision: Whether to use U-based decision for sign flipping (for sklearn
+ * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
  * < 1.5)
  */
 void fit(raft::handle_t& handle,
@@ -40,8 +40,8 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose          = false,
-         bool u_based_decision = false);
+         bool verbose               = false,
+         bool flip_signs_based_on_U = false);
 
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -53,8 +53,8 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose          = false,
-         bool u_based_decision = false);
+         bool verbose               = false,
+         bool flip_signs_based_on_U = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the pca
@@ -71,7 +71,7 @@ void fit(raft::handle_t& handle,
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] u_based_decision: Whether to use U-based decision for sign flipping (for sklearn
+ * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
  * < 1.5)
  */
 void fit_transform(raft::handle_t& handle,
@@ -87,7 +87,7 @@ void fit_transform(raft::handle_t& handle,
                    float* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision);
+                   bool flip_signs_based_on_U);
 
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -102,7 +102,7 @@ void fit_transform(raft::handle_t& handle,
                    double* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision);
+                   bool flip_signs_based_on_U);
 
 /**
  * @brief performs MNMG transform operation for the pca

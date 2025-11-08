@@ -44,7 +44,7 @@ void fit_impl(raft::handle_t& handle,
               cudaStream_t* streams,
               std::uint32_t n_streams,
               bool verbose,
-              bool u_based_decision = false)
+              bool flip_signs_based_on_U = false)
 {
   const auto& comm = handle.get_comms();
 
@@ -66,7 +66,7 @@ void fit_impl(raft::handle_t& handle,
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
-  if (u_based_decision) {
+  if (flip_signs_based_on_U) {
     sign_flip_components_u(handle,
                            input_data,
                            input_desc,
@@ -116,7 +116,7 @@ void fit_impl(raft::handle_t& handle,
               T* noise_vars,
               paramsPCAMG prms,
               bool verbose,
-              bool u_based_decision = false)
+              bool flip_signs_based_on_U = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -142,7 +142,7 @@ void fit_impl(raft::handle_t& handle,
              streams,
              n_streams,
              verbose,
-             u_based_decision);
+             flip_signs_based_on_U);
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t& h = handle;
     cudaStream_t stream     = h.get_stream();
@@ -179,7 +179,7 @@ void fit_impl(raft::handle_t& handle,
                        rank);
 
     // sign flip
-    if (u_based_decision) {
+    if (flip_signs_based_on_U) {
       sign_flip_components_u(handle,
                              input_data,
                              input_desc,
@@ -534,7 +534,7 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* noise_vars,
                         paramsPCAMG prms,
                         bool verbose,
-                        bool u_based_decision = false)
+                        bool flip_signs_based_on_U = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -563,7 +563,7 @@ void fit_transform_impl(raft::handle_t& handle,
            streams,
            n_streams,
            verbose,
-           u_based_decision);
+           flip_signs_based_on_U);
 
   transform_impl(handle,
                  input_data,
@@ -597,7 +597,7 @@ void fit(raft::handle_t& handle,
          float* noise_vars,
          paramsPCAMG prms,
          bool verbose,
-         bool u_based_decision)
+         bool flip_signs_based_on_U)
 {
   fit_impl(handle,
            input_data,
@@ -610,7 +610,7 @@ void fit(raft::handle_t& handle,
            noise_vars,
            prms,
            verbose,
-           u_based_decision);
+           flip_signs_based_on_U);
 }
 
 void fit(raft::handle_t& handle,
@@ -624,7 +624,7 @@ void fit(raft::handle_t& handle,
          double* noise_vars,
          paramsPCAMG prms,
          bool verbose,
-         bool u_based_decision)
+         bool flip_signs_based_on_U)
 {
   fit_impl(handle,
            input_data,
@@ -637,7 +637,7 @@ void fit(raft::handle_t& handle,
            noise_vars,
            prms,
            verbose,
-           u_based_decision);
+           flip_signs_based_on_U);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -653,7 +653,7 @@ void fit_transform(raft::handle_t& handle,
                    float* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision = false)
+                   bool flip_signs_based_on_U = false)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -668,7 +668,7 @@ void fit_transform(raft::handle_t& handle,
                      noise_vars,
                      prms,
                      verbose,
-                     u_based_decision);
+                     flip_signs_based_on_U);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -684,7 +684,7 @@ void fit_transform(raft::handle_t& handle,
                    double* noise_vars,
                    paramsPCAMG prms,
                    bool verbose,
-                   bool u_based_decision = false)
+                   bool flip_signs_based_on_U = false)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -699,7 +699,7 @@ void fit_transform(raft::handle_t& handle,
                      noise_vars,
                      prms,
                      verbose,
-                     u_based_decision);
+                     flip_signs_based_on_U);
 }
 
 void transform(raft::handle_t& handle,

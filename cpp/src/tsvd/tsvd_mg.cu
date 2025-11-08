@@ -39,7 +39,7 @@ void fit_impl(raft::handle_t& handle,
               cudaStream_t* streams,
               std::uint32_t n_streams,
               bool verbose,
-              bool u_based_decision = false)
+              bool flip_signs_based_on_U = false)
 {
   const auto& comm             = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
@@ -64,7 +64,7 @@ void fit_impl(raft::handle_t& handle,
   raft::matrix::seqRoot(
     explained_var_all.data(), singular_vals, scalar, prms.n_components, streams[0]);
 
-  if (u_based_decision) {
+  if (flip_signs_based_on_U) {
     PCA::opg::sign_flip_components_u(handle,
                                      input_data,
                                      input_desc,
@@ -108,7 +108,7 @@ void fit_impl(raft::handle_t& handle,
               T* singular_vals,
               paramsTSVDMG& prms,
               bool verbose,
-              bool u_based_decision = false)
+              bool flip_signs_based_on_U = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -133,7 +133,7 @@ void fit_impl(raft::handle_t& handle,
            streams,
            n_streams,
            verbose,
-           u_based_decision);
+           flip_signs_based_on_U);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
@@ -344,7 +344,7 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* singular_vals,
                         paramsTSVDMG& prms,
                         bool verbose,
-                        bool u_based_decision = false)
+                        bool flip_signs_based_on_U = false)
 {
   fit_impl(handle,
            input_data,
@@ -355,7 +355,7 @@ void fit_transform_impl(raft::handle_t& handle,
            streams,
            n_streams,
            verbose,
-           u_based_decision);
+           flip_signs_based_on_U);
 
   transform_impl(
     handle, input_data, input_desc, components, trans_data, prms, streams, n_streams, verbose);
@@ -401,10 +401,17 @@ void fit(raft::handle_t& handle,
          float* singular_vals,
          paramsTSVDMG& prms,
          bool verbose,
-         bool u_based_decision)
+         bool flip_signs_based_on_U)
 {
-  fit_impl(
-    handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose, u_based_decision);
+  fit_impl(handle,
+           rank_sizes,
+           n_parts,
+           input,
+           components,
+           singular_vals,
+           prms,
+           verbose,
+           flip_signs_based_on_U);
 }
 
 void fit(raft::handle_t& handle,
@@ -415,10 +422,17 @@ void fit(raft::handle_t& handle,
          double* singular_vals,
          paramsTSVDMG& prms,
          bool verbose,
-         bool u_based_decision)
+         bool flip_signs_based_on_U)
 {
-  fit_impl(
-    handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose, u_based_decision);
+  fit_impl(handle,
+           rank_sizes,
+           n_parts,
+           input,
+           components,
+           singular_vals,
+           prms,
+           verbose,
+           flip_signs_based_on_U);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -432,7 +446,7 @@ void fit_transform(raft::handle_t& handle,
                    float* singular_vals,
                    paramsTSVDMG& prms,
                    bool verbose,
-                   bool u_based_decision = false)
+                   bool flip_signs_based_on_U = false)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -454,7 +468,7 @@ void fit_transform(raft::handle_t& handle,
                      singular_vals,
                      prms,
                      verbose,
-                     u_based_decision);
+                     flip_signs_based_on_U);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }
@@ -474,7 +488,7 @@ void fit_transform(raft::handle_t& handle,
                    double* singular_vals,
                    paramsTSVDMG& prms,
                    bool verbose,
-                   bool u_based_decision = false)
+                   bool flip_signs_based_on_U = false)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -496,7 +510,7 @@ void fit_transform(raft::handle_t& handle,
                      singular_vals,
                      prms,
                      verbose,
-                     u_based_decision);
+                     flip_signs_based_on_U);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }

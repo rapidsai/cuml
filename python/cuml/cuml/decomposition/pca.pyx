@@ -43,7 +43,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      float *mu,
                      float *noise_vars,
                      const paramsPCA &prms,
-                     bool u_based_decision) except +
+                     bool flip_signs_based_on_U) except +
 
     cdef void pcaFit(handle_t& handle,
                      double *input,
@@ -54,7 +54,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      double *mu,
                      double *noise_vars,
                      const paramsPCA &prms,
-                     bool u_based_decision) except +
+                     bool flip_signs_based_on_U) except +
 
     cdef void pcaInverseTransform(handle_t& handle,
                                   float *trans_input,
@@ -398,7 +398,7 @@ class PCA(Base,
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool u_based_decision = self._u_based_sign_flip
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
         with nogil:
@@ -413,7 +413,7 @@ class PCA(Base,
                     <float*> mean_ptr,
                     <float*> noise_variance_ptr,
                     params,
-                    u_based_decision
+                    flip_signs_based_on_U
                 )
             else:
                 pcaFit(
@@ -426,7 +426,7 @@ class PCA(Base,
                     <double*> mean_ptr,
                     <double*> noise_variance_ptr,
                     params,
-                    u_based_decision
+                    flip_signs_based_on_U
                 )
         self.handle.sync()
 

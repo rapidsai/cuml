@@ -20,7 +20,7 @@ void pcaFit(raft::handle_t& handle,
             float* mu,
             float* noise_vars,
             const paramsPCA& prms,
-            bool u_based_decision = false)
+            bool flip_signs_based_on_U = false)
 {
   pcaFit(handle,
          input,
@@ -32,7 +32,7 @@ void pcaFit(raft::handle_t& handle,
          noise_vars,
          prms,
          handle.get_stream(),
-         u_based_decision);
+         flip_signs_based_on_U);
 }
 
 void pcaFit(raft::handle_t& handle,
@@ -44,7 +44,7 @@ void pcaFit(raft::handle_t& handle,
             double* mu,
             double* noise_vars,
             const paramsPCA& prms,
-            bool u_based_decision = false)
+            bool flip_signs_based_on_U = false)
 {
   pcaFit(handle,
          input,
@@ -56,7 +56,7 @@ void pcaFit(raft::handle_t& handle,
          noise_vars,
          prms,
          handle.get_stream(),
-         u_based_decision);
+         flip_signs_based_on_U);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -69,7 +69,7 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* mu,
                      float* noise_vars,
                      const paramsPCA& prms,
-                     bool u_based_decision = false)
+                     bool flip_signs_based_on_U = false)
 {
   pcaFitTransform(handle,
                   input,
@@ -82,7 +82,7 @@ void pcaFitTransform(raft::handle_t& handle,
                   noise_vars,
                   prms,
                   handle.get_stream(),
-                  u_based_decision);
+                  flip_signs_based_on_U);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -95,7 +95,7 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* mu,
                      double* noise_vars,
                      const paramsPCA& prms,
-                     bool u_based_decision = false)
+                     bool flip_signs_based_on_U = false)
 {
   pcaFitTransform(handle,
                   input,
@@ -108,7 +108,7 @@ void pcaFitTransform(raft::handle_t& handle,
                   noise_vars,
                   prms,
                   handle.get_stream(),
-                  u_based_decision);
+                  flip_signs_based_on_U);
 }
 
 void pcaInverseTransform(raft::handle_t& handle,

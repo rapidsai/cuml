@@ -145,9 +145,9 @@ def test_exceptions():
 def test_svd_flip():
     x = cp.array(range(-10, 80)).reshape((9, 10))
     u, s, v = cp.linalg.svd(x, full_matrices=False)
-    u_true, v_true = _svd_flip(u, v, u_based_decision=True)
+    u_true, v_true = _svd_flip(u, v, flip_signs_based_on_U=True)
     reco_true = cp.dot(u_true * s, v_true)
-    u_false, v_false = _svd_flip(u, v, u_based_decision=False)
+    u_false, v_false = _svd_flip(u, v, flip_signs_based_on_U=False)
     reco_false = cp.dot(u_false * s, v_false)
 
     assert array_equal(reco_true, x)

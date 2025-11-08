@@ -127,7 +127,7 @@ void calEig(const raft::handle_t& handle,
  * @param n_cols: number of columns of components matrix
  * @param n_samples: number of samples (number of rows of input)
  * @param stream: cuda stream
- * @param u_based_decision whether to determine signs by U (true) or V.T (false)
+ * @param flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  * @{
  */
 template <typename math_t>
@@ -139,7 +139,7 @@ void signFlipComponents(const raft::handle_t& handle,
                         std::size_t n_components,
                         cudaStream_t stream,
                         bool center,
-                        bool u_based_decision = false)
+                        bool flip_signs_based_on_U = false)
 {
   rmm::device_uvector<math_t> max_vals(n_components, stream);
   auto components_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
@@ -154,7 +154,7 @@ void signFlipComponents(const raft::handle_t& handle,
   // S: diagonal matrix of eigen-values, n_components * n_components
   // V: components, n_components * n_features
   // U @ S = X @ V.T, where the signs of U @ S are solely determined by U
-  if (u_based_decision) {
+  if (flip_signs_based_on_U) {
     if (center) {
       // If center, X -= X.mean(axis=0)
       rmm::device_uvector<math_t> col_means(n_features, stream);
@@ -290,7 +290,7 @@ void tsvdFit(const raft::handle_t& handle,
              math_t* singular_vals,
              const paramsTSVD& prms,
              cudaStream_t stream,
-             bool u_based_decision = false)
+             bool flip_signs_based_on_U = false)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -341,7 +341,7 @@ void tsvdFit(const raft::handle_t& handle,
                      n_components,
                      stream,
                      false,
-                     u_based_decision);
+                     flip_signs_based_on_U);
 }
 
 /**
@@ -370,9 +370,9 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       math_t* singular_vals,
                       const paramsTSVD& prms,
                       cudaStream_t stream,
-                      bool u_based_decision = false)
+                      bool flip_signs_based_on_U = false)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, stream, u_based_decision);
+  tsvdFit(handle, input, components, singular_vals, prms, stream, flip_signs_based_on_U);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
 
   rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);

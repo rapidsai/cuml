@@ -318,7 +318,7 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
-        cdef bool u_based_decision = self._u_based_sign_flip
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -362,7 +362,7 @@ class TruncatedSVD(Base,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
                     params,
-                    u_based_decision
+                    flip_signs_based_on_U
                 )
             else:
                 tsvdFitTransform(
@@ -374,7 +374,7 @@ class TruncatedSVD(Base,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
                     params,
-                    u_based_decision
+                    flip_signs_based_on_U
                 )
         self.handle.sync()
 
