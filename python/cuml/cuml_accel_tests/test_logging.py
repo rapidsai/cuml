@@ -1,21 +1,11 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import pytest
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVC
 
 from cuml.accel.core import logger
 
@@ -125,14 +115,14 @@ def test_unsupported_hyperparams_in_set_params(get_logs, log_level):
 def test_unsupported_parameters(get_logs):
     logger.set_level("info")
 
-    X, y = make_regression(random_state=42, n_targets=2)
-    ridge = Ridge(random_state=42)
-    ridge.fit(X, y)
-    ridge.predict(X)
+    X, y = make_classification(random_state=42, n_classes=3, n_informative=4)
+    model = SVC()
+    model.fit(X, y)
+    model.predict(X)
 
     expected = [
-        "[cuml.accel] `Ridge.fit` falling back to CPU: Multioutput `y` is not supported",
-        "[cuml.accel] `Ridge.fit` ran on CPU",
-        "[cuml.accel] `Ridge.predict` ran on CPU",
+        "[cuml.accel] `SVC.fit` falling back to CPU: Multiclass `y` is not supported",
+        "[cuml.accel] `SVC.fit` ran on CPU",
+        "[cuml.accel] `SVC.predict` ran on CPU",
     ]
     assert get_logs() == expected

@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import pickle
@@ -760,15 +749,12 @@ def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
 
     def assert_model(pickled_model, data):
         if result["model"].probability:
-            print("Comparing probabilistic LinearSVC")
-            compare_probabilistic_svm(
-                result["model"], pickled_model, data[0], data[1], 0, 0
-            )
+            pred_before = result["model"].predict_proba(data[0])
+            pred_after = pickled_model.predict_proba(data[0])
         else:
-            print("comparing base LinearSVC")
             pred_before = result["model"].predict(data[0])
             pred_after = pickled_model.predict(data[0])
-            assert array_equal(pred_before, pred_after)
+        assert array_equal(pred_before, pred_after)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -846,7 +832,7 @@ def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
         )
         y_train = np.random.RandomState(42).rand(nrows)
         X_test = X_train
-        model = cuml.svm.SVR(max_iter=1)
+        model = cuml.svm.SVR(max_iter=cuml.svm.SVR.TotalIters(300))
         model.fit(X_train, y_train)
         result["svr"] = model.predict(X_test)
         return model, X_test

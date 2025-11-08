@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -562,7 +551,7 @@ struct rowsize {
  */
 template <typename math_t, typename LayoutPolicyIn>
 void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
-                 raft::device_csr_matrix<math_t, int, int, int> matrix_out,
+                 raft::device_csr_matrix<math_t, int, int, int>& matrix_out,
                  const int* row_indices,
                  int num_indices,
                  const raft::handle_t& handle)
@@ -812,13 +801,13 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
 
   // allocate indptr
   auto* rmm_alloc = rmm::mr::get_current_device_resource();
-  *indptr_out     = (int*)rmm_alloc->allocate((num_indices + 1) * sizeof(int), stream);
+  *indptr_out     = (int*)rmm_alloc->allocate(stream, (num_indices + 1) * sizeof(int));
 
   *nnz = computeIndptrForSubset(indptr_in, *indptr_out, row_indices, num_indices, stream);
 
   // allocate indices, data
-  *indices_out = (int*)rmm_alloc->allocate(*nnz * sizeof(int), stream);
-  *data_out    = (math_t*)rmm_alloc->allocate(*nnz * sizeof(math_t), stream);
+  *indices_out = (int*)rmm_alloc->allocate(stream, *nnz * sizeof(int));
+  *data_out    = (math_t*)rmm_alloc->allocate(stream, *nnz * sizeof(math_t));
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);

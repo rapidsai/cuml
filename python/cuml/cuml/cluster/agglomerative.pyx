@@ -1,84 +1,52 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
-from libc.stdint cimport uintptr_t
+import warnings
 
 import numpy as np
 
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/single_linkage_output.hpp" namespace "ML" nogil:
+cdef extern from "cuml/cluster/linkage.hpp" namespace "ML::linkage" nogil:
 
-    cdef cppclass single_linkage_output[int]:
-        int m
-        int n_clusters
-        int n_leaves
-        int n_connected_components
-        int *labels
-        int *children
-
-cdef extern from "cuml/cluster/linkage.hpp" namespace "ML" nogil:
-
-    cdef void single_linkage_pairwise(
+    cdef void single_linkage(
         const handle_t &handle,
         const float *X,
-        size_t m,
-        size_t n,
-        single_linkage_output[int] *out,
+        int n_rows,
+        int n_cols,
+        size_t n_clusters,
         DistanceType metric,
-        int n_clusters
-    ) except +
-
-    cdef void single_linkage_neighbors(
-        const handle_t &handle,
-        const float *X,
-        size_t m,
-        size_t n,
-        single_linkage_output[int] *out,
-        DistanceType metric,
+        int* children,
+        int* labels,
+        bool use_knn,
         int c,
-        int n_clusters
     ) except +
 
 
 _metrics_mapping = {
-    'l1': DistanceType.L1,
-    'cityblock': DistanceType.L1,
-    'manhattan': DistanceType.L1,
-    'l2': DistanceType.L2SqrtExpanded,
-    'euclidean': DistanceType.L2SqrtExpanded,
-    'cosine': DistanceType.CosineExpanded
+    "l1": DistanceType.L1,
+    "cityblock": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "cosine": DistanceType.CosineExpanded
 }
 
 
 class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
-
     """
     Agglomerative Clustering
 
@@ -87,6 +55,32 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
     Parameters
     ----------
+    n_clusters : int, default=2
+        The number of clusters to find.
+    metric : str, default="euclidean"
+        Metric used to compute the linkage. Can be "euclidean", "l1",
+        "l2", "manhattan", or "cosine". If connectivity is "knn" only
+        "euclidean" is accepted.
+    connectivity : {"pairwise", "knn"}, default="knn"
+        The type of connectivity matrix to compute.
+         * 'pairwise' will compute the entire fully-connected graph of
+           pairwise distances between each set of points. This is the
+           fastest to compute and can be very fast for smaller datasets
+           but requires O(n^2) space.
+         * 'knn' will sparsify the fully-connected connectivity matrix to save
+           memory and enable much larger inputs. You can use ``c`` to influence
+           the number of neighbors used.
+    linkage : {"single"}, default="single"
+        Which linkage criterion to use. The linkage criterion determines
+        which distance to use between sets of observations. The algorithm
+        will merge the pairs of clusters that minimize this criterion.
+
+         * 'single' uses the minimum of the distances between all
+           observations of the two sets.
+    c : int, default=15
+        Indirectly influences the number of neighbors to use when
+        ``connectivity="knn"``, with ``n_neighbors = log(n_samples) + c``. The
+        default of 15 should suffice for most problems.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -97,165 +91,177 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    n_clusters : int (default = 2)
-        The number of clusters to find.
-    metric : str, default=None
-        Metric used to compute the linkage. Can be "euclidean", "l1",
-        "l2", "manhattan", or "cosine". If set to `None` then "euclidean"
-        is used. If connectivity is "knn" only "euclidean" is accepted.
-        .. versionadded:: 24.06
-
-    linkage : {"single"}, default="single"
-        Which linkage criterion to use. The linkage criterion determines
-        which distance to use between sets of observations. The algorithm
-        will merge the pairs of clusters that minimize this criterion.
-
-         * 'single' uses the minimum of the distances between all
-           observations of the two sets.
-
-    n_neighbors : int (default = 15)
-        The number of neighbors to compute when connectivity = "knn"
-    connectivity : {"pairwise", "knn"}, (default = "knn")
-        The type of connectivity matrix to compute.
-         * 'pairwise' will compute the entire fully-connected graph of
-           pairwise distances between each set of points. This is the
-           fastest to compute and can be very fast for smaller datasets
-           but requires O(n^2) space.
-         * 'knn' will sparsify the fully-connected connectivity matrix to
-           save memory and enable much larger inputs. "n_neighbors" will
-           control the amount of memory used and the graph will be connected
-           automatically in the event "n_neighbors" was not large enough
-           to connect it.
-
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    n_clusters_ : int
+        The number of clusters found by the algorithm.
+    labels : array, shape (n_samples,)
+        Cluster labels for each point.
+    n_leaves_ : int
+        Number of leaves in the hierarchical tree.
+    n_connected_components_ : int
+        The estimated number of connected components in the graph.
+    children_ : array, shape (n_samples - 1, 2)
+        The children of each non-leave node.
     """
 
-    labels_ = CumlArrayDescriptor()
-    children_ = CumlArrayDescriptor()
+    labels_ = CumlArrayDescriptor(order="C")
+    children_ = CumlArrayDescriptor(order="C")
 
-    def __init__(self, *, n_clusters=2, metric=None,
-                 linkage="single", handle=None, verbose=False,
-                 connectivity='knn', n_neighbors=10, output_type=None):
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_clusters",
+            "metric",
+            "linkage",
+            "connectivity",
+            "c",
+            "n_neighbors",
+        ]
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        if linkage is not "single":
-            raise ValueError("Only single linkage clustering is "
-                             "supported currently")
-
-        if connectivity not in ["knn", "pairwise"]:
-            raise ValueError("'connectivity' can only be one of "
-                             "{'knn', 'pairwise'}")
-
-        if n_clusters <= 0:
-            raise ValueError("'n_clusters' must be >= 1")
-
-        if n_neighbors > 1023 or n_neighbors < 2:
-            raise ValueError("'n_neighbors' must be a positive number "
-                             "between 2 and 1023")
-
-        if metric is not None and metric not in _metrics_mapping:
-            raise ValueError(f"Metric {metric!r} is not supported.")
+    def __init__(
+        self,
+        n_clusters=2,
+        *,
+        metric="euclidean",
+        connectivity="knn",
+        linkage="single",
+        c=15,
+        handle=None,
+        verbose=False,
+        output_type=None,
+        n_neighbors="deprecated",
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.n_clusters = n_clusters
         self.metric = metric
-        self.linkage = linkage
-        self.n_neighbors = n_neighbors
         self.connectivity = connectivity
-
-        self.n_clusters_ = None
-        self.n_leaves_ = None
-        self.n_connected_components_ = None
-        self.distances_ = None
+        self.linkage = linkage
+        self.c = c
+        self.n_neighbors = n_neighbors
 
     @generate_docstring()
     def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
         """
-        if self.metric is None:
-            metric_name = "euclidean"
+        # Validate and process inputs
+        X = input_to_cuml_array(
+            X,
+            order="C",
+            check_dtype=np.float32,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        ).array
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+
+        if n_rows < 2:
+            raise ValueError(
+                f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
+                f"minimum of 2 is required."
+            )
+        if n_cols < 1:
+            raise ValueError(
+                f"Found array with {n_cols} feature(s) (shape={X.shape}) while "
+                f"a minimum of 1 is required."
+            )
+
+        # Validate and process hyperparameters
+        if self.linkage != "single":
+            raise ValueError("Only single linkage clustering is supported currently")
+
+        if self.connectivity not in ["knn", "pairwise"]:
+            raise ValueError("'connectivity' can only be one of {'knn', 'pairwise'}")
+        cdef bool use_knn = self.connectivity == "knn"
+
+        cdef int c
+        if self.n_neighbors != "deprecated":
+            warnings.warn(
+                (
+                    "`n_neighbors` was deprecated in 25.12 and will be removed "
+                    "in 26.02. Please use `c` instead, where "
+                    "`n_neighbors = log(n_samples) + c`"
+                ),
+                FutureWarning
+            )
+            # Before we were passing `c = n_neighbors`, so we continue to do so,
+            # understanding that this was a bug then and didn't directly indicate
+            # the number of neighbors.
+            c = self.n_neighbors
         else:
-            metric_name = self.metric
-
-        X_m, n_rows, n_cols, self.dtype = \
-            input_to_cuml_array(X, order='C',
-                                check_dtype=[np.float32],
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
-
-        if self.n_clusters > n_rows:
-            raise ValueError("'n_clusters' must be <= n_samples")
-
-        cdef uintptr_t input_ptr = X_m.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        # Hardcode n_components_ to 1 for single linkage. This will
-        # not be the case for other linkage types.
-        self.n_connected_components_ = 1
-        self.n_leaves_ = n_rows
-        self.n_clusters_ = self.n_clusters
-
-        self.labels_ = CumlArray.empty(n_rows, dtype="int32")
-        self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
-        cdef uintptr_t labels_ptr = self.labels_.ptr
-        cdef uintptr_t children_ptr = self.children_.ptr
-
-        cdef single_linkage_output[int] linkage_output
-        linkage_output.children = <int*>children_ptr
-        linkage_output.labels = <int*>labels_ptr
+            c = self.c
 
         cdef DistanceType metric
-        if metric_name in _metrics_mapping:
-            metric = _metrics_mapping[metric_name]
+        if self.metric is None:
+            warnings.warn(
+                (
+                    "metric=None was deprecated in 25.12 and will be removed "
+                    "in 26.02, please use metric='euclidean' instead",
+                ),
+                FutureWarning
+            )
+            metric = DistanceType.L2SqrtExpanded
+        elif self.metric not in _metrics_mapping:
+            raise ValueError("metric={self.metric!r} not supported")
         else:
-            raise ValueError("Metric '%s' not supported." % metric_name)
+            metric = _metrics_mapping[self.metric]
 
-        if self.connectivity == 'knn':
-            single_linkage_neighbors(
-                handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <single_linkage_output[int]*> &linkage_output,
-                <DistanceType> metric, <int>self.n_neighbors,
-                <int> self.n_clusters)
-        elif self.connectivity == 'pairwise':
-            single_linkage_pairwise(
-                handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <single_linkage_output[int]*> &linkage_output,
-                <DistanceType> metric, <int> self.n_clusters)
-        else:
-            raise ValueError("'connectivity' can only be one of "
-                             "{'knn', 'pairwise'}")
+        cdef size_t n_clusters = self.n_clusters
+        if n_clusters < 1 or n_clusters > n_rows:
+            raise ValueError(
+                f"Expected 1 <= n_clusters <= n_rows ({n_rows}), got {n_clusters=}"
+            )
 
+        # Allocate outputs
+        labels = CumlArray.empty(n_rows, dtype="int32", order="C")
+        children = CumlArray.empty((n_rows - 1, 2), dtype="int32", order="C")
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef int* children_ptr = <int*><uintptr_t>children.ptr
+        cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
+
+        # Perform fit
+        with nogil:
+            single_linkage(
+                handle_[0],
+                X_ptr,
+                n_rows,
+                n_cols,
+                n_clusters,
+                metric,
+                children_ptr,
+                labels_ptr,
+                use_knn,
+                c,
+            )
         self.handle.sync()
+
+        # We only support single linkage for now, for other linkage types
+        # n_connected_components_ and n_leaves_ will differ
+        self.n_connected_components_ = 1
+        self.n_leaves_ = n_rows
+        self.n_clusters_ = n_clusters
+        self.labels_ = labels
+        self.children_ = children
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Cluster indexes',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(return_values={"name": "preds",
+                                       "type": "dense",
+                                       "description": "Cluster indexes",
+                                       "shape": "(n_samples, 1)"})
     def fit_predict(self, X, y=None) -> CumlArray:
         """
-        Fit the hierarchical clustering from features and return
-        cluster labels.
+        Fit and return the assigned cluster labels.
         """
         return self.fit(X).labels_
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "n_clusters",
-            "metric",
-            "linkage",
-            "connectivity",
-            "n_neighbors"
-        ]

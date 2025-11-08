@@ -1,22 +1,10 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
@@ -28,6 +16,7 @@
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/functional>
 #include <cuda_runtime.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
@@ -170,11 +159,9 @@ CUML_KERNEL void min_max_kernel(
   }
 
   value_t block_min, block_max;
-  if (find_min) {
-    block_min = BlockReduce(temp_storage_min).Reduce(thread_min, ML::detail::minimum{});
-  }
+  if (find_min) { block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cuda::minimum{}); }
 
-  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, ML::detail::maximum{});
+  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cuda::maximum{});
 
   // results stored in first thread of block
 

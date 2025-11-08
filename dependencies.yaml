@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
 files:
   all:
@@ -339,10 +342,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              cuda: "12.0"
-            packages:
-              - cuda-version=12.0
-          - matrix:
               cuda: "12.2"
             packages:
               - cuda-version=12.2
@@ -491,6 +490,9 @@ dependencies:
           - tenacity
           - umap-learn==0.5.7
           - pynndescent
+      - output_types: conda
+        packages:
+          - cuvs==25.12.*,>=0.0.0a0
   test_python_dask:
     common:
       - output_types: [conda, requirements, pyproject]

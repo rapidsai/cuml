@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
@@ -115,8 +104,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         data = self.client.scatter(X, broadcast=True)
 
-        comms = Comms(comms_p2p=True)
-        comms.init()
+        # Get the workers that actually hold the scattered data
+        who_has = self.client.who_has(data)
+        workers = list(who_has[data.key])
+
+        comms = Comms(comms_p2p=True, client=self.client)
+        comms.init(workers=workers)
 
         # Get worker info to map workers to their RAFT ranks
         worker_info = comms.worker_info(comms.worker_addresses)

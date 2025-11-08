@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -135,6 +124,7 @@ class CondensedHierarchy {
 };
 
 enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
+enum GRAPH_BUILD_ALGO { BRUTE_FORCE_KNN, NN_DESCENT };
 
 class RobustSingleLinkageParams {
  public:
@@ -149,9 +139,64 @@ class RobustSingleLinkageParams {
   float alpha = 1.0;
 };
 
+namespace graph_build_params {
+
+/**
+ * Arguments for using nn descent as the knn build algorithm.
+ * graph_degree must be larger than or equal to min_samples+1.
+ * Increasing graph_degree and max_iterations may result in better accuracy.
+ * Smaller termination threshold means stricter convergence criteria for nn descent and may take
+ * longer to converge.
+ */
+struct nn_descent_params_hdbscan {
+  // not directly using cuvs::neighbors::nn_descent::index_params to distinguish HDBSCAN-exposed NN
+  // Descent parameters
+  size_t graph_degree              = 64;
+  size_t intermediate_graph_degree = 128;
+  size_t max_iterations            = 20;
+  float termination_threshold      = 0.0001;
+};
+
+/**
+ * Parameters for knn graph building in HDBSCAN.
+ * Enables building the mutual reachability graph on datasets larger than device memory by:
+ *   1. Partitioning the dataset into overlapping clusters,
+ *   2. Computing local KNN graphs within each cluster, and
+ *   3. Merging the local graphs into a single global graph.
+ *
+ * Guidelines for choosing parameters:
+ * 1. the ratio of overlap_factor / n_clusters determines device memory usage. Approximately
+ * (overlap_factor / n_clusters) * num_rows_in_entire_data number of rows will be put on device
+ * memory at once. E.g. between (overlap_factor / n_clusters) = 2/10 and 2/20, the latter will use
+ * less device memory.
+ * 2. larger overlap_factor results in better accuracy of the final all-neighbors knn graph. E.g.
+ * While using similar amount of device memory, (overlap_factor / n_clusters) = 4/20 will have
+ * better accuracy than 2/10 at the cost of performance.
+ * 3. for overlap_factor, start with 2, and gradually increase (2->3->4 ...) for better accuracy
+ * 4. for n_clusters, start with 4, and gradually increase(4->8->16 ...) for less GPU memory usage.
+ * This is independent from overlap_factor as long as overlap_factor < n_clusters
+ */
+struct graph_build_params {
+  /**
+   * Number of clusters each data point is assigned to. Only valid when n_clusters > 1.
+   */
+  size_t overlap_factor = 2;
+  /**
+   * Number of clusters to split the data into when building the knn graph. Increasing this will use
+   * less device memory at the cost of accuracy. When using n_clusters > 1, is is required that the
+   * data is put on host (refer to data_on_host argument for fit_transform). The default value
+   * (n_clusters=1) will place the entire data on device memory.
+   */
+  size_t n_clusters = 1;
+  nn_descent_params_hdbscan nn_descent_params;
+};
+}  // namespace graph_build_params
+
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
+  GRAPH_BUILD_ALGO build_algo                       = GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN;
+  graph_build_params::graph_build_params build_params;
 };
 
 /**

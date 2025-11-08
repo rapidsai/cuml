@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -179,6 +168,8 @@ void approx_knn_search(raft::handle_t& handle,
  * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
  * @param[in] n_query_rows number of samples in knn_indices
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_classify(raft::handle_t& handle,
                   int* out,
@@ -186,7 +177,8 @@ void knn_classify(raft::handle_t& handle,
                   std::vector<int*>& y,
                   size_t n_index_rows,
                   size_t n_query_rows,
-                  int k);
+                  int k,
+                  float* sample_weight = nullptr);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -201,6 +193,8 @@ void knn_classify(raft::handle_t& handle,
  * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
  * @param[in] n_query_rows number of samples in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_regress(raft::handle_t& handle,
                  float* out,
@@ -208,7 +202,8 @@ void knn_regress(raft::handle_t& handle,
                  std::vector<float*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k);
+                 int k,
+                 float* sample_weight = nullptr);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
@@ -223,6 +218,8 @@ void knn_regress(raft::handle_t& handle,
  * @param[in] n_index_rows number of labels in y
  * @param[in] n_query_rows number of rows in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
+ * @param[in] sample_weight optional pre-computed weight array on device (size n_samples * k).
+ *            If nullptr, uniform weights are used.
  */
 void knn_class_proba(raft::handle_t& handle,
                      std::vector<float*>& out,
@@ -230,5 +227,6 @@ void knn_class_proba(raft::handle_t& handle,
                      std::vector<int*>& y,
                      size_t n_index_rows,
                      size_t n_query_rows,
-                     int k);
+                     int k,
+                     float* sample_weight = nullptr);
 };  // namespace ML

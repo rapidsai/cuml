@@ -1,17 +1,8 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+import warnings
+
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
@@ -139,6 +130,12 @@ cdef class _SVMModel:
         return support, support_vectors, dual_coef, intercept
 
 
+class TotalIters(int):
+    """Indicates the maximum number of total iterations the solver may run."""
+    def __repr__(self):
+        return f"TotalIters({int(self)})"
+
+
 class SVMBase(Base,
               InteropMixin,
               FMajorInputTagMixin,
@@ -184,15 +181,16 @@ class SVMBase(Base,
             "tol": model.tol,
             "C": model.C,
             "cache_size": cache_size,
-            "max_iter": model.max_iter,
+            "max_iter": TotalIters(model.max_iter),
             "epsilon": model.epsilon,
         }
 
     def _params_to_cpu(self):
-        if (cache_size := self.cache_size) == 1024:
-            # XXX: the cache sizes differ between cuml and sklearn, for now we
-            # just adjust when the value's match the defaults.
-            cache_size = 200
+        if isinstance(self.max_iter, TotalIters):
+            max_iter = int(self.max_iter)
+        else:
+            # No way to restrict outer iters only in sklearn, just use the default
+            max_iter = -1
 
         return {
             "kernel": self.kernel,
@@ -201,8 +199,8 @@ class SVMBase(Base,
             "coef0": self.coef0,
             "tol": self.tol,
             "C": self.C,
-            "cache_size": cache_size,
-            "max_iter": self.max_iter,
+            "cache_size": self.cache_size,
+            "max_iter": max_iter,
             "epsilon": self.epsilon,
         }
 
@@ -244,6 +242,7 @@ class SVMBase(Base,
             "_sparse": model._sparse,
             "fit_status_": model.fit_status_,
             "shape_fit_": model.shape_fit_,
+            "n_iter_": model.n_iter_,
             "_probA": model._probA,
             "_probB": model._probB,
             **super()._attrs_from_cpu(model),
@@ -276,6 +275,7 @@ class SVMBase(Base,
             "intercept_": intercept_,
             "_intercept_": intercept_,
             "shape_fit_": self.shape_fit_,
+            "n_iter_": self.n_iter_,
             "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
             "support_": to_cpu(self.support_, order="C", dtype=np.int32),
             "support_vectors_": support_vectors_,
@@ -384,12 +384,35 @@ class SVMBase(Base,
         cdef lib.SvmParameter param
         param.C = self.C
         param.cache_size = self.cache_size
-        param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
         param.verbosity = self.verbose
         param.epsilon = self.epsilon
         param.svmType = lib.SvmType.C_SVC if is_classifier else lib.SvmType.EPSILON_SVR
+
+        if isinstance(self.max_iter, TotalIters):
+            param.max_iter = int(self.max_iter)
+            param.max_outer_iter = -1
+        elif self.max_iter == -1:
+            param.max_iter = -1
+            param.max_outer_iter = -1
+        else:
+            name = type(self).__name__
+            warnings.warn(
+                (
+                    "The meaning of `max_iter` will change in version 26.02 from "
+                    "'max outer iterations' to 'max total iterations'.\n\n"
+                    "You may opt into the new behavior now with:\n\n"
+                    f"  {name}(max_iter={name}.TotalIters(max_total_iter), ...)\n\n"
+                    "The number of total iterations run during a fit may be accessed "
+                    "through the `n_iter_` attribute. In 26.02 the `TotalIters` "
+                    "wrapper will be deprecated and `max_iter` will put a limit "
+                    "on total iterations."
+                ),
+                FutureWarning,
+            )
+            param.max_iter = -1
+            param.max_outer_iter = self.max_iter
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef int n_rows, n_cols, X_nnz
@@ -408,12 +431,13 @@ class SVMBase(Base,
         y_ptr = y.ptr
         sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
 
+        cdef int n_iter
         cdef _SVMModel internal = _SVMModel.new(self.handle, is_float32)
 
         with nogil:
             if is_sparse:
                 if is_float32:
-                    lib.svrFitSparse(
+                    n_iter = lib.svrFitSparse(
                         handle_[0],
                         X_indptr,
                         X_indices,
@@ -428,7 +452,7 @@ class SVMBase(Base,
                         <float*>sample_weight_ptr,
                     )
                 else:
-                    lib.svrFitSparse(
+                    n_iter = lib.svrFitSparse(
                         handle_[0],
                         X_indptr,
                         X_indices,
@@ -444,7 +468,7 @@ class SVMBase(Base,
                     )
             else:
                 if is_float32:
-                    lib.svrFit(
+                    n_iter = lib.svrFit(
                         handle_[0],
                         <float*> X_ptr,
                         n_rows,
@@ -456,7 +480,7 @@ class SVMBase(Base,
                         <float*>sample_weight_ptr,
                     )
                 else:
-                    lib.svrFit(
+                    n_iter = lib.svrFit(
                         handle_[0],
                         <double*> X_ptr,
                         n_rows,
@@ -478,6 +502,7 @@ class SVMBase(Base,
         self.n_support_ = support.shape[0]
         self.fit_status_ = 0
         self.shape_fit_ = X.shape
+        self.n_iter_ = np.array([n_iter], dtype=np.int32) if is_classifier else n_iter
         self._gamma = gamma
         self._sparse = is_sparse
         self._probA = np.empty(0, dtype=np.float64)
@@ -625,3 +650,7 @@ class SVMBase(Base,
         self.handle.sync()
 
         return out
+
+
+# Add TotalIters to the SVC/SVR class for easier access
+SVMBase.TotalIters = TotalIters

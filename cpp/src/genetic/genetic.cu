@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "constants.h"
@@ -231,7 +220,7 @@ void parallel_evolve(const raft::handle_t& h,
 
     // Set current generation device nodes
     tmp.nodes = (node*)rmm::mr::get_current_device_resource()->allocate(
-      h_nextprogs[i].len * sizeof(node), stream);
+      stream, h_nextprogs[i].len * sizeof(node));
     raft::copy(tmp.nodes, h_nextprogs[i].nodes, h_nextprogs[i].len, stream);
     raft::copy(d_nextprogs + i, &tmp, 1, stream);
 
@@ -239,7 +228,7 @@ void parallel_evolve(const raft::handle_t& h,
       // Free device memory allocated to program nodes in previous generation
       raft::copy(&tmp, d_oldprogs + i, 1, stream);
       rmm::mr::get_current_device_resource()->deallocate(
-        tmp.nodes, h_nextprogs[i].len * sizeof(node), stream);
+        stream, tmp.nodes, h_nextprogs[i].len * sizeof(node));
     }
 
     tmp.nodes = nullptr;
@@ -409,7 +398,7 @@ void symFit(const raft::handle_t& handle,
 
   program_t d_currprogs;  // pointer to current programs
   d_currprogs = (program_t)rmm::mr::get_current_device_resource()->allocate(
-    params.population_size * sizeof(program), stream);
+    stream, params.population_size * sizeof(program));
   program_t d_nextprogs = final_progs;  // Reuse memory already allocated for final_progs
   final_progs           = nullptr;
 
@@ -491,7 +480,7 @@ void symFit(const raft::handle_t& handle,
 
   // Deallocate the previous generation device memory
   rmm::mr::get_current_device_resource()->deallocate(
-    d_nextprogs, params.population_size * sizeof(program), stream);
+    stream, d_nextprogs, params.population_size * sizeof(program));
   d_currprogs = nullptr;
   d_nextprogs = nullptr;
 }

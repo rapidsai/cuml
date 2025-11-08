@@ -16,7 +16,7 @@ The `test` directory has subdirectories that reflect this distinction between th
 ### Dependencies
 
 1. cmake (>= 3.26.4)
-2. CUDA (>= 12.0)
+2. CUDA (>= 12.2)
 3. gcc (>=13.0)
 4. clang-format (= 20.1.4) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 
@@ -69,7 +69,7 @@ $ cmake --build . -j --target  prims        # Build prims_test ML primitive unit
 To build the MultiGPU tests (CMake option `BUILD_CUML_MG_TESTS`), the following dependencies are required:
 
 - MPI (OpenMPI recommended)
-- NCCL, version corresponding to [RAFT's requirement](https://github.com/rapidsai/raft/blob/branch-23.02/conda/recipes/raft-dask/meta.yaml#L49.
+- NCCL, version corresponding to RAFT's NCCL requirement. See the [raft-dask conda recipe](https://github.com/rapidsai/raft/blob/main/conda/recipes/raft-dask/recipe.yaml) for the current pinning.
 
 ### Third Party Modules
 

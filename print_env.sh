@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 # Reports relevant environment information useful for diagnosing and
 # debugging cuML issues.
 # Usage:

@@ -1,3 +1,13 @@
+# SPDX-FileCopyrightText: Olivier Grisel
+# SPDX-FileCopyrightText: Gael Varoquaux
+# SPDX-FileCopyrightText: Andreas Mueller
+# SPDX-FileCopyrightText: Lars Buitinck
+# SPDX-FileCopyrightText: Alexandre Gramfort
+# SPDX-FileCopyrightText: Nicolas Tresegnie
+# SPDX-FileCopyrightText: Sylvain Marie
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
 #          Olivier Grisel
 #          Gael Varoquaux

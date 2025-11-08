@@ -33,30 +33,34 @@ jobs:
         UPDATE_LINKED_ISSUES: true
       secrets: inherit
 
-    process-branch-name:
+    get-release-version:
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       runs-on: ubuntu-latest
       outputs:
-        branch-name: ${{ steps.process-branch-name.outputs.branch-name }}
+        release-version: ${{ steps.parse-version.outputs.release-version }}
       steps:
-        - name: Extract branch name
-          id: process-branch-name
+        - name: Checkout repository
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ github.event.pull_request.base.ref }}
+        - name: Parse VERSION file
+          id: parse-version
           run: |
-            branch=${{ github.event.pull_request.base.ref }}
-            release=${branch#branch-}
-            echo "branch-name=$release" >> "$GITHUB_OUTPUT"
+            version=$(cat VERSION | head -n 1)
+            release=$(echo "$version" | cut -d. -f1,2)
+            echo "release-version=$release" >> "$GITHUB_OUTPUT"
 
     update-release:
       # This job sets the PR and its linked issues to the release they are targeting
       uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
-      needs: [get-project-id, process-branch-name]
+      needs: [get-project-id, get-release-version]
       with:
         PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
         SINGLE_SELECT_FIELD_ID: "PVTSSF_lADOAp2shc4AA8lRzgFqH3Y"
         SINGLE_SELECT_FIELD_NAME: "Release"
-        SINGLE_SELECT_OPTION_VALUE: "${{ needs.process-branch-name.outputs.branch-name }}"
+        SINGLE_SELECT_OPTION_VALUE: "${{ needs.get-release-version.outputs.release-version }}"
         ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
         ITEM_NODE_ID: "${{ github.event.pull_request.node_id }}"
         UPDATE_ITEM: true

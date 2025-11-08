@@ -1,20 +1,10 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -121,6 +111,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    oob_score : bool (default = False)
+        Whether to use out-of-bag samples to estimate the generalization
+        performance. Only available if ``bootstrap=True``. The out-of-bag
+        estimate provides a way to evaluate the model without requiring a
+        separate validation set. The OOB score is computed using R² (coefficient
+        of determination).
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -138,6 +134,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    oob_score_ : float
+        Score of the training dataset obtained using an out-of-bag estimate.
+        This attribute exists only when ``oob_score`` is True.
+
+    oob_prediction_ : ndarray of shape (n_samples,) or (n_samples, n_outputs)
+        Prediction computed with out-of-bag estimate on the training set.
+        This attribute exists only when ``oob_score`` is True.
+
     Notes
     -----
     For additional docs, see `scikitlearn's RandomForestRegressor
@@ -145,6 +151,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
+
+    oob_prediction_ = CumlArrayDescriptor(order="C")
 
     def __init__(
         self,
@@ -189,6 +197,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             check_rows=X_m.shape[0],
             check_cols=1,
         ).array
+
         return self._fit_forest(X_m, y_m)
 
     @nvtx.annotate(

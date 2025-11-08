@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import json
@@ -1210,3 +1199,194 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_oob_score_classifier(datatype):
+    """Test OOB score computation for RandomForestClassifier"""
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=15,
+        n_redundant=5,
+        n_classes=3,
+        random_state=42,
+    )
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+
+    # Train with OOB score
+    clf = curfc(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    clf.fit(X, y)
+
+    # Check OOB attributes exist
+    assert hasattr(clf, "oob_score_")
+    assert hasattr(clf, "oob_decision_function_")
+
+    # Check OOB score is reasonable (between 0 and 1)
+    assert 0.0 <= clf.oob_score_ <= 1.0
+
+    # Check OOB decision function shape
+    assert clf.oob_decision_function_.shape == (
+        len(X),
+        3,
+    )
+
+    # Compare with sklearn (should be similar but not exactly the same due to implementation differences)
+    sk_clf = skrfc(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    sk_clf.fit(X, y)
+
+    # OOB scores should be reasonably close (within 0.2)
+    assert abs(clf.oob_score_ - sk_clf.oob_score_) < 0.2
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_oob_score_regressor(datatype):
+    """Test OOB score computation for RandomForestRegressor"""
+    X, y = make_regression(
+        n_samples=500, n_features=20, n_informative=15, random_state=42
+    )
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+
+    # Train with OOB score
+    reg = curfr(
+        n_estimators=50,
+        oob_score=True,
+        bootstrap=True,
+        max_samples=0.8,
+        random_state=42,
+    )
+    reg.fit(X, y)
+
+    # Check OOB attributes exist
+    assert hasattr(reg, "oob_score_")
+    assert hasattr(reg, "oob_prediction_")
+
+    # Check OOB score is reasonable (R² score, typically between -1 and 1, but for good models > 0)
+    assert -1.0 <= reg.oob_score_ <= 1.0
+    assert reg.oob_score_ > 0
+
+    # Check OOB prediction shape
+    assert reg.oob_prediction_.shape == (len(X),)
+
+
+def test_rf_oob_score_disabled():
+    """Test that OOB score attributes don't exist when oob_score=False"""
+    X, y = make_classification(n_samples=100, n_features=10, random_state=42)
+
+    clf = curfc(n_estimators=10, oob_score=False, random_state=42)
+
+    # Capture and verify expected warning
+    warning_msg = (
+        "The number of bins, `n_bins` is greater than the number of samples "
+        "used for training"
+    )
+    with pytest.warns(UserWarning, match=warning_msg):
+        clf.fit(X, y)
+
+    # OOB attributes should not exist
+    assert not hasattr(clf, "oob_score_")
+    assert not hasattr(clf, "oob_decision_function_")
+
+
+def test_rf_oob_without_bootstrap():
+    """Test OOB score with bootstrap=False (should raise ValueError)"""
+    X, y = make_classification(n_samples=100, n_features=10, random_state=42)
+
+    clf = curfc(
+        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
+    )
+
+    # Should raise ValueError when oob_score=True but bootstrap=False
+    with pytest.raises(
+        ValueError,
+        match="Out of bag estimation only available if bootstrap=True",
+    ):
+        clf.fit(X, y)
+
+
+def test_rf_oob_score_binary_classification():
+    """Test OOB score on binary classification"""
+    X, y = load_breast_cancer(return_X_y=True)
+    X = X.astype(np.float32)
+
+    clf = curfc(n_estimators=30, oob_score=True, max_depth=10, random_state=42)
+    clf.fit(X, y)
+
+    # OOB score should be reasonably high for this easy dataset
+    assert clf.oob_score_ > 0.85
+
+    # OOB decision function should have 2 classes
+    assert clf.oob_decision_function_.shape[1] == 2
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("n_features", [10, 20, 50])
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
+def test_rf_feature_zero_bias(datatype, n_features):
+    """
+    Test for feature 0 sampling bias in RandomForest.
+
+    Creates a dataset where ONLY feature 0 predicts the target,
+    and all other features are pure noise. This tests whether
+    feature 0 is being properly sampled during tree building.
+
+    Regression test for: https://github.com/rapidsai/cuml/issues/7422
+    """
+    n_samples = 5000
+
+    # Create dataset where only feature 0 is predictive
+    np.random.seed(42)
+    X = np.random.randn(n_samples, n_features).astype(datatype)
+    # Target depends ONLY on feature 0
+    y = (X[:, 0] > 0).astype(np.int32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42, stratify=y
+    )
+
+    # Train scikit-learn model
+    sk_model = skrfc(
+        n_estimators=100,
+        max_features="sqrt",
+        max_depth=5,
+        min_samples_split=10,
+        random_state=42,
+        n_jobs=-1,
+    )
+    sk_model.fit(X_train, y_train)
+    sk_pred = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_pred)
+
+    # Train cuML model
+    cuml_model = curfc(
+        n_estimators=100,
+        max_features="sqrt",
+        max_depth=5,
+        min_samples_split=10,
+        random_state=42,
+    )
+    cuml_model.fit(X_train, y_train)
+    cuml_pred = cuml_model.predict(X_test)
+    cuml_acc = accuracy_score(y_test, cuml_pred)
+
+    # cuML should achieve similar accuracy to sklearn
+    # If feature 0 is severely under-sampled, accuracy will be much lower
+    assert cuml_acc >= sk_acc - 0.10

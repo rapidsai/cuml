@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -135,24 +124,26 @@ CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  * @param sample_weight
  *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
  *        This vector is modified during the computation
+ * @return n_iter
+ *        The number of iterations the solver ran for.
  */
 template <typename math_t>
-void cdFit(const raft::handle_t& handle,
-           math_t* input,
-           int n_rows,
-           int n_cols,
-           math_t* labels,
-           math_t* coef,
-           math_t* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           ML::loss_funct loss,
-           math_t alpha,
-           math_t l1_ratio,
-           bool shuffle,
-           math_t tol,
-           math_t* sample_weight = nullptr)
+int cdFit(const raft::handle_t& handle,
+          math_t* input,
+          int n_rows,
+          int n_cols,
+          math_t* labels,
+          math_t* coef,
+          math_t* intercept,
+          bool fit_intercept,
+          bool normalize,
+          int epochs,
+          ML::loss_funct loss,
+          math_t alpha,
+          math_t l1_ratio,
+          bool shuffle,
+          math_t tol,
+          math_t* sample_weight = nullptr)
 {
   raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
@@ -222,8 +213,9 @@ void cdFit(const raft::handle_t& handle,
     math_t scalar = math_t(n_rows) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
+    /* (n_cols * n_rows) may overflow, upcast for indexing */
     raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
-      squared.data(), input, n_cols, n_rows, stream);
+      squared.data(), input, int64_t(n_cols), int64_t(n_rows), stream);
     raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
   }
 
@@ -236,18 +228,19 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_scalar<math_t> cublas_alpha(1.0, stream);
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
 
-  for (int i = 0; i < epochs; i++) {
-    raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", i);
-    if (i > 0 && shuffle) { Solver::shuffle(ri, g); }
+  int n_iter = 0;
+  while (n_iter < epochs) {
+    raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", n_iter);
+    if (n_iter > 0 && shuffle) { Solver::shuffle(ri, g); }
 
     RAFT_CUDA_TRY(cudaMemsetAsync(convStateLoc, 0, sizeof(ConvState<math_t>), stream));
 
     for (int j = 0; j < n_cols; j++) {
       raft::common::nvtx::range iter_scope("ML::Solver::cdFit::col-%d", j);
-      int ci                = ri[j];
+      int64_t ci            = ri[j];
       math_t* coef_loc      = coef + ci;
       math_t* squared_loc   = squared.data() + ci;
-      math_t* input_col_loc = input + (ci * n_rows);
+      math_t* input_col_loc = input + (ci * int64_t(n_rows));
 
       // remember current coef
       raft::copy(&(convStateLoc->coef), coef_loc, 1, stream);
@@ -285,6 +278,8 @@ void cdFit(const raft::handle_t& handle,
     raft::update_host(&h_convState, convStateLoc, 1, stream);
     handle.sync_stream(stream);
 
+    // Iteration completed, increase n_iter and check early stopping criteria
+    n_iter++;
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }
 
@@ -319,6 +314,8 @@ void cdFit(const raft::handle_t& handle,
   } else {
     *intercept = math_t(0);
   }
+
+  return n_iter;
 }
 
 /**

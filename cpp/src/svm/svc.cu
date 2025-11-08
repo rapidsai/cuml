@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "kernelcache.cuh"
@@ -33,51 +22,51 @@ namespace SVM {
 using namespace MLCommon;
 
 // Explicit instantiation for the library
-template void svcFit<float>(const raft::handle_t& handle,
-                            float* input,
+template int svcFit<float>(const raft::handle_t& handle,
+                           float* input,
+                           int n_rows,
+                           int n_cols,
+                           float* labels,
+                           const SvmParameter& param,
+                           matrix::KernelParams& kernel_params,
+                           SvmModel<float>& model,
+                           const float* sample_weight);
+
+template int svcFit<double>(const raft::handle_t& handle,
+                            double* input,
                             int n_rows,
                             int n_cols,
-                            float* labels,
+                            double* labels,
                             const SvmParameter& param,
                             matrix::KernelParams& kernel_params,
-                            SvmModel<float>& model,
-                            const float* sample_weight);
+                            SvmModel<double>& model,
+                            const double* sample_weight);
 
-template void svcFit<double>(const raft::handle_t& handle,
-                             double* input,
-                             int n_rows,
-                             int n_cols,
-                             double* labels,
-                             const SvmParameter& param,
-                             matrix::KernelParams& kernel_params,
-                             SvmModel<double>& model,
-                             const double* sample_weight);
+template int svcFitSparse<float>(const raft::handle_t& handle,
+                                 int* indptr,
+                                 int* indices,
+                                 float* data,
+                                 int n_rows,
+                                 int n_cols,
+                                 int nnz,
+                                 float* labels,
+                                 const SvmParameter& param,
+                                 matrix::KernelParams& kernel_params,
+                                 SvmModel<float>& model,
+                                 const float* sample_weight);
 
-template void svcFitSparse<float>(const raft::handle_t& handle,
+template int svcFitSparse<double>(const raft::handle_t& handle,
                                   int* indptr,
                                   int* indices,
-                                  float* data,
+                                  double* data,
                                   int n_rows,
                                   int n_cols,
                                   int nnz,
-                                  float* labels,
+                                  double* labels,
                                   const SvmParameter& param,
                                   matrix::KernelParams& kernel_params,
-                                  SvmModel<float>& model,
-                                  const float* sample_weight);
-
-template void svcFitSparse<double>(const raft::handle_t& handle,
-                                   int* indptr,
-                                   int* indices,
-                                   double* data,
-                                   int n_rows,
-                                   int n_cols,
-                                   int nnz,
-                                   double* labels,
-                                   const SvmParameter& param,
-                                   matrix::KernelParams& kernel_params,
-                                   SvmModel<double>& model,
-                                   const double* sample_weight);
+                                  SvmModel<double>& model,
+                                  const double* sample_weight);
 
 template void svcPredict<float>(const raft::handle_t& handle,
                                 float* input,
@@ -135,11 +124,11 @@ SVC<math_t>::SVC(raft::handle_t& handle,
                  math_t tol,
                  matrix::KernelParams kernel_params,
                  math_t cache_size,
-                 int max_iter,
+                 int max_outer_iter,
                  int nochange_steps,
                  rapids_logger::level_enum verbosity)
   : handle(handle),
-    param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
+    param(SvmParameter{C, cache_size, max_outer_iter, -1, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
   model.n_support      = 0;

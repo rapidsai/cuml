@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import random
@@ -29,7 +18,6 @@ from sklearn.linear_model import LogisticRegression as skLR
 from sklearn.metrics import accuracy_score
 
 from cuml.dask.common import utils as dask_utils
-from cuml.internals import logger
 from cuml.testing.utils import array_equal
 
 
@@ -154,82 +142,6 @@ def test_lbfgs_toy(n_parts, datatype, client):
 
     assert_array_equal(preds, y, strict=True)
     assert lr.dtype == datatype
-
-
-def test_lbfgs_init(client):
-    def imp():
-        import cuml.comm.serialize  # NOQA
-
-    client.run(imp)
-
-    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], dtype=np.float32)
-    y = np.array([1.0, 1.0, 0.0, 0.0], dtype=np.float32)
-
-    X_df, y_df = _prep_training_data(
-        c=client, X_train=X, y_train=y, partitions_per_worker=2
-    )
-
-    from cuml.dask.linear_model.logistic_regression import (
-        LogisticRegression as cumlLBFGS_dask,
-    )
-
-    def assert_params(
-        tol,
-        C,
-        fit_intercept,
-        max_iter,
-        linesearch_max_iter,
-        verbose,
-        output_type,
-    ):
-
-        lr = cumlLBFGS_dask(
-            tol=tol,
-            C=C,
-            fit_intercept=fit_intercept,
-            max_iter=max_iter,
-            linesearch_max_iter=linesearch_max_iter,
-            verbose=verbose,
-            output_type=output_type,
-        )
-
-        lr.fit(X_df, y_df)
-        qnpams = lr.solver_model.qnparams.params
-        assert qnpams["grad_tol"] == tol
-        assert qnpams["loss"] == 0  # "sigmoid" loss
-        assert qnpams["penalty_l1"] == 0.0
-        assert qnpams["penalty_l2"] == 1.0 / C
-        assert qnpams["fit_intercept"] == fit_intercept
-        assert qnpams["max_iter"] == max_iter
-        assert qnpams["linesearch_max_iter"] == linesearch_max_iter
-        assert qnpams["verbose"] == (
-            logger.level_enum.debug
-            if verbose is True
-            else logger.level_enum.info
-        )  # cuml Verbosity Levels
-        assert (
-            lr.output_type == "input" if output_type is None else output_type
-        )  # cuml.global_settings.output_type
-
-    assert_params(
-        tol=1e-4,
-        C=1.0,
-        fit_intercept=True,
-        max_iter=1000,
-        linesearch_max_iter=50,
-        verbose=False,
-        output_type=None,
-    )
-
-    assert_params(
-        tol=1e-6,
-        C=1.5,
-        fit_intercept=False,
-        max_iter=200,
-        linesearch_max_iter=100,
-        verbose=True,
-        output_type="cudf",
-    )
 
 
 def _test_lbfgs(
@@ -393,11 +305,7 @@ def test_noreg(fit_intercept, client):
         penalty=None,
     )
 
-    qnpams = lr.solver_model.qnparams.params
-    assert qnpams["penalty_l1"] == 0.0
-    assert qnpams["penalty_l2"] == 0.0
-
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
 
@@ -411,7 +319,7 @@ def test_n_classes_small(client):
 
         lr = cumlLBFGS_dask()
         lr.fit(X_df, y_df)
-        assert lr._num_classes == n_classes
+        assert len(lr.classes_) == n_classes
         return lr
 
     X = np.array([(1, 2), (1, 3)], np.float32)
@@ -453,7 +361,7 @@ def test_n_classes(n_parts, n_classes, client):
         n_classes=n_classes,
     )
 
-    assert lr._num_classes == n_classes
+    assert len(lr.classes_) == n_classes
     assert lr.dtype == np.float32
 
 
@@ -478,7 +386,7 @@ def test_l1(fit_intercept, delayed, n_classes, C, client):
         C=C,
     )
 
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
     assert l1_strength == 1.0 / lr.C
     assert l2_strength == 0.0
 
@@ -507,7 +415,7 @@ def test_elasticnet(fit_intercept, delayed, n_classes, l1_ratio, client):
         l1_ratio=l1_ratio,
     )
 
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
 
     strength = 1.0 / lr.C
     assert l1_strength == lr.l1_ratio * strength
@@ -602,7 +510,7 @@ def test_exception_one_label(client):
     y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class:.*1.0"
+    err_msg = r"loss='sigmoid' requires n_classes == 2 \(got 1\)"
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 

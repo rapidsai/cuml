@@ -1,18 +1,8 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
 from collections.abc import Iterable
 from functools import wraps
 
@@ -481,3 +471,17 @@ def _transform_func(model, data, **kwargs):
 
 def _inverse_transform_func(model, data, **kwargs):
     return model.inverse_transform(data, **kwargs)
+
+
+def check_deprecated_normalize(model):
+    """Warn if the deprecated `normalize` option is used."""
+    if model.kwargs.get("normalize"):
+        cls_name = type(model).__name__
+        warnings.warn(
+            (
+                f"The `normalize` option to `{cls_name}` was deprecated in "
+                f"25.12 and will be removed in 26.02. Please use a `StandardScaler` "
+                f"to normalize your data external to `{cls_name}`."
+            ),
+            FutureWarning,
+        )

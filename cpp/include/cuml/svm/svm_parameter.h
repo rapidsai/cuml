@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -27,8 +16,10 @@ enum SvmType { C_SVC, NU_SVC, EPSILON_SVR, NU_SVR };
  *
  * There are several parameters that control how long we train. The training
  * stops if:
- * - max_iter iterations are reached. If you pass -1, then
+ * - max_outer_iter outer iterations are reached. If you pass -1, then
  *   max_diff = 100 * n_rows
+ * - max_iter total iterations are reached. Pass -1 for no limit on total
+ *   iterations.
  * - the diff becomes less the tol
  * - the diff is changing less then 0.001*tol in nochange_steps consecutive
  *   outer iterations.
@@ -36,8 +27,7 @@ enum SvmType { C_SVC, NU_SVC, EPSILON_SVR, NU_SVR };
 struct SvmParameter {
   double C;           //!< Penalty term C
   double cache_size;  //!< kernel cache size in MiB
-  //! maximum number of outer SMO iterations. Use -1 to let the SMO solver set
-  //! a default value (100*n_rows).
+  int max_outer_iter;
   int max_iter;
   int nochange_steps;                   //<! Number of steps to continue with non-changing diff
   double tol;                           //!< Tolerance used to stop fitting.

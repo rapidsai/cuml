@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
+# SPDX-FileCopyrightText: Sergey Feldman <sergeyfeldman@gmail.com>
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
 #          Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 #          Sergey Feldman <sergeyfeldman@gmail.com>

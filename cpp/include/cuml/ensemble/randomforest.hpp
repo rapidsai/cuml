@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -145,7 +134,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -154,7 +144,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -165,6 +156,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   int n_unique_labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
@@ -222,7 +214,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
          double* input,
@@ -230,7 +223,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -240,6 +234,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_cols,
                   L* labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,

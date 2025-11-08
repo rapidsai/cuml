@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 from functools import partial
 
@@ -553,7 +542,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "Lasso sets attributes during init",
-        "check_dont_overwrite_parameters": "Lasso overwrites parameters during fit",
         "check_estimators_unfitted": "Lasso does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "Lasso raises errors in init or set_params",
         "check_n_features_in_after_fitting": "Lasso does not check n_features_in consistency",
@@ -561,7 +549,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_sample_weights_list": "Lasso does not handle list sample weights",
         "check_complex_data": "Lasso does not handle complex data",
         "check_dtype_object": "Lasso does not handle object dtype",
-        "check_estimators_empty_data_messages": "Lasso does not handle empty data",
         "check_estimators_nan_inf": "Lasso does not check for NaN and inf",
         "check_estimator_sparse_tag": "Lasso does not support sparse data",
         "check_estimator_sparse_array": "Lasso does not handle sparse arrays gracefully",
@@ -574,8 +561,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_supervised_y_no_nan": "Lasso does not check for NaN in y",
         "check_non_transformer_estimators_n_iter": "Lasso does not have n_iter_ attribute",
         "check_parameters_default_constructible": "Lasso parameters are mutated on init",
-        "check_fit2d_1sample": "Lasso does not handle single sample",
-        "check_set_params": "Lasso does not handle set_params properly",
         "check_fit1d": "Lasso does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "Lasso does not handle 1D prediction input gracefully",
         "check_requires_y_none": "Lasso does not handle y=None",
@@ -583,7 +568,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "ElasticNet sets attributes during init",
-        "check_dont_overwrite_parameters": "ElasticNet overwrites parameters during fit",
         "check_estimators_unfitted": "ElasticNet does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "ElasticNet raises errors in init or set_params",
         "check_n_features_in_after_fitting": "ElasticNet does not check n_features_in consistency",
@@ -591,7 +575,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_sample_weights_list": "ElasticNet does not handle list sample weights",
         "check_complex_data": "ElasticNet does not handle complex data",
         "check_dtype_object": "ElasticNet does not handle object dtype",
-        "check_estimators_empty_data_messages": "ElasticNet does not handle empty data",
         "check_estimators_nan_inf": "ElasticNet does not check for NaN and inf",
         "check_estimator_sparse_tag": "ElasticNet does not support sparse data",
         "check_estimator_sparse_array": "ElasticNet does not handle sparse arrays gracefully",
@@ -604,8 +587,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_supervised_y_no_nan": "ElasticNet does not check for NaN in y",
         "check_non_transformer_estimators_n_iter": "ElasticNet does not have n_iter_ attribute",
         "check_parameters_default_constructible": "ElasticNet parameters are mutated on init",
-        "check_fit2d_1sample": "ElasticNet does not handle single sample",
-        "check_set_params": "ElasticNet does not handle set_params properly",
         "check_fit1d": "ElasticNet does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "ElasticNet does not handle 1D prediction input gracefully",
         "check_requires_y_none": "ElasticNet does not handle y=None",
@@ -617,19 +598,15 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_n_features_in_after_fitting": "KernelDensity does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "KernelDensity does not handle non-array sample weights",
         "check_sample_weights_list": "KernelDensity does not handle list sample weights",
-        "check_sample_weights_shape": "KernelDensity does not validate sample weights shape",
         "check_sample_weight_equivalence_on_dense_data": "KernelDensity sample weight equivalence not implemented",
         "check_complex_data": "KernelDensity does not handle complex data",
         "check_dtype_object": "KernelDensity does not handle object dtype",
         "check_estimators_empty_data_messages": "KernelDensity does not handle empty data",
-        "check_pipeline_consistency": "KernelDensity does not handle pipeline consistency",
         "check_estimators_nan_inf": "KernelDensity does not check for NaN and inf",
         "check_estimator_sparse_tag": "KernelDensity does not support sparse data",
         "check_estimator_sparse_array": "KernelDensity does not handle sparse arrays gracefully",
         "check_estimator_sparse_matrix": "KernelDensity does not handle sparse matrices gracefully",
         "check_parameters_default_constructible": "KernelDensity parameters are mutated on init",
-        "check_methods_sample_order_invariance": "KernelDensity results depend on sample order",
-        "check_methods_subset_invariance": "KernelDensity results depend on data subset",
         "check_n_features_in": "KernelDensity does not set n_features_in properly",
         "check_fit1d": "KernelDensity does not raise ValueError for 1D input",
     },
@@ -679,17 +656,14 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "AgglomerativeClustering sets attributes during init",
-        "check_dont_overwrite_parameters": "AgglomerativeClustering overwrites parameters during fit",
         "check_do_not_raise_errors_in_init_or_set_params": "AgglomerativeClustering raises errors in init or set_params",
         "check_complex_data": "AgglomerativeClustering does not handle complex data",
         "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
-        "check_estimators_empty_data_messages": "AgglomerativeClustering does not handle empty data",
         "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
         "check_estimator_sparse_tag": "AgglomerativeClustering does not support sparse data",
         "check_estimator_sparse_array": "AgglomerativeClustering does not handle sparse arrays gracefully",
         "check_estimator_sparse_matrix": "AgglomerativeClustering does not handle sparse matrices gracefully",
         "check_parameters_default_constructible": "AgglomerativeClustering parameters are mutated on init",
-        "check_fit_check_is_fitted": "AgglomerativeClustering passes check_is_fitted before being fit",
         "check_fit1d": "AgglomerativeClustering does not raise ValueError for 1D input",
     },
     GaussianNB: {
@@ -809,7 +783,7 @@ def _check_name(check):
         GaussianRandomProjection(),
         SparseRandomProjection(),
         DBSCAN(),
-        # AgglomerativeClustering(),
+        AgglomerativeClustering(),
         KernelRidge(),
         GaussianNB(),
         ComplementNB(),
@@ -869,15 +843,12 @@ def test_sklearn_compatible_estimator(estimator, check):
             "Estimator leads to additional MemoryErrors in other estimators (gh-7100)"
         )
 
-    check_name = _check_name(check)
-
-    if check_name == "check_estimators_pickle" and isinstance(
-        estimator,
-        (AgglomerativeClustering,),
-    ):
+    if isinstance(estimator, AgglomerativeClustering):
         pytest.skip(
-            "Pickling AgglomerativeClustering leads to additional MemoryErrors in other tests"
+            "Estimator sometimes causes persistent memory errors (gh-7345)"
         )
+
+    check_name = _check_name(check)
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
         estimator, UMAP
