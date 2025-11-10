@@ -1495,6 +1495,41 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     raft::update_host(h_counts.data(), d_counts.data(), params.n_features, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
+    // Copy colids back to host for duplicate checking
+    std::vector<int> h_colids(params.n_nodes * params.k);
+    raft::update_host(h_colids.data(), d_colids.data(), params.n_nodes * params.k, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+    // Verify that each node's sampled features are unique and valid
+    for (int node = 0; node < params.n_nodes; ++node) {
+      std::vector<bool> feature_seen(params.n_features, false);
+      int unique_count = 0;
+
+      for (int j = 0; j < params.k; ++j) {
+        int feature_idx = h_colids[node * params.k + j];
+
+        // Check feature index is within valid range
+        EXPECT_GE(feature_idx, 0) << "Node " << node << " has invalid feature index " << feature_idx
+                                  << " (< 0)";
+        EXPECT_LT(feature_idx, params.n_features)
+          << "Node " << node << " has invalid feature index " << feature_idx
+          << " (>= n_features=" << params.n_features << ")";
+
+        // Check for duplicates
+        if (feature_idx >= 0 && feature_idx < params.n_features) {
+          EXPECT_FALSE(feature_seen[feature_idx]) << "Node " << node << " has duplicate feature "
+                                                  << feature_idx << " at positions in sampled set";
+          if (!feature_seen[feature_idx]) {
+            feature_seen[feature_idx] = true;
+            unique_count++;
+          }
+        }
+      }
+
+      EXPECT_EQ(unique_count, params.k) << "Node " << node << " should have exactly " << params.k
+                                        << " unique features, but got " << unique_count;
+    }
+
     // Verify uniform sampling (no bias)
     unsigned long long total_samples = params.n_nodes * params.k;
     double expected_per_feature      = double(total_samples) / params.n_features;
