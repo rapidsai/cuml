@@ -179,6 +179,17 @@ class SVC(SVMBase, ClassifierMixin):
     max_iter : int (default = -1)
         Limit the number of outer iterations in the solver.
         If -1 (default) then ``max_iter=100*n_samples``
+
+        .. deprecated::25.12
+
+            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
+            favor of instead meaning "max total iterations". To opt in to the
+            new behavior now, you may pass in an instance of `SVC.TotalIters`.
+            For example ``SVC(max_iter=SVC.TotalIters(1000))`` would limit the
+            solver to a max of 1000 total iterations. In 26.02 the new behavior
+            will become the default and the `SVC.TotalIters` wrapper class will
+            be deprecated.
+
     decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -218,6 +229,8 @@ class SVC(SVMBase, ClassifierMixin):
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted
+    n_iter_ : array
+        Number of outer iterations run by the solver for each model fit.
     coef_ : float, shape (1, n_cols)
         Only available for linear kernels. It is the normal of the
         hyperplane.
@@ -435,6 +448,12 @@ class SVC(SVMBase, ClassifierMixin):
 
         self.shape_fit_ = X.shape
         self.fit_status_ = 0
+        self.n_iter_ = np.concatenate(
+            [
+                est.n_iter_
+                for est in self._multiclass.multiclass_estimator.estimators_
+            ]
+        )
         return self
 
     def _fit_proba(self, X, y, sample_weight) -> "SVC":
@@ -495,6 +514,7 @@ class SVC(SVMBase, ClassifierMixin):
                 "n_support_",
                 "fit_status_",
                 "shape_fit_",
+                "n_iter_",
                 "_gamma",
                 "_sparse",
             ]

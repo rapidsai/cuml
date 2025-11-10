@@ -124,24 +124,26 @@ CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  * @param sample_weight
  *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
  *        This vector is modified during the computation
+ * @return n_iter
+ *        The number of iterations the solver ran for.
  */
 template <typename math_t>
-void cdFit(const raft::handle_t& handle,
-           math_t* input,
-           int n_rows,
-           int n_cols,
-           math_t* labels,
-           math_t* coef,
-           math_t* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           ML::loss_funct loss,
-           math_t alpha,
-           math_t l1_ratio,
-           bool shuffle,
-           math_t tol,
-           math_t* sample_weight = nullptr)
+int cdFit(const raft::handle_t& handle,
+          math_t* input,
+          int n_rows,
+          int n_cols,
+          math_t* labels,
+          math_t* coef,
+          math_t* intercept,
+          bool fit_intercept,
+          bool normalize,
+          int epochs,
+          ML::loss_funct loss,
+          math_t alpha,
+          math_t l1_ratio,
+          bool shuffle,
+          math_t tol,
+          math_t* sample_weight = nullptr)
 {
   raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
@@ -226,9 +228,10 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_scalar<math_t> cublas_alpha(1.0, stream);
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
 
-  for (int i = 0; i < epochs; i++) {
-    raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", i);
-    if (i > 0 && shuffle) { Solver::shuffle(ri, g); }
+  int n_iter = 0;
+  while (n_iter < epochs) {
+    raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", n_iter);
+    if (n_iter > 0 && shuffle) { Solver::shuffle(ri, g); }
 
     RAFT_CUDA_TRY(cudaMemsetAsync(convStateLoc, 0, sizeof(ConvState<math_t>), stream));
 
@@ -275,6 +278,8 @@ void cdFit(const raft::handle_t& handle,
     raft::update_host(&h_convState, convStateLoc, 1, stream);
     handle.sync_stream(stream);
 
+    // Iteration completed, increase n_iter and check early stopping criteria
+    n_iter++;
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }
 
@@ -309,6 +314,8 @@ void cdFit(const raft::handle_t& handle,
   } else {
     *intercept = math_t(0);
   }
+
+  return n_iter;
 }
 
 /**

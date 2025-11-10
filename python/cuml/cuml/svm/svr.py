@@ -59,6 +59,17 @@ class SVR(SVMBase, RegressorMixin):
     max_iter : int (default = -1)
         Limit the number of outer iterations in the solver.
         If -1 (default) then ``max_iter=100*n_samples``
+
+        .. deprecated::25.12
+
+            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
+            favor of instead meaning "max total iterations". To opt in to the
+            new behavior now, you may pass in an instance of `SVR.TotalIters`.
+            For example ``SVR(max_iter=SVR.TotalIters(1000))`` would limit the
+            solver to a max of 1000 total iterations. In 26.02 the new behavior
+            will become the default and the `SVR.TotalIters` wrapper class will
+            be deprecated.
+
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -89,6 +100,8 @@ class SVR(SVMBase, RegressorMixin):
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted
+    n_iter_ : int
+        Number of outer iterations run by the solver.
     coef_ : float, shape [1, n_cols]
         Only available for linear kernels. It is the normal of the
         hyperplane.

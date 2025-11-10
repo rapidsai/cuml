@@ -69,7 +69,7 @@ $ cmake --build . -j --target  prims        # Build prims_test ML primitive unit
 To build the MultiGPU tests (CMake option `BUILD_CUML_MG_TESTS`), the following dependencies are required:
 
 - MPI (OpenMPI recommended)
-- NCCL, version corresponding to [RAFT's requirement](https://github.com/rapidsai/raft/blob/branch-23.02/conda/recipes/raft-dask/meta.yaml#L49.
+- NCCL, version corresponding to RAFT's NCCL requirement. See the [raft-dask conda recipe](https://github.com/rapidsai/raft/blob/main/conda/recipes/raft-dask/recipe.yaml) for the current pinning.
 
 ### Third Party Modules
 

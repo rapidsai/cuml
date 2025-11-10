@@ -94,6 +94,8 @@ class ElasticNet(
         The estimated coefficients for the linear regression model.
     intercept_ : float
         The independent term, will be 0 if `fit_intercept` is False.
+    n_iter_ : int
+        The number of iterations taken by the solver.
 
     Notes
     -----
@@ -187,6 +189,7 @@ class ElasticNet(
         return {
             "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -194,6 +197,7 @@ class ElasticNet(
         return {
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -249,7 +253,7 @@ class ElasticNet(
                 raise ValueError(
                     "`normalize=True` is not supported with `solver='qn'"
                 )
-            coef, intercept, _, _ = fit_qn(
+            coef, intercept, n_iter, _ = fit_qn(
                 X,
                 y,
                 sample_weight=sample_weight,
@@ -267,7 +271,7 @@ class ElasticNet(
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
         elif self.solver == "cd":
-            coef, intercept = fit_coordinate_descent(
+            coef, intercept, n_iter = fit_coordinate_descent(
                 X,
                 y,
                 sample_weight=sample_weight,
@@ -286,5 +290,6 @@ class ElasticNet(
 
         self.coef_ = coef
         self.intercept_ = intercept
+        self.n_iter_ = n_iter
 
         return self

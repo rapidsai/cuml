@@ -4,11 +4,11 @@
 import cupy as cp
 import numpy as np
 import pytest
+from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 
 from cuml.datasets import make_blobs
-from cuml.manifold.umap import UMAP
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
@@ -108,7 +108,7 @@ def test_simplicial_set_embedding(
     random_state = 42
     metric = "euclidean"
     initial_alpha = 1.0
-    a, b = UMAP.find_ab_params(1.0, 0.1)
+    a, b = find_ab_params(1.0, 0.1)
     gamma = 1.0
     negative_sample_rate = 5
     n_epochs = 500

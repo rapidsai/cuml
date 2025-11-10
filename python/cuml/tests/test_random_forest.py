@@ -1331,3 +1331,62 @@ def test_rf_oob_score_binary_classification():
 
     # OOB decision function should have 2 classes
     assert clf.oob_decision_function_.shape[1] == 2
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("n_features", [10, 20, 50])
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
+def test_rf_feature_zero_bias(datatype, n_features):
+    """
+    Test for feature 0 sampling bias in RandomForest.
+
+    Creates a dataset where ONLY feature 0 predicts the target,
+    and all other features are pure noise. This tests whether
+    feature 0 is being properly sampled during tree building.
+
+    Regression test for: https://github.com/rapidsai/cuml/issues/7422
+    """
+    n_samples = 5000
+
+    # Create dataset where only feature 0 is predictive
+    np.random.seed(42)
+    X = np.random.randn(n_samples, n_features).astype(datatype)
+    # Target depends ONLY on feature 0
+    y = (X[:, 0] > 0).astype(np.int32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42, stratify=y
+    )
+
+    # Train scikit-learn model
+    sk_model = skrfc(
+        n_estimators=100,
+        max_features="sqrt",
+        max_depth=5,
+        min_samples_split=10,
+        random_state=42,
+        n_jobs=-1,
+    )
+    sk_model.fit(X_train, y_train)
+    sk_pred = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_pred)
+
+    # Train cuML model
+    cuml_model = curfc(
+        n_estimators=100,
+        max_features="sqrt",
+        max_depth=5,
+        min_samples_split=10,
+        random_state=42,
+    )
+    cuml_model.fit(X_train, y_train)
+    cuml_pred = cuml_model.predict(X_test)
+    cuml_acc = accuracy_score(y_test, cuml_pred)
+
+    # cuML should achieve similar accuracy to sklearn
+    # If feature 0 is severely under-sampled, accuracy will be much lower
+    assert cuml_acc >= sk_acc - 0.10

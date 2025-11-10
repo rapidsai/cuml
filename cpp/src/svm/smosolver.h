@@ -107,6 +107,7 @@ class SmoSolver {
    * @param [out] support_matrix support vectors in matrix format, size [n_support, n_cols]
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
    * @param [out] b scalar constant for the decision function
+   * @param [in] max_iter: maximum number of total iterations (default -1 for no limit)
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
@@ -121,6 +122,7 @@ class SmoSolver {
              SupportStorage<math_t>* support_matrix,
              int** idx,
              math_t* b,
+             int max_iter       = -1,
              int max_outer_iter = -1,
              int max_inner_iter = 10000);
 
@@ -215,6 +217,8 @@ class SmoSolver {
    */
   void SvrInit(const math_t* yr, int n_rows, math_t* yc, math_t* f);
 
+  int GetNIter() { return n_iter; };
+
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
@@ -255,12 +259,13 @@ class SmoSolver {
   int n_small_diff;
   int nochange_steps;
   int n_increased_diff;
+  int n_outer_iter;
   int n_iter;
   bool report_increased_diff;
 
   bool CheckStoppingCondition(math_t diff)
   {
-    if (diff > diff_prev * 1.5 && n_iter > 0) {
+    if (diff > diff_prev * 1.5 && n_outer_iter > 0) {
       // Ideally, diff should decrease monotonically. In practice we can have
       // small fluctuations (10% increase is not uncommon). Here we consider a
       // 50% increase in the diff value large enough to indicate a problem.
@@ -269,7 +274,7 @@ class SmoSolver {
       // other cases.
       n_increased_diff++;
     }
-    if (report_increased_diff && n_iter > 100 && n_increased_diff > n_iter * 0.1) {
+    if (report_increased_diff && n_outer_iter > 100 && n_increased_diff > n_outer_iter * 0.1) {
       CUML_LOG_DEBUG(
         "Solver is not converging monotonically. This might be caused by "
         "insufficient normalization of the feature columns. In that case "

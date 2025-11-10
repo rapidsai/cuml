@@ -31,6 +31,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     cdef struct SvmParameter:
         double C
         double cache_size
+        int max_outer_iter
         int max_iter
         int nochange_steps
         double tol
@@ -95,7 +96,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svrFit[math_t](
+    cdef int svrFit[math_t](
         const handle_t &handle,
         math_t* data,
         int n_rows,
@@ -107,7 +108,7 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
         const math_t *sample_weight,
     ) except+
 
-    cdef void svrFitSparse[math_t](
+    cdef int svrFitSparse[math_t](
         const handle_t &handle,
         int* indptr,
         int* indices,

@@ -18,39 +18,43 @@ __all__ = ("fit_coordinate_descent", "CD")
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
-    cdef void cdFit(handle_t& handle,
-                    float *input,
-                    int n_rows,
-                    int n_cols,
-                    float *labels,
-                    float *coef,
-                    float *intercept,
-                    bool fit_intercept,
-                    bool normalize,
-                    int epochs,
-                    int loss,
-                    float alpha,
-                    float l1_ratio,
-                    bool shuffle,
-                    float tol,
-                    float *sample_weight) except +
+    cdef int cdFit(
+        handle_t& handle,
+        float *input,
+        int n_rows,
+        int n_cols,
+        float *labels,
+        float *coef,
+        float *intercept,
+        bool fit_intercept,
+        bool normalize,
+        int epochs,
+        int loss,
+        float alpha,
+        float l1_ratio,
+        bool shuffle,
+        float tol,
+        float *sample_weight
+    ) except +
 
-    cdef void cdFit(handle_t& handle,
-                    double *input,
-                    int n_rows,
-                    int n_cols,
-                    double *labels,
-                    double *coef,
-                    double *intercept,
-                    bool fit_intercept,
-                    bool normalize,
-                    int epochs,
-                    int loss,
-                    double alpha,
-                    double l1_ratio,
-                    bool shuffle,
-                    double tol,
-                    double *sample_weight) except +
+    cdef int cdFit(
+        handle_t& handle,
+        double *input,
+        int n_rows,
+        int n_cols,
+        double *labels,
+        double *coef,
+        double *intercept,
+        bool fit_intercept,
+        bool normalize,
+        int epochs,
+        int loss,
+        double alpha,
+        double l1_ratio,
+        bool shuffle,
+        double tol,
+        double *sample_weight
+    ) except +
 
     cdef void cdPredict(handle_t& handle,
                         const float *input,
@@ -109,6 +113,8 @@ def fit_coordinate_descent(
         The fit coefficients
     intercept : float
         The fit intercept, or 0 if `fit_intercept=False`
+    n_iter : int
+        The number of iterations the solver ran for.
     """
     # Process and validate parameters
     if loss != "squared_loss":
@@ -167,11 +173,12 @@ def fit_coordinate_descent(
     cdef double intercept_f64
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef bool is_float32 = X.dtype == np.float32
+    cdef int n_iter
 
     # Perform fit
     with nogil:
         if is_float32:
-            cdFit(
+            n_iter = cdFit(
                 handle_[0],
                 <float*>X_ptr,
                 n_rows,
@@ -190,7 +197,7 @@ def fit_coordinate_descent(
                 <float*>sample_weight_ptr
             )
         else:
-            cdFit(
+            n_iter = cdFit(
                 handle_[0],
                 <double*>X_ptr,
                 n_rows,
@@ -210,7 +217,9 @@ def fit_coordinate_descent(
             )
     handle.sync()
 
-    return coef, intercept_f32 if is_float32 else intercept_f64
+    intercept = intercept_f32 if is_float32 else intercept_f64
+
+    return coef, intercept, n_iter
 
 
 class CD(Base, FMajorInputTagMixin):
@@ -345,7 +354,7 @@ class CD(Base, FMajorInputTagMixin):
         from cuml.linear_model.base import check_deprecated_normalize
         check_deprecated_normalize(self)
 
-        coef, intercept = fit_coordinate_descent(
+        coef, intercept, n_iter = fit_coordinate_descent(
             X,
             y,
             sample_weight=sample_weight,
@@ -362,6 +371,7 @@ class CD(Base, FMajorInputTagMixin):
         )
         self.coef_ = coef
         self.intercept_ = intercept
+        self.n_iter_ = n_iter
 
         return self
 

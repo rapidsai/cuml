@@ -23,12 +23,10 @@
   - "umap.tests.test_umap_validation_params::test_umap_bad_n_jobs"
   - "umap.tests.test_umap_validation_params::test_umap_bad_output_metric"
   - "umap.tests.test_umap_validation_params::test_umap_bad_output_metric_no_grad"
-  - "umap.tests.test_umap_validation_params::test_umap_fit_data_and_targets_compliant"
   - "umap.tests.test_umap_validation_params::test_umap_haversine_embed_to_highd"
   - "umap.tests.test_umap_validation_params::test_umap_negative_learning_rate"
   - "umap.tests.test_umap_validation_params::test_umap_negative_min_dist"
   - "umap.tests.test_umap_validation_params::test_umap_negative_n_epochs"
-  - "umap.tests.test_umap_validation_params::test_umap_negative_n_neighbours"
   - "umap.tests.test_umap_validation_params::test_umap_negative_op"
   - "umap.tests.test_umap_validation_params::test_umap_negative_repulsion"
   - "umap.tests.test_umap_validation_params::test_umap_negative_sample_rate"
@@ -36,7 +34,6 @@
   - "umap.tests.test_umap_validation_params::test_umap_non_integer_n_components"
   - "umap.tests.test_umap_validation_params::test_umap_too_large_op"
   - "umap.tests.test_umap_validation_params::test_umap_too_many_neighbors_warns"
-  - "umap.tests.test_umap_validation_params::test_umap_too_small_n_neighbours"
 - reason: Tests are flaky
   marker: cuml_accel_flaky
   strict: false

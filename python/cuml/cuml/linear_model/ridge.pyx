@@ -237,6 +237,7 @@ class Ridge(Base,
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
             "solver_": solver,
+            "n_iter_": None,
             **super()._attrs_to_cpu(model),
         }
 
