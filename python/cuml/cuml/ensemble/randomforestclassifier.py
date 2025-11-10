@@ -165,7 +165,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     When converting to sklearn using `as_sklearn()`, the `feature_importances_` attribute will return
     NaN values. If you need feature importances, save them before conversion:
-      `importances = cuml_model.feature_importances_`
+    `importances = cuml_model.feature_importances_`
     """
 
     classes_ = CumlArrayDescriptor()
