@@ -1010,7 +1010,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             shape=(n_rows, self.n_components),
             dtype=np.float32,
             memptr=cp.cuda.MemoryPointer(
-                cp.cuda.UnownedMemory(buffer.ptr, buffer.size, buffer), 0
+                cp.cuda.UnownedMemory(buffer.ptr, buffer.size, owner=buffer), 0
             ),
             order="C"
         )
