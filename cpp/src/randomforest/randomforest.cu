@@ -419,7 +419,9 @@ void fit_treelite(const raft::handle_t& user_handle,
       bootstrap_masks);
 
   // Compute feature importances if requested
-  if (feature_importances != nullptr) { get_feature_importances(&metadata, feature_importances); }
+  if (feature_importances != nullptr) {
+    compute_feature_importances(&metadata, feature_importances);
+  }
 
   build_treelite_forest(model, &metadata, n_cols);
 }
@@ -632,7 +634,9 @@ void fit_treelite(const raft::handle_t& user_handle,
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity, bootstrap_masks);
 
   // Compute feature importances if requested
-  if (feature_importances != nullptr) { get_feature_importances(&metadata, feature_importances); }
+  if (feature_importances != nullptr) {
+    compute_feature_importances(&metadata, feature_importances);
+  }
 
   build_treelite_forest(model, &metadata, n_cols);
 }
@@ -727,7 +731,7 @@ RF_metrics score(const raft::handle_t& user_handle,
  * @brief Compute the feature importances of the trained RandomForest model.
  */
 template <class T, class L>
-void get_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances)
+void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances)
 {
   if (forest->n_features == 0) { return; }
 
@@ -809,13 +813,13 @@ template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 
 // Template instantiations for get functions
-template void get_feature_importances<float, int>(const RandomForestMetaData<float, int>* forest,
-                                                  float* importances);
-template void get_feature_importances<double, int>(const RandomForestMetaData<double, int>* forest,
-                                                   double* importances);
-template void get_feature_importances<float, float>(
+template void compute_feature_importances<float, int>(
+  const RandomForestMetaData<float, int>* forest, float* importances);
+template void compute_feature_importances<double, int>(
+  const RandomForestMetaData<double, int>* forest, double* importances);
+template void compute_feature_importances<float, float>(
   const RandomForestMetaData<float, float>* forest, float* importances);
-template void get_feature_importances<double, double>(
+template void compute_feature_importances<double, double>(
   const RandomForestMetaData<double, double>* forest, double* importances);
 
 // Template instantiations for fit_treelite

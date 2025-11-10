@@ -535,7 +535,7 @@ class RfSpecialisedTest {
   {
     // Test feature importances for both regression and classification
     std::vector<DataT> importances(params.n_cols);
-    ML::get_feature_importances(forest.get(), importances.data());
+    ML::compute_feature_importances(forest.get(), importances.data());
 
     // Basic checks for feature importances
     EXPECT_EQ(importances.size(), static_cast<size_t>(params.n_cols));

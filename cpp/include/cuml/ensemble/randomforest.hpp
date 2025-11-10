@@ -134,7 +134,7 @@ void build_treelite_forest(TreeliteModelHandle* model,
  * @param[out] importances: output feature importance scores
  */
 template <class T, class L>
-void get_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances);
+void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances);
 
 // ----------------------------- Classification ----------------------------------- //
 
