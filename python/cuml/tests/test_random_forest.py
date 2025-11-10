@@ -1285,6 +1285,9 @@ def _topk_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
     return len(ai & bi) / float(k)
 
 
+# Note: check_no_attributes_set_in_init, which is one of the common checks,
+# cwould already check that these attributes don't exist. However, that test
+# is marked as xfail. TODO: remove this once we have fixed the xfail.
 def test_rf_feature_importance_not_fitted():
     """Test that accessing feature importances before fitting raises error"""
     clf = curfc()

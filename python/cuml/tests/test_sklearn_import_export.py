@@ -755,7 +755,7 @@ def test_random_forest_classifier(random_state, oob_score):
     # Ensure params/attrs roundtrip
     # Exclude classes_ due to dtype differences between implementations
     # Exclude feature_importances_ because sklearn can't compute them from
-    # treelite-exported models (missing impurity data)
+    # treelite-exported models
     assert_roundtrip_consistency(
         cu_model, cu_model2, exclude=("classes_", "feature_importances_")
     )
@@ -796,7 +796,7 @@ def test_random_forest_regressor(random_state, oob_score):
 
     # Ensure params/attrs roundtrip
     # Exclude feature_importances_ because sklearn can't compute them from
-    # treelite-exported models (missing impurity data)
+    # treelite-exported models
     assert_roundtrip_consistency(
         cu_model, cu_model2, exclude=("feature_importances_",)
     )

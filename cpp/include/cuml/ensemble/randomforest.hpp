@@ -104,21 +104,9 @@ struct RandomForestMetaData {
   RF_params rf_params;
 
   /**
-   * Feature importances (mean decrease in impurity).
-   * Vector of size n_features containing importance score for each feature.
-   */
-  std::vector<T> feature_importances;
-
-  /**
    * Number of features in the training data.
-   * Used for lazy computation of feature importances.
    */
   int n_features = 0;
-
-  /**
-   * Flag indicating whether feature importances have been computed.
-   */
-  bool feature_importances_computed = false;
 };
 
 template <class T, class L>
@@ -139,15 +127,14 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            int num_features);
 
 /**
- * @brief Get the feature importances of the trained RandomForest model.
- * Computes them lazily if not already computed.
+ * @brief Compute the feature importances of the trained RandomForest model.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in,out] forest: CPU pointer to RandomForestMetaData
+ * @param[in] forest: CPU pointer to RandomForestMetaData
  * @return Vector of feature importances
  */
 template <class T, class L>
-std::vector<T> get_feature_importances(RandomForestMetaData<T, L>* forest);
+std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest);
 
 // ----------------------------- Classification ----------------------------------- //
 

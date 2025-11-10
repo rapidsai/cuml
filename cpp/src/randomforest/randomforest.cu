@@ -730,15 +730,12 @@ RF_metrics score(const raft::handle_t& user_handle,
 // Functions' specializations
 
 /**
- * @brief Compute feature importances using mean decrease in impurity (internal).
+ * @brief Compute the feature importances of the trained RandomForest model.
  */
-template <typename T, typename L>
-static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
+template <class T, class L>
+std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest)
 {
-  if (forest->n_features <= 0) {
-    forest->feature_importances_computed = true;
-    return;
-  }
+  if (forest->n_features <= 0) { return std::vector<T>(); }
 
   int n_cols = forest->n_features;
   std::vector<T> importances(n_cols, T(0));
@@ -770,32 +767,22 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
     }
   }
 
-  forest->feature_importances.resize(n_cols);
+  std::vector<T> result(n_cols);
   T sum = T(0);
   for (auto i = 0; i < n_cols; i++) {
     sum += importances[i];
   }
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = importances[i] / sum;
+      result[i] = importances[i] / sum;
     }
   } else {
     for (auto i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = T(0);
+      result[i] = T(0);
     }
   }
 
-  forest->feature_importances_computed = true;
-}
-
-/**
- * @brief Get the feature importances of the trained RandomForest model (lazy computation).
- */
-template <class T, class L>
-std::vector<T> get_feature_importances(RandomForestMetaData<T, L>* forest)
-{
-  if (!forest->feature_importances_computed) { compute_feature_importances(forest); }
-  return forest->feature_importances;
+  return result;
 }
 
 template std::string get_rf_summary_text<float, int>(const RandomForestClassifierF* forest);
@@ -832,13 +819,13 @@ template void build_treelite_forest<double, double>(
 
 // Template instantiations for get functions
 template std::vector<float> get_feature_importances<float, int>(
-  RandomForestMetaData<float, int>* forest);
+  const RandomForestMetaData<float, int>* forest);
 template std::vector<double> get_feature_importances<double, int>(
-  RandomForestMetaData<double, int>* forest);
+  const RandomForestMetaData<double, int>* forest);
 template std::vector<float> get_feature_importances<float, float>(
-  RandomForestMetaData<float, float>* forest);
+  const RandomForestMetaData<float, float>* forest);
 template std::vector<double> get_feature_importances<double, double>(
-  RandomForestMetaData<double, double>* forest);
+  const RandomForestMetaData<double, double>* forest);
 
 // Template instantiations for fit_treelite
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,

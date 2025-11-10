@@ -33,11 +33,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
       https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
       for more details.
 
-    .. note:: When converting to sklearn using `as_sklearn()`, the
-      `feature_importances_` attribute will return NaN values. If you need
-      feature importances, save them before conversion:
-      `importances = cuml_model.feature_importances_`
-
     Examples
     --------
 
@@ -157,6 +152,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         ``oob_decision_function_`` might contain NaN. This attribute exists
         only when ``oob_score`` is True.
 
+    feature_importances_ : ndarray of shape (n_features,)
+        The impurity-based feature importances.
+
     Notes
     -----
     While training the model for multi class classification problems, using
@@ -164,6 +162,10 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
+
+    When converting to sklearn using `as_sklearn()`, the `feature_importances_` attribute will return
+    NaN values. If you need feature importances, save them before conversion:
+      `importances = cuml_model.feature_importances_`
     """
 
     classes_ = CumlArrayDescriptor()
