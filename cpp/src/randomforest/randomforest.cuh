@@ -158,8 +158,6 @@ class RandomForest {
     }
 
     forest->n_features                   = n_cols;
-    forest->feature_importances_computed = false;
-    forest->feature_importances.clear();
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
