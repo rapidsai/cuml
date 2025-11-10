@@ -94,8 +94,8 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
 
-        # Increased tolerance for RNG variance from bias fix (issue #7422)
-        assert acc_score_gpu >= sk_acc - 0.07
+        # Observed: mean=0.002, range=[0.002, 0.002], stderr=0.000
+        assert acc_score_gpu >= (sk_acc - 0.07)
 
     finally:
         c.close()
