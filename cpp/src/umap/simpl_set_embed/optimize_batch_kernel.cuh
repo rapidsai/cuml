@@ -106,9 +106,11 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            bool move_other,
                                            UMAPParams params,
                                            T nsr_inv,
-                                           T rounding)
+                                           T rounding,
+                                           int offset)
 {
-  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x + offset;
+  ;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -221,10 +223,11 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        bool move_other,
                                        UMAPParams params,
                                        T nsr_inv,
-                                       T rounding)
+                                       T rounding,
+                                       int offset)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x + offset;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -392,70 +395,78 @@ void call_optimize_batch_kernel(T const* head_embedding,
   T nsr_inv           = T(1.0) / params->negative_sample_rate;
   if (params->n_components == 2) {
     // multicore implementation with registers
-    optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
-      <<<grid, blk, 0, stream>>>(head_embedding,
-                                 head_buffer,
-                                 tail_embedding,
-                                 tail_buffer,
-                                 tail_n,
-                                 head,
-                                 tail,
-                                 nnz,
-                                 epochs_per_sample,
-                                 epoch_of_next_negative_sample,
-                                 epoch_of_next_sample,
-                                 alpha,
-                                 n,
-                                 gamma,
-                                 seed,
-                                 move_other,
-                                 *params,
-                                 nsr_inv,
-                                 rounding);
+    for (int offset = 0; offset < nnz; offset += TPB_X * grid.x) {
+      optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
+        <<<grid, blk, 0, stream>>>(head_embedding,
+                                   head_buffer,
+                                   tail_embedding,
+                                   tail_buffer,
+                                   tail_n,
+                                   head,
+                                   tail,
+                                   nnz,
+                                   epochs_per_sample,
+                                   epoch_of_next_negative_sample,
+                                   epoch_of_next_sample,
+                                   alpha,
+                                   n,
+                                   gamma,
+                                   seed,
+                                   move_other,
+                                   *params,
+                                   nsr_inv,
+                                   rounding,
+                                   offset);
+    }
   } else if (use_shared_mem) {
-    // multicore implementation with shared memory
-    optimize_batch_kernel<T, nnz_t, TPB_X, true>
-      <<<grid, blk, requiredSize, stream>>>(head_embedding,
-                                            head_buffer,
-                                            tail_embedding,
-                                            tail_buffer,
-                                            tail_n,
-                                            head,
-                                            tail,
-                                            nnz,
-                                            epochs_per_sample,
-                                            epoch_of_next_negative_sample,
-                                            epoch_of_next_sample,
-                                            alpha,
-                                            n,
-                                            gamma,
-                                            seed,
-                                            move_other,
-                                            *params,
-                                            nsr_inv,
-                                            rounding);
+    for (int offset = 0; offset < nnz; offset += TPB_X * grid.x) {
+      optimize_batch_kernel<T, nnz_t, TPB_X, true>
+        <<<grid, blk, requiredSize, stream>>>(head_embedding,
+                                              head_buffer,
+                                              tail_embedding,
+                                              tail_buffer,
+                                              tail_n,
+                                              head,
+                                              tail,
+                                              nnz,
+                                              epochs_per_sample,
+                                              epoch_of_next_negative_sample,
+                                              epoch_of_next_sample,
+                                              alpha,
+                                              n,
+                                              gamma,
+                                              seed,
+                                              move_other,
+                                              *params,
+                                              nsr_inv,
+                                              rounding,
+                                              offset);
+    }
   } else {
     // multicore implementation without shared memory
-    optimize_batch_kernel<T, nnz_t, TPB_X, false>
-      <<<grid, blk, 0, stream>>>(head_embedding,
-                                 head_buffer,
-                                 tail_embedding,
-                                 tail_buffer,
-                                 tail_n,
-                                 head,
-                                 tail,
-                                 nnz,
-                                 epochs_per_sample,
-                                 epoch_of_next_negative_sample,
-                                 epoch_of_next_sample,
-                                 alpha,
-                                 n,
-                                 gamma,
-                                 seed,
-                                 move_other,
-                                 *params,
-                                 nsr_inv,
-                                 rounding);
+    for (int offset = 0; offset < nnz; offset += TPB_X * grid.x) {
+      optimize_batch_kernel<T, nnz_t, TPB_X, false>
+        <<<grid, blk, 0, stream>>>(head_embedding,
+                                   head_buffer,
+                                   tail_embedding,
+                                   tail_buffer,
+                                   tail_n,
+                                   head,
+                                   tail,
+                                   nnz,
+                                   epochs_per_sample,
+                                   epoch_of_next_negative_sample,
+                                   epoch_of_next_sample,
+                                   alpha,
+                                   n,
+                                   gamma,
+                                   seed,
+                                   move_other,
+                                   *params,
+                                   nsr_inv,
+                                   rounding,
+                                   offset);
+    }
   }
 }
 }  // namespace Algo
