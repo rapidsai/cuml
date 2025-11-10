@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-import cuml
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -199,9 +198,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             check_cols=1,
         ).array
 
-        # The dtype of X determines the output type
-        self.target_dtype = X_m.dtype
-
         return self._fit_forest(X_m, y_m)
 
     @nvtx.annotate(
@@ -212,7 +208,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(
         self,
         X,

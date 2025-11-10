@@ -4,7 +4,6 @@
 #
 import numpy as np
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -188,12 +187,6 @@ class KNeighborsRegressor(RegressorMixin,
             )
         super().fit(X, convert_dtype=convert_dtype)
 
-        # The precision of X determines the output precision.
-        target_dtype = getattr(X, "dtype", None)
-        if target_dtype is None or target_dtype.kind != "f":
-            target_dtype = np.dtype(np.float64)
-        self.target_dtype = target_dtype
-
         self._y = input_to_cuml_array(
             y,
             order='F',
@@ -209,7 +202,6 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to

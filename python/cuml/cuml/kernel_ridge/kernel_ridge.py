@@ -315,13 +315,14 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             raise ValueError("X matrix must have at least a column")
 
         K = self._get_kernel(X_m)
-        self.dual_coef_ = _solve_cholesky_kernel(
+        dual_coef = _solve_cholesky_kernel(
             K, cp.asarray(y_m), cp.asarray(self.alpha), sample_weight
         ).astype(X_m.dtype, copy=False)
-
         if ravel:
-            self.dual_coef_ = self.dual_coef_.ravel()
+            dual_coef = dual_coef.ravel()
+
         self.X_fit_ = X_m
+        self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
     @api_base_return_array()
@@ -351,7 +352,6 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             check_cols=self.n_features_in_,
         ).array
 
-        K = self._get_kernel(X_m, self.X_fit_)
-        return CumlArray(
-            cp.dot(cp.asarray(K, dtype=dtype), cp.asarray(self.dual_coef_))
-        )
+        K = cp.asarray(self._get_kernel(X_m, self.X_fit_), dtype=dtype)
+        dual_coef = self.dual_coef_.to_output("cupy")
+        return CumlArray(cp.dot(K, dual_coef))

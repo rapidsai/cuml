@@ -304,15 +304,27 @@ def test_common_signatures(cls, method):
         cls
         for cls in all_base_children.values()
         if getattr(cls, "_estimator_type", None) == "regressor"
+        and hasattr(cls, "fit")
+        and hasattr(cls, "predict")
     ],
 )
-@pytest.mark.parametrize("X_dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
-def test_regression_predict_dtype(cls, X_dtype, y_dtype):
+def test_regressor_predict_dtype(cls):
     X, y = make_regression(n_samples=200, random_state=42)
-    X = X.astype(X_dtype)
-    y = y.astype(y_dtype)
+    X32 = X.astype("float32")
+    y32 = y.astype("float32")
 
-    model = cls().fit(X, y)
-    y_pred = model.predict(X)
-    assert y_pred.dtype == X_dtype
+    # Regressors always return floats. We don't specify which dtype for now.
+    y_pred = cls().fit(X, y).predict(X)
+    assert y_pred.dtype.kind == "f"
+
+    # Regressors work for integral targets, but still return floats
+    y_pred = cls().fit(X, y.astype("int32")).predict(X)
+    assert y_pred.dtype.kind == "f"
+
+    # If all inputs to fit AND predict are float32 we return a float32.
+    # This isn't necessary for the sklearn api, but is useful
+    # for GPU workloads where smaller dtypes can be beneficial.
+    # It also matches the proposed (but not implemented) check discussed
+    # in sklearn here: https://github.com/scikit-learn/scikit-learn/issues/22682
+    y_pred = cls().fit(X32, y32).predict(X32)
+    assert y_pred.dtype == np.float32

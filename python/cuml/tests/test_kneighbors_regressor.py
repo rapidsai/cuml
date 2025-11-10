@@ -103,8 +103,6 @@ def test_score_dtype(dtype):
 
     knn_cu = cuKNN(n_neighbors=5)
     knn_cu.fit(X, y)
-    pred = knn_cu.predict(X)
-    assert pred.dtype == dtype
     assert knn_cu.score(X, y) >= 0.9999
 
 
