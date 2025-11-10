@@ -153,9 +153,13 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   uint64_t seed,
   size_t n /* total cols to sample from*/,
   size_t k /* number of unique cols to sample */,
-  int n_parallel_samples /* number of cols to sample with replacement */,
+  int n_parallel_samples /* number of cols to sample with replacement */
+#ifndef NDEBUG
+  ,
   unsigned long long* feature_sample_counts =
-    nullptr /* optional: track feature sampling for debugging */)
+    nullptr /* optional: track feature sampling for debugging */
+#endif
+)
 {
   if (blockIdx.x >= work_items_size) return;
 
@@ -268,8 +272,10 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
       IdxT rotated_pos = (col_indices[i] + random_offset) % n_uniques;
       if (rotated_pos < k) {
         colids[col_offset + rotated_pos] = items[i];
+#ifndef NDEBUG
         // DEBUG: Track feature sampling frequencies to expose bias
         if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
+#endif
       }
     }
   }

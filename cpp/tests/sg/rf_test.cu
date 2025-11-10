@@ -1412,6 +1412,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestF,
                         ::testing::ValuesIn(gini_objective_test_parameters));
 
+#ifndef NDEBUG
 // Feature sampling bias test
 struct FeatureSamplingBiasTestParams {
   int n_features;
@@ -1534,6 +1535,7 @@ const std::vector<FeatureSamplingBiasTestParams> feature_sampling_bias_test_para
 INSTANTIATE_TEST_CASE_P(RfTests,
                         FeatureSamplingBiasTest,
                         ::testing::ValuesIn(feature_sampling_bias_test_parameters));
+#endif  // NDEBUG
 
 }  // end namespace DT
 }  // end namespace ML
