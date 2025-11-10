@@ -419,10 +419,7 @@ void fit_treelite(const raft::handle_t& user_handle,
       bootstrap_masks);
 
   // Compute feature importances if requested
-  if (feature_importances != nullptr) {
-    std::vector<value_t> fi = get_feature_importances(&metadata);
-    std::copy(fi.begin(), fi.end(), feature_importances);
-  }
+  if (feature_importances != nullptr) { get_feature_importances(&metadata, feature_importances); }
 
   build_treelite_forest(model, &metadata, n_cols);
 }
@@ -635,10 +632,7 @@ void fit_treelite(const raft::handle_t& user_handle,
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity, bootstrap_masks);
 
   // Compute feature importances if requested
-  if (feature_importances != nullptr) {
-    std::vector<value_t> fi = get_feature_importances(&metadata);
-    std::copy(fi.begin(), fi.end(), feature_importances);
-  }
+  if (feature_importances != nullptr) { get_feature_importances(&metadata, feature_importances); }
 
   build_treelite_forest(model, &metadata, n_cols);
 }
@@ -733,12 +727,12 @@ RF_metrics score(const raft::handle_t& user_handle,
  * @brief Compute the feature importances of the trained RandomForest model.
  */
 template <class T, class L>
-std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest)
+void get_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances)
 {
-  if (forest->n_features == 0) { return std::vector<T>(); }
+  if (forest->n_features == 0) { return; }
 
   int n_cols = forest->n_features;
-  std::vector<T> importances(n_cols, T(0));
+  std::vector<T> accumulated_importances(n_cols, T(0));
 
   for (const auto& tree : forest->trees) {
     std::vector<T> tree_importances(n_cols, T(0));
@@ -762,27 +756,24 @@ std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest)
     if (sum > 0) {
       for (int i = 0; i < n_cols; i++) {
         tree_importances[i] /= sum;
-        importances[i] += tree_importances[i];
+        accumulated_importances[i] += tree_importances[i];
       }
     }
   }
 
-  std::vector<T> result(n_cols);
   T sum = T(0);
   for (auto i = 0; i < n_cols; i++) {
-    sum += importances[i];
+    sum += accumulated_importances[i];
   }
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
-      result[i] = importances[i] / sum;
+      importances[i] = accumulated_importances[i] / sum;
     }
   } else {
     for (auto i = 0; i < n_cols; i++) {
-      result[i] = T(0);
+      importances[i] = T(0);
     }
   }
-
-  return result;
 }
 
 template std::string get_rf_summary_text<float, int>(const RandomForestClassifierF* forest);
@@ -818,14 +809,14 @@ template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 
 // Template instantiations for get functions
-template std::vector<float> get_feature_importances<float, int>(
-  const RandomForestMetaData<float, int>* forest);
-template std::vector<double> get_feature_importances<double, int>(
-  const RandomForestMetaData<double, int>* forest);
-template std::vector<float> get_feature_importances<float, float>(
-  const RandomForestMetaData<float, float>* forest);
-template std::vector<double> get_feature_importances<double, double>(
-  const RandomForestMetaData<double, double>* forest);
+template void get_feature_importances<float, int>(const RandomForestMetaData<float, int>* forest,
+                                                  float* importances);
+template void get_feature_importances<double, int>(const RandomForestMetaData<double, int>* forest,
+                                                   double* importances);
+template void get_feature_importances<float, float>(
+  const RandomForestMetaData<float, float>* forest, float* importances);
+template void get_feature_importances<double, double>(
+  const RandomForestMetaData<double, double>* forest, double* importances);
 
 // Template instantiations for fit_treelite
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,

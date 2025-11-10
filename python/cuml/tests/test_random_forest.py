@@ -1204,7 +1204,7 @@ def test_ensemble_estimator_length():
 
 def test_rf_feature_importance_classifier():
     """Test feature importance for Random Forest Classifier.
-    
+
     With shuffle=False, the first n_informative features are guaranteed to be
     informative, and the rest are noise. A correctly working Random Forest should
     always rank the informative features highest.
@@ -1241,7 +1241,7 @@ def test_rf_feature_importance_classifier():
 
 def test_rf_feature_importance_regressor():
     """Test feature importance for Random Forest Regressor.
-    
+
     With shuffle=False, the first n_informative features are guaranteed to be
     informative, and the rest are noise. A correctly working Random Forest should
     always rank the informative features highest.

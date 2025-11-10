@@ -131,10 +131,10 @@ void build_treelite_forest(TreeliteModelHandle* model,
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] forest: CPU pointer to RandomForestMetaData
- * @return Vector of feature importances
+ * @param[out] importances: output feature importance scores
  */
 template <class T, class L>
-std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest);
+void get_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances);
 
 // ----------------------------- Classification ----------------------------------- //
 
