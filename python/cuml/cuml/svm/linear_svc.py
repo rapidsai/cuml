@@ -6,6 +6,7 @@ import numpy as np
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
@@ -19,7 +20,6 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.linear_model.base import LinearClassifierMixin
-from cuml.svm.svc import apply_class_weight
 
 __all__ = ("LinearSVC",)
 
@@ -252,27 +252,16 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         ).array
 
         y = input_to_cupy_array(y, check_rows=X.shape[0], check_cols=1).array
+        classes, y = cp.unique(y, return_inverse=True)
 
-        sample_weight = apply_class_weight(
-            self.handle,
-            sample_weight,
-            self.class_weight,
+        _, sample_weight = process_class_weight(
+            classes,
             y,
-            self.verbose,
-            self.output_type,
-            X.dtype,
+            class_weight=self.class_weight,
+            sample_weight=sample_weight,
+            float64=(X.dtype == np.float64),
         )
 
-        if sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X.dtype,
-                convert_to_dtype=(X.dtype if convert_dtype else None),
-                check_rows=X.shape[0],
-                check_cols=1,
-            ).array
-
-        classes, y = cp.unique(y, return_inverse=True)
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
             self.handle,
             X,

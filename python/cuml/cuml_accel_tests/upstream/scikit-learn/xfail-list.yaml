@@ -1168,7 +1168,6 @@
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
