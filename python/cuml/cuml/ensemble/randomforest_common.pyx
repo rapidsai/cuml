@@ -281,7 +281,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             attrs["oob_prediction_"] = model.oob_prediction_
         # Note: feature_importances_ is NOT transferred from sklearn to cuML
         # because cuML caches the impurity decrease directly (BestMetric()) which
-        #is not available in sklearn models created via treelite export
+        # is not available in sklearn models created via treelite export
         return attrs
 
     def _attrs_to_cpu(self, model):
