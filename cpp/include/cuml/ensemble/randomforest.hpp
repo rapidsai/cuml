@@ -173,7 +173,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   bool* bootstrap_masks,
                   T* feature_importances,
-                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+                  rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -252,7 +252,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   bool* bootstrap_masks,
                   T* feature_importances,
-                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+                  rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,

@@ -735,7 +735,7 @@ RF_metrics score(const raft::handle_t& user_handle,
 template <class T, class L>
 std::vector<T> get_feature_importances(const RandomForestMetaData<T, L>* forest)
 {
-  if (forest->n_features <= 0) { return std::vector<T>(); }
+  if (forest->n_features == 0) { return std::vector<T>(); }
 
   int n_cols = forest->n_features;
   std::vector<T> importances(n_cols, T(0));

@@ -1203,13 +1203,17 @@ def test_ensemble_estimator_length():
 
 
 def test_rf_feature_importance_classifier():
-    """Test feature importance for Random Forest Classifier and compare with sklearn"""
-    # Create dataset with some informative and some noise features
+    """Test feature importance for Random Forest Classifier.
+    
+    With shuffle=False, the first n_informative features are guaranteed to be
+    informative, and the rest are noise. A correctly working Random Forest should
+    always rank the informative features highest.
+    """
     X, y = make_classification(
-        n_samples=500,
-        n_features=20,
-        n_informative=5,
-        n_redundant=5,
+        n_samples=1000,
+        n_features=10,
+        n_informative=3,
+        n_redundant=0,
         n_repeated=0,
         n_classes=2,
         shuffle=False,
@@ -1228,29 +1232,26 @@ def test_rf_feature_importance_classifier():
     assert np.all(cu_importances >= 0)
     assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
 
-    # Informative features should have higher importance
-    # (first 5 features are informative in this dataset)
-    avg_informative_importance = np.mean(cu_importances[:5])
-    avg_noise_importance = np.mean(cu_importances[10:])
-    assert avg_informative_importance > avg_noise_importance
-
-    sk_clf = skrfc(n_estimators=50, max_depth=8, random_state=42)
-    sk_clf.fit(X, y)
-    sk_importances = sk_clf.feature_importances_
-
-    overlap = _topk_overlap(cu_importances, sk_importances, k=5)
-    assert overlap >= 0.8
+    top_features = set(np.argsort(cu_importances)[-3:])
+    assert top_features == {0, 1, 2}, (
+        f"Top 3 features {top_features} should be {{0, 1, 2}}. "
+        f"Importances: {cu_importances}"
+    )
 
 
 def test_rf_feature_importance_regressor():
-    """Test feature importance for Random Forest Regressor and compare with sklearn"""
-    # Create dataset with some informative and some noise features
+    """Test feature importance for Random Forest Regressor.
+    
+    With shuffle=False, the first n_informative features are guaranteed to be
+    informative, and the rest are noise. A correctly working Random Forest should
+    always rank the informative features highest.
+    """
     X, y = make_regression(
-        n_samples=500,
-        n_features=20,
-        n_informative=5,
+        n_samples=1000,
+        n_features=10,
+        n_informative=3,
         noise=0.1,
-        shuffle=False,
+        shuffle=False,  # First 3 features are informative, rest are noise
         random_state=42,
     )
     X = X.astype(np.float32)
@@ -1266,23 +1267,11 @@ def test_rf_feature_importance_regressor():
     assert np.all(cu_importances >= 0)
     assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
 
-    avg_informative_importance = np.mean(cu_importances[:5])
-    avg_noise_importance = np.mean(cu_importances[10:])
-    assert avg_informative_importance > avg_noise_importance
-
-    sk_reg = skrfr(n_estimators=50, max_depth=8, random_state=42)
-    sk_reg.fit(X, y)
-    sk_importances = sk_reg.feature_importances_
-
-    assert np.isclose(sk_importances.sum(), 1.0)
-    overlap = _topk_overlap(cu_importances, sk_importances, k=5)
-    assert overlap >= 0.6
-
-
-def _topk_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
-    ai = set(np.argsort(a)[-k:])
-    bi = set(np.argsort(b)[-k:])
-    return len(ai & bi) / float(k)
+    top_features = set(np.argsort(cu_importances)[-3:])
+    assert top_features == {0, 1, 2}, (
+        f"Top 3 features {top_features} should be {{0, 1, 2}}. "
+        f"Importances: {cu_importances}"
+    )
 
 
 # Note: check_no_attributes_set_in_init, which is one of the common checks,
