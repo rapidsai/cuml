@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_regression
@@ -91,7 +90,6 @@ def test_knn_regressor_p_parameter(regression_data, p):
     assert r2 > 0.7, f"R^2 score should be reasonable with p={p}"
 
 
-@pytest.mark.xfail(reason="Dispatching with callable not supported yet")
 def test_knn_regressor_weights_callable(regression_data):
     X, y = regression_data
 
@@ -130,6 +128,14 @@ def test_knn_regressor_invalid_weights(regression_data):
     with pytest.raises(ValueError):
         model = KNeighborsRegressor(weights="invalid_weight")
         model.fit(X, y)
+
+
+def test_knn_regressor_private_attrs(regression_data):
+    model = KNeighborsRegressor().fit(*regression_data)
+    assert isinstance(model._fit_X, np.ndarray)
+    assert isinstance(model._y, np.ndarray)
+    assert model._tree is None
+    assert model._fit_method == "brute"
 
 
 def test_knn_regressor_sparse_input():
