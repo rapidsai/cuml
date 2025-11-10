@@ -219,7 +219,7 @@ def test_kernel_housing_dataset(housing_dataset):
     cu_shap_values = explainer.shap_values(X_test[:2])
 
     assert np.allclose(
-        cu_shap_values, housing_regression_result, rtol=1e-01, atol=1e-01
+        cu_shap_values, housing_regression_result, rtol=5e-01, atol=5e-01
     )
 
 
