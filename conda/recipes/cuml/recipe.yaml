@@ -48,7 +48,6 @@ build:
       SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
       SCCACHE_S3_KEY_PREFIX: cuml/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
       NVCC_APPEND_FLAGS: ${{ env.get("NVCC_APPEND_FLAGS", default="") }}
-      SCCACHE_NO_CACHE: 1
 
 requirements:
   build:
