@@ -267,6 +267,7 @@ void optimize_layout(T* head_embedding,
   if (move_other && !has_outlier) {
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
+
   if (has_outlier) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
