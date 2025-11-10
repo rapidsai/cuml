@@ -479,7 +479,7 @@ dependencies:
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
           - pyyaml
-          - pytest
+          - pytest<9.0
           - pytest-benchmark
           - pytest-cases
           - pytest-cov

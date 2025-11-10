@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
@@ -114,11 +114,11 @@ test = [
     "numpydoc<1.9",
     "nvidia-ml-py>=12",
     "pynndescent",
-    "pytest",
     "pytest-benchmark",
     "pytest-cases",
     "pytest-cov",
     "pytest-xdist",
+    "pytest<9.0",
     "pyyaml",
     "scikit-learn>=1.4",
     "seaborn",
