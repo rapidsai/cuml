@@ -77,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int n_unique_labels,
         RF_params params,
         bool* bootstrap_masks,
-        float* feature_importances,
+        T* feature_importances,
         level_enum verbosity
     ) except +
 
@@ -90,7 +90,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         bool* bootstrap_masks,
-        float* feature_importances,
+        T* feature_importances,
         level_enum verbosity
     ) except +
 
@@ -487,8 +487,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             masks_ptr_val = bootstrap_masks_cp.data.ptr
             bootstrap_masks_ptr = <bool*> masks_ptr_val
 
-        # Prepare for feature importances (always float32)
-        cdef object _fi_py = np.empty(n_cols, dtype=np.float32)
+        cdef object _fi_py = np.empty(n_cols, dtype=np.float32 if is_float32 else np.float64)
         cdef uintptr_t _fi_ptr = <uintptr_t> _fi_py.ctypes.data
 
         with nogil:
@@ -518,7 +517,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         bootstrap_masks_ptr,
-                        <float*> _fi_ptr,
+                        <double*> _fi_ptr,
                         verbose
                     )
             else:
@@ -545,7 +544,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <double*> y_ptr,
                         params,
                         bootstrap_masks_ptr,
-                        <float*> _fi_ptr,
+                        <double*> _fi_ptr,
                         verbose
                     )
 

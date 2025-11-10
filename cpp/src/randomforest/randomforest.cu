@@ -403,7 +403,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  float* feature_importances,
+                  value_t* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
@@ -421,13 +421,7 @@ void fit_treelite(const raft::handle_t& user_handle,
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
     std::vector<value_t> fi = get_feature_importances(&metadata);
-    // Convert to float if needed
-    if constexpr (std::is_same_v<value_t, float>) {
-      std::copy(fi.begin(), fi.end(), feature_importances);
-    } else {
-      std::transform(
-        fi.begin(), fi.end(), feature_importances, [](value_t v) { return static_cast<float>(v); });
-    }
+    std::copy(fi.begin(), fi.end(), feature_importances);
   }
 
   build_treelite_forest(model, &metadata, n_cols);
@@ -634,7 +628,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   label_t* labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  float* feature_importances,
+                  value_t* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
@@ -643,13 +637,7 @@ void fit_treelite(const raft::handle_t& user_handle,
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
     std::vector<value_t> fi = get_feature_importances(&metadata);
-    // Convert to float if needed
-    if constexpr (std::is_same_v<value_t, float>) {
-      std::copy(fi.begin(), fi.end(), feature_importances);
-    } else {
-      std::transform(
-        fi.begin(), fi.end(), feature_importances, [](value_t v) { return static_cast<float>(v); });
-    }
+    std::copy(fi.begin(), fi.end(), feature_importances);
   }
 
   build_treelite_forest(model, &metadata, n_cols);
@@ -753,13 +741,13 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
   }
 
   int n_cols = forest->n_features;
-  std::vector<double> importances(n_cols, 0.0);
+  std::vector<T> importances(n_cols, T(0));
 
   for (const auto& tree : forest->trees) {
-    std::vector<double> tree_importances(n_cols, 0.0);
+    std::vector<T> tree_importances(n_cols, T(0));
 
     if (tree->sparsetree.empty()) continue;
-    double root_sample_count = static_cast<double>(tree->sparsetree[0].InstanceCount());
+    int root_sample_count = tree->sparsetree[0].InstanceCount();
 
     if (root_sample_count <= 0) continue;
 
@@ -769,7 +757,7 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
         tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
       }
     }
-    double sum = 0.0;
+    T sum = T(0);
     for (int i = 0; i < n_cols; i++) {
       sum += tree_importances[i];
     }
@@ -783,17 +771,17 @@ static void compute_feature_importances(RandomForestMetaData<T, L>* forest)
   }
 
   forest->feature_importances.resize(n_cols);
-  double sum = 0.0;
+  T sum = T(0);
   for (auto i = 0; i < n_cols; i++) {
     sum += importances[i];
   }
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = static_cast<T>(importances[i] / sum);
+      forest->feature_importances[i] = importances[i] / sum;
     }
   } else {
     for (auto i = 0; i < n_cols; i++) {
-      forest->feature_importances[i] = static_cast<T>(0);
+      forest->feature_importances[i] = T(0);
     }
   }
 
@@ -873,7 +861,7 @@ template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         int n_unique_labels,
                                         RF_params rf_params,
                                         bool* bootstrap_masks,
-                                        float* feature_importances,
+                                        double* feature_importances,
                                         rapids_logger::level_enum verbosity);
 template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          TreeliteModelHandle* model,
@@ -893,6 +881,6 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            double* labels,
                                            RF_params rf_params,
                                            bool* bootstrap_masks,
-                                           float* feature_importances,
+                                           double* feature_importances,
                                            rapids_logger::level_enum verbosity);
 }  // End namespace ML

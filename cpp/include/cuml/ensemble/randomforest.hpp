@@ -185,7 +185,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  float* feature_importances,
+                  T* feature_importances,
                   rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
@@ -264,7 +264,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
-                  float* feature_importances,
+                  T* feature_importances,
                   rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
