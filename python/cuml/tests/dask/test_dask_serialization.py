@@ -26,7 +26,7 @@ def test_register_naive_bayes_serialization():
 
     mnb = MultinomialNB()
 
-    X = cupyx.scipy.sparse.random(1, 5)
+    X = cp.random.random((1, 5))
     y = cp.array([0])
 
     mnb.fit(X, y)
