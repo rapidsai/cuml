@@ -14,7 +14,6 @@ from cuml.dask.common.base import (
 )
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.internals.utils import check_random_seed
 
 
@@ -116,7 +115,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             sample_weight *= scale
         return sample_weight
 
-    @with_cupy_rmm
     def fit(self, X, sample_weight=None):
         """
         Fit a multi-node multi-GPU KMeans model
