@@ -34,7 +34,7 @@ concurrency:
 jobs:
   cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       node_type: cpu8
@@ -47,7 +47,7 @@ jobs:
     if: github.ref_type == 'branch'
     needs: [python-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@fea/sccache-dist-in-custom-jobs
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}
@@ -60,7 +60,7 @@ jobs:
   python-build:
     needs: [cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -79,7 +79,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-libcuml:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -106,7 +106,7 @@ jobs:
   wheel-build-cuml:
     needs: wheel-build-libcuml
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
