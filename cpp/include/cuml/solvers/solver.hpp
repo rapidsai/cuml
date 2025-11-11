@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -137,40 +137,42 @@ void sgdPredictBinaryClass(raft::handle_t& handle,
  * @param sample_weight
  *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
  *        This vector is modified during the computation
+ * @return n_iter
+ *        Number of iterations the solver ran for.
  */
-void cdFit(raft::handle_t& handle,
-           float* input,
-           int n_rows,
-           int n_cols,
-           float* labels,
-           float* coef,
-           float* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           int loss,
-           float alpha,
-           float l1_ratio,
-           bool shuffle,
-           float tol,
-           float* sample_weight = nullptr);
+int cdFit(raft::handle_t& handle,
+          float* input,
+          int n_rows,
+          int n_cols,
+          float* labels,
+          float* coef,
+          float* intercept,
+          bool fit_intercept,
+          bool normalize,
+          int epochs,
+          int loss,
+          float alpha,
+          float l1_ratio,
+          bool shuffle,
+          float tol,
+          float* sample_weight = nullptr);
 
-void cdFit(raft::handle_t& handle,
-           double* input,
-           int n_rows,
-           int n_cols,
-           double* labels,
-           double* coef,
-           double* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           int loss,
-           double alpha,
-           double l1_ratio,
-           bool shuffle,
-           double tol,
-           double* sample_weight = nullptr);
+int cdFit(raft::handle_t& handle,
+          double* input,
+          int n_rows,
+          int n_cols,
+          double* labels,
+          double* coef,
+          double* intercept,
+          bool fit_intercept,
+          bool normalize,
+          int epochs,
+          int loss,
+          double alpha,
+          double l1_ratio,
+          bool shuffle,
+          double tol,
+          double* sample_weight = nullptr);
 
 void cdPredict(raft::handle_t& handle,
                const float* input,

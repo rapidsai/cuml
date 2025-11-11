@@ -102,6 +102,11 @@ template <class T, class L>
 struct RandomForestMetaData {
   std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
+
+  /**
+   * Number of features in the training data.
+   */
+  int n_features = 0;
 };
 
 template <class T, class L>
@@ -121,6 +126,16 @@ void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
 
+/**
+ * @brief Compute the feature importances of the trained RandomForest model.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] forest: CPU pointer to RandomForestMetaData
+ * @param[out] importances: output feature importance scores
+ */
+template <class T, class L>
+void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
@@ -134,7 +149,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -143,7 +159,8 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -154,6 +171,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   int n_unique_labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
+                  T* feature_importances,
                   rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,
@@ -211,7 +230,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
          double* input,
@@ -219,7 +239,8 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -229,6 +250,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_cols,
                   L* labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
+                  T* feature_importances,
                   rapids_logger::level_enum verbosity);
 
 void predict(const raft::handle_t& user_handle,

@@ -117,6 +117,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    oob_score : bool (default = False)
+        Whether to use out-of-bag samples to estimate the generalization
+        accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
+        provides a way to evaluate the model without requiring a separate
+        validation set. The OOB score is computed using accuracy.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -134,6 +139,22 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    oob_score_ : float
+        Score of the training dataset obtained using an out-of-bag estimate.
+        This attribute exists only when ``oob_score`` is True.
+
+    oob_decision_function_ : ndarray of shape (n_samples, n_classes)
+        Decision function computed with out-of-bag estimate on the training
+        set. If n_estimators is small it might be possible that a data point
+        was never left out during the bootstrap. In this case,
+        ``oob_decision_function_`` might contain NaN. This attribute exists
+        only when ``oob_score`` is True.
+
+    feature_importances_ : ndarray of shape (n_features,)
+        The impurity-based feature importances.
+
     Notes
     -----
     While training the model for multi class classification problems, using
@@ -141,9 +162,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
+
+    When converting to sklearn using `as_sklearn()`, the `feature_importances_` attribute will return
+    NaN values. If you need feature importances, save them before conversion:
+    `importances = cuml_model.feature_importances_`
     """
 
     classes_ = CumlArrayDescriptor()
+
+    oob_decision_function_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
@@ -217,6 +244,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             check_rows=X_m.shape[0],
             check_cols=1,
         ).array
+
         self.classes_ = cp.unique(y_m)
         self.n_classes_ = len(self.classes_)
         if not (self.classes_ == cp.arange(self.n_classes_)).all():

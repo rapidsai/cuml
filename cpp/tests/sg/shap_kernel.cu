@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -202,25 +202,6 @@ TEST_P(MakeKSHAPDatasetTestF, Result)
   // ASSERT_TRUE(test_scatter_sampled);
 }
 INSTANTIATE_TEST_CASE_P(MakeKSHAPDatasetTests, MakeKSHAPDatasetTestF, ::testing::ValuesIn(inputsf));
-
-const std::vector<MakeKSHAPDatasetInputs> inputsd = {{10, 10, 12, 2, 3, 1234ULL},
-                                                     {10, 0, 12, 2, 3, 1234ULL},
-                                                     {100, 50, 200, 10, 10, 1234ULL},
-                                                     {100, 0, 200, 10, 10, 1234ULL},
-                                                     {0, 10, 12, 2, 3, 1234ULL},
-                                                     {0, 50, 200, 10, 10, 1234ULL}};
-
-typedef MakeKSHAPDatasetTest<double> MakeKSHAPDatasetTestD;
-TEST_P(MakeKSHAPDatasetTestD, Result)
-{
-  ASSERT_TRUE(test_sampled_X);
-  // todo (dgd): re-enable assertions
-  // disabled due to a sporadic cuda 10.1 fail (by one value in one case!)
-  // will be re-enabled soon after 0.17 release
-  // ASSERT_TRUE(test_scatter_exact);
-  // ASSERT_TRUE(test_scatter_sampled);
-}
-INSTANTIATE_TEST_CASE_P(MakeKSHAPDatasetTests, MakeKSHAPDatasetTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Explainer
 }  // end namespace ML

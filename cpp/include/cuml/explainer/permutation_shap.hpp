@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -65,15 +65,6 @@ void permutation_shap_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void permutation_shap_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
-
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
  *  adding a forward and backward permutation pass of the observation `row`
@@ -118,15 +109,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void shap_main_effect_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
-
 /**
  * Function that aggregates averages of the averatge of results of the model
  * called with the permutation dataset, to estimate the SHAP values.
@@ -145,12 +127,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
 void update_perm_shap_values(const raft::handle_t& handle,
                              float* shap_values,
                              const float* y_hat,
-                             const int ncols,
-                             const int* idx);
-
-void update_perm_shap_values(const raft::handle_t& handle,
-                             double* shap_values,
-                             const double* y_hat,
                              const int ncols,
                              const int* idx);
 

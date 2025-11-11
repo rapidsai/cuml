@@ -187,7 +187,7 @@ RandomForestClassifier
 ``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -196,6 +196,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
@@ -203,7 +204,7 @@ RandomForestRegressor
 ``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -211,6 +212,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 
 sklearn.kernel_ridge
@@ -277,7 +279,6 @@ ElasticNet
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 Ridge
 ^^^^^
@@ -286,10 +287,6 @@ Ridge
 
 - If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 Lasso
 ^^^^^
@@ -304,7 +301,6 @@ Lasso
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 
 sklearn.manifold
@@ -380,7 +376,6 @@ KNeighborsClassifier
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -397,7 +392,6 @@ KNeighborsRegressor
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -446,7 +440,6 @@ SVC
 Additionally, the following fitted attributes are currently not computed:
 
 - ``class_weight_``
-- ``n_iter_``
 
 SVR
 ^^^
@@ -455,10 +448,6 @@ SVR
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 LinearSVC
 ^^^^^^^^^
