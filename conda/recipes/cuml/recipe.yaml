@@ -35,6 +35,7 @@ build:
       - AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY
       - AWS_SESSION_TOKEN
+      - SCCACHE_DIST_AUTH_TOKEN
     env:
       CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
       CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
@@ -44,7 +45,6 @@ build:
       PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL", default="8") }}
       RAPIDS_ARTIFACTS_DIR: ${{ env.get("RAPIDS_ARTIFACTS_DIR", default="") }}
       SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET", default="") }}
-      SCCACHE_DIST_AUTH_TOKEN: ${{ env.get("SCCACHE_DIST_AUTH_TOKEN", default="") }}
       SCCACHE_DIST_AUTH_TYPE: ${{ env.get("SCCACHE_DIST_AUTH_TYPE", default="token") }}
       SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE: ${{ env.get("SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE", default="false") }}
       SCCACHE_DIST_MAX_RETRIES: ${{ env.get("SCCACHE_DIST_MAX_RETRIES", default="inf") }}
