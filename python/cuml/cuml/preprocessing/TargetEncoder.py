@@ -22,6 +22,11 @@ import numpy as np
 import pandas as pd
 
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.interop import (  # UnsupportedOnGPU,
+    InteropMixin,
+    to_cpu,
+    to_gpu,
+)
 
 
 def get_stat_func(stat):
@@ -35,7 +40,7 @@ def get_stat_func(stat):
     return func
 
 
-class TargetEncoder:
+class TargetEncoder(InteropMixin):
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or multiple categorical variables, 'Xs', with the average of
@@ -91,6 +96,9 @@ class TargetEncoder:
     >>> print(test_encoded)
     [1.   0.75 0.5  1.  ]
     """
+
+    # InteropMixin requirements
+    _cpu_class_path = "sklearn.preprocessing.TargetEncoder"
 
     def __init__(
         self,
@@ -526,3 +534,53 @@ class TargetEncoder:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
+
+    @classmethod
+    def _get_tags(cls):
+        return {
+            "X_types_gpu": ["2darray"],  # Supports 2D arrays on GPU
+            "requires_y": True,  # Requires y for fitting
+        }
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        params = {
+            "n_folds": model.cv,
+            "seed": 42 if model.random_state is None else model.random_state,
+            "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
+            "split_method": "random" if model.shuffle else "continuous",
+            "output_type": "auto",
+            "stat": "mean",
+        }
+        return params
+
+    @classmethod
+    def _params_to_cpu(cls, model):
+        params = {
+            "cv": model.n_folds,
+            "random_state": model.seed,
+            "smooth": model.smooth,
+            "shuffle": model.split_method == "random",
+            "categories": "auto",
+            "target_type": "continuous",
+        }
+        return params
+
+    @classmethod
+    def _attrs_from_cpu(cls, model):
+        return {
+            "encode_all": to_gpu(model.encodings_),
+            "categories_": to_gpu(model.categories_),
+            "target_mean_": to_gpu(model.target_mean_),
+            "_fitted": True,
+            **super()._attrs_from_cpu(model),
+        }
+
+    @classmethod
+    def _attrs_to_cpu(cls, model):
+        return {
+            "encodings_": to_cpu(model.encode_all),
+            "target_mean_": to_cpu(model.mean),
+            "n_features_in_": len(model.train.columns) - 3,
+            **super()._attrs_to_cpu(model),
+        }
