@@ -983,9 +983,12 @@ def test_umap_outliers(n_neighbors, n_components):
     lower_bound = 3 * cpu_umap_embeddings.min()
     upper_bound = 3 * cpu_umap_embeddings.max()
 
+    # UMAP embeddings may appear mirrored or flipped (signs of axes are arbitrary)
+    threshold = max(abs(lower_bound), abs(upper_bound))
+
     assert np.all(
-        (gpu_umap_embeddings >= lower_bound)
-        & (gpu_umap_embeddings <= upper_bound)
+        (gpu_umap_embeddings >= -threshold)
+        & (gpu_umap_embeddings <= threshold)
     )
 
 
