@@ -729,21 +729,10 @@ class _BaseDiscreteNB(_BaseNB):
         Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
         Common validation for all discrete naive bayes estimators.
         """
-        # Basic shape validation
-        if hasattr(X, "shape"):
-            n_samples_X = X.shape[0]
-        else:
-            raise ValueError("X must have a shape attribute")
+        n_samples_X = X.shape[0]
 
-        # Get number of samples in y
-        if hasattr(y, "shape"):
-            n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
-        elif hasattr(y, "__len__"):
-            n_samples_y = len(y)
-        else:
-            n_samples_y = 1
+        n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
 
-        # Check shape compatibility
         if n_samples_X != n_samples_y:
             raise ValueError(
                 f"X and y have incompatible shapes. "
@@ -753,35 +742,28 @@ class _BaseDiscreteNB(_BaseNB):
         if n_samples_X == 0:
             raise ValueError("X has 0 samples, cannot fit model on empty data")
 
-        # Additional validation for X
-        if hasattr(X, "shape"):
-            # Check for empty arrays
-            if X.size == 0:
-                raise ValueError("X cannot be empty")
+        if X.size == 0:
+            raise ValueError("X cannot be empty")
 
-            # Check for valid dimensions
-            if len(X.shape) != 2:
-                raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+        if len(X.shape) != 2:
+            raise ValueError(f"X must be 2D, got {len(X.shape)}D")
 
-            # Ensure we have at least one sample and one feature
-            if X.shape[0] < 1 or X.shape[1] < 1:
-                raise ValueError(
-                    f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
-                )
+        if X.shape[0] < 1 or X.shape[1] < 1:
+            raise ValueError(
+                f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+            )
 
-        # Additional validation for y
-        if hasattr(y, "shape"):
-            if y.size == 0:
-                raise ValueError("y cannot be empty")
+        if y.size == 0:
+            raise ValueError("y cannot be empty")
 
-            # Ensure y is 1D or can be squeezed to 1D
-            if len(y.shape) > 2:
-                raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+        # Ensure y is 1D or can be squeezed to 1D
+        if len(y.shape) > 2:
+            raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
 
-            if len(y.shape) == 2 and y.shape[1] != 1:
-                raise ValueError(
-                    f"y must be a column vector if 2D, got shape {y.shape}"
-                )
+        if len(y.shape) == 2 and y.shape[1] != 1:
+            raise ValueError(
+                f"y must be a column vector if 2D, got shape {y.shape}"
+            )
 
         # Check for NaN or Inf values in floating point data
         if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
