@@ -292,6 +292,10 @@
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[brute]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_train_is_not_query"
+  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-distance-auto]"
+  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-distance-ball_tree]"
+  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-distance-brute]"
+  - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-distance-kd_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-uniform-auto]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-uniform-ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier[float64-uniform-brute]"
@@ -331,7 +335,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neigh_predictions_algorithm_agnosticity[float64-KNeighborsRegressor-50-500-l2-100-100-10]"
   - "sklearn.neighbors.tests.test_neighbors::test_neigh_predictions_algorithm_agnosticity[float64-KNeighborsRegressor-50-500-manhattan-100-100-10]"
   - "sklearn.neighbors.tests.test_neighbors::test_neigh_predictions_algorithm_agnosticity[float64-KNeighborsRegressor-50-500-minkowski-100-100-10]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbors_iris"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_minkowski_semimetric_algo_error[ball_tree-100-KNeighborsClassifier]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_minkowski_semimetric_algo_error[ball_tree-100-KNeighborsRegressor]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_minkowski_semimetric_algo_error[ball_tree-2-KNeighborsClassifier]"
@@ -1166,7 +1169,6 @@
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVR-SVR]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
@@ -1230,13 +1232,6 @@
   - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
-- reason: SVM missing certain fit attributes
-  marker: cuml_accel_svm_missing_fit_attributes
-  tests:
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVC-ndarray]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset0-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset1-SVR-int]"
-  - "sklearn.svm.tests.test_svm::test_n_iter_libsvm[dataset2-SVR-int]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
   marker: cuml_accel_svm_sample_weight
   tests:
@@ -1260,7 +1255,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_fit2d_predict1d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_non_transformer_estimators_n_iter]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
@@ -1321,7 +1315,6 @@
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_regressors_int]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_complex_data]"

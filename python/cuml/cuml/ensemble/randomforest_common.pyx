@@ -77,6 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         int n_unique_labels,
         RF_params params,
         bool* bootstrap_masks,
+        T* feature_importances,
         level_enum verbosity
     ) except +
 
@@ -89,6 +90,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         L* labels,
         RF_params params,
         bool* bootstrap_masks,
+        T* feature_importances,
         level_enum verbosity
     ) except +
 
@@ -277,6 +279,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             attrs["oob_decision_function_"] = model.oob_decision_function_
         if hasattr(model, 'oob_prediction_'):
             attrs["oob_prediction_"] = model.oob_prediction_
+        # Note: feature_importances_ is NOT transferred from sklearn to cuML
+        # because cuML caches the impurity decrease directly (BestMetric()) which
+        # is not available in sklearn models created via treelite export
         return attrs
 
     def _attrs_to_cpu(self, model):
@@ -297,6 +302,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             attrs["oob_decision_function_"] = self.oob_decision_function_
         if hasattr(self, 'oob_prediction_'):
             attrs["oob_prediction_"] = self.oob_prediction_
+        # Note: feature_importances_ is NOT transferred from cuML to sklearn
+        # because sklearn's computation requires tree impurities that aren't
+        # available in sklearn models created via treelite export
         return attrs
 
     def __init__(
@@ -485,6 +493,9 @@ class BaseRandomForestModel(Base, InteropMixin):
             masks_ptr_val = bootstrap_masks_cp.data.ptr
             bootstrap_masks_ptr = <bool*> masks_ptr_val
 
+        cdef object feature_importances = np.empty(n_cols, dtype=X.dtype)
+        cdef uintptr_t feature_importances_ptr = <uintptr_t> feature_importances.ctypes.data
+
         with nogil:
             if is_classifier:
                 if is_float32:
@@ -498,6 +509,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         bootstrap_masks_ptr,
+                        <float*> feature_importances_ptr,
                         verbose
                     )
                 else:
@@ -511,6 +523,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         n_classes,
                         params,
                         bootstrap_masks_ptr,
+                        <double*> feature_importances_ptr,
                         verbose
                     )
             else:
@@ -524,6 +537,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <float*> y_ptr,
                         params,
                         bootstrap_masks_ptr,
+                        <float*> feature_importances_ptr,
                         verbose
                     )
                 else:
@@ -536,6 +550,7 @@ class BaseRandomForestModel(Base, InteropMixin):
                         <double*> y_ptr,
                         params,
                         bootstrap_masks_ptr,
+                        <double*> feature_importances_ptr,
                         verbose
                     )
 
@@ -570,6 +585,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         if self.oob_score:
             self._compute_oob_score(X, y, bootstrap_masks_cp)
 
+        self.feature_importances_ = feature_importances
         return self
 
     def _get_inference_fil_model(
