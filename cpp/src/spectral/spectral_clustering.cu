@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/cluster/spectral_clustering.hpp>
@@ -40,7 +29,7 @@ void fit_predict(const raft::handle_t& handle,
   cuvs_params.n_components = params.n_components;
   cuvs_params.n_init       = params.n_init;
   cuvs_params.n_neighbors  = params.n_neighbors;
-  cuvs_params.seed         = params.seed;
+  cuvs_params.rng_state    = raft::random::RngState(params.seed);
 
   auto structure = raft::make_device_coordinate_structure_view<int, int, int>(
     const_cast<int*>(coo_rows), const_cast<int*>(coo_cols), n_rows, n_cols, nnz);
