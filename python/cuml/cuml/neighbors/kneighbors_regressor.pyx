@@ -233,7 +233,6 @@ class KNeighborsRegressor(RegressorMixin,
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        # C++ kernel always uses float32, we'll convert after if needed
         out = CumlArray.zeros(
             res_shape, dtype=np.float32, order="C", index=inds.index
         )
