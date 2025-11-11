@@ -974,11 +974,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
-- reason: Test crashes with cuml.accel
-  marker: cuml_accel_crashes
-  run: false
-  tests:
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
@@ -1462,7 +1457,6 @@
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_regression_target]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_nan_inf]"

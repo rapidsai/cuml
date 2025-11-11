@@ -7,6 +7,30 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.memory_utils import cuda_ptr
 
+is_integral = cp.ReductionKernel(
+    "T x",
+    "bool out",
+    "ceilf(x) == x",
+    "a && b",
+    "out = a",
+    "true",
+    "is_integral",
+)
+
+
+def check_classification_targets(y):
+    """Check if `y` is composed of valid class labels"""
+    # TODO: improve this check. This is just a stopgap for now since otherwise
+    # regression targets will be handled as normal, which may possibly be very
+    # expensive. We'll roll this into a common preprocessing routine in a
+    # followup.
+    if y.dtype.kind == "f" and not is_integral(y):
+        raise ValueError(
+            "Unknown label type: continuous. Maybe you are trying to fit a "
+            "classifier, which expects discrete classes on a regression target "
+            "with continuous values."
+        )
+
 
 def process_class_weight(
     classes,

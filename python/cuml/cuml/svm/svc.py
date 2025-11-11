@@ -6,7 +6,10 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import process_class_weight
+from cuml.common.classification import (
+    check_classification_targets,
+    process_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
@@ -445,6 +448,7 @@ class SVC(SVMBase, ClassifierMixin):
             del self._multiclass
 
         y = input_to_cupy_array(y, check_cols=1).array
+        check_classification_targets(y)
         classes, y = cp.unique(y, return_inverse=True)
         n_classes = len(classes)
         if n_classes < 2:
