@@ -318,7 +318,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.0.0
+          - &cython cython>=3.0.0,<3.2.0a0
           - &treelite treelite==4.6.0
   py_run_cuml:
     common:
@@ -479,7 +479,7 @@ dependencies:
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
           - pyyaml
-          - pytest
+          - pytest<9.0
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
