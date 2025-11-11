@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/common/logger.hpp>
@@ -331,7 +320,8 @@ void knn_classify(raft::handle_t& handle,
                   std::vector<int*>& y,
                   size_t n_index_rows,
                   size_t n_query_rows,
-                  int k)
+                  int k,
+                  float* sample_weight)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -345,8 +335,16 @@ void knn_classify(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  MLCommon::Selection::knn_classify(
-    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  MLCommon::Selection::knn_classify(handle,
+                                    out,
+                                    knn_indices,
+                                    y,
+                                    n_index_rows,
+                                    n_query_rows,
+                                    k,
+                                    uniq_labels,
+                                    n_unique,
+                                    sample_weight);
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -355,9 +353,11 @@ void knn_regress(raft::handle_t& handle,
                  std::vector<float*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k)
+                 int k,
+                 float* sample_weight)
 {
-  MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
+  MLCommon::Selection::knn_regress(
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, sample_weight);
 }
 
 void knn_class_proba(raft::handle_t& handle,
@@ -366,7 +366,8 @@ void knn_class_proba(raft::handle_t& handle,
                      std::vector<int*>& y,
                      size_t n_index_rows,
                      size_t n_query_rows,
-                     int k)
+                     int k,
+                     float* sample_weight)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -380,8 +381,16 @@ void knn_class_proba(raft::handle_t& handle,
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
-  MLCommon::Selection::class_probs(
-    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+  MLCommon::Selection::class_probs(handle,
+                                   out,
+                                   knn_indices,
+                                   y,
+                                   n_index_rows,
+                                   n_query_rows,
+                                   k,
+                                   uniq_labels,
+                                   n_unique,
+                                   sample_weight);
 }
 
 };  // END NAMESPACE ML

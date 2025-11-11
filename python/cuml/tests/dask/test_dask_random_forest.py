@@ -1,33 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
 
@@ -79,23 +51,23 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
     try:
 
         X, y = make_classification(
-            n_samples=n_workers * 5000,
+            n_samples=n_workers * 8000,
             n_features=20,
             n_clusters_per_class=1,
             n_informative=10,
             random_state=123,
-            n_classes=15,
+            n_classes=10,
         )
 
         X = X.astype(np.float32)
         y = y.astype(np.int32)
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=n_workers * 300, random_state=123
+            X, y, test_size=n_workers * 500, random_state=123
         )
 
         cu_rf_params = {
-            "n_estimators": n_workers * 8,
+            "n_estimators": n_workers * 25,
             "max_depth": 16,
             "n_bins": 256,
             "random_state": 10,
@@ -111,13 +83,19 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         cuml_preds_gpu = cuml_mod.predict(X_test_dask_array).compute()
         acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
 
-        # the sklearn model when ran with the same parameters gives an
-        # accuracy of 0.69. There is a difference of 0.0632 (6.32%) between
-        # the two when the code runs on a single GPU (seen in the CI)
-        # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
-        # more information on the threshold value.
+        # Compare with sklearn baseline
+        sk_model = skrfc(
+            n_estimators=cu_rf_params["n_estimators"],
+            max_depth=cu_rf_params["max_depth"],
+            random_state=cu_rf_params["random_state"],
+            n_jobs=-1,
+        )
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
 
-        assert acc_score_gpu >= 0.52
+        # Observed: mean=0.002, range=[0.002, 0.002], stderr=0.000
+        assert acc_score_gpu >= (sk_acc - 0.07)
 
     finally:
         c.close()

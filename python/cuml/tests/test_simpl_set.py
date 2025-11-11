@@ -1,25 +1,14 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 import pytest
+from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 
 from cuml.datasets import make_blobs
-from cuml.manifold.umap import UMAP
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
@@ -119,7 +108,7 @@ def test_simplicial_set_embedding(
     random_state = 42
     metric = "euclidean"
     initial_alpha = 1.0
-    a, b = UMAP.find_ab_params(1.0, 0.1)
+    a, b = find_ab_params(1.0, 0.1)
     gamma = 1.0
     negative_sample_rate = 5
     n_epochs = 500

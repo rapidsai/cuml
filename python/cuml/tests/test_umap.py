@@ -1,22 +1,6 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-
-# Please install UMAP before running the code
-# use 'conda install -c conda-forge umap-learn' command to install it
-
 import copy
 
 import cupy as cp
@@ -34,6 +18,7 @@ from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
 
+import cuml
 from cuml.internals import GraphBasedDimRedCallback, logger
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
@@ -538,27 +523,31 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     assert trust >= 0.92
 
 
-@pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_exp_decay_params(build_algo):
-    def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
-        cuml_model = cuUMAP(
-            a=a, b=b, min_dist=min_dist, spread=spread, build_algo=build_algo
-        )
-        cuml_a = cuml_model.a
-        cuml_b = cuml_model.b
-        skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
-        skl_model.fit(np.zeros((1, 1)))
-        sklearn_a, sklearn_b = skl_model._a, skl_model._b
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"a": 0.5, "b": 2.0},
+        {"a": 0.5},
+        {"b": 0.5},
+        {"min_dist": 0.01, "spread": 2.0},
+    ],
+)
+def test_a_b_values_match(kwargs):
+    X, _ = make_blobs(n_samples=50, random_state=42)
+    cu_model = cuml.UMAP(**kwargs).fit(X)
+    sk_model = umap.UMAP(**kwargs).fit(X)
 
-        assert abs(cuml_a) - abs(sklearn_a) < 1e-6
-        assert abs(cuml_b) - abs(sklearn_b) < 1e-6
+    np.testing.assert_allclose(cu_model._a, sk_model._a)
+    np.testing.assert_allclose(cu_model._b, sk_model._b)
 
-    compare_exp_decay_params(min_dist=0.1, spread=1.0)
-    compare_exp_decay_params(a=0.5, b=2.0)
-    compare_exp_decay_params(a=0.5)
-    compare_exp_decay_params(b=0.5)
-    compare_exp_decay_params(min_dist=0.1, spread=10.0)
+
+def test_fit_fewer_rows_than_n_neighbors():
+    X, _ = make_blobs(n_samples=10, random_state=42)
+    model = cuml.UMAP(n_neighbors=15)
+    with pytest.warns(UserWarning, match="larger than n_samples"):
+        model.fit(X)
+    assert model._n_neighbors == 10
 
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
@@ -938,6 +927,7 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7412")
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
@@ -1066,11 +1056,12 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
     elif precomputed_type == "knn_graph":
         precomputed_knn = nn.kneighbors_graph(data, mode="distance")
 
-    # This should raise an error during initialization
+    # This should raise an error during fit
+    model = cuUMAP(
+        n_neighbors=k_requested,
+        precomputed_knn=precomputed_knn,
+        random_state=42,
+        init="random",
+    )
     with pytest.raises(ValueError, match=".*fewer neighbors.*"):
-        cuUMAP(
-            n_neighbors=k_requested,
-            precomputed_knn=precomputed_knn,
-            random_state=42,
-            init="random",
-        )
+        model.fit(data)

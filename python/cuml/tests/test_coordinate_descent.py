@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
@@ -19,8 +8,7 @@ from sklearn.datasets import make_regression
 from sklearn.linear_model import ElasticNet, Lasso
 from sklearn.model_selection import train_test_split
 
-from cuml import Lasso as cuLasso
-from cuml.linear_model import ElasticNet as cuElasticNet
+import cuml
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
@@ -50,7 +38,7 @@ def test_lasso(datatype, alpha, algorithm, nrows, column_info):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
-    cu_lasso = cuLasso(
+    cu_lasso = cuml.Lasso(
         alpha=alpha,
         fit_intercept=True,
         max_iter=1000,
@@ -102,7 +90,7 @@ def test_lasso_default(datatype, nrows, column_info):
         X, y, train_size=0.8, random_state=0
     )
 
-    cu_lasso = cuLasso()
+    cu_lasso = cuml.Lasso()
 
     cu_lasso.fit(X_train, y_train)
     assert cu_lasso.coef_ is not None
@@ -142,7 +130,7 @@ def test_weighted_cd(datatype, model, fit_intercept, distribution):
     else:
         wt = np.random.lognormal(size=len(X_train))
 
-    cuModel = cuLasso if model == "lasso" else cuElasticNet
+    cuModel = cuml.Lasso if model == "lasso" else cuml.ElasticNet
     skModel = Lasso if model == "lasso" else ElasticNet
 
     # Initialization of cuML's linear regression model
@@ -188,7 +176,7 @@ def test_elastic_net(datatype, alpha, algorithm, nrows, column_info):
         X, y, train_size=0.8, random_state=0
     )
 
-    elastic_cu = cuElasticNet(
+    elastic_cu = cuml.ElasticNet(
         alpha=alpha,
         fit_intercept=True,
         max_iter=1000,
@@ -240,7 +228,7 @@ def test_elastic_net_default(datatype, nrows, column_info):
         X, y, train_size=0.8, random_state=0
     )
 
-    elastic_cu = cuElasticNet()
+    elastic_cu = cuml.ElasticNet()
     elastic_cu.fit(X_train, y_train)
     cu_predict = elastic_cu.predict(X_test)
     cu_r2 = r2_score(y_test, cu_predict)
@@ -264,7 +252,7 @@ def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
         X, y, train_size=0.8, random_state=0
     )
 
-    clf = cuElasticNet()
+    clf = cuml.ElasticNet()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
 
@@ -281,28 +269,37 @@ def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
         X, y, train_size=0.8, random_state=0
     )
 
-    clf = cuLasso()
+    clf = cuml.Lasso()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize("algo", [cuElasticNet, cuLasso])
-def test_set_params(algo):
+@pytest.mark.parametrize("cls", [cuml.ElasticNet, cuml.Lasso])
+def test_set_params(cls):
     x = np.linspace(0, 1, 50)
     y = 2 * x
 
-    model = algo(alpha=0.01)
+    model = cls(alpha=0.01)
     model.fit(x, y)
     coef_before = model.coef_
 
-    model = algo(selection="random", alpha=0.1)
+    model = cls(selection="random", alpha=0.1)
     model.fit(x, y)
     coef_after = model.coef_
 
-    model = algo(alpha=0.01)
+    model = cls(alpha=0.01)
     model.set_params(**{"selection": "random", "alpha": 0.1})
     model.fit(x, y)
     coef_test = model.coef_
 
     assert coef_before != coef_after
     assert coef_after == coef_test
+
+
+@pytest.mark.parametrize("cls", [cuml.ElasticNet, cuml.Lasso])
+@pytest.mark.parametrize("solver", ["qn", "cd"])
+def test_max_iter_n_iter(cls, solver):
+    X, y = make_regression(random_state=42)
+
+    model = cls(max_iter=2).fit(X, y)
+    assert model.n_iter_ == 2

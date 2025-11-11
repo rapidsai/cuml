@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -76,15 +65,6 @@ void permutation_shap_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void permutation_shap_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
-
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
  *  adding a forward and backward permutation pass of the observation `row`
@@ -129,15 +109,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
                               int* idx,
                               bool row_major);
 
-void shap_main_effect_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major);
-
 /**
  * Function that aggregates averages of the averatge of results of the model
  * called with the permutation dataset, to estimate the SHAP values.
@@ -156,12 +127,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
 void update_perm_shap_values(const raft::handle_t& handle,
                              float* shap_values,
                              const float* y_hat,
-                             const int ncols,
-                             const int* idx);
-
-void update_perm_shap_values(const raft::handle_t& handle,
-                             double* shap_values,
-                             const double* y_hat,
                              const int ncols,
                              const int* idx);
 

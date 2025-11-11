@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -54,19 +43,41 @@ CUML_KERNEL void class_probs_kernel(OutType* out,
                                     const int* labels,
                                     int n_uniq_labels,
                                     std::size_t n_samples,
-                                    int n_neighbors)
+                                    int n_neighbors,
+                                    const float* weights = nullptr)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i   = row * n_neighbors;
 
-  float n_neigh_inv = 1.0f / n_neighbors;
-
   if (row >= n_samples) return;
 
-  for (int j = 0; j < n_neighbors; j++) {
-    int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
-    int out_idx   = row * n_uniq_labels + out_label;
-    out[out_idx] += n_neigh_inv;
+  if (weights == nullptr) {
+    // Unweighted case: uniform voting
+    float n_neigh_inv = 1.0f / n_neighbors;
+    for (int j = 0; j < n_neighbors; j++) {
+      int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+      int out_idx   = row * n_uniq_labels + out_label;
+      out[out_idx] += n_neigh_inv;
+    }
+  } else {
+    // Weighted case: accumulate weighted votes and normalize
+    float weight_sum = 0;
+    for (int j = 0; j < n_neighbors; j++) {
+      float weight = weights[i + j];
+      weight_sum += weight;
+
+      int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+      int out_idx   = row * n_uniq_labels + out_label;
+      out[out_idx] += weight;
+    }
+
+    // Normalize probabilities to sum to 1
+    if (weight_sum > 0) {
+      int out_base = row * n_uniq_labels;
+      for (int j = 0; j < n_uniq_labels; j++) {
+        out[out_base + j] /= weight_sum;
+      }
+    }
   }
 }
 
@@ -115,19 +126,35 @@ CUML_KERNEL void regress_avg_kernel(LabelType* out,
                                     std::size_t n_samples,
                                     int n_neighbors,
                                     int n_outputs,
-                                    int output_offset)
+                                    int output_offset,
+                                    const float* weights = nullptr)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i   = row * n_neighbors;
 
   if (row >= n_samples) return;
 
-  LabelType pred = 0;
-  for (int j = 0; j < n_neighbors; j++) {
-    pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
-  }
+  if (weights == nullptr) {
+    // Unweighted case: simple average
+    LabelType pred = 0;
+    for (int j = 0; j < n_neighbors; j++) {
+      pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+    }
+    out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
+  } else {
+    // Weighted case: weighted average
+    LabelType weighted_sum = 0;
+    float weight_sum       = 0;
 
-  out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
+    for (int j = 0; j < n_neighbors; j++) {
+      float weight = weights[i + j];
+      weighted_sum += weight * get_lbls<precomp_lbls>(labels, knn_indices, i + j);
+      weight_sum += weight;
+    }
+
+    // Compute weighted average: sum(y * w) / sum(w)
+    out[row * n_outputs + output_offset] = (weight_sum > 0) ? (weighted_sum / weight_sum) : 0;
+  }
 }
 
 /**
@@ -163,7 +190,8 @@ void class_probs(const raft::handle_t& handle,
                  std::size_t n_query_rows,
                  int k,
                  std::vector<int*>& uniq_labels,
-                 std::vector<int>& n_unique)
+                 std::vector<int>& n_unique,
+                 const float* weights = nullptr)
 {
   for (std::size_t i = 0; i < y.size(); i++) {
     cudaStream_t stream = handle.get_next_usable_stream();
@@ -199,7 +227,7 @@ void class_probs(const raft::handle_t& handle,
       [] __device__(int input) { return input - 1; },
       stream);
     class_probs_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
-      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows, k);
+      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows, k, weights);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
@@ -238,7 +266,8 @@ void knn_classify(const raft::handle_t& handle,
                   std::size_t n_query_rows,
                   int k,
                   std::vector<int*>& uniq_labels,
-                  std::vector<int>& n_unique)
+                  std::vector<int>& n_unique,
+                  const float* weights = nullptr)
 {
   std::vector<float*> probs;
   std::vector<rmm::device_uvector<float>> tmp_probs;
@@ -260,7 +289,7 @@ void knn_classify(const raft::handle_t& handle,
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
   class_probs<32, precomp_lbls>(
-    handle, probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
+    handle, probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, weights);
 
   dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -313,7 +342,8 @@ void knn_regress(const raft::handle_t& handle,
                  const std::vector<ValType*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k)
+                 int k,
+                 const float* weights = nullptr)
 {
   /**
    * Vote average regression value
@@ -323,7 +353,7 @@ void knn_regress(const raft::handle_t& handle,
 
     regress_avg_kernel<ValType, precomp_lbls>
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
-        out, knn_indices, y[i], n_query_rows, k, y.size(), i);
+        out, knn_indices, y[i], n_query_rows, k, y.size(), i, weights);
 
     handle.sync_stream(stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());

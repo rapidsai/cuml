@@ -1,4 +1,5 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
 context:
@@ -58,7 +59,7 @@ requirements:
   host:
     - cuda-version =${{ cuda_version }}
     - cudf =${{ minor_version }}
-    - cython >=3.0.0
+    - cython >=3.0.0,<3.2.0a0
     - libcuml =${{ version }}
     - libcumlprims =${{ minor_version }}
     - pip

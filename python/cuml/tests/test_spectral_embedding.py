@@ -1,16 +1,5 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -18,12 +7,7 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
 import scipy.sparse as sp
-from sklearn.datasets import (
-    load_digits,
-    make_circles,
-    make_s_curve,
-    make_swiss_roll,
-)
+from sklearn.datasets import load_digits, make_circles
 from sklearn.manifold import SpectralEmbedding as skSpectralEmbedding
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import pairwise_distances
@@ -31,49 +15,11 @@ from sklearn.neighbors import kneighbors_graph
 
 from cuml.manifold import SpectralEmbedding, spectral_embedding
 from cuml.manifold.umap import fuzzy_simplicial_set
-from cuml.testing.datasets import make_classification_dataset
+from cuml.testing.datasets import generate_mnist_like_dataset, make_pattern
 
 # Test parameters
 N_NEIGHBORS = 15
 N_COMPONENTS = 2
-
-
-def generate_s_curve(n_samples):
-    """Generate S-curve dataset."""
-    X, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
-    return X
-
-
-def generate_swiss_roll(n_samples):
-    """Generate Swiss Roll dataset."""
-    X, _ = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
-    return X
-
-
-def generate_mnist_like_dataset(n_samples):
-    """Load and sample dataset using cuML's testing infrastructure."""
-
-    # Generate a classification dataset with similar characteristics to MNIST
-    # MNIST has 784 features (28x28 pixels) and 10 classes
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=np.float32,
-        nrows=n_samples,
-        ncols=784,  # Same as MNIST features
-        n_info=100,  # Number of informative features
-        num_classes=10,  # Same as MNIST classes
-    )
-
-    # Normalize to [0, 1] range like MNIST
-    X_train = (X_train - X_train.min()) / (X_train.max() - X_train.min())
-    X_test = (X_test - X_test.min()) / (X_test.max() - X_test.min())
-
-    return X_train
-
-
-def load_digits_dataset(n_samples=None):
-    """Load digits dataset (n_samples is ignored as dataset has fixed size)."""
-    digits = load_digits()
-    return digits.data
 
 
 @pytest.mark.parametrize(
@@ -89,18 +35,18 @@ def load_digits_dataset(n_samples=None):
     ],
 )
 @pytest.mark.parametrize(
-    "dataset_loader,n_samples",
+    "dataset_source,n_samples",
     [
-        (generate_s_curve, 1500),
-        (generate_s_curve, 2000),
-        (generate_swiss_roll, 2000),
-        (generate_swiss_roll, 3000),
-        (generate_mnist_like_dataset, 5000),
-        (load_digits_dataset, None),
+        ("s_curve", 1500),
+        ("s_curve", 2000),
+        ("swiss_roll", 2000),
+        ("swiss_roll", 3000),
+        ("mnist_like", 5000),
+        ("digits", None),
     ],
 )
 def test_spectral_embedding_trustworthiness(
-    dataset_loader, n_samples, affinity, graph_type
+    dataset_source, n_samples, affinity, graph_type
 ):
     """Test trustworthiness comparison between sklearn and cuML on various datasets.
 
@@ -111,7 +57,12 @@ def test_spectral_embedding_trustworthiness(
     - precomputed with fuzzy_knn: Smooth weighted graph from UMAP's fuzzy simplicial set
     """
     # Load/generate dataset
-    X = dataset_loader(n_samples) if n_samples else dataset_loader(None)
+    if dataset_source in ["s_curve", "swiss_roll"]:
+        X, _ = make_pattern(dataset_source, n_samples)[0]
+    elif dataset_source == "mnist_like":
+        X, _, _, _ = generate_mnist_like_dataset(n_samples)
+    elif dataset_source == "digits":
+        X = load_digits().data
 
     if affinity == "precomputed":
         if graph_type == "fuzzy_knn":
@@ -208,7 +159,7 @@ def test_spectral_embedding_function_api():
     """Smoke test for spectral_embedding function: reproducibility and output shape."""
     # Generate S-curve dataset
     n_samples = 500
-    X, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    X, _ = make_pattern("s_curve", n_samples)[0]
     X = X.astype(np.float32)
     X_gpu = cp.asarray(X)
 
@@ -231,7 +182,7 @@ def test_spectral_embedding_function_api():
 
 
 def test_spectral_embedding_invalid_affinity():
-    X, _ = make_s_curve(n_samples=200, noise=0.05, random_state=42)
+    X, _ = make_pattern("s_curve", 200)[0]
     with pytest.raises(
         ValueError, match="`affinity='oops!'` is not supported"
     ):
@@ -258,7 +209,7 @@ def test_output_type_handling(input_type, expected_type):
     """Test that output types are properly handled for different input types."""
     # Generate test data
     n_samples = 500
-    X_np, _ = make_s_curve(n_samples=n_samples, noise=0.05, random_state=42)
+    X_np, _ = make_pattern("s_curve", n_samples)[0]
     X_np = X_np.astype(np.float32)
 
     # Convert to appropriate type
@@ -308,9 +259,9 @@ def test_precomputed_matrix_formats(converter, dtype):
     It also ensures the embeddings have good trustworthiness scores.
     """
 
-    # Generate test data using existing helper function
+    # Generate test data using make_pattern
     n_samples = 1000
-    X_np = generate_s_curve(n_samples)
+    X_np, _ = make_pattern("s_curve", n_samples)[0]
 
     # Create a symmetric k-NN affinity graph
     knn_graph = kneighbors_graph(

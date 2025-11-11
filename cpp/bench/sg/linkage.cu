@@ -1,23 +1,11 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "benchmark.cuh"
 
 #include <cuml/cluster/linkage.hpp>
-#include <cuml/cluster/single_linkage_output.hpp>
 #include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 
@@ -46,36 +34,32 @@ class Linkage : public BlobsFixture<D> {
     }
 
     this->loopOnState(state, [this]() {
-      out_arrs.labels   = labels;
-      out_arrs.children = out_children;
-
-      ML::single_linkage_neighbors(*this->handle,
-                                   this->data.X.data(),
-                                   this->params.nrows,
-                                   this->params.ncols,
-                                   &out_arrs,
-                                   ML::distance::DistanceType::L2Unexpanded,
-                                   15,
-                                   50);
+      ML::linkage::single_linkage(*this->handle,
+                                  this->data.X.data(),
+                                  this->params.nrows,
+                                  this->params.ncols,
+                                  50,
+                                  ML::distance::DistanceType::L2Unexpanded,
+                                  children,
+                                  labels);
     });
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override
   {
     this->alloc(labels, this->params.nrows);
-    this->alloc(out_children, (this->params.nrows - 1) * 2);
+    this->alloc(children, (this->params.nrows - 1) * 2);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override
   {
     this->dealloc(labels, this->params.nrows);
-    this->dealloc(out_children, (this->params.nrows - 1) * 2);
+    this->dealloc(children, (this->params.nrows - 1) * 2);
   }
 
  private:
   int* labels;
-  int* out_children;
-  ML::single_linkage_output<int> out_arrs;
+  int* children;
 };
 
 std::vector<Params> getInputs()

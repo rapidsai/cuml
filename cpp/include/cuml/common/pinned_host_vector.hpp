@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -26,11 +15,11 @@ class pinned_host_vector {
   pinned_host_vector() = default;
 
   explicit pinned_host_vector(std::size_t n)
-    : size_{n}, data_{static_cast<T*>(pinned_mr.allocate(n * sizeof(T)))}
+    : size_{n}, data_{static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)))}
   {
     std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
   }
-  ~pinned_host_vector() { pinned_mr.deallocate(data_, size_ * sizeof(T)); }
+  ~pinned_host_vector() { pinned_mr.deallocate_sync(data_, size_ * sizeof(T)); }
 
   pinned_host_vector(pinned_host_vector const&)            = delete;
   pinned_host_vector(pinned_host_vector&&)                 = delete;
@@ -40,7 +29,7 @@ class pinned_host_vector {
   void resize(std::size_t n)
   {
     size_ = n;
-    data_ = static_cast<T*>(pinned_mr.allocate(n * sizeof(T)));
+    data_ = static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)));
     std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
   }
 

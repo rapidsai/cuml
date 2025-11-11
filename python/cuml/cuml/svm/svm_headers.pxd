@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
@@ -42,6 +31,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM" nogil:
     cdef struct SvmParameter:
         double C
         double cache_size
+        int max_outer_iter
         int max_iter
         int nochange_steps
         double tol
@@ -106,7 +96,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svrFit[math_t](
+    cdef int svrFit[math_t](
         const handle_t &handle,
         math_t* data,
         int n_rows,
@@ -118,7 +108,7 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
         const math_t *sample_weight,
     ) except+
 
-    cdef void svrFitSparse[math_t](
+    cdef int svrFitSparse[math_t](
         const handle_t &handle,
         int* indptr,
         int* indices,
