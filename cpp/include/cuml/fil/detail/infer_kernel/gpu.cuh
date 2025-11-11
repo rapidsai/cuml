@@ -198,6 +198,7 @@ CUML_KERNEL void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) inf
       if (threadIdx.x % WARP_SIZE == 0) {
         postproc(output_workspace + row_index * num_outputs * num_grove,
                  num_outputs,
+                 forest.bias(),
                  output + ((i + row_index) * num_outputs),
                  num_grove);
       }

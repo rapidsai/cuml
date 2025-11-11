@@ -165,6 +165,7 @@ void infer_kernel_cpu(forest_t const& forest,
       }
       postproc(output_workspace.data() + row_index * num_outputs * num_grove,
                num_outputs,
+               forest.bias(),
                output + row_index * num_outputs,
                num_grove);
     }
