@@ -927,7 +927,6 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7412")
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
