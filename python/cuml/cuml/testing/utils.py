@@ -630,6 +630,10 @@ def compare_svm(
                 accuracy2,
             )
 
+    # Compare `class_weight_` attribute for classifiers, if present
+    if hasattr(svm1, "class_weight_"):
+        np.testing.assert_allclose(svm1.class_weight_, svm2.class_weight_)
+
     # Compare support_ (dataset indices of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists
     support1 = set(svm1.support_)

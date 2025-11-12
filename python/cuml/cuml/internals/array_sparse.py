@@ -12,7 +12,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import class_with_cupy_rmm
 
 sparse_matrix_classes = (
     cpx_sparse.csr_matrix,
@@ -25,7 +24,6 @@ SparseCumlArrayInput = namedtuple(
 )
 
 
-@class_with_cupy_rmm()
 class SparseCumlArray:
     """
     SparseCumlArray abstracts sparse array allocations. This will
