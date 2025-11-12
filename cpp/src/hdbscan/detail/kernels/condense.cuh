@@ -12,6 +12,13 @@ namespace HDBSCAN {
 namespace detail {
 namespace Condense {
 
+/*
+ * Mark whether each internal node forms a persistent cluster.
+ *
+ * A node is considered "persistent" if both of its child clusters contain at least
+ * min_cluster_size points. Persistence indicates that this node can represent a valid cluster on
+ * its own without either child being too small.
+ */
 template <typename value_idx, typename value_t>
 CUML_KERNEL void get_persistent_nodes_kernel(const value_idx* children,
                                              const value_t* deltas,

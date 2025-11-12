@@ -63,12 +63,7 @@ void condense_hierarchy_cpu(const std::vector<value_idx>& children,
   std::vector<int> parent(n_nodes, -1);
 
   /*
-   * Mark whether each internal node forms a persistent cluster, and get parent information for easy
-   * pointer chasing.
-   *
-   * A node is considered "persistent" if both of its child clusters contain at least
-   * min_cluster_size points. Persistence indicates that this node can represent a valid cluster on
-   * its own without either child being too small.
+   * Get parent information for easy pointer chasing.
    */
 #pragma omp parallel for
   for (int node = n_leaves; node < n_nodes; node++) {
@@ -77,9 +72,6 @@ void condense_hierarchy_cpu(const std::vector<value_idx>& children,
     parent[left]  = node;
     parent[right] = node;
   }
-
-  int num_persistent = std::count(is_persistent.begin(), is_persistent.end(), 1);
-  std::cout << "Number of persistent nodes: " << num_persistent << std::endl;
 
   std::vector<int> relabel(n_nodes, 0);
 
@@ -155,14 +147,14 @@ void condense_hierarchy_cpu(const std::vector<value_idx>& children,
   }
 }
 
+/* Heuristic dispatching to CPU. A high persistent_ratio means there are more chances to stop early
+as we climb up the tree, making it more efficient for bottom-up CPU approach*/
 bool dispatch_to_cpu(int num_persistent, int n_leaves)
 {
   int n_nodes            = 2 * n_leaves - 1;
   int internal_nodes     = n_nodes - n_leaves;
   float persistent_ratio = static_cast<float>(num_persistent) / static_cast<float>(internal_nodes);
   int num_omp_threads    = omp_get_max_threads();
-  std::cout << "persistent_ratio " << persistent_ratio << " num_omp_threads " << num_omp_threads
-            << std::endl;
   if (persistent_ratio >= 0.001) {
     return true;
   } else if (persistent_ratio >= 0.0001 && num_omp_threads >= 16) {
@@ -186,6 +178,7 @@ bool dispatch_to_cpu(int num_persistent, int n_leaves)
  *
  * @tparam value_idx
  * @tparam value_t
+ * @tparam tpb
  * @param handle
  * @param[in] children parents/children from single-linkage dendrogram
  * @param[in] delta distances from single-linkage dendrogram
@@ -208,6 +201,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   auto exec_policy    = handle.get_thrust_policy();
 
+  // Root is the last edge in the dendrogram
   value_idx root = 2 * (n_leaves - 1);
 
   auto d_ptr           = thrust::device_pointer_cast(children);
@@ -234,7 +228,6 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   thrust::device_ptr<uint8_t> is_persistent_ptr(is_persistent.data());
   int num_persistent =
     thrust::count(exec_policy, is_persistent_ptr, is_persistent_ptr + total_internal, 1);
-  // std::cout << "Number of persistent nodes: " << num_persistent << std::endl;
 
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_child((root + 1) * 2, stream);
