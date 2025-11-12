@@ -1060,7 +1060,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_dtypes]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_pickle(readonly_memmap=True)]"

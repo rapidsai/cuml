@@ -2,11 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -179,7 +176,6 @@ class KNeighborsRegressor(RegressorMixin,
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -189,27 +185,15 @@ class KNeighborsRegressor(RegressorMixin,
             raise ValueError(
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
-
         super().fit(X, convert_dtype=convert_dtype)
 
-        # First get the original dtype before conversion
-        y_temp = input_to_cuml_array(
-            y,
-            order='F',
-            check_rows=self.n_samples_fit_,
-            convert_to_dtype=None,  # Don't convert yet, just to get original dtype
-        )
-        self._y_original_dtype = y_temp.dtype
-
-        # Now convert to float32 for internal use
-        y_arr = input_to_cuml_array(
+        self._y = input_to_cuml_array(
             y,
             order='F',
             check_rows=self.n_samples_fit_,
             check_dtype=np.float32,
             convert_to_dtype=(np.float32 if convert_dtype else None),
-        )
-        self._y = y_arr.array
+        ).array
 
         return self
 
@@ -218,7 +202,6 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=False)
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
@@ -231,26 +214,25 @@ class KNeighborsRegressor(RegressorMixin,
         )
 
         cdef size_t n_rows
-        inds, n_rows, _n_cols, _dtype = input_to_cuml_array(
+        inds, n_rows, _, _ = input_to_cuml_array(
             knn_indices,
             order='C',
             check_dtype=np.int64,
             convert_to_dtype=(np.int64 if convert_dtype else None),
         )
 
-        dists, _, _, _ = input_to_cuml_array(
+        dists = input_to_cuml_array(
             knn_distances,
             order='C',
             check_dtype=np.float32,
             convert_to_dtype=(np.float32 if convert_dtype else None),
-        )
+        ).array
 
         cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
 
-        res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
+        res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        # C++ kernel always uses float32, we'll convert after if needed
         out = CumlArray.zeros(
             res_shape, dtype=np.float32, order="C", index=inds.index
         )
@@ -287,10 +269,5 @@ class KNeighborsRegressor(RegressorMixin,
             )
 
         self.handle.sync()
-
-        # Match float precision of original input labels (int labels → float32)
-        orig_dtype = getattr(self, '_y_original_dtype', self._y.dtype)
-        if np.issubdtype(orig_dtype, np.floating) and orig_dtype != np.float32:
-            out = CumlArray(cp.asarray(out).astype(orig_dtype))
 
         return out
