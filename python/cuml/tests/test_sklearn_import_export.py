@@ -41,6 +41,7 @@ from cuml.linear_model import (
     Ridge,
 )
 from cuml.manifold import TSNE, SpectralEmbedding
+from cuml.preprocessing import TargetEncoder
 from cuml.testing.utils import array_equal
 
 ###############################################################################
@@ -919,3 +920,35 @@ def test_linear_svc(random_state):
 
     sk_score = sk_model2.score(X, y)
     assert sk_score > 0.7
+
+
+def test_target_encoder(random_state):
+    # Create simple categorical data
+    X = np.array(
+        [
+            ["cat"],
+            ["dog"],
+            ["cat"],
+            ["dog"],
+            ["bird"],
+            ["cat"],
+            ["dog"],
+            ["bird"],
+        ]
+    )
+    y = np.array([1.0, 2.0, 1.5, 2.5, 3.0, 1.2, 2.2, 3.2])
+
+    original = TargetEncoder(n_folds=2, smooth=1.0, split_method="continuous")
+    original.fit(X, y)
+
+    sklearn_model = original.as_sklearn()
+    roundtrip_model = TargetEncoder.from_sklearn(sklearn_model)
+
+    assert_roundtrip_consistency(original, roundtrip_model)
+
+    original_output = original.transform(X)
+    sklearn_output = sklearn_model.transform(X)
+    roundtrip_output = roundtrip_model.transform(X)
+
+    assert array_equal(original_output, sklearn_output)
+    assert array_equal(original_output, roundtrip_output)

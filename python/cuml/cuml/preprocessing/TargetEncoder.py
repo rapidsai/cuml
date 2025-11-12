@@ -543,20 +543,18 @@ class TargetEncoder(InteropMixin):
         }
         return params
 
-    @classmethod
-    def _params_to_cpu(cls, model):
+    def _params_to_cpu(self):
         params = {
-            "cv": model.n_folds,
-            "random_state": model.seed,
-            "smooth": model.smooth,
-            "shuffle": model.split_method == "random",
+            "cv": self.n_folds,
+            "random_state": self.seed,
+            "smooth": self.smooth,
+            "shuffle": self.split_method == "random",
             "categories": "auto",
             "target_type": "continuous",
         }
         return params
 
-    @classmethod
-    def _attrs_from_cpu(cls, model):
+    def _attrs_from_cpu(self, model):
         return {
             "encode_all": to_gpu(model.encodings_),
             "categories_": to_gpu(model.categories_),
@@ -565,11 +563,10 @@ class TargetEncoder(InteropMixin):
             **super()._attrs_from_cpu(model),
         }
 
-    @classmethod
-    def _attrs_to_cpu(cls, model):
+    def _attrs_to_cpu(self, model):
         return {
-            "encodings_": to_cpu(model.encode_all),
-            "target_mean_": to_cpu(model.mean),
-            "n_features_in_": len(model.train.columns) - 3,
+            "encodings_": to_cpu(self.encode_all),
+            "target_mean_": to_cpu(self.mean),
+            "n_features_in_": len(self.train.columns) - 3,
             **super()._attrs_to_cpu(model),
         }
