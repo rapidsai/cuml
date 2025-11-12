@@ -85,19 +85,18 @@ class SparseCumlArray:
                 from_mem_type = MemoryType.host
             else:
                 raise ValueError(
-                    "A sparse matrix is expected as input. Received %s"
-                    % type(data)
+                    f"A sparse matrix is expected as input, received {type(data)!r}"
                 )
 
             if not data.ndim == 2:
                 raise ValueError(
-                    "Expected 2D input, got input with shape {data.shape}"
+                    f"Expected 2D input, got input with shape {data.shape}"
                 )
 
             if data.format != "csr":
                 if convert_format:
                     debug(
-                        "Received sparse matrix in {data.format!r} format "
+                        f"Received sparse matrix in {data.format!r} format "
                         "but CSR is expected. Data will be converted to CSR, "
                         "but this will require additional memory copies. If this "
                         "conversion is not desired, set convert_format=False to "
@@ -245,7 +244,7 @@ class SparseCumlArray:
                 ret = ret.tocsc()
             else:
                 raise ValueError(
-                    "Output format %s not supported" % output_format
+                    f"Output format {output_format} not supported"
                 )
 
         return ret
