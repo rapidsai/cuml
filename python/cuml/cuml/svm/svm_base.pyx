@@ -369,6 +369,17 @@ class SVMBase(Base,
         assert X.dtype == y.dtype
         assert sample_weight is None or X.dtype == sample_weight.dtype
 
+        if X.shape[0] < 2:
+            raise ValueError(
+                f"Found array with {X.shape[0]} sample(s) (shape={X.shape}) while a "
+                f"minimum of 2 is required."
+            )
+        elif len(X.shape) > 1 and X.shape[1] < 1:
+            raise ValueError(
+                f"Found array with {X.shape[1]} feature(s) (shape={X.shape}) while "
+                f"a minimum of 1 is required."
+            )
+
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_sparse = isinstance(X, SparseCumlArray)
         cdef bool is_float32 = X.dtype == np.float32
