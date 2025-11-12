@@ -26,7 +26,6 @@ from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.common.utils import get_client
-from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DistributedDataHandler:
@@ -179,7 +178,6 @@ def _get_datatype_from_inputs(data):
     return datatype, multiple
 
 
-@with_cupy_rmm
 def concatenate(objs, axis=0):
     if isinstance(objs[0], DataFrame) or isinstance(objs[0], cudf.Series):
         if len(objs) == 1:

@@ -12,9 +12,6 @@ import numpy as np
 import scipy.sparse
 from dask.distributed import default_client
 
-from cuml.common import rmm_cupy_ary
-from cuml.internals.memory_utils import with_cupy_rmm
-
 
 def validate_dask_array(darray, client=None):
     if len(darray.chunks) > 2:
@@ -24,7 +21,7 @@ def validate_dask_array(darray, client=None):
 
 
 def _conv_df_to_sparse(x):
-    cupy_ary = rmm_cupy_ary(cp.asarray, x.to_cupy(), dtype=x.dtypes[0])
+    cupy_ary = cp.asarray(x.to_cupy(), dtype=x.dtypes[0])
 
     return cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
@@ -43,7 +40,7 @@ def _conv_array_to_sparse(arr):
     elif isinstance(arr, cudf.DataFrame):
         ret = _conv_df_to_sparse(arr)
     elif isinstance(arr, np.ndarray):
-        cupy_ary = rmm_cupy_ary(cp.asarray, arr, dtype=arr.dtype)
+        cupy_ary = cp.asarray(arr, dtype=arr.dtype)
         ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
     elif isinstance(arr, cp.ndarray):
@@ -53,7 +50,6 @@ def _conv_array_to_sparse(arr):
     return ret
 
 
-@with_cupy_rmm
 def to_sparse_dask_array(cudf_or_array, client=None):
     """
     Converts an array or cuDF to a sparse Dask array backed by sparse CuPy.
@@ -73,7 +69,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
     """
     ret = cudf_or_array
     shape = cudf_or_array.shape
-    meta = cupyx.scipy.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
+    meta = cupyx.scipy.sparse.csr_matrix(cp.zeros(1))
 
     if isinstance(ret, dask.dataframe.DataFrame):
         ret = ret.to_dask_array()

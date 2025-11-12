@@ -16,7 +16,6 @@ from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
 import cuml
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.internals.memory_utils import with_cupy_rmm
 
 
 def _map_l1_norm_kernel(dtype):
@@ -176,7 +175,6 @@ def _insert_zeros(ary, zero_indices):
     return new_ary
 
 
-@with_cupy_rmm
 def extract_sparse_knn_graph(knn_graph):
     """
     Converts KNN graph from CSR, COO and CSC formats into separate
@@ -216,7 +214,6 @@ def extract_sparse_knn_graph(knn_graph):
         return None
 
 
-@with_cupy_rmm
 def extract_pairwise_dists(pw_dists, n_neighbors):
     """
     Extract the nearest neighbors distances and indices
@@ -266,7 +263,6 @@ def _determine_k_from_arrays(
     return total_elements // n_samples
 
 
-@with_cupy_rmm
 def extract_knn_graph(knn_info, n_neighbors):
     """
     Extract the nearest neighbors distances and indices

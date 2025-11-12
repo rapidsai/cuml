@@ -460,6 +460,8 @@ UMAP
 
 .. autofunction:: cuml.manifold.umap.simplicial_set_embedding
 
+.. autofunction:: cuml.manifold.umap.find_ab_params
+
 
 Random Projections
 ------------------

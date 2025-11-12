@@ -58,12 +58,26 @@ def _joblib_hash(X):
 
 
 def find_ab_params(spread=1.0, min_dist=0.1):
-    """Fit a, b params for the differentiable curve used in lower
+    """Fit a & b parameters for UMAP.
+
+    Selects `a` and `b` for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
 
     Borrowed from upstream umap: https://github.com/lmcinnes/umap.
+
+    Parameters
+    ----------
+    spread: float (optional, default 1.0)
+        The effective scale of embedded points.
+    min_dist: float (optional, default 0.1)
+        The effective minimum distance between embedded points.
+
+    Returns
+    -------
+    a, b : float
+        The `a` and `b` parameters for `UMAP`.
     """
     from scipy.optimize import curve_fit
 

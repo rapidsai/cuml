@@ -8,10 +8,10 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -281,7 +281,6 @@ class LogisticRegression(
         y = enc.fit_transform(y).to_cupy()
         if y_orig_dtype is None:
             y_orig_dtype = y.dtype
-        n_samples = len(y)
         classes = enc.classes_.to_numpy()
 
         # TODO: LabelEncoder doesn't currently map dtypes the same way as it
@@ -293,35 +292,13 @@ class LogisticRegression(
         self.classes_ = classes
         n_classes = len(self.classes_)
 
-        # TODO: unify class_weight handling across all classifiers
-        if self.class_weight is not None:
-            # Coerce sample_weight to same dtype as X, falling back to float32
-            dtype = getattr(X, "dtype", cp.float32)
-
-            if sample_weight is not None:
-                sample_weight = input_to_cuml_array(
-                    sample_weight,
-                    convert_to_dtype=dtype,
-                    check_rows=n_samples,
-                    check_cols=1,
-                ).array.to_output("cupy")
-            else:
-                sample_weight = cp.ones(y.shape, dtype=dtype)
-
-            if self.class_weight == "balanced":
-                counts = cp.asnumpy(cp.bincount(y))
-                weights = n_samples / (n_classes * counts)
-                class_weight = {i: weights[i] for i in range(n_classes)}
-            else:
-                keys = self.class_weight.keys()
-                encoded_keys = enc.transform(cudf.Series(keys)).values_host
-                class_weight = {
-                    enc_key: self.class_weight[key]
-                    for enc_key, key in zip(encoded_keys, keys)
-                }
-
-            for label, weight in class_weight.items():
-                sample_weight[y == label] *= weight
+        _, sample_weight = process_class_weight(
+            classes,
+            y,
+            class_weight=self.class_weight,
+            sample_weight=sample_weight,
+            float64=(getattr(X, "dtype", np.float32) == np.float64),
+        )
 
         l1_strength, l2_strength = self._get_l1_l2_strength()
 

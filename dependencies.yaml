@@ -318,7 +318,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.0.0
+          - &cython cython>=3.0.0,<3.2.0a0
           - treelite
   py_run_cuml:
     common:

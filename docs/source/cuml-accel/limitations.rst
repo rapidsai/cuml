@@ -437,10 +437,6 @@ SVC
 - If ``X`` is sparse.
 - If ``y`` is multiclass.
 
-Additionally, the following fitted attributes are currently not computed:
-
-- ``class_weight_``
-
 SVR
 ^^^
 

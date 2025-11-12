@@ -6,7 +6,6 @@ import cupy as cp
 import dask.array as da
 import numpy as np
 
-from cuml.common import with_cupy_rmm
 from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common.utils import get_client
 from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
@@ -22,7 +21,6 @@ def _create_covariance(dims, seed, dtype="float32"):
     return 2 * local_rs.rand(*dims, dtype=dtype) - 1
 
 
-@with_cupy_rmm
 def make_classification(
     n_samples=100,
     n_features=20,
