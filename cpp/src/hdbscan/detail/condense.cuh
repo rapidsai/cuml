@@ -215,8 +215,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                "total.",
                static_cast<int>(n_vertices));
 
-  int n_nodes        = 2 * n_leaves - 1;
-  int total_internal = n_nodes - n_leaves;
+  int total_internal = n_leaves - 1;
 
   rmm::device_uvector<uint8_t> is_persistent(total_internal, stream);
   thrust::fill(exec_policy, is_persistent.begin(), is_persistent.end(), 0);
