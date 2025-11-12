@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 
 from cuml.internals.array import CumlArray
@@ -86,7 +87,7 @@ def fit(
     y,
     sample_weight,
     *,
-    classes=None,
+    n_classes=None,
     probability=False,
     penalty,
     loss,
@@ -112,8 +113,8 @@ def fit(
         Target values or classes
     sample_weight : None or CumlArray, shape = (n_samples,), default=None
         Sample weights
-    classes : None or CumlArray, shape = (n_classes,), default=None
-        The class values in y when fitting an SVC, or None to fit an SVR.
+    n_classes : int or None, default=None
+        The number of classes, or None if fitting a regression problem.
     probability : bool, default=False
         When fitting an SVC, whether to also fit probability scales to enable
         `predict_proba`.
@@ -138,7 +139,7 @@ def fit(
         The probability scales (if `probability=True`), `None` otherwise.
     """
     penalties = {"l1": Penalty.L1, "l2": Penalty.L2}
-    if classes is not None:
+    if n_classes is not None:
         losses = {"hinge": Loss.HINGE, "squared_hinge": Loss.SQUARED_HINGE}
     else:
         losses = {
@@ -177,7 +178,6 @@ def fit(
     # Extract dimensions
     cdef size_t n_rows = X.shape[0]
     cdef size_t n_cols = X.shape[1]
-    cdef int n_classes = 0 if classes is None else len(classes)
 
     # Validate dimensions
     if n_rows < 1:
@@ -201,28 +201,30 @@ def fit(
     _check_array("y", y, dtype=X.dtype, shape=(n_rows,))
     if sample_weight is not None:
         _check_array("sample_weight", sample_weight, dtype=X.dtype, shape=(n_rows,))
-    if classes is not None:
-        _check_array("classes", classes, dtype=X.dtype, shape=(n_classes,))
+
+    if n_classes is not None:
+        classes = cp.arange(n_classes, dtype=X.dtype)
 
     # Allocate output arrays
     n_coefs = n_cols + int(fit_intercept)
-    if classes:
+    if n_classes is not None:
         w_shape = (1 if n_classes == 2 else n_classes, n_coefs)
     else:
         w_shape = n_coefs
     w = CumlArray.empty(shape=w_shape, dtype=X.dtype, order="F")
 
-    if probability:
+    if probability and n_classes is not None:
         prob_scale = CumlArray.empty((n_classes, 2), dtype=X.dtype, order="F")
     else:
         prob_scale = None
 
     cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
     cdef bool is_float32 = X.dtype == np.float32
+    cdef int n_classes_or_0 = 0 if n_classes is None else n_classes
     cdef uintptr_t X_ptr = X.ptr
     cdef uintptr_t y_ptr = y.ptr
     cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
-    cdef uintptr_t classes_ptr = 0 if classes is None else classes.ptr
+    cdef uintptr_t classes_ptr = 0 if n_classes is None else classes.data.ptr
     cdef uintptr_t w_ptr = w.ptr
     cdef uintptr_t prob_scale_ptr = 0 if prob_scale is None else prob_scale.ptr
     cdef int n_iter
@@ -235,7 +237,7 @@ def fit(
                 params,
                 n_rows,
                 n_cols,
-                n_classes,
+                n_classes_or_0,
                 <const float*>classes_ptr,
                 <const float*>X_ptr,
                 <const float*>y_ptr,
@@ -249,7 +251,7 @@ def fit(
                 params,
                 n_rows,
                 n_cols,
-                n_classes,
+                n_classes_or_0,
                 <const double*>classes_ptr,
                 <const double*>X_ptr,
                 <const double*>y_ptr,
