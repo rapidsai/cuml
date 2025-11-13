@@ -6,8 +6,9 @@
 # =============================================================================
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  # TODO(hcho3): Remove Wno-free-nonheap-object once GCC 15 is released. See
-  # https://github.com/rapidsai/cuml/pull/7471#issuecomment-3525796585
+  # TODO(hcho3): Remove Wno-free-nonheap-object once GCC 15 is released. The flag is needed to work
+  # around spurious warnings emitted by GCC 14.x. See
+  # https://github.com/rapidsai/cuml/pull/7471#issuecomment-3525796585 for more details.
   list(APPEND CUML_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-free-nonheap-object)
   if(CUML_BUILD_TESTS OR CUML_BUILD_BENCHMARKS)
     # Suppress parentheses warning which causes gmock to fail
