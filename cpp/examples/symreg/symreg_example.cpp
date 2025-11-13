@@ -12,7 +12,7 @@
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 
 #include <algorithm>
 #include <cmath>
