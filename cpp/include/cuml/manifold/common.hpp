@@ -7,8 +7,6 @@
 
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
-#include <cuda_runtime.h>
-
 #include <stdint.h>
 
 namespace ML {
