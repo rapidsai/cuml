@@ -17,29 +17,29 @@ test_seeds = ["int", "cupy", "numpy"]
 
 @pytest.fixture(
     params=[
-        (cuda.to_device, "numba"),
-        (cp.asarray, "cupy"),
-        (cudf, "cudf"),
-        (pd, "pandas"),
+        ("numba", cuda.to_device),
+        ("cupy", cp.asarray),
+        ("cudf", cudf),
+        ("pandas", pd),
     ],
     ids=["to_numba", "to_cupy", "to_cudf", "to_pandas"],
 )
 def convert_to_type(request):
-    converter, type_name = request.param
-    if converter in (cudf, pd):
+    backend_name, array_constructor = request.param
+    if array_constructor in (cudf, pd):
 
         def ctor(X):
-            if isinstance(X, cp.ndarray) and converter == pd:
+            if isinstance(X, cp.ndarray) and array_constructor == pd:
                 X = X.get()
 
             if X.ndim > 1:
-                return converter.DataFrame(X)
+                return array_constructor.DataFrame(X)
             else:
-                return converter.Series(X)
+                return array_constructor.Series(X)
 
-        return (ctor, type_name)
+        return (backend_name, ctor)
 
-    return (converter, type_name)
+    return (backend_name, array_constructor)
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
@@ -178,10 +178,10 @@ def test_random_state(seed_type):
 @pytest.mark.parametrize("train_size", [0.6, 0.8, None])
 @pytest.mark.parametrize("shuffle", [True, False])
 def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
-    converter, type_name = convert_to_type
+    backend_name, array_constructor = convert_to_type
 
-    X = converter(X)
-    y = converter(y)
+    X = array_constructor(X)
+    y = array_constructor(y)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -192,19 +192,19 @@ def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
         random_state=0,
     )
 
-    if type_name == "cupy":
+    if backend_name == "cupy":
         assert isinstance(X_train, cp.ndarray)
         assert isinstance(X_test, cp.ndarray)
         assert isinstance(y_train, cp.ndarray)
         assert isinstance(y_test, cp.ndarray)
 
-    if type_name == "numba":
+    if backend_name == "numba":
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
         assert cuda.devicearray.is_cuda_ndarray(y_train)
         assert cuda.devicearray.is_cuda_ndarray(y_test)
 
-    if type_name in ["cudf", "pandas"]:
+    if backend_name in ["cudf", "pandas"]:
         expected_type = (
             cudf.DataFrame
             if type(X) in [cudf.DataFrame, pd.DataFrame]
@@ -286,9 +286,9 @@ def test_split_df_single_argument(test_size, train_size, shuffle):
 def test_split_array_single_argument(
     X, convert_to_type, test_size, train_size, shuffle
 ):
-    converter, type_name = convert_to_type
+    backend_name, array_constructor = convert_to_type
 
-    X = converter(X)
+    X = array_constructor(X)
 
     X_train, X_test = train_test_split(
         X,
@@ -298,15 +298,15 @@ def test_split_array_single_argument(
         random_state=0,
     )
 
-    if type_name == "cupy":
+    if backend_name == "cupy":
         assert isinstance(X_train, cp.ndarray)
         assert isinstance(X_test, cp.ndarray)
 
-    if type_name == "numba":
+    if backend_name == "numba":
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if type_name in ["cudf", "pandas"]:
+    if backend_name in ["cudf", "pandas"]:
         expected_type = (
             cudf.DataFrame
             if type(X) in [cudf.DataFrame, pd.DataFrame]
@@ -333,13 +333,13 @@ def test_split_array_single_argument(
 @pytest.mark.parametrize("test_size", [0.2, 0.4, None])
 @pytest.mark.parametrize("train_size", [0.6, 0.8, None])
 def test_stratified_split(convert_to_type, test_size, train_size):
-    converter, type_name = convert_to_type
+    backend_name, array_constructor = convert_to_type
 
     # For more tolerance and reliable estimates
     X, y = make_classification(n_samples=10000)
 
-    X = converter(X)
-    y = converter(y)
+    X = array_constructor(X)
+    y = array_constructor(y)
 
     def counts(y):
         _, y_indices = cp.unique(y, return_inverse=True)
@@ -361,15 +361,15 @@ def test_stratified_split(convert_to_type, test_size, train_size):
     assert cp.isclose(
         original_counts, split_counts, equal_nan=False, rtol=0.1
     ).all()
-    if type_name == "cupy":
+    if backend_name == "cupy":
         assert isinstance(X_train, cp.ndarray)
         assert isinstance(X_test, cp.ndarray)
 
-    if type_name == "numba":
+    if backend_name == "numba":
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if type_name in ["cudf", "pandas"]:
+    if backend_name in ["cudf", "pandas"]:
         expected_type = (
             cudf.DataFrame
             if type(X) in [cudf.DataFrame, pd.DataFrame]
