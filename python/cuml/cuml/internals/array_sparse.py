@@ -13,11 +13,6 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 
-sparse_matrix_classes = (
-    cpx_sparse.csr_matrix,
-    scipy_sparse.csr_matrix,
-)
-
 SparseCumlArrayInput = namedtuple(
     "SparseCumlArrayInput",
     ["indptr", "indices", "data", "nnz", "dtype", "shape"],
@@ -35,7 +30,6 @@ class SparseCumlArray:
 
     Parameters
     ----------
-
     data : scipy.sparse.spmatrix or cupyx.scipy.sparse.spmatrix
         A Scipy or Cupy sparse matrix
     convert_to_dtype : data-type or False, optional
@@ -48,11 +42,13 @@ class SparseCumlArray:
     convert_format : bool, optional (default: True)
         Specifies whether to convert any non-CSR inputs to CSR. If False,
         an exception is thrown.
-
+    check_rows: int, optional
+        Specifies a number of rows to ensure `data` has.
+    check_cols: int, optional
+        Specifies a number of columns to ensure `data` has.
 
     Attributes
     ----------
-
     indptr : CumlArray
         Compressed row index array
     indices : CumlArray
@@ -79,34 +75,37 @@ class SparseCumlArray:
         convert_to_mem_type=None,
         convert_index=None,
         convert_format=True,
+        check_rows=None,
+        check_cols=None,
     ):
         if not isinstance(data, SparseCumlArrayInput):
-            if cpx_sparse.isspmatrix(data):
+            if cpx_sparse.issparse(data):
                 from_mem_type = MemoryType.device
-            elif scipy_sparse.isspmatrix(data):
+            elif scipy_sparse.issparse(data):
                 from_mem_type = MemoryType.host
             else:
                 raise ValueError(
-                    "A sparse matrix is expected as input. "
-                    "Received %s" % type(data)
+                    f"A sparse matrix is expected as input, received {type(data)!r}"
                 )
 
-            if not isinstance(data, sparse_matrix_classes):
+            if not data.ndim == 2:
+                raise ValueError(
+                    f"Expected 2D input, got input with shape {data.shape}"
+                )
+
+            if data.format != "csr":
                 if convert_format:
                     debug(
-                        "Received sparse matrix in {} format but CSR is "
-                        "expected. Data will be converted to CSR, but this "
-                        "will require additional memory copies. If this "
-                        "conversion is not desired, set "
-                        "set_convert_format=False to raise an exception "
-                        "instead.".format(type(data))
+                        f"Received sparse matrix in {data.format!r} format "
+                        "but CSR is expected. Data will be converted to CSR, "
+                        "but this will require additional memory copies. If this "
+                        "conversion is not desired, set convert_format=False to "
+                        "raise an exception instead."
                     )
                     data = data.tocsr()  # currently only CSR is supported
                 else:
                     raise ValueError(
-                        "Expected CSR matrix but received {}".format(
-                            type(data)
-                        )
+                        f"Expected CSR matrix but received {type(data).__name__!r}"
                     )
 
         if not convert_to_dtype:
@@ -126,6 +125,15 @@ class SparseCumlArray:
             convert_index = GlobalSettings().xpy.int32
         if not convert_index:
             convert_index = data.indptr.dtype
+
+        if check_rows is not None and data.shape[0] != check_rows:
+            raise ValueError(
+                f"Expected {check_rows} rows but got {data.shape[0]} rows."
+            )
+        if check_cols is not None and data.shape[1] != check_cols:
+            raise ValueError(
+                f"Expected {check_cols} columns but got {data.shape[1]} columns."
+            )
 
         # Note: Only 32-bit indexing is supported currently.
         # Since CUDA11, Cusparse provides 64-bit function calls
@@ -236,7 +244,7 @@ class SparseCumlArray:
                 ret = ret.tocsc()
             else:
                 raise ValueError(
-                    "Output format %s not supported" % output_format
+                    f"Output format {output_format} not supported"
                 )
 
         return ret

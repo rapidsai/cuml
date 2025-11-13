@@ -11,8 +11,7 @@ import cupyx
 import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
-import scipy.sparse as scipy_sparse
-from scipy.sparse import isspmatrix as scipy_isspmatrix
+import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
@@ -37,14 +36,16 @@ _input_type_to_str = {
     cudf.Index: "cudf",
     numba_cuda.devicearray.DeviceNDArrayBase: "numba",
     cupyx.scipy.sparse.spmatrix: "cupy",
-    scipy_sparse.spmatrix: "numpy",
+    scipy.sparse.spmatrix: "numpy",
+    scipy.sparse.sparray: "numpy",
 }
 
 _input_type_to_mem_type = {
     np.ndarray: MemoryType.host,
     pd.Series: MemoryType.host,
     pd.DataFrame: MemoryType.host,
-    scipy_sparse.spmatrix: MemoryType.host,
+    scipy.sparse.spmatrix: MemoryType.host,
+    scipy.sparse.sparray: MemoryType.host,
     cp.ndarray: MemoryType.device,
     cudf.Series: MemoryType.device,
     cudf.DataFrame: MemoryType.device,
@@ -55,7 +56,8 @@ _input_type_to_mem_type = {
 _SPARSE_TYPES = [
     SparseCumlArray,
     cupyx.scipy.sparse.spmatrix,
-    scipy_sparse.spmatrix,
+    scipy.sparse.spmatrix,
+    scipy.sparse.sparray,
 ]
 
 
@@ -130,11 +132,14 @@ def get_supported_input_type(X):
         if not isinstance(X, np.generic) and not isinstance(X, type):
             return np.ndarray
 
-    if cupyx.scipy.sparse.isspmatrix(X):
+    if cupyx.scipy.sparse.issparse(X):
         return cupyx.scipy.sparse.spmatrix
 
-    if scipy_sparse.isspmatrix(X):
-        return scipy_sparse.spmatrix
+    if scipy.sparse.isspmatrix(X):
+        return scipy.sparse.spmatrix
+
+    if scipy.sparse.issparse(X) and X.ndim == 2:
+        return scipy.sparse.sparray
 
     # Return None if this type is not supported
     return None
@@ -247,9 +252,9 @@ def is_array_like(X, accept_lists=False):
     ):
         return True
 
-    if cupyx.scipy.sparse.isspmatrix(X):
+    if cupyx.scipy.sparse.issparse(X):
         return True
-    if scipy_isspmatrix(X):
+    if scipy.sparse.issparse(X):
         return True
     if numba_cuda.devicearray.is_cuda_ndarray(X):
         return True
@@ -467,7 +472,7 @@ def input_to_host_array(
 def input_to_host_array_with_sparse_support(X):
     if X is None:
         return None
-    if scipy_sparse.issparse(X):
+    if scipy.sparse.issparse(X):
         return X
     _array_type, is_sparse = determine_array_type_full(X)
     if is_sparse:
