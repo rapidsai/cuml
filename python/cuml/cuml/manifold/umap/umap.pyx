@@ -522,7 +522,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         sparse array (preferably CSR/COO). This feature allows
         the precomputation of the KNN outside of UMAP
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
+        should match the metric used to train the UMAP embeedings. For efficient
+        memory usage, the precomputed knn graph should be given as CPU arrays.
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
@@ -901,7 +902,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            Takes precedence over the precomputed_knn parameter. For efficient
+        memory usage, the precomputed knn graph should be given as CPU arrays.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
@@ -1074,7 +1076,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            Takes precedence over the precomputed_knn parameter. For efficient
+        memory usage, the precomputed knn graph should be given as CPU arrays.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
