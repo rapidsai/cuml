@@ -32,7 +32,6 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.internals.logger as logger
-from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
