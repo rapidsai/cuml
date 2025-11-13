@@ -6,7 +6,9 @@
 # =============================================================================
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  list(APPEND CUML_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas)
+  # TODO(hcho3): Remove Wno-free-nonheap-object once GCC 15 is released. See
+  # https://github.com/rapidsai/cuml/pull/7471#issuecomment-3525796585
+  list(APPEND CUML_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-free-nonheap-object)
   if(CUML_BUILD_TESTS OR CUML_BUILD_BENCHMARKS)
     # Suppress parentheses warning which causes gmock to fail
     list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-parentheses)
@@ -19,8 +21,10 @@ list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 if(CUDA_WARNINGS_AS_ERRORS)
   list(APPEND CUML_CUDA_FLAGS -Werror=all-warnings)
 endif()
-list(APPEND CUML_CUDA_FLAGS
-     -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations,-Wno-error=sign-compare
+list(
+  APPEND
+  CUML_CUDA_FLAGS
+  -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations,-Wno-error=sign-compare,-Wno-free-nonheap-object
 )
 
 if(DISABLE_DEPRECATION_WARNINGS)
