@@ -57,7 +57,6 @@ models = models_config.get_models()
         "Lasso",
         "Ridge",
         "LinearRegression",
-        "LogisticRegression",
         "MBSGDRegressor",
         "RandomForestRegressor",
         "KNeighborsRegressor",
@@ -86,7 +85,12 @@ def test_pipeline_with_regression(
 
 @pytest.mark.parametrize(
     "model_key",
-    ["MBSGDClassifier", "RandomForestClassifier", "KNeighborsClassifier"],
+    [
+        "MBSGDClassifier",
+        "RandomForestClassifier",
+        "KNeighborsClassifier",
+        "LogisticRegression",
+    ],
 )
 @pytest.mark.parametrize("instantiation", ["Pipeline", "make_pipeline"])
 def test_pipeline_with_classification(
