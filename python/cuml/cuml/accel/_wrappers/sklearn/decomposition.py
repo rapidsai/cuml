@@ -25,6 +25,10 @@ class PCA(ProxyBase):
             self._gpu._u_based_sign_flip = True
             return self._gpu.fit(X, y)
 
+        def _gpu_fit_transform(self, X, y=None):
+            self._gpu._u_based_sign_flip = True
+            return self._gpu.fit_transform(X, y)
+
 
 class TruncatedSVD(ProxyBase):
     _gpu_class = cuml.decomposition.TruncatedSVD
@@ -34,3 +38,7 @@ class TruncatedSVD(ProxyBase):
         def _gpu_fit(self, X, y=None):
             self._gpu._u_based_sign_flip = True
             return self._gpu.fit(X, y)
+
+        def _gpu_fit_transform(self, X, y=None):
+            self._gpu._u_based_sign_flip = True
+            return self._gpu.fit_transform(X, y)
