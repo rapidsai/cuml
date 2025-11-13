@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <cuda_runtime.h>
 
 #include <stdint.h>
@@ -110,19 +112,10 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
   {
     // Return true if data is on CPU (need to allocate device memory)
     // Return false if data is already on device (no allocation needed)
-    auto check_is_device = [](const void* ptr) -> bool {
-      cudaPointerAttributes attr;
-      cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
-      if (err != cudaSuccess) {
-        cudaGetLastError();
-        return false;  // Assume host pointer if query fails
-      }
-      return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
-    };
-
-    bool indices_on_device = check_is_device(knn_graph.knn_indices);
-    bool dists_on_device   = check_is_device(knn_graph.knn_dists);
-    return !(indices_on_device && dists_on_device);
+    auto pointer_residency = raft::spatial::knn::detail::utils::check_pointer_residency(
+      knn_graph.knn_indices, knn_graph.knn_dists);
+    return pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::host_only ||
+           pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::mixed;
   }
 };
 
