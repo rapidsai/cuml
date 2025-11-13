@@ -903,7 +903,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
             Takes precedence over the precomputed_knn parameter. For efficient
-        memory usage, the precomputed knn graph should be given as CPU arrays.
+            memory usage, the precomputed knn graph should be given as CPU arrays.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
@@ -1077,7 +1077,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
             Takes precedence over the precomputed_knn parameter. For efficient
-        memory usage, the precomputed knn graph should be given as CPU arrays.
+            memory usage, the precomputed knn graph should be given as CPU arrays.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
