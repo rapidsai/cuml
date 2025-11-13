@@ -20,7 +20,6 @@ import cuml.internals.nvtx as nvtx
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
-from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
 from cuml.internals.output_utils import cudf_to_pandas
 
 _specific_supported_types = (
@@ -94,7 +93,6 @@ def _determine_memory_order(shape, strides, dtype, default="C"):
     return None
 
 
-@class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray:
     """
     Array represents an abstracted array allocation. It can be instantiated by
@@ -455,13 +453,11 @@ class CumlArray:
             )
         return self._array_interface
 
-    @with_cupy_rmm
     def __getitem__(self, slice):
         return CumlArray(
             data=self._mem_type.xpy.asarray(self).__getitem__(slice)
         )
 
-    @with_cupy_rmm
     def __iter__(self):
         arr = self._mem_type.xpy.asarray(self)
         yield from arr

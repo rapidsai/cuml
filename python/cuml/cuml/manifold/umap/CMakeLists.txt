@@ -1,0 +1,15 @@
+# =============================================================================
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+# cmake-format: on
+# =============================================================================
+
+set(cython_sources "")
+add_module_gpu_default("umap.pyx" ${umap_algo} ${manifold_algo})
+
+rapids_cython_create_modules(
+  CXX
+  SOURCE_FILES "${cython_sources}"
+  LINKED_LIBRARIES "${cuml_sg_libraries}" MODULE_PREFIX manifold_umap_
+)

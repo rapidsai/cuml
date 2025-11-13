@@ -183,3 +183,18 @@ def test_elastic_net_default(dtype, nrows, column_info, n_parts, client):
     y_hat = elasticnet.predict(X)
 
     assert r2_score(y.compute(), y_hat.compute()) >= 0.96
+
+
+@pytest.mark.parametrize("cls", [ElasticNet, Lasso])
+def test_max_iter_n_iter(cls, client):
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_parts=10,
+        n_informative=10,
+        client=client,
+        dtype=np.float32,
+    )
+
+    model = cls(max_iter=2, client=client).fit(X, y)
+    assert model.solver.n_iter_ == 2

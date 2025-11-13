@@ -98,7 +98,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "LogisticRegression sets attributes during init",
-        "check_dont_overwrite_parameters": "LogisticRegression overwrites parameters during fit",
         "check_estimators_unfitted": "LogisticRegression does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "LogisticRegression raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LogisticRegression does not check n_features_in consistency",
@@ -112,17 +111,14 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_nan_inf": "LogisticRegression does not check for NaN and inf",
         "check_estimator_sparse_tag": "LogisticRegression does not support sparse data",
         "check_classifier_data_not_an_array": "LogisticRegression does not handle non-array data",
-        "check_classifiers_one_label": "LogisticRegression cannot train with one class",
         "check_classifiers_train": "LogisticRegression does not handle list inputs",
         "check_classifiers_train(readonly_memmap=True)": "LogisticRegression does not handle readonly memmap",
         "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "LogisticRegression does not handle readonly memmap with float32",
         "check_classifiers_regression_target": "LogisticRegression does not handle regression targets",
-        "check_supervised_y_no_nan": "LogisticRegression does not check for NaN in y",
         "check_supervised_y_2d": "LogisticRegression does not handle 2D y",
         "check_class_weight_classifiers": "LogisticRegression does not handle class weights properly",
         "check_parameters_default_constructible": "LogisticRegression parameters are mutated on init",
         "check_fit2d_1sample": "LogisticRegression does not handle single sample",
-        "check_set_params": "LogisticRegression does not handle set_params properly",
         "check_fit1d": "LogisticRegression does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "LogisticRegression does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LogisticRegression does not handle y=None",
@@ -237,8 +233,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "RandomForestClassifier sets attributes during init",
-        "check_estimators_overwrite_params": "RandomForestClassifier overwrites parameters during fit",
-        "check_dont_overwrite_parameters": "RandomForestClassifier overwrites parameters during fit",
         "check_estimators_unfitted": "RandomForestClassifier does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_n_features_in_after_fitting": "RandomForestClassifier does not check n_features_in consistency",
@@ -302,7 +296,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "LinearSVC sets attributes during init",
-        "check_dont_overwrite_parameters": "LinearSVC overwrites parameters during fit",
         "check_estimators_unfitted": "LinearSVC does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "LinearSVC raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearSVC does not check n_features_in consistency",
@@ -312,7 +305,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_sample_weight_equivalence_on_dense_data": "LinearSVC sample weight equivalence not implemented",
         "check_complex_data": "LinearSVC does not handle complex data",
         "check_dtype_object": "LinearSVC does not handle object dtype",
-        "check_estimators_empty_data_messages": "LinearSVC does not handle empty data",
         "check_estimators_nan_inf": "LinearSVC does not check for NaN and inf",
         "check_estimator_sparse_tag": "LinearSVC does not support sparse data",
         "check_estimator_sparse_array": "LinearSVC does not handle sparse arrays gracefully",
@@ -320,23 +312,17 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_pickle": "LinearSVC does not support pickling",
         "check_estimators_pickle(readonly_memmap=True)": "LinearSVC does not support pickling with readonly memmap",
         "check_classifier_data_not_an_array": "LinearSVC does not handle non-array data",
-        "check_classifiers_one_label": "LinearSVC cannot train with one class",
         "check_classifiers_classes": "LinearSVC does not handle string data properly",
         "check_classifiers_train": "LinearSVC does not handle list inputs",
         "check_classifiers_train(readonly_memmap=True)": "LinearSVC does not handle readonly memmap",
         "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "LinearSVC does not handle readonly memmap with float32",
-        "check_classifiers_regression_target": "LinearSVC does not handle regression targets",
-        "check_supervised_y_no_nan": "LinearSVC does not check for NaN in y",
         "check_supervised_y_2d": "LinearSVC does not handle 2D y",
-        "check_non_transformer_estimators_n_iter": "LinearSVC does not have n_iter_ attribute",
         "check_decision_proba_consistency": "LinearSVC does not support predict_proba",
         "check_parameters_default_constructible": "LinearSVC parameters are mutated on init",
         "check_methods_sample_order_invariance": "LinearSVC results depend on sample order",
         "check_methods_subset_invariance": "LinearSVC results depend on data subset",
-        "check_fit2d_1sample": "LinearSVC does not handle single sample",
         "check_dict_unchanged": "LinearSVC modifies input dictionaries",
         "check_fit_idempotent": "LinearSVC fit is not idempotent",
-        "check_fit_check_is_fitted": "LinearSVC passes check_is_fitted before being fit",
         "check_fit1d": "LinearSVC does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "LinearSVC does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LinearSVC does not handle y=None",
@@ -344,7 +330,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearSVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "LinearSVR sets attributes during init",
-        # "check_dont_overwrite_parameters": "LinearSVR overwrites parameters during fit",
         "check_estimators_unfitted": "LinearSVR does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "LinearSVR raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearSVR does not check n_features_in consistency",
@@ -382,7 +367,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     SVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "SVC sets attributes during init",
-        "check_dont_overwrite_parameters": "SVC overwrites parameters during fit",
         "check_estimators_unfitted": "SVC does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "SVC raises errors in init or set_params",
         "check_n_features_in_after_fitting": "SVC does not check n_features_in consistency",
@@ -400,24 +384,20 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_pickle": "SVC does not support pickling",
         "check_estimators_pickle(readonly_memmap=True)": "SVC does not support pickling with readonly memmap",
         "check_classifier_data_not_an_array": "SVC does not handle non-array data",
-        "check_classifiers_one_label": "SVC cannot train with one class",
         "check_classifiers_classes": "SVC does not handle string data properly",
         "check_classifiers_train": "SVC does not handle list inputs",
         "check_classifiers_train(readonly_memmap=True)": "SVC does not handle readonly memmap",
         "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "SVC does not handle readonly memmap with float32",
-        "check_supervised_y_no_nan": "SVC does not check for NaN in y",
-        "check_class_weight_classifiers": "SVC does not handle class weights properly",
-        "check_non_transformer_estimators_n_iter": "SVC does not have n_iter_ attribute",
         "check_decision_proba_consistency": "SVC does not support predict_proba by default",
         "check_parameters_default_constructible": "SVC parameters are mutated on init",
         "check_methods_sample_order_invariance": "SVC results depend on sample order",
         "check_methods_subset_invariance": "SVC results depend on data subset",
-        "check_fit2d_1sample": "SVC does not handle single sample",
         "check_dict_unchanged": "SVC modifies input dictionaries",
         "check_fit_idempotent": "SVC fit is not idempotent",
-        "check_fit_check_is_fitted": "SVC passes check_is_fitted before being fit",
         "check_fit2d_predict1d": "SVC does not handle 1D prediction input gracefully",
         "check_requires_y_none": "SVC does not handle y=None",
+        "check_sample_weights_list": "SVC does not handle list sample weights",
+        "check_supervised_y_2d": "SVC does not warn on 1 column 2D y",
     },
     SVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -854,12 +834,5 @@ def test_sklearn_compatible_estimator(estimator, check):
         estimator, UMAP
     ):
         pytest.skip("UMAP does not handle Nans and infinities")
-
-    if check_name == "check_classifiers_regression_target" and isinstance(
-        estimator, RandomForestClassifier
-    ):
-        pytest.skip(
-            "Regression targets for RandomForestClassifier crash the test suite"
-        )
 
     check(estimator)

@@ -2,30 +2,37 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
-import cupyx
+import cupyx.scipy.sparse
 import pytest
-import scipy.sparse as scipy_sparse
+import scipy.sparse
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 
-test_input_types = ["cupy", "scipy"]
+test_input_kinds = ["cupy", "scipy", "scipy-array"]
 
 
-@pytest.mark.parametrize("input_type", test_input_types)
-@pytest.mark.parametrize("sparse_format", ["csr", "coo", "csc"])
+def rand(m, n, dtype=cp.float32, format="csr", kind="cupy"):
+    if kind == "scipy-array":
+        return scipy.sparse.random_array(
+            (m, n), dtype=dtype, format=format, density=0.5, random_state=42
+        )
+    assert kind in ("cupy", "scipy")
+    func = (
+        scipy.sparse.random if kind == "scipy" else cupyx.scipy.sparse.random
+    )
+    return func(m, n, dtype=dtype, format=format, density=0.5, random_state=42)
+
+
+@pytest.mark.parametrize("kind", test_input_kinds)
+@pytest.mark.parametrize("format", ["csr", "coo", "csc"])
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("convert_format", [True, False])
-def test_input(input_type, sparse_format, dtype, convert_format):
-    rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
+def test_input(kind, format, dtype, convert_format):
+    X = rand(100, 100, kind=kind, format=format, dtype=dtype)
 
-    X = rand_func.random(
-        100, 100, format=sparse_format, density=0.5, dtype=dtype
-    )
-
-    if convert_format or sparse_format == "csr":
+    if convert_format or format == "csr":
         X_m = SparseCumlArray(X, convert_format=convert_format)
 
         assert X.shape == X_m.shape
@@ -53,11 +60,28 @@ def test_nonsparse_input_fails():
         SparseCumlArray(X)
 
 
-@pytest.mark.parametrize("input_type", test_input_types)
-def test_convert_to_dtype(input_type):
-    rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
+def test_non_2D_sparse_array():
+    X = scipy.sparse.random_array((10, 20, 30), random_state=42)
 
-    X = rand_func.random(100, 100, format="csr", density=0.5, dtype=cp.float64)
+    with pytest.raises(ValueError, match="Expected 2D input"):
+        SparseCumlArray(X)
+
+
+def test_shape_checks():
+    X = rand(8, 9)
+
+    with pytest.raises(ValueError, match="Expected 5 rows but got 8 rows"):
+        SparseCumlArray(X, check_rows=5)
+
+    with pytest.raises(
+        ValueError, match="Expected 5 columns but got 9 columns"
+    ):
+        SparseCumlArray(X, check_cols=5)
+
+
+@pytest.mark.parametrize("kind", test_input_kinds)
+def test_convert_to_dtype(kind):
+    X = rand(100, 100, kind=kind, format="csr", dtype=cp.float64)
 
     X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
 
@@ -72,11 +96,9 @@ def test_convert_to_dtype(input_type):
     assert X_m.dtype == X.dtype
 
 
-@pytest.mark.parametrize("input_type", test_input_types)
-def test_convert_index(input_type):
-    rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
-
-    X = rand_func.random(100, 100, format="csr", density=0.5, dtype=cp.float64)
+@pytest.mark.parametrize("kind", test_input_kinds)
+def test_convert_index(kind):
+    X = rand(100, 100, kind=kind, format="csr", dtype=cp.float64)
 
     # Will convert to 32-bit by default
     X.indptr = X.indptr.astype(cp.int64)
@@ -93,14 +115,12 @@ def test_convert_index(input_type):
     assert X_m.indices.dtype == cp.int64
 
 
-@pytest.mark.parametrize("input_type", test_input_types)
+@pytest.mark.parametrize("kind", test_input_kinds)
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
-@pytest.mark.parametrize("output_type", test_input_types)
+@pytest.mark.parametrize("output_type", ["scipy", "cupy"])
 @pytest.mark.parametrize("output_format", [None, "coo", "csc"])
-def test_output(input_type, output_type, dtype, output_format):
-    rand_func = cupyx.scipy.sparse if input_type == "cupy" else scipy_sparse
-
-    X = rand_func.random(100, 100, format="csr", density=0.5, dtype=dtype)
+def test_output(kind, output_type, dtype, output_format):
+    X = rand(100, 100, kind=kind, format="csr", dtype=dtype)
 
     X_m = SparseCumlArray(X)
 
@@ -108,11 +128,11 @@ def test_output(input_type, output_type, dtype, output_format):
 
     if output_type == "scipy":
         if output_format is None:
-            assert isinstance(output, scipy_sparse.csr_matrix)
+            assert isinstance(output, scipy.sparse.csr_matrix)
         elif output_format == "coo":
-            assert isinstance(output, scipy_sparse.coo_matrix)
+            assert isinstance(output, scipy.sparse.coo_matrix)
         elif output_format == "csc":
-            assert isinstance(output, scipy_sparse.csc_matrix)
+            assert isinstance(output, scipy.sparse.csc_matrix)
         else:
             pytest.fail("unecpected output format")
     else:

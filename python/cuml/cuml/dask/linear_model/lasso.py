@@ -54,6 +54,8 @@ class Lasso(BaseEstimator):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    n_iter_ : int
+        The number of iterations taken by the solver.
 
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.

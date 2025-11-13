@@ -403,6 +403,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_unique_labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
+                  value_t* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
@@ -416,6 +417,12 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks);
+
+  // Compute feature importances if requested
+  if (feature_importances != nullptr) {
+    compute_feature_importances(&metadata, feature_importances);
+  }
+
   build_treelite_forest(model, &metadata, n_cols);
 }
 
@@ -620,10 +627,17 @@ void fit_treelite(const raft::handle_t& user_handle,
                   label_t* labels,
                   RF_params rf_params,
                   bool* bootstrap_masks,
+                  value_t* feature_importances,
                   rapids_logger::level_enum verbosity)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle, &metadata, input, n_rows, n_cols, labels, rf_params, verbosity, bootstrap_masks);
+
+  // Compute feature importances if requested
+  if (feature_importances != nullptr) {
+    compute_feature_importances(&metadata, feature_importances);
+  }
+
   build_treelite_forest(model, &metadata, n_cols);
 }
 
@@ -712,6 +726,60 @@ RF_metrics score(const raft::handle_t& user_handle,
 /** @} */
 
 // Functions' specializations
+
+/**
+ * @brief Compute the feature importances of the trained RandomForest model.
+ */
+template <class T, class L>
+void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* importances)
+{
+  if (forest->n_features == 0) { return; }
+
+  int n_cols = forest->n_features;
+  std::vector<T> accumulated_importances(n_cols, T(0));
+
+  for (const auto& tree : forest->trees) {
+    std::vector<T> tree_importances(n_cols, T(0));
+
+    if (tree->sparsetree.empty()) continue;
+    int root_sample_count = tree->sparsetree[0].InstanceCount();
+
+    if (root_sample_count <= 0) continue;
+
+    for (const auto& node : tree->sparsetree) {
+      if (!node.IsLeaf()) {
+        int feature_id = node.ColumnId();
+        tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
+      }
+    }
+    T sum = T(0);
+    for (int i = 0; i < n_cols; i++) {
+      sum += tree_importances[i];
+    }
+
+    if (sum > 0) {
+      for (int i = 0; i < n_cols; i++) {
+        tree_importances[i] /= sum;
+        accumulated_importances[i] += tree_importances[i];
+      }
+    }
+  }
+
+  T sum = T(0);
+  for (auto i = 0; i < n_cols; i++) {
+    sum += accumulated_importances[i];
+  }
+  if (sum > 0) {
+    for (auto i = 0; i < n_cols; i++) {
+      importances[i] = accumulated_importances[i] / sum;
+    }
+  } else {
+    for (auto i = 0; i < n_cols; i++) {
+      importances[i] = T(0);
+    }
+  }
+}
+
 template std::string get_rf_summary_text<float, int>(const RandomForestClassifierF* forest);
 template std::string get_rf_summary_text<double, int>(const RandomForestClassifierD* forest);
 template std::string get_rf_summary_text<float, float>(const RandomForestRegressorF* forest);
@@ -744,6 +812,17 @@ template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
 template void build_treelite_forest<double, double>(
   TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 
+// Template instantiations for get functions
+template void compute_feature_importances<float, int>(
+  const RandomForestMetaData<float, int>* forest, float* importances);
+template void compute_feature_importances<double, int>(
+  const RandomForestMetaData<double, int>* forest, double* importances);
+template void compute_feature_importances<float, float>(
+  const RandomForestMetaData<float, float>* forest, float* importances);
+template void compute_feature_importances<double, double>(
+  const RandomForestMetaData<double, double>* forest, double* importances);
+
+// Template instantiations for fit_treelite
 template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        TreeliteModelHandle* model,
                                        float* input,
@@ -753,6 +832,7 @@ template void fit_treelite<float, int>(const raft::handle_t& user_handle,
                                        int n_unique_labels,
                                        RF_params rf_params,
                                        bool* bootstrap_masks,
+                                       float* feature_importances,
                                        rapids_logger::level_enum verbosity);
 template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         TreeliteModelHandle* model,
@@ -763,6 +843,7 @@ template void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                         int n_unique_labels,
                                         RF_params rf_params,
                                         bool* bootstrap_masks,
+                                        double* feature_importances,
                                         rapids_logger::level_enum verbosity);
 template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          TreeliteModelHandle* model,
@@ -772,6 +853,7 @@ template void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                          float* labels,
                                          RF_params rf_params,
                                          bool* bootstrap_masks,
+                                         float* feature_importances,
                                          rapids_logger::level_enum verbosity);
 template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            TreeliteModelHandle* model,
@@ -781,6 +863,6 @@ template void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                            double* labels,
                                            RF_params rf_params,
                                            bool* bootstrap_masks,
+                                           double* feature_importances,
                                            rapids_logger::level_enum verbosity);
-
 }  // End namespace ML

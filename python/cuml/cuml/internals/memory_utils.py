@@ -2,16 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import functools
 import operator
-import re
-from functools import wraps
 
 import cudf
 import pandas as pd
-from cupy.cuda import using_allocator as cupy_using_allocator
-from rmm.allocators.cupy import rmm_cupy_allocator
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
@@ -36,132 +31,6 @@ class using_memory_type:
 
     def __exit__(self, *_):
         set_global_memory_type(self.prev_mem_type)
-
-
-def with_cupy_rmm(func):
-    """
-
-    Decorator to call CuPy functions with RMM memory management. Use it
-    to decorate any function that will call CuPy functions. This will ensure
-    that those calls use RMM for memory allocation instead of the default
-    CuPy pool. Example:
-
-    .. code-block:: python
-
-        @with_cupy_rmm
-        def fx(...):
-            a = cp.arange(10) # uses RMM for allocation
-
-    """
-
-    if func.__dict__.get("__cuml_rmm_wrapped", False):
-        return func
-
-    @wraps(func)
-    def cupy_rmm_wrapper(*args, **kwargs):
-        with cupy_using_allocator(rmm_cupy_allocator):
-            return func(*args, **kwargs)
-
-    # Mark the function as already wrapped
-    cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
-
-    return cupy_rmm_wrapper
-
-
-def class_with_cupy_rmm(
-    skip_init=False,
-    skip_private=True,
-    skip_dunder=True,
-    ignore_pattern: list = [],
-):
-    regex_list = ignore_pattern
-
-    if skip_private:
-        # Match private but not dunder
-        regex_list.append(r"^_(?!(_))\w+$")
-
-    if skip_dunder:
-        if not skip_init:
-            # Make sure to not match __init__
-            regex_list.append(r"^__(?!(init))\w+__$")
-        else:
-            # Match all dunder
-            regex_list.append(r"^__\w+__$")
-    elif skip_init:
-        regex_list.append(r"^__init__$")
-
-    final_regex = "(?:%s)" % "|".join(regex_list)
-
-    def inner(klass):
-        for attributeName, attribute in klass.__dict__.items():
-            # Skip patters that dont match
-            if re.match(final_regex, attributeName):
-                continue
-
-            if callable(attribute):
-                # Passed the ignore patters. Wrap the function (will do nothing
-                # if already wrapped)
-                setattr(klass, attributeName, with_cupy_rmm(attribute))
-
-            # Class/Static methods work differently since they are descriptors
-            # (and not callable). Instead unwrap the function, and rewrap it
-            elif isinstance(attribute, classmethod):
-                unwrapped = attribute.__func__
-
-                setattr(
-                    klass, attributeName, classmethod(with_cupy_rmm(unwrapped))
-                )
-
-            elif isinstance(attribute, staticmethod):
-                unwrapped = attribute.__func__
-
-                setattr(
-                    klass,
-                    attributeName,
-                    staticmethod(with_cupy_rmm(unwrapped)),
-                )
-
-        return klass
-
-    return inner
-
-
-def rmm_cupy_ary(cupy_fn, *args, **kwargs):
-    """
-
-    Function to call CuPy functions with RMM memory management
-
-    Parameters
-    ----------
-    cupy_fn : cupy function,
-        CuPy function to execute, for example cp.array
-
-    *args :
-        Non keyword arguments to pass to the CuPy function
-
-    **kwargs :
-        Keyword named arguments to pass to the CuPy function
-
-
-    .. note:: this function should be used if the result of cupy_fn creates
-    a new array. Functions to create a new CuPy array by reference to
-    existing device array (through __cuda_array_interface__) can be used
-    directly.
-
-    Examples
-    --------
-
-    >>> from cuml.common import rmm_cupy_ary
-    >>> import cupy as cp
-    >>>
-    >>> # Get a new array filled with 0, column major
-    >>> a = rmm_cupy_ary(cp.zeros, 5, order='F')
-    >>> a
-    array([0., 0., 0., 0., 0.])
-
-    """
-    with cupy_using_allocator(rmm_cupy_allocator):
-        return cupy_fn(*args, **kwargs)
 
 
 def _get_size_from_shape(shape, dtype):

@@ -9,6 +9,7 @@ import pandas as pd
 
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
+    get_cai_ptr,
     get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
@@ -33,16 +34,6 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML" nogil:
         const float* row,
         int* idx,
         bool rowMajor) except +
-
-    void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
-            const handle_t& handle,
-            double* dataset,
-            const double* background,
-            int nrows,
-            int ncols,
-            const double* row,
-            int* idx,
-            bool rowMajor) except +
 
 
 class SHAPBase():
@@ -354,12 +345,16 @@ class SHAPBase():
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
 
-        masked_ptr = masked_inputs.__cuda_array_interface__['data'][0]
+        masked_ptr = get_cai_ptr(masked_inputs)
 
-        bg_ptr = self.masker.ptr
-        row_ptr = row.ptr
-        idx_ptr = inds.__cuda_array_interface__['data'][0]
+        bg_ptr = get_cai_ptr(self.masker)
+        row_ptr = get_cai_ptr(row)
+        idx_ptr = get_cai_ptr(inds)
         row_major = self.masker.order == "C"
+
+        cdef uintptr_t masked_ptr_f32
+        cdef uintptr_t bg_ptr_f32
+        cdef uintptr_t row_ptr_f32
 
         if self.masker.order.dtype == cp.float32:
             shap_main_effect_dataset(handle_[0],
@@ -371,14 +366,26 @@ class SHAPBase():
                                      <int*> idx_ptr,
                                      <bool> row_major)
         else:
+            # Cast double arrays to float32 for kernel call
+            masked_inputs_f32 = cp.empty_like(masked_inputs, dtype=cp.float32)
+            background_f32 = cp.asarray(self.masker).astype(cp.float32)
+            row_f32 = row.astype(cp.float32)
+
+            masked_ptr_f32 = get_cai_ptr(masked_inputs_f32)
+            bg_ptr_f32 = get_cai_ptr(background_f32)
+            row_ptr_f32 = get_cai_ptr(row_f32)
+
             shap_main_effect_dataset(handle_[0],
-                                     <double*> masked_ptr,
-                                     <double*> bg_ptr,
+                                     <float*> masked_ptr_f32,
+                                     <float*> bg_ptr_f32,
                                      <int> self.nrows,
                                      <int> self.ncols,
-                                     <double*> row_ptr,
+                                     <float*> row_ptr_f32,
                                      <int*> idx_ptr,
                                      <bool> row_major)
+
+            # Cast result back to float64
+            masked_inputs[:] = masked_inputs_f32.astype(cp.float64)
 
         self.handle.sync()
 

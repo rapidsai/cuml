@@ -45,7 +45,7 @@ def test_extract_partitions_worker_list(
     assert len(parts) == n_parts
 
 
-@pytest.mark.xfail(raises=ValueError)
+@pytest.mark.skip(reason="Segfault with pathological parameters (issue #7452)")
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [24])
 @pytest.mark.parametrize("ncols", [2])

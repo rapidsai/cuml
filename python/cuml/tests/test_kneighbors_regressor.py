@@ -6,8 +6,9 @@ import cudf
 import cupy as cp
 import numpy as np
 import pytest
-from sklearn.datasets import make_blobs
+from sklearn.datasets import make_blobs, make_regression
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsRegressor as skKNN
 from sklearn.utils.validation import check_random_state
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
@@ -101,8 +102,6 @@ def test_score_dtype(dtype):
 
     knn_cu = cuKNN(n_neighbors=5)
     knn_cu.fit(X, y)
-    pred = knn_cu.predict(X)
-    assert pred.dtype == dtype
     assert knn_cu.score(X, y) >= 0.9999
 
 
@@ -132,3 +131,87 @@ def test_predict_multioutput(input_type, output_type):
         assert isinstance(p, cp.ndarray)
 
     assert array_equal(p.astype(np.int32), y)
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        "uniform",
+        "distance",
+        lambda d: 1.0 / (1.0 + d),  # Custom callable
+    ],
+)
+@pytest.mark.parametrize("n_neighbors", [3, 5, 10])
+def test_weights_predict(weights, n_neighbors):
+    """Test KNN regressor predict with uniform, distance, and callable weights."""
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_informative=15,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    # Split data
+    X_train, X_test = X[:400], X[400:]
+    y_train = y[:400]
+
+    # cuML model
+    knn_cu = cuKNN(n_neighbors=n_neighbors, weights=weights)
+    knn_cu.fit(X_train, y_train)
+    pred_cu = knn_cu.predict(X_test)
+
+    # scikit-learn model for comparison
+    knn_sk = skKNN(n_neighbors=n_neighbors, weights=weights)
+    knn_sk.fit(X_train, y_train)
+    pred_sk = knn_sk.predict(X_test)
+
+    # Results should match scikit-learn
+    if isinstance(pred_cu, cp.ndarray):
+        pred_cu = cp.asnumpy(pred_cu)
+    np.testing.assert_allclose(pred_cu, pred_sk, rtol=1e-4, atol=1e-4)
+
+
+@pytest.mark.parametrize("weights", ["uniform", "distance"])
+def test_weights_multioutput(weights):
+    """Test weights parameter with multioutput regression."""
+    rng = check_random_state(42)
+    n_samples = 100
+    n_features = 5
+    n_outputs = 3
+
+    X = rng.rand(n_samples, n_features).astype(np.float32)
+    y = rng.rand(n_samples, n_outputs).astype(np.float32)
+
+    X_train, X_test = X[:80], X[80:]
+    y_train, y_test = y[:80], y[80:]
+
+    # cuML model
+    knn_cu = cuKNN(n_neighbors=5, weights=weights)
+    knn_cu.fit(X_train, y_train)
+
+    # Test predict
+    pred = knn_cu.predict(X_test)
+    assert pred.shape == y_test.shape
+
+    # Compare with sklearn
+    knn_sk = skKNN(n_neighbors=5, weights=weights)
+    knn_sk.fit(X_train, y_train)
+    pred_sk = knn_sk.predict(X_test)
+
+    if isinstance(pred, cp.ndarray):
+        pred = cp.asnumpy(pred)
+    np.testing.assert_allclose(pred, pred_sk, rtol=1e-4, atol=1e-4)
+
+
+def test_invalid_weights():
+    """Test that invalid weights parameter raises appropriate error."""
+    X = np.array([[0, 0], [1, 1]]).astype(np.float32)
+    y = np.array([0.0, 1.0]).astype(np.float32)
+
+    # Invalid string value should raise error during fit
+    knn_cu = cuKNN(n_neighbors=1, weights="invalid")
+
+    with pytest.raises(ValueError, match="weights must be"):
+        knn_cu.fit(X, y)

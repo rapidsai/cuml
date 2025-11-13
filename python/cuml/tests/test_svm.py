@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import platform
+import warnings
 
 import cudf
 import cupy as cp
@@ -698,3 +698,49 @@ def test_svm_no_support_vectors():
     assert model.support_vectors_.shape[0] == 0
     # Check disabled due to https://github.com/rapidsai/cuml/issues/4095
     # assert model.support_vectors_.shape[1] == n_cols
+
+
+@pytest.mark.parametrize("classifier", [False, True])
+def test_max_iter_n_iter(classifier):
+    if classifier:
+        model = cuml.SVC()
+        X, y = make_classification(random_state=42)
+    else:
+        model = cuml.SVR()
+        X, y = make_regression(random_state=42)
+
+    # Check that the default doesn't warn!
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", category=FutureWarning)
+        model.fit(X, y)
+    if classifier:
+        assert model.n_iter_.dtype == np.int32 and model.n_iter_.shape == (1,)
+    else:
+        assert isinstance(model.n_iter_, int)
+
+    # Setting to an integer warns, but uses the old limit on max outer iterations
+    model.max_iter = 1
+    with pytest.warns(FutureWarning, match="max_iter"):
+        model.fit(X, y)
+    assert (model.n_iter_.item() if classifier else model.n_iter_) > 1
+
+    # Using TotalIters gets the new behavior without a warning
+    model.max_iter = model.TotalIters(5)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", category=FutureWarning)
+        model.fit(X, y)
+    assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
+
+
+def test_svc_multiclass_n_iter():
+    X, y = make_classification(random_state=42, n_classes=3, n_informative=4)
+    model = cuml.SVC().fit(X, y)
+    assert model.n_iter_.dtype == np.int32
+    assert model.n_iter_.shape == (3,)
+
+
+def test_svc_probability_n_iter():
+    X, y = make_classification(random_state=42)
+    model = cuml.SVC(probability=True).fit(X, y)
+    assert model.n_iter_.dtype == np.int32
+    assert model.n_iter_.shape == (1,)

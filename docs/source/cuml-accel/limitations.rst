@@ -279,7 +279,6 @@ ElasticNet
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 Ridge
 ^^^^^
@@ -288,10 +287,6 @@ Ridge
 
 - If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 Lasso
 ^^^^^
@@ -306,7 +301,6 @@ Lasso
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 
 sklearn.manifold
@@ -319,6 +313,7 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``init='pca'`` and X is sparse
 - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
@@ -382,7 +377,6 @@ KNeighborsClassifier
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -399,7 +393,6 @@ KNeighborsRegressor
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -442,13 +435,7 @@ SVC
 ``SVC`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 - If ``y`` is multiclass.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``class_weight_``
-- ``n_iter_``
 
 SVR
 ^^^
@@ -456,11 +443,6 @@ SVR
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 LinearSVC
 ^^^^^^^^^

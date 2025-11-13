@@ -700,9 +700,7 @@ class NearestNeighbors(Base,
 
         if sparse:
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
-            self._fit_X = SparseCumlArray(
-                X, convert_to_dtype=cp.float32, convert_format=False
-            )
+            self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32)
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
             self._fit_X, _, _, _ = input_to_cuml_array(
@@ -964,7 +962,7 @@ class NearestNeighbors(Base,
         cdef float metric_arg = self.p
 
         # Extract query input components
-        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
+        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
         cdef int* X_indptr = <int *><uintptr_t>X_m.indptr.ptr
         cdef int* X_indices = <int *><uintptr_t>X_m.indices.ptr
         cdef float* X_data = <float *><uintptr_t>X_m.data.ptr

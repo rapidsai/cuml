@@ -10,11 +10,9 @@ import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
-from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.prims.label import make_monotonic
 
 
-@with_cupy_rmm
 def _local_cm(inputs, labels, use_sample_weight):
     if use_sample_weight:
         y_true, y_pred, sample_weight = inputs
@@ -40,7 +38,6 @@ def _local_cm(inputs, labels, use_sample_weight):
     return cp.nan_to_num(cm)
 
 
-@with_cupy_rmm
 def confusion_matrix(
     y_true,
     y_pred,

@@ -90,7 +90,6 @@ def test_knn_regressor_p_parameter(regression_data, p):
     assert r2 > 0.7, f"R^2 score should be reasonable with p={p}"
 
 
-@pytest.mark.xfail(reason="Dispatching with callable not supported yet")
 def test_knn_regressor_weights_callable(regression_data):
     X, y = regression_data
 

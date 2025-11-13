@@ -7,7 +7,6 @@ import cupy as cp
 import dask.array as da
 import numpy as np
 
-from cuml.common import with_cupy_rmm
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
 from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
@@ -324,7 +323,6 @@ def make_low_rank_matrix(
     return da.dot(u, v)
 
 
-@with_cupy_rmm
 def make_regression(
     n_samples=100,
     n_features=100,
