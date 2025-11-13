@@ -325,8 +325,9 @@ void optimize_layout(T* head_embedding,
     d_tail_buffer = tail_buffer.data();
   }
 
+  // we keep the tpb and change the number of blocks we launch to handle the total number of threads
+  // launched
   auto nnz_per_chunk = raft::ceildiv(nnz, static_cast<nnz_t>(num_chunks));
-
   dim3 grid(raft::ceildiv(nnz_per_chunk, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
