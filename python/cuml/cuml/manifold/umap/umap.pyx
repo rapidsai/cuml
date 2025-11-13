@@ -756,11 +756,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(
-                model._raw_data,
-                convert_to_dtype=cp.float32,
-                convert_format=True
-            )
+            raw_data = SparseCumlArray(model._raw_data, convert_to_dtype=cp.float32)
         else:
             raw_data = to_gpu(model._raw_data)
 
@@ -932,7 +928,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
