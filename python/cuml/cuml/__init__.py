@@ -13,7 +13,9 @@ else:
     libcuml.load_library()
     del libcuml
 
+import cupy
 from pylibraft.common import Handle
+from rmm.allocators.cupy import rmm_cupy_allocator
 
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
@@ -75,6 +77,10 @@ from cuml.tsa import stationarity
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
+
+# Enable rmm_cupy_allocator
+cupy.cuda.set_allocator(rmm_cupy_allocator)
+del cupy, rmm_cupy_allocator
 
 
 def __getattr__(name):

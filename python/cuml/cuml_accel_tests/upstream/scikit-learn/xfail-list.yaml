@@ -263,8 +263,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_accessible_kl_divergence"
   - "sklearn.manifold.tests.test_t_sne::test_bh_match_exact"
   - "sklearn.manifold.tests.test_t_sne::test_binary_perplexity_stability"
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-barnes_hut]"
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_matrix]"
@@ -359,12 +357,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_unsupervised_inputs[float64-KNeighborsClassifier]"
   - "sklearn.neighbors.tests.test_neighbors::test_unsupervised_inputs[float64-KNeighborsRegressor]"
   - "sklearn.neighbors.tests.test_neighbors::test_unsupervised_inputs[float64-NearestNeighbors]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-cityblock]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-cosine]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-euclidean]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-l1]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-l2]"
-  - "sklearn.neighbors.tests.test_neighbors::test_valid_brute_metric_for_auto_algorithm[float64-csr_array-manhattan]"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_kneighbors_regressor"
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_tsne"
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_class_weight_classifiers]"
@@ -392,6 +384,7 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
+  - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[csr_matrix-X]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.4 and 1.5)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
@@ -466,11 +459,7 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[full]"
   - "sklearn.decomposition.tests.test_pca::test_pca_dtype_preservation[randomized]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[data0-0.5-full]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[coo_array]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csc_array]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csr_array]"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_final_model_fit_sample_weight"
-  - "sklearn.linear_model.tests.test_sag::test_classifier_results[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_classifier_single_class"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict_class_subset"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[float64-canberra]"
@@ -483,7 +472,6 @@
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_matrix]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-log-csr_array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-log-csr_matrix]"
-  - "sklearn.svm.tests.test_sparse::test_weight[csr_array]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-isotonic]"
@@ -503,7 +491,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_data]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Pipeline(steps=[('logisticregression',LogisticRegression(C=1))])]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
@@ -803,18 +790,13 @@
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-0.5-full]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-10-randomized]"
   - "sklearn.decomposition.tests.test_pca::test_pca_svd_solver_auto[1000-500-400-full]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[coo_array]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csc_array]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_classifier_sparse_passthrough[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_binary_classifier_class_weight[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_binary_classifier_class_weight[csr_matrix]"
-  - "sklearn.linear_model.tests.test_sag::test_classifier_results[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_classifier_single_class"
   - "sklearn.linear_model.tests.test_sag::test_sag_classifier_computed_correctly[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_sag_classifier_computed_correctly[csr_matrix]"
   - "sklearn.linear_model.tests.test_sag::test_sag_multiclass_computed_correctly[csr_array]"
   - "sklearn.linear_model.tests.test_sag::test_sag_multiclass_computed_correctly[csr_matrix]"
-  - "sklearn.linear_model.tests.test_sag::test_sag_pobj_matches_logistic_regression[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_max_iter_used"
   - "sklearn.model_selection.tests.test_classification_threshold::test_fit_and_score_over_thresholds_sample_weight"
   - "sklearn.model_selection.tests.test_classification_threshold::test_tuned_threshold_classifier_cv_zeros_sample_weights_equivalence"
@@ -824,7 +806,6 @@
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_matrix]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-log-csr_array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-two-classes-log-csr_matrix]"
-  - "sklearn.svm.tests.test_sparse::test_weight[csr_array]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-isotonic]"
@@ -844,7 +825,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimator_sparse_matrix]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Pipeline(steps=[('logisticregression',LogisticRegression(C=1))])]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
@@ -874,7 +854,6 @@
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[k_best-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_classification[threshold-estimator0]"
   - "sklearn.semi_supervised.tests.test_self_training::test_zero_iterations[y1-estimator0]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
@@ -972,11 +951,6 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
-- reason: Test crashes with cuml.accel
-  marker: cuml_accel_crashes
-  run: false
-  tests:
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_regression_target]"
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
@@ -1034,6 +1008,8 @@
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-barnes_hut]"
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
@@ -1058,7 +1034,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_dtypes]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_pickle(readonly_memmap=True)]"
@@ -1166,7 +1141,6 @@
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[ElasticNet-ElasticNet]"
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[Lasso-Lasso]"
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[SVC-SVC]"
 - reason: sklearn expects these algorithm/dtype/metric combos to error, cuml supports them fine
   marker: cuml_accel_neighbors_metric_errors
   condition: scikit-learn<1.6,>=1.5.0
@@ -1264,9 +1238,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimator_sparse_tag]"
-  - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimator_sparse_tag]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_dense_data]"
@@ -1461,7 +1432,6 @@
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_classes]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifiers_regression_target]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_nan_inf]"

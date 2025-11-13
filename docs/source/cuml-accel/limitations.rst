@@ -313,6 +313,7 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``init='pca'`` and X is sparse
 - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
@@ -434,12 +435,7 @@ SVC
 ``SVC`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 - If ``y`` is multiclass.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``class_weight_``
 
 SVR
 ^^^
@@ -447,7 +443,6 @@ SVR
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 
 LinearSVC
 ^^^^^^^^^
