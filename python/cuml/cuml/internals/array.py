@@ -1052,7 +1052,9 @@ class CumlArray:
 
         index = getattr(X, "index", None)
         if index is not None:
-            if convert_to_mem_type is MemoryType.host and isinstance(
+            if not isinstance(index, (pd.Index, cudf.Index)):
+                index = None
+            elif convert_to_mem_type is MemoryType.host and isinstance(
                 index, cudf.Index
             ):
                 index = cudf_to_pandas(index)
@@ -1203,17 +1205,17 @@ class CumlArray:
                     " utilization."
                 )
 
-        if check_cols:
+        if check_cols is not False:
             if n_cols != check_cols:
                 raise ValueError(
                     f"Expected {check_cols} columns but got {n_cols}"
                     " columns."
                 )
 
-        if check_rows:
+        if check_rows is not False:
             if n_rows != check_rows:
                 raise ValueError(
-                    f"Expected {check_rows} rows but got {n_rows}" " rows."
+                    f"Expected {check_rows} rows but got {n_rows} rows."
                 )
         return arr
 
