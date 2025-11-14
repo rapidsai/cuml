@@ -98,6 +98,11 @@ class LinearRegression(Base,
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
+    cuML's LinearRegression expects either a :class:`cudf.DataFrame` or a
+    :class:`numpy.ndarray` (matrix), and offers two algorithms: Singular Value
+    Decomposition (SVD) and Eigndecomposition (Eig) to fit a linear model.
+    SVD is more numerically stable, but Eig (the default) is much faster.
+
     Examples
     --------
 
@@ -145,17 +150,37 @@ class LinearRegression(Base,
           * 'svd-qr' - compute SVD decomposition using QR algorithm
           * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations
 
-        Among these algorithms, only 'svd-jacobi' supports the case when the
+        Among these algorithms, only ``'svd-jacobi'`` supports the case when the
         number of features is larger than the sample size; this algorithm
         is force-selected automatically in such a case.
 
-        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
-        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
-        algorithms are more stable.
+        For the broad range of inputs, ``'eig'`` and ``'qr'`` are usually the fastest,
+        followed by ``'svd-jacobi'`` and then ``'svd-qr'``. In theory, `svd`-based
+        algorithms are more numerically stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     copy_X : bool, default=True
+        If True, it is guaranteed that a copy of X is created, leaving the
+        original X unchanged. However, if set to False, X may be modified
+        directly, which would reduce the memory usage of the estimator.
+
+        .. versionchanged:: 23.08
+            Starting from version 23.08, the new `copy_X` parameter defaults
+            to ``True``, ensuring a copy of X is created after passing it to
+            `fit()`, preventing any changes to the input, but with increased
+            memory usage. This represents a change in behavior from previous
+            versions. With `copy_X=False` a copy might still be created if
+            necessary.
+    normalize : boolean (default = False)
+        This parameter is ignored when `fit_intercept` is set to False.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
+        If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2-norm; but this is the same as if
+        using :class:`sklearn.preprocessing.StandardScaler`.
+        
         If True, cuml will copy X when needed to avoid mutating the input array.
         If you're ok with X being overwritten, setting to False may avoid a copy,
         reducing memory usage for certain algorithms.
@@ -194,9 +219,9 @@ class LinearRegression(Base,
     -----
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
-    Consider using Ridge Regression to fix the multicollinearity problem, and
-    consider maybe first DBSCAN to remove the outliers, or statistical analysis
-    to filter possible outliers.
+    Consider using :class:`Ridge` to fix the multicollinearity problem, and
+    consider maybe first :class:`DBSCAN` to remove the outliers, or
+    statistical analysis to filter possible outliers.
 
     **Applications of LinearRegression**
 
@@ -206,8 +231,8 @@ class LinearRegression(Base,
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
+    For additional information, see scikit-learn's documentation for
+    :class:`sklearn.linear_model.LinearRegression`.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
