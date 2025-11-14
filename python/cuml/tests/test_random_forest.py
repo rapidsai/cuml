@@ -32,7 +32,6 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.internals.logger as logger
-from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
@@ -1283,20 +1282,6 @@ def test_rf_feature_importance_regressor():
         f"Top 3 features {top_features} should be {{0, 1, 2}}. "
         f"Importances: {cu_importances}"
     )
-
-
-# Note: check_no_attributes_set_in_init, which is one of the common checks,
-# cwould already check that these attributes don't exist. However, that test
-# is marked as xfail. TODO: remove this once we have fixed the xfail.
-def test_rf_feature_importance_not_fitted():
-    """Test that accessing feature importances before fitting raises error"""
-    clf = curfc()
-    with pytest.raises((NotFittedError, AttributeError)):
-        _ = clf.feature_importances_
-
-    reg = curfr()
-    with pytest.raises((NotFittedError, AttributeError)):
-        _ = reg.feature_importances_
 
 
 def test_rf_feature_importance_exact_match_with_fixed_trees():

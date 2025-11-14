@@ -599,9 +599,7 @@ class TSNE(Base,
 
         # Normalize input X
         if sparse_fit:
-            X_m = SparseCumlArray(
-                X, convert_to_dtype=cupy.float32, convert_format=False
-            )
+            X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32)
             n_samples, n_features = X_m.shape
             X_ptr = <uintptr_t>X_m.data.ptr
             X_indptr_ptr = <uintptr_t>X_m.indptr.ptr
