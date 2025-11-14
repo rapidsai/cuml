@@ -36,7 +36,8 @@ HOST DEVICE inline auto constexpr ops_to_val(row_op row_wise, element_op elem_wi
  * @param val Pointer to the raw forest output
  * @param output_count The number of output values per row
  * @param bias Pointer to bias vector, which is added to the output
- * as part of the postprocessing step
+ * as part of the postprocessing step. The bias vector should have
+ * the same length as output_count.
  * @param out Pointer to the output buffer
  * @param stride Number of elements between the first element that must be
  * summed for a particular output element and the next. This is typically

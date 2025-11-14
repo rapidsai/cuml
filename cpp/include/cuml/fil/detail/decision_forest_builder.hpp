@@ -137,7 +137,8 @@ struct decision_forest_builder {
   void set_row_postproc(row_op val) { row_postproc_ = val; }
   /* Set the value to divide by during postprocessing */
   void set_average_factor(double val) { average_factor_ = val; }
-  /* Set the bias term, which is added to the output */
+  /* Set the bias term, which is added to the output. The bias term
+   * should have the same length as output_size. */
   void set_bias(std::vector<double> val)
   {
     bias_.resize(val.size());
