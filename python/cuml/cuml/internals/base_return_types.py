@@ -11,7 +11,6 @@ from cuml.internals.array_sparse import SparseCumlArray
 
 
 def _process_generic(gen_type):
-
     # Check if the type is not a generic. If not, must return "generic" if
     # subtype is CumlArray otherwise None
     if not isinstance(gen_type, typing._GenericAlias):
@@ -50,7 +49,6 @@ def _process_generic(gen_type):
 
 
 def _get_base_return_type(class_name, attr):
-
     if (
         not hasattr(attr, "__annotations__")
         or "return" not in attr.__annotations__
@@ -61,7 +59,6 @@ def _get_base_return_type(class_name, attr):
         type_hints = typing.get_type_hints(attr)
 
         if "return" in type_hints:
-
             ret_type = type_hints["return"]
 
             is_generic = isinstance(ret_type, typing._GenericAlias)

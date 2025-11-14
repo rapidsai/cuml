@@ -40,7 +40,6 @@ def test_duplicate_distances(connectivity):
 def test_single_linkage_sklearn_compare(
     nrows, ncols, nclusters, c, connectivity
 ):
-
     X, y = make_blobs(
         int(nrows), ncols, nclusters, cluster_std=1.0, shuffle=False
     )

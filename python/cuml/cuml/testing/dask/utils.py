@@ -10,7 +10,6 @@ from cuml.dask.common import to_sparse_dask_array
 
 
 def load_text_corpus(client):
-
     categories = [
         "alt.atheism",
         "soc.religion.christian",

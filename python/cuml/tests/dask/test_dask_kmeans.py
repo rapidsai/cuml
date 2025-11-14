@@ -29,7 +29,6 @@ from cuml.testing.utils import quality_param, stress_param, unit_param
 def test_end_to_end(
     nrows, ncols, nclusters, n_parts, delayed_predict, input_type, client
 ):
-
     from cuml.dask.cluster import KMeans as cumlKMeans
     from cuml.dask.datasets import make_blobs
 
@@ -89,7 +88,6 @@ def test_end_to_end(
 @pytest.mark.parametrize("ncols", [quality_param(256)])
 @pytest.mark.parametrize("nclusters", [quality_param(5)])
 def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
-
     from cuml.dask.cluster import KMeans as cumlKMeans
     from cuml.dask.datasets import make_blobs
 
@@ -176,7 +174,6 @@ def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
     cluster_centers_ = cumlModel.cluster_centers_
 
     for i in range(nrows):
-
         label = labels_[i]
         actual_center = cluster_centers_[label]
 
@@ -204,7 +201,6 @@ def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
 )
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
-
     from cuml.dask.cluster import KMeans as cumlKMeans
     from cuml.dask.datasets import make_blobs
 
@@ -273,7 +269,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
 )
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
-
     from cuml.dask.cluster import KMeans as cumlKMeans
     from cuml.dask.datasets import make_blobs
 

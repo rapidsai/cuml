@@ -104,7 +104,7 @@ class TargetEncoder:
             )
             raise ValueError(msg)
         if stat not in {"mean", "var", "median"}:
-            msg = "stat should be 'mean', 'var' or 'median'." f"got {stat}."
+            msg = f"stat should be 'mean', 'var' or 'median'.got {stat}."
             raise ValueError(msg)
 
         if not isinstance(seed, int):
@@ -329,7 +329,7 @@ class TargetEncoder:
                 return y[:, 0]
             else:
                 raise ValueError(
-                    f"Input of shape {y.shape} " "is not a 1-D array."
+                    f"Input of shape {y.shape} is not a 1-D array."
                 )
         else:
             raise TypeError(
@@ -429,9 +429,7 @@ class TargetEncoder:
         self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
         for col in df.columns:
             if col not in self.train.columns:
-                raise ValueError(
-                    f"Input column {col} " "is not in train data."
-                )
+                raise ValueError(f"Input column {col} is not in train data.")
             if not (df[col] == self.train[col]).all():
                 return False
         return True

@@ -20,7 +20,6 @@ import cuml.internals.nvtx as nvtx
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
-from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
 from cuml.internals.output_utils import cudf_to_pandas
 
 _specific_supported_types = (
@@ -94,9 +93,7 @@ def _determine_memory_order(shape, strides, dtype, default="C"):
     return None
 
 
-@class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray:
-
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself or can be instantiated by ``__cuda_array_interface__`` or
@@ -239,7 +236,6 @@ class CumlArray:
                 if isinstance(data, int):
                     self._owner = owner
                 else:
-
                     if self._mem_type is None:
                         cur_xpy = GlobalSettings().xpy
                     else:
@@ -457,13 +453,11 @@ class CumlArray:
             )
         return self._array_interface
 
-    @with_cupy_rmm
     def __getitem__(self, slice):
         return CumlArray(
             data=self._mem_type.xpy.asarray(self).__getitem__(slice)
         )
 
-    @with_cupy_rmm
     def __iter__(self):
         arr = self._mem_type.xpy.asarray(self)
         yield from arr
@@ -751,9 +745,9 @@ class CumlArray:
 
     @classmethod
     def deserialize(cls, header: dict, frames: list):
-        assert (
-            header["frame_count"] == 1
-        ), "Only expecting to deserialize CumlArray with a single frame."
+        assert header["frame_count"] == 1, (
+            "Only expecting to deserialize CumlArray with a single frame."
+        )
         ary = cls(data=frames[0], **header["constructor-kwargs"])
 
         if header["desc"]["shape"] != ary._array_interface["shape"]:
@@ -1210,14 +1204,13 @@ class CumlArray:
         if check_cols:
             if n_cols != check_cols:
                 raise ValueError(
-                    f"Expected {check_cols} columns but got {n_cols}"
-                    " columns."
+                    f"Expected {check_cols} columns but got {n_cols} columns."
                 )
 
         if check_rows:
             if n_rows != check_rows:
                 raise ValueError(
-                    f"Expected {check_rows} rows but got {n_rows}" " rows."
+                    f"Expected {check_rows} rows but got {n_rows} rows."
                 )
         return arr
 

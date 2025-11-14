@@ -21,7 +21,6 @@ from cuml.testing.utils import array_equal
 @pytest.mark.parametrize("dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("sparse_output", [True, False])
 def test_basic_functions(labels, dtype, sparse_output):
-
     fit_labels, xform_labels = labels
 
     skl_bin = skLB(sparse_output=sparse_output)

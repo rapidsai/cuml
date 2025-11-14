@@ -121,8 +121,14 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 
 template <typename IdxT>
 struct CustomDifference {
+  IdxT n;  // Threshold for valid values
+  __device__ CustomDifference(IdxT n_) : n(n_) {}
   __device__ IdxT operator()(const IdxT& lhs, const IdxT& rhs)
   {
+    // Filter out placeholders (value == n)
+    if (lhs == n || rhs == n) return 0;  // Filter out placeholders
+
+    // Both are valid features [0, n-1] or one is the initial value (UINT_MAX)
     if (lhs == rhs)
       return 0;
     else
@@ -147,9 +153,30 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   uint64_t seed,
   size_t n /* total cols to sample from*/,
   size_t k /* number of unique cols to sample */,
-  int n_parallel_samples /* number of cols to sample with replacement */)
+  int n_parallel_samples /* number of cols to sample with replacement */
+#ifndef NDEBUG
+  ,
+  unsigned long long* feature_sample_counts =
+    nullptr /* optional: track feature sampling for debugging */
+#endif
+)
 {
   if (blockIdx.x >= work_items_size) return;
+
+  // Specialize CUB collective types for this thread block
+  typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
+  typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
+  typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
+
+  // Shared memory declarations
+  __shared__ union TempStorage {
+    typename BlockRadixSortT::TempStorage sort;
+    typename BlockAdjacentDifferenceT::TempStorage diff;
+    typename BlockScanT::TempStorage scan;
+  } temp_storage;
+  __shared__ IdxT saved_random_value;
+  __shared__ bool random_value_saved;
+  __shared__ IdxT random_offset;
 
   const uint32_t nodeid = work_items[blockIdx.x].idx;
 
@@ -173,6 +200,8 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   // populate this
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i)
     mask[i] = 0;
+  if (threadIdx.x == 0) { random_value_saved = false; }
+  __syncthreads();
 
   do {
     // blocked arrangement
@@ -189,25 +218,18 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
           gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
       else if (mask[thread_local_sample_idx] ==
                0)  // indices that exceed `n_parallel_samples` will not generate
-        items[thread_local_sample_idx] = n - 1;
+        items[thread_local_sample_idx] = n;  // n is outside valid range [0, n-1]
       else
         continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
     }
 
-    // Specialize BlockRadixSort type for our thread block
-    typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
-    // BlockAdjacentDifference
-    typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
-    // BlockScan
-    typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
-
-    // Shared memory
-    __shared__ union TempStorage {
-      typename BlockRadixSortT::TempStorage sort;
-      typename BlockAdjacentDifferenceT::TempStorage diff;
-      typename BlockScanT::TempStorage scan;
-    } temp_storage;
+    // Save first random value before sorting (only on first iteration)
+    if (threadIdx.x == 0 && !random_value_saved) {
+      saved_random_value = items[0];
+      random_value_saved = true;
+    }
+    __syncthreads();
 
     // collectively sort items
     BlockRadixSortT(temp_storage.sort).Sort(items);
@@ -217,8 +239,9 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
     // compute the mask
     // compute the adjacent differences according to the functor
     // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
+    // Use -1 as the initial value since it can't match any valid column index [0, n-1]
     BlockAdjacentDifferenceT(temp_storage.diff)
-      .SubtractLeft(items, mask, CustomDifference<IdxT>(), mask[0]);
+      .SubtractLeft(items, mask, CustomDifference<IdxT>(n), IdxT(-1));
 
     __syncthreads();
 
@@ -229,10 +252,32 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
 
   } while (n_uniques < k);
 
-  // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
+  // Use random rotation to select k features uniformly from the n_uniques sorted features
+  // This avoids the bias of always taking the first k sorted values
+  // Reuses a saved random sample as offset to avoid extra RNG consumption
+
+  // Use the saved random value (from before sorting) to derive the offset
+  if (threadIdx.x == 0) {
+    // saved_random_value is a random value in [0, n-1], use it for offset
+    random_offset = saved_random_value % n_uniques;
+  }
+  __syncthreads();
+
+  // Write items to output with circular rotation based on random_offset
+  // For each unique feature at position i, its rotated position is (i + random_offset) % n_uniques
+  // We only output features where the rotated position is < k
   IdxT col_offset = k * blockIdx.x;
   for (int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-    if (mask[i] and col_indices[i] < k) { colids[col_offset + col_indices[i]] = items[i]; }
+    if (mask[i]) {  // mask[i] is only set for unique, valid (non-placeholder) items
+      IdxT rotated_pos = (col_indices[i] + random_offset) % n_uniques;
+      if (rotated_pos < k) {
+        colids[col_offset + rotated_pos] = items[i];
+#ifndef NDEBUG
+        // DEBUG: Track feature sampling frequencies to expose bias
+        if (feature_sample_counts != nullptr) { atomicAdd(&feature_sample_counts[items[i]], 1ULL); }
+#endif
+      }
+    }
   }
 }
 

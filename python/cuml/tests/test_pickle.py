@@ -190,7 +190,6 @@ def test_rf_regression_pickle(
         return model, X_test
 
     def assert_model(pickled_model, X_test):
-
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
         pickled_model.score(X_test, np.zeros(X_test.shape[0]))
@@ -355,7 +354,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
-    "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
@@ -372,7 +371,7 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
-    "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_unfit_clone(model_name):
@@ -607,9 +606,9 @@ def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
         model = hdbscan_model[keys](prediction_data=prediction_data)
         result["hdbscan"] = model.fit_predict(X_train)
-        result[
-            "hdbscan_single_linkage_tree"
-        ] = model.single_linkage_tree_.to_numpy()
+        result["hdbscan_single_linkage_tree"] = (
+            model.single_linkage_tree_.to_numpy()
+        )
         result["condensed_tree"] = model.condensed_tree_.to_numpy()
         if prediction_data:
             result["hdbscan_all_points"] = all_points_membership_vectors(model)
@@ -832,7 +831,7 @@ def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
         )
         y_train = np.random.RandomState(42).rand(nrows)
         X_test = X_train
-        model = cuml.svm.SVR(max_iter=1)
+        model = cuml.svm.SVR(max_iter=cuml.svm.SVR.TotalIters(300))
         model.fit(X_train, y_train)
         result["svr"] = model.predict(X_test)
         return model, X_test
@@ -877,10 +876,9 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize("ncols", [unit_param(20)])
 @pytest.mark.parametrize("n_info", [unit_param(10)])
 @pytest.mark.filterwarnings(
-    "ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
-
     result = {}
 
     def create_mod():

@@ -31,9 +31,9 @@ def test_hdbscan_min_cluster_size(synthetic_data, min_cluster_size):
     cluster_labels = clusterer.fit_predict(X)
     # Check that clusters are formed
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-    assert (
-        n_clusters > 0
-    ), f"Should find clusters with min_cluster_size={min_cluster_size}"
+    assert n_clusters > 0, (
+        f"Should find clusters with min_cluster_size={min_cluster_size}"
+    )
 
 
 @pytest.mark.parametrize("min_samples", [1, 5, 15])
@@ -43,9 +43,9 @@ def test_hdbscan_min_samples(synthetic_data, min_samples):
     cluster_labels = clusterer.fit_predict(X)
     # Check that clusters are formed
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-    assert (
-        n_clusters > 0
-    ), f"Should find clusters with min_samples={min_samples}"
+    assert n_clusters > 0, (
+        f"Should find clusters with min_samples={min_samples}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -68,9 +68,9 @@ def test_hdbscan_cluster_selection_method(synthetic_data, method):
     cluster_labels = clusterer.fit_predict(X)
     # Check that clusters are formed
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-    assert (
-        n_clusters > 0
-    ), f"Should find clusters with cluster_selection_method={method}"
+    assert n_clusters > 0, (
+        f"Should find clusters with cluster_selection_method={method}"
+    )
 
 
 def test_hdbscan_prediction_data(synthetic_data):
@@ -78,9 +78,9 @@ def test_hdbscan_prediction_data(synthetic_data):
     clusterer = hdbscan.HDBSCAN(prediction_data=True)
     clusterer.fit(X)
     # Check that prediction data is available
-    assert hasattr(
-        clusterer, "prediction_data_"
-    ), "Prediction data should be available when prediction_data=True"
+    assert hasattr(clusterer, "prediction_data_"), (
+        "Prediction data should be available when prediction_data=True"
+    )
 
 
 @pytest.mark.parametrize("algorithm", ["best", "generic"])
@@ -108,9 +108,9 @@ def test_hdbscan_gen_min_span_tree(synthetic_data):
     clusterer = hdbscan.HDBSCAN(gen_min_span_tree=True)
     clusterer.fit(X)
     # Check that the minimum spanning tree is generated
-    assert hasattr(
-        clusterer, "minimum_spanning_tree_"
-    ), "Minimum spanning tree should be generated when gen_min_span_tree=True"
+    assert hasattr(clusterer, "minimum_spanning_tree_"), (
+        "Minimum spanning tree should be generated when gen_min_span_tree=True"
+    )
 
 
 @pytest.mark.filterwarnings(
@@ -148,9 +148,9 @@ def test_hdbscan_probabilities(synthetic_data):
     clusterer = hdbscan.HDBSCAN()
     clusterer.fit(X)
     # Check that cluster membership probabilities are available
-    assert hasattr(
-        clusterer, "probabilities_"
-    ), "Cluster membership probabilities should be available after fitting"
+    assert hasattr(clusterer, "probabilities_"), (
+        "Cluster membership probabilities should be available after fitting"
+    )
 
 
 def test_hdbscan_fit_predict(synthetic_data):
@@ -159,9 +159,9 @@ def test_hdbscan_fit_predict(synthetic_data):
     labels_fit = clusterer.fit(X).labels_
     labels_predict = clusterer.fit_predict(X)
     # Check that labels from fit and fit_predict are the same
-    assert np.array_equal(
-        labels_fit, labels_predict
-    ), "Labels from fit and fit_predict should be the same"
+    assert np.array_equal(labels_fit, labels_predict), (
+        "Labels from fit and fit_predict should be the same"
+    )
 
 
 def test_hdbscan_invalid_metric(synthetic_data):
@@ -213,9 +213,9 @@ def test_hdbscan_prediction(synthetic_data):
     clusterer.fit(X_train)
     test_labels, strengths = hdbscan.approximate_predict(clusterer, X_test)
     # Check that labels are assigned to test data
-    assert (
-        len(test_labels) == X_test.shape[0]
-    ), "Labels should be assigned to test data points"
+    assert len(test_labels) == X_test.shape[0], (
+        "Labels should be assigned to test data points"
+    )
 
 
 def test_hdbscan_single_linkage_tree(synthetic_data):
@@ -223,9 +223,9 @@ def test_hdbscan_single_linkage_tree(synthetic_data):
     clusterer = hdbscan.HDBSCAN(gen_min_span_tree=True)
     clusterer.fit(X)
     # Check that the single linkage tree is generated
-    assert hasattr(
-        clusterer, "single_linkage_tree_"
-    ), "Single linkage tree should be generated after fitting"
+    assert hasattr(clusterer, "single_linkage_tree_"), (
+        "Single linkage tree should be generated after fitting"
+    )
 
 
 def test_hdbscan_condensed_tree(synthetic_data):
@@ -233,9 +233,9 @@ def test_hdbscan_condensed_tree(synthetic_data):
     clusterer = hdbscan.HDBSCAN()
     clusterer.fit(X)
     # Check that the condensed tree is available
-    assert hasattr(
-        clusterer, "condensed_tree_"
-    ), "Condensed tree should be available after fitting"
+    assert hasattr(clusterer, "condensed_tree_"), (
+        "Condensed tree should be available after fitting"
+    )
 
 
 @pytest.mark.xfail(reason="Dispatching with examplars_ not supported yet")
@@ -244,9 +244,9 @@ def test_hdbscan_exemplars(synthetic_data):
     clusterer = hdbscan.HDBSCAN()
     clusterer.fit(X)
     # Check that cluster exemplars are available
-    assert hasattr(
-        clusterer, "exemplars_"
-    ), "Cluster exemplars should be available after fitting"
+    assert hasattr(clusterer, "exemplars_"), (
+        "Cluster exemplars should be available after fitting"
+    )
 
 
 def test_hdbscan_prediction_data_with_prediction(synthetic_data):
@@ -256,9 +256,9 @@ def test_hdbscan_prediction_data_with_prediction(synthetic_data):
     # Use training data for prediction as a simple test
     test_labels, strengths = hdbscan.approximate_predict(clusterer, X_train)
     # Check that labels from prediction match original labels
-    assert np.array_equal(
-        clusterer.labels_, test_labels
-    ), "Predicted labels should match original labels for training data"
+    assert np.array_equal(clusterer.labels_, test_labels), (
+        "Predicted labels should match original labels for training data"
+    )
 
 
 def test_hdbscan_predict_without_prediction_data(synthetic_data):
@@ -281,9 +281,9 @@ def test_hdbscan_min_cluster_size_effect(synthetic_data):
         )
         n_clusters_list.append(n_clusters)
     # Expect fewer clusters as min_cluster_size increases
-    assert n_clusters_list == sorted(
-        n_clusters_list, reverse=True
-    ), "Number of clusters should decrease as min_cluster_size increases"
+    assert n_clusters_list == sorted(n_clusters_list, reverse=True), (
+        "Number of clusters should decrease as min_cluster_size increases"
+    )
 
 
 def test_hdbscan_min_span_tree_effect(synthetic_data):
@@ -304,6 +304,6 @@ def test_hdbscan_allow_single_cluster(synthetic_data):
     cluster_labels = clusterer.fit_predict(X)
     # Check that clusters are formed
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-    assert (
-        n_clusters >= 1
-    ), "Should allow a single cluster when allow_single_cluster=True"
+    assert n_clusters >= 1, (
+        "Should allow a single cluster when allow_single_cluster=True"
+    )

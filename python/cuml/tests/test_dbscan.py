@@ -485,7 +485,6 @@ def test_dbscan_propagation(
 
 
 def test_dbscan_no_calc_core_point_indices():
-
     params = {"eps": 1.1, "min_samples": 4}
     n_samples = 1000
     pat = make_pattern("noisy_moons", n_samples)
@@ -509,7 +508,6 @@ def test_dbscan_no_calc_core_point_indices():
 
 
 def test_dbscan_on_empty_array():
-
     X = np.array([])
     cuml_dbscan = cuDBSCAN()
 

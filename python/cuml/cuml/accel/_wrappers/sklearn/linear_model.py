@@ -34,7 +34,7 @@ class LogisticRegression(ProxyBase):
 
 class ElasticNet(ProxyBase):
     _gpu_class = cuml.linear_model.ElasticNet
-    _not_implemented_attributes = frozenset(("dual_gap_", "n_iter_"))
+    _not_implemented_attributes = frozenset(("dual_gap_",))
 
     def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
         # Fixes signature mismatch with cuml.ElasticNet. check_input can be ignored.
@@ -66,7 +66,7 @@ class Ridge(ProxyBase):
 
 class Lasso(ProxyBase):
     _gpu_class = cuml.linear_model.Lasso
-    _not_implemented_attributes = frozenset(("dual_gap_", "n_iter_"))
+    _not_implemented_attributes = frozenset(("dual_gap_",))
 
     def _gpu_fit(self, X, y, sample_weight=None, check_input=True):
         # Fixes signature mismatch with cuml.Lasso. check_input can be ignored.

@@ -157,7 +157,6 @@ class NearestNeighbors(BaseEstimator):
         return n_neighbors
 
     def _create_models(self, comms):
-
         """
         Each Dask worker creates a single model
         """
@@ -183,7 +182,6 @@ class NearestNeighbors(BaseEstimator):
     def _query_models(
         self, n_neighbors, comms, nn_models, index_handler, query_handler
     ):
-
         worker_info = comms.worker_info(comms.worker_addresses)
 
         """
@@ -323,10 +321,15 @@ class NearestNeighbors(BaseEstimator):
         comms.destroy()
 
         if _return_futures:
-            ret = nn_fit, out_i_futures if not return_distance else (
+            ret = (
                 nn_fit,
-                out_d_futures,
-                out_i_futures,
+                out_i_futures
+                if not return_distance
+                else (
+                    nn_fit,
+                    out_d_futures,
+                    out_i_futures,
+                ),
             )
         else:
             ret = (
