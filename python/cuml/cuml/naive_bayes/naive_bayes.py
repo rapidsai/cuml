@@ -720,6 +720,57 @@ class _BaseDiscreteNB(_BaseNB):
         self.handle = None
 
     def _check_X_y(self, X, y):
+        """
+        Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
+        Common validation for all discrete naive bayes estimators.
+        """
+        n_samples_X = X.shape[0]
+
+        n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
+
+        if n_samples_X != n_samples_y:
+            raise ValueError(
+                f"X and y have incompatible shapes. "
+                f"X has {n_samples_X} samples, but y has {n_samples_y} samples."
+            )
+
+        if n_samples_X == 0:
+            raise ValueError("X has 0 samples, cannot fit model on empty data")
+
+        if X.size == 0:
+            raise ValueError("X cannot be empty")
+
+        if len(X.shape) != 2:
+            raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+
+        if X.shape[0] < 1 or X.shape[1] < 1:
+            raise ValueError(
+                f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+            )
+
+        if y.size == 0:
+            raise ValueError("y cannot be empty")
+
+        # Ensure y is 1D or can be squeezed to 1D
+        if len(y.shape) > 2:
+            raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+
+        if len(y.shape) == 2 and y.shape[1] != 1:
+            raise ValueError(
+                f"y must be a column vector if 2D, got shape {y.shape}"
+            )
+
+        # Check for NaN or Inf values in floating point data
+        if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
+            if cupyx.scipy.sparse.isspmatrix(X):
+                if X.data.size > 0 and (
+                    cp.any(cp.isnan(X.data)) or cp.any(cp.isinf(X.data))
+                ):
+                    raise ValueError("Input X contains NaN or infinite values")
+            else:
+                if cp.any(cp.isnan(X)) or cp.any(cp.isinf(X)):
+                    raise ValueError("Input X contains NaN or infinite values")
+
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
@@ -795,9 +846,20 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
+            try:
+                X = input_to_cupy_array(
+                    X,
+                    order="K",
+                    check_dtype=[cp.float32, cp.float64, cp.int32],
+                ).array
+            except Exception as e:
+                if "CUDA" in str(e) or "cuda" in str(e):
+                    raise RuntimeError(
+                        f"CUDA error during input conversion. "
+                        f"This may indicate GPU memory corruption. "
+                        f"Original error: {str(e)}"
+                    )
+                raise
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -841,6 +903,20 @@ class _BaseDiscreteNB(_BaseNB):
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
+
+        # Ensure all GPU operations complete before returning
+        # This is especially important for partial_fit in streaming scenarios
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors but log them if verbose
+                if self.verbose:
+                    import warnings
+
+                    warnings.warn(
+                        "GPU synchronization failed, continuing anyway"
+                    )
 
         return self
 
@@ -1282,12 +1358,22 @@ class BernoulliNB(_BaseDiscreteNB):
         return X
 
     def _check_X_y(self, X, y):
+        """
+        BernoulliNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
         X, y = super()._check_X_y(X, y)
+
+        # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
-            if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
-            else:
-                X = binarize(X, threshold=self.binarize)
+            try:
+                if cupyx.scipy.sparse.isspmatrix(X):
+                    X.data = binarize(X.data, threshold=self.binarize)
+                else:
+                    X = binarize(X, threshold=self.binarize)
+            except Exception as e:
+                raise ValueError(f"Error during binarization: {str(e)}")
+
         return X, y
 
     def _joint_log_likelihood(self, X):
@@ -1324,6 +1410,54 @@ class BernoulliNB(_BaseDiscreteNB):
         self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
             smoothed_cc.reshape(-1, 1)
         )
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier with enhanced error handling
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Weights applied to individual samples (1. for unweighted).
+
+        Returns
+        -------
+        self : object
+        """
+        # Reset internal state to ensure clean fit
+        self.fit_called_ = False
+
+        try:
+            # Call parent's fit through partial_fit
+            return super().fit(X, y, sample_weight)
+
+        except MemoryError as e:
+            # Handle CUDA memory errors specifically
+            if "CUDA error" in str(e) or "cudaError" in str(e):
+                raise RuntimeError(
+                    "CUDA memory error detected. This may be due to:\n"
+                    "1. Insufficient GPU memory\n"
+                    "2. Prior GPU memory corruption\n"
+                    "3. Invalid input data\n"
+                    "Try restarting your Python session or checking your input data.\n"
+                    f"Original error: {str(e)}"
+                )
+            else:
+                raise
+        except Exception as e:
+            # Reset state on error
+            self.fit_called_ = False
+            # Provide more context for other errors
+            raise type(e)(
+                f"Error in BernoulliNB.fit: {str(e)}\n"
+                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
+                f"y={getattr(y, 'shape', 'unknown')}"
+            ) from e
 
     @classmethod
     def _get_param_names(cls):
@@ -1588,15 +1722,26 @@ class CategoricalNB(_BaseDiscreteNB):
         )
 
     def _check_X_y(self, X, y):
+        """
+        CategoricalNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
+        X, y = super()._check_X_y(X, y)
+
+        # CategoricalNB-specific: Convert to int32 and check for negative values
         if cupyx.scipy.sparse.isspmatrix(X):
-            warnings.warn(
-                "X dtype is not int32. X will be "
-                "converted, which will increase memory consumption"
-            )
+            if X.dtype != cp.int32:
+                warnings.warn(
+                    "X dtype is not int32. X will be "
+                    "converted, which will increase memory consumption"
+                )
             X.data = X.data.astype(cp.int32)
+            # Check for empty sparse matrix
+            if X.data.size == 0:
+                raise ValueError("Sparse matrix X has no non-zero elements")
             x_min = X.data.min()
         else:
-            if X.dtype not in [cp.int32]:
+            if X.dtype != cp.int32:
                 warnings.warn(
                     "X dtype is not int32. X will be "
                     "converted, which will increase memory "
@@ -1606,8 +1751,10 @@ class CategoricalNB(_BaseDiscreteNB):
                     X, order="K", convert_to_dtype=cp.int32
                 ).array
             x_min = X.min()
+
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
+
         return X, y
 
     def _check_X(self, X):
