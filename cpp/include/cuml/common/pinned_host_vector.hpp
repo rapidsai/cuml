@@ -15,15 +15,11 @@ class pinned_host_vector {
   pinned_host_vector() = default;
 
   explicit pinned_host_vector(std::size_t n)
-    : size_{n},
-      data_{static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T), rmm::CUDA_ALLOCATION_ALIGNMENT))}
+    : size_{n}, data_{static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)))}
   {
     std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
   }
-  ~pinned_host_vector()
-  {
-    pinned_mr.deallocate_sync(data_, size_ * sizeof(T), rmm::CUDA_ALLOCATION_ALIGNMENT);
-  }
+  ~pinned_host_vector() { pinned_mr.deallocate_sync(data_, size_ * sizeof(T)); }
 
   pinned_host_vector(pinned_host_vector const&)            = delete;
   pinned_host_vector(pinned_host_vector&&)                 = delete;
@@ -33,7 +29,7 @@ class pinned_host_vector {
   void resize(std::size_t n)
   {
     size_ = n;
-    data_ = static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T), rmm::CUDA_ALLOCATION_ALIGNMENT));
+    data_ = static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)));
     std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
   }
 
