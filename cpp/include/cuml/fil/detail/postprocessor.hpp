@@ -6,6 +6,7 @@
 
 #include <cuml/fil/detail/index_type.hpp>
 #include <cuml/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/infer_kind.hpp>
 #include <cuml/fil/postproc_ops.hpp>
 
 #include <stddef.h>
@@ -34,6 +35,9 @@ HOST DEVICE inline auto constexpr ops_to_val(row_op row_wise, element_op elem_wi
  *
  * @param val Pointer to the raw forest output
  * @param output_count The number of output values per row
+ * @param bias Pointer to bias vector, which is added to the output
+ * as part of the postprocessing step. The bias vector should have
+ * the same length as output_count.
  * @param out Pointer to the output buffer
  * @param stride Number of elements between the first element that must be
  * summed for a particular output element and the next. This is typically
@@ -41,20 +45,20 @@ HOST DEVICE inline auto constexpr ops_to_val(row_op row_wise, element_op elem_wi
  * was divided.
  * @param average_factor The factor by which to divide during the
  * normalization step of postprocessing
- * @param bias The bias factor to subtract off during the
- * normalization step of postprocessing
  * @param constant If the postprocessing operation requires a constant,
  * it can be passed here.
  */
 template <row_op row_wise_v, element_op elem_wise_v, typename io_t>
-HOST DEVICE void postprocess(io_t* val,
+HOST DEVICE void postprocess(infer_kind infer_type,
+                             io_t* val,
                              index_type output_count,
+                             const io_t* bias,
                              io_t* out,
                              index_type stride   = index_type{1},
                              io_t average_factor = io_t{1},
-                             io_t bias           = io_t{0},
                              io_t constant       = io_t{1})
 {
+  const bool use_bias = infer_type == infer_kind::default_kind;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
   auto max_index = index_type{};
@@ -62,7 +66,11 @@ HOST DEVICE void postprocess(io_t* val,
 #pragma GCC diagnostic pop
   for (auto output_index = index_type{}; output_index < output_count; ++output_index) {
     auto workspace_index = output_index * stride;
-    val[workspace_index] = val[workspace_index] / average_factor + bias;
+    // Add the bias term if use_bias is true.
+    // The following expression is written to avoid branching.
+    val[workspace_index] =
+      val[workspace_index] / average_factor +
+      bias[output_index * static_cast<index_type>(use_bias)] * static_cast<io_t>(use_bias);
     if constexpr (elem_wise_v == element_op::signed_square) {
       val[workspace_index] =
         copysign(val[workspace_index] * val[workspace_index], val[workspace_index]);
@@ -120,8 +128,6 @@ HOST DEVICE void postprocess(io_t* val,
  * operation to perform on the output
  * @param average_factor The factor by which to divide during the
  * normalization step of postprocessing
- * @param bias The bias factor to subtract off during the
- * normalization step of postprocessing
  * @param constant If the postprocessing operation requires a constant,
  * it can be passed here.
  */
@@ -130,99 +136,98 @@ struct postprocessor {
   HOST DEVICE postprocessor(row_op row_wise      = row_op::disable,
                             element_op elem_wise = element_op::disable,
                             io_t average_factor  = io_t{1},
-                            io_t bias            = io_t{0},
                             io_t constant        = io_t{1})
     : average_factor_{average_factor},
-      bias_{bias},
       constant_{constant},
       row_wise_{row_wise},
       elem_wise_{elem_wise}
   {
   }
 
-  HOST DEVICE void operator()(io_t* val,
+  HOST DEVICE void operator()(infer_kind infer_type,
+                              io_t* val,
                               index_type output_count,
+                              const io_t* bias,
                               io_t* out,
                               index_type stride = index_type{1}) const
   {
     switch (ops_to_val(row_wise_, elem_wise_)) {
       case ops_to_val(row_op::disable, element_op::signed_square):
         postprocess<row_op::disable, element_op::signed_square>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::disable, element_op::hinge):
         postprocess<row_op::disable, element_op::hinge>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::disable, element_op::sigmoid):
         postprocess<row_op::disable, element_op::sigmoid>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::disable, element_op::exponential):
         postprocess<row_op::disable, element_op::exponential>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::disable, element_op::logarithm_one_plus_exp):
         postprocess<row_op::disable, element_op::logarithm_one_plus_exp>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::disable):
         postprocess<row_op::softmax, element_op::disable>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::signed_square):
         postprocess<row_op::softmax, element_op::signed_square>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::hinge):
         postprocess<row_op::softmax, element_op::hinge>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::sigmoid):
         postprocess<row_op::softmax, element_op::sigmoid>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::exponential):
         postprocess<row_op::softmax, element_op::exponential>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::softmax, element_op::logarithm_one_plus_exp):
         postprocess<row_op::softmax, element_op::logarithm_one_plus_exp>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::disable):
         postprocess<row_op::max_index, element_op::disable>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::signed_square):
         postprocess<row_op::max_index, element_op::signed_square>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::hinge):
         postprocess<row_op::max_index, element_op::hinge>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::sigmoid):
         postprocess<row_op::max_index, element_op::sigmoid>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::exponential):
         postprocess<row_op::max_index, element_op::exponential>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       case ops_to_val(row_op::max_index, element_op::logarithm_one_plus_exp):
         postprocess<row_op::max_index, element_op::logarithm_one_plus_exp>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
         break;
       default:
         postprocess<row_op::disable, element_op::disable>(
-          val, output_count, out, stride, average_factor_, bias_, constant_);
+          infer_type, val, output_count, bias, out, stride, average_factor_, constant_);
     }
   }
 
  private:
   io_t average_factor_;
-  io_t bias_;
   io_t constant_;
   row_op row_wise_;
   element_op elem_wise_;

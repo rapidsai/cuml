@@ -149,7 +149,6 @@ def test_standard_regression_datasets_default(dataset):
     )
 )
 def test_standard_regression_datasets(dataset):
-
     from sklearn.datasets import make_regression
 
     X, y = dataset
@@ -239,7 +238,6 @@ def test_standard_classification_datasets_default(dataset):
     )
 )
 def test_standard_classification_datasets(dataset):
-
     from sklearn.datasets import make_classification
 
     X, y = dataset

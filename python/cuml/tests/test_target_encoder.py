@@ -48,7 +48,6 @@ def test_targetencoder_transform():
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 @pytest.mark.parametrize("stat", ["mean", "var", "median"])
 def test_targetencoder_random(n_samples, dtype, stat):
-
     x = cp.random.randint(0, 1000, n_samples).astype(dtype)
     y = cp.random.randint(0, 2, n_samples).astype(dtype)
     xt = cp.random.randint(0, 1000, n_samples).astype(dtype)

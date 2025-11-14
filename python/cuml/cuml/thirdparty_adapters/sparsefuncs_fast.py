@@ -217,14 +217,7 @@ def _deg3_column(d, i, j, k, interaction_only):
     """
     if interaction_only:
         return int(
-            (
-                3 * d**2 * i
-                - 3 * d * i**2
-                + i**3
-                + 11 * i
-                - 3 * j**2
-                - 9 * j
-            )
+            (3 * d**2 * i - 3 * d * i**2 + i**3 + 11 * i - 3 * j**2 - 9 * j)
             / 6
             + i**2
             - 2 * d * i
@@ -234,8 +227,7 @@ def _deg3_column(d, i, j, k, interaction_only):
         )
     else:
         return int(
-            (3 * d**2 * i - 3 * d * i**2 + i**3 - i - 3 * j**2 - 3 * j)
-            / 6
+            (3 * d**2 * i - 3 * d * i**2 + i**3 - i - 3 * j**2 - 3 * j) / 6
             + d * j
             + k
         )

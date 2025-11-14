@@ -60,7 +60,6 @@ class LabelBinarizer(BaseEstimator):
     """
 
     def __init__(self, *, client=None, **kwargs):
-
         super().__init__(client=client, **kwargs)
 
         """
@@ -79,7 +78,7 @@ class LabelBinarizer(BaseEstimator):
             and self.kwargs["sparse_output"] is True
         ):
             raise ValueError(
-                "Sparse output not yet " "supported in distributed mode"
+                "Sparse output not yet supported in distributed mode"
             )
 
     @staticmethod

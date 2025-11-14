@@ -204,7 +204,6 @@ def test_non_contiguous_input_to_host_array(dtype, input_type, order):
 @pytest.mark.parametrize("input_type", test_input_types)
 @pytest.mark.parametrize("order", ["C", "F"])
 def test_dtype_check(dtype, check_dtype, input_type, order):
-
     if (
         dtype == np.float16 or check_dtype == np.float16
     ) and input_type != "numpy":
@@ -240,7 +239,6 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
 def test_convert_input_dtype(
     from_dtype, to_dtype, input_type, num_rows, num_cols, order
 ):
-
     if from_dtype == np.float16 and input_type != "numpy":
         pytest.xfail("float16 not yet supported by numba/cuDF")
 

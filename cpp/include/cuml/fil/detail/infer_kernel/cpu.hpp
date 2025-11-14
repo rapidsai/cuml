@@ -163,8 +163,10 @@ void infer_kernel_cpu(forest_t const& forest,
                           std::begin(output_workspace) + grove_offset + num_grove,
                           output_t{});
       }
-      postproc(output_workspace.data() + row_index * num_outputs * num_grove,
+      postproc(infer_type,
+               output_workspace.data() + row_index * num_outputs * num_grove,
                num_outputs,
+               forest.bias(),
                output + row_index * num_outputs,
                num_grove);
     }
