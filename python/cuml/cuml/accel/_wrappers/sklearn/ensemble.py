@@ -15,6 +15,9 @@ class RandomForestRegressor(ProxyBase):
     _gpu_class = cuml.ensemble.RandomForestRegressor
 
     def _gpu_fit(self, X, y, sample_weight=None):
+        if sample_weight is not None:
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
+
         try:
             y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         except ValueError:
@@ -24,9 +27,6 @@ class RandomForestRegressor(ProxyBase):
                 raise UnsupportedOnGPU(
                     "Multi-output targets are not supported"
                 )
-
-        if sample_weight is not None:
-            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.fit(X, y)
 
     def _gpu_score(self, X, y, sample_weight=None):
@@ -48,6 +48,9 @@ class RandomForestClassifier(ProxyBase):
     _gpu_class = cuml.ensemble.RandomForestClassifier
 
     def _gpu_fit(self, X, y, sample_weight=None):
+        if sample_weight is not None:
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
+
         try:
             y = input_to_cuml_array(y, convert_to_mem_type=False)[0]
         except ValueError:
@@ -62,9 +65,6 @@ class RandomForestClassifier(ProxyBase):
                     raise UnsupportedOnGPU(
                         "Multi-output targets are not supported"
                     )
-
-        if sample_weight is not None:
-            raise UnsupportedOnGPU("`sample_weight` is not supported")
         return self._gpu.fit(X, y)
 
     def _gpu_score(self, X, y, sample_weight=None):

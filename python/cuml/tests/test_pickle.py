@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier
 from sklearn.datasets import (
     load_iris,
     make_blobs,
@@ -203,7 +203,7 @@ def test_rf_regression_pickle(
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 @pytest.mark.parametrize("fit_intercept", [True, False])
-def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+def test_linear_model_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -229,13 +229,20 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
         if "LogisticRegression" in keys and nrows == 500000:
             nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
 
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
         if "MBSGD" in keys:
             model = regression_models[keys](
                 fit_intercept=fit_intercept, batch_size=nrows / 100
             )
         else:
             model = regression_models[keys](fit_intercept=fit_intercept)
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -412,9 +419,16 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
         model = neighbor_models[keys]()
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         if keys in k_neighbors_models.keys():
             model.fit(X_train, y_train)
         else:

@@ -890,35 +890,6 @@ def test_logistic_regression_max_iter_n_iter(penalty):
     assert model.n_iter_.max() == 10
 
 
-@pytest.mark.parametrize("algo", [cuLog])
-# ignoring warning about change of solver
-@pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
-def test_linear_models_set_params(algo):
-    x = np.linspace(0, 1, 50)[:, None]
-    y = 2 * x
-
-    model = algo()
-    model.fit(x, y)
-    coef_before = model.coef_
-
-    if algo == cuLog:
-        params = {"penalty": None, "C": 1, "max_iter": 30}
-        model = algo(penalty=None, C=1, max_iter=30)
-    else:
-        model = algo(solver="svd", alpha=0.1)
-        params = {"solver": "svd", "alpha": 0.1}
-    model.fit(x, y)
-    coef_after = model.coef_
-
-    model = algo()
-    model.set_params(**params)
-    model.fit(x, y)
-    coef_test = model.coef_
-
-    assert not array_equal(coef_before, coef_after)
-    assert array_equal(coef_after, coef_test)
-
-
 @given(
     datatype=dataset_dtypes(),
     alpha=st.sampled_from([0.1, 1.0, 10.0]),

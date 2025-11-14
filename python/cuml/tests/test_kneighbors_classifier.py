@@ -28,16 +28,16 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
     X_test = X[~train_selection]
     y_test = y[~train_selection]
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         X_train = cudf.DataFrame(X_train)
-        y_train = cudf.DataFrame(y_train.reshape(y_train.shape[0], 1))
+        y_train = cudf.Series(y_train)
         X_test = cudf.DataFrame(X_test)
-        y_test = cudf.DataFrame(y_test.reshape(y_test.shape[0], 1))
+        y_test = cudf.Series(y_test)
 
     return X_train, X_test, y_train, y_test
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("datatype", ["cudf", "numpy"])
 @pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
@@ -62,10 +62,10 @@ def test_neighborhood_predictions(
 
     predictions = knn_cu.predict(X_test)
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         assert isinstance(predictions, cudf.Series)
         assert array_equal(
-            predictions.to_frame().astype(np.int32), y_test.astype(np.int32)
+            predictions.astype(np.int32), y_test.astype(np.int32)
         )
     else:
         assert isinstance(predictions, np.ndarray)
@@ -75,7 +75,7 @@ def test_neighborhood_predictions(
         )
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("datatype", ["cudf", "numpy"])
 @pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
@@ -107,7 +107,7 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
     assert score >= (1.0 - 0.004)
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("datatype", ["cudf", "numpy"])
 @pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
@@ -130,7 +130,7 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     predictions = knn_cu.predict_proba(X_test)
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         assert isinstance(predictions, cudf.DataFrame)
         predictions = predictions.to_numpy()
         y_test = y_test.to_numpy().reshape(y_test.shape[0])
@@ -143,7 +143,7 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
     assert array_equal(predictions.sum(axis=1), np.ones(y_test.shape[0]))
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("datatype", ["cudf", "numpy"])
 def test_predict_proba_large_n_classes(datatype):
     nrows = 10000
     ncols = 100
@@ -167,13 +167,13 @@ def test_predict_proba_large_n_classes(datatype):
 
     predictions = knn_cu.predict_proba(X_test)
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         predictions = predictions.to_numpy()
 
     assert np.rint(np.sum(predictions)) == len(y_test)
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("datatype", ["cudf", "numpy"])
 def test_predict_large_n_classes(datatype):
     nrows = 10000
     ncols = 100
@@ -197,7 +197,7 @@ def test_predict_large_n_classes(datatype):
 
     y_hat = knn_cu.predict(X_test)
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         y_hat = y_hat.to_numpy()
         y_test = y_test.to_numpy().ravel()
 
@@ -216,13 +216,12 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     X_host_train = pd.DataFrame(
         np.random.uniform(0, 1, (n_samples, n_features))
     )
-    y_host_train = pd.DataFrame(np.random.randint(0, 5, (n_samples, 1)))
     X_host_test = pd.DataFrame(np.random.uniform(0, 1, (n_query, n_features)))
+    y_host_train = pd.Series(np.random.randint(0, 5, n_samples))
 
     X_device_train = cudf.DataFrame(X_host_train)
-    y_device_train = cudf.DataFrame(y_host_train)
-
     X_device_test = cudf.DataFrame(X_host_test)
+    y_device_train = cudf.Series(y_host_train)
 
     knn_sk = skKNN(algorithm="brute", n_neighbors=n_neighbors, n_jobs=1)
     knn_sk.fit(X_host_train, y_host_train.values.ravel())
@@ -242,7 +241,7 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
 @pytest.mark.parametrize("n_rows", [1000])
 @pytest.mark.parametrize("n_cols", [25, 50])
 @pytest.mark.parametrize("n_neighbors", [3, 5])
-@pytest.mark.parametrize("datatype", ["numpy", "dataframe"])
+@pytest.mark.parametrize("datatype", ["numpy", "cudf"])
 def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
     X, y = make_blobs(
         n_samples=n_rows,
@@ -266,9 +265,9 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
 
     p = knn_cu.predict(X_test)
 
-    if datatype == "dataframe":
+    if datatype == "cudf":
         assert isinstance(p, cudf.Series)
-        p = p.to_frame().to_numpy().reshape(p.shape[0])
+        p = p.to_numpy().reshape(p.shape[0])
         y_test = y_test.to_numpy().reshape(y_test.shape[0])
 
     assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
@@ -285,23 +284,15 @@ def test_classes(output_type, multioutput):
     knn_cu = cuKNN(output_type=output_type).fit(X, y)
     knn_sk = skKNN().fit(X, y)
 
-    def check(cu, sk):
-        if output_type == "cupy":
-            assert isinstance(cu, cp.ndarray)
-            cu = cp.asnumpy(cu)
-        else:
-            assert isinstance(cu, np.ndarray)
-        np.testing.assert_array_equal(cu, sk)
-
     assert knn_cu.outputs_2d_ == knn_sk.outputs_2d_
 
     if multioutput:
         assert isinstance(knn_cu.classes_, list)
         assert len(knn_cu.classes_) == 2
         for cu, sk in zip(knn_cu.classes_, knn_sk.classes_):
-            check(cu, sk)
+            np.testing.assert_array_equal(cu, sk)
     else:
-        check(knn_cu.classes_, knn_sk.classes_)
+        np.testing.assert_array_equal(knn_cu.classes_, knn_sk.classes_)
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])

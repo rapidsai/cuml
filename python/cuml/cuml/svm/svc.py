@@ -5,9 +5,9 @@ import cupy as cp
 import numpy as np
 
 import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.classification import (
-    check_classification_targets,
+    decode_labels,
+    preprocess_labels,
     process_class_weight,
 )
 from cuml.common.doc_utils import generate_docstring
@@ -17,16 +17,10 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import (
     input_to_cuml_array,
-    input_to_cupy_array,
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
-from cuml.internals.interop import (
-    UnsupportedOnCPU,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
@@ -153,8 +147,8 @@ class SVC(SVMBase, ClassifierMixin):
     coef_ : float, shape (1, n_cols)
         Only available for linear kernels. It is the normal of the
         hyperplane.
-    classes_ : shape (`n_classes_`,)
-        Array of class labels
+    classes_ : np.ndarray, shape=(n_classes,)
+        A sorted array of the class labels.
     class_weight_ : np.ndarray of shape (n_classes,)
         Class weight multipliers, computed based on the ``class_weight``
         parameter.
@@ -182,8 +176,6 @@ class SVC(SVMBase, ClassifierMixin):
        <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
-
-    classes_ = CumlArrayDescriptor()
 
     _cpu_class_path = "sklearn.svm.SVC"
 
@@ -240,7 +232,7 @@ class SVC(SVMBase, ClassifierMixin):
             raise UnsupportedOnGPU("multiclass models are not supported")
         return {
             "n_classes_": n_classes,
-            "classes_": to_gpu(model.classes_),
+            "classes_": model.classes_,
             "class_weight_": model.class_weight_,
             **super()._attrs_from_cpu(model),
         }
@@ -258,7 +250,7 @@ class SVC(SVMBase, ClassifierMixin):
         out.update(
             _dual_coef_=-out["dual_coef_"],
             _intercept_=-out["intercept_"],
-            classes_=to_cpu(self.classes_),
+            classes_=self.classes_,
             class_weight_=self.class_weight_,
         )
         return out
@@ -447,17 +439,14 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y = input_to_cupy_array(y, check_cols=1).array
-        check_classification_targets(y)
-        classes, y = cp.unique(y, return_inverse=True)
-        n_classes = len(classes)
-        if n_classes < 2:
+        y, classes = preprocess_labels(y)
+        if len(classes) == 1:
             raise ValueError(
-                f"The number of classes has to be greater than one; got "
-                f"{n_classes} class"
+                "This solver needs samples of at least 2 classes in the data, but "
+                "the data contains only 1 class"
             )
-        self.n_classes_ = n_classes
-        self.classes_ = CumlArray(data=classes)
+        self.n_classes_ = len(classes)
+        self.classes_ = classes
         self.class_weight_, sample_weight = process_class_weight(
             classes,
             y,
@@ -470,7 +459,7 @@ class SVC(SVMBase, ClassifierMixin):
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
 
-        if n_classes > 2:
+        if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
         if is_sparse(X):
@@ -505,23 +494,24 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @cuml.internals.api_base_return_any_skipall
+    def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
         if hasattr(self, "_multiclass"):
-            return self._multiclass.predict(X)
-
-        classes = self.classes_.to_output("cupy")
-
-        if self.probability:
+            inds = self._multiclass.predict(X).to_output("cupy")
+        elif self.probability:
             probs = self.predict_proba(X).to_output("cupy")
             inds = cp.argmax(probs, axis=1)
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
-            inds = res.to_output("cupy") >= 0
-        return CumlArray(data=classes.take(inds))
+            inds = (res.to_output("cupy") >= 0).view(cp.int8)
+
+        with cuml.internals.exit_internal_api():
+            output_type = self._get_output_type(X)
+        return decode_labels(inds, self.classes_, output_type=output_type)
 
     @generate_docstring(
         skip_parameters_heading=True,

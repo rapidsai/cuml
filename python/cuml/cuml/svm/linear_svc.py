@@ -7,14 +7,15 @@ import numpy as np
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.classification import (
-    check_classification_targets,
+    decode_labels,
+    preprocess_labels,
     process_class_weight,
 )
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -94,8 +95,8 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     intercept_ : array or float, shape (1,) if n_classes == 2 else (n_classes,)
         The constant factor in the decision function. If
         ``fit_intercept=False`` this is instead a float with value 0.0.
-    classes_ : array, shape (n_classes,)
-        The unique class labels
+    classes_ : np.ndarray, shape=(n_classes,)
+        A sorted array of the class labels.
     n_iter_ : int
         The maximum number of iterations run across all classes during the fit.
     prob_scale_ : array or None, shape (`n_classes_`, 2)
@@ -128,7 +129,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     coef_ = CumlArrayDescriptor(order="F")
     intercept_ = CumlArrayDescriptor(order="F")
-    classes_ = CumlArrayDescriptor(order="F")
     prob_scale_ = CumlArrayDescriptor(order="F")
 
     _cpu_class_path = "sklearn.svm.LinearSVC"
@@ -191,7 +191,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "intercept_": to_gpu(
                 model.intercept_, order="F", dtype=np.float64
             ),
-            "classes_": to_gpu(model.classes_, order="F"),
+            "classes_": model.classes_,
             "prob_scale_": None,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
@@ -201,7 +201,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         return {
             "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
             "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
-            "classes_": to_cpu(self.classes_, order="C"),
+            "classes_": self.classes_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -254,9 +254,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             order="F",
         ).array
 
-        y = input_to_cupy_array(y, check_rows=X.shape[0], check_cols=1).array
-        check_classification_targets(y)
-        classes, y = cp.unique(y, return_inverse=True)
+        y, classes = preprocess_labels(y, n_samples=X.shape[0])
 
         _, sample_weight = process_class_weight(
             classes,
@@ -271,7 +269,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
             sample_weight=sample_weight,
-            classes=CumlArray(data=classes.astype(X.dtype, copy=False)),
+            n_classes=len(classes),
             probability=self.probability,
             loss=self.loss,
             penalty=self.penalty,
@@ -287,7 +285,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         )
         self.coef_ = coef
         self.intercept_ = intercept
-        self.classes_ = CumlArray(data=classes)
+        self.classes_ = classes
         self.n_iter_ = n_iter
         self.prob_scale_ = prob_scale
         return self
@@ -300,20 +298,25 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples,)",
         },
     )
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @cuml.internals.api_base_return_any_skipall
+    def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
-        classes = self.classes_.to_output("cupy")
-
         if self.probability:
-            probs = self.predict_proba(X, convert_dtype=convert_dtype)
-            inds = probs.to_output("cupy").argmax(axis=1)
+            scores = self.predict_proba(
+                X, convert_dtype=convert_dtype
+            ).to_output("cupy")
         else:
-            scores = self.decision_function(X, convert_dtype=convert_dtype)
-            if scores.ndim == 1:
-                inds = scores.to_output("cupy") >= 0
-            else:
-                inds = scores.to_output("cupy").argmax(axis=1)
-        return CumlArray(data=classes.take(inds))
+            scores = self.decision_function(
+                X, convert_dtype=convert_dtype
+            ).to_output("cupy")
+        if scores.ndim == 1:
+            inds = (scores >= 0).view(cp.int8)
+        else:
+            inds = scores.argmax(axis=1)
+
+        with cuml.internals.exit_internal_api():
+            output_type = self._get_output_type(X)
+        return decode_labels(inds, self.classes_, output_type=output_type)
 
     @generate_docstring(
         return_values={

@@ -7,9 +7,10 @@ from functools import lru_cache
 
 import numpy as np
 import pytest
+from sklearn.base import is_classifier
 
 import cuml
-from cuml.datasets import make_regression
+from cuml.datasets import make_classification, make_regression
 from cuml.model_selection import train_test_split
 from cuml.testing.utils import ClassEnumerator
 
@@ -75,10 +76,21 @@ models.update(k_neighbors_config.get_models())
 
 
 @lru_cache()
-def make_dataset(dtype, nrows, ncols, ninfo):
-    X, y = make_regression(
-        n_samples=nrows, n_features=ncols, n_informative=ninfo, random_state=0
-    )
+def make_dataset(dtype, nrows, ncols, ninfo, is_classifier):
+    if is_classifier:
+        X, y = make_classification(
+            n_samples=nrows,
+            n_features=ncols,
+            n_informative=ninfo,
+            random_state=0,
+        )
+    else:
+        X, y = make_regression(
+            n_samples=nrows,
+            n_features=ncols,
+            n_informative=ninfo,
+            random_state=0,
+        )
     X = X.astype(dtype)
     y = y.astype(dtype).flatten()
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
@@ -97,14 +109,17 @@ def test_estimators_all_dtypes(model_name, dtype):
     ncols = 20
     ninfo = 10
 
-    X_train, y_train, X_test = make_dataset(dtype, nrows, ncols, ninfo)
-    print(model_name)
     if model_name == "KMeans":
         model = models[model_name](n_init="auto")
     elif model_name in ["SparseRandomProjection", "GaussianRandomProjection"]:
         model = models[model_name](n_components=5)
     else:
         model = models[model_name]()
+
+    X_train, y_train, X_test = make_dataset(
+        dtype, nrows, ncols, ninfo, is_classifier(model)
+    )
+
     sign = inspect.signature(model.fit)
     if "y" in sign.parameters:
         model.fit(X=X_train, y=y_train)
