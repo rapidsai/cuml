@@ -261,6 +261,8 @@ void optimize_layout(T* head_embedding,
     threshold_for_outlier = 512;
   }
 
+  int num_chunks = 1;
+
   bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
   if (move_other && !has_outlier) {
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
@@ -280,6 +282,14 @@ void optimize_layout(T* head_embedding,
 
     thrust::default_random_engine rng(params->random_state);
     thrust::shuffle(first, first + nnz, rng);
+    if (min_n <= 100000) {
+      // related issue: https://github.com/rapidsai/cuml/issues/7431
+      // Heuristic value for forcing serial behavior to handle outliers in smaller datasets.
+      // Ideally this value should depend on nnz, maximum graph degree, number of SMs and maximum
+      // number of threads per SM, but it is difficult to generalize due to limited cases where this
+      // happens. Increase this value if we observe outliers on smaller datasets.
+      num_chunks = 4;
+    }
   }
 
   rmm::device_uvector<T> epoch_of_next_negative_sample(nnz, stream);
@@ -315,7 +325,10 @@ void optimize_layout(T* head_embedding,
     d_tail_buffer = tail_buffer.data();
   }
 
-  dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
+  // we keep the tpb and change the number of blocks we launch to handle the total number of threads
+  // launched
+  auto nnz_per_chunk = raft::ceildiv(nnz, static_cast<nnz_t>(num_chunks));
+  dim3 grid(raft::ceildiv(nnz_per_chunk, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
