@@ -7,6 +7,7 @@
 NOTE: This is currently experimental as the ops team builds out the CI
 platform to support benchmark reporting.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -277,7 +278,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--update_asv_dir",
         type=str,
-        help="Add results to the specified ASV dir in ASV " "format",
+        help="Add results to the specified ASV dir in ASV format",
     )
     parser.add_argument(
         "--report_cuda_ver",

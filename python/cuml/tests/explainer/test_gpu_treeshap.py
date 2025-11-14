@@ -943,7 +943,7 @@ def test_wrong_inputs():
 
     # background/X different dtype
     with pytest.raises(
-        ValueError, match="Expected background data" " to have the same dtype"
+        ValueError, match="Expected background data to have the same dtype"
     ):
         explainer = TreeExplainer(model=model, data=X.astype(np.float32))
         explainer.shap_values(X)

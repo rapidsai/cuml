@@ -98,8 +98,7 @@ def test_pairwise_kernels_basic():
 
     with pytest.raises(
         ValueError,
-        match="Extra kernel parameters "
-        "must be passed as keyword arguments.",
+        match="Extra kernel parameters must be passed as keyword arguments.",
     ):
         pairwise_kernels(X, metric=bad_numba_kernel2)
 

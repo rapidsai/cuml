@@ -413,7 +413,6 @@ def test_fil_skl_regression(
     n_estimators,
     max_depth,
 ):
-
     with set_fil_device_type(train_device):
         random_state = np.random.RandomState(43210)
 
@@ -964,8 +963,12 @@ def test_device_selection(device_id, model_kind, tmp_path):
     # 6. Attempting to run inference with an input from a different device
     #    is an error
     if device_id is not None and device_id != 0:
-        with cp.cuda.Device(0), pytest.raises(
-            RuntimeError, match=r".*I/O data on different device than model.*"
+        with (
+            cp.cuda.Device(0),
+            pytest.raises(
+                RuntimeError,
+                match=r".*I/O data on different device than model.*",
+            ),
         ):
             _ = fm.predict_proba(cp.array(X))
 

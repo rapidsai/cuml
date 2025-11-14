@@ -23,13 +23,12 @@ from cuml.testing.utils import (
     "name", [unit_param(None), quality_param("random"), stress_param("blobs")]
 )
 def test_tsvd_fit(datatype, name, use_handle):
-
     if name == "blobs":
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
 
     elif name == "random":
         pytest.skip(
-            "fails when using random dataset " "used by sklearn for testing"
+            "fails when using random dataset used by sklearn for testing"
         )
         shape = 5000, 100
         rng = check_random_state(42)
@@ -76,7 +75,7 @@ def test_tsvd_fit_transform(datatype, name, use_handle):
 
     elif name == "random":
         pytest.skip(
-            "fails when using random dataset " "used by sklearn for testing"
+            "fails when using random dataset used by sklearn for testing"
         )
         shape = 5000, 100
         rng = check_random_state(42)
@@ -107,14 +106,13 @@ def test_tsvd_fit_transform(datatype, name, use_handle):
     "name", [unit_param(None), quality_param("random"), stress_param("blobs")]
 )
 def test_tsvd_inverse_transform(datatype, name, use_handle):
-
     if name == "blobs":
         pytest.skip("fails when using blobs dataset")
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
 
     elif name == "random":
         pytest.skip(
-            "fails when using random dataset " "used by sklearn for testing"
+            "fails when using random dataset used by sklearn for testing"
         )
         shape = 5000, 100
         rng = check_random_state(42)

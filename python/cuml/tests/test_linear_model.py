@@ -187,7 +187,6 @@ def test_linear_regression_single_column():
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default(dataset):
-
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
@@ -218,7 +217,6 @@ def test_linear_regression_model_default(dataset):
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default_generalized(dataset):
-
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
@@ -300,7 +298,7 @@ def test_logistic_regression(
     sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
     if not sk_check and penalty == "elasticnet":
         pytest.skip(
-            "Need sklearn > 0.21 for testing logistic with" "elastic net."
+            "Need sklearn > 0.21 for testing logistic withelastic net."
         )
 
     X_train, X_test, y_train, y_test = make_classification_dataset(
@@ -414,7 +412,6 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
 @example(dtype=np.float32)
 @example(dtype=np.float64)
 def test_logistic_regression_model_default(dtype):
-
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -458,7 +455,6 @@ def test_logistic_regression_model_default(dtype):
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
-
     # smallest sklearn score with max_iter = 10000
     # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
     # to converge and has a bug returning an unrelated error if not converged.
@@ -485,7 +481,6 @@ def test_logistic_regression_model_digits(
 @example(dtype=np.float32)
 @example(dtype=np.float64)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
-
     # sklearn score with max_iter = 10000
     sklearn_score = 0.878
     acceptable_score = sklearn_score - 0.01
@@ -946,7 +941,6 @@ def test_linear_models_set_params(algo):
     column_info=[100, 50],
 )
 def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
-
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info

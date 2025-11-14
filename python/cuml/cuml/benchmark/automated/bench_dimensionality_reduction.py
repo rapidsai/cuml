@@ -76,7 +76,10 @@ def bench_kmeans(gpubenchmark, bench_step, blobs1):  # noqa: F811
     ],
 )
 def bench_with_blobs(
-    gpubenchmark, algo_name, bench_step, blobs2  # noqa: F811
+    gpubenchmark,
+    algo_name,
+    bench_step,
+    blobs2,  # noqa: F811
 ):
     # Lump together a bunch of simple blobs-based tests
     _benchmark_algo(gpubenchmark, algo_name, bench_step, blobs2)
@@ -85,7 +88,11 @@ def bench_with_blobs(
 @pytest.mark.parametrize("n_components", [2, 10, 50])
 @pytest.mark.parametrize("algo_name", ["tSVD", "PCA"])
 def bench_dimensionality_reduction(
-    gpubenchmark, algo_name, bench_step, blobs3, n_components  # noqa: F811
+    gpubenchmark,
+    algo_name,
+    bench_step,
+    blobs3,
+    n_components,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,

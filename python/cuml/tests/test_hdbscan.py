@@ -156,7 +156,6 @@ def test_hdbscan_blobs(
     max_cluster_size,
     min_samples,
 ):
-
     X, y = make_blobs(
         n_samples=int(nrows),
         n_features=ncols,
@@ -217,7 +216,6 @@ def test_hdbscan_sklearn_datasets(
     min_samples_cluster_size_bounds,
     allow_single_cluster,
 ):
-
     (
         min_samples,
         min_cluster_size,
@@ -324,7 +322,6 @@ def test_hdbscan_cluster_patterns(
     max_cluster_size,
     min_samples,
 ):
-
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
@@ -385,7 +382,6 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     max_cluster_size,
     min_samples,
 ):
-
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
@@ -577,7 +573,6 @@ def test_all_points_membership_vectors_moons(
     max_cluster_size,
     batch_size,
 ):
-
     X, y = datasets.make_moons(n_samples=nrows, noise=0.05, random_state=42)
 
     cuml_agg = HDBSCAN(
@@ -759,7 +754,6 @@ def test_approximate_predict_moons(
     max_cluster_size,
     cluster_selection_method,
 ):
-
     X, y = datasets.make_moons(
         n_samples=nrows + n_points_to_predict, noise=0.05, random_state=42
     )
@@ -1028,7 +1022,6 @@ def test_membership_vector_moons(
     max_cluster_size,
     batch_size,
 ):
-
     X, y = datasets.make_moons(
         n_samples=nrows + n_points_to_predict, noise=0.05, random_state=42
     )
