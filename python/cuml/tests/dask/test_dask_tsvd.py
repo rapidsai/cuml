@@ -67,15 +67,14 @@ def test_tsvd_fit(data_info, input_type, client):
     ]
 
     for attr in all_attr:
-        with_sign = False if attr in ["components_"] else True
         cuml_res = getattr(cutsvd, attr)
         if type(cuml_res) is np.ndarray:
             cuml_res = cuml_res.to_numpy()
         skl_res = getattr(sktsvd, attr)
         if attr == "singular_values_":
-            assert array_equal(cuml_res, skl_res, 1, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1, with_sign=True)
         else:
-            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
 
 
 @pytest.mark.mg

@@ -23,6 +23,8 @@ from cuml.testing.utils import (
     unit_param,
 )
 
+SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
+
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
@@ -67,13 +69,12 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
         "explained_variance_",
         "explained_variance_ratio_",
     ]:
-        with_sign = False if attr in ["components_"] else True
         print(attr)
         print(getattr(cupca, attr))
         print(getattr(skpca, attr))
         cuml_res = getattr(cupca, attr)
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, tol, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, tol, with_sign=SKLEARN_GE_1_5_0)
 
     np.testing.assert_allclose(
         cupca.noise_variance_, skpca.noise_variance_, tol
@@ -119,7 +120,7 @@ def test_pca_defaults(n_samples, n_features, sparse):
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
     assert curesult.shape == skresult.shape
-    assert array_equal(curesult, skresult, 1e-3, with_sign=False)
+    assert array_equal(curesult, skresult, 1e-3, with_sign=SKLEARN_GE_1_5_0)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -173,7 +174,7 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
     cupca.handle.sync()
 
     if name != "blobs":
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
@@ -228,7 +229,7 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
     cupca.handle.sync()
 
     if name != "blobs":
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
