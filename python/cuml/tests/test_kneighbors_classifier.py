@@ -16,7 +16,6 @@ from cuml.testing.utils import array_equal
 
 
 def _build_train_test_data(X, y, datatype, train_ratio=0.9):
-
     train_selection = np.random.RandomState(42).choice(
         [True, False],
         X.shape[0],
@@ -46,7 +45,6 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
 def test_neighborhood_predictions(
     nrows, ncols, n_neighbors, n_clusters, datatype
 ):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -84,7 +82,6 @@ def test_neighborhood_predictions(
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 @pytest.mark.parametrize("weighted", [False, True])
 def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -116,7 +113,6 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -149,7 +145,6 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_predict_proba_large_n_classes(datatype):
-
     nrows = 10000
     ncols = 100
     n_neighbors = 10
@@ -180,7 +175,6 @@ def test_predict_proba_large_n_classes(datatype):
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_predict_large_n_classes(datatype):
-
     nrows = 10000
     ncols = 100
     n_neighbors = 2
@@ -217,7 +211,6 @@ def test_predict_large_n_classes(datatype):
 @pytest.mark.parametrize("n_neighbors", [4])
 @pytest.mark.parametrize("n_query", [100])
 def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
-
     np.random.seed(123)
 
     X_host_train = pd.DataFrame(
@@ -251,7 +244,6 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
 @pytest.mark.parametrize("n_neighbors", [3, 5])
 @pytest.mark.parametrize("datatype", ["numpy", "dataframe"])
 def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
-
     X, y = make_blobs(
         n_samples=n_rows,
         centers=n_classes,
@@ -296,7 +288,7 @@ def test_classes(output_type, multioutput):
     def check(cu, sk):
         if output_type == "cupy":
             assert isinstance(cu, cp.ndarray)
-            cu = cu.get()
+            cu = cp.asnumpy(cu)
         else:
             assert isinstance(cu, np.ndarray)
         np.testing.assert_array_equal(cu, sk)
@@ -315,7 +307,6 @@ def test_classes(output_type, multioutput):
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):
-
     X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
@@ -344,7 +335,6 @@ def test_predict_multioutput(input_type, output_type):
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_proba_multioutput(input_type, output_type):
-
     X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
@@ -377,3 +367,129 @@ def test_predict_proba_multioutput(input_type, output_type):
 
     assert array_equal(p[0].astype(np.float32), expected[0])
     assert array_equal(p[1].astype(np.float32), expected[1])
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        "uniform",
+        "distance",
+        lambda d: 1.0 / (1.0 + d),  # Custom callable
+    ],
+)
+@pytest.mark.parametrize("n_neighbors", [3, 5, 10])
+def test_weights_predict(weights, n_neighbors):
+    """Test KNN classifier predict with uniform, distance, and callable weights."""
+    X, y = make_blobs(
+        n_samples=1000,
+        centers=5,
+        n_features=20,
+        cluster_std=0.5,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+
+    # Split data
+    X_train, X_test = X[:800], X[800:]
+    y_train = y[:800]
+
+    # cuML model
+    knn_cu = cuKNN(n_neighbors=n_neighbors, weights=weights)
+    knn_cu.fit(X_train, y_train)
+    pred_cu = knn_cu.predict(X_test)
+
+    # scikit-learn model for comparison
+    knn_sk = skKNN(n_neighbors=n_neighbors, weights=weights, algorithm="brute")
+    knn_sk.fit(X_train, y_train)
+    pred_sk = knn_sk.predict(X_test)
+
+    # Results should match scikit-learn
+    if isinstance(pred_cu, cp.ndarray):
+        pred_cu = cp.asnumpy(pred_cu)
+    assert array_equal(pred_cu, pred_sk)
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        "uniform",
+        "distance",
+        lambda d: 1.0 / (1.0 + d),  # Custom callable
+    ],
+)
+@pytest.mark.parametrize("n_neighbors", [3, 5])
+def test_weights_predict_proba(weights, n_neighbors):
+    """Test KNN classifier predict_proba with uniform, distance, and callable weights."""
+    X, y = make_blobs(
+        n_samples=500,
+        centers=3,
+        n_features=10,
+        cluster_std=0.5,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+
+    # Split data
+    X_train, X_test = X[:400], X[400:]
+    y_train = y[:400]
+
+    # cuML model
+    knn_cu = cuKNN(n_neighbors=n_neighbors, weights=weights)
+    knn_cu.fit(X_train, y_train)
+    proba_cu = knn_cu.predict_proba(X_test)
+
+    # Convert to numpy if needed
+    if isinstance(proba_cu, cp.ndarray):
+        proba_cu = cp.asnumpy(proba_cu)
+
+    # scikit-learn model for comparison
+    knn_sk = skKNN(n_neighbors=n_neighbors, weights=weights, algorithm="brute")
+    knn_sk.fit(X_train, y_train)
+    proba_sk = knn_sk.predict_proba(X_test)
+
+    # Results should match scikit-learn (within floating point tolerance)
+    np.testing.assert_allclose(proba_cu, proba_sk, rtol=1e-5, atol=1e-5)
+
+    # Probabilities should sum to 1
+    np.testing.assert_allclose(
+        proba_cu.sum(axis=1), np.ones(len(X_test)), rtol=1e-5
+    )
+
+
+@pytest.mark.parametrize("weights", ["uniform", "distance"])
+def test_weights_multioutput(weights):
+    """Test weights parameter with multioutput classification."""
+    X = np.array([[0, 0, 1, 0], [1, 0, 1, 0], [0, 1, 0, 1]]).astype(np.float32)
+    y = np.array([[15, 2], [5, 4], [15, 2]]).astype(np.int32)
+
+    knn_cu = cuKNN(n_neighbors=2, weights=weights)
+    knn_cu.fit(X, y)
+
+    # Test predict
+    pred = knn_cu.predict(X)
+    assert pred.shape == y.shape
+
+    # Test predict_proba
+    proba = knn_cu.predict_proba(X)
+    assert isinstance(proba, list)
+    assert len(proba) == 2  # Two outputs
+
+    # Each probability distribution should sum to 1
+    for p in proba:
+        if isinstance(p, cp.ndarray):
+            p = cp.asnumpy(p)
+        elif hasattr(p, "to_numpy"):
+            p = p.to_numpy()
+        np.testing.assert_allclose(p.sum(axis=1), np.ones(len(X)), rtol=1e-5)
+
+
+def test_invalid_weights():
+    """Test that invalid weights parameter raises appropriate error."""
+    X = np.array([[0, 0], [1, 1]]).astype(np.float32)
+    y = np.array([0, 1]).astype(np.int32)
+
+    # Invalid string value should raise error during fit
+    knn_cu = cuKNN(n_neighbors=1, weights="invalid")
+
+    with pytest.raises(ValueError, match="weights must be"):
+        knn_cu.fit(X, y)

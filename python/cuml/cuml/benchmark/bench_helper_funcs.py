@@ -162,7 +162,6 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     import xgboost as xgb
 
     with set_fil_device_type("gpu"):
-
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
         dtrain = xgb.DMatrix(train_data, label=train_label)

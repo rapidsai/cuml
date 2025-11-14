@@ -120,7 +120,6 @@ def flatten_grouped_results(
 
 @gen.coroutine
 def _extract_partitions(dask_obj, client=None):
-
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array

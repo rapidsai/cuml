@@ -30,7 +30,10 @@ def classification(request):
 
 
 def bench_mnmg_knnclassifier(
-    gpubenchmark, bench_step, classification, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    classification,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,

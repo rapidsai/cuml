@@ -1,10 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 
-from cuml.common import rmm_cupy_ary
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import _extract_partitions
 from cuml.preprocessing.label import LabelBinarizer as LB
@@ -62,7 +60,6 @@ class LabelBinarizer(BaseEstimator):
     """
 
     def __init__(self, *, client=None, **kwargs):
-
         super().__init__(client=client, **kwargs)
 
         """
@@ -81,7 +78,7 @@ class LabelBinarizer(BaseEstimator):
             and self.kwargs["sparse_output"] is True
         ):
             raise ValueError(
-                "Sparse output not yet " "supported in distributed mode"
+                "Sparse output not yet supported in distributed mode"
             )
 
     @staticmethod
@@ -89,17 +86,13 @@ class LabelBinarizer(BaseEstimator):
         return LB(**kwargs)
 
     @staticmethod
-    def _func_unique_classes(y):
-        return rmm_cupy_ary(cp.unique, y)
-
-    @staticmethod
     def _func_xform(y, *, model):
-        xform_in = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+        xform_in = cp.asarray(y, dtype=y.dtype)
         return model.transform(xform_in)
 
     @staticmethod
     def _func_inv_xform(y, *, model, threshold):
-        y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+        y = cp.asarray(y, dtype=y.dtype)
         return model.inverse_transform(y, threshold=threshold)
 
     def fit(self, y):
@@ -120,15 +113,10 @@ class LabelBinarizer(BaseEstimator):
         # Take the unique classes and broadcast them all around the cluster.
         futures = self.client.sync(_extract_partitions, y)
 
-        unique = [
-            self.client.submit(LabelBinarizer._func_unique_classes, f)
-            for w, f in futures
-        ]
+        unique = [self.client.submit(cp.unique, f) for w, f in futures]
 
         classes = self.client.compute(unique, True)
-        classes = rmm_cupy_ary(
-            cp.unique, rmm_cupy_ary(cp.stack, classes, axis=0)
-        )
+        classes = cp.unique(cp.stack(classes, axis=0))
 
         self._set_internal_model(LB(**self.kwargs).fit(classes))
 

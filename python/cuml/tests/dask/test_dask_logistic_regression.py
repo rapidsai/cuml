@@ -18,7 +18,6 @@ from sklearn.linear_model import LogisticRegression as skLR
 from sklearn.metrics import accuracy_score
 
 from cuml.dask.common import utils as dask_utils
-from cuml.internals import logger
 from cuml.testing.utils import array_equal
 
 
@@ -56,7 +55,6 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     target_n_partitions = partitions_per_worker * len(workers)
 
     def cal_chunks(dataset, n_partitions):
-
         n_samples = dataset.shape[0]
         n_samples_per_part = int(n_samples / n_partitions)
         chunk_sizes = [n_samples_per_part] * n_partitions
@@ -66,9 +64,9 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
         chunk_sizes[-1] = samples_last_row
         return tuple(chunk_sizes)
 
-    assert (
-        X_train.shape[0] == y_train.shape[0]
-    ), "the number of data records is not equal to the number of labels"
+    assert X_train.shape[0] == y_train.shape[0], (
+        "the number of data records is not equal to the number of labels"
+    )
     target_chunk_sizes = cal_chunks(X_train, target_n_partitions)
 
     X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
@@ -145,82 +143,6 @@ def test_lbfgs_toy(n_parts, datatype, client):
     assert lr.dtype == datatype
 
 
-def test_lbfgs_init(client):
-    def imp():
-        import cuml.comm.serialize  # NOQA
-
-    client.run(imp)
-
-    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], dtype=np.float32)
-    y = np.array([1.0, 1.0, 0.0, 0.0], dtype=np.float32)
-
-    X_df, y_df = _prep_training_data(
-        c=client, X_train=X, y_train=y, partitions_per_worker=2
-    )
-
-    from cuml.dask.linear_model.logistic_regression import (
-        LogisticRegression as cumlLBFGS_dask,
-    )
-
-    def assert_params(
-        tol,
-        C,
-        fit_intercept,
-        max_iter,
-        linesearch_max_iter,
-        verbose,
-        output_type,
-    ):
-
-        lr = cumlLBFGS_dask(
-            tol=tol,
-            C=C,
-            fit_intercept=fit_intercept,
-            max_iter=max_iter,
-            linesearch_max_iter=linesearch_max_iter,
-            verbose=verbose,
-            output_type=output_type,
-        )
-
-        lr.fit(X_df, y_df)
-        qnpams = lr.solver_model.qnparams.params
-        assert qnpams["grad_tol"] == tol
-        assert qnpams["loss"] == 0  # "sigmoid" loss
-        assert qnpams["penalty_l1"] == 0.0
-        assert qnpams["penalty_l2"] == 1.0 / C
-        assert qnpams["fit_intercept"] == fit_intercept
-        assert qnpams["max_iter"] == max_iter
-        assert qnpams["linesearch_max_iter"] == linesearch_max_iter
-        assert qnpams["verbose"] == (
-            logger.level_enum.debug
-            if verbose is True
-            else logger.level_enum.info
-        )  # cuml Verbosity Levels
-        assert (
-            lr.output_type == "input" if output_type is None else output_type
-        )  # cuml.global_settings.output_type
-
-    assert_params(
-        tol=1e-4,
-        C=1.0,
-        fit_intercept=True,
-        max_iter=1000,
-        linesearch_max_iter=50,
-        verbose=False,
-        output_type=None,
-    )
-
-    assert_params(
-        tol=1e-6,
-        C=1.5,
-        fit_intercept=False,
-        max_iter=200,
-        linesearch_max_iter=100,
-        verbose=True,
-        output_type="cudf",
-    )
-
-
 def _test_lbfgs(
     nrows,
     ncols,
@@ -257,9 +179,9 @@ def _test_lbfgs(
     )
 
     if convert_to_sparse:
-        assert (
-            _convert_index == np.int32 or _convert_index == np.int64
-        ), "only support np.int32 or np.int64 as index dtype"
+        assert _convert_index == np.int32 or _convert_index == np.int64, (
+            "only support np.int32 or np.int64 as index dtype"
+        )
         X = csr_matrix(X)
 
         # X_dask and y_dask are dask array
@@ -382,11 +304,7 @@ def test_noreg(fit_intercept, client):
         penalty=None,
     )
 
-    qnpams = lr.solver_model.qnparams.params
-    assert qnpams["penalty_l1"] == 0.0
-    assert qnpams["penalty_l2"] == 0.0
-
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
 
@@ -400,7 +318,7 @@ def test_n_classes_small(client):
 
         lr = cumlLBFGS_dask()
         lr.fit(X_df, y_df)
-        assert lr._num_classes == n_classes
+        assert len(lr.classes_) == n_classes
         return lr
 
     X = np.array([(1, 2), (1, 3)], np.float32)
@@ -442,7 +360,7 @@ def test_n_classes(n_parts, n_classes, client):
         n_classes=n_classes,
     )
 
-    assert lr._num_classes == n_classes
+    assert len(lr.classes_) == n_classes
     assert lr.dtype == np.float32
 
 
@@ -467,7 +385,7 @@ def test_l1(fit_intercept, delayed, n_classes, C, client):
         C=C,
     )
 
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
     assert l1_strength == 1.0 / lr.C
     assert l2_strength == 0.0
 
@@ -496,7 +414,7 @@ def test_elasticnet(fit_intercept, delayed, n_classes, l1_ratio, client):
         l1_ratio=l1_ratio,
     )
 
-    l1_strength, l2_strength = lr._get_qn_params()
+    l1_strength, l2_strength = lr._get_l1_l2_strength()
 
     strength = 1.0 / lr.C
     assert l1_strength == lr.l1_ratio * strength
@@ -545,7 +463,6 @@ def test_sparse_from_dense(reg_dtype, client):
     "ignore:The max_iter was reached which means the coef_ did not converge:sklearn.exceptions.ConvergenceWarning"
 )
 def test_sparse_nlp20news(dtype, nlp_20news, client):
-
     X, y = nlp_20news
     n_parts = 2  # partitions_per_worker
 
@@ -591,7 +508,7 @@ def test_exception_one_label(client):
     y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class:.*1.0"
+    err_msg = r"loss='sigmoid' requires n_classes == 2 \(got 1\)"
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
@@ -615,7 +532,6 @@ def test_exception_one_label(client):
 def test_standardization_on_normal_dataset(
     fit_intercept, reg_dtype, delayed, client
 ):
-
     regularization = reg_dtype[0]
     datatype = reg_dtype[1]
     penalty = regularization[0]

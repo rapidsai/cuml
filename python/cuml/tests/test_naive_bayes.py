@@ -100,7 +100,6 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
     total_fit = 0
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -130,7 +129,6 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_multinomial(x_dtype, y_dtype, nlp_20news):
-
     X, y = nlp_20news
 
     cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
@@ -220,7 +218,6 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
     classes = np.unique(y)
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -308,7 +305,6 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
     classes = np.unique(y)
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -418,7 +414,6 @@ def test_gaussian_partial_fit(nlp_20news):
     total_fit = 0
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -556,7 +551,6 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
 
     classes = np.unique(y)
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1

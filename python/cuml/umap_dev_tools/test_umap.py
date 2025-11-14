@@ -275,18 +275,18 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     # Assertions focused on matching the reference
     assert np.isfinite(kl_sym), "KL not finite"
     assert np.isfinite(js_avg), "JS not finite"
-    assert (
-        kl_sym <= kl_tol
-    ), f"KL(sym) too high: {kl_sym:.3e} > {kl_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
-    assert (
-        js_avg <= js_tol
-    ), f"JS(avg) too high: {js_avg:.3e} > {js_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
-    assert (
-        jacc >= j_tol
-    ), f"Edge Jaccard too low (jacc={jacc:.3f} < tol={j_tol:.3f}) for {dataset_name}, metric={metric}, backend={d['backend']}"
-    assert (
-        row_l1 <= row_l1_tol
-    ), f"Row-sum L1 too high (row_l1={row_l1:.3e} > tol={row_l1_tol:.3e}) for {dataset_name}, metric={metric}, backend={d['backend']}"
+    assert kl_sym <= kl_tol, (
+        f"KL(sym) too high: {kl_sym:.3e} > {kl_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
+    )
+    assert js_avg <= js_tol, (
+        f"JS(avg) too high: {js_avg:.3e} > {js_tol:.3e} for {dataset_name}, metric={metric}, backend={d['backend']}"
+    )
+    assert jacc >= j_tol, (
+        f"Edge Jaccard too low (jacc={jacc:.3f} < tol={j_tol:.3f}) for {dataset_name}, metric={metric}, backend={d['backend']}"
+    )
+    assert row_l1 <= row_l1_tol, (
+        f"Row-sum L1 too high (row_l1={row_l1:.3e} > tol={row_l1_tol:.3e}) for {dataset_name}, metric={metric}, backend={d['backend']}"
+    )
 
 
 def test_spectral_init(cu_fuzzy_fixture):

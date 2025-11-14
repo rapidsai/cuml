@@ -8,7 +8,6 @@ from cuml.dask.solvers import CD
 
 
 class Lasso(BaseEstimator):
-
     """
     Lasso extends LinearRegression by providing L1 regularization on the
     coefficients when predicting response y with a linear combination of the
@@ -55,6 +54,8 @@ class Lasso(BaseEstimator):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    n_iter_ : int
+        The number of iterations taken by the solver.
 
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.

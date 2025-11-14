@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -116,18 +116,6 @@ void permutation_shap_dataset(const raft::handle_t& handle,
   permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
 }
 
-void permutation_shap_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
-                              int* idx,
-                              bool row_major)
-{
-  permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
-}
-
 template <typename DataT, typename IdxT>
 void shap_main_effect_dataset_impl(const raft::handle_t& handle,
                                    DataT* dataset,
@@ -162,18 +150,6 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
                               int nrows_bg,
                               int ncols,
                               const float* row,
-                              int* idx,
-                              bool row_major)
-{
-  shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols, row, idx, row_major);
-}
-
-void shap_main_effect_dataset(const raft::handle_t& handle,
-                              double* dataset,
-                              const double* background,
-                              int nrows_bg,
-                              int ncols,
-                              const double* row,
                               int* idx,
                               bool row_major)
 {
@@ -218,15 +194,6 @@ void update_perm_shap_values_impl(const raft::handle_t& handle,
 void update_perm_shap_values(const raft::handle_t& handle,
                              float* shap_values,
                              const float* y_hat,
-                             const int ncols,
-                             const int* idx)
-{
-  update_perm_shap_values_impl(handle, shap_values, y_hat, ncols, idx);
-}
-
-void update_perm_shap_values(const raft::handle_t& handle,
-                             double* shap_values,
-                             const double* y_hat,
                              const int ncols,
                              const int* idx)
 {

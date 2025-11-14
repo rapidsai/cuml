@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
@@ -17,6 +16,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/functional>
 
 #include <iostream>
 #include <limits>
@@ -655,7 +655,7 @@ void calcMaxStep(const raft::handle_t& handle,
       return val;
     };
     raft::linalg::mapThenReduce(
-      gamma, n_inactive, huge, map, ML::detail::minimum{}, stream, cor + n_active, a_vec);
+      gamma, n_inactive, huge, map, cuda::minimum{}, stream, cor + n_active, a_vec);
   }
 }
 

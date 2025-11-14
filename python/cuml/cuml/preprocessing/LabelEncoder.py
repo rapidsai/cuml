@@ -136,7 +136,6 @@ class LabelEncoder(Base):
         verbose=False,
         output_type=None,
     ) -> None:
-
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
