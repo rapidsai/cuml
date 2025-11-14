@@ -15,7 +15,6 @@ from cuml.internals.input_utils import (
 
 @dataclass
 class CumlArrayDescriptorMeta:
-
     # The type for the input value. One of: _input_type_to_str
     input_type: str
 
@@ -24,10 +23,9 @@ class CumlArrayDescriptorMeta:
     values: dict = field(default_factory=dict)
 
     def get_input_value(self):
-
-        assert (
-            self.input_type in self.values
-        ), "Missing value for input_type {}".format(self.input_type)
+        assert self.input_type in self.values, (
+            "Missing value for input_type {}".format(self.input_type)
+        )
 
         return self.values[self.input_type]
 
@@ -60,7 +58,6 @@ class CumlArrayDescriptor:
     def _get_meta(
         self, instance, throw_on_missing=False
     ) -> CumlArrayDescriptorMeta:
-
         if throw_on_missing:
             if self.name not in instance.__dict__:
                 raise AttributeError()
@@ -100,7 +97,6 @@ class CumlArrayDescriptor:
         return output
 
     def __get__(self, instance, owner):
-
         if instance is None:
             return self
 
@@ -129,7 +125,6 @@ class CumlArrayDescriptor:
             return self._to_output(instance, output_type)
 
     def __set__(self, instance, value):
-
         existing = self._get_meta(instance)
 
         # Determine the type
@@ -142,6 +137,5 @@ class CumlArrayDescriptor:
         existing.values[existing.input_type] = value
 
     def __delete__(self, instance):
-
         if instance is not None:
             del instance.__dict__[self.name]

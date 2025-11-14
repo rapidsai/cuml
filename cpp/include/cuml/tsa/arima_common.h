@@ -8,7 +8,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/aligned.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>

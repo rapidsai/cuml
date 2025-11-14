@@ -15,7 +15,6 @@ from cuml.dask.common.dask_arr_utils import to_dask_cudf
 @pytest.mark.parametrize("n_parts", [67])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_pca_fit(nrows, ncols, n_parts, input_type, client):
-
     from sklearn.decomposition import PCA
 
     from cuml.dask.datasets import make_blobs
@@ -39,7 +38,6 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
         X_cpu = cp.asnumpy(X_train.compute())
 
     try:
-
         cupca = daskPCA(n_components=5, whiten=True)
         cupca.fit(X_train)
     except Exception as e:
@@ -70,7 +68,6 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
-
     from cuml.dask.datasets import make_blobs
     from cuml.dask.decomposition import PCA as daskPCA
 
@@ -95,7 +92,6 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [33])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
-
     from cuml.dask.datasets import make_blobs
     from cuml.dask.decomposition import PCA as daskPCA
 

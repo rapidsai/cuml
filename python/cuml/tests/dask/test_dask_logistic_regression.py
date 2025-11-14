@@ -55,7 +55,6 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     target_n_partitions = partitions_per_worker * len(workers)
 
     def cal_chunks(dataset, n_partitions):
-
         n_samples = dataset.shape[0]
         n_samples_per_part = int(n_samples / n_partitions)
         chunk_sizes = [n_samples_per_part] * n_partitions
@@ -65,9 +64,9 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
         chunk_sizes[-1] = samples_last_row
         return tuple(chunk_sizes)
 
-    assert (
-        X_train.shape[0] == y_train.shape[0]
-    ), "the number of data records is not equal to the number of labels"
+    assert X_train.shape[0] == y_train.shape[0], (
+        "the number of data records is not equal to the number of labels"
+    )
     target_chunk_sizes = cal_chunks(X_train, target_n_partitions)
 
     X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
@@ -180,9 +179,9 @@ def _test_lbfgs(
     )
 
     if convert_to_sparse:
-        assert (
-            _convert_index == np.int32 or _convert_index == np.int64
-        ), "only support np.int32 or np.int64 as index dtype"
+        assert _convert_index == np.int32 or _convert_index == np.int64, (
+            "only support np.int32 or np.int64 as index dtype"
+        )
         X = csr_matrix(X)
 
         # X_dask and y_dask are dask array
@@ -464,7 +463,6 @@ def test_sparse_from_dense(reg_dtype, client):
     "ignore:The max_iter was reached which means the coef_ did not converge:sklearn.exceptions.ConvergenceWarning"
 )
 def test_sparse_nlp20news(dtype, nlp_20news, client):
-
     X, y = nlp_20news
     n_parts = 2  # partitions_per_worker
 
@@ -534,7 +532,6 @@ def test_exception_one_label(client):
 def test_standardization_on_normal_dataset(
     fit_intercept, reg_dtype, delayed, client
 ):
-
     regularization = reg_dtype[0]
     datatype = reg_dtype[1]
     penalty = regularization[0]

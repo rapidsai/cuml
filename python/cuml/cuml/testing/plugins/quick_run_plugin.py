@@ -10,7 +10,6 @@ import pytest
 
 
 def pytest_addoption(parser):
-
     group = parser.getgroup("Quick Run Plugin")
 
     group.addoption(
@@ -31,7 +30,6 @@ def pytest_addoption(parser):
 # some tests
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-
     quick_run = config.getoption("--quick_run")
 
     if quick_run:
@@ -106,7 +104,6 @@ def pytest_collection_modifyitems(config, items):
                         seen[key].append(val)
 
             for f in leaf:
-
                 # If this is going to be skipped, add to deselected. No need to
                 # run it
                 if f.get_closest_marker("skip") is not None:

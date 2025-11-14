@@ -205,7 +205,6 @@ class MultiHolderLock:
         lock_acquired = self._acquire(blocking, timeout)
 
         while blocking and not lock_acquired:
-
             if time.time() - t > timeout:
                 raise TimeoutError()
 
@@ -239,7 +238,7 @@ class MultiHolderLock:
 
         if self.current_tasks == 0:
             raise InvalidStateError(
-                "Cannot release lock when no " "concurrent tasks are executing"
+                "Cannot release lock when no concurrent tasks are executing"
             )
 
         lock_acquired = self.lock.acquire(blocking, timeout)

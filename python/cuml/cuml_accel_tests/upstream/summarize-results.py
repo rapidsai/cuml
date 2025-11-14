@@ -186,9 +186,9 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
                                 ]
                             )
                             if condition is not None:
-                                updated_groups[flaky_reason][
-                                    "condition"
-                                ] = condition
+                                updated_groups[flaky_reason]["condition"] = (
+                                    condition
+                                )
                             if marker is not None:
                                 updated_groups[flaky_reason]["marker"] = marker
                         updated_groups[flaky_reason]["tests"].append(test_id)

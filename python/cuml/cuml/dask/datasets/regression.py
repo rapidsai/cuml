@@ -171,7 +171,6 @@ def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
 
 
 def _generate_chunks_for_qr(total_size, min_size, n_parts):
-
     n_total_per_part = max(1, int(total_size / n_parts))
     if n_total_per_part > min_size:
         min_size = n_total_per_part
@@ -239,7 +238,6 @@ def _make_low_rank_covariance(
     n_samples_per_part,
     dtype,
 ):
-
     return client.submit(
         _dask_make_low_rank_covariance,
         n_features,

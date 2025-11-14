@@ -415,7 +415,6 @@ def test_rf_classification_unorder(
 def test_rf_regression(
     special_reg, datatype, max_features, max_samples, n_bins
 ):
-
     use_handle = True
 
     X, y = special_reg
@@ -469,7 +468,6 @@ def test_rf_regression(
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
-
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
@@ -852,7 +850,6 @@ def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
 def test_create_classification_model(
     max_features, max_depth, n_estimators, n_bins
 ):
-
     # random forest classification model
     cuml_model = curfc(
         max_features=max_features,
@@ -873,7 +870,6 @@ def test_create_classification_model(
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
 @pytest.mark.parametrize("n_bins", [8, 9, 10])
 def test_multiple_fits_classification(large_clf, n_estimators, n_bins):
-
     datatype = np.float32
     X, y = large_clf
     X = X.astype(datatype)
@@ -1182,7 +1178,6 @@ def test_max_features(max_features, sol):
 
 
 def test_rf_predict_returns_int():
-
     X, y = make_classification()
 
     # Capture and verify expected warning
@@ -1310,14 +1305,14 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
     cu_importances = cu_rf.feature_importances_
 
     if cu_importances.sum() > 0:
-        assert np.allclose(
-            cu_importances.sum(), 1.0, rtol=1e-5
-        ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
+        assert np.allclose(cu_importances.sum(), 1.0, rtol=1e-5), (
+            f"Feature importances don't sum to 1: {cu_importances.sum()}"
+        )
 
         top_features = np.argsort(cu_importances)[-2:]
-        assert (
-            0 in top_features
-        ), f"Feature 0 not in top features. Importances: {cu_importances}"
+        assert 0 in top_features, (
+            f"Feature 0 not in top features. Importances: {cu_importances}"
+        )
 
     cu_rf2 = curfc(
         n_estimators=5,
@@ -1333,9 +1328,9 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
     cu_importances2 = cu_rf2.feature_importances_
 
     # With same parameters and no randomness, should get identical importances
-    assert np.allclose(
-        cu_importances, cu_importances2, rtol=1e-5
-    ), f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+    assert np.allclose(cu_importances, cu_importances2, rtol=1e-5), (
+        f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+    )
 
 
 def test_rf_feature_importance_consistency():
@@ -1371,7 +1366,9 @@ def test_rf_feature_importance_consistency():
     for i in range(1, len(importances_list)):
         assert np.allclose(
             importances_list[0], importances_list[i], rtol=1e-5
-        ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+        ), (
+            f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+        )
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
