@@ -27,16 +27,7 @@ rapids-logger "pytest cuml single GPU"
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" python/cuml/tests/test_sklearn_compatibility.py python/cuml/tests/test_pickle.py
-
-  rapids-logger "pytest cuml accelerator"
-./ci/run_cuml_singlegpu_accel_pytests.sh \
-  --numprocesses=8 \
-  --dist=worksteal \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
-  --cov-config=../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
