@@ -39,7 +39,6 @@ def test_fit(
     batch_size_divider,
     whiten,
 ):
-
     if sparse_format == "csc":
         pytest.skip(
             "cupyx.scipy.sparse.csc.csc_matrix does not support"
@@ -97,7 +96,6 @@ def test_fit(
 def test_partial_fit(
     nrows, ncols, n_components, density, batch_size_divider, whiten
 ):
-
     X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
     cu_ipca = cuIPCA(n_components=n_components, whiten=whiten)

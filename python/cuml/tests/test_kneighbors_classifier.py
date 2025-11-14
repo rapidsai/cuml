@@ -16,7 +16,6 @@ from cuml.testing.utils import array_equal
 
 
 def _build_train_test_data(X, y, datatype, train_ratio=0.9):
-
     train_selection = np.random.RandomState(42).choice(
         [True, False],
         X.shape[0],
@@ -46,7 +45,6 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
 def test_neighborhood_predictions(
     nrows, ncols, n_neighbors, n_clusters, datatype
 ):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -84,7 +82,6 @@ def test_neighborhood_predictions(
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 @pytest.mark.parametrize("weighted", [False, True])
 def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -116,7 +113,6 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
-
     X, y = make_blobs(
         n_samples=nrows,
         centers=n_clusters,
@@ -149,7 +145,6 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_predict_proba_large_n_classes(datatype):
-
     nrows = 10000
     ncols = 100
     n_neighbors = 10
@@ -180,7 +175,6 @@ def test_predict_proba_large_n_classes(datatype):
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 def test_predict_large_n_classes(datatype):
-
     nrows = 10000
     ncols = 100
     n_neighbors = 2
@@ -217,7 +211,6 @@ def test_predict_large_n_classes(datatype):
 @pytest.mark.parametrize("n_neighbors", [4])
 @pytest.mark.parametrize("n_query", [100])
 def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
-
     np.random.seed(123)
 
     X_host_train = pd.DataFrame(
@@ -251,7 +244,6 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
 @pytest.mark.parametrize("n_neighbors", [3, 5])
 @pytest.mark.parametrize("datatype", ["numpy", "dataframe"])
 def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
-
     X, y = make_blobs(
         n_samples=n_rows,
         centers=n_classes,
@@ -315,7 +307,6 @@ def test_classes(output_type, multioutput):
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):
-
     X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
@@ -344,7 +335,6 @@ def test_predict_multioutput(input_type, output_type):
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_proba_multioutput(input_type, output_type):
-
     X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 

@@ -193,7 +193,6 @@ class IncrementalPCA(PCA):
         verbose=False,
         output_type=None,
     ):
-
         super().__init__(
             handle=handle,
             n_components=n_components,
@@ -429,7 +428,6 @@ class IncrementalPCA(PCA):
         """
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-
             X = _validate_sparse_input(X)
 
             n_samples = X.shape[0]
@@ -525,11 +523,11 @@ def _gen_batches(n, batch_size, min_batch_size=0):
 
     if not isinstance(batch_size, numbers.Integral):
         raise TypeError(
-            "gen_batches got batch_size=%s, must be an" " integer" % batch_size
+            "gen_batches got batch_size=%s, must be an integer" % batch_size
         )
     if batch_size <= 0:
         raise ValueError(
-            "gen_batches got batch_size=%s, must be" " positive" % batch_size
+            "gen_batches got batch_size=%s, must be positive" % batch_size
         )
     start = 0
     for _ in range(int(n // batch_size)):

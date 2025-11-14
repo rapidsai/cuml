@@ -7,7 +7,6 @@
 try:
     from nvtx import annotate
 except ImportError:
-
     from contextlib import contextmanager
 
     @contextmanager

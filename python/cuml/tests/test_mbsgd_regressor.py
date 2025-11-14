@@ -73,7 +73,6 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
     if nrows < 500000:
-
         cu_mbsgd_regressor = cumlMBSGRegressor(
             learning_rate=lrate,
             eta0=0.005,
