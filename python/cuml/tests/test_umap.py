@@ -916,7 +916,6 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7412")
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
@@ -973,9 +972,12 @@ def test_umap_outliers(n_neighbors, n_components):
     lower_bound = 3 * cpu_umap_embeddings.min()
     upper_bound = 3 * cpu_umap_embeddings.max()
 
+    # UMAP embeddings may appear mirrored or flipped (signs of axes are arbitrary)
+    threshold = max(abs(lower_bound), abs(upper_bound))
+
     assert np.all(
-        (gpu_umap_embeddings >= lower_bound)
-        & (gpu_umap_embeddings <= upper_bound)
+        (gpu_umap_embeddings >= -threshold)
+        & (gpu_umap_embeddings <= threshold)
     )
 
 

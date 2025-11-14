@@ -951,7 +951,6 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
