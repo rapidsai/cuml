@@ -1,0 +1,87 @@
+# python/cuml/metrics/cluster/adjusted_mutual_info_score.py
+"""
+cuML compatibility wrapper for adjusted_mutual_info_score.
+
+This wrapper currently delegates to scikit-learn's implementation to
+ensure identical behavior. It accepts NumPy arrays and CuPy arrays
+(pulls to host when necessary) to keep the API convenient for cuML users.
+
+Signature:
+    adjusted_mutual_info_score(labels_true, labels_pred, *, average_method='arithmetic')
+
+Parameters
+----------
+labels_true : array-like of shape (n_samples,)
+labels_pred : array-like of shape (n_samples,)
+average_method : {'min', 'geometric', 'arithmetic', 'max'}, default='arithmetic'
+    Determines the averaging method to calculate the AMI.
+
+Returns
+-------
+score : float
+    The adjusted mutual information between the two clusterings.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+import numpy as _np
+
+# Lazy import to avoid forcing sklearn import on top-level import of cuML
+def _ensure_numpy(arr: Any):
+    """Convert CuPy or GPU arrays to numpy if needed, otherwise return as numpy array."""
+    try:
+        import cupy as _cp  # type: ignore
+    except Exception:
+        _cp = None
+
+    if _cp is not None and isinstance(arr, _cp.ndarray):
+        return _cp.asnumpy(arr)
+    # If the object supports .get() (some GPU array wrappers), try to convert
+    get = getattr(arr, "get", None)
+    if callable(get):
+        try:
+            return get()
+        except Exception:
+            # fallback
+            pass
+    return _np.asarray(arr)
+
+
+def adjusted_mutual_info_score(labels_true, labels_pred, *, average_method: Optional[str] = "arithmetic"):
+    """
+    Compute the Adjusted Mutual Information (AMI) between two clusterings.
+
+    This wrapper currently calls sklearn.metrics.adjusted_mutual_info_score
+    after converting inputs to NumPy arrays when necessary.
+
+    Parameters
+    ----------
+    labels_true : array-like of shape (n_samples,)
+        Ground truth class labels to be used as a reference.
+    labels_pred : array-like of shape (n_samples,)
+        Cluster labels to evaluate.
+    average_method : str, optional (default='arithmetic')
+        Method to compute average mutual information. See scikit-learn docs.
+
+    Returns
+    -------
+    float
+        Adjusted mutual information in range [-1, 1]. 1.0 stands for perfect agreement.
+    """
+    # Convert any GPU-backed arrays to NumPy for scikit-learn compatibility
+    y_true_np = _ensure_numpy(labels_true)
+    y_pred_np = _ensure_numpy(labels_pred)
+
+    # Lazy import sklearn to avoid heavy import when not used
+    try:
+        from sklearn.metrics import adjusted_mutual_info_score as _sk_ami
+    except Exception as e:
+        raise ImportError(
+            "scikit-learn must be installed to use this compatibility wrapper. "
+            "Install scikit-learn or use a CPU environment where it's available."
+        ) from e
+
+    return float(_sk_ami(y_true_np, y_pred_np, average_method=average_method))
+
