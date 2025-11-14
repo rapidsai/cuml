@@ -996,13 +996,13 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                 <float> kwds.get("nnd_termination_threshold", 0.0001)
             )
 
-            if params.build_params.nn_descent_params.graph_degree < self.min_samples+1:
+            if params.build_params.nn_descent_params.graph_degree < min_samples+1:
                 logger.warn(
                     "to use nn descent as the build algo, nnd_graph_degree should be larger "
                     "than or equal to min_samples + 1. setting nnd_graph_degree to "
                     "min_samples + 1."
                 )
-                params.build_params.nn_descent_params.graph_degree = self.min_samples+1
+                params.build_params.nn_descent_params.graph_degree = min_samples+1
             if (
                 params.build_params.nn_descent_params.intermediate_graph_degree
                 < params.build_params.nn_descent_params.graph_degree

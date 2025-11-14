@@ -13,9 +13,12 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import LinearPredictMixin
-from cuml.solvers import QN
+from cuml.linear_model.base import (
+    LinearPredictMixin,
+    check_deprecated_normalize,
+)
 from cuml.solvers.cd import fit_coordinate_descent
+from cuml.solvers.qn import fit_qn
 
 
 class ElasticNet(
@@ -62,12 +65,12 @@ class ElasticNet(
         leads to significantly faster convergence especially when tol is higher
         than 1e-4.
     normalize : boolean, default=False
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2 norm; but this is the same as if
-        using sklearn's StandardScaler.
+
+        .. deprecated:: 25.12
+            ``normalize`` is deprecated and will be removed in 26.02. When
+            needed, please use a ``StandardScaler`` to normalize your data
+            before passing to ``fit``.
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -91,6 +94,8 @@ class ElasticNet(
         The estimated coefficients for the linear regression model.
     intercept_ : float
         The independent term, will be 0 if `fit_intercept` is False.
+    n_iter_ : int
+        The number of iterations taken by the solver.
 
     Notes
     -----
@@ -184,6 +189,7 @@ class ElasticNet(
         return {
             "intercept_": to_gpu(model.intercept_, order="F"),
             "coef_": to_gpu(model.coef_, order="F"),
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -191,6 +197,7 @@ class ElasticNet(
         return {
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -230,6 +237,8 @@ class ElasticNet(
         Fit the model with X and y.
 
         """
+        check_deprecated_normalize(self)
+
         if self.alpha < 0.0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
         if self.selection not in ["cyclic", "random"]:
@@ -244,26 +253,25 @@ class ElasticNet(
                 raise ValueError(
                     "`normalize=True` is not supported with `solver='qn'"
                 )
-
-            solver = QN(
-                handle=self.handle,
-                verbose=self.verbose,
-                output_type=self.output_type,
+            coef, intercept, n_iter, _ = fit_qn(
+                X,
+                y,
+                sample_weight=sample_weight,
+                convert_dtype=convert_dtype,
+                loss="l2",
                 fit_intercept=self.fit_intercept,
                 l1_strength=self.alpha * self.l1_ratio,
                 l2_strength=self.alpha * (1.0 - self.l1_ratio),
-                loss="l2",
-                penalty_normalized=False,
                 max_iter=self.max_iter,
                 tol=self.tol,
-            ).fit(
-                X, y, sample_weight=sample_weight, convert_dtype=convert_dtype
+                penalty_normalized=False,
+                verbose=self.verbose,
+                handle=self.handle,
             )
-
-            coef = CumlArray(data=solver.coef_.to_output("cupy").flatten())
-            intercept = solver.intercept_.item()
+            coef = CumlArray(data=coef.to_output("cupy").flatten())
+            intercept = intercept.item()
         elif self.solver == "cd":
-            coef, intercept = fit_coordinate_descent(
+            coef, intercept, n_iter = fit_coordinate_descent(
                 X,
                 y,
                 sample_weight=sample_weight,
@@ -282,5 +290,6 @@ class ElasticNet(
 
         self.coef_ = coef
         self.intercept_ = intercept
+        self.n_iter_ = n_iter
 
         return self

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
 from collections.abc import Iterable
 from functools import wraps
 
@@ -305,7 +306,6 @@ class DelayedParallelFunc(object):
         # TODO: Add eager path back in
 
         if output_collection_type == "cupy":
-
             # todo: add parameter for option of not checking directly
             shape = (np.nan,) * n_dims
             preds_arr = [
@@ -372,7 +372,6 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
 
 class SyncFitMixinLinearModel(object):
     def _fit(self, model_func, data):
-
         n_cols = data[0].shape[1]
 
         data = DistributedDataHandler.create(data=data, client=self.client)
@@ -470,3 +469,17 @@ def _transform_func(model, data, **kwargs):
 
 def _inverse_transform_func(model, data, **kwargs):
     return model.inverse_transform(data, **kwargs)
+
+
+def check_deprecated_normalize(model):
+    """Warn if the deprecated `normalize` option is used."""
+    if model.kwargs.get("normalize"):
+        cls_name = type(model).__name__
+        warnings.warn(
+            (
+                f"The `normalize` option to `{cls_name}` was deprecated in "
+                f"25.12 and will be removed in 26.02. Please use a `StandardScaler` "
+                f"to normalize your data external to `{cls_name}`."
+            ),
+            FutureWarning,
+        )

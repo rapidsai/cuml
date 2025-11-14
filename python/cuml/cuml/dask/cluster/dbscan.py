@@ -13,7 +13,6 @@ from cuml.dask.common.base import (
     mnmg_import,
 )
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -79,7 +78,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         return _func
 
-    @with_cupy_rmm
     def fit(self, X, out_dtype="int32"):
         """
         Fit a multi-node multi-GPU DBSCAN model
@@ -104,8 +102,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         data = self.client.scatter(X, broadcast=True)
 
-        comms = Comms(comms_p2p=True)
-        comms.init()
+        # Get the workers that actually hold the scattered data
+        who_has = self.client.who_has(data)
+        workers = list(who_has[data.key])
+
+        comms = Comms(comms_p2p=True, client=self.client)
+        comms.init(workers=workers)
 
         # Get worker info to map workers to their RAFT ranks
         worker_info = comms.worker_info(comms.worker_addresses)

@@ -34,20 +34,6 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML" nogil:
         int maxsample,
         uint64_t seed) except +
 
-    void kernel_dataset "ML::Explainer::kernel_dataset"(
-        handle_t& handle,
-        float* X,
-        int nrows_X,
-        int ncols,
-        double* background,
-        int nrows_background,
-        double* combinations,
-        double* observation,
-        int* nsamples,
-        int len_nsamples,
-        int maxsample,
-        uint64_t seed) except +
-
 
 class KernelExplainer(SHAPBase):
     """
@@ -322,22 +308,36 @@ class KernelExplainer(SHAPBase):
         if self.random_state is None:
             self.random_state = randint(0, 10**18)
 
-        # we default to float32 unless self.dtype is specifically np.float64
+        cdef uintptr_t bg_ptr_f32
+        cdef uintptr_t ds_ptr_f32
+        cdef uintptr_t row_ptr_f32
+
         if self.dtype == np.float64:
+            # Cast double arrays to float32 for kernel call
+            background_f32 = self.background.astype(np.float32)
+            synth_data_f32 = cp.empty_like(self._synth_data, dtype=np.float32)
+            row_f32 = row.astype(np.float32)
+
+            bg_ptr_f32 = get_cai_ptr(background_f32)
+            ds_ptr_f32 = get_cai_ptr(synth_data_f32)
+            row_ptr_f32 = get_cai_ptr(row_f32)
+
             kernel_dataset(
                 handle_[0],
                 <float*> x_ptr,
                 <int> self._mask.shape[0],
                 <int> self._mask.shape[1],
-                <double*> bg_ptr,
+                <float*> bg_ptr_f32,
                 <int> self.background.shape[0],
-                <double*> ds_ptr,
-                <double*> row_ptr,
+                <float*> ds_ptr_f32,
+                <float*> row_ptr_f32,
                 <int*> smp_ptr,
                 <int> self.nsamples_random,
                 <int> maxsample,
                 <uint64_t> self.random_state)
 
+            # Cast result back to float64
+            self._synth_data[:] = synth_data_f32.astype(np.float64)
         else:
             kernel_dataset(
                 handle_[0],

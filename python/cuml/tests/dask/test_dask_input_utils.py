@@ -45,7 +45,7 @@ def test_extract_partitions_worker_list(
     assert len(parts) == n_parts
 
 
-@pytest.mark.xfail(raises=ValueError)
+@pytest.mark.skip(reason="Segfault with pathological parameters (issue #7452)")
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [24])
 @pytest.mark.parametrize("ncols", [2])
@@ -101,7 +101,6 @@ def test_extract_partitions_shape(
 def test_extract_partitions_futures(
     nrows, ncols, n_parts, X_delayed, y_delayed, colocated, client
 ):
-
     X = cp.random.standard_normal((nrows, ncols))
     y = cp.random.standard_normal((nrows,))
 

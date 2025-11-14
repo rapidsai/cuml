@@ -318,8 +318,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.0.0
-          - treelite
+          - &cython cython>=3.0.0,<3.2.0a0
+          - &treelite treelite>=4.6.1,<5.0.0a0
   py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -331,7 +331,7 @@ dependencies:
           - packaging
           - rich
           - &scikit_learn scikit-learn>=1.4
-          - treelite
+          - *treelite
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -341,10 +341,6 @@ dependencies:
     specific:
       - output_types: conda
         matrices:
-          - matrix:
-              cuda: "12.0"
-            packages:
-              - cuda-version=12.0
           - matrix:
               cuda: "12.2"
             packages:
@@ -483,7 +479,7 @@ dependencies:
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
           - pyyaml
-          - pytest
+          - pytest<9.0
           - pytest-benchmark
           - pytest-cases
           - pytest-cov

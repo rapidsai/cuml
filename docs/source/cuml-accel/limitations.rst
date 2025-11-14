@@ -187,7 +187,7 @@ RandomForestClassifier
 ``RandomForestClassifier`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"log_loss"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -196,6 +196,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 RandomForestRegressor
 ^^^^^^^^^^^^^^^^^^^^^
@@ -203,7 +204,7 @@ RandomForestRegressor
 ``RandomForestRegressor`` will fall back to CPU in the following cases:
 
 - If ``criterion`` is ``"absolute_error"`` or ``"friedman_mse"``.
-- If ``oob_score=True``.
+- If ``oob_score`` is a callable.
 - If ``warm_start=True``.
 - If ``monotonic_cst`` is not ``None``.
 - If ``max_values`` is an integer.
@@ -211,6 +212,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``y`` is a multi-output target.
 
 
 sklearn.kernel_ridge
@@ -277,22 +279,14 @@ ElasticNet
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 Ridge
 ^^^^^
 
 ``Ridge`` will fall back to CPU in the following cases:
 
-- If ``positive=True``.
-- If ``solver="lbfgs"``.
+- If ``positive=True`` or ``solver="lbfgs"``.
 - If ``X`` is sparse.
-- If ``X`` has more columns than rows.
-- If ``y`` is multioutput.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 Lasso
 ^^^^^
@@ -307,7 +301,6 @@ Lasso
 Additionally, the following fitted attributes are currently not computed:
 
 - ``dual_gap_``
-- ``n_iter_``
 
 
 sklearn.manifold
@@ -320,6 +313,7 @@ TSNE
 
 - If ``n_components`` is not ``2``.
 - If ``init`` is an array.
+- If ``init='pca'`` and X is sparse
 - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
   ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
   ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
@@ -383,7 +377,6 @@ KNeighborsClassifier
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -400,7 +393,6 @@ KNeighborsRegressor
   ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
   ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
   ``"sqeuclidean"``, ``"haversine"``).
-- If ``weights`` is not ``"uniform"``.
 
 Additional notes:
 
@@ -443,13 +435,7 @@ SVC
 ``SVC`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
 - If ``y`` is multiclass.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``class_weight_``
-- ``n_iter_``
 
 SVR
 ^^^
@@ -457,11 +443,6 @@ SVR
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-- If ``X`` is sparse.
-
-Additionally, the following fitted attributes are currently not computed:
-
-- ``n_iter_``
 
 LinearSVC
 ^^^^^^^^^
@@ -472,14 +453,10 @@ LinearSVC
 - If ``intercept_scaling`` is not ``1``.
 - If ``multi_class`` is not ``"ovr"``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Sample weight functionality may not produce equivalent results to replicating data according to weights.
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 LinearSVR
 ^^^^^^^^^
@@ -489,13 +466,10 @@ LinearSVR
 - If ``X`` is sparse.
 - If ``intercept_scaling`` is not ``1``.
 
-The following fitted attributes are currently not computed:
-
-- ``n_iter_``
-
 Additional notes:
 
-- Use of sample weights may not produce exactly equivalent results when compared to replicating data according to weights.
+- Use of sample weights may not produce exactly equivalent results when
+  compared to replicating data according to weights.
 
 umap
 ----

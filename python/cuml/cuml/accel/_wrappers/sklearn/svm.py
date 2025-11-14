@@ -29,9 +29,6 @@ def _has_probability(model):
 
 class SVC(ProxyBase):
     _gpu_class = cuml.svm.SVC
-    # cuml.SVC supports sparse X for some but not all operations,
-    # easier to just fallback for now
-    _gpu_supports_sparse = False
     _not_implemented_attributes = frozenset(
         (
             "class_weight_",
@@ -73,17 +70,12 @@ class SVC(ProxyBase):
 
 class SVR(ProxyBase):
     _gpu_class = cuml.svm.SVR
-    # cuml.SVC supports sparse X for some but not all operations,
-    # easier to just fallback for now
-    _gpu_supports_sparse = False
     _not_implemented_attributes = frozenset(("n_iter_",))
 
 
 class LinearSVC(ProxyBase):
     _gpu_class = cuml.svm.LinearSVC
-    _not_implemented_attributes = frozenset(("n_iter_",))
 
 
 class LinearSVR(ProxyBase):
     _gpu_class = cuml.svm.LinearSVR
-    _not_implemented_attributes = frozenset(("n_iter_",))

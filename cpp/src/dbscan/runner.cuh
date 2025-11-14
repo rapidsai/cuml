@@ -16,7 +16,6 @@
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/distance_type.hpp>
-#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
@@ -25,6 +24,7 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -275,8 +275,8 @@ std::size_t run(const raft::handle_t& handle,
     // check for maximum row-length (number of connections) in batch
     // if sufficiently small we can compute neighbors in one pass later
     if (sparse_rbc_mode) {
-      Index_ max_k = thrust::reduce(
-        handle.get_thrust_policy(), vd, vd + n_points, (Index_)0, ML::detail::maximum{});
+      Index_ max_k =
+        thrust::reduce(handle.get_thrust_policy(), vd, vd + n_points, (Index_)0, cuda::maximum{});
       CUML_LOG_DEBUG(
         "Adjacency matrix (batch %d) maximum row length %ld.", i, (unsigned long)max_k);
       maxklen.at(i) = max_k;

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,7 +20,7 @@
 
 #include <rmm/aligned.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <cub/device/device_select.cuh>
@@ -141,8 +141,8 @@ class Results {
     // allow ~1GB dense support matrix
     if (isDenseType<MatrixViewType>() ||
         ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix.data = (math_t*)rmm_alloc.allocate_async(
-        n_support * n_cols * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+      support_matrix.data =
+        (math_t*)rmm_alloc.allocate(stream, n_support * n_cols * sizeof(math_t));
       ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
     } else {
       ML::SVM::extractRows<math_t>(matrix,
@@ -199,8 +199,7 @@ class Results {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    *dual_coefs    = (math_t*)rmm_alloc.allocate_async(
-      *n_support * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+    *dual_coefs    = (math_t*)rmm_alloc.allocate(stream, *n_support * sizeof(math_t));
     raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
     handle.sync_stream(stream);
   }
@@ -217,8 +216,7 @@ class Results {
   {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
-    int* idx = (int*)rmm_alloc.allocate_async(
-      n_support * sizeof(int), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+    int* idx = (int*)rmm_alloc.allocate(stream, n_support * sizeof(int));
     raft::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
   }

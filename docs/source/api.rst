@@ -65,6 +65,9 @@ Model Selection and Data Splitting
 
  .. autofunction:: cuml.model_selection.train_test_split
 
+ .. autoclass:: cuml.model_selection.KFold
+    :members:
+
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
@@ -456,6 +459,8 @@ UMAP
 .. autofunction:: cuml.manifold.umap.fuzzy_simplicial_set
 
 .. autofunction:: cuml.manifold.umap.simplicial_set_embedding
+
+.. autofunction:: cuml.manifold.umap.find_ab_params
 
 
 Random Projections

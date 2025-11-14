@@ -14,7 +14,7 @@ To run cuML code, you will need an NVIDIA GPU with the following minimum compute
 Note that while a GPU is not required to build or develop cuML itself, it is necessary to execute and test GPU-accelerated functionality.
 
 **Software Dependencies:**
-1. CUDA Toolkit (>= 12.0) - must include development libraries (cudart, cublas, cusparse, cusolver, curand, cufft)
+1. CUDA Toolkit (>= 12.2) - must include development libraries (cudart, cublas, cusparse, cusolver, curand, cufft)
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
 4. ninja - build system used by default
@@ -64,7 +64,7 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.13
-conda env update -n cuml_dev --file=conda/environments/all_cuda-130_arch-x86_64.yaml
+conda env update -n cuml_dev --file=conda/environments/all_cuda-130_arch-$(uname -m).yaml
 conda activate cuml_dev
 ```
 

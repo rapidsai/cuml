@@ -6,15 +6,15 @@ import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import check_classification_targets
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import ClassifierMixin
 from cuml.metrics import accuracy_score
-from cuml.prims.label.classlabels import invert_labels, make_monotonic
 
 
 class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
@@ -117,6 +117,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    oob_score : bool (default = False)
+        Whether to use out-of-bag samples to estimate the generalization
+        accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
+        provides a way to evaluate the model without requiring a separate
+        validation set. The OOB score is computed using accuracy.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -134,6 +139,22 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    oob_score_ : float
+        Score of the training dataset obtained using an out-of-bag estimate.
+        This attribute exists only when ``oob_score`` is True.
+
+    oob_decision_function_ : ndarray of shape (n_samples, n_classes)
+        Decision function computed with out-of-bag estimate on the training
+        set. If n_estimators is small it might be possible that a data point
+        was never left out during the bootstrap. In this case,
+        ``oob_decision_function_`` might contain NaN. This attribute exists
+        only when ``oob_score`` is True.
+
+    feature_importances_ : ndarray of shape (n_features,)
+        The impurity-based feature importances.
+
     Notes
     -----
     While training the model for multi class classification problems, using
@@ -141,9 +162,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
+
+    When converting to sklearn using `as_sklearn()`, the `feature_importances_` attribute will return
+    NaN values. If you need feature importances, save them before conversion:
+    `importances = cuml_model.feature_importances_`
     """
 
     classes_ = CumlArrayDescriptor()
+
+    oob_decision_function_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
@@ -210,17 +237,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             check_dtype=[np.float32, np.float64],
             order="F",
         ).array
-        y_m = input_to_cuml_array(
-            y,
-            convert_to_dtype=(np.int32 if convert_dtype else None),
-            check_dtype=np.int32,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
-        self.classes_ = cp.unique(y_m)
+        y = input_to_cupy_array(y, check_rows=X_m.shape[0], check_cols=1).array
+        check_classification_targets(y)
+
+        classes, y = cp.unique(y, return_inverse=True)
+        self.classes_ = CumlArray(data=classes)
         self.n_classes_ = len(self.classes_)
-        if not (self.classes_ == cp.arange(self.n_classes_)).all():
-            y_m, _ = make_monotonic(y_m)
+        y_m = CumlArray(data=y.astype(cp.int32, copy=False))
 
         return self._fit_forest(X_m, y_m)
 
@@ -275,11 +298,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         preds = fil.predict(X, threshold=threshold)
 
-        if not (self.classes_ == cp.arange(self.n_classes_)).all():
-            preds = preds.to_output("cupy").astype(
-                self.classes_.dtype, copy=False
+        if not (
+            self.classes_.dtype.kind == "i"
+            and (self.classes_ == cp.arange(self.n_classes_)).all()
+        ):
+            preds = CumlArray(
+                self.classes_.to_output("cupy").take(preds.to_output("cupy"))
             )
-            preds = CumlArray(invert_labels(preds, self.classes_))
         return preds
 
     @insert_into_docstring(
