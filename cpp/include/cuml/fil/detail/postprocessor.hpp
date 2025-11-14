@@ -35,14 +35,14 @@ HOST DEVICE inline auto constexpr ops_to_val(row_op row_wise, element_op elem_wi
  *
  * @param val Pointer to the raw forest output
  * @param output_count The number of output values per row
+ * @param bias Pointer to bias vector, which is added to the output
+ * as part of the postprocessing step
  * @param out Pointer to the output buffer
  * @param stride Number of elements between the first element that must be
  * summed for a particular output element and the next. This is typically
  * equal to the number of "groves" of trees over which the computation
  * was divided.
  * @param average_factor The factor by which to divide during the
- * normalization step of postprocessing
- * @param bias The bias factor to subtract off during the
  * normalization step of postprocessing
  * @param constant If the postprocessing operation requires a constant,
  * it can be passed here.
@@ -65,6 +65,8 @@ HOST DEVICE void postprocess(infer_kind infer_type,
 #pragma GCC diagnostic pop
   for (auto output_index = index_type{}; output_index < output_count; ++output_index) {
     auto workspace_index = output_index * stride;
+    // Add the bias term if use_bias is true.
+    // The following expression is written to avoid branching.
     val[workspace_index] =
       val[workspace_index] / average_factor +
       bias[output_index * static_cast<index_type>(use_bias)] * static_cast<io_t>(use_bias);
