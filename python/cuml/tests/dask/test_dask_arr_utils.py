@@ -29,7 +29,6 @@ from cuml.testing.utils import array_equal
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [10])
 def test_to_sparse_dask_array(input_type, nrows, ncols, client):
-
     from cuml.dask.common import to_sparse_dask_array
 
     c = client

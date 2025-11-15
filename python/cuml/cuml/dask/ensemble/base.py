@@ -37,7 +37,6 @@ class BaseRandomForestModel(object):
         ignore_empty_partitions,
         **kwargs,
     ):
-
         self.client = get_client(client)
         if workers is None:
             # Default to all workers

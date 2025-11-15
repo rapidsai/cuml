@@ -18,7 +18,7 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import array_equal, stress_param
 
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:Method 'fft' is " "experimental::"
+    "ignore:Method 'fft' is experimental::"
 )
 
 DEFAULT_N_NEIGHBORS = 90
@@ -44,7 +44,6 @@ def validate_embedding(X, Y, score=0.74, n_neighbors=DEFAULT_N_NEIGHBORS):
 def test_tsne_knn_graph_used(
     supervised_learning_dataset, type_knn_graph, method
 ):
-
     X = supervised_learning_dataset
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS, metric="euclidean").fit(X)
@@ -104,7 +103,6 @@ def test_tsne_knn_graph_used(
 def test_tsne_knn_parameters(
     supervised_learning_dataset, type_knn_graph, method
 ):
-
     X = supervised_learning_dataset
 
     from sklearn.preprocessing import normalize
@@ -238,7 +236,6 @@ def test_components_exception():
 @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
 def test_tsne_fit_transform_on_digits_sparse(input_type, method):
-
     digits = tsne_datasets["digits"].data
 
     if input_type == "cupy":
@@ -273,7 +270,6 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
-
     digits = tsne_datasets["digits"].data
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS, metric="euclidean").fit(
@@ -339,7 +335,6 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     ],
 )
 def test_tsne_distance_metrics(metric):
-
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
     )
@@ -380,7 +375,6 @@ def test_tsne_distance_metrics(metric):
     "metric", ["l2", "euclidean", "cityblock", "l1", "manhattan", "cosine"]
 )
 def test_tsne_distance_metrics_on_sparse_input(method, metric):
-
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
     )

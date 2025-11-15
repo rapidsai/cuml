@@ -292,7 +292,6 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
-
         ravel = False
         if len(y.shape) == 1:
             y = y.reshape(-1, 1)

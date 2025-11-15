@@ -135,9 +135,9 @@ def load_ipython_extension(ip):
 
             # Temporarily inject ``profiler.start`` into the user's namespace
             # so it may be called during execution.
-            self.shell.user_ns[
-                "__start_cuml_accel_line_profiler__"
-            ] = profiler.start
+            self.shell.user_ns["__start_cuml_accel_line_profiler__"] = (
+                profiler.start
+            )
             try:
                 return run_cell_with_profiler(
                     cell, self.shell.user_ns, profiler

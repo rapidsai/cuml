@@ -8,7 +8,6 @@ from cuml.dask.solvers import CD
 
 
 class Lasso(BaseEstimator):
-
     """
     Lasso extends LinearRegression by providing L1 regularization on the
     coefficients when predicting response y with a linear combination of the

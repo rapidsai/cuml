@@ -15,7 +15,6 @@ show_plots = False
 def get_shap_values(
     explainer, dataset, train_or_test="test", api_type="raw_shap_values"
 ):
-
     X_test, X_train, _, _ = dataset
     if train_or_test == "test":
         explained_dataset = X_test

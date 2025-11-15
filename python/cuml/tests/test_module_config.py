@@ -33,7 +33,6 @@ test_output_types = {
 
 @pytest.fixture(scope="function", params=global_input_configs)
 def global_output_type(request):
-
     output_type = request.param
 
     yield output_type
