@@ -84,7 +84,6 @@ del cupy, rmm_cupy_allocator
 
 
 def __getattr__(name):
-
     if name == "global_settings":
         try:
             return _global_settings_data.settings

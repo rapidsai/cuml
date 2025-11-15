@@ -41,7 +41,6 @@ test_shapes = [10, (10, 1), (10, 5), (1, 10)]
 
 
 class DummyTestEstimator(cuml.Base):
-
     input_any_ = CumlArrayDescriptor()
 
     def _set_input(self, X):
@@ -61,20 +60,16 @@ class DummyTestEstimator(cuml.Base):
         return self
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
-
         return X
 
     def transform(self, X, convert_dtype=False) -> CumlArray:
-
         pass
 
     def fit_transform(self, X, y=None) -> CumlArray:
-
         return self.fit(X).transform(X)
 
 
 def assert_array_identical(a, b):
-
     cupy_a = input_to_cuml_array(a, order="K").array
     cupy_b = input_to_cuml_array(b, order="K").array
 
@@ -96,7 +91,6 @@ def create_input(input_type, input_dtype, input_shape, input_order):
 
 
 def create_output(X_in, output_type):
-
     cuml_ary_tuple = input_to_cuml_array(X_in, order="K")
 
     return cuml_ary_tuple.array.to_output(output_type)
@@ -104,7 +98,6 @@ def create_output(X_in, output_type):
 
 @pytest.mark.parametrize("input_type", test_input_types)
 def test_pickle(input_type):
-
     if input_type == "numba":
         pytest.skip("numba arrays cant be picked at this time")
 
@@ -150,7 +143,6 @@ def test_pickle(input_type):
 @pytest.mark.parametrize("input_shape", [10, (10, 5)])
 @pytest.mark.parametrize("output_type", test_output_types_str)
 def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
-
     if input_type == "cudf" or output_type == "cudf":
         if input_dtype in unsupported_cudf_dtypes:
             pytest.skip("Unsupported cudf combination")
@@ -175,7 +167,6 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
 
     # Switch output type and check type and equality
     with cuml.using_output_type(output_type):
-
         assert determine_array_type(est.input_any_) == output_type
 
         assert_array_identical(est.input_any_, X_out)
@@ -191,7 +182,6 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
     assert_array_identical(est.input_any_, X_out)
 
     with cuml.using_output_type("input"):
-
         assert determine_array_type(est.input_any_) == input_type
 
         assert_array_identical(est.input_any_, X_in)
@@ -213,7 +203,6 @@ def test_auto_fit(input_type, input_dtype, input_shape):
 
     def calc_n_features(shape):
         if isinstance(shape, tuple) and len(shape) >= 1:
-
             # When cudf and shape[1] is used, a series is created which will
             # remove the last shape
             if input_type == "cudf" and shape[1] == 1:
@@ -305,7 +294,6 @@ def test_return_array(
     Y_in = create_input(input_type_Y, input_dtype_Y, (10, 10), "F")
 
     def test_func(X, y):
-
         if not get_output_type:
             cuml.internals.set_api_output_type(inner_type)
 

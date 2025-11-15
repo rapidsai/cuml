@@ -22,7 +22,6 @@ sys.path.insert(0, ".")
 def test_logistic_regression(
     strategy, use_wrapper, nrows, num_classes, column_info, dtype=np.float32
 ):
-
     ncols, n_info = column_info
 
     X_train, X_test, y_train, y_test = make_classification_dataset(

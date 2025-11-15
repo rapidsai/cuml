@@ -1058,7 +1058,7 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
             <h1>UMAP Quality Assessment Results</h1>
             <div class="subtitle">
                 Comprehensive analysis of UMAP embeddings across synthetic and classic datasets<br>
-                                 Generated on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                                 Generated on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             </div>
         </div>
 
@@ -1133,13 +1133,13 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
                             <tr>
                                 <td><strong>{name} ({impl_name})</strong></td>
                                 <td>{X.shape}</td>
-                                <td>{metrics.get('trustworthiness', 0):.4f}</td>
-                                <td>{metrics.get('continuity', 0):.4f}</td>
-                                <td>{metrics.get('geodesic_spearman_correlation', 0):.4f}</td>
-                                <td>{metrics.get('geodesic_pearson_correlation', 0):.4f}</td>
-                                <td>{metrics.get('demap', 0):.4f}</td>
-                                <td>{metrics.get('fuzzy_kl_divergence', 0):.4f}</td>
-                                <td>{metrics.get('fuzzy_sym_kl_divergence', 0):.4f}</td>
+                                <td>{metrics.get("trustworthiness", 0):.4f}</td>
+                                <td>{metrics.get("continuity", 0):.4f}</td>
+                                <td>{metrics.get("geodesic_spearman_correlation", 0):.4f}</td>
+                                <td>{metrics.get("geodesic_pearson_correlation", 0):.4f}</td>
+                                <td>{metrics.get("demap", 0):.4f}</td>
+                                <td>{metrics.get("fuzzy_kl_divergence", 0):.4f}</td>
+                                <td>{metrics.get("fuzzy_sym_kl_divergence", 0):.4f}</td>
                                 <td>{avg_knn_recall_str}</td>
                                 <td>{mae_knn_dist_str}</td>
                                 <td>{kl_sym_str}</td>
@@ -1187,13 +1187,13 @@ def generate_web_report(datasets, embeddings, all_metrics, spectral_inits):
                         <tr>
                             <td><strong>{name}</strong></td>
                             <td>{X.shape}</td>
-                            <td>{metrics.get('trustworthiness', 0):.4f}</td>
-                            <td>{metrics.get('continuity', 0):.4f}</td>
-                            <td>{metrics.get('geodesic_spearman_correlation', 0):.4f}</td>
-                            <td>{metrics.get('geodesic_pearson_correlation', 0):.4f}</td>
-                            <td>{metrics.get('demap', 0):.4f}</td>
-                            <td>{metrics.get('fuzzy_kl_divergence', 0):.4f}</td>
-                            <td>{metrics.get('fuzzy_sym_kl_divergence', 0):.4f}</td>
+                            <td>{metrics.get("trustworthiness", 0):.4f}</td>
+                            <td>{metrics.get("continuity", 0):.4f}</td>
+                            <td>{metrics.get("geodesic_spearman_correlation", 0):.4f}</td>
+                            <td>{metrics.get("geodesic_pearson_correlation", 0):.4f}</td>
+                            <td>{metrics.get("demap", 0):.4f}</td>
+                            <td>{metrics.get("fuzzy_kl_divergence", 0):.4f}</td>
+                            <td>{metrics.get("fuzzy_sym_kl_divergence", 0):.4f}</td>
                             <td>{avg_knn_recall_str}</td>
                             <td>{mae_knn_dist_str}</td>
                             <td>{kl_sym_str}</td>

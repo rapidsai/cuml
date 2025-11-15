@@ -94,7 +94,6 @@ def _determine_memory_order(shape, strides, dtype, default="C"):
 
 
 class CumlArray:
-
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself or can be instantiated by ``__cuda_array_interface__`` or
@@ -237,7 +236,6 @@ class CumlArray:
                 if isinstance(data, int):
                     self._owner = owner
                 else:
-
                     if self._mem_type is None:
                         cur_xpy = GlobalSettings().xpy
                     else:
@@ -747,9 +745,9 @@ class CumlArray:
 
     @classmethod
     def deserialize(cls, header: dict, frames: list):
-        assert (
-            header["frame_count"] == 1
-        ), "Only expecting to deserialize CumlArray with a single frame."
+        assert header["frame_count"] == 1, (
+            "Only expecting to deserialize CumlArray with a single frame."
+        )
         ary = cls(data=frames[0], **header["constructor-kwargs"])
 
         if header["desc"]["shape"] != ary._array_interface["shape"]:
@@ -1206,14 +1204,13 @@ class CumlArray:
         if check_cols:
             if n_cols != check_cols:
                 raise ValueError(
-                    f"Expected {check_cols} columns but got {n_cols}"
-                    " columns."
+                    f"Expected {check_cols} columns but got {n_cols} columns."
                 )
 
         if check_rows:
             if n_rows != check_rows:
                 raise ValueError(
-                    f"Expected {check_rows} rows but got {n_rows}" " rows."
+                    f"Expected {check_rows} rows but got {n_rows} rows."
                 )
         return arr
 

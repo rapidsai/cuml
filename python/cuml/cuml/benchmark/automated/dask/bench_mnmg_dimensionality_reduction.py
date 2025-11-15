@@ -74,7 +74,10 @@ def bench_mnmg_dbscan(gpubenchmark, bench_step, blobs2, client):  # noqa: F811
 
 
 def bench_mnmg_nearest_neighbors(
-    gpubenchmark, bench_step, blobs2, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    blobs2,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,
@@ -89,7 +92,11 @@ def bench_mnmg_nearest_neighbors(
     "algo_name", ["MNMG.UMAP-Unsupervised", "MNMG.UMAP-Supervised"]
 )
 def bench_mnmg_umap(
-    gpubenchmark, algo_name, bench_step, blobs2, client  # noqa: F811
+    gpubenchmark,
+    algo_name,
+    bench_step,
+    blobs2,
+    client,  # noqa: F811
 ):
     _benchmark_algo(gpubenchmark, algo_name, bench_step, blobs2, client=client)
 

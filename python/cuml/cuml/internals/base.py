@@ -475,7 +475,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
-
     if output_str is None:
         return "input"
 

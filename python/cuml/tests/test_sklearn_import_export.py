@@ -71,9 +71,9 @@ def assert_roundtrip_consistency(original, roundtrip, exclude=()):
                 differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
         return differences
 
-    assert (
-        original_params == roundtrip_params
-    ), f"Differences found: {dict_diff(original_params, roundtrip_params)}"
+    assert original_params == roundtrip_params, (
+        f"Differences found: {dict_diff(original_params, roundtrip_params)}"
+    )
 
     # Next check attributes are consistent. We don't check for equality
     # since that might change. We do check for consistency in attribute

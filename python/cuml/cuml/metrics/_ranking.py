@@ -89,7 +89,7 @@ def precision_recall_curve(
 
     if cp.any(y_true) == 0:
         raise ValueError(
-            "precision_recall_curve cannot be used when " "y_true is all zero."
+            "precision_recall_curve cannot be used when y_true is all zero."
         )
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
@@ -155,9 +155,8 @@ def roc_auc_score(y_true, y_score):
 
 
 def _binary_clf_curve(y_true, y_score):
-
     if y_true.dtype.kind == "f" and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  " "is not supported.")
+        raise ValueError("Continuous format of y_true  is not supported.")
 
     ids = cp.argsort(-y_score)
     sorted_score = y_score[ids]

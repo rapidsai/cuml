@@ -61,7 +61,6 @@ def label_binarize(
             sp = sp.getcol(1)  # getcol does not support -1 indexing
         return sp
     else:
-
         arr = sp.toarray().astype(y.dtype)
         arr[arr == 0] = neg_label
         if is_binary:
@@ -70,7 +69,6 @@ def label_binarize(
 
 
 class LabelBinarizer(Base):
-
     """
     A multi-class dummy encoder for labels.
 
@@ -190,7 +188,6 @@ class LabelBinarizer(Base):
             raise ValueError("labels cannot be greater than 2 dimensions")
 
         if y.ndim == 2:
-
             unique_classes = cp.unique(y)
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
