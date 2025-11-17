@@ -218,9 +218,16 @@ class RandomForestClassifier(
             is trained on its partition
 
         """
-        self.unique_classes = cp.asarray(
-            y.unique().compute().sort_values(ignore_index=True)
-        )
+        # Handle both Dask Arrays and Dask Series/DataFrames
+        if isinstance(y, dask.array.Array):
+            # For Dask Arrays, use dask.array.unique
+            unique_vals = dask.array.unique(y).compute()
+            self.unique_classes = cp.sort(cp.asarray(unique_vals))
+        else:
+            # For Dask Series/DataFrames, use .unique() method
+            self.unique_classes = cp.asarray(
+                y.unique().compute().sort_values(ignore_index=True)
+            )
         self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
         self._fit(
