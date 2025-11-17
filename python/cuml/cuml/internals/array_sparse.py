@@ -4,12 +4,12 @@
 #
 from collections import namedtuple
 
+import cupy as cp
 import cupyx.scipy.sparse as cpx_sparse
 import scipy.sparse as scipy_sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 
@@ -72,7 +72,7 @@ class SparseCumlArray:
         self,
         data=None,
         convert_to_dtype=False,
-        convert_to_mem_type=None,
+        convert_to_mem_type="device",
         convert_index=None,
         convert_format=True,
         check_rows=None,
@@ -111,18 +111,14 @@ class SparseCumlArray:
         if not convert_to_dtype:
             convert_to_dtype = data.dtype
 
-        if convert_to_mem_type:
-            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
-        else:
-            convert_to_mem_type = GlobalSettings().memory_type
-
+        convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
         if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
 
         self._mem_type = convert_to_mem_type
 
         if convert_index is None:
-            convert_index = GlobalSettings().xpy.int32
+            convert_index = cp.int32
         if not convert_index:
             convert_index = data.indptr.dtype
 
@@ -171,7 +167,7 @@ class SparseCumlArray:
         output_type="cupy",
         output_format=None,
         output_dtype=None,
-        output_mem_type=None,
+        output_mem_type="device",
     ):
         """
         Convert array to output format
@@ -195,24 +191,14 @@ class SparseCumlArray:
         output_mem_type : {'host, 'device'}, optional
             Optionally convert array to given memory type. If `output_type`
             already indicates a specific memory type, `output_type` takes
-            precedence. If the memory type is not otherwise indicated, the data
-            are kept on their current device.
+            precedence.
         """
-        if output_mem_type is None:
-            output_mem_type = GlobalSettings().memory_type
-        else:
-            output_mem_type = MemoryType.from_str(output_mem_type)
+        output_mem_type = MemoryType.from_str(output_mem_type)
         # Treat numpy and scipy as the same
         if output_type in ("numpy", "scipy"):
-            if GlobalSettings().memory_type.is_host_accessible:
-                output_mem_type = GlobalSettings().memory_type
-            else:
-                output_mem_type = MemoryType.host
+            output_mem_type = MemoryType.host
         elif output_type == "cupy":
-            if GlobalSettings().memory_type.is_device_accessible:
-                output_mem_type = GlobalSettings().memory_type
-            else:
-                output_mem_type = MemoryType.device
+            output_mem_type = MemoryType.device
         elif output_mem_type is MemoryType.mirror:
             output_mem_type = self.mem_type
 
