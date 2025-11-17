@@ -21,7 +21,7 @@ class LinearRegression(
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
-    cuML's dask Linear Regression (multi-node multi-gpu) expects dask cuDF
+    cuML's Dask Linear Regression (multi-node multi-GPU) expects Dask cuDF
     DataFrame and provides an eigendecomposition-based algorithm (Eig) to fit
     a linear model. The Eig algorithm is usually preferred when X is a tall
     and skinny matrix. As the number of features in X increases, the accuracy
@@ -30,7 +30,7 @@ class LinearRegression(
     Parameters
     ----------
     algorithm : 'eig'
-        Eig uses a eigendecomposition of the covariance matrix, and is much
+        Eig uses an eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
@@ -61,9 +61,9 @@ class LinearRegression(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
         check_deprecated_normalize(self)
@@ -82,7 +82,7 @@ class LinearRegression(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
@@ -92,7 +92,7 @@ class LinearRegression(
 
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
         """
         return self._predict(X, delayed=delayed)
 

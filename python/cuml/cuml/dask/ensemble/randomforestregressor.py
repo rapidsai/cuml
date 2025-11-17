@@ -35,7 +35,7 @@ class RandomForestRegressor(
     single-GPU fitting.
 
     Please check the single-GPU implementation of Random Forest
-    classifier for more information about the underlying algorithm.
+    regressor for more information about the underlying algorithm.
 
     Parameters
     ----------
@@ -175,10 +175,10 @@ class RandomForestRegressor(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)

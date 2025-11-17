@@ -21,7 +21,7 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's dask Ridge (multi-node multi-gpu) expects dask cuDF DataFrame and
+    cuML's Dask Ridge (multi-node multi-GPU) expects Dask cuDF DataFrame and
     provides an eigendecomposition-based algorithm (Eig) to fit a linear model.
     The Eig algorithm is usually preferred when X is a tall and skinny matrix.
     As the number of features in X increases, the accuracy of the Eig algorithm
@@ -33,8 +33,7 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization.
     solver : {'eig'}
-        Eig uses an eigendecomposition of the covariance matrix, and is much
-        faster.
+        Eig uses an eigendecomposition of the covariance matrix.
     fit_intercept : boolean (default = True)
         If True, Ridge adds an additional term c to correct for the global
         mean of y, modeling the response as "x * beta + c".
@@ -69,9 +68,9 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
         check_deprecated_normalize(self)
@@ -88,7 +87,7 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
@@ -98,7 +97,7 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
         """
         return self._predict(X, delayed=delayed)
 
