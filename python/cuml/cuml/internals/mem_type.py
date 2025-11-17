@@ -21,8 +21,6 @@ class MemoryTypeError(Exception):
 class MemoryType(Enum):
     device = auto()
     host = auto()
-    managed = auto()
-    mirror = auto()
 
     @classmethod
     def from_str(cls, memory_type):
@@ -35,8 +33,7 @@ class MemoryType(Enum):
             return cls[memory_type]
         except KeyError:
             raise ValueError(
-                'Parameter memory_type must be one of "device", '
-                '"host", "managed" or "mirror"'
+                "Parameter memory_type must be one of 'device', or 'host'"
             )
 
     @property
@@ -62,8 +59,8 @@ class MemoryType(Enum):
 
     @property
     def is_device_accessible(self):
-        return self in (MemoryType.device, MemoryType.managed)
+        return self is MemoryType.device
 
     @property
     def is_host_accessible(self):
-        return self in (MemoryType.host, MemoryType.managed)
+        return self is MemoryType.host
