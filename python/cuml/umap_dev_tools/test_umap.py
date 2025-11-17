@@ -292,97 +292,84 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
 def test_spectral_init(cu_fuzzy_fixture):
     """Test cuML SpectralEmbedding against reference UMAP spectral_layout."""
     d = cu_fuzzy_fixture
-    dataset_name = d["dataset_name"]
-    X_np = d["X_np"]
-    n_neighbors = d["k"]
-    cu_graph_cpu = d["cu_graph_cpu"]
-    n_components = 2
-    random_state = 42
+    n_components, random_state = 2, 42
 
-    # Reference UMAP spectral layout
-    ref_spectral_emb = spectral_layout(
+    # Run reference UMAP spectral layout
+    ref_emb = spectral_layout(
         data=None,
-        graph=cu_graph_cpu,
+        graph=d["cu_graph_cpu"],
         dim=n_components,
         random_state=np.random.RandomState(random_state),
     )
     ref_emb = (
-        cp.asnumpy(ref_spectral_emb)
-        if isinstance(ref_spectral_emb, cp.ndarray)
-        else np.asarray(ref_spectral_emb, dtype=np.float32)
+        cp.asnumpy(ref_emb)
+        if isinstance(ref_emb, cp.ndarray)
+        else np.asarray(ref_emb, dtype=np.float32)
     )
 
-    # cuML SpectralEmbedding
-    se = SpectralEmbedding(
+    # Run cuML SpectralEmbedding
+    cu_emb = SpectralEmbedding(
         affinity="precomputed",
         n_components=n_components,
-        n_neighbors=n_neighbors,
+        n_neighbors=d["k"],
         random_state=random_state,
-    )
-    cu_spectral_emb = se.fit_transform(cu_graph_cpu)
+    ).fit_transform(d["cu_graph_cpu"])
     cu_emb = (
-        cp.asnumpy(cu_spectral_emb)
-        if isinstance(cu_spectral_emb, cp.ndarray)
-        else np.asarray(cu_spectral_emb, dtype=np.float32)
+        cp.asnumpy(cu_emb)
+        if isinstance(cu_emb, cp.ndarray)
+        else np.asarray(cu_emb, dtype=np.float32)
     )
 
-    # Compare spectral embeddings
-    result = compare_spectral_embeddings(
-        ref_embedding=ref_emb,
-        cu_embedding=cu_emb,
-        n_components=n_components,
-    )
-
-    # Extract and validate results
-    rmse = result["rmse"]
-    correlations = result["correlations"]
-
-    expected_shape = (X_np.shape[0], 2)
-    assert ref_emb.shape == expected_shape
-    assert cu_emb.shape == expected_shape
-    assert len(correlations) == 2
-    assert all(np.isfinite(c) for c in correlations)
-    assert np.isfinite(rmse)
-
-    # Set tolerances (moderate due to implementation differences)
-    severe_rmse_tol = 0.50
-    moderate_rmse_tol = 0.30
-    severe_corr_tol = 0.50
-    moderate_corr_tol = 0.70
-
-    # Collect issues
-    severe_issues = []
-    moderate_issues = []
-
-    # Check RMSE
-    if rmse > severe_rmse_tol:
-        severe_issues.append(f"RMSE {rmse:.3f} > {severe_rmse_tol:.3f}")
-    elif rmse > moderate_rmse_tol:
-        moderate_issues.append(f"RMSE {rmse:.3f} > {moderate_rmse_tol:.3f}")
-
-    # Check correlations
-    for i, corr in enumerate(correlations):
-        corr_abs = abs(corr)
-        if corr_abs < severe_corr_tol:
-            severe_issues.append(
-                f"Component {i} correlation {corr_abs:.3f} < {severe_corr_tol:.3f}"
-            )
-        elif corr_abs < moderate_corr_tol:
-            moderate_issues.append(
-                f"Component {i} correlation {corr_abs:.3f} < {moderate_corr_tol:.3f}"
-            )
-
-    # Fail if any severe issues or too many moderate issues
-    should_fail = len(severe_issues) > 0 or len(moderate_issues) >= 3
-
-    if should_fail:
-        corr_str = ", ".join(f"{abs(c):.3f}" for c in correlations)
-        details = (
-            f"Spectral embedding comparison failed for {dataset_name} (k={n_neighbors}): "
-            f"RMSE={rmse:.3f}, correlations=[{corr_str}] | "
-            f"Severe issues: {severe_issues} | Moderate issues: {moderate_issues}"
+    # Validate embeddings (shape, NaN/inf, variance, value range)
+    expected_shape = (d["X_np"].shape[0], n_components)
+    for name, emb in [("Reference", ref_emb), ("cuML", cu_emb)]:
+        assert emb.shape == expected_shape, (
+            f"{name} shape {emb.shape} != {expected_shape}"
         )
-        assert False, details
+        assert not np.isnan(emb).any(), f"{name} contains NaN"
+        assert not np.isinf(emb).any(), f"{name} contains infinite values"
+        assert np.std(emb, axis=0).min() > 0.001, (
+            f"{name} has insufficient variance"
+        )
+        abs_max = np.abs(emb).max()
+        assert 0.001 < abs_max < 100.0, (
+            f"{name} values out of range: {abs_max:.3e}"
+        )
+
+    # Compare embeddings
+    result = compare_spectral_embeddings(ref_emb, cu_emb, n_components)
+    rmse, correlations = result["rmse"], result["correlations"]
+    assert len(correlations) == n_components and all(
+        np.isfinite(c) for c in correlations
+    )
+    assert 0 <= rmse < float("inf"), f"Invalid RMSE: {rmse}"
+
+    # Check quality thresholds
+    avg_corr = np.mean([abs(c) for c in correlations])
+    issues = {"severe": [], "moderate": []}
+
+    if rmse > 0.15:
+        issues["severe"].append(f"RMSE={rmse:.3f}")
+    elif rmse > 0.08:
+        issues["moderate"].append(f"RMSE={rmse:.3f}")
+
+    for i, c in enumerate(correlations):
+        if abs(c) < 0.80:
+            issues["severe"].append(f"corr[{i}]={abs(c):.3f}")
+        elif abs(c) < 0.90:
+            issues["moderate"].append(f"corr[{i}]={abs(c):.3f}")
+
+    if avg_corr < 0.85:
+        issues["severe"].append(f"avg_corr={avg_corr:.3f}")
+    elif avg_corr < 0.92:
+        issues["moderate"].append(f"avg_corr={avg_corr:.3f}")
+
+    if issues["severe"] or len(issues["moderate"]) > 1:
+        corr_str = ", ".join(f"{abs(c):.3f}" for c in correlations)
+        assert False, (
+            f"Spectral init failed for {d['dataset_name']} (k={d['k']}): "
+            f"RMSE={rmse:.3f}, avg_corr={avg_corr:.3f}, corr=[{corr_str}] | {issues}"
+        )
 
 
 # Curated parameter sets spanning key UMAP embedding knobs (kept small for CI)

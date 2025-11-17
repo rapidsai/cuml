@@ -122,62 +122,82 @@ def compare_spectral_embeddings(ref_embedding, cu_embedding, n_components=2):
     -------
     dict with keys: rmse, correlations, stats
     """
-    # Ensure numpy arrays
-    ref_init_np = np.asarray(ref_embedding, dtype=np.float32)
-    cu_init_np = np.asarray(cu_embedding, dtype=np.float32)
+    ref_np = np.asarray(ref_embedding, dtype=np.float32)
+    cu_np = np.asarray(cu_embedding, dtype=np.float32)
 
-    # Validate shapes
-    if ref_init_np.shape != cu_init_np.shape:
+    # Validate inputs
+    if ref_np.shape != cu_np.shape or ref_np.shape[1] != n_components:
         raise ValueError(
-            f"Embedding shapes don't match: ref={ref_init_np.shape}, cu={cu_init_np.shape}"
-        )
-    if ref_init_np.shape[1] != n_components:
-        raise ValueError(
-            f"Expected {n_components} components, got {ref_init_np.shape[1]}"
+            f"Shape mismatch: ref={ref_np.shape}, cu={cu_np.shape}, expected n_comp={n_components}"
         )
 
-    # Center and normalize
-    def center_and_normalize(arr):
+    for name, arr in [("Reference", ref_np), ("cuML", cu_np)]:
+        if (nan_cnt := np.isnan(arr).sum()) > 0:
+            raise ValueError(f"{name} contains {nan_cnt} NaN values")
+        if (inf_cnt := np.isinf(arr).sum()) > 0:
+            raise ValueError(f"{name} contains {inf_cnt} infinite values")
+
+    # Center and normalize with validation
+    def normalize(arr, label):
         centered = arr - arr.mean(axis=0, keepdims=True)
         std = np.std(centered, axis=0, keepdims=True)
-        std = np.where(std > 1e-8, std, 1.0)
-        return centered / std
+        if np.any(std < 1e-4):
+            raise ValueError(
+                f"{label} has low variance dims: {np.where(std < 1e-4)[0].tolist()}"
+            )
+        normalized = centered / std
+        if not np.all(np.isfinite(normalized)):
+            raise ValueError(
+                f"{label} normalization produced non-finite values"
+            )
+        return normalized
 
-    ref_norm = center_and_normalize(ref_init_np)
-    cu_norm = center_and_normalize(cu_init_np)
+    ref_norm = normalize(ref_np, "Reference")
+    cu_norm = normalize(cu_np, "cuML")
 
-    # Compute metrics
+    # Compute RMSE
     rmse = procrustes_rmse(ref_norm, cu_norm)
+    if not (0 <= rmse < float("inf")):
+        raise ValueError(f"Invalid RMSE: {rmse}")
 
+    # Compute correlations
     correlations = []
     for dim in range(n_components):
-        ref_col, cu_col = ref_norm[:, dim], cu_norm[:, dim]
-        if np.std(ref_col) < 1e-10 or np.std(cu_col) < 1e-10:
-            corr = 0.0
-        else:
-            corr = np.corrcoef(ref_col, cu_col)[0, 1]
-            if not np.isfinite(corr):
-                corr = 0.0
+        if np.std(ref_norm[:, dim]) < 1e-6 or np.std(cu_norm[:, dim]) < 1e-6:
+            raise ValueError(
+                f"Component {dim} has insufficient post-norm variance"
+            )
+        corr = np.corrcoef(ref_norm[:, dim], cu_norm[:, dim])[0, 1]
+        if not np.isfinite(corr):
+            raise ValueError(
+                f"Component {dim} correlation is non-finite: {corr}"
+            )
         correlations.append(corr)
 
     # Compute statistics
-    ref_stats = {
-        "mean": np.mean(ref_norm, axis=0).tolist(),
-        "std": np.std(ref_norm, axis=0).tolist(),
-        "min": np.min(ref_norm, axis=0).tolist(),
-        "max": np.max(ref_norm, axis=0).tolist(),
-    }
-    cu_stats = {
-        "mean": np.mean(cu_norm, axis=0).tolist(),
-        "std": np.std(cu_norm, axis=0).tolist(),
-        "min": np.min(cu_norm, axis=0).tolist(),
-        "max": np.max(cu_norm, axis=0).tolist(),
-    }
+    def get_stats(arr):
+        return {
+            "mean": np.mean(arr, axis=0).tolist(),
+            "std": np.std(arr, axis=0).tolist(),
+            "min": np.min(arr, axis=0).tolist(),
+            "max": np.max(arr, axis=0).tolist(),
+        }
 
     return {
         "rmse": rmse,
         "correlations": correlations,
-        "stats": {"ref": ref_stats, "cu": cu_stats},
+        "stats": {
+            "ref": get_stats(ref_norm),
+            "cu": get_stats(cu_norm),
+            "ref_raw": {
+                **get_stats(ref_np),
+                "abs_max": float(np.abs(ref_np).max()),
+            },
+            "cu_raw": {
+                **get_stats(cu_np),
+                "abs_max": float(np.abs(cu_np).max()),
+            },
+        },
     }
 
 
