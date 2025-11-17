@@ -22,19 +22,15 @@ class RandomForestClassifier(
     BaseEstimator,
 ):
     """
-    Experimental API implementing a multi-GPU Random Forest classifier
-    model which fits multiple decision tree classifiers in an
-    ensemble. This uses Dask to partition data over multiple GPUs
-    (possibly on different nodes).
+    Multi-GPU Random Forest classifier model which fits multiple decision tree
+    classifiers in an ensemble. This uses Dask to partition data over multiple
+    GPUs (possibly on different nodes).
 
-    Currently, this API makes the following assumptions:
+    This implementation makes the following assumptions:
      * The set of Dask workers used between instantiation, fit, \
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-
-    Future versions of the API will support more flexible data
-    distribution and additional input types.
 
     The distributed algorithm uses an *embarrassingly-parallel*
     approach. For a forest with `N` trees being built on `w` workers, each
@@ -130,8 +126,6 @@ class RandomForestClassifier(
         while splitting. When True, it returns the results from workers
         with data (the number of trained estimators will be less than
         n_estimators) When False, throws a RuntimeError.
-        This is an experimental parameter, and may be removed
-        in the future.
 
     Examples
     --------

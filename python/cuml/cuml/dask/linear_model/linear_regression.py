@@ -22,16 +22,10 @@ class LinearRegression(
     modelled by a linear combination of the predictors in X.
 
     cuML's dask Linear Regression (multi-node multi-gpu) expects dask cuDF
-    DataFrame and provides an algorithms, Eig, to fit a linear model.
-    And provides an eigendecomposition-based algorithm to fit a linear model.
-    (SVD, which is more stable than eig, will be added in an upcoming version.)
-    Eig algorithm is usually preferred when the X is a tall and skinny matrix.
-    As the number of features in X increases, the accuracy of Eig algorithm
-    drops.
-
-    This is an experimental implementation of dask Linear Regression. It
-    supports input X that has more than one column. Single column input
-    X will be supported after SVD algorithm is added in an upcoming version.
+    DataFrame and provides an eigendecomposition-based algorithm (Eig) to fit
+    a linear model. The Eig algorithm is usually preferred when X is a tall
+    and skinny matrix. As the number of features in X increases, the accuracy
+    of the Eig algorithm may decrease.
 
     Parameters
     ----------
