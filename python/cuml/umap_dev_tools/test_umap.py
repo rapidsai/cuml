@@ -16,10 +16,12 @@ from scipy.sparse import csr_matrix
 from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
+from umap.umap_ import spectral_layout
 
 import cuml.datasets
 
 # cuML implementation
+from cuml.manifold import SpectralEmbedding
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
@@ -294,20 +296,46 @@ def test_spectral_init(cu_fuzzy_fixture):
     X_np = d["X_np"]
     n_neighbors = d["k"]
     cu_graph_cpu = d["cu_graph_cpu"]
+    n_components = 2
+    random_state = 42
+
+    # Reference UMAP spectral layout
+    ref_spectral_emb = spectral_layout(
+        data=None,
+        graph=cu_graph_cpu,
+        dim=n_components,
+        random_state=np.random.RandomState(random_state),
+    )
+    ref_emb = (
+        cp.asnumpy(ref_spectral_emb)
+        if isinstance(ref_spectral_emb, cp.ndarray)
+        else np.asarray(ref_spectral_emb, dtype=np.float32)
+    )
+
+    # cuML SpectralEmbedding
+    se = SpectralEmbedding(
+        affinity="precomputed",
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+    )
+    cu_spectral_emb = se.fit_transform(cu_graph_cpu)
+    cu_emb = (
+        cp.asnumpy(cu_spectral_emb)
+        if isinstance(cu_spectral_emb, cp.ndarray)
+        else np.asarray(cu_spectral_emb, dtype=np.float32)
+    )
 
     # Compare spectral embeddings
     result = compare_spectral_embeddings(
-        fuzzy_graph_cpu=cu_graph_cpu,
-        n_components=2,
-        n_neighbors=n_neighbors,
-        random_state=42,
+        ref_embedding=ref_emb,
+        cu_embedding=cu_emb,
+        n_components=n_components,
     )
 
     # Extract and validate results
     rmse = result["rmse"]
     correlations = result["correlations"]
-    ref_emb = result["ref_embedding"]
-    cu_emb = result["cu_embedding"]
 
     expected_shape = (X_np.shape[0], 2)
     assert ref_emb.shape == expected_shape

@@ -26,9 +26,6 @@ except ImportError:
 
 # Reference UMAP implementation
 from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
-from umap.umap_ import spectral_layout
-
-from cuml.manifold import SpectralEmbedding
 
 # cuML implementation
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
@@ -109,64 +106,34 @@ def compute_knn_metrics(
     return avg_recall, mae_dist
 
 
-def compare_spectral_embeddings(
-    fuzzy_graph_cpu, n_components=2, n_neighbors=15, random_state=42
-):
+def compare_spectral_embeddings(ref_embedding, cu_embedding, n_components=2):
     """Compare UMAP's spectral_layout with cuML's SpectralEmbedding.
 
     Parameters
     ----------
-    fuzzy_graph_cpu : csr_matrix
-        Precomputed fuzzy simplicial set graph (CPU)
+    ref_embedding : np.ndarray
+        Reference spectral embedding from UMAP's spectral_layout
+    cu_embedding : np.ndarray
+        cuML SpectralEmbedding result
     n_components : int, default=2
         Number of embedding dimensions
-    n_neighbors : int, default=15
-        Number of neighbors (ignored when affinity="precomputed")
-    random_state : int, default=42
-        Random state for reproducibility
 
     Returns
     -------
-    dict with keys: ref_embedding, cu_embedding, rmse, correlations, stats
+    dict with keys: rmse, correlations, stats
     """
-    # Reference UMAP spectral layout
-    ref_spectral_init = spectral_layout(
-        data=None,
-        graph=fuzzy_graph_cpu,
-        dim=n_components,
-        random_state=np.random.RandomState(random_state),
-    )
-
-    # cuML SpectralEmbedding
-    se = SpectralEmbedding(
-        affinity="precomputed",
-        n_components=n_components,
-        n_neighbors=n_neighbors,
-        random_state=random_state,
-    )
-    cu_spectral_init = se.fit_transform(fuzzy_graph_cpu)
-
-    # Convert to numpy arrays
-    ref_init_np = (
-        cp.asnumpy(ref_spectral_init)
-        if isinstance(ref_spectral_init, cp.ndarray)
-        else np.asarray(ref_spectral_init, dtype=np.float32)
-    )
-    cu_init_np = (
-        cp.asnumpy(cu_spectral_init)
-        if isinstance(cu_spectral_init, cp.ndarray)
-        else np.asarray(cu_spectral_init, dtype=np.float32)
-    )
+    # Ensure numpy arrays
+    ref_init_np = np.asarray(ref_embedding, dtype=np.float32)
+    cu_init_np = np.asarray(cu_embedding, dtype=np.float32)
 
     # Validate shapes
-    expected_shape = (fuzzy_graph_cpu.shape[0], n_components)
-    if ref_init_np.shape != expected_shape:
+    if ref_init_np.shape != cu_init_np.shape:
         raise ValueError(
-            f"Reference embedding shape {ref_init_np.shape} != expected {expected_shape}"
+            f"Embedding shapes don't match: ref={ref_init_np.shape}, cu={cu_init_np.shape}"
         )
-    if cu_init_np.shape != expected_shape:
+    if ref_init_np.shape[1] != n_components:
         raise ValueError(
-            f"cuML embedding shape {cu_init_np.shape} != expected {expected_shape}"
+            f"Expected {n_components} components, got {ref_init_np.shape[1]}"
         )
 
     # Center and normalize
@@ -208,8 +175,6 @@ def compare_spectral_embeddings(
     }
 
     return {
-        "ref_embedding": ref_norm,
-        "cu_embedding": cu_norm,
         "rmse": rmse,
         "correlations": correlations,
         "stats": {"ref": ref_stats, "cu": cu_stats},
