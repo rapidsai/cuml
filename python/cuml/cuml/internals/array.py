@@ -17,7 +17,6 @@ from numba.cuda import is_cuda_array as is_numba_array
 
 import cuml.accel
 import cuml.internals.nvtx as nvtx
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.output_utils import cudf_to_pandas
@@ -184,7 +183,7 @@ class CumlArray:
         validate=None,
     ):
         if dtype is not None:
-            dtype = GlobalSettings().xpy.dtype(dtype)
+            dtype = np.dtype(dtype)
 
         self._index = index
         if mem_type is not None:
@@ -223,21 +222,13 @@ class CumlArray:
                             " {}".format(type(data))
                         )
                 if mem_type is None:
-                    if GlobalSettings().memory_type in (
-                        None,
-                        MemoryType.mirror,
-                    ):
-                        raise ValueError(
-                            "Must specify mem_type when data is passed as a"
-                            " {}".format(type(data))
-                        )
-                    self._mem_type = GlobalSettings().memory_type
+                    self._mem_type = MemoryType.device
 
                 if isinstance(data, int):
                     self._owner = owner
                 else:
                     if self._mem_type is None:
-                        cur_xpy = GlobalSettings().xpy
+                        cur_xpy = cp
                     else:
                         cur_xpy = self._mem_type.xpy
                     # Assume integers are pointers. For everything else,
@@ -748,7 +739,7 @@ class CumlArray:
         return header, frames
 
     @classmethod
-    def deserialize(cls, header: dict, frames: list, mem_type=None):
+    def deserialize(cls, header: dict, frames: list, mem_type="device"):
         assert header["frame_count"] == 1, (
             "Only expecting to deserialize CumlArray with a single frame."
         )
@@ -760,10 +751,6 @@ class CumlArray:
                 f" Expected {header['desc']['shape']}, "
                 f"but got {ary._array_interface['shape']}"
             )
-
-        if mem_type is None:
-            mem_type = GlobalSettings().memory_type
-
         return ary.to_mem_type(mem_type)
 
     def __reduce_ex__(self, protocol):
@@ -806,7 +793,7 @@ class CumlArray:
         category="utils",
         domain="cuml_python",
     )
-    def empty(cls, shape, dtype, order="F", index=None, mem_type=None):
+    def empty(cls, shape, dtype, order="F", index=None, mem_type="device"):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
 
@@ -819,16 +806,16 @@ class CumlArray:
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        if mem_type is None:
-            mem_type = GlobalSettings().memory_type
-
+        mem_type = MemoryType.from_str(mem_type)
         return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
 
     @classmethod
     @nvtx.annotate(
         message="common.CumlArray.full", category="utils", domain="cuml_python"
     )
-    def full(cls, shape, value, dtype, order="F", index=None, mem_type=None):
+    def full(
+        cls, shape, value, dtype, order="F", index=None, mem_type="device"
+    ):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
 
@@ -841,9 +828,7 @@ class CumlArray:
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-
-        if mem_type is None:
-            mem_type = GlobalSettings().memory_type
+        mem_type = MemoryType.from_str(mem_type)
         return CumlArray(
             mem_type.xpy.full(shape, value, dtype, order), index=index
         )
@@ -855,7 +840,12 @@ class CumlArray:
         domain="cuml_python",
     )
     def zeros(
-        cls, shape, dtype="float32", order="F", index=None, mem_type=None
+        cls,
+        shape,
+        dtype="float32",
+        order="F",
+        index=None,
+        mem_type="device",
     ):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
@@ -883,7 +873,7 @@ class CumlArray:
         message="common.CumlArray.ones", category="utils", domain="cuml_python"
     )
     def ones(
-        cls, shape, dtype="float32", order="F", index=None, mem_type=None
+        cls, shape, dtype="float32", order="F", index=None, mem_type="device"
     ):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
@@ -920,7 +910,7 @@ class CumlArray:
         check_dtype=False,
         convert_to_dtype=False,
         check_mem_type=False,
-        convert_to_mem_type=None,
+        convert_to_mem_type="device",
         safe_dtype_conversion=True,
         check_cols=False,
         check_rows=False,
@@ -968,11 +958,10 @@ class CumlArray:
             Set to a value to throw an error if X is not of memory type
             `check_mem_type`.
 
-        convert_to_mem_type: {'host', 'device'} (default: None)
+        convert_to_mem_type: {'host', 'device', False} (default: 'device')
             Set to a value if you want X to be converted to that memory type if
             it is not that memory type already. Set to False if you do not want
-            any memory conversion. Set to None to use
-            `cuml.global_settings.memory_type`.
+            any memory conversion.
 
         safe_convert_to_dtype: bool (default: True)
             Set to True to check whether a typecasting performed when
@@ -1020,14 +1009,8 @@ class CumlArray:
             raise NotImplementedError(
                 "Sparse inputs are not currently supported for this method"
             )
-        if convert_to_mem_type is None:
-            convert_to_mem_type = GlobalSettings().memory_type
-        else:
-            convert_to_mem_type = (
-                MemoryType.from_str(convert_to_mem_type)
-                if convert_to_mem_type
-                else convert_to_mem_type
-            )
+        if convert_to_mem_type is not False:
+            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
         if convert_to_dtype:
             convert_to_dtype = np.dtype(convert_to_dtype)
         # Provide fast-path for CumlArray input

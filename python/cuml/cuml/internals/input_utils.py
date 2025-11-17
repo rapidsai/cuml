@@ -272,7 +272,7 @@ def input_to_cuml_array(
     check_dtype=False,
     convert_to_dtype=False,
     check_mem_type=False,
-    convert_to_mem_type=None,
+    convert_to_mem_type="device",
     safe_dtype_conversion=True,
     check_cols=False,
     check_rows=False,
