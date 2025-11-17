@@ -20,7 +20,6 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             "_output_type": None,
             "_fil_device_type": DeviceType.device,
             "_fil_memory_type": MemoryType.device,
-            "_memory_type": MemoryType.device,
         }
 
 
@@ -54,14 +53,6 @@ class GlobalSettings:
 
     def __init__(self):
         self.__dict__ = _global_settings_data.shared_state
-
-    @property
-    def memory_type(self):
-        return self._memory_type
-
-    @memory_type.setter
-    def memory_type(self, value):
-        self._memory_type = value
 
     @property
     def output_type(self):
