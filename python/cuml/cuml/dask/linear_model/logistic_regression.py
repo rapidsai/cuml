@@ -109,6 +109,14 @@ class LogisticRegression(LinearRegression):
 
     Notes
     -----
+    **Known Limitation:** Labels (y) must be of dtype float32. If your labels
+    are integers (e.g., from `make_classification`), convert them first:
+
+    .. code-block:: python
+
+        import cupy as cp
+        y = y.map_blocks(lambda x: x.astype(cp.float32))
+
     cuML's LogisticRegression uses a different solver that the equivalent
     Scikit-learn, except when there is no penalty and `solver=lbfgs` is
     used in Scikit-learn. This can cause (smaller) differences in the

@@ -120,6 +120,9 @@ class PCA(
 
     Notes
     -----
+    **Known Limitation:** The `random_state` parameter is not supported in the
+    multi-node multi-GPU implementation. Results may vary slightly between runs.
+
     PCA considers linear combinations of features, specifically those that
     maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
