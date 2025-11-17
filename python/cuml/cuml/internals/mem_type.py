@@ -56,11 +56,3 @@ class MemoryType(Enum):
             return scipy_sparse
         else:
             return cpx_sparse
-
-    @property
-    def is_device_accessible(self):
-        return self is MemoryType.device
-
-    @property
-    def is_host_accessible(self):
-        return self is MemoryType.host

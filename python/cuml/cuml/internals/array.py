@@ -383,14 +383,6 @@ class CumlArray:
     def mem_type(self):
         return self._mem_type
 
-    @property
-    def is_device_accessible(self):
-        return self._mem_type.is_device_accessible
-
-    @property
-    def is_host_accessible(self):
-        return self._mem_type.is_host_accessible
-
     @cached_property
     def size(self):
         return (
@@ -430,7 +422,7 @@ class CumlArray:
 
     @property
     def __cuda_array_interface__(self):
-        if not self._mem_type.is_device_accessible:
+        if self._mem_type is not MemoryType.device:
             raise AttributeError(
                 "Host-only array does not have __cuda_array_interface__"
             )
@@ -438,7 +430,7 @@ class CumlArray:
 
     @property
     def __array_interface__(self):
-        if not self._mem_type.is_host_accessible:
+        if self._mem_type is not MemoryType.host:
             raise AttributeError(
                 "Device-only array does not have __array_interface__"
             )
@@ -647,19 +639,15 @@ class CumlArray:
                 arr = arr.reshape(arr.shape[0], 1)
             if self.index is None:
                 out_index = None
-            elif (
-                output_mem_type.is_device_accessible
-                and not self.mem_type.is_device_accessible
-            ):
-                out_index = cudf.Index(self.index)
-            elif (
-                output_mem_type.is_host_accessible
-                and not self.mem_type.is_host_accessible
-            ):
-                out_index = cudf_to_pandas(self.index)
+            elif output_mem_type is not self.mem_type:
+                out_index = (
+                    cudf.Index(self.index)
+                    if output_mem_type is MemoryType.device
+                    else cudf_to_pandas(self.index)
+                )
             else:
                 out_index = self.index
-            if output_mem_type.is_device_accessible:
+            if output_mem_type is MemoryType.device:
                 # Do not convert NaNs to nulls in cuDF
                 df_kwargs = {"nan_as_null": False}
             else:
@@ -679,12 +667,7 @@ class CumlArray:
         domain="cuml_python",
     )
     def host_serialize(self):
-        mem_type = (
-            self.mem_type
-            if self.mem_type.is_host_accessible
-            else MemoryType.host
-        )
-        return self.serialize(mem_type=mem_type)
+        return self.serialize(mem_type=MemoryType.host)
 
     @classmethod
     def host_deserialize(cls, header, frames):
@@ -698,12 +681,7 @@ class CumlArray:
         domain="cuml_python",
     )
     def device_serialize(self):
-        mem_type = (
-            self.mem_type
-            if self.mem_type.is_device_accessible
-            else MemoryType.device
-        )
-        return self.serialize(mem_type=mem_type)
+        return self.serialize(mem_type=MemoryType.device)
 
     @classmethod
     def device_deserialize(cls, header, frames):
@@ -730,7 +708,7 @@ class CumlArray:
             },
             "desc": self._array_interface,
             "frame_count": 1,
-            "is-cuda": [mem_type.is_device_accessible],
+            "is-cuda": [mem_type is MemoryType.device],
             "lengths": [self.size],
         }
         frames = [self.to_output("array", output_mem_type=mem_type)]

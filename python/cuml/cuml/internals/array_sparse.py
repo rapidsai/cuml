@@ -217,7 +217,7 @@ class SparseCumlArray:
 
         if output_type in ("scipy", "numpy"):
             constructor = scipy_sparse.csr_matrix
-        elif output_mem_type.is_device_accessible:
+        elif output_mem_type is MemoryType.device:
             constructor = cpx_sparse.csr_matrix
         else:
             constructor = scipy_sparse.csr_matrix

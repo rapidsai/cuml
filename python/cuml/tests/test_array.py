@@ -626,7 +626,7 @@ def test_sliced_array_owner(order, mem_type):
     cuml_array = CumlArray(random_arr)
 
     # Make sure we have 2 pieces of data
-    if cuml_array.mem_type.is_device_accessible:
+    if cuml_array.mem_type is MemoryType.device:
         assert arr.data.ptr != cuml_array.ptr
     else:
         assert arr.__array_interface__["data"][0] != cuml_array.ptr
