@@ -21,6 +21,12 @@ import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from scipy.sparse import csr_matrix
+from sklearn.datasets import (
+    make_circles,
+    make_moons,
+    make_s_curve,
+    make_swiss_roll,
+)
 
 # Reference UMAP implementation
 from umap.umap_ import find_ab_params
@@ -29,50 +35,26 @@ from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 import cuml.datasets
 
 # cuML implementation
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
-from cuml.manifold.simpl_set import (
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
 
-# Check if cuvs is available (required for this test)
-try:
-    import cuvs  # noqa: F401
-
-    HAS_CUVS = True
-except ImportError:
-    HAS_CUVS = False
-
-# Only import umap_metrics if cuvs is available (umap_metrics depends on cuvs)
-if HAS_CUVS:
-    umap_dev_tools_path = os.path.join(
-        os.path.dirname(__file__), "..", "umap_dev_tools"
-    )
-    if os.path.exists(umap_dev_tools_path):
-        sys.path.insert(0, umap_dev_tools_path)
-
-    try:
-        from umap_metrics import (  # noqa: E402
-            _build_knn_with_cuvs,
-            compute_simplicial_set_embedding_metrics,
-            procrustes_rmse,
-        )
-    except ImportError as e:
-        raise ImportError(
-            f"Failed to import umap_metrics. Ensure the umap_dev_tools module is "
-            f"available at {umap_dev_tools_path}. Original error: {e}"
-        ) from e
-else:
-    # Define dummy functions to avoid NameError, tests will be skipped anyway
-    _build_knn_with_cuvs = None
-    compute_simplicial_set_embedding_metrics = None
-    procrustes_rmse = None
+# Setup path for umap_metrics (depends on cuvs, imported conditionally in test)
+umap_dev_tools_path = os.path.join(
+    os.path.dirname(__file__), "..", "umap_dev_tools"
+)
+if os.path.exists(umap_dev_tools_path):
+    sys.path.insert(0, umap_dev_tools_path)
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
 class DatasetWrapper:
-    """Wrapper for dataset to provide concise string representation."""
+    """
+    Wraps dataset arrays (X_np, X_cp) with metadata, providing dict-like access.
+    Excludes arrays from __repr__ to prevent Hypothesis from printing large data
+    in test failure messages.
+    """
 
     def __init__(
         self, X_np, X_cp, metric, dataset_type, n_samples, n_features, **kwargs
@@ -86,7 +68,7 @@ class DatasetWrapper:
         self.__dict__.update(kwargs)
 
     def __repr__(self):
-        """Concise representation without printing arrays."""
+        """Concise representation excluding X_np and X_cp arrays."""
         attrs = {
             k: v
             for k, v in self.__dict__.items()
@@ -95,15 +77,15 @@ class DatasetWrapper:
         return f"DatasetWrapper({attrs})"
 
     def __getitem__(self, key):
-        """Allow dict-like access for backwards compatibility."""
+        """Dict-like access to attributes."""
         return self.__dict__[key]
 
     def __contains__(self, key):
-        """Allow 'in' operator for checking attribute existence."""
+        """Check if attribute exists."""
         return key in self.__dict__
 
     def get(self, key, default=None):
-        """Allow dict-like get for backwards compatibility."""
+        """Get attribute with optional default."""
         return self.__dict__.get(key, default)
 
 
@@ -149,8 +131,6 @@ def diverse_dataset_strategy(draw):
         factor = draw(st.floats(min_value=0.4, max_value=0.7))
         random_state = draw(st.integers(min_value=0, max_value=10000))
 
-        from sklearn.datasets import make_circles
-
         X_np, y = make_circles(
             n_samples=n_samples,
             noise=noise,
@@ -164,8 +144,6 @@ def diverse_dataset_strategy(draw):
         noise = draw(st.floats(min_value=0.03, max_value=0.15))
         random_state = draw(st.integers(min_value=0, max_value=10000))
 
-        from sklearn.datasets import make_moons
-
         X_np, y = make_moons(
             n_samples=n_samples, noise=noise, random_state=random_state
         )
@@ -176,8 +154,6 @@ def diverse_dataset_strategy(draw):
         noise = draw(st.floats(min_value=0.1, max_value=0.8))
         random_state = draw(st.integers(min_value=0, max_value=10000))
 
-        from sklearn.datasets import make_swiss_roll
-
         X_np, y = make_swiss_roll(
             n_samples=n_samples, noise=noise, random_state=random_state
         )
@@ -187,8 +163,6 @@ def diverse_dataset_strategy(draw):
     else:  # s_curve
         noise = draw(st.floats(min_value=0.1, max_value=0.8))
         random_state = draw(st.integers(min_value=0, max_value=10000))
-
-        from sklearn.datasets import make_s_curve
 
         X_np, y = make_s_curve(
             n_samples=n_samples, noise=noise, random_state=random_state
@@ -261,6 +235,8 @@ def evaluate_embedding_quality(
     ref_emb,
     cu_emb,
     metric,
+    compute_metrics_fn,
+    procrustes_rmse_fn,
     k=15,
     mod_trust=0.10,
     mod_cont=0.15,
@@ -283,10 +259,10 @@ def evaluate_embedding_quality(
     ref_emb_cp = cp.asarray(ref_emb, dtype=cp.float32)
     cu_emb_cp = cp.asarray(cu_emb, dtype=cp.float32)
 
-    metrics_ref = compute_simplicial_set_embedding_metrics(
+    metrics_ref = compute_metrics_fn(
         X_cp, ref_emb_cp, k=k, metric=metric, skip_topology_preservation=True
     )
-    metrics_cu = compute_simplicial_set_embedding_metrics(
+    metrics_cu = compute_metrics_fn(
         X_cp, cu_emb_cp, k=k, metric=metric, skip_topology_preservation=True
     )
 
@@ -304,7 +280,7 @@ def evaluate_embedding_quality(
     kl_ref = metrics_ref["fuzzy_sym_kl_divergence"]
     kl_cu = metrics_cu["fuzzy_sym_kl_divergence"]
 
-    rmse = procrustes_rmse(ref_emb, cu_emb)
+    rmse = procrustes_rmse_fn(ref_emb, cu_emb)
 
     # Compute deficits (positive means cuML is worse than reference)
     trust_def = max(0.0, trust_ref - trust_cu)
@@ -398,20 +374,14 @@ def evaluate_embedding_quality(
         moderate_issues.append(f"rmse {rmse:.3f} > {mod_rmse:.3f}")
 
     # Holistic decision rule:
-    # - Fail if multiple severe degradations, or RMSE alone is severe
+    # - Fail on any severe issue
     # - Or if many moderate degradations accumulate
     should_fail = False
     fail_reason = ""
 
-    if len(severe_issues) >= 2:
+    if len(severe_issues) >= 1:
         should_fail = True
-        fail_reason = f"Multiple severe issues: {severe_issues}"
-    elif rmse > sev_rmse:
-        should_fail = True
-        fail_reason = f"Severe RMSE degradation: {rmse:.3f} > {sev_rmse:.3f}"
-    elif len(severe_issues) == 1 and len(moderate_issues) >= 2:
-        should_fail = True
-        fail_reason = f"One severe + multiple moderate issues: severe={severe_issues}, moderate={moderate_issues}"
+        fail_reason = f"Severe issues detected: {severe_issues}"
     elif len(moderate_issues) >= 5:
         should_fail = True
         fail_reason = f"Too many moderate issues: {moderate_issues}"
@@ -466,7 +436,6 @@ def _generate_baseline_dataset():
     )
 
 
-@pytest.mark.skipif(not HAS_CUVS, reason="cuvs package not available")
 @pytest.mark.slow
 @settings(
     max_examples=5,  # Random testing across all dataset types
@@ -485,7 +454,6 @@ def _generate_baseline_dataset():
     params=embedding_params_strategy(),
 )
 @example(
-    # Baseline example (required by test framework)
     dataset=_generate_baseline_dataset(),
     params={
         "learning_rate": 1.0,
@@ -524,6 +492,21 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     Compares cuML vs reference UMAP on multiple metrics including trustworthiness,
     continuity, geodesic correlations, fuzzy KL divergence, and Procrustes RMSE.
     """
+    # Skip test if cuvs is not available
+    pytest.importorskip("cuvs")
+
+    # Import umap_metrics (depends on cuvs)
+    try:
+        from umap_metrics import (
+            _build_knn_with_cuvs,
+            compute_simplicial_set_embedding_metrics,
+            procrustes_rmse,
+        )
+    except ImportError as e:
+        pytest.skip(
+            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
+        )
+
     X_np = dataset["X_np"]
     X_cp = dataset["X_cp"]
     metric = dataset["metric"]
@@ -593,7 +576,13 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
 
     # Evaluate embedding quality
     should_fail, fail_reason, metrics = evaluate_embedding_quality(
-        X_cp, ref_emb, cu_emb, metric, k=k
+        X_cp,
+        ref_emb,
+        cu_emb,
+        metric,
+        compute_metrics_fn=compute_simplicial_set_embedding_metrics,
+        procrustes_rmse_fn=procrustes_rmse,
+        k=k,
     )
 
     if should_fail:

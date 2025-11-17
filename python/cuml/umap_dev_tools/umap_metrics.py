@@ -31,9 +31,7 @@ from umap.umap_ import spectral_layout
 from cuml.manifold import SpectralEmbedding
 
 # cuML implementation
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.metrics import trustworthiness
 
 

@@ -20,10 +20,8 @@ from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 import cuml.datasets
 
 # cuML implementation
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
-from cuml.manifold.simpl_set import (
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
 
@@ -200,7 +198,7 @@ def test_knn(cu_knn_graph_fixture):
 
     # UMAP KNN (CPU) computed on-the-fly with the same backend
     umap_backend = (
-        d["backend"] if d["backend"] != "all_neighbors" else "bruteforce"
+        "bruteforce" if d["backend"] == "all_neighbors" else d["backend"]
     )
     dists_umap, inds_umap = _build_knn_with_umap(
         X_np, k=n_neighbors, metric=metric, backend=umap_backend
