@@ -26,8 +26,8 @@ class PCA(
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask-cuDF object as input
-    and provides 2 algorithms, Full and Jacobi. Full (default) uses a full
+    cuML's multi-node multi-GPU (MNMG) PCA expects a Dask cuDF object as input
+    and provides 2 algorithms: Full and Jacobi. Full (default) uses a full
     eigendecomposition then selects the top K eigenvectors. The Jacobi
     algorithm can be much faster as it iteratively tries to correct the top K
     eigenvectors, but might be less accurate.

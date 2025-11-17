@@ -16,7 +16,7 @@ from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     """
-    Distributed TF-IDF  transformer
+    Distributed TF-IDF transformer
 
     Examples
     --------
@@ -64,12 +64,12 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
         """
-        Create new  distributed TF-IDF transformer instance
+        Create new distributed TF-IDF transformer instance
 
         Parameters
-        -----------
-
-        client : dask.distributed.Client optional Dask client to use
+        ----------
+        client : dask.distributed.Client, optional
+            Dask client to use
         """
         super().__init__(client=client, verbose=verbose, **kwargs)
 
