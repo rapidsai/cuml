@@ -73,10 +73,6 @@ class GlobalSettings:
         self._output_type = value
 
     @property
-    def xpy(self):
-        return self.memory_type.xpy
-
-    @property
     def fil_device_type(self):
         """The device type used for FIL"""
         return self._fil_device_type

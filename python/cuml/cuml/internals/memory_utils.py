@@ -6,6 +6,7 @@ import functools
 import operator
 
 import cudf
+import numpy as np
 import pandas as pd
 
 from cuml.internals.global_settings import GlobalSettings
@@ -25,7 +26,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
+    itemsize = np.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape,)
