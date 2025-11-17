@@ -436,6 +436,7 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
+- If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
 
 SVR
 ^^^

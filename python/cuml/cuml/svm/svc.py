@@ -124,10 +124,13 @@ class SVC(SVMBase, ClassifierMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    probability: bool (default = False)
-        Enable or disable probability estimates.
+    probability : bool (default = False)
+        Set to ``True`` to enable probability estimates
+        (``predict_proba``/``predict_log_proba``). Note that
+        ``probability=True`` requires your training data have at least 5
+        samples per class.
     random_state: int (default = None)
-        Seed for random number generator (used only when probability = True).
+        Seed for random number generator (used only when ``probability=True``).
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
