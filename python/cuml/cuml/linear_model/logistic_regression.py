@@ -78,6 +78,12 @@ class LogisticRegression(
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described
         above.
+    lbfgs_memory: int, default = 5
+        Rank of the lbfgs inverse-Hessian approximation. Method will use
+        O(lbfgs_memory * n_features) memory.
+    penalty_normalized : bool, default=True
+        By default the penalty term is divided by the sample size. Set to False
+        to skip this behavior.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -144,6 +150,8 @@ class LogisticRegression(
             "linesearch_max_iter",
             "l1_ratio",
             "solver",
+            "lbfgs_memory",
+            "penalty_normalized",
         ]
 
     @classmethod
@@ -216,6 +224,8 @@ class LogisticRegression(
         linesearch_max_iter=50,
         l1_ratio=None,
         solver="qn",
+        lbfgs_memory=5,
+        penalty_normalized=True,
         verbose=False,
         handle=None,
         output_type=None,
@@ -232,6 +242,8 @@ class LogisticRegression(
         self.linesearch_max_iter = linesearch_max_iter
         self.l1_ratio = l1_ratio
         self.solver = solver
+        self.lbfgs_memory = lbfgs_memory
+        self.penalty_normalized = penalty_normalized
 
     def _get_l1_l2_strength(self):
         if self.solver != "qn":
@@ -317,6 +329,8 @@ class LogisticRegression(
             linesearch_max_iter=self.linesearch_max_iter,
             verbose=self.verbose,
             handle=self.handle,
+            lbfgs_memory=self.lbfgs_memory,
+            penalty_normalized=self.penalty_normalized,
         )
 
         self.coef_ = coef
