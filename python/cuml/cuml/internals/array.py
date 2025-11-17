@@ -728,7 +728,11 @@ class CumlArray:
         domain="cuml_python",
     )
     def serialize(self, mem_type=None) -> Tuple[dict, list]:
-        mem_type = self.mem_type if mem_type is None else mem_type
+        mem_type = (
+            self.mem_type
+            if mem_type is None
+            else MemoryType.from_str(mem_type)
+        )
         header = {
             "constructor-kwargs": {
                 "dtype": self.dtype.str,
@@ -744,7 +748,7 @@ class CumlArray:
         return header, frames
 
     @classmethod
-    def deserialize(cls, header: dict, frames: list):
+    def deserialize(cls, header: dict, frames: list, mem_type=None):
         assert header["frame_count"] == 1, (
             "Only expecting to deserialize CumlArray with a single frame."
         )
@@ -757,7 +761,10 @@ class CumlArray:
                 f"but got {ary._array_interface['shape']}"
             )
 
-        return ary.to_mem_type(GlobalSettings().memory_type)
+        if mem_type is None:
+            mem_type = GlobalSettings().memory_type
+
+        return ary.to_mem_type(mem_type)
 
     def __reduce_ex__(self, protocol):
         header, frames = self.host_serialize()

@@ -16,23 +16,6 @@ from cuml.internals.output_type import (
 )
 
 
-def set_global_memory_type(memory_type):
-    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
-
-
-class using_memory_type:
-    def __init__(self, mem_type):
-        self.mem_type = mem_type
-        self.prev_mem_type = None
-
-    def __enter__(self):
-        self.prev_mem_type = GlobalSettings().memory_type
-        set_global_memory_type(self.mem_type)
-
-    def __exit__(self, *_):
-        set_global_memory_type(self.prev_mem_type)
-
-
 def _get_size_from_shape(shape, dtype):
     """
     Calculates size based on shape and dtype, returns (None, None) if either
