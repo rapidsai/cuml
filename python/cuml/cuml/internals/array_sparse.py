@@ -110,12 +110,12 @@ class SparseCumlArray:
 
         if not convert_to_dtype:
             convert_to_dtype = data.dtype
-
-        convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
-        if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
+        if not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
+        else:
+            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
 
-        self._mem_type = convert_to_mem_type
+        self.mem_type = convert_to_mem_type
 
         if convert_index is None:
             convert_index = cp.int32
@@ -167,7 +167,7 @@ class SparseCumlArray:
         output_type="cupy",
         output_format=None,
         output_dtype=None,
-        output_mem_type="device",
+        output_mem_type=None,
     ):
         """
         Convert array to output format
@@ -191,16 +191,19 @@ class SparseCumlArray:
         output_mem_type : {'host, 'device'}, optional
             Optionally convert array to given memory type. If `output_type`
             already indicates a specific memory type, `output_type` takes
-            precedence.
+            precedence. If the memory type is not otherwise indicated, the data
+            are kept on their current device.
         """
-        output_mem_type = MemoryType.from_str(output_mem_type)
+        output_mem_type = (
+            self.mem_type
+            if output_mem_type is None
+            else MemoryType.from_str(output_mem_type)
+        )
         # Treat numpy and scipy as the same
         if output_type in ("numpy", "scipy"):
             output_mem_type = MemoryType.host
         elif output_type == "cupy":
             output_mem_type = MemoryType.device
-        elif output_mem_type is MemoryType.mirror:
-            output_mem_type = self.mem_type
 
         data = self.data.to_output(
             "array", output_dtype=output_dtype, output_mem_type=output_mem_type

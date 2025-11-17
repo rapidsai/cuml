@@ -198,7 +198,7 @@ class CumlArray:
             if shape is not None:
                 data = data.reshape(shape)
             self._array_interface = data.__cuda_array_interface__
-            if mem_type in (None, MemoryType.mirror):
+            if mem_type is None:
                 self._mem_type = MemoryType.device
             self._owner = data
         else:  # Not a CUDA array object
@@ -282,8 +282,8 @@ class CumlArray:
                 }
         # Derive any information required for attributes that has not
         # already been derived
-        if mem_type in (None, MemoryType.mirror):
-            if self._mem_type in (None, MemoryType.mirror):
+        if mem_type is None:
+            if self._mem_type is None:
                 raise ValueError(
                     "Could not infer memory type from input data. Pass"
                     " mem_type explicitly."
@@ -559,8 +559,6 @@ class CumlArray:
             output_mem_type = self._mem_type
         else:
             output_mem_type = MemoryType.from_str(output_mem_type)
-            if output_mem_type == MemoryType.mirror:
-                output_mem_type = self._mem_type
 
         if output_type == "df_obj":
             if len(self.shape) == 1:
@@ -1016,11 +1014,7 @@ class CumlArray:
         # Provide fast-path for CumlArray input
         if (
             isinstance(X, CumlArray)
-            and (
-                not convert_to_mem_type
-                or convert_to_mem_type == MemoryType.mirror
-                or convert_to_mem_type == X.mem_type
-            )
+            and (not convert_to_mem_type or convert_to_mem_type == X.mem_type)
             and (not convert_to_dtype or convert_to_dtype == X.dtype)
             and (not force_contiguous or X.is_contiguous)
             and (order in ("K", None) or X.order == order)
@@ -1082,8 +1076,6 @@ class CumlArray:
         if deepcopy:
             arr = copy.deepcopy(arr)
 
-        if convert_to_mem_type == MemoryType.mirror:
-            convert_to_mem_type = arr.mem_type
         if convert_to_dtype:
             convert_to_dtype = arr.mem_type.xpy.dtype(convert_to_dtype)
 
