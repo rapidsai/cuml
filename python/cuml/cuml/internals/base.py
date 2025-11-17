@@ -17,8 +17,6 @@ import cuml.internals.nvtx as nvtx
 from cuml.internals import api_context_managers
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import determine_array_type
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mixins import TagsMixin
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
@@ -142,11 +140,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    output_mem_type : {'host', 'device'}, default=None
-        Return results with memory of the indicated type and use the
-        indicated memory type for estimator attributes. If None, the memory
-        type set at the module level (`cuml.global_settings.memory_type`) will
-        be used.
 
     Examples
     --------
@@ -197,7 +190,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         handle=None,
         verbose=False,
         output_type=None,
-        output_mem_type=None,
     ):
         """
         Constructor. All children must call init method of this base class.
@@ -226,12 +218,7 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
             if output_type is None
             else output_type
         )
-        if output_mem_type is None:
-            self.output_mem_type = cuml.global_settings.memory_type
-        else:
-            self.output_mem_type = MemoryType.from_str(output_mem_type)
         self._input_type = None
-        self._input_mem_type = None
         self.target_dtype = None
 
         nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
@@ -352,7 +339,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         """
         if output_type is not None:
             self._set_output_type(output_type)
-            self._set_output_mem_type(output_type)
         if target_dtype is not None:
             self._set_target_dtype(target_dtype)
         if n_features is not None:
@@ -360,9 +346,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
 
     def _set_output_type(self, inp):
         self._input_type = determine_array_type(inp)
-
-    def _set_output_mem_type(self, inp):
-        self._input_mem_type = determine_array_memtype(inp)
 
     def _get_output_type(self, inp=None):
         """
@@ -388,22 +371,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 output_type = determine_array_type(inp)
 
         return output_type
-
-    def _get_output_mem_type(self, inp):
-        """
-        Method to be called by predict/transform methods of inheriting classes.
-        Returns the appropriate memory type depending on the type of the input,
-        class output type and global output type.
-        """
-
-        # Default to the global type
-        mem_type = cuml.global_settings.memory_type
-
-        # If we are input, get the type from the input
-        if cuml.global_settings.output_type == "input":
-            mem_type = determine_array_memtype(inp)
-
-        return mem_type
 
     def _set_target_dtype(self, target):
         self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
