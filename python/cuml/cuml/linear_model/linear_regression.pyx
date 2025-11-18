@@ -143,12 +143,12 @@ class LinearRegression(Base,
     algorithm : {'auto', 'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'auto')
         Choose an algorithm:
 
-          * 'auto' - 'eig', or 'svd' if y multi-target or X has only one column
-          * 'svd' - alias for svd-jacobi
-          * 'eig' - use an eigendecomposition of the covariance matrix
-          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
-          * 'svd-qr' - compute SVD decomposition using QR algorithm
-          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations
+          * 'auto' - ``'eig'``, or ``'svd'`` if y multi-target or X has only one column
+          * ``'svd'`` - alias for svd-jacobi
+          * ``'eig'`` - use an eigendecomposition of the covariance matrix
+          * ``'qr'``  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * ``'svd-qr'`` - compute SVD decomposition using QR algorithm
+          * ``'svd-jacobi'`` - compute SVD decomposition using Jacobi iterations
 
         Among these algorithms, only ``'svd-jacobi'`` supports the case when the
         number of features is larger than the sample size; this algorithm
@@ -160,7 +160,7 @@ class LinearRegression(Base,
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    copy_X : bool, default=True
+    copy_X : boolean, default=True
         If True, it is guaranteed that a copy of X is created, leaving the
         original X unchanged. However, if set to False, X may be modified
         directly, which would reduce the memory usage of the estimator.
@@ -172,24 +172,13 @@ class LinearRegression(Base,
             memory usage. This represents a change in behavior from previous
             versions. With `copy_X=False` a copy might still be created if
             necessary.
-    normalize : boolean (default = False)
-        This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by dividing by the
-        column-wise standard deviation.
-        If False, no scaling will be done.
-        Note: this is in contrast to sklearn's deprecated `normalize` flag,
-        which divides by the column-wise L2-norm; but this is the same as if
-        using :class:`sklearn.preprocessing.StandardScaler`.
-        
-        If True, cuml will copy X when needed to avoid mutating the input array.
-        If you're ok with X being overwritten, setting to False may avoid a copy,
-        reducing memory usage for certain algorithms.
+
     normalize : boolean, default=False
 
         .. deprecated:: 25.12
             ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
+            needed, please use a :class:`sklearn.preprocessing.StandardScaler`
+            to normalize your data before passing to ``fit``.
 
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
