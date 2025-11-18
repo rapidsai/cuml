@@ -540,6 +540,11 @@ def test_array_interface(inp, mem_type):
     to_serialize_mem_type="device",
     from_serialize_mem_type="device",
 )
+@example(
+    inp=cp.zeros((2, 1), dtype=cp.float16, order="F"),
+    to_serialize_mem_type="host",
+    from_serialize_mem_type="host",
+)
 @given(
     inp=cuml_array_inputs(),
     to_serialize_mem_type=cuml_array_mem_types(),
@@ -556,26 +561,23 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
         _assert_equal(inp, ary2)
 
         assert ary._array_interface["shape"] == ary2._array_interface["shape"]
-        # Restricting the strides check due to
-        # https://github.com/cupy/cupy/issues/5897
-        if not (
-            len(ary.shape) > 1
-            and (
-                (ary.order == "C" and ary.shape[0] == 1)
-                or (ary.order == "F" and ary.shape[-1] == 1)
-            )
-        ):
-            assert (
-                ary._array_interface["strides"]
-                == ary2._array_interface["strides"]
-            )
         assert (
             ary._array_interface["typestr"] == ary2._array_interface["typestr"]
         )
         assert ary2.mem_type is global_settings.memory_type
 
-        if isinstance(inp, (cudf.Series, pd.Series)):
-            assert ary.order == ary2.order
+        # Assert that if an array was C or F contiguous before, it still is after
+        # Note that for arrays that are both C & F contiguous CumlArray will
+        # store `order="C"`, but that doesn't mean that it's _not_ F contiguous
+        # as well.
+        is_c_contig = array_to_memory_order(inp, default="C") == "C"
+        is_f_contig = array_to_memory_order(inp, default="F") == "F"
+        if is_c_contig and not is_f_contig:
+            assert ary2.order == "C"
+        elif is_f_contig and not is_c_contig:
+            assert ary2.order == "F"
+        else:
+            assert ary2.order in ("C", "F")
 
 
 @pytest.mark.parametrize("protocol", [4, 5])
