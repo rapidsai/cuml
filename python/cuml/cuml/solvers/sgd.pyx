@@ -1,10 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
 import numpy as np
 from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -78,23 +76,6 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                          double *preds,
                          int loss) except +
 
-    cdef void sgdPredictBinaryClass(handle_t& handle,
-                                    const float *input,
-                                    int n_rows,
-                                    int n_cols,
-                                    const float *coef,
-                                    float intercept,
-                                    float *preds,
-                                    int loss) except +
-
-    cdef void sgdPredictBinaryClass(handle_t& handle,
-                                    const double *input,
-                                    int n_rows,
-                                    int n_cols,
-                                    const double *coef,
-                                    double intercept,
-                                    double *preds,
-                                    int loss) except +
 
 _LEARNING_RATES = {
     "constant": 1,
@@ -420,7 +401,6 @@ class SGD(Base, FMajorInputTagMixin):
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, *, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.
@@ -494,65 +474,6 @@ class SGD(Base, FMajorInputTagMixin):
                 )
             else:
                 sgdPredict(
-                    handle_[0],
-                    <double*>X_ptr,
-                    n_rows,
-                    n_cols,
-                    <double*>coef_ptr,
-                    intercept,
-                    <double*>preds_ptr,
-                    loss_code,
-                )
-        self.handle.sync()
-
-        return preds
-
-    @generate_docstring(
-        return_values={
-            "name": "preds",
-            "type": "dense",
-            "description": "Predicted values",
-            "shape": "(n_samples,)"
-        }
-    )
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predictClass(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the y for X.
-
-        """
-        cdef int n_rows, n_cols
-        X, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.coef_.shape[0],
-        )
-
-        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef int loss_code = _LOSSES[self.loss]
-        cdef bool use_f32 = self.coef_.dtype == np.float32
-        cdef uintptr_t preds_ptr = preds.ptr
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
-        cdef double intercept = self.intercept_
-
-        with nogil:
-            if use_f32:
-                sgdPredictBinaryClass(
-                    handle_[0],
-                    <float*>X_ptr,
-                    n_rows,
-                    n_cols,
-                    <float*>coef_ptr,
-                    intercept,
-                    <float*>preds_ptr,
-                    loss_code,
-                )
-            else:
-                sgdPredictBinaryClass(
                     handle_[0],
                     <double*>X_ptr,
                     n_rows,
