@@ -115,7 +115,9 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: pull-request
+      node_type: cpu16
       script: ci/build_cpp.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
@@ -124,6 +126,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
@@ -145,6 +148,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   optional-job-conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -155,6 +159,7 @@ jobs:
       matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
       build_type: pull-request
       script: "ci/test_python_integration.sh"
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-tests-dask:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -163,6 +168,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-scikit-learn-accel-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -171,6 +177,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: '(
         map(select(.ARCH == "amd64"))
@@ -194,6 +201,7 @@ jobs:
       script: "ci/test_python_cuml_accel_upstream.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -224,20 +232,24 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      node_type: cpu16
       script: ci/build_wheel_libcuml.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libcuml
       package-type: cpp
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-build-cuml:
     needs: [checks, wheel-build-libcuml]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: pull-request
+      node_type: cpu8
       script: ci/build_wheel_cuml.sh
       package-name: cuml
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
@@ -246,6 +258,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
@@ -254,6 +267,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   devcontainer:
     needs: telemetry-setup
     secrets: inherit
