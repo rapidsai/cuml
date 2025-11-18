@@ -299,7 +299,7 @@ class TSNE(Base,
     n_iter_without_progress : int (default 300)
         Currently unused. When the KL Divergence becomes too small after some
         iterations, terminate t-SNE early.
-    n_iter : int (default "deprecated")
+    n_iter : int (default 1000)
 
         .. deprecated:: 25.12
             ``n_iter`` has been renamed to ``max_iter`` to better match the
