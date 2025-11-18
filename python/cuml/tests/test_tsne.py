@@ -219,7 +219,7 @@ def test_tsne_large(nrows, ncols, method):
     tsne = TSNE(
         random_state=1,
         exaggeration_iter=1,
-        n_iter=2,
+        max_iter=2,
         method=method,
         min_grad_norm=1e-12,
     )
@@ -430,5 +430,17 @@ def test_tsne_n_iter(algorithm):
         n_samples=1000, n_features=64, centers=5, random_state=42
     )
     model = TSNE(n_components=2, random_state=42).fit(X)
+    assert model.n_iter_ > 0
+    assert model.n_iter_ <= model.max_iter
+
+
+def test_tsne_n_iter_deprecated():
+    X, _ = make_blobs(
+        n_samples=1000, n_features=64, centers=5, random_state=42
+    )
+    model = TSNE(n_components=2, random_state=42, n_iter=2)
+    with pytest.warns(FutureWarning, match="n_iter"):
+        model.fit(X)
+
     assert model.n_iter_ > 0
     assert model.n_iter_ <= model.n_iter
