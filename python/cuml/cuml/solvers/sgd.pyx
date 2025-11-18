@@ -1,12 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-import cupy as cp
 import numpy as np
-
-from libc.stdint cimport uintptr_t
+from pylibraft.common.handle import Handle
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -16,12 +12,12 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin
 
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
-
     cdef void sgdFit(handle_t& handle,
                      float *input,
                      int n_rows,
@@ -100,9 +96,176 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                                     double *preds,
                                     int loss) except +
 
+_LEARNING_RATES = {
+    "constant": 1,
+    "invscaling": 2,
+    "adaptive": 3,
+}
 
-class SGD(Base,
-          FMajorInputTagMixin):
+_LOSSES = {
+    "squared_loss": 0,
+    "log": 1,
+    "hinge": 2,
+}
+
+_PENALTIES = {
+    None: 0,
+    "l1": 1,
+    "l2": 2,
+    "elasticnet": 3
+}
+
+
+def fit_sgd(
+    X,
+    y,
+    *,
+    convert_dtype=True,
+    loss="squared_loss",
+    penalty=None,
+    double alpha=0.0001,
+    double l1_ratio=0.15,
+    bool fit_intercept=True,
+    int epochs=1000,
+    double tol=1e-3,
+    bool shuffle=True,
+    learning_rate="constant",
+    double eta0=0.001,
+    double power_t=0.5,
+    int batch_size=32,
+    int n_iter_no_change=5,
+    handle=None,
+):
+    """Fit a linear model using stochastic gradient descent.
+
+    Parameters
+    ----------
+    X : array-like, shape=(n_samples, n_features)
+        The training data.
+    y : array-like, shape=(n_samples,)
+        The target values.
+    convert_to_dtype : bool, default=True
+        When set to True, will convert array inputs to be of the proper dtypes.
+    **kwargs
+        Remaining keyword arguments match the hyperparameters
+        to ``SGD``, see the ``SGD`` docs for more information.
+
+    Returns
+    -------
+    coef : CumlArray, shape=(n_features,)
+        The fit coefficients
+    intercept : float
+        The fit intercept, or 0 if `fit_intercept=False`
+    """
+    # Validate parameters
+    if eta0 <= 0.0:
+        raise ValueError(f"Expected eta0 > 0, got {eta0}")
+
+    if alpha <= 0.0:
+        raise ValueError(f"Expected alpha > 0, got {alpha}")
+
+    cdef int lr_code
+    if (lr_code := _LEARNING_RATES.get(learning_rate, -1)) < 0:
+        raise ValueError(
+            f"Expected `learning_rate` to be one of {list(_LEARNING_RATES)},"
+            f" got {learning_rate!r}"
+        )
+
+    cdef int penalty_code
+    if (penalty_code := _PENALTIES.get(penalty, -1)) < 0:
+        raise ValueError(
+            f"Expected `penalty` to be one of {list(_PENALTIES)}, got {penalty!r}"
+        )
+
+    cdef int loss_code
+    if (loss_code := _LOSSES.get(loss, -1)) < 0:
+        raise ValueError(
+            f"Expected `loss` to be one of {list(_LOSSES)}, got {loss!r}"
+        )
+
+    # Validate X and y
+    cdef int n_rows, n_cols
+    X, n_rows, n_cols, _ = input_to_cuml_array(
+        X,
+        convert_to_dtype=(np.float32 if convert_dtype else None),
+        check_dtype=[np.float32, np.float64],
+    )
+
+    y = input_to_cuml_array(
+        y,
+        check_dtype=X.dtype,
+        convert_to_dtype=(X.dtype if convert_dtype else None),
+        check_rows=X.shape[0],
+        check_cols=1,
+    ).array
+
+    # Allocate outputs
+    coef = CumlArray.zeros(n_cols, dtype=X.dtype)
+
+    # Perform fit
+    if handle is None:
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef uintptr_t X_ptr = X.ptr
+    cdef uintptr_t y_ptr = y.ptr
+    cdef uintptr_t coef_ptr = coef.ptr
+    cdef float intercept_f32
+    cdef double intercept_f64
+    cdef bool use_f32 = X.dtype == np.float32
+
+    with nogil:
+        if use_f32:
+            sgdFit(
+                handle_[0],
+                <float*>X_ptr,
+                n_rows,
+                n_cols,
+                <float*>y_ptr,
+                <float*>coef_ptr,
+                &intercept_f32,
+                fit_intercept,
+                batch_size,
+                epochs,
+                lr_code,
+                eta0,
+                power_t,
+                loss_code,
+                penalty_code,
+                alpha,
+                l1_ratio,
+                shuffle,
+                tol,
+                n_iter_no_change
+            )
+        else:
+            sgdFit(
+                handle_[0],
+                <double*>X_ptr,
+                n_rows,
+                n_cols,
+                <double*>y_ptr,
+                <double*>coef_ptr,
+                &intercept_f64,
+                fit_intercept,
+                batch_size,
+                epochs,
+                lr_code,
+                eta0,
+                power_t,
+                loss_code,
+                penalty_code,
+                alpha,
+                l1_ratio,
+                shuffle,
+                tol,
+                n_iter_no_change
+            )
+    handle.sync()
+
+    return coef, (intercept_f32 if use_f32 else intercept_f64)
+
+
+class SGD(Base, FMajorInputTagMixin):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD
@@ -175,9 +338,7 @@ class SGD(Base,
         The exponent used for calculating the invscaling learning rate
     batch_size : int (default=32)
         The number of samples to use for each batch.
-    learning_rate : 'optimal', 'constant', 'invscaling', \
-                    'adaptive' (default = 'constant')
-        Optimal option supported in the next version
+    learning_rate : {'constant', 'invscaling', 'adaptive'} (default = 'constant')
         constant keeps the learning rate constant
         adaptive changes the learning rate if the training loss or the
         validation accuracy does not improve for n_iter_no_change epochs.
@@ -202,283 +363,12 @@ class SGD(Base,
         See :ref:`verbosity-levels` for more info.
 
     """
-
     coef_ = CumlArrayDescriptor()
-    classes_ = CumlArrayDescriptor()
-
-    def __init__(self, *, loss='squared_loss', penalty=None, alpha=0.0001,
-                 l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 output_type=None, verbose=False):
-
-        if loss in ['hinge', 'log', 'squared_loss']:
-            self.loss = loss
-        else:
-            raise ValueError(f"loss {loss!r} is not supported")
-
-        if penalty in [None, 'l1', 'l2', 'elasticnet']:
-            self.penalty = penalty
-        else:
-            raise ValueError(f"penalty {penalty!r} is not supported")
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-        self.alpha = alpha
-        self.l1_ratio = l1_ratio
-        self.fit_intercept = fit_intercept
-        self.epochs = epochs
-        self.tol = tol
-        self.shuffle = shuffle
-        self.eta0 = eta0
-        self.power_t = power_t
-
-        if learning_rate in ['optimal', 'constant', 'invscaling', 'adaptive']:
-            self.learning_rate = learning_rate
-
-            if learning_rate in ["constant", "invscaling", "adaptive"]:
-                if self.eta0 <= 0.0:
-                    raise ValueError("eta0 must be > 0")
-
-            if learning_rate == 'optimal':
-                self.lr_type = 0
-
-                raise TypeError("This option will be supported in the future")
-
-                # TODO: uncomment this when optimal learning rate is supported
-                # if self.alpha == 0:
-                #     raise ValueError("alpha must be > 0 since "
-                #                      "learning_rate is 'optimal'. alpha is "
-                #                      "used to compute the optimal learning "
-                #                      " rate.")
-
-            elif learning_rate == 'constant':
-                self.lr_type = 1
-                self.lr = eta0
-            elif learning_rate == 'invscaling':
-                self.lr_type = 2
-            elif learning_rate == 'adaptive':
-                self.lr_type = 3
-        else:
-            msg = "learning rate {!r} is not supported"
-            raise TypeError(msg.format(learning_rate))
-
-        self.batch_size = batch_size
-        self.n_iter_no_change = n_iter_no_change
-        self.intercept_value = 0.0
-
-    def _check_alpha(self, alpha):
-        for el in alpha:
-            if el <= 0.0:
-                msg = "alpha values have to be positive"
-                raise TypeError(msg.format(alpha))
-
-    def _get_loss_int(self):
-        return {
-            'squared_loss': 0,
-            'log': 1,
-            'hinge': 2,
-        }[self.loss]
-
-    def _get_penalty_int(self):
-        return {
-            None: 0,
-            'l1': 1,
-            'l2': 2,
-            'elasticnet': 3
-        }[self.penalty]
-
-    @generate_docstring()
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "SGD":
-        """
-        Fit the model with X and y.
-
-        """
-        X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64])
-
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-
-        _estimator_type = getattr(self, '_estimator_type', None)
-        if _estimator_type == "classifier":
-            self.classes_ = cp.unique(y_m)
-
-        cdef uintptr_t _X_ptr = X_m.ptr
-        cdef uintptr_t _y_ptr = y_m.ptr
-
-        self.n_alpha = 1
-
-        self.coef_ = CumlArray.zeros(self.n_cols,
-                                     dtype=self.dtype)
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
-
-        cdef float _c_intercept_f32
-        cdef double _c_intercept_f64
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            sgdFit(handle_[0],
-                   <float*>_X_ptr,
-                   <int>n_rows,
-                   <int>self.n_cols,
-                   <float*>_y_ptr,
-                   <float*>_coef_ptr,
-                   <float*>&_c_intercept_f32,
-                   <bool>self.fit_intercept,
-                   <int>self.batch_size,
-                   <int>self.epochs,
-                   <int>self.lr_type,
-                   <float>self.eta0,
-                   <float>self.power_t,
-                   <int>self._get_loss_int(),
-                   <int>self._get_penalty_int(),
-                   <float>self.alpha,
-                   <float>self.l1_ratio,
-                   <bool>self.shuffle,
-                   <float>self.tol,
-                   <int>self.n_iter_no_change)
-
-            self.intercept_ = _c_intercept_f32
-        else:
-            sgdFit(handle_[0],
-                   <double*>_X_ptr,
-                   <int>n_rows,
-                   <int>self.n_cols,
-                   <double*>_y_ptr,
-                   <double*>_coef_ptr,
-                   <double*>&_c_intercept_f64,
-                   <bool>self.fit_intercept,
-                   <int>self.batch_size,
-                   <int>self.epochs,
-                   <int>self.lr_type,
-                   <double>self.eta0,
-                   <double>self.power_t,
-                   <int>self._get_loss_int(),
-                   <int>self._get_penalty_int(),
-                   <double>self.alpha,
-                   <double>self.l1_ratio,
-                   <bool>self.shuffle,
-                   <double>self.tol,
-                   <int>self.n_iter_no_change)
-
-            self.intercept_ = _c_intercept_f64
-
-        self.handle.sync()
-
-        del X_m
-        del y_m
-
-        return self
-
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the y for X.
-
-        """
-        X_m, _n_rows, _n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-
-        cdef uintptr_t _X_ptr = X_m.ptr
-
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(_n_rows, dtype=self.dtype, index=X_m.index)
-        cdef uintptr_t _preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            sgdPredict(handle_[0],
-                       <float*>_X_ptr,
-                       <int>_n_rows,
-                       <int>_n_cols,
-                       <float*>_coef_ptr,
-                       <float>self.intercept_,
-                       <float*>_preds_ptr,
-                       <int>self._get_loss_int())
-        else:
-            sgdPredict(handle_[0],
-                       <double*>_X_ptr,
-                       <int>_n_rows,
-                       <int>_n_cols,
-                       <double*>_coef_ptr,
-                       <double>self.intercept_,
-                       <double*>_preds_ptr,
-                       <int>self._get_loss_int())
-
-        self.handle.sync()
-
-        del X_m
-
-        return preds
-
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predictClass(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the y for X.
-
-        """
-        X_m, _n_rows, _n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-
-        cdef uintptr_t _X_ptr = X_m.ptr
-        cdef uintptr_t _coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
-        cdef uintptr_t _preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            sgdPredictBinaryClass(handle_[0],
-                                  <float*>_X_ptr,
-                                  <int>_n_rows,
-                                  <int>_n_cols,
-                                  <float*>_coef_ptr,
-                                  <float>self.intercept_,
-                                  <float*>_preds_ptr,
-                                  <int>self._get_loss_int())
-        else:
-            sgdPredictBinaryClass(handle_[0],
-                                  <double*>_X_ptr,
-                                  <int>_n_rows,
-                                  <int>_n_cols,
-                                  <double*>_coef_ptr,
-                                  <double>self.intercept_,
-                                  <double*>_preds_ptr,
-                                  <int>self._get_loss_int())
-
-        self.handle.sync()
-
-        del X_m
-
-        return preds
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + [
+        return [
+            *super()._get_param_names(),
             "loss",
             "penalty",
             "alpha",
@@ -493,3 +383,185 @@ class SGD(Base,
             "batch_size",
             "n_iter_no_change",
         ]
+
+    def __init__(
+        self,
+        *,
+        loss="squared_loss",
+        penalty=None,
+        alpha=0.0001,
+        l1_ratio=0.15,
+        fit_intercept=True,
+        epochs=1000,
+        tol=1e-3,
+        shuffle=True,
+        learning_rate="constant",
+        eta0=0.001,
+        power_t=0.5,
+        batch_size=32,
+        n_iter_no_change=5,
+        handle=None,
+        output_type=None,
+        verbose=False,
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        self.loss = loss
+        self.penalty = penalty
+        self.alpha = alpha
+        self.l1_ratio = l1_ratio
+        self.fit_intercept = fit_intercept
+        self.epochs = epochs
+        self.tol = tol
+        self.shuffle = shuffle
+        self.learning_rate = learning_rate
+        self.eta0 = eta0
+        self.power_t = power_t
+        self.batch_size = batch_size
+        self.n_iter_no_change = n_iter_no_change
+
+    @generate_docstring()
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    def fit(self, X, y, *, convert_dtype=True) -> "SGD":
+        """
+        Fit the model with X and y.
+
+        """
+        coef, intercept = fit_sgd(
+            X,
+            y,
+            convert_dtype=convert_dtype,
+            loss=self.loss,
+            penalty=self.penalty,
+            alpha=self.alpha,
+            l1_ratio=self.l1_ratio,
+            fit_intercept=self.fit_intercept,
+            epochs=self.epochs,
+            tol=self.tol,
+            shuffle=self.shuffle,
+            learning_rate=self.learning_rate,
+            eta0=self.eta0,
+            power_t=self.power_t,
+            batch_size=self.batch_size,
+            n_iter_no_change=self.n_iter_no_change,
+            handle=self.handle,
+        )
+        self.coef_ = coef
+        self.intercept_ = intercept
+        return self
+
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples,)"
+        }
+    )
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+        """
+        Predicts the y for X.
+
+        """
+        cdef int n_rows, n_cols
+        X, n_rows, n_cols, _ = input_to_cuml_array(
+            X,
+            check_dtype=self.coef_.dtype,
+            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+            check_cols=self.coef_.shape[0],
+        )
+
+        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef int loss_code = _LOSSES[self.loss]
+        cdef bool use_f32 = self.coef_.dtype == np.float32
+        cdef uintptr_t preds_ptr = preds.ptr
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef double intercept = self.intercept_
+
+        with nogil:
+            if use_f32:
+                sgdPredict(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>coef_ptr,
+                    intercept,
+                    <float*>preds_ptr,
+                    loss_code,
+                )
+            else:
+                sgdPredict(
+                    handle_[0],
+                    <double*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*>coef_ptr,
+                    intercept,
+                    <double*>preds_ptr,
+                    loss_code,
+                )
+        self.handle.sync()
+
+        return preds
+
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples,)"
+        }
+    )
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def predictClass(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predicts the y for X.
+
+        """
+        cdef int n_rows, n_cols
+        X, n_rows, n_cols, _ = input_to_cuml_array(
+            X,
+            check_dtype=self.coef_.dtype,
+            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+            check_cols=self.coef_.shape[0],
+        )
+
+        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef int loss_code = _LOSSES[self.loss]
+        cdef bool use_f32 = self.coef_.dtype == np.float32
+        cdef uintptr_t preds_ptr = preds.ptr
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef double intercept = self.intercept_
+
+        with nogil:
+            if use_f32:
+                sgdPredictBinaryClass(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>coef_ptr,
+                    intercept,
+                    <float*>preds_ptr,
+                    loss_code,
+                )
+            else:
+                sgdPredictBinaryClass(
+                    handle_[0],
+                    <double*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*>coef_ptr,
+                    intercept,
+                    <double*>preds_ptr,
+                    loss_code,
+                )
+        self.handle.sync()
+
+        return preds

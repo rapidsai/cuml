@@ -2,8 +2,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 
 import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -139,6 +141,8 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
+    classes_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         *,
@@ -183,8 +187,8 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         Fit the model with X and y.
 
         """
-        self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        self.classes_ = cp.unique(y)
         return self
 
     @property
@@ -206,14 +210,6 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
     @intercept_.setter
     def intercept_(self, value):
         self.solver_model.intercept_ = value
-
-    @property
-    def classes_(self) -> CumlArray:
-        return self.solver_model.classes_
-
-    @classes_.setter
-    def classes_(self, value):
-        self.solver_model.classes_ = value
 
     @generate_docstring(
         return_values={
