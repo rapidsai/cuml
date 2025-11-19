@@ -486,3 +486,16 @@ class SGD(Base, FMajorInputTagMixin):
         self.handle.sync()
 
         return preds
+
+    def predictClass(self, X, convert_dtype=True):
+        """This method has been removed.
+
+        Instead use ``sgd.predict() > 0.5`` for ``loss="hinge"`` and
+        ``sgd.predict() > 0`` otherwise. For actual classifier support
+        please use ``MBSGDClassifier`` instead.
+        """
+        raise NotImplementedError(
+            "This method was removed in 25.12 as a breaking change.\n\n"
+            "Please use ``sgd.predict() > 0.5`` for ``loss='hinge'`` and "
+            "``sgd.predict() > 0`` otherwise."
+        )
