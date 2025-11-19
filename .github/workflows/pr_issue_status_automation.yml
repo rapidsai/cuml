@@ -33,28 +33,114 @@ jobs:
         UPDATE_LINKED_ISSUES: true
       secrets: inherit
 
-    get-release-version:
+    check-current-release:
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       runs-on: ubuntu-latest
+      permissions:
+        contents: read
       outputs:
-        release-version: ${{ steps.parse-version.outputs.release-version }}
+        current-release: ${{ steps.get-release-field.outputs.field-value }}
       steps:
-        - name: Checkout repository
+        - name: Get current Release field value
+          id: get-release-field
+          env:
+            GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_GITHUB_TOKEN }}
+            ENV_PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
+            ENV_ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
+            ENV_FIELD_NAME: "Release"
+          run: |
+            # Query the project item to get current Release field value
+            # shellcheck disable=SC2016
+            gh api graphql -f projectId="$ENV_PROJECT_ID" \
+                         -f itemId="$ENV_ITEM_PROJECT_ID" \
+                         -f fieldName="$ENV_FIELD_NAME" \
+                         -f query='
+              query($projectId: ID!, $itemId: ID!, $fieldName: String!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    item(id: $itemId) {
+                      fieldValueByName(name: $fieldName) {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }' > release_field_data.json
+
+            current_value=$(jq -r '.data.node.item.fieldValueByName.name // ""' release_field_data.json)
+            echo "Current release value: '$current_value'"
+            echo "field-value=$current_value" >> "$GITHUB_OUTPUT"
+
+    get-release-version:
+      # Determines the release version based on target branch
+      # - release/* branches: extract version from branch name (e.g., release/26.02 -> 26.02)
+      # - main branch: read VERSION file (only if not already set and file exists)
+      # - other branches: skip update
+      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
+      needs: [get-project-id, check-current-release]
+      runs-on: ubuntu-latest
+      outputs:
+        release-version: ${{ steps.determine-version.outputs.release-version }}
+        should-update: ${{ steps.determine-version.outputs.should-update }}
+      steps:
+        - name: Checkout main branch if needed
+          if: ${{ github.event.pull_request.base.ref == 'main' }}
           uses: actions/checkout@v4
           with:
-            ref: ${{ github.event.pull_request.base.ref }}
-        - name: Parse VERSION file
-          id: parse-version
+            ref: main
+        - name: Determine release version
+          id: determine-version
           run: |
-            version=$(cat VERSION | head -n 1)
-            release=$(echo "$version" | cut -d. -f1,2)
+            base_branch="${{ github.event.pull_request.base.ref }}"
+            current_release="${{ needs.check-current-release.outputs.current-release }}"
+
+            # Initialize defaults
+            release=""
+            should_update="false"
+
+            if [[ "$base_branch" == release/* ]]; then
+              # For release branches, extract version from branch name
+              # e.g., "release/26.02" -> "26.02"
+              release="${base_branch#release/}"
+              echo "Base branch is $base_branch, extracted version: $release"
+              should_update="true"
+            elif [ "$base_branch" = "main" ]; then
+              # For main branch, read VERSION file from main branch
+              # Only update if release is not already set
+              if [ -z "$current_release" ]; then
+                echo "Base branch is main, reading VERSION from main branch"
+
+                # Check if VERSION file exists
+                if [ -f VERSION ]; then
+                  version=$(cat VERSION | head -n 1)
+                  release=$(echo "$version" | cut -d. -f1,2)
+                  should_update="true"
+                  echo "Read version from VERSION file: $release"
+                else
+                  echo "Warning: VERSION file not found, skipping release update"
+                  should_update="false"
+                fi
+              else
+                echo "Base branch is main, but release already set to: $current_release"
+                release="$current_release"
+                should_update="false"
+              fi
+            else
+              # For other branches (not release/* or main), skip the update
+              echo "Base branch is $base_branch (not release/* or main), skipping release update"
+              should_update="false"
+            fi
+
             echo "release-version=$release" >> "$GITHUB_OUTPUT"
+            echo "should-update=$should_update" >> "$GITHUB_OUTPUT"
 
     update-release:
       # This job sets the PR and its linked issues to the release they are targeting
       uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
+      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.should-update == 'true' }}
       needs: [get-project-id, get-release-version]
       with:
         PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
