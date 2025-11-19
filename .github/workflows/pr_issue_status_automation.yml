@@ -43,7 +43,6 @@ jobs:
       runs-on: ubuntu-latest
       outputs:
         release-version: ${{ steps.determine-version.outputs.release-version }}
-        should-update: ${{ steps.determine-version.outputs.should-update }}
         override-item: ${{ steps.determine-version.outputs.override-item }}
       steps:
         - name: Checkout main branch if needed
@@ -59,15 +58,11 @@ jobs:
             if [[ "$base_branch" == release/* ]]; then
               release="${base_branch#release/}"
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
-              echo "should-update=true" >> "$GITHUB_OUTPUT"
               echo "override-item=true" >> "$GITHUB_OUTPUT"
             elif [ "$base_branch" = "main" ] && [ -f VERSION ]; then
               release=$(head -n 1 VERSION | cut -d. -f1,2)
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
-              echo "should-update=true" >> "$GITHUB_OUTPUT"
               echo "override-item=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "should-update=false" >> "$GITHUB_OUTPUT"
             fi
 
     update-release:
@@ -75,7 +70,7 @@ jobs:
       # - For release/* branches: always override the field
       # - For main branch: only set if not already set (preserve manual values)
       uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.should-update == 'true' }}
+      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.release-version != '' }}
       needs: [get-project-id, get-release-version]
       with:
         PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
