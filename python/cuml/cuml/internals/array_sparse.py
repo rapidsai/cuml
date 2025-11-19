@@ -4,12 +4,12 @@
 #
 from collections import namedtuple
 
+import cupy as cp
 import cupyx.scipy.sparse as cpx_sparse
 import scipy.sparse as scipy_sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 
@@ -35,6 +35,9 @@ class SparseCumlArray:
     convert_to_dtype : data-type or False, optional
         Any object that can be interpreted as a numpy or cupy data type.
         Specifies whether to convert the data array to a different dtype.
+    convert_to_mem_type : {"device", "host", False}, default "device"
+        The memory type to convert to. Set to `False` to not convert and use
+        whatever memory type is provided.
     convert_index : data-type or False (default: np.int32), optional
         Any object that can be interpreted as a numpy or cupy data type.
         Specifies whether to convert the indices to a different dtype. By
@@ -72,7 +75,7 @@ class SparseCumlArray:
         self,
         data=None,
         convert_to_dtype=False,
-        convert_to_mem_type=None,
+        convert_to_mem_type="device",
         convert_index=None,
         convert_format=True,
         check_rows=None,
@@ -110,19 +113,15 @@ class SparseCumlArray:
 
         if not convert_to_dtype:
             convert_to_dtype = data.dtype
-
-        if convert_to_mem_type:
-            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
-        else:
-            convert_to_mem_type = GlobalSettings().memory_type
-
-        if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
+        if not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
+        else:
+            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
 
-        self._mem_type = convert_to_mem_type
+        self.mem_type = convert_to_mem_type
 
         if convert_index is None:
-            convert_index = GlobalSettings().xpy.int32
+            convert_index = cp.int32
         if not convert_index:
             convert_index = data.indptr.dtype
 
@@ -198,23 +197,16 @@ class SparseCumlArray:
             precedence. If the memory type is not otherwise indicated, the data
             are kept on their current device.
         """
-        if output_mem_type is None:
-            output_mem_type = GlobalSettings().memory_type
-        else:
-            output_mem_type = MemoryType.from_str(output_mem_type)
+        output_mem_type = (
+            self.mem_type
+            if output_mem_type is None
+            else MemoryType.from_str(output_mem_type)
+        )
         # Treat numpy and scipy as the same
         if output_type in ("numpy", "scipy"):
-            if GlobalSettings().memory_type.is_host_accessible:
-                output_mem_type = GlobalSettings().memory_type
-            else:
-                output_mem_type = MemoryType.host
+            output_mem_type = MemoryType.host
         elif output_type == "cupy":
-            if GlobalSettings().memory_type.is_device_accessible:
-                output_mem_type = GlobalSettings().memory_type
-            else:
-                output_mem_type = MemoryType.device
-        elif output_mem_type is MemoryType.mirror:
-            output_mem_type = self.mem_type
+            output_mem_type = MemoryType.device
 
         data = self.data.to_output(
             "array", output_dtype=output_dtype, output_mem_type=output_mem_type
@@ -228,7 +220,7 @@ class SparseCumlArray:
 
         if output_type in ("scipy", "numpy"):
             constructor = scipy_sparse.csr_matrix
-        elif output_mem_type.is_device_accessible:
+        elif output_mem_type is MemoryType.device:
             constructor = cpx_sparse.csr_matrix
         else:
             constructor = scipy_sparse.csr_matrix

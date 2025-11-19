@@ -2,13 +2,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cudf
 import cupy as cp
 import numpy as np
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import process_class_weight
+from cuml.common.classification import (
+    decode_labels,
+    preprocess_labels,
+    process_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -19,9 +22,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.output_utils import cudf_to_pandas
 from cuml.linear_model.base import LinearClassifierMixin
-from cuml.preprocessing import LabelEncoder
 from cuml.solvers.qn import fit_qn
 
 
@@ -109,6 +110,8 @@ class LogisticRegression(
         The independent term. If `fit_intercept` is False, will be 0.
     n_iter_: array, shape (1,)
         The number of iterations taken for the solvers to converge.
+    classes_ : np.ndarray, shape=(n_classes,)
+        Array of the class labels.
 
     Notes
     -----
@@ -285,25 +288,7 @@ class LogisticRegression(
         """
         Fit the model with X and y.
         """
-        # LabelEncoder currently always returns cudf (ignoring output_type),
-        # but we need to explicitly set `output_type` or we'll get an error
-        # on init since `output_type` would default to `mirror`.
-        enc = LabelEncoder(output_type="cudf")
-        y_orig_dtype = getattr(y, "dtype", None)
-        y = enc.fit_transform(y).to_cupy()
-        if y_orig_dtype is None:
-            y_orig_dtype = y.dtype
-        classes = enc.classes_.to_numpy()
-
-        # TODO: LabelEncoder doesn't currently map dtypes the same way as it
-        # does in scikit-learn. Until that's fixed we fix them up here.
-        if y_orig_dtype.kind == "U":
-            classes = classes.astype("U")
-        elif y_orig_dtype == "float16":
-            classes = classes.astype("float16")
-        self.classes_ = classes
-        n_classes = len(self.classes_)
-
+        y, classes = preprocess_labels(y)
         _, sample_weight = process_class_weight(
             classes,
             y,
@@ -319,8 +304,8 @@ class LogisticRegression(
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
-            n_classes=n_classes,
-            loss=("softmax" if n_classes > 2 else "sigmoid"),
+            n_classes=len(classes),
+            loss=("softmax" if len(classes) > 2 else "sigmoid"),
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
             l2_strength=l2_strength,
@@ -333,6 +318,7 @@ class LogisticRegression(
             penalty_normalized=self.penalty_normalized,
         )
 
+        self.classes_ = classes
         self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = np.asarray([n_iter])
@@ -349,7 +335,7 @@ class LogisticRegression(
         },
     )
     @cuml.internals.api_base_return_any_skipall
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -358,55 +344,14 @@ class LogisticRegression(
             X, convert_dtype=convert_dtype
         ).to_output("cupy")
 
-        # Choose a smaller index type when possible
-        nclasses = len(self.classes_)
-        ind_dtype = (
-            np.int32 if nclasses <= np.iinfo(np.int32).max else np.int64
-        )
-
         if scores.ndim == 1:
-            indices = (scores > 0).astype(ind_dtype)
+            indices = (scores > 0).view(cp.int8)
         else:
             indices = cp.argmax(scores, axis=1)
 
-        # TODO: Scikit-Learn's `LogisticRegression.predict` returns the same
-        # dtype as the input classes, _and_ natively supports non-numeric
-        # dtypes. CumlArray doesn't currently support wrapping containers with
-        # non-numeric dtypes. As such, we cannot rely on the normal decorators
-        # to handle output conversion, and need to handle output coercion
-        # internally. This is a hack.
-        output_type = self._get_output_type(X)
-
-        if self.classes_.dtype.kind in "ifu":
-            if (self.classes_ == np.arange(nclasses)).all():
-                # Fast path for common case of monotonically increasing numeric classes
-                out = indices.astype(self.classes_.dtype)
-            else:
-                # Classes are not monotonically increasing from 0, we need to
-                # do a transform.
-                out = cp.asarray(self.classes_).take(indices)
-
-            # Numeric types can always rely on CumlArray's output_type handling
-            return CumlArray(out).to_output(output_type)
-        else:
-            # Non-numeric classes. We use cudf since it supports all types, and will
-            # error appropriately later on when converting to outputs like `cupy`
-            # that don't support strings.
-            out = (
-                cudf.Series(self.classes_).take(indices).reset_index(drop=True)
-            )
-            if output_type in ("cudf", "df_obj", "series"):
-                return out
-            elif output_type == "dataframe":
-                return out.to_frame()
-            elif output_type == "pandas":
-                return cudf_to_pandas(out)
-            elif output_type in ("numpy", "array"):
-                return out.to_numpy(dtype=self.classes_.dtype)
-            else:
-                raise TypeError(
-                    f"{output_type=} doesn't support objects of dtype {self.classes_.dtype!r}"
-                )
+        with cuml.internals.exit_internal_api():
+            output_type = self._get_output_type(X)
+        return decode_labels(indices, self.classes_, output_type=output_type)
 
     @generate_docstring(
         X="dense_sparse",
