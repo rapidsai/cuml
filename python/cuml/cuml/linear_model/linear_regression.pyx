@@ -98,8 +98,10 @@ class LinearRegression(Base,
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
-    cuML's LinearRegression expects either a :class:`cudf.DataFrame` or a
-    :class:`numpy.ndarray` (matrix), and offers two algorithms: Singular Value
+    cuML's LinearRegression can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects.
+    It provides two algorithms: Singular Value
     Decomposition (SVD) and Eigndecomposition (Eig) to fit a linear model.
     SVD is more numerically stable, but Eig (the default) is much faster.
 
