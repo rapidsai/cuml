@@ -55,7 +55,8 @@ class DummyTestEstimator(cuml.Base):
 
     # === Standard Functions ===
     def fit(self, X, convert_dtype=True) -> "DummyTestEstimator":
-        self._set_base_attributes(output_type=X, n_features=X)
+        self._set_output_type(X)
+        self._set_n_features_in(X)
         return self
 
     def predict(self, X, convert_dtype=True) -> CumlArray:

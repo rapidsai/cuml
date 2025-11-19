@@ -302,36 +302,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 setattr(self, key, value)
         return self
 
-    def _set_base_attributes(self, output_type=None, n_features=None):
-        """
-        Method to set the base class attributes - output type,
-        and n_features. It's called in fit function from estimators.
-
-        Parameters
-        --------
-        output_type : DataFrame (default = None)
-            Is output_type is passed, aets the output_type on the
-            dataframe passed
-        n_features: int or DataFrame (default=None)
-            If an int is passed, we set it to the number passed
-            If dataframe, we set it based on the passed df.
-
-        Examples
-        --------
-
-        .. code-block:: python
-
-                # To set output_type and n_features based on X
-                self._set_base_attributes(output_type=X, n_features=X)
-
-                # To set output_type on X and n_features to 10
-                self._set_base_attributes(output_type=X, n_features=10)
-        """
-        if output_type is not None:
-            self._set_output_type(output_type)
-        if n_features is not None:
-            self._set_n_features_in(n_features)
-
     def _set_output_type(self, inp):
         self._input_type = determine_array_type(inp)
 
