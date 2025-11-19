@@ -24,7 +24,7 @@ from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
-from cuml.multiclass import MulticlassClassifier
+from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
 
@@ -334,19 +334,24 @@ class SVC(SVMBase, ClassifierMixin):
             )
 
         params = self.get_params()
-        strategy = params.pop("decision_function_shape", "ovo")
-        self._multiclass = MulticlassClassifier(
+        decision_function_shape = params.pop("decision_function_shape")
+        wrappers = {"ovo": OneVsOneClassifier, "ovr": OneVsRestClassifier}
+        if (multiclass_cls := wrappers.get(decision_function_shape)) is None:
+            raise ValueError(
+                f"Expected `decision_function_shape` to be one of "
+                f"{list(wrappers)}, got {decision_function_shape}"
+            )
+        self._multiclass = multiclass_cls(
             estimator=SVC(**params),
             handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
-            strategy=strategy,
         )
         self._multiclass.fit(X, y)
 
         # if using one-vs-one we align support_ indices to those of
         # full dataset
-        if strategy == "ovo":
+        if decision_function_shape == "ovo":
             y = cp.array(y)
             classes = cp.unique(y)
             n_classes = len(classes)
