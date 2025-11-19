@@ -35,6 +35,9 @@ class SparseCumlArray:
     convert_to_dtype : data-type or False, optional
         Any object that can be interpreted as a numpy or cupy data type.
         Specifies whether to convert the data array to a different dtype.
+    convert_to_mem_type : {"device", "host", False}, default "device"
+        The memory type to convert to. Set to `False` to not convert and use
+        whatever memory type is provided.
     convert_index : data-type or False (default: np.int32), optional
         Any object that can be interpreted as a numpy or cupy data type.
         Specifies whether to convert the indices to a different dtype. By
