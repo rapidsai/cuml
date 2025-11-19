@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cuml.internals
 from cuml.common import (
     input_to_host_array,
@@ -100,6 +102,11 @@ class MulticlassClassifier(_BaseMulticlassClassifier):
     Wrapper around scikit-learn multiclass classifiers that allows to
     choose different multiclass strategies.
 
+    .. deprecated:: 25.12
+
+        This estimator was deprecated in 25.12 and will be removed in 26.02.
+        Please use OneVsOneClassifier or OneVsRestClassifier directly instead.
+
     The input can be any kind of cuML compatible array, and the output type
     follows cuML's output type configuration rules.
 
@@ -165,6 +172,13 @@ class MulticlassClassifier(_BaseMulticlassClassifier):
         output_type=None,
         strategy="ovr",
     ):
+        warnings.warn(
+            "MulticlassClassifier was deprecated in version 25.12 and will be "
+            "removed in version 26.02. Please use OneVsOneClassifier or "
+            "OneVsRestClassifier directly instead.",
+            FutureWarning,
+        )
+
         super().__init__(
             estimator, handle=handle, verbose=verbose, output_type=output_type
         )

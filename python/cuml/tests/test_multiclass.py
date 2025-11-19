@@ -31,7 +31,11 @@ def test_logistic_regression(
     culog = cuLog()
 
     if use_wrapper:
-        cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
+        with pytest.warns(
+            FutureWarning,
+            match="MulticlassClassifier was deprecated",
+        ):
+            cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
     else:
         if strategy == "ovo":
             cls = cu_multiclass.OneVsOneClassifier(culog)
