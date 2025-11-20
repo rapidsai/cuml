@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -27,7 +16,11 @@ from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.cpp.mdspan cimport (
+    device_vector_view,
+    make_device_vector_view,
+)
+from pylibraft.common.handle cimport device_resources, handle_t
 
 
 cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets" nogil:
@@ -50,23 +43,21 @@ cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets" nogil:
 cdef extern from "cuml/cluster/spectral_clustering.hpp" \
         namespace "ML::SpectralClustering" nogil:
 
-    cdef cppclass SpectralClusteringParams:
+    cdef cppclass params:
         int n_clusters
         int n_components
         int n_neighbors
         int n_init
+        float eigen_tol
         uint64_t seed
 
     cdef void fit_predict(
-        const handle_t &handle,
-        const SpectralClusteringParams &config,
-        const int* coo_rows,
-        const int* coo_cols,
-        const float* coo_vals,
-        int nnz,
-        int n_rows,
-        int n_cols,
-        int* labels) except +
+        const device_resources &handle,
+        params config,
+        device_vector_view[int, int] rows,
+        device_vector_view[int, int] cols,
+        device_vector_view[float, int] vals,
+        device_vector_view[int, int] labels) except +
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -77,6 +68,7 @@ def spectral_clustering(A,
                         n_components=None,
                         n_neighbors=10,
                         n_init=10,
+                        eigen_tol=0.01,
                         handle=None):
     if handle is None:
         handle = Handle()
@@ -118,26 +110,24 @@ def spectral_clustering(A,
     labels = CumlArray.empty(n_samples, dtype=np.int32)
     cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
 
-    cdef SpectralClusteringParams config
+    cdef params config
     config.n_clusters = n_clusters
     config.n_components = n_components if n_components is not None else n_clusters
     config.n_neighbors = n_neighbors
     config.n_init = n_init
+    config.eigen_tol = eigen_tol
     config.seed = check_random_seed(random_state)
 
-    cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     with nogil:
         fit_predict(
             handle_[0],
             config,
-            affinity_rows_ptr,
-            affinity_cols_ptr,
-            affinity_data_ptr,
-            nnz,
-            n_samples,
-            n_samples,
-            labels_ptr
+            make_device_vector_view(affinity_rows_ptr, nnz),
+            make_device_vector_view(affinity_cols_ptr, nnz),
+            make_device_vector_view(affinity_data_ptr, nnz),
+            make_device_vector_view(labels_ptr, n_samples)
         )
 
     return labels
@@ -145,7 +135,7 @@ def spectral_clustering(A,
 
 class SpectralClustering(Base):
     def __init__(self, n_clusters=8, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, affinity='precomputed',
+                 n_neighbors=10, n_init=10, eigen_tol=0.01, affinity='precomputed',
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
@@ -153,6 +143,7 @@ class SpectralClustering(Base):
         self.random_state = random_state
         self.n_neighbors = n_neighbors
         self.n_init = n_init
+        self.eigen_tol = eigen_tol
         self.affinity = affinity
 
     def fit_predict(self, X, y=None) -> CumlArray:
@@ -163,6 +154,7 @@ class SpectralClustering(Base):
             random_state=self.random_state,
             n_neighbors=self.n_neighbors,
             n_init=self.n_init,
+            eigen_tol=self.eigen_tol,
             handle=self.handle
         )
         return self.labels_
