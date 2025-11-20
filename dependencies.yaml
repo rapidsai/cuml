@@ -35,7 +35,7 @@ files:
       - rapids_build_backend
       - test_python
       - test_python_dask
-      - test_python_xgboost
+      # - test_python_xgboost
   devcontainers:
     output: none
     includes:
@@ -501,18 +501,19 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml
-  test_python_xgboost:
-    common:
-      - output_types: [conda]
-        packages:
-          # We must separate xgboost into its own list so that it is not
-          # included in the "devcontainers" key. The libxgboost package depends
-          # on librmm but we do not want to have a package depending on librmm
-          # in devcontainers since it should be built from source.
-          - &rapids-xgboost rapids-xgboost==26.2.*,>=0.0.0a0
-      - output_types: [requirements, pyproject]
-        packages:
-          - &xgboost xgboost>=2.1.0
+  # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+  # test_python_xgboost:
+  #   common:
+  #     - output_types: [conda]
+  #       packages:
+  #         # We must separate xgboost into its own list so that it is not
+  #         # included in the "devcontainers" key. The libxgboost package depends
+  #         # on librmm but we do not want to have a package depending on librmm
+  #         # in devcontainers since it should be built from source.
+  #         - &rapids-xgboost rapids-xgboost==26.2.*,>=0.0.0a0
+  #     - output_types: [requirements, pyproject]
+  #       packages:
+  #         - &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
