@@ -11,35 +11,47 @@
 
 #include <cuvs/cluster/spectral.hpp>
 
+namespace cuvs::cluster::spectral {
+struct params;
+}  // end namespace cuvs::cluster::spectral
+
 namespace ML {
 namespace SpectralClustering {
 
-void fit_predict(const raft::handle_t& handle,
-                 const SpectralClusteringParams& params,
-                 const int* coo_rows,
-                 const int* coo_cols,
-                 const float* coo_vals,
-                 int nnz,
-                 int n_rows,
-                 int n_cols,
-                 int* labels)
+cuvs::cluster::spectral::params to_cuvs(ML::SpectralClustering::params& config)
 {
   cuvs::cluster::spectral::params cuvs_params;
-  cuvs_params.n_clusters   = params.n_clusters;
-  cuvs_params.n_components = params.n_components;
-  cuvs_params.n_init       = params.n_init;
-  cuvs_params.n_neighbors  = params.n_neighbors;
-  cuvs_params.rng_state    = raft::random::RngState(params.seed);
+  cuvs_params.n_clusters   = config.n_clusters;
+  cuvs_params.n_components = config.n_components;
+  cuvs_params.n_init       = config.n_init;
+  cuvs_params.n_neighbors  = config.n_neighbors;
+  cuvs_params.tolerance    = config.eigen_tol;
+  cuvs_params.rng_state    = raft::random::RngState(config.seed);
 
-  auto structure = raft::make_device_coordinate_structure_view<int, int, int>(
-    const_cast<int*>(coo_rows), const_cast<int*>(coo_cols), n_rows, n_cols, nnz);
+  return cuvs_params;
+}
 
-  auto coo_matrix = raft::make_device_coo_matrix_view<float, int, int, int>(
-    const_cast<float*>(coo_vals), structure);
+void fit_predict(raft::resources const& handle,
+                 params config,
+                 raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
+                 raft::device_vector_view<int, int> labels)
+{
+  cuvs::cluster::spectral::fit_predict(handle, to_cuvs(config), connectivity_graph, labels);
+}
 
-  auto labels_view = raft::make_device_vector_view<int, int>(labels, n_rows);
+void fit_predict(raft::resources const& handle,
+                 params config,
+                 raft::device_vector_view<int, int> rows,
+                 raft::device_vector_view<int, int> cols,
+                 raft::device_vector_view<float, int> vals,
+                 raft::device_vector_view<int, int> labels)
+{
+  auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int>(
+    vals.data_handle(),
+    raft::make_device_coordinate_structure_view<int, int, int>(
+      rows.data_handle(), cols.data_handle(), labels.size(), labels.size(), vals.size()));
 
-  cuvs::cluster::spectral::fit_predict(handle, cuvs_params, coo_matrix, labels_view);
+  ML::SpectralClustering::fit_predict(handle, config, connectivity_graph_view, labels);
 }
 
 }  // namespace SpectralClustering
