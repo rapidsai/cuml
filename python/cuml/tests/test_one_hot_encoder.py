@@ -87,7 +87,7 @@ def test_onehot_categories(as_array):
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 @pytest.mark.filterwarnings(
-    "ignore:((.|\n)*)unknown((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:((.|\n)*)unknown((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_onehot_fit_handle_unknown(as_array):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
@@ -126,7 +126,7 @@ def test_onehot_transform_handle_unknown(as_array):
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 @pytest.mark.filterwarnings(
-    "ignore:((.|\n)*)unknown((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:((.|\n)*)unknown((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_onehot_inverse_transform_handle_unknown(as_array):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
@@ -342,7 +342,6 @@ def test_onehot_category_class_count(total_classes: int):
     num_rows = [3, 10, 100]
 
     for row_count in num_rows:
-
         class_per_row = int(math.ceil(total_classes / float(row_count))) + 1
         example_df = DataFrame()
 

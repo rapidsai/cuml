@@ -229,7 +229,7 @@ def make_classification(
     if weights is not None:
         if len(weights) not in [n_classes, n_classes - 1]:
             raise ValueError(
-                "Weights specified but incompatible with number " "of classes."
+                "Weights specified but incompatible with number of classes."
             )
         if len(weights) == n_classes - 1:
             if isinstance(weights, list):
@@ -329,9 +329,9 @@ def make_classification(
             X_k = cp.dot(X_k, A)  # introduce random covariance
 
             if n_redundant > 0:
-                X[
-                    start:stop, n_informative : n_informative + n_redundant
-                ] = cp.dot(X_k, B)
+                X[start:stop, n_informative : n_informative + n_redundant] = (
+                    cp.dot(X_k, B)
+                )
 
             X_k += centroid  # shift the cluster to a vertex
             X[start:stop, :n_informative] = X_k

@@ -7,7 +7,6 @@ import dask
 import dask.array
 from toolz import first
 
-from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.func import reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -16,7 +15,6 @@ from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 
 class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
-
     """
     Distributed TF-IDF  transformer
 
@@ -65,7 +63,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-
         """
         Create new  distributed TF-IDF transformer instance
 
@@ -83,7 +80,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         self._set_internal_model(s_TfidfTransformer(**kwargs))
 
     @staticmethod
-    @with_cupy_rmm
     def _set_doc_stats(X, kwargs):
         model = s_TfidfTransformer(**kwargs)
         # Below is only required if we have to set stats
@@ -106,9 +102,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         model._set_idf_diag()
         return model
 
-    @with_cupy_rmm
     def fit(self, X, y=None):
-
         """
         Fit distributed TFIDF Transformer
 

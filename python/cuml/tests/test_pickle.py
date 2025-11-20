@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier
 from sklearn.datasets import (
     load_iris,
     make_blobs,
@@ -190,7 +190,6 @@ def test_rf_regression_pickle(
         return model, X_test
 
     def assert_model(pickled_model, X_test):
-
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
         pickled_model.score(X_test, np.zeros(X_test.shape[0]))
@@ -204,7 +203,7 @@ def test_rf_regression_pickle(
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 @pytest.mark.parametrize("fit_intercept", [True, False])
-def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+def test_linear_model_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -230,13 +229,20 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
         if "LogisticRegression" in keys and nrows == 500000:
             nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
 
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
         if "MBSGD" in keys:
             model = regression_models[keys](
                 fit_intercept=fit_intercept, batch_size=nrows / 100
             )
         else:
             model = regression_models[keys](fit_intercept=fit_intercept)
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -355,7 +361,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
-    "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
@@ -372,7 +378,7 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize("model_name", all_models.keys())
 @pytest.mark.filterwarnings(
-    "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_unfit_clone(model_name):
@@ -413,9 +419,16 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
         model = neighbor_models[keys]()
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         if keys in k_neighbors_models.keys():
             model.fit(X_train, y_train)
         else:
@@ -607,9 +620,9 @@ def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
         model = hdbscan_model[keys](prediction_data=prediction_data)
         result["hdbscan"] = model.fit_predict(X_train)
-        result[
-            "hdbscan_single_linkage_tree"
-        ] = model.single_linkage_tree_.to_numpy()
+        result["hdbscan_single_linkage_tree"] = (
+            model.single_linkage_tree_.to_numpy()
+        )
         result["condensed_tree"] = model.condensed_tree_.to_numpy()
         if prediction_data:
             result["hdbscan_all_points"] = all_points_membership_vectors(model)
@@ -877,10 +890,9 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize("ncols", [unit_param(20)])
 @pytest.mark.parametrize("n_info", [unit_param(10)])
 @pytest.mark.filterwarnings(
-    "ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:" "cuml[.*]"
+    "ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:cuml[.*]"
 )
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
-
     result = {}
 
     def create_mod():

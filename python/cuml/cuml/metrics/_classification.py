@@ -173,7 +173,7 @@ def log_loss(
         y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max
     ):
         raise ValueError(
-            "The shape of y_pred doesn't " "match the number of classes"
+            "The shape of y_pred doesn't match the number of classes"
         )
 
     y_true = y_true.astype("int32")

@@ -13,7 +13,6 @@ from cuml.dask.common.base import (
     mnmg_import,
 )
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -79,7 +78,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         return _func
 
-    @with_cupy_rmm
     def fit(self, X, out_dtype="int32"):
         """
         Fit a multi-node multi-GPU DBSCAN model

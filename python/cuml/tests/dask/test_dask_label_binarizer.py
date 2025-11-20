@@ -19,7 +19,6 @@ from cuml.testing.utils import array_equal
 )
 @pytest.mark.parametrize("multipart", [True, False])
 def test_basic_functions(labels, multipart, client):
-
     fit_labels, xform_labels = labels
 
     s = cp.asarray(fit_labels, dtype=np.int32)
@@ -61,10 +60,7 @@ def test_basic_functions(labels, multipart, client):
 )
 @pytest.mark.xfail(
     raises=ValueError,
-    reason="Sparse output disabled until "
-    "Dask supports sparse CuPy "
-    "arrays",
+    reason="Sparse output disabled until Dask supports sparse CuPy arrays",
 )
 def test_sparse_output_fails(labels, client):
-
     LabelBinarizer(client=client, sparse_output=True)

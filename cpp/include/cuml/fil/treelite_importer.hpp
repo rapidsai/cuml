@@ -154,10 +154,7 @@ struct treelite_importer {
     return result;
   }
 
-  auto get_bias(treelite::Model const& tl_model)
-  {
-    return static_cast<double>(tl_model.base_scores[0]);
-  }
+  auto get_bias(treelite::Model const& tl_model) { return tl_model.base_scores.AsVector(); }
 
   auto get_postproc_params(treelite::Model const& tl_model)
   {
@@ -376,11 +373,6 @@ struct treelite_importer {
                  tree_id);
         }
       }
-    }
-    // Check base_scores
-    for (std::int32_t class_id = 1; class_id < tl_model.num_class[0]; ++class_id) {
-      ASSERT(tl_model.base_scores[0] == tl_model.base_scores[class_id],
-             "base_scores must be identical for all classes");
     }
 
     auto result                = decision_forest_variant{};

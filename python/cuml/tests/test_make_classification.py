@@ -31,7 +31,6 @@ def test_make_classification(
     random_state,
     order,
 ):
-
     X, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
@@ -106,9 +105,9 @@ def test_make_classification_informative_features():
             signs = signs.view(dtype="|S{0}".format(signs.strides[0])).ravel()
             unique_signs, cluster_index = np.unique(signs, return_inverse=True)
 
-            assert (
-                len(unique_signs) == n_clusters
-            ), "Wrong number of clusters, or not in distinct quadrants"
+            assert len(unique_signs) == n_clusters, (
+                "Wrong number of clusters, or not in distinct quadrants"
+            )
 
             # Ensure on vertices of hypercube
             for cluster in range(len(unique_signs)):

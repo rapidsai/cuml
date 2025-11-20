@@ -28,7 +28,10 @@ def regression(request):
 
 
 def bench_linear_regression(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,
@@ -40,7 +43,10 @@ def bench_linear_regression(
 
 
 def bench_mnmg_lasso(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.Lasso", bench_step, regression, client=client
@@ -48,7 +54,10 @@ def bench_mnmg_lasso(
 
 
 def bench_mnmg_elastic(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.ElasticNet", bench_step, regression, client=client
@@ -56,7 +65,10 @@ def bench_mnmg_elastic(
 
 
 def bench_mnmg_ridge(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.Ridge", bench_step, regression, client=client
@@ -64,7 +76,10 @@ def bench_mnmg_ridge(
 
 
 def bench_mnmg_knnregressor(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,

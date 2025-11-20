@@ -26,7 +26,6 @@ from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.common.utils import get_client
-from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DistributedDataHandler:
@@ -105,7 +104,6 @@ class DistributedDataHandler:
     """ Methods to calculate further attributes """
 
     def calculate_worker_and_rank_info(self, comms):
-
         self.worker_info = comms.worker_info(comms.worker_addresses)
         self.ranks = dict()
 
@@ -113,7 +111,6 @@ class DistributedDataHandler:
             self.ranks[w] = self.worker_info[w]["rank"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
-
         if self.worker_info is None and comms is not None:
             self.calculate_worker_and_rank_info(comms)
 
@@ -179,7 +176,6 @@ def _get_datatype_from_inputs(data):
     return datatype, multiple
 
 
-@with_cupy_rmm
 def concatenate(objs, axis=0):
     if isinstance(objs[0], DataFrame) or isinstance(objs[0], cudf.Series):
         if len(objs) == 1:
@@ -249,14 +245,13 @@ def _workers_to_parts(futures):
 
 
 def _get_ary_meta(ary):
-
     if isinstance(ary, (np.ndarray, cp.ndarray)):
         return ary.shape, ary.dtype
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))
     else:
         raise ValueError(
-            "Expected dask.Dataframe " "or dask.Array, received %s" % type(ary)
+            "Expected dask.Dataframe or dask.Array, received %s" % type(ary)
         )
 
 
@@ -269,7 +264,6 @@ def _get_rows(objs, multiple):
 
 
 def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
-
     wait(futures)
 
     c = default_client() if client is None else client

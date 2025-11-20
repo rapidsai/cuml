@@ -262,9 +262,9 @@ def print_metrics(metrics, name):
         except Exception:
             return "N/A"
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"METRICS FOR {name.upper()}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     print("Local Structure Preservation:")
     print(f"  Trustworthiness: {_fmt(metrics.get('trustworthiness'))}")
@@ -485,9 +485,9 @@ def main():
 
     # Generate web page if requested
     if args.web_report:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("GENERATING WEB PAGE...")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         html_content = generate_web_report(
             datasets, embeddings, all_metrics, spectral_inits
@@ -498,7 +498,7 @@ def main():
         with open(filename, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("ANALYSIS COMPLETE!")
         print(f"Results saved as '{filename}'")
         print(
@@ -508,12 +508,12 @@ def main():
             print(
                 "The web report includes results from both Reference and cuML implementations."
             )
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
     else:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("ANALYSIS COMPLETE!")
         print("Web report generation was disabled.")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

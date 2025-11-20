@@ -30,7 +30,9 @@ def classification(request):
 
 
 def bench_logistic_regression(
-    gpubenchmark, bench_step, classification  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    classification,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "LogisticRegression", bench_step, classification
@@ -44,7 +46,9 @@ def bench_mbsgcclf(gpubenchmark, bench_step, classification):  # noqa: F811
 
 
 def bench_knnclassifier(
-    gpubenchmark, bench_step, classification  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    classification,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "KNeighborsClassifier", bench_step, classification
@@ -60,7 +64,9 @@ def bench_svc_rbf(gpubenchmark, bench_step, classification):  # noqa: F811
 
 
 def bench_xgboost_classification(
-    gpubenchmark, bench_step, classification  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    classification,  # noqa: F811
 ):
     pytest.importorskip("xgboost")
     _benchmark_algo(

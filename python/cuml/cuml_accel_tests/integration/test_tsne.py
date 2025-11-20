@@ -32,9 +32,9 @@ def test_tsne_n_components(synthetic_data, n_components):
     X, _ = synthetic_data
     model = TSNE(n_components=n_components, random_state=42)
     X_embedded = model.fit_transform(X)
-    assert (
-        X_embedded.shape[1] == n_components
-    ), f"Output dimensions should be {n_components}"
+    assert X_embedded.shape[1] == n_components, (
+        f"Output dimensions should be {n_components}"
+    )
 
 
 @pytest.mark.parametrize("perplexity", [50])
@@ -43,9 +43,9 @@ def test_tsne_perplexity(synthetic_data, perplexity):
     model = TSNE(perplexity=perplexity, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), "Number of samples should remain the same"
+    assert X_embedded.shape[0] == X.shape[0], (
+        "Number of samples should remain the same"
+    )
 
 
 @pytest.mark.parametrize("early_exaggeration", [12.0])
@@ -54,9 +54,9 @@ def test_tsne_early_exaggeration(synthetic_data, early_exaggeration):
     model = TSNE(early_exaggeration=early_exaggeration, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), "Number of samples should remain the same"
+    assert X_embedded.shape[0] == X.shape[0], (
+        "Number of samples should remain the same"
+    )
 
 
 @pytest.mark.parametrize("learning_rate", [200])
@@ -65,9 +65,9 @@ def test_tsne_learning_rate(synthetic_data, learning_rate):
     model = TSNE(learning_rate=learning_rate, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), "Number of samples should remain the same"
+    assert X_embedded.shape[0] == X.shape[0], (
+        "Number of samples should remain the same"
+    )
 
 
 @pytest.mark.parametrize("metric", ["euclidean", "manhattan", "cosine"])
@@ -76,9 +76,9 @@ def test_tsne_metric(synthetic_data, metric):
     model = TSNE(metric=metric, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), f"Embedding should have same number of samples with metric={metric}"
+    assert X_embedded.shape[0] == X.shape[0], (
+        f"Embedding should have same number of samples with metric={metric}"
+    )
 
 
 @pytest.mark.parametrize("init", ["random", "pca"])
@@ -87,9 +87,9 @@ def test_tsne_init(synthetic_data, init):
     model = TSNE(init=init, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), f"Embedding should have same number of samples with init={init}"
+    assert X_embedded.shape[0] == X.shape[0], (
+        f"Embedding should have same number of samples with init={init}"
+    )
 
 
 def test_tsne_init_array(synthetic_data):
@@ -105,9 +105,9 @@ def test_tsne_method(synthetic_data, method):
     model = TSNE(method=method, random_state=42)
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), f"Embedding should have same number of samples with method={method}"
+    assert X_embedded.shape[0] == X.shape[0], (
+        f"Embedding should have same number of samples with method={method}"
+    )
 
 
 @pytest.mark.parametrize("angle", [0.2])
@@ -157,9 +157,9 @@ def test_tsne_min_grad_norm(synthetic_data, min_grad_norm):
     model = TSNE(min_grad_norm=min_grad_norm, random_state=42)
     model.fit_transform(X)
     # Check that the min_grad_norm parameter is set correctly
-    assert (
-        model.min_grad_norm == min_grad_norm
-    ), f"min_grad_norm should be {min_grad_norm}"
+    assert model.min_grad_norm == min_grad_norm, (
+        f"min_grad_norm should be {min_grad_norm}"
+    )
 
 
 def test_tsne_metric_params(synthetic_data):
@@ -170,6 +170,6 @@ def test_tsne_metric_params(synthetic_data):
     )
     X_embedded = model.fit_transform(X)
     # Check that the embedding has the correct shape
-    assert (
-        X_embedded.shape[0] == X.shape[0]
-    ), "Embedding should have same number of samples with custom metric_params"
+    assert X_embedded.shape[0] == X.shape[0], (
+        "Embedding should have same number of samples with custom metric_params"
+    )

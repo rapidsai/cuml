@@ -14,7 +14,6 @@ from cuml.testing.utils import array_equal
 @pytest.mark.parametrize("dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("copy", [True, False])
 def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
-
     arr = np.array([0, 15, 10, 50, 20, 50], dtype=dtype)
 
     original = arr.copy()

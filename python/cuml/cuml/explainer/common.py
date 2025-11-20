@@ -96,7 +96,7 @@ def get_link_fn_from_str_or_fn(link):
             link_fn = link_dict[link]
         else:
             raise ValueError(
-                "'link' string does not identify any known" " link functions. "
+                "'link' string does not identify any known link functions. "
             )
     elif callable(link):
         if callable(getattr(link, "inverse", None)):

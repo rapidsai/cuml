@@ -184,8 +184,8 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             tol=self.tol,
             delta=None,
             linesearch_max_iter=self.linesearch_max_iter,
-            lbfgs_memory=5,
-            penalty_normalized=True,
+            lbfgs_memory=self.lbfgs_memory,
+            penalty_normalized=self.penalty_normalized,
             verbose=self.verbose,
         )
 

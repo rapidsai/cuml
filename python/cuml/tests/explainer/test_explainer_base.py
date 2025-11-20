@@ -118,7 +118,6 @@ def test_init_explainer_base_init_abritrary_model(
 
 
 def test_init_explainer_base_wrong_dtype():
-
     with pytest.raises(ValueError):
         explainer = SHAPBase(
             model=dummy_func, background=np.ones(10), dtype=np.int32

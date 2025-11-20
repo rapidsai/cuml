@@ -77,7 +77,6 @@ def test_lasso(
     "n_parts", [unit_param(16), quality_param(32), stress_param(64)]
 )
 def test_lasso_default(dtype, nrows, column_info, n_parts, client):
-
     ncols, n_info = column_info
 
     X, y = make_regression(

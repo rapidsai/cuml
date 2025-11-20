@@ -49,7 +49,6 @@ def test_make_regression(
     bias,
     noise,
 ):
-
     result = cuml.make_regression(
         n_samples=n_samples,
         n_features=n_features,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,18 +15,22 @@ void tsvdFit(raft::handle_t& handle,
              float* input,
              float* components,
              float* singular_vals,
-             const paramsTSVD& prms)
+             const paramsTSVD& prms,
+             bool flip_signs_based_on_U = false)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream());
+  tsvdFit(
+    handle, input, components, singular_vals, prms, handle.get_stream(), flip_signs_based_on_U);
 }
 
 void tsvdFit(raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
-             const paramsTSVD& prms)
+             const paramsTSVD& prms,
+             bool flip_signs_based_on_U = false)
 {
-  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream());
+  tsvdFit(
+    handle, input, components, singular_vals, prms, handle.get_stream(), flip_signs_based_on_U);
 }
 
 void tsvdFitTransform(raft::handle_t& handle,
@@ -36,7 +40,8 @@ void tsvdFitTransform(raft::handle_t& handle,
                       float* explained_var,
                       float* explained_var_ratio,
                       float* singular_vals,
-                      const paramsTSVD& prms)
+                      const paramsTSVD& prms,
+                      bool flip_signs_based_on_U = false)
 {
   tsvdFitTransform(handle,
                    input,
@@ -46,7 +51,8 @@ void tsvdFitTransform(raft::handle_t& handle,
                    explained_var_ratio,
                    singular_vals,
                    prms,
-                   handle.get_stream());
+                   handle.get_stream(),
+                   flip_signs_based_on_U);
 }
 
 void tsvdFitTransform(raft::handle_t& handle,
@@ -56,7 +62,8 @@ void tsvdFitTransform(raft::handle_t& handle,
                       double* explained_var,
                       double* explained_var_ratio,
                       double* singular_vals,
-                      const paramsTSVD& prms)
+                      const paramsTSVD& prms,
+                      bool flip_signs_based_on_U = false)
 {
   tsvdFitTransform(handle,
                    input,
@@ -66,7 +73,8 @@ void tsvdFitTransform(raft::handle_t& handle,
                    explained_var_ratio,
                    singular_vals,
                    prms,
-                   handle.get_stream());
+                   handle.get_stream(),
+                   flip_signs_based_on_U);
 }
 
 void tsvdTransform(raft::handle_t& handle,

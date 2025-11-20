@@ -53,7 +53,6 @@ def ends_cvc(string_ser, mode="NLTK_EXTENSIONS"):
     """
 
     if mode == "NLTK_EXTENSIONS":
-
         # rule_1
         # len(word) >= 3
         # and self._is_consonant(word, len(word) - 3)

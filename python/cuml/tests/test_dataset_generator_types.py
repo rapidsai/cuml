@@ -37,7 +37,6 @@ GENERATORS = (make_blobs, make_classification, make_regression)
 @pytest.mark.parametrize("generator", GENERATORS)
 @pytest.mark.parametrize("output_str,output_types", TEST_OUTPUT_TYPES)
 def test_xy_output_type(generator, output_str, output_types):
-
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
         data = generator(n_samples=10, random_state=0)
@@ -48,7 +47,6 @@ def test_xy_output_type(generator, output_str, output_types):
 
 @pytest.mark.parametrize("output_str,output_types", TEST_OUTPUT_TYPES)
 def test_time_series_label_output_type(output_str, output_types):
-
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
         data = make_arima(n_obs=10, random_state=0)[0]

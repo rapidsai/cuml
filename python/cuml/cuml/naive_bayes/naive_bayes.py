@@ -75,7 +75,6 @@ def count_classes_kernel(float_dtype, int_dtype):
 
 
 def count_features_dense_kernel(float_dtype, int_dtype):
-
     kernel_str = r"""
     ({0} *out,
      {0} *in,
@@ -135,7 +134,6 @@ def _convert_x_sparse(X):
 
 
 class _BaseNB(Base, ClassifierMixin):
-
     classes_ = CumlArrayDescriptor()
     class_count_ = CumlArrayDescriptor()
     feature_count_ = CumlArrayDescriptor()
@@ -333,7 +331,6 @@ class GaussianNB(_BaseNB):
         handle=None,
         verbose=False,
     ):
-
         super(GaussianNB, self).__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
@@ -380,7 +377,7 @@ class GaussianNB(_BaseNB):
     ) -> "GaussianNB":
         if getattr(self, "classes_") is None and _classes is None:
             raise ValueError(
-                "classes must be passed on the first call " "to partial_fit."
+                "classes must be passed on the first call to partial_fit."
             )
 
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
@@ -443,7 +440,7 @@ class GaussianNB(_BaseNB):
             if self.priors is not None:
                 if len(self.priors) != n_classes:
                     raise ValueError(
-                        "Number of priors must match number of" " classes."
+                        "Number of priors must match number of classes."
                     )
                 if not cp.isclose(self.priors.sum(), 1):
                     raise ValueError("The sum of the priors should be 1.")
@@ -515,7 +512,6 @@ class GaussianNB(_BaseNB):
         )
 
     def _update_mean_variance(self, X, Y, sample_weight=None):
-
         if sample_weight is None:
             sample_weight = cp.zeros(0)
 
@@ -590,7 +586,6 @@ class GaussianNB(_BaseNB):
                 ),
             )
         else:
-
             count_features_dense = count_features_dense_kernel(
                 X.dtype, labels_dtype
             )
@@ -728,12 +723,10 @@ class _BaseDiscreteNB(_BaseNB):
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
-
         if class_prior is not None:
-
             if class_prior.shape[0] != self.n_classes_:
                 raise ValueError(
-                    "Number of classes must match " "number of priors"
+                    "Number of classes must match number of priors"
                 )
 
             self.class_log_prior_ = cp.log(class_prior)
@@ -1027,7 +1020,6 @@ class _BaseDiscreteNB(_BaseNB):
 
 
 class MultinomialNB(_BaseDiscreteNB):
-
     # TODO: Make this extend cuml.Base:
     # https://github.com/rapidsai/cuml/issues/1834
 

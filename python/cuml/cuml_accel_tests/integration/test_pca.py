@@ -34,17 +34,17 @@ def test_pca_n_components(pca_data, n_components):
     X_transformed = pca.transform(X)
     # Check the shape of the transformed data
     if n_components != "mle":
-        assert (
-            X_transformed.shape[1] == n_components
-        ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
+        assert X_transformed.shape[1] == n_components, (
+            f"Expected {n_components} components, got {X_transformed.shape[1]}"
+        )
     # Check that explained variance ratios sum up appropriately
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance <= 1.1
-    ), "Total explained variance cannot exceed with margin for parallel error"
-    assert (
-        total_variance > 0.0
-    ), "Total explained variance ratio should be positive"
+    assert total_variance <= 1.1, (
+        "Total explained variance cannot exceed with margin for parallel error"
+    )
+    assert total_variance > 0.0, (
+        "Total explained variance ratio should be positive"
+    )
 
 
 @pytest.mark.parametrize(
@@ -92,9 +92,9 @@ def test_pca_tol(pca_data, tol):
     # Since 'arpack' is iterative, tol might affect convergence
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance > 0.5
-    ), "Total explained variance should be significant"
+    assert total_variance > 0.5, (
+        "Total explained variance should be significant"
+    )
 
 
 def test_pca_random_state(pca_data):
@@ -134,9 +134,9 @@ def test_pca_iterated_power(pca_data, iterated_power):
     pca.transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance > 0.5
-    ), f"Total explained variance should be significant with iterated_power={iterated_power}"
+    assert total_variance > 0.5, (
+        f"Total explained variance should be significant with iterated_power={iterated_power}"
+    )
 
 
 def test_pca_explained_variance_ratio(pca_data):

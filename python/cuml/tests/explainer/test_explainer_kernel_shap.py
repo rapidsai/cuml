@@ -260,7 +260,6 @@ def test_partial_powerset():
 
 @pytest.mark.parametrize("full_powerset", [True, False])
 def test_get_number_of_exact_random_samples(full_powerset):
-
     if full_powerset:
         (
             nsamples_exact,

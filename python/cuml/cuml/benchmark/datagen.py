@@ -115,7 +115,6 @@ DATASETS_DIRECTORY = "."
 
 
 def _gen_data_airline_regression(datasets_root_dir):
-
     url = "http://kt.ijs.si/elena_ikonomovska/datasets/airline/airline_14col.data.bz2"
 
     local_url = os.path.join(datasets_root_dir, os.path.basename(url))
@@ -172,7 +171,6 @@ def _gen_data_airline_classification(datasets_root_dir):
 
 
 def _gen_data_bosch(datasets_root_dir):
-
     local_url = os.path.join(datasets_root_dir, "train_numeric.csv.zip")
 
     if not os.path.isfile(local_url):
@@ -191,7 +189,6 @@ def _gen_data_bosch(datasets_root_dir):
 
 
 def _gen_data_covtype(datasets_root_dir):
-
     X, y = fetch_covtype(return_X_y=True)
     # Labele range in covtype start from 1, making it start from 0
     y = y - 1
@@ -203,7 +200,6 @@ def _gen_data_covtype(datasets_root_dir):
 
 
 def _gen_data_epsilon(datasets_root_dir):
-
     url_train = (
         "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary"
         "/epsilon_normalized.bz2"
@@ -243,7 +239,6 @@ def _gen_data_epsilon(datasets_root_dir):
 
 
 def _gen_data_fraud(datasets_root_dir):
-
     local_url = os.path.join(datasets_root_dir, "creditcard.csv.zip")
 
     if not os.path.isfile(local_url):
@@ -259,7 +254,6 @@ def _gen_data_fraud(datasets_root_dir):
 
 
 def _gen_data_higgs(datasets_root_dir):
-
     higgs_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz"  # noqa
 
     local_url = os.path.join(datasets_root_dir, os.path.basename(higgs_url))
@@ -287,7 +281,6 @@ def _gen_data_higgs(datasets_root_dir):
 
 
 def _gen_data_year(datasets_root_dir):
-
     year_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00203/YearPredictionMSD.txt.zip"
 
     local_url = os.path.join(datasets_root_dir, "YearPredictionMSD.txt.zip")

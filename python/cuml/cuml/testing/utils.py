@@ -124,9 +124,8 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         str_b[0] = f"b: {str_b[0][3:]}"
 
         # Create assertion error message and raise exception.
-        assertion_error_msg = (
-            dedent(
-                f"""
+        assertion_error_msg = dedent(
+            f"""
         Arrays are not equal
 
         unit_tol:  {unit_tol}
@@ -134,9 +133,7 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         with_sign: {with_sign}
 
         """
-            )
-            + "\n".join(str_a + str_b)
-        )
+        ) + "\n".join(str_a + str_b)
         raise AssertionError(assertion_error_msg)
 
 
@@ -222,10 +219,10 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
         la, lb = ref[i], actual[i]
 
         if i in core_set:  # core point
-            assert (
-                la == lb
-            ), "Core point mismatch at #{}: " "{} (expected {})".format(
-                i, lb, la
+            assert la == lb, (
+                "Core point mismatch at #{}: {} (expected {})".format(
+                    i, lb, la
+                )
             )
         elif la == -1:  # noise point
             assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
@@ -629,6 +626,10 @@ def compare_svm(
                 "Skipping decision function test due to low  accuracy",
                 accuracy2,
             )
+
+    # Compare `class_weight_` attribute for classifiers, if present
+    if hasattr(svm1, "class_weight_"):
+        np.testing.assert_allclose(svm1.class_weight_, svm2.class_weight_)
 
     # Compare support_ (dataset indices of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists

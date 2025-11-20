@@ -14,7 +14,6 @@ from cuml.testing.dask.utils import load_text_corpus
 
 
 def test_basic_fit_predict(client):
-
     X, y = load_text_corpus(client)
 
     model = MultinomialNB()
@@ -30,7 +29,6 @@ def test_basic_fit_predict(client):
 
 
 def test_single_distributed_exact_results(client):
-
     X, y = load_text_corpus(client)
 
     sgX, sgy = (X.compute(), y.compute())
@@ -50,7 +48,6 @@ def test_single_distributed_exact_results(client):
 
 
 def test_score(client):
-
     X, y = load_text_corpus(client)
 
     model = MultinomialNB()

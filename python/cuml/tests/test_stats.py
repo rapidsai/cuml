@@ -39,7 +39,6 @@ def test_cov(nrows, ncols, sparse, dtype):
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("mtype", ["csr", "coo"])
 def test_cov_sparse(nrows, ncols, dtype, mtype):
-
     x = cupyx.scipy.sparse.random(
         nrows, ncols, density=0.07, format=mtype, dtype=dtype
     )

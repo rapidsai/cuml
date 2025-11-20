@@ -415,7 +415,6 @@ def test_rf_classification_unorder(
 def test_rf_regression(
     special_reg, datatype, max_features, max_samples, n_bins
 ):
-
     use_handle = True
 
     X, y = special_reg
@@ -469,7 +468,6 @@ def test_rf_regression(
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
-
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
@@ -852,7 +850,6 @@ def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
 def test_create_classification_model(
     max_features, max_depth, n_estimators, n_bins
 ):
-
     # random forest classification model
     cuml_model = curfc(
         max_features=max_features,
@@ -873,7 +870,6 @@ def test_create_classification_model(
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
 @pytest.mark.parametrize("n_bins", [8, 9, 10])
 def test_multiple_fits_classification(large_clf, n_estimators, n_bins):
-
     datatype = np.float32
     X, y = large_clf
     X = X.astype(datatype)
@@ -1182,7 +1178,6 @@ def test_max_features(max_features, sol):
 
 
 def test_rf_predict_returns_int():
-
     X, y = make_classification()
 
     # Capture and verify expected warning
@@ -1210,6 +1205,170 @@ def test_ensemble_estimator_length():
         clf.fit(X, y)
 
     assert len(clf) == 3
+
+
+def test_rf_feature_importance_classifier():
+    """Test feature importance for Random Forest Classifier.
+
+    With shuffle=False, the first n_informative features are guaranteed to be
+    informative, and the rest are noise. A correctly working Random Forest should
+    always rank the informative features highest.
+    """
+    X, y = make_classification(
+        n_samples=1000,
+        n_features=10,
+        n_informative=3,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=2,
+        shuffle=False,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    cu_clf = curfc(n_estimators=50, max_depth=8, random_state=42)
+    cu_clf.fit(X, y)
+
+    assert hasattr(cu_clf, "feature_importances_")
+    cu_importances = cu_clf.feature_importances_
+
+    assert len(cu_importances) == X.shape[1]
+    assert np.all(cu_importances >= 0)
+    assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
+
+    top_features = set(np.argsort(cu_importances)[-3:])
+    assert top_features == {0, 1, 2}, (
+        f"Top 3 features {top_features} should be {{0, 1, 2}}. "
+        f"Importances: {cu_importances}"
+    )
+
+
+def test_rf_feature_importance_regressor():
+    """Test feature importance for Random Forest Regressor.
+
+    With shuffle=False, the first n_informative features are guaranteed to be
+    informative, and the rest are noise. A correctly working Random Forest should
+    always rank the informative features highest.
+    """
+    X, y = make_regression(
+        n_samples=1000,
+        n_features=10,
+        n_informative=3,
+        noise=0.1,
+        shuffle=False,  # First 3 features are informative, rest are noise
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    cu_reg = curfr(n_estimators=50, max_depth=8, random_state=42)
+    cu_reg.fit(X, y)
+
+    assert hasattr(cu_reg, "feature_importances_")
+    cu_importances = cu_reg.feature_importances_
+
+    assert len(cu_importances) == X.shape[1]
+    assert np.all(cu_importances >= 0)
+    assert np.abs(np.sum(cu_importances) - 1.0) < 1e-5  # Should sum to 1
+
+    top_features = set(np.argsort(cu_importances)[-3:])
+    assert top_features == {0, 1, 2}, (
+        f"Top 3 features {top_features} should be {{0, 1, 2}}. "
+        f"Importances: {cu_importances}"
+    )
+
+
+def test_rf_feature_importance_exact_match_with_fixed_trees():
+    """Test that feature importances are reproducible with fixed parameters.
+
+    This test creates a simple dataset and verifies that the
+    feature importance calculation produces consistent results.
+    """
+    np.random.seed(42)
+    n_samples = 100
+    X = np.random.randn(n_samples, 4).astype(np.float32)
+    y = (X[:, 0] > 0).astype(np.int32)
+    y[::5] = 1 - y[::5]
+
+    cu_rf = curfc(
+        n_estimators=5,
+        max_depth=3,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf.fit(X, y)
+
+    cu_importances = cu_rf.feature_importances_
+
+    if cu_importances.sum() > 0:
+        assert np.allclose(cu_importances.sum(), 1.0, rtol=1e-5), (
+            f"Feature importances don't sum to 1: {cu_importances.sum()}"
+        )
+
+        top_features = np.argsort(cu_importances)[-2:]
+        assert 0 in top_features, (
+            f"Feature 0 not in top features. Importances: {cu_importances}"
+        )
+
+    cu_rf2 = curfc(
+        n_estimators=5,
+        max_depth=3,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features=1.0,
+        bootstrap=False,
+        random_state=42,
+    )
+    cu_rf2.fit(X, y)
+
+    cu_importances2 = cu_rf2.feature_importances_
+
+    # With same parameters and no randomness, should get identical importances
+    assert np.allclose(cu_importances, cu_importances2, rtol=1e-5), (
+        f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+    )
+
+
+def test_rf_feature_importance_consistency():
+    """Test that feature importances are consistent across multiple runs."""
+    X, y = make_classification(
+        n_samples=200,
+        n_features=10,
+        n_informative=5,
+        n_redundant=2,
+        n_repeated=0,
+        random_state=42,
+        shuffle=False,
+    )
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Train the same model multiple times
+    importances_list = []
+    for i in range(3):
+        rf = curfc(
+            n_estimators=10,
+            max_depth=5,
+            min_samples_split=5,
+            max_features="sqrt",
+            bootstrap=True,
+            random_state=42,
+        )
+        rf.fit(X, y)
+        importances_list.append(rf.feature_importances_)
+
+    # All runs should produce identical importances
+    for i in range(1, len(importances_list)):
+        assert np.allclose(
+            importances_list[0], importances_list[i], rtol=1e-5
+        ), (
+            f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+        )
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

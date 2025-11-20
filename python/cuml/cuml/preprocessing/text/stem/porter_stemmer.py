@@ -752,7 +752,6 @@ def apply_rule(word_str_ser, rule, w_in_c_flag):
         w_in_c_flag &= ~double_consonant_mask
 
     else:
-
         suffix_mask = ends_with_suffix(word_str_ser, suffix)
         valid_mask = suffix_mask & w_in_c_flag
 

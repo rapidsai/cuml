@@ -2,9 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cuml.manifold
 from cuml.accel.estimator_proxy import ProxyBase
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = ("SpectralEmbedding", "TSNE")
@@ -25,3 +25,10 @@ class SpectralEmbedding(ProxyBase):
 
 class TSNE(ProxyBase):
     _gpu_class = cuml.manifold.TSNE
+
+    def _gpu_fit(self, X, y=None):
+        if is_sparse(X) and self._cpu.init == "pca":
+            raise UnsupportedOnGPU(
+                "sparse X with `init='pca'` is not supported"
+            )
+        return self._gpu.fit(X, y=y)

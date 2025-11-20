@@ -7,7 +7,6 @@ import cupy as cp
 import dask.array as da
 import numpy as np
 
-from cuml.common import with_cupy_rmm
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
 from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
@@ -172,7 +171,6 @@ def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
 
 
 def _generate_chunks_for_qr(total_size, min_size, n_parts):
-
     n_total_per_part = max(1, int(total_size / n_parts))
     if n_total_per_part > min_size:
         min_size = n_total_per_part
@@ -240,7 +238,6 @@ def _make_low_rank_covariance(
     n_samples_per_part,
     dtype,
 ):
-
     return client.submit(
         _dask_make_low_rank_covariance,
         n_features,
@@ -326,7 +323,6 @@ def make_low_rank_matrix(
     return da.dot(u, v)
 
 
-@with_cupy_rmm
 def make_regression(
     n_samples=100,
     n_features=100,

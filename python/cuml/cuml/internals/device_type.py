@@ -28,14 +28,14 @@ class DeviceType(Enum):
             return cls.device
         else:
             raise ValueError(
-                'Parameter device_type must be one of "cpu" or ' '"gpu"'
+                'Parameter device_type must be one of "cpu" or "gpu"'
             )
 
     def is_compatible(self, mem_type: MemoryType) -> bool:
         if self is DeviceType.device:
-            return mem_type.is_device_accessible
+            return mem_type is MemoryType.device
         else:
-            return mem_type.is_host_accessible
+            return mem_type is MemoryType.host
 
     @property
     def default_memory_type(self):

@@ -270,7 +270,6 @@ dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [
     "nrows", [unit_param(20), quality_param(5000), stress_param(500000)]
 )
 def test_rand_index_score(name, nrows):
-
     default_base = {
         "quantile": 0.3,
         "eps": 0.3,
@@ -309,9 +308,9 @@ def test_adjusted_rand_score_small(nrows):
         for y_pred in arrs:
             res = cu_ars(y, y_pred)
             sol = sk_ars(y, y_pred)
-            assert (
-                res == sol
-            ), f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
+            assert res == sol, (
+                f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
+            )
 
 
 @pytest.mark.parametrize(
@@ -324,7 +323,6 @@ def test_adjusted_rand_score_small(nrows):
     "github.com/rapidsai/cuml/issues/5025",
 )
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
-
     X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(
         X, labels, metric=metric, chunksize=int(X.shape[0] / chunk_divider)
@@ -905,7 +903,6 @@ def test_roc_auc_score():
 @pytest.mark.parametrize("n_samples", [50, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_roc_auc_score_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 2, n_samples).astype(dtype)
     )
@@ -935,7 +932,7 @@ def test_roc_auc_score_at_limits():
     y_true = np.array([0.0, 0.5, 1.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "Continuous format of y_true  " "is not supported."
+    err_msg = "Continuous format of y_true  is not supported."
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
@@ -965,9 +962,7 @@ def test_precision_recall_curve_at_limits():
     y_true = np.array([0.0, 0.0, 0.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = (
-        "precision_recall_curve cannot be used when " "y_true is all zero."
-    )
+    err_msg = "precision_recall_curve cannot be used when y_true is all zero."
 
     with pytest.raises(ValueError, match=err_msg):
         precision_recall_curve(y_true, y_pred)
@@ -975,7 +970,7 @@ def test_precision_recall_curve_at_limits():
     y_true = np.array([0.0, 0.5, 1.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "Continuous format of y_true  " "is not supported."
+    err_msg = "Continuous format of y_true  is not supported."
 
     with pytest.raises(ValueError, match=err_msg):
         precision_recall_curve(y_true, y_pred)
@@ -988,7 +983,6 @@ def test_precision_recall_curve_at_limits():
 @pytest.mark.parametrize("n_samples", [50, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_precision_recall_curve_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 2, n_samples).astype(dtype)
     )
@@ -1027,7 +1021,6 @@ def test_log_loss():
 @pytest.mark.parametrize("n_samples", [500, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_log_loss_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype)
     )
@@ -1048,7 +1041,7 @@ def test_log_loss_at_limits():
     y_true = np.array([0.0, 1.0, 2.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "The shape of y_pred doesn't " "match the number of classes"
+    err_msg = "The shape of y_pred doesn't match the number of classes"
 
     with pytest.raises(ValueError, match=err_msg):
         log_loss(y_true, y_pred)
@@ -1322,7 +1315,6 @@ def test_pairwise_distances_unsuppored_metrics(metric):
 
 
 def test_pairwise_distances_exceptions():
-
     rng = np.random.RandomState(4)
 
     X_int = rng.randint(10, size=(5, 4))
@@ -1373,7 +1365,6 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
     # Use the global manager object. Should do nothing unless use_global is set
     with cuml.using_output_type(output_type):
-
         # Compare to sklearn, fp64
         S = pairwise_distances(
             X, Y, metric="euclidean", output_type=output_type_param
@@ -1637,7 +1628,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
 
 
 @pytest.mark.xfail(
-    reason="Temporarily disabling this test. " "See rapidsai/cuml#3569"
+    reason="Temporarily disabling this test. See rapidsai/cuml#3569"
 )
 @pytest.mark.parametrize(
     "nrows, ncols, n_info",

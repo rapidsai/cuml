@@ -7,6 +7,7 @@
 The following imports are needed so that we can import those classes
 from cuml.feature_extraction.text just like scikit-learn. Do not remove.
 """
+
 from cuml.feature_extraction._tfidf import (  # noqa # pylint: disable=unused-import
     TfidfTransformer,
 )

@@ -54,7 +54,6 @@ def random_state():
 
 @pytest.mark.xfail
 def test_n_init_cluster_consistency(random_state):
-
     nclusters = 8
     X, y = get_data_consistency_test()
 
@@ -88,7 +87,6 @@ def test_n_init_cluster_consistency(random_state):
 def test_traditional_kmeans_plus_plus_init(
     nrows, ncols, nclusters, random_state
 ):
-
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
 
@@ -126,7 +124,6 @@ def test_traditional_kmeans_plus_plus_init(
 @pytest.mark.parametrize("nclusters", [5, 10])
 @pytest.mark.parametrize("max_weight", [10])
 def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
-
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
     np.random.seed(random_state)
@@ -174,7 +171,6 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
 def test_kmeans_clusters_blobs(
     nrows, ncols, nclusters, random_state, cluster_std
 ):
-
     X, y = make_blobs(
         int(nrows),
         ncols,
@@ -202,7 +198,6 @@ def test_kmeans_clusters_blobs(
 @pytest.mark.parametrize("name", dataset_names)
 @pytest.mark.parametrize("nrows", [unit_param(1000), quality_param(5000)])
 def test_kmeans_sklearn_comparison(name, nrows, random_state):
-
     default_base = {
         "quantile": 0.3,
         "eps": 0.3,
@@ -247,7 +242,6 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
     "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
 def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
-
     default_base = {
         "quantile": 0.3,
         "eps": 0.3,
@@ -340,7 +334,6 @@ def test_all_kmeans_params(
     "nclusters", [unit_param(5), quality_param(10), stress_param(50)]
 )
 def test_score(nrows, ncols, nclusters, random_state):
-
     X, y = make_blobs(
         int(nrows),
         ncols,
@@ -387,7 +380,6 @@ def test_score(nrows, ncols, nclusters, random_state):
 def test_fit_transform_weighted_kmeans(
     nrows, ncols, nclusters, max_weight, random_state
 ):
-
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
     np.random.seed(random_state)

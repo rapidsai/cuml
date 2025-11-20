@@ -306,7 +306,6 @@ class DelayedParallelFunc(object):
         # TODO: Add eager path back in
 
         if output_collection_type == "cupy":
-
             # todo: add parameter for option of not checking directly
             shape = (np.nan,) * n_dims
             preds_arr = [
@@ -373,7 +372,6 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
 
 class SyncFitMixinLinearModel(object):
     def _fit(self, model_func, data):
-
         n_cols = data[0].shape[1]
 
         data = DistributedDataHandler.create(data=data, client=self.client)

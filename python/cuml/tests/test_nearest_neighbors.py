@@ -31,7 +31,7 @@ from cuml.testing.utils import (
 )
 
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:((.|\n)*)#4020((.|\n)*):" "UserWarning:cuml[.*]"
+    "ignore:((.|\n)*)#4020((.|\n)*):UserWarning:cuml[.*]"
 )
 
 
@@ -678,7 +678,6 @@ def test_nearest_neighbors_sparse(
     # Jaccard & Chebyshev have a high potential for mismatched indices
     # due to duplicate distances. We can ignore the indices in this case.
     if metric not in ["jaccard", "chebyshev"]:
-
         # The actual neighbors returned in the presence of duplicate distances
         # is non-deterministic. If we got to this point, the distances all
         # match between cuml and sklearn. We set a reasonable threshold
@@ -689,7 +688,6 @@ def test_nearest_neighbors_sparse(
 
 @pytest.mark.parametrize("n_neighbors", [1, 5, 6])
 def test_haversine(n_neighbors):
-
     hoboken_nj = [40.745255, -74.034775]
     port_hueneme_ca = [34.155834, -119.202789]
     auburn_ny = [42.933334, -76.566666]
@@ -729,7 +727,6 @@ def test_haversine(n_neighbors):
 
 @pytest.mark.xfail(raises=RuntimeError)
 def test_haversine_fails_high_dimensions():
-
     data = np.array([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]])
 
     cunn = cuKNN(metric="haversine", n_neighbors=2, algorithm="brute")

@@ -15,7 +15,6 @@ from cuml.dask.common.base import (
 
 
 class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
-
     """
     Ridge extends LinearRegression by providing L2 regularization on the
     coefficients when predicting response y with a linear combination of the

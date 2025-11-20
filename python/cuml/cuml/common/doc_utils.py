@@ -109,7 +109,7 @@ _return_values_docstrings = {
     "configuration, shape ={shape}",
     "dense_sparse_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
     "configuration, shape ={shape}",
-    "custom_type": "{name} : {type}\n" "    {description}",
+    "custom_type": "{name} : {type}\n    {description}",
 }
 
 _return_values_possible_values = ["name", "type", "shape", "description"]

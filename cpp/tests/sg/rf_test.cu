@@ -530,6 +530,40 @@ class RfSpecialisedTest {
       }
     }
   }
+
+  void TestFeatureImportances()
+  {
+    // Test feature importances for both regression and classification
+    std::vector<DataT> importances(params.n_cols);
+    ML::compute_feature_importances(forest.get(), importances.data());
+
+    // Basic checks for feature importances
+    EXPECT_EQ(importances.size(), static_cast<size_t>(params.n_cols));
+
+    bool has_splits = false;
+    for (int i = 0; i < forest->rf_params.n_trees; i++) {
+      if (forest->trees[i]->leaf_counter > 1) {
+        has_splits = true;
+        break;
+      }
+    }
+
+    if (!has_splits) {
+      for (auto v : importances) {
+        EXPECT_EQ(v, 0.0);
+      }
+      return;
+    }
+
+    double sum = 0.0;
+    for (auto v : importances) {
+      EXPECT_GE(v, 0.0);
+      sum += v;
+    }
+
+    EXPECT_NEAR(sum, 1.0, 1e-6);
+  }
+
   void Test()
   {
     TestAccuracyImprovement();
@@ -538,6 +572,7 @@ class RfSpecialisedTest {
     TestTreeSize();
     TestInstanceCounts();
     TestFilPredict();
+    TestFeatureImportances();
   }
 
   RF_metrics training_metrics;

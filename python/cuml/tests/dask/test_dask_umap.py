@@ -14,7 +14,6 @@ from cuml.metrics import trustworthiness
 
 
 def _load_dataset(dataset, n_rows):
-
     if dataset == "digits":
         local_X, local_y = load_digits(return_X_y=True)
 

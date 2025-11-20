@@ -12,8 +12,9 @@
 import os
 import sys
 from cuml.internals.safe_imports import cpu_only_import
-pd = cpu_only_import('pandas')
-np = cpu_only_import('numpy')
+
+pd = cpu_only_import("pandas")
+np = cpu_only_import("numpy")
 
 # read the data
 train_file = "train.csv"
@@ -25,19 +26,23 @@ if len(sys.argv) > 2:
 output_file = "output.txt"
 if len(sys.argv) > 3:
     output_file = sys.argv[3]
-print("Reading Input from train_file = %s and test_file = %s" % (train_file,
-                                                                 test_file))
+print(
+    "Reading Input from train_file = %s and test_file = %s"
+    % (train_file, test_file)
+)
 
 if not os.path.exists(train_file) or not os.path.exists(test_file):
-    raise Exception("Download the dataset from here:"
-                    " https://www.kaggle.com/c/homesite-quote-conversion/data")
+    raise Exception(
+        "Download the dataset from here:"
+        " https://www.kaggle.com/c/homesite-quote-conversion/data"
+    )
 
 train = pd.read_csv(train_file)
 print("Training dataset dimension: ", train.shape)
 test = pd.read_csv(test_file)
 print("Test dataset dimension:     ", test.shape)
 # Data munging step - KMeans takes only numerical values
-train.drop(['QuoteConversion_Flag'], axis=1, inplace=True)
+train.drop(["QuoteConversion_Flag"], axis=1, inplace=True)
 dataset = pd.concat([train, test], ignore_index=True)
 tmp = dataset.dtypes.reset_index().rename(columns={0: "type"})
 indx = tmp["type"] == "object"
@@ -61,7 +66,7 @@ for col in categoricals:
     val_dict = val_dict / float(dataset.shape[0])
     val_dict = val_dict.to_dict()
     dataset[col] = dataset[col].apply(lambda x: val_dict[x])
-trainenc = dataset.iloc[:train.shape[0], :].reset_index(drop=True)
+trainenc = dataset.iloc[: train.shape[0], :].reset_index(drop=True)
 trainencflt = trainenc.values.astype(np.float32)
 print("Output dataset dimension:   ", trainencflt.shape)
 output = open(output_file, "w+")
@@ -71,5 +76,7 @@ for row in trainencflt:
         output.write("%f\n" % val)
         num_items += 1
 output.close()
-print("Wrote %d values in row major order to output %s" % (num_items,
-                                                           output_file))
+print(
+    "Wrote %d values in row major order to output %s"
+    % (num_items, output_file)
+)

@@ -31,7 +31,6 @@ from cuml.testing.utils import quality_param, stress_param, unit_param
 def test_make_blobs(
     nrows, ncols, centers, cluster_std, dtype, nparts, order, client
 ):
-
     c = client
 
     nrows = int(nrows)
@@ -95,7 +94,6 @@ def test_make_regression(
     use_full_low_rank,
     client,
 ):
-
     c = client
     from cuml.dask.datasets import make_regression
 

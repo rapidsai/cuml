@@ -11,7 +11,6 @@ from cuml.dask.common.func import reduce, tree_reduce
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_tree_reduce_delayed(n_parts, client):
-
     func = delayed(sum)
 
     a = [delayed(i) for i in range(n_parts)]
@@ -30,7 +29,6 @@ def s(x):
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_tree_reduce_futures(n_parts, client):
-
     a = [client.submit(s, i) for i in range(n_parts)]
     b = tree_reduce(a)
     c = client.compute(b, sync=True)

@@ -146,7 +146,6 @@ def _make_decorator_function(
                 accept_lists = cuml.accel.enabled()
 
                 with context_manager_cls(func, args) as cm:
-
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
@@ -264,7 +263,6 @@ api_base_return_generic_skipall = api_base_return_generic(
 
 @contextlib.contextmanager
 def exit_internal_api():
-
     assert GlobalSettings().root_cm is not None
 
     try:
@@ -275,7 +273,6 @@ def exit_internal_api():
         # Set the global output type to the previous value to pretend we never
         # entered the API
         with using_output_type(old_root_cm.prev_output_type):
-
             yield
 
     finally:

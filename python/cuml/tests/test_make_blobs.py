@@ -54,7 +54,6 @@ def test_make_blobs_scalar_parameters(
     random_state,
     order,
 ):
-
     out, labels = cuml.make_blobs(
         dtype=dtype,
         n_samples=n_samples,
@@ -78,6 +77,6 @@ def test_make_blobs_scalar_parameters(
     if centers is None:
         assert cp.unique(labels).shape == (3,), "unexpected number of clusters"
     elif centers <= n_samples:
-        assert cp.unique(labels).shape == (
-            centers,
-        ), "unexpected number of clusters"
+        assert cp.unique(labels).shape == (centers,), (
+            "unexpected number of clusters"
+        )

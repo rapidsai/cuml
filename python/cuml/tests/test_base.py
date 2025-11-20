@@ -1,12 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import inspect
 
+import numpy as np
 import numpydoc.docscrape
+import pandas as pd
 import pytest
 from pylibraft.common.cuda import Stream
+from sklearn.datasets import (
+    make_classification,
+    make_multilabel_classification,
+    make_regression,
+)
 
 import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
@@ -125,7 +131,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
         )
 
         if klass.__doc__ is not None:
-
             found_doc = get_param_doc(klass_doc_params, name)
 
             base_item_doc = get_param_doc(base_doc_params, name)
@@ -135,9 +140,9 @@ def test_base_subclass_init_matches_docs(child_class: str):
                 and klass == cuml.manifold.umap.UMAP
             ):
                 # Ensure the docstring is identical
-                assert (
-                    found_doc.type == base_item_doc.type
-                ), "Docstring mismatch for {}".format(name)
+                assert found_doc.type == base_item_doc.type, (
+                    "Docstring mismatch for {}".format(name)
+                )
 
                 assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
 
@@ -294,3 +299,106 @@ def test_common_signatures(cls, method):
             inspect.Parameter.VAR_KEYWORD,
         }
         assert param.name not in {"X", "y", "sample_weight"}
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cls
+        for cls in all_base_children.values()
+        if getattr(cls, "_estimator_type", None) == "regressor"
+        and hasattr(cls, "fit")
+        and hasattr(cls, "predict")
+    ],
+)
+def test_regressor_predict_dtype(cls):
+    X, y = make_regression(n_samples=200, random_state=42)
+    X32 = X.astype("float32")
+    y32 = y.astype("float32")
+
+    # Regressors always return floats. We don't specify which dtype for now.
+    y_pred = cls().fit(X, y).predict(X)
+    assert y_pred.dtype.kind == "f"
+
+    # Regressors work for integral targets, but still return floats
+    y_pred = cls().fit(X, y.astype("int32")).predict(X)
+    assert y_pred.dtype.kind == "f"
+
+    # If all inputs to fit AND predict are float32 we return a float32.
+    # This isn't necessary for the sklearn api, but is useful
+    # for GPU workloads where smaller dtypes can be beneficial.
+    # It also matches the proposed (but not implemented) check discussed
+    # in sklearn here: https://github.com/scikit-learn/scikit-learn/issues/22682
+    y_pred = cls().fit(X32, y32).predict(X32)
+    assert y_pred.dtype == np.float32
+
+
+@pytest.mark.parametrize(
+    "cls, kwargs",
+    [
+        (cuml.LogisticRegression, None),
+        (cuml.RandomForestClassifier, None),
+        (cuml.SVC, None),
+        (cuml.SVC, {"probability": True}),
+        (cuml.LinearSVC, None),
+        (cuml.KNeighborsClassifier, None),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_kind", ["binary", "multiclass", "multitarget"]
+)
+@pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
+def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
+    supports_multitarget = [cuml.KNeighborsClassifier]
+    if target_kind == "multitarget" and cls not in supports_multitarget:
+        pytest.skip(f"{cls.__name__} doesn't support multitarget y")
+
+    labels = {
+        "int-monotonic": [0, 1, 2, 3],
+        "int": [5, 10, 15, 20],
+        "string": ["a", "b", "c", "d"],
+    }[dtype_kind]
+
+    if target_kind == "binary":
+        X, y = make_classification(n_samples=200, random_state=42, n_classes=2)
+        y = np.array(labels).take(y)
+    elif target_kind == "multiclass":
+        X, y = make_classification(
+            n_samples=200, random_state=42, n_classes=4, n_informative=4
+        )
+        y = np.array(labels).take(y)
+    elif target_kind == "multitarget":
+        X, y = make_multilabel_classification(
+            n_samples=200, random_state=42, n_classes=4
+        )
+        y = np.array(labels).take(y)
+
+    model = cls(**(kwargs or {})).fit(X, y)
+
+    # Classes are of correct dtype
+    if target_kind == "multitarget":
+        assert all(c.dtype == y.dtype for c in model.classes_)
+    else:
+        assert model.classes_.dtype == y.dtype
+
+    # Predicted labels are of correct type, dtype, and shape
+    preds = model.predict(X)
+    assert isinstance(preds, np.ndarray)
+    assert preds.dtype == y.dtype
+    assert preds.shape == y.shape
+    # Just a smoketest that the classifier is better than `np.zeros`
+    score = (preds == y).sum() / y.size
+    assert score > 0.5
+
+    # `predict` still supports type reflection
+    with cuml.using_output_type("pandas"):
+        preds2 = model.predict(X)
+    assert isinstance(preds2, (pd.Series, pd.DataFrame))
+
+    # Unsupported dtype & output type pairs raise nicely
+    if dtype_kind == "string" and target_kind == "binary":
+        with pytest.raises(
+            TypeError, match="output_type='cupy' doesn't support"
+        ):
+            with cuml.using_output_type("cupy"):
+                preds2 = model.predict(X)

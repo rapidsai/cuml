@@ -38,7 +38,8 @@ void fit_impl(raft::handle_t& handle,
               paramsTSVDMG& prms,
               cudaStream_t* streams,
               std::uint32_t n_streams,
-              bool verbose)
+              bool verbose,
+              bool flip_signs_based_on_U = false)
 {
   const auto& comm             = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
@@ -62,6 +63,29 @@ void fit_impl(raft::handle_t& handle,
   T scalar = T(1);
   raft::matrix::seqRoot(
     explained_var_all.data(), singular_vals, scalar, prms.n_components, streams[0]);
+
+  if (flip_signs_based_on_U) {
+    PCA::opg::sign_flip_components_u(handle,
+                                     input_data,
+                                     input_desc,
+                                     components,
+                                     prms.n_rows,
+                                     prms.n_cols,
+                                     prms.n_components,
+                                     streams,
+                                     n_streams,
+                                     false);
+  } else {
+    signFlipComponents(handle,
+                       input_data[0]->ptr,
+                       components,
+                       prms.n_rows,
+                       prms.n_cols,
+                       prms.n_components,
+                       streams[0],
+                       false,
+                       false);
+  }
 }
 
 /**
@@ -83,7 +107,8 @@ void fit_impl(raft::handle_t& handle,
               T* components,
               T* singular_vals,
               paramsTSVDMG& prms,
-              bool verbose)
+              bool verbose,
+              bool flip_signs_based_on_U = false)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -99,8 +124,16 @@ void fit_impl(raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
-  fit_impl(
-    handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
+  fit_impl(handle,
+           input_data,
+           input_desc,
+           components,
+           singular_vals,
+           prms,
+           streams,
+           n_streams,
+           verbose,
+           flip_signs_based_on_U);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
@@ -310,16 +343,22 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* explained_var_ratio,
                         T* singular_vals,
                         paramsTSVDMG& prms,
-                        bool verbose)
+                        bool verbose,
+                        bool flip_signs_based_on_U = false)
 {
-  fit_impl(
-    handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
+  fit_impl(handle,
+           input_data,
+           input_desc,
+           components,
+           singular_vals,
+           prms,
+           streams,
+           n_streams,
+           verbose,
+           flip_signs_based_on_U);
 
   transform_impl(
     handle, input_data, input_desc, components, trans_data, prms, streams, n_streams, verbose);
-
-  PCA::opg::sign_flip(
-    handle, trans_data, input_desc, components, prms.n_components, streams, n_streams);
 
   rmm::device_uvector<T> mu_trans(prms.n_components, streams[0]);
   Matrix::Data<T> mu_trans_data{mu_trans.data(), prms.n_components};
@@ -361,9 +400,18 @@ void fit(raft::handle_t& handle,
          float* components,
          float* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose)
+         bool verbose,
+         bool flip_signs_based_on_U)
 {
-  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose);
+  fit_impl(handle,
+           rank_sizes,
+           n_parts,
+           input,
+           components,
+           singular_vals,
+           prms,
+           verbose,
+           flip_signs_based_on_U);
 }
 
 void fit(raft::handle_t& handle,
@@ -373,9 +421,18 @@ void fit(raft::handle_t& handle,
          double* components,
          double* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose)
+         bool verbose,
+         bool flip_signs_based_on_U)
 {
-  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose);
+  fit_impl(handle,
+           rank_sizes,
+           n_parts,
+           input,
+           components,
+           singular_vals,
+           prms,
+           verbose,
+           flip_signs_based_on_U);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -388,7 +445,8 @@ void fit_transform(raft::handle_t& handle,
                    float* explained_var_ratio,
                    float* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose)
+                   bool verbose,
+                   bool flip_signs_based_on_U = false)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -409,7 +467,8 @@ void fit_transform(raft::handle_t& handle,
                      explained_var_ratio,
                      singular_vals,
                      prms,
-                     verbose);
+                     verbose,
+                     flip_signs_based_on_U);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }
@@ -428,7 +487,8 @@ void fit_transform(raft::handle_t& handle,
                    double* explained_var_ratio,
                    double* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose)
+                   bool verbose,
+                   bool flip_signs_based_on_U = false)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -449,7 +509,8 @@ void fit_transform(raft::handle_t& handle,
                      explained_var_ratio,
                      singular_vals,
                      prms,
-                     verbose);
+                     verbose,
+                     flip_signs_based_on_U);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }

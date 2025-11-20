@@ -7,7 +7,6 @@ from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
 from toolz import first
 
-from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import (
     BaseEstimator,
     DelayedInverseTransformMixin,
@@ -93,7 +92,6 @@ class OneHotEncoder(
         will be denoted as None.
     """
 
-    @with_cupy_rmm
     def fit(self, X):
         """Fit a multi-node multi-gpu OneHotEncoder to X.
 
@@ -117,7 +115,6 @@ class OneHotEncoder(
 
         return self
 
-    @with_cupy_rmm
     def transform(self, X, delayed=True):
         """Transform X using one-hot encoding.
 
@@ -141,7 +138,6 @@ class OneHotEncoder(
             output_collection_type="cupy",
         )
 
-    @with_cupy_rmm
     def inverse_transform(self, X, delayed=True):
         """Convert the data back to the original representation. In case unknown
         categories are encountered (all zeros in the one-hot encoding), ``None`` is used
@@ -202,7 +198,6 @@ class OrdinalEncoder(
         :ref:`verbosity-levels` for more info.
     """
 
-    @with_cupy_rmm
     def fit(self, X):
         """Fit Ordinal to X.
 
@@ -227,7 +222,6 @@ class OrdinalEncoder(
 
         return self
 
-    @with_cupy_rmm
     def transform(self, X, delayed=True):
         """Transform X using ordinal encoding.
 
@@ -249,7 +243,6 @@ class OrdinalEncoder(
             output_collection_type=self.datatype,
         )
 
-    @with_cupy_rmm
     def inverse_transform(self, X, delayed=True):
         """Convert the data back to the original representation.
 

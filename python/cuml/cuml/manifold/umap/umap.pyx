@@ -58,12 +58,26 @@ def _joblib_hash(X):
 
 
 def find_ab_params(spread=1.0, min_dist=0.1):
-    """Fit a, b params for the differentiable curve used in lower
+    """Fit a & b parameters for UMAP.
+
+    Selects `a` and `b` for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
 
     Borrowed from upstream umap: https://github.com/lmcinnes/umap.
+
+    Parameters
+    ----------
+    spread: float (optional, default 1.0)
+        The effective scale of embedded points.
+    min_dist: float (optional, default 0.1)
+        The effective minimum distance between embedded points.
+
+    Returns
+    -------
+    a, b : float
+        The `a` and `b` parameters for `UMAP`.
     """
     from scipy.optimize import curve_fit
 
@@ -742,11 +756,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(
-                model._raw_data,
-                convert_to_dtype=cp.float32,
-                convert_format=True
-            )
+            raw_data = SparseCumlArray(model._raw_data, convert_to_dtype=cp.float32)
         else:
             raw_data = to_gpu(model._raw_data)
 
@@ -918,7 +928,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr

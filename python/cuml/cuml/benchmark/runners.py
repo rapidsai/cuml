@@ -107,7 +107,6 @@ class SpeedupComparisonRunner:
                 )
             cpu_elapsed = np.min(cpu_timer.timings)
         else:
-
             if run_cpu:
                 warnings.warn(
                     "run_cpu argument is set to True but no CPU "

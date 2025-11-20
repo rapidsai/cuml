@@ -15,7 +15,7 @@ rapids-generate-version > ./VERSION
 
 cd "${package_dir}"
 
-sccache --zero-stats
+sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building '${package_name}' wheel"
 rapids-pip-retry wheel \

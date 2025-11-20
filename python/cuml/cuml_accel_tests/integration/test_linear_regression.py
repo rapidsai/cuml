@@ -29,9 +29,9 @@ def test_linear_regression_copy_X(regression_data, copy_X):
     LinearRegression(copy_X=copy_X).fit(X, y)
     if copy_X:
         # X should remain unchanged
-        assert np.array_equal(
-            X, X_original
-        ), "X has been modified when copy_X=True"
+        assert np.array_equal(X, X_original), (
+            "X has been modified when copy_X=True"
+        )
     else:
         # X might be modified when copy_X=False
         pass  # We cannot guarantee X remains unchanged

@@ -21,7 +21,6 @@ from cuml.testing.utils import ClassEnumerator
 
 
 def func_positional_arg(func):
-
     if hasattr(func, "__wrapped__"):
         return func_positional_arg(func.__wrapped__)
 

@@ -79,9 +79,9 @@ def test_kmeans_copy_x(clustering_data, copy_x):
     kmeans = KMeans(n_clusters=3, copy_x=copy_x, random_state=42).fit(X)
     if copy_x:
         # X should remain unchanged
-        assert np.allclose(
-            X, X_original
-        ), "X has been modified when copy_x=True"
+        assert np.allclose(X, X_original), (
+            "X has been modified when copy_x=True"
+        )
     else:
         # X might be modified when copy_x=False
         pass  # We cannot guarantee X remains unchanged

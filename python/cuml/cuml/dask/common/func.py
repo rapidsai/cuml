@@ -45,7 +45,6 @@ def reduce(futures, func, client=None):
     wait(futures)
 
     for local_reduction_func in [workers_to_parts, hosts_to_parts]:
-
         who_has = client.who_has(futures)
 
         workers = [(first(who_has[m.key]), m) for m in futures]

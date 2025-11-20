@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -9,8 +9,6 @@ import re
 import os
 import argparse
 import io
-from functools import reduce
-import operator
 import dataclasses
 import typing
 
@@ -21,26 +19,31 @@ PragmaRegex = re.compile(r"^ *\#pragma\s+once *$")
 
 def parse_args():
     argparser = argparse.ArgumentParser(
-        "Checks for a consistent '#include' syntax")
-    argparser.add_argument("--regex",
-                           type=str,
-                           default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
-                           help="Regex string to filter in sources")
+        "Checks for a consistent '#include' syntax"
+    )
+    argparser.add_argument(
+        "--regex",
+        type=str,
+        default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
+        help="Regex string to filter in sources",
+    )
     argparser.add_argument(
         "--inplace",
         action="store_true",
         required=False,
-        help="If set, perform the required changes inplace.")
-    argparser.add_argument("--top_include_dirs",
-                           required=False,
-                           default='src,src_prims',
-                           help="comma-separated list of directories used as "
-                           "search dirs on build and which should not be "
-                           "crossed in relative includes")
-    argparser.add_argument("dirs",
-                           type=str,
-                           nargs="*",
-                           help="List of dirs where to find sources")
+        help="If set, perform the required changes inplace.",
+    )
+    argparser.add_argument(
+        "--top_include_dirs",
+        required=False,
+        default="src,src_prims",
+        help="comma-separated list of directories used as "
+        "search dirs on build and which should not be "
+        "crossed in relative includes",
+    )
+    argparser.add_argument(
+        "dirs", type=str, nargs="*", help="List of dirs where to find sources"
+    )
     args = argparser.parse_args()
     args.regex_compiled = re.compile(args.regex)
     return args
@@ -56,16 +59,18 @@ class Issue:
     was_fixed: bool = False
 
     def get_msg_str(self) -> str:
-        if (self.is_error and not self.was_fixed):
+        if self.is_error and not self.was_fixed:
             return make_error_msg(
                 self.file,
                 self.line,
-                self.msg + (". Fixed!" if self.was_fixed else ""))
+                self.msg + (". Fixed!" if self.was_fixed else ""),
+            )
         else:
             return make_warn_msg(
                 self.file,
                 self.line,
-                self.msg + (". Fixed!" if self.was_fixed else ""))
+                self.msg + (". Fixed!" if self.was_fixed else ""),
+            )
 
 
 def make_msg(err_or_warn: str, file: str, line: int, msg: str):
@@ -95,44 +100,53 @@ def list_all_source_file(file_regex, srcdirs):
     return all_files
 
 
-def rel_include_warnings(dir, src, line_num, inc_file,
-                         top_inc_dirs) -> typing.List[Issue]:
+def rel_include_warnings(
+    dir, src, line_num, inc_file, top_inc_dirs
+) -> typing.List[Issue]:
     warn: typing.List[Issue] = []
     inc_folders = inc_file.split(os.path.sep)[:-1]
     inc_folders_alt = inc_file.split(os.path.altsep)[:-1]
 
     if len(inc_folders) != 0 and len(inc_folders_alt) != 0:
-        w = "using %s and %s as path separators" % (os.path.sep,
-                                                    os.path.altsep)
+        w = "using %s and %s as path separators" % (
+            os.path.sep,
+            os.path.altsep,
+        )
         warn.append(Issue(False, w, src, line_num))
 
     if len(inc_folders) == 0:
         inc_folders = inc_folders_alt
 
     abs_inc_folders = [
-        os.path.abspath(os.path.join(dir, *inc_folders[:i + 1]))
+        os.path.abspath(os.path.join(dir, *inc_folders[: i + 1]))
         for i in range(len(inc_folders))
     ]
 
     if os.path.curdir in inc_folders:
         w = "rel include containing reference to current folder '{}'".format(
-            os.path.curdir)
+            os.path.curdir
+        )
         warn.append(Issue(False, w, src, line_num))
 
     if any(
-            any([os.path.basename(p) == f for f in top_inc_dirs])
-            for p in abs_inc_folders):
-
-        w = "rel include going over %s folders" % ("/".join(
-            "'" + f + "'" for f in top_inc_dirs))
+        any([os.path.basename(p) == f for f in top_inc_dirs])
+        for p in abs_inc_folders
+    ):
+        w = "rel include going over %s folders" % (
+            "/".join("'" + f + "'" for f in top_inc_dirs)
+        )
 
         warn.append(Issue(False, w, src, line_num))
 
-    if (len(inc_folders) >= 3 and os.path.pardir in inc_folders
-            and any(p != os.path.pardir for p in inc_folders)):
-
-        w = ("rel include with more than "
-             "2 folders that aren't in a straight heritage line")
+    if (
+        len(inc_folders) >= 3
+        and os.path.pardir in inc_folders
+        and any(p != os.path.pardir for p in inc_folders)
+    ):
+        w = (
+            "rel include with more than "
+            "2 folders that aren't in a straight heritage line"
+        )
         warn.append(Issue(False, w, src, line_num))
 
     return warn
@@ -166,7 +180,9 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
                                 True,
                                 "`#pragma once` must be before any `#include`",
                                 src,
-                                line_num))
+                                line_num,
+                            )
+                        )
             continue
 
         include_count += 1
@@ -175,19 +191,21 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
         inc_file = match.group(3)
         full_path = os.path.join(dir, inc_file)
 
-        if val_type == "\"" and not os.path.isfile(full_path):
+        if val_type == '"' and not os.path.isfile(full_path):
             new_line, n = IncludeRegex.subn(r"\1<\3>", line)
             assert n == 1, "inplace only handles one include match per line"
 
             issues.append(
-                Issue(True, "use #include <...>", src, line_num, new_line))
+                Issue(True, "use #include <...>", src, line_num, new_line)
+            )
 
         elif val_type == "<" and os.path.isfile(full_path):
             new_line, n = IncludeRegex.subn(r'\1"\3"', line)
             assert n == 1, "inplace only handles one include match per line"
 
             issues.append(
-                Issue(True, "use #include \"...\"", src, line_num, new_line))
+                Issue(True, 'use #include "..."', src, line_num, new_line)
+            )
 
         # output warnings for some cases
         # 1. relative include containing current folder
@@ -195,12 +213,10 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
         # 3. relative include longer than 2 folders and containing
         #    both ".." and "non-.."
         # 4. absolute include used but rel include possible without warning
-        if val_type == "\"":
-            issues += rel_include_warnings(dir,
-                                           src,
-                                           line_num,
-                                           inc_file,
-                                           top_inc_dirs)
+        if val_type == '"':
+            issues += rel_include_warnings(
+                dir, src, line_num, inc_file, top_inc_dirs
+            )
         if val_type == "<":
             # try to make a relative import using the top folders
             for top_folder in top_inc_dirs:
@@ -213,16 +229,14 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
                     continue
                 if fs[0] == "":  # full dir was absolute
                     fs[0] = os.path.sep
-                full_top = os.path.join(*fs[:fs.index(top_folder) + 1])
+                full_top = os.path.join(*fs[: fs.index(top_folder) + 1])
                 full_inc = os.path.join(full_top, inc_file)
                 if not os.path.isfile(full_inc):
                     continue
                 new_rel_inc = os.path.relpath(full_inc, full_dir)
-                warn = rel_include_warnings(dir,
-                                            src,
-                                            line_num,
-                                            new_rel_inc,
-                                            top_inc_dirs)
+                warn = rel_include_warnings(
+                    dir, src, line_num, new_rel_inc, top_inc_dirs
+                )
                 if len(warn) == 0:
                     issues.append(
                         Issue(
@@ -230,7 +244,9 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
                             "absolute include could be transformed to relative",
                             src,
                             line_num,
-                            f"#include \"{new_rel_inc}\"\n"))
+                            f'#include "{new_rel_inc}"\n',
+                        )
+                    )
                 else:
                     issues += warn
 
@@ -238,13 +254,15 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
         had_fixes = False
 
         for issue in issues:
-            if (issue.fixed_str is not None):
-                lines[issue.line - 1] = (lines[issue.line - 1][0],
-                                         issue.fixed_str)
+            if issue.fixed_str is not None:
+                lines[issue.line - 1] = (
+                    lines[issue.line - 1][0],
+                    issue.fixed_str,
+                )
                 issue.was_fixed = True
                 had_fixes = True
 
-        if (had_fixes):
+        if had_fixes:
             with io.open(src, "w", encoding="utf-8") as out_file:
                 for _, new_line in lines:
                     out_file.write(new_line)
@@ -254,7 +272,7 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
 
 def main():
     args = parse_args()
-    top_inc_dirs = args.top_include_dirs.split(',')
+    top_inc_dirs = args.top_include_dirs.split(",")
     all_files = list_all_source_file(args.regex_compiled, args.dirs)
     all_issues: typing.List[Issue] = []
     errs: typing.List[Issue] = []
@@ -265,7 +283,7 @@ def main():
         all_issues += issues
 
     for i in all_issues:
-        if (i.is_error and not i.was_fixed):
+        if i.is_error and not i.was_fixed:
             errs.append(i)
         else:
             print(i.get_msg_str())
@@ -278,8 +296,11 @@ def main():
             print(err.get_msg_str())
 
         path_parts = os.path.abspath(__file__).split(os.sep)
-        print("You can run '{} --inplace' to bulk fix these errors".format(
-            os.sep.join(path_parts[path_parts.index("cpp"):])))
+        print(
+            "You can run '{} --inplace' to bulk fix these errors".format(
+                os.sep.join(path_parts[path_parts.index("cpp") :])
+            )
+        )
         sys.exit(-1)
     return
 

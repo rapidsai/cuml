@@ -36,7 +36,9 @@ from cuml.testing.test_preproc_utils import (  # noqa: F401
     "transformer_weights", [None, {"scaler": 2.4, "normalizer": 1.8}]
 )
 def test_column_transformer(
-    clf_dataset, remainder, transformer_weights  # noqa: F811
+    clf_dataset,
+    remainder,
+    transformer_weights,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -166,7 +168,9 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
 @pytest.mark.parametrize("remainder", ["drop", "passthrough"])
 @pytest.mark.parametrize("sparse_threshold", [0.2, 0.8])
 def test_make_column_transformer_sparse(
-    sparse_clf_dataset, remainder, sparse_threshold  # noqa: F811
+    sparse_clf_dataset,
+    remainder,
+    sparse_threshold,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 

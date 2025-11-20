@@ -52,7 +52,6 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 def test_ridge(
     nrows, ncols, n_parts, fit_intercept, datatype, delayed, client
 ):
-
     from cuml.dask.linear_model import Ridge as cumlRidge_dask
 
     n_info = 5

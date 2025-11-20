@@ -20,7 +20,6 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             "_output_type": None,
             "_fil_device_type": DeviceType.device,
             "_fil_memory_type": MemoryType.device,
-            "_memory_type": MemoryType.device,
         }
 
 
@@ -56,14 +55,6 @@ class GlobalSettings:
         self.__dict__ = _global_settings_data.shared_state
 
     @property
-    def memory_type(self):
-        return self._memory_type
-
-    @memory_type.setter
-    def memory_type(self, value):
-        self._memory_type = value
-
-    @property
     def output_type(self):
         """The globally-defined default output type for cuML API calls"""
         return self._output_type  # pylint: disable=no-member
@@ -71,10 +62,6 @@ class GlobalSettings:
     @output_type.setter
     def output_type(self, value):
         self._output_type = value
-
-    @property
-    def xpy(self):
-        return self.memory_type.xpy
 
     @property
     def fil_device_type(self):

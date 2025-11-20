@@ -99,7 +99,8 @@ void pcaFit(const raft::handle_t& handle,
             math_t* mu,
             math_t* noise_vars,
             const paramsPCA& prms,
-            cudaStream_t stream)
+            cudaStream_t stream,
+            bool flip_signs_based_on_U = false)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -125,6 +126,16 @@ void pcaFit(const raft::handle_t& handle,
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);
 
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
+
+  signFlipComponents(handle,
+                     input,
+                     components,
+                     prms.n_rows,
+                     prms.n_cols,
+                     prms.n_components,
+                     stream,
+                     true,
+                     flip_signs_based_on_U);
 }
 
 /**
@@ -156,7 +167,8 @@ void pcaFitTransform(const raft::handle_t& handle,
                      math_t* mu,
                      math_t* noise_vars,
                      const paramsPCA& prms,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     bool flip_signs_based_on_U = false)
 {
   pcaFit(handle,
          input,
@@ -167,9 +179,9 @@ void pcaFitTransform(const raft::handle_t& handle,
          mu,
          noise_vars,
          prms,
-         stream);
+         stream,
+         flip_signs_based_on_U);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 }
 
 // TODO: implement pcaGetCovariance function

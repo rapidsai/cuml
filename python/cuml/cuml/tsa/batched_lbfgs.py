@@ -236,9 +236,9 @@ def batched_fmin_lbfgs_b(
                             task[ib][0] = 5
                             task[ib][1] = 504
                         else:
-                            task[ib][
-                                :
-                            ] = "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT"
+                            task[ib][:] = (
+                                "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT"
+                            )
                 elif cond3:
                     converged[ib] = True
                     warn_flag[ib] = 0

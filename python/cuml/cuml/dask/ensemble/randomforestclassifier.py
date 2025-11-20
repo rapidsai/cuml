@@ -21,7 +21,6 @@ class RandomForestClassifier(
     DelayedPredictionProbaMixin,
     BaseEstimator,
 ):
-
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -151,7 +150,6 @@ class RandomForestClassifier(
         ignore_empty_partitions=False,
         **kwargs,
     ):
-
         super().__init__(client=client, verbose=verbose, **kwargs)
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,

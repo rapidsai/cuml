@@ -69,6 +69,12 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
 
   auto threshold() const { return tl_tree_.Threshold(node_id_); }
 
+// Temporarily disable free-nonheap-object warning to work around spurious warnings emitted by
+// GCC 14.x. See https://github.com/rapidsai/cuml/pull/7471#issuecomment-3525796585 for more
+// details.
+// TODO(hcho3): Remove this pragma once GCC is upgraded to 15.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
   auto max_num_categories() const
   {
     auto result = std::remove_const_t<std::remove_reference_t<decltype(get_categories()[0])>>{};
@@ -80,6 +86,7 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
     }
     return result;
   }
+#pragma GCC diagnostic pop
 
   auto get_output() const
   {
