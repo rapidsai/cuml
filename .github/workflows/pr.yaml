@@ -92,6 +92,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: pull-request
+      node_type: cpu16
       script: ci/build_cpp.sh
   conda-python-build:
     needs: conda-cpp-build

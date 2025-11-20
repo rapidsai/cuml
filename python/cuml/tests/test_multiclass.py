@@ -1,17 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import sys
-
 import numpy as np
 import pytest
 
 from cuml import LogisticRegression as cuLog
 from cuml import multiclass as cu_multiclass
 from cuml.testing.datasets import make_classification_dataset
-
-# As tests directory is not a module, we need to add it to the path
-sys.path.insert(0, ".")
 
 
 @pytest.mark.parametrize("strategy", ["ovr", "ovo"])
@@ -36,7 +31,11 @@ def test_logistic_regression(
     culog = cuLog()
 
     if use_wrapper:
-        cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
+        with pytest.warns(
+            FutureWarning,
+            match="MulticlassClassifier was deprecated",
+        ):
+            cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
     else:
         if strategy == "ovo":
             cls = cu_multiclass.OneVsOneClassifier(culog)

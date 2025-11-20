@@ -124,11 +124,8 @@ def get_fil_device_type() -> DeviceType:
 cdef raft_proto_device_t get_fil_raft_proto_device_type(arr):
     """Get the current FIL device type as a raft_proto_device_t"""
     cdef raft_proto_device_t dev
-    if arr.is_device_accessible:
-        if arr.is_host_accessible and get_fil_device_type() is DeviceType.host:
-            dev = raft_proto_device_t.cpu
-        else:
-            dev = raft_proto_device_t.gpu
+    if arr.mem_type is MemoryType.device:
+        dev = raft_proto_device_t.gpu
     else:
         dev = raft_proto_device_t.cpu
     return dev
@@ -177,7 +174,7 @@ cdef class ForestInference_impl():
         )
 
         cdef raft_proto_device_t dev_type
-        if mem_type.is_device_accessible:
+        if mem_type is MemoryType.device:
             dev_type = raft_proto_device_t.gpu
         else:
             dev_type = raft_proto_device_t.cpu
@@ -647,7 +644,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                 raise RuntimeError(f"Failed to run cudaGetDevice(). {name}: {msg}")
             device_id = current_device_id
 
-        if mem_type.is_device_accessible:
+        if mem_type is MemoryType.device:
             self.device_id = device_id
 
         if self.treelite_model is not None:
@@ -667,10 +664,9 @@ class ForestInference(Base, CMajorInputTagMixin):
                 device_id=self.device_id
             )
 
-            if mem_type.is_device_accessible:
+            if mem_type is MemoryType.device:
                 self._gpu_forest = impl
-
-            if mem_type.is_host_accessible:
+            else:
                 self._cpu_forest = impl
 
     @property
