@@ -183,7 +183,7 @@ class AutoARIMA(Base):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
-        self._set_base_attributes(output_type=endog)
+        self._set_output_type(endog)
 
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
