@@ -22,7 +22,8 @@ jobs:
       - conda-python-tests-dask
       - conda-python-scikit-learn-accel-tests
       - conda-python-cuml-accel-upstream-tests
-      - conda-notebook-tests
+      # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+      # - conda-notebook-tests
       - docs-build
       - telemetry-setup
       - wheel-build-libcuml
@@ -202,17 +203,18 @@ jobs:
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
-  conda-notebook-tests:
-    needs: [conda-python-build, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_notebooks
-    with:
-      build_type: pull-request
-      node_type: "gpu-l4-latest-1"
-      arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.02-latest"
-      script: "ci/test_notebooks.sh"
+  # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+  # conda-notebook-tests:
+  #   needs: [conda-python-build, changed-files]
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_notebooks
+  #   with:
+  #     build_type: pull-request
+  #     node_type: "gpu-l4-latest-1"
+  #     arch: "amd64"
+  #     container_image: "rapidsai/ci-conda:26.02-latest"
+  #     script: "ci/test_notebooks.sh"
   docs-build:
     needs: conda-python-build
     secrets: inherit

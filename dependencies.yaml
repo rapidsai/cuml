@@ -526,11 +526,13 @@ dependencies:
       - output_types: conda
         packages:
           - matplotlib-base
-          - *rapids-xgboost
+          # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+          # - *rapids-xgboost
       - output_types: requirements
         packages:
           - matplotlib
-          - *xgboost
+          # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+          # - *xgboost
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]
