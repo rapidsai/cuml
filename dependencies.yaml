@@ -124,7 +124,8 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      - test_python_xgboost
+      # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+      # - test_python_xgboost
   test_python_dask:
     output: none
     includes:
@@ -133,7 +134,8 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      - test_python_xgboost
+      # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+      # - test_python_xgboost
       - test_python_dask
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cudf
@@ -202,7 +204,8 @@ files:
       key: test
     includes:
       - test_python
-      - test_python_xgboost
+      # TODO: re-enable after resolving https://github.com/rapidsai/cuml/issues/7520
+      # - test_python_xgboost
   py_dask_cuml:
     output: pyproject
     pyproject_dir: python/cuml
