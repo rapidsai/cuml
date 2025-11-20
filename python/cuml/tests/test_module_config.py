@@ -12,8 +12,6 @@ from cudf.pandas import LOADED as cudf_pandas_active
 from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_memory_type
 
 ###############################################################################
 #                                    Parameters                               #
@@ -105,28 +103,6 @@ def test_output_type_context_mgr(global_output_type, context_type):
 
     res = dbscan_float.labels_
     assert isinstance(res, test_output_types[test_type])
-
-
-@pytest.mark.parametrize(
-    "input",
-    [
-        ("device", MemoryType.device),
-        ("host", MemoryType.host),
-        ("managed", MemoryType.managed),
-        ("mirror", MemoryType.mirror),
-    ],
-)
-def test_using_memory_type(input):
-    initial_memory_type = cuml.global_settings.memory_type
-    with using_memory_type(input[0]):
-        assert cuml.global_settings.memory_type == input[1]
-    assert cuml.global_settings.memory_type == initial_memory_type
-
-
-def test_using_memory_type_exception():
-    with pytest.raises(ValueError):
-        with using_memory_type("wrong_option"):
-            pass
 
 
 ###############################################################################

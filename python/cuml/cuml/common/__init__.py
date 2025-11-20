@@ -15,6 +15,5 @@ from cuml.internals.input_utils import (
 )
 from cuml.internals.memory_utils import (
     set_global_output_type,
-    using_memory_type,
     using_output_type,
 )

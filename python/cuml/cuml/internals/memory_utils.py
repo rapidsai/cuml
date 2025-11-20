@@ -6,6 +6,7 @@ import functools
 import operator
 
 import cudf
+import numpy as np
 import pandas as pd
 
 from cuml.internals.global_settings import GlobalSettings
@@ -14,23 +15,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-
-
-def set_global_memory_type(memory_type):
-    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
-
-
-class using_memory_type:
-    def __init__(self, mem_type):
-        self.mem_type = mem_type
-        self.prev_mem_type = None
-
-    def __enter__(self):
-        self.prev_mem_type = GlobalSettings().memory_type
-        set_global_memory_type(self.mem_type)
-
-    def __exit__(self, *_):
-        set_global_memory_type(self.prev_mem_type)
 
 
 def _get_size_from_shape(shape, dtype):
@@ -42,7 +26,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
+    itemsize = np.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape,)
