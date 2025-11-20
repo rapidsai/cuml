@@ -526,15 +526,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
-        Note: Unfortunately, achieving a high amount of parallelism during
-        the optimization stage often comes at the expense of determinism,
-        since many floating-point additions are being made in parallel
-        without a deterministic ordering. This causes slightly different
-        results across training sessions, even when the same seed is used
-        for random number generation. Setting a random_state will enable
-        consistency of trained embeddings, allowing for reproducible results
-        to 3 digits of precision, but will do so at the expense of potentially
-        slower training and increased memory usage.
+        Note: Unfortunately, achieving a high amount of parallelism during the
+        optimization stage often comes at the expense of determinism, since
+        many floating-point additions are being made in parallel without a
+        deterministic ordering. This causes slightly different results across
+        training sessions, even when the same seed is used for random number
+        generation. Setting a random_state will enable consistency of trained
+        embeddings, but will do so at the expense of potentially slower
+        training and increased memory usage.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
