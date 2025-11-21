@@ -13,7 +13,6 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import (
-    determine_array_dtype,
     determine_array_type,
     input_to_cuml_array,
 )
@@ -56,7 +55,8 @@ class DummyTestEstimator(cuml.Base):
 
     # === Standard Functions ===
     def fit(self, X, convert_dtype=True) -> "DummyTestEstimator":
-        self._set_base_attributes(output_type=X, n_features=X)
+        self._set_output_type(X)
+        self._set_n_features_in(X)
         return self
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
@@ -213,7 +213,6 @@ def test_auto_fit(input_type, input_dtype, input_shape):
         return 1
 
     assert est._input_type == input_type
-    assert est.target_dtype is None
     assert est.n_features_in_ == calc_n_features(input_shape)
 
 
@@ -268,15 +267,8 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
 
 @pytest.mark.parametrize("input_arg", ["X", "y", "bad", ...])
-@pytest.mark.parametrize("target_arg", ["X", "y", "bad", ...])
 @pytest.mark.parametrize("get_output_type", [True, False])
-@pytest.mark.parametrize("get_output_dtype", [True, False])
-def test_return_array(
-    input_arg: str,
-    target_arg: str,
-    get_output_type: bool,
-    get_output_dtype: bool,
-):
+def test_return_array(input_arg: str, get_output_type: bool):
     """
     Test autowrapping on predict that will set target_type
     """
@@ -288,7 +280,6 @@ def test_return_array(
     input_dtype_Y = np.int32
 
     inner_type = "numba"
-    inner_dtype = np.float16
 
     X_in = create_input(input_type_X, input_dtype_X, (10, 10), "F")
     Y_in = create_input(input_type_Y, input_dtype_Y, (10, 10), "F")
@@ -296,22 +287,14 @@ def test_return_array(
     def test_func(X, y):
         if not get_output_type:
             cuml.internals.set_api_output_type(inner_type)
-
-        if not get_output_dtype:
-            cuml.internals.set_api_output_dtype(inner_dtype)
-
         return X
 
-    expected_to_fail = (input_arg == "bad" and get_output_type) or (
-        target_arg == "bad" and get_output_dtype
-    )
+    expected_to_fail = input_arg == "bad" and get_output_type
 
     try:
         test_func = cuml.internals.api_return_array(
             input_arg=input_arg,
-            target_arg=target_arg,
             get_output_type=get_output_type,
-            get_output_dtype=get_output_dtype,
         )(test_func)
     except ValueError:
         assert expected_to_fail
@@ -322,7 +305,6 @@ def test_return_array(
     X_out = test_func(X=X_in, y=Y_in)
 
     target_type = None
-    target_dtype = None
 
     if not get_output_type:
         target_type = inner_type
@@ -332,14 +314,4 @@ def test_return_array(
         else:
             target_type = input_type_X
 
-    if not get_output_dtype:
-        target_dtype = inner_dtype
-    else:
-        if target_arg == "X":
-            target_dtype = input_dtype_X
-        else:
-            target_dtype = input_dtype_Y
-
     assert determine_array_type(X_out) == target_type
-
-    assert determine_array_dtype(X_out) == target_dtype

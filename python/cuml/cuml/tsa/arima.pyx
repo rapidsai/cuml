@@ -310,7 +310,7 @@ class ARIMA(Base):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
-        self._set_base_attributes(output_type=endog)
+        self._set_output_type(endog)
 
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
