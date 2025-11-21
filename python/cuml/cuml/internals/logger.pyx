@@ -34,7 +34,7 @@ def _verbose_to_level(verbose: bool | int) -> level_enum:
     elif verbose is False:
         return level_enum.info
     else:
-        return level_enum(max(6 - verbose, 0))
+        return level_enum(min(max(6 - verbose, 0), 6))
 
 
 cdef class LogLevelSetter:

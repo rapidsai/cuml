@@ -337,7 +337,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.repulsion_strength = self.repulsion_strength
     params.negative_sample_rate = self.negative_sample_rate
     params.transform_queue_size = self.transform_queue_size
-    params.verbosity = self.verbose
+    params.verbosity = self._verbose_level
     params.a = self._a
     params.b = self._b
     params.target_n_neighbors = self.target_n_neighbors

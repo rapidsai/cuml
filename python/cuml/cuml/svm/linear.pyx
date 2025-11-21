@@ -99,7 +99,7 @@ def fit(
     C,
     tol,
     epsilon,
-    verbose,
+    level_enum verbose,
 ):
     """Perform a Linear SVR or SVC fit.
 
@@ -173,7 +173,7 @@ def fit(
     params.epsilon = epsilon
     params.grad_tol = tol
     params.change_tol = 0.1 * tol
-    params.verbose = <level_enum>verbose
+    params.verbose = verbose
 
     # Extract dimensions
     cdef size_t n_rows = X.shape[0]
