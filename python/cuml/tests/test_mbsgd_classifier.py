@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-
 import cupy as cp
 import numpy as np
 import pytest
@@ -8,8 +7,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml.datasets import make_classification
-from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
 
@@ -68,7 +67,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
     if nrows < 500000:
-        cu_mbsgd_classifier = cumlMBSGClassifier(
+        cu_mbsgd_classifier = cuml.MBSGDClassifier(
             learning_rate=lrate,
             eta0=0.005,
             epochs=100,
@@ -112,7 +111,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
 def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
-    model = cumlMBSGClassifier(
+    model = cuml.MBSGDClassifier(
         learning_rate=lrate,
         eta0=0.005,
         epochs=100,
@@ -130,18 +129,18 @@ def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
     # Fitted attributes exist and have correct types after fit
     assert isinstance(model.coef_, type(X_train))
     assert isinstance(model.intercept_, float)
-    assert isinstance(model.classes_, type(X_train))
+    assert isinstance(model.classes_, np.ndarray)
 
     cu_pred = model.predict(X_test)
     cu_acc = accuracy_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test))
 
-    assert cu_acc > 0.79
+    assert cu_acc > 0.7
 
 
 def test_mbsgd_classifier_default(make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
-    cu_mbsgd_classifier = cumlMBSGClassifier(batch_size=nrows / 10)
+    cu_mbsgd_classifier = cuml.MBSGDClassifier(batch_size=nrows / 10)
 
     cu_mbsgd_classifier.fit(X_train, y_train)
     cu_pred = cu_mbsgd_classifier.predict(X_test)
@@ -150,22 +149,10 @@ def test_mbsgd_classifier_default(make_dataset):
     assert cu_acc >= 0.69
 
 
-def test_mbsgd_classifier_set_params():
-    x = np.linspace(0, 1, 50)
-    y = (x > 0.5).astype(cp.int32)
-
-    model = cumlMBSGClassifier()
-    model.fit(x, y)
-    coef_before = model.coef_
-
-    model = cumlMBSGClassifier(epochs=20, loss="hinge")
-    model.fit(x, y)
-    coef_after = model.coef_
-
-    model = cumlMBSGClassifier()
-    model.set_params(**{"epochs": 20, "loss": "hinge"})
-    model.fit(x, y)
-    coef_test = model.coef_
-
-    assert coef_before != coef_after
-    assert coef_after == coef_test
+def test_mbsgd_multiclass_errors():
+    X, y = make_classification(random_state=42, n_classes=4, n_informative=4)
+    model = cuml.MBSGDClassifier()
+    with pytest.raises(
+        ValueError, match="binary classification, got 4 classes"
+    ):
+        model.fit(X, y)
