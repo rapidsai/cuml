@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import contextlib
 import functools
 import inspect
@@ -10,6 +9,7 @@ import typing
 
 import numpy as np
 
+import cuml
 import cuml.accel
 
 # TODO: Try to resolve circular import that makes this necessary:
@@ -72,15 +72,14 @@ def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
     return value
 
 
-def _make_decorator_function(
+def _make_decorator(
     process_return=True,
-    needs_self: bool = False,
     **defaults,
 ) -> typing.Callable[..., _DecoratorType]:
     # This function generates a function to be applied as decorator to a
     # wrapped function. For example:
     #
-    #       a_decorator = _make_decorator_function(...)
+    #       a_decorator = _make_decorator(...)
     #
     #       ...
     #
@@ -106,8 +105,6 @@ def _make_decorator_function(
             sig = inspect.signature(func, follow_wrapped=True)
 
             has_self = _has_self(sig)
-            if needs_self and not has_self:
-                raise Exception("No self found on function!")
 
             if input_arg is not None and (is_fit or get_output_type):
                 input_arg_ = _find_arg(sig, input_arg or "X", 0)
@@ -121,14 +118,13 @@ def _make_decorator_function(
                 # Accept list/tuple inputs when accelerator is active
                 accept_lists = cuml.accel.enabled()
 
+                self_val = args[0] if has_self else None
                 with InternalAPIContextBase(
                     func,
                     args,
-                    is_base_method=needs_self,
+                    is_base_method=isinstance(self_val, cuml.Base),
                     process_return=process_return,
                 ) as cm:
-                    self_val = args[0] if has_self else None
-
                     if input_arg_:
                         input_val = _get_value(
                             args,
@@ -167,26 +163,18 @@ def _make_decorator_function(
     return functools.partial(decorator_function, **defaults)
 
 
-api_return_any = _make_decorator_function(process_return=False)
-api_base_return_any = _make_decorator_function(
-    needs_self=True,
-    is_fit=True,
-    process_return=False,
-)
-api_return_array = _make_decorator_function(process_return=True)
-api_base_return_array = _make_decorator_function(
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-)
-api_base_fit_transform = _make_decorator_function(
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-    is_fit=True,
-)
-api_base_return_any_skipall = api_base_return_any(is_fit=False)
-api_base_return_array_skipall = api_base_return_array(get_output_type=False)
+# TODO:
+# - infer get_output_type from whether return value is Base
+# - determine why api_return_any is needed? It should only mark internal API?
+# - infer `is_fit` based on method name by default
+api_return_array = _make_decorator()
+api_return_any = _make_decorator(process_return=False)
+api_base_return_any = _make_decorator(is_fit=True, process_return=False)
+api_base_return_array = _make_decorator(get_output_type=True)
+api_base_fit_transform = _make_decorator(is_fit=True, get_output_type=True)
+# TODO: investigate and remove these
+api_base_return_any_skipall = api_return_any()
+api_base_return_array_skipall = api_return_array()
 
 
 @contextlib.contextmanager
