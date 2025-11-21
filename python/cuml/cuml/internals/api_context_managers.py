@@ -123,15 +123,37 @@ class ProcessEnter:
             cb()
 
 
-class ProcessReturn:
-    def __init__(self, context: "InternalAPIContextBase"):
-        self._context = context
+class InternalAPIContextBase(contextlib.ExitStack):
+    def __init__(self, func=None, args=None):
+        super().__init__()
+
+        self._func = func
+        self._args = args
+
+        self.root_cm = get_internal_context()
+
+        self.is_root = False
+
+        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
+
+    def __enter__(self):
+        # Enter the root context to know if we are the root cm
+        self.is_root = self.enter_context(self.root_cm) == 1
+
+        # If we are the first, push any callbacks from the root into this CM
+        # If we are not the first, this will have no effect
+        self.push(self.root_cm.pop_all())
+
+        self._enter_obj.process_enter()
+
         # Only convert output:
         # - when returning results from a root api call
         # - when the output type is explicitly set
         self._convert_output = (
-            self._context.is_root or GlobalSettings().output_type != "mirror"
+            self.is_root or GlobalSettings().output_type != "mirror"
         )
+
+        return super().__enter__()
 
     def process_return(self, res):
         """Traverse a result, converting it to the proper output type"""
@@ -163,7 +185,7 @@ class ProcessReturn:
         output_type = GlobalSettings().output_type
 
         if output_type in (None, "mirror", "input"):
-            output_type = self._context.root_cm.output_type
+            output_type = self.root_cm.output_type
 
         assert (
             output_type is not None
@@ -172,39 +194,6 @@ class ProcessReturn:
         ), ("Invalid root_cm.output_type: '{}'.").format(output_type)
 
         return res.to_output(output_type=output_type)
-
-
-class InternalAPIContextBase(contextlib.ExitStack):
-    def __init__(self, func=None, args=None):
-        super().__init__()
-
-        self._func = func
-        self._args = args
-
-        self.root_cm = get_internal_context()
-
-        self.is_root = False
-
-        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
-        self._process_obj = None
-
-    def __enter__(self):
-        # Enter the root context to know if we are the root cm
-        self.is_root = self.enter_context(self.root_cm) == 1
-
-        # If we are the first, push any callbacks from the root into this CM
-        # If we are not the first, this will have no effect
-        self.push(self.root_cm.pop_all())
-
-        self._enter_obj.process_enter()
-
-        # Now create the process functions since we know if we are root or not
-        self._process_obj = ProcessReturn(self)
-
-        return super().__enter__()
-
-    def process_return(self, ret_val):
-        return self._process_obj.process_return(ret_val)
 
 
 class ProcessEnterBaseMixin(ProcessEnter):
