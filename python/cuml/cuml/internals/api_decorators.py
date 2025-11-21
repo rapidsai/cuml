@@ -15,10 +15,7 @@ import cuml.accel
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals.api_context_managers import (
-    BaseReturnArrayCM,
     InternalAPIContextBase,
-    ReturnAnyCM,
-    ReturnArrayCM,
     set_api_output_type,
 )
 from cuml.internals.constants import CUML_WRAPPED_FLAG
@@ -76,7 +73,6 @@ def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
 
 
 def _make_decorator_function(
-    context_manager_cls: InternalAPIContextBase,
     process_return=True,
     needs_self: bool = False,
     **defaults,
@@ -128,7 +124,12 @@ def _make_decorator_function(
                 # Accept list/tuple inputs when accelerator is active
                 accept_lists = cuml.accel.enabled()
 
-                with context_manager_cls(func, args) as cm:
+                with InternalAPIContextBase(
+                    func,
+                    args,
+                    is_base_method=needs_self,
+                    process_return=process_return,
+                ) as cm:
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
@@ -171,24 +172,20 @@ def _make_decorator_function(
     return functools.partial(decorator_function, **defaults)
 
 
-api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
+api_return_any = _make_decorator_function(process_return=False)
 api_base_return_any = _make_decorator_function(
-    ReturnAnyCM,
     needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
     process_return=False,
 )
-api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
+api_return_array = _make_decorator_function(process_return=True)
 api_base_return_array = _make_decorator_function(
-    BaseReturnArrayCM,
     needs_self=True,
     process_return=True,
     get_output_type=True,
 )
 api_base_fit_transform = _make_decorator_function(
-    # TODO: add tests for this decorator(
-    BaseReturnArrayCM,
     needs_self=True,
     process_return=True,
     get_output_type=True,

@@ -112,29 +112,43 @@ def get_internal_context() -> InternalAPIContext:
     return GlobalSettings().root_cm
 
 
-class ProcessEnter:
-    def __init__(self, context: "InternalAPIContextBase"):
-        self._context = context
-
-        self._process_enter_cbs = deque()
-
-    def process_enter(self):
-        for cb in self._process_enter_cbs:
-            cb()
-
-
 class InternalAPIContextBase(contextlib.ExitStack):
-    def __init__(self, func=None, args=None):
+    def __init__(
+        self, func=None, args=None, is_base_method=False, process_return=True
+    ):
         super().__init__()
 
         self._func = func
         self._args = args
+        self._is_base_method = is_base_method
+        self._process_return = process_return
 
         self.root_cm = get_internal_context()
 
         self.is_root = False
 
-        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
+        self._should_set_output_type_from_base = (
+            self._is_base_method
+            and self.root_cm.prev_output_type in (None, "input")
+        )
+
+    def set_output_type_from_base(self, root_cm):
+        output_type = root_cm.output_type
+
+        base = self._args[0]
+
+        # Check if output_type is None, can happen if no output type has
+        # been set by estimator
+        if output_type is None:
+            output_type = base.output_type
+
+        if output_type == "input":
+            output_type = base._input_type
+
+        if output_type != root_cm.output_type:
+            set_api_output_type(output_type)
+
+        assert output_type != "mirror"
 
     def __enter__(self):
         # Enter the root context to know if we are the root cm
@@ -144,7 +158,10 @@ class InternalAPIContextBase(contextlib.ExitStack):
         # If we are not the first, this will have no effect
         self.push(self.root_cm.pop_all())
 
-        self._enter_obj.process_enter()
+        if self._process_return:
+            self.enter_context(self.root_cm.push_output_types())
+        if self._should_set_output_type_from_base:
+            self.callback(self.set_output_type_from_base, self.root_cm)
 
         # Only convert output:
         # - when returning results from a root api call
@@ -194,63 +211,3 @@ class InternalAPIContextBase(contextlib.ExitStack):
         ), ("Invalid root_cm.output_type: '{}'.").format(output_type)
 
         return res.to_output(output_type=output_type)
-
-
-class ProcessEnterReturnArray(ProcessEnter):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self._process_enter_cbs.append(self.push_output_types)
-
-    def push_output_types(self):
-        self._context.enter_context(self._context.root_cm.push_output_types())
-
-
-class ProcessEnterBaseReturnArray(ProcessEnterReturnArray):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self.base_obj = self._context._args[0]
-
-        # IMPORTANT: Only perform output type processing if
-        # `root_cm.output_type` is None. Since we default to using the incoming
-        # value if its set, there is no need to do any processing if the user
-        # has specified the output type
-        if (
-            self._context.root_cm.prev_output_type is None
-            or self._context.root_cm.prev_output_type == "input"
-        ):
-            self._process_enter_cbs.append(self.base_output_type_callback)
-
-    def base_output_type_callback(self):
-        root_cm = self._context.root_cm
-
-        def set_output_type():
-            output_type = root_cm.output_type
-
-            # Check if output_type is None, can happen if no output type has
-            # been set by estimator
-            if output_type is None:
-                output_type = self.base_obj.output_type
-
-            if output_type == "input":
-                output_type = self.base_obj._input_type
-
-            if output_type != root_cm.output_type:
-                set_api_output_type(output_type)
-
-            assert output_type != "mirror"
-
-        self._context.callback(set_output_type)
-
-
-class ReturnAnyCM(InternalAPIContextBase):
-    ProcessEnter_Type = ProcessEnter
-
-
-class ReturnArrayCM(InternalAPIContextBase):
-    ProcessEnter_Type = ProcessEnterReturnArray
-
-
-class BaseReturnArrayCM(InternalAPIContextBase):
-    ProcessEnter_Type = ProcessEnterBaseReturnArray
