@@ -213,10 +213,6 @@ class ProcessEnterBaseMixin(ProcessEnter):
         self.base_obj: Base = self._context._args[0]
 
 
-class ProcessEnterReturnAny(ProcessEnter):
-    pass
-
-
 class ProcessEnterReturnArray(ProcessEnter):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
@@ -263,10 +259,6 @@ class ProcessEnterBaseReturnArray(
             assert output_type != "mirror"
 
         self._context.callback(set_output_type)
-
-
-class ProcessReturnAny(ProcessReturn):
-    pass
 
 
 class ProcessReturnArray(ProcessReturn):
@@ -370,9 +362,7 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
 
-class ReturnAnyCM(
-    InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
-):
+class ReturnAnyCM(InternalAPIContextBase[ProcessEnter, ProcessReturn]):
     pass
 
 
@@ -388,9 +378,7 @@ class ReturnGenericCM(
     pass
 
 
-class BaseReturnAnyCM(
-    InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
-):
+class BaseReturnAnyCM(InternalAPIContextBase[ProcessEnter, ProcessReturn]):
     pass
 
 
