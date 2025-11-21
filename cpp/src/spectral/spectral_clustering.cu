@@ -10,6 +10,7 @@
 #include <raft/core/resources.hpp>
 
 #include <cuvs/cluster/spectral.hpp>
+#include <cuvs/preprocessing/spectral_embedding.hpp>
 
 namespace cuvs::cluster::spectral {
 struct params;
@@ -29,6 +30,27 @@ cuvs::cluster::spectral::params to_cuvs(ML::SpectralClustering::params& config)
   cuvs_params.rng_state    = raft::random::RngState(config.seed);
 
   return cuvs_params;
+}
+
+void fit_predict(raft::resources const& handle,
+                 params config,
+                 raft::device_matrix_view<float, int, raft::row_major> dataset,
+                 raft::device_vector_view<int, int> labels)
+{
+  int n_samples = dataset.extent(0);
+
+  // Create connectivity graph from dataset using spectral embedding helpers
+  auto graph = raft::make_device_coo_matrix<float, int, int, int>(handle, n_samples, n_samples);
+
+  cuvs::preprocessing::spectral_embedding::params embed_params;
+  embed_params.n_neighbors = config.n_neighbors;
+  embed_params.seed        = config.seed;
+
+  cuvs::preprocessing::spectral_embedding::helpers::create_connectivity_graph(
+    handle, embed_params, dataset, graph);
+
+  // Call spectral clustering with the connectivity graph
+  ML::SpectralClustering::fit_predict(handle, config, graph.view(), labels);
 }
 
 void fit_predict(raft::resources const& handle,
