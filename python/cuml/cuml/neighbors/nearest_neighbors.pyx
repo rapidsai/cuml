@@ -1095,7 +1095,7 @@ class NearestNeighbors(Base,
         return self.metric_params or {}
 
 
-@cuml.internals.api_return_sparse_array()
+@cuml.internals.api_return_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):

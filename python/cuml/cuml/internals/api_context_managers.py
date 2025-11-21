@@ -315,27 +315,6 @@ class ProcessReturnArray(ProcessReturn):
         return ret_val.to_output(output_type=output_type)
 
 
-class ProcessReturnSparseArray(ProcessReturnArray):
-    def convert_to_cumlarray(self, ret_val):
-        # Get the output type
-        (
-            ret_val_type_str,
-            is_sparse,
-        ) = cuml.internals.input_utils.determine_array_type_full(ret_val)
-
-        # If we are a supported array and not already cuml, convert to cuml
-        if ret_val_type_str is not None and ret_val_type_str != "cuml":
-            if is_sparse:
-                ret_val = SparseCumlArray(ret_val, convert_index=False)
-            else:
-                ret_val = cuml.internals.input_utils.input_to_cuml_array(
-                    ret_val,
-                    order="K",
-                ).array
-
-        return ret_val
-
-
 class ProcessReturnGeneric(ProcessReturnArray):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
@@ -403,12 +382,6 @@ class ReturnArrayCM(
     pass
 
 
-class ReturnSparseArrayCM(
-    InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnSparseArray]
-):
-    pass
-
-
 class ReturnGenericCM(
     InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnGeneric]
 ):
@@ -423,14 +396,6 @@ class BaseReturnAnyCM(
 
 class BaseReturnArrayCM(
     InternalAPIContextBase[ProcessEnterBaseReturnArray, ProcessReturnArray]
-):
-    pass
-
-
-class BaseReturnSparseArrayCM(
-    InternalAPIContextBase[
-        ProcessEnterBaseReturnArray, ProcessReturnSparseArray
-    ]
 ):
     pass
 

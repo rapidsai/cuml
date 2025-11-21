@@ -18,12 +18,10 @@ from cuml.internals.api_context_managers import (
     BaseReturnAnyCM,
     BaseReturnArrayCM,
     BaseReturnGenericCM,
-    BaseReturnSparseArrayCM,
     InternalAPIContextBase,
     ReturnAnyCM,
     ReturnArrayCM,
     ReturnGenericCM,
-    ReturnSparseArrayCM,
     set_api_output_type,
 )
 from cuml.internals.constants import CUML_WRAPPED_FLAG
@@ -207,16 +205,6 @@ api_base_fit_transform = _make_decorator_function(
     get_output_type=True,
     set_output_type=True,
     set_n_features_in=True,
-)
-
-api_return_sparse_array = _make_decorator_function(
-    ReturnSparseArrayCM, process_return=True
-)
-api_base_return_sparse_array = _make_decorator_function(
-    BaseReturnSparseArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
 )
 
 api_base_return_any_skipall = api_base_return_any(
