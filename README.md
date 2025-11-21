@@ -86,6 +86,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)  | |
 |  | K-Means | Multi-node multi-GPU via Dask |
 |  | Single-Linkage Agglomerative Clustering | |
+|  | Spectral Clustering | |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
 | | Incremental PCA | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
