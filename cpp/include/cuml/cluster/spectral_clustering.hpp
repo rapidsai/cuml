@@ -30,6 +30,20 @@ struct params {
 };
 
 /**
+ * @brief Perform spectral clustering on input dataset by constructing
+ * a k-nearest neighbors graph
+ *
+ * @param[in]  handle   cuML resources handle
+ * @param[in]  config   Parameters for spectral clustering
+ * @param[in]  dataset  Input dataset (row-major)
+ * @param[out] labels   Cluster labels for each sample
+ */
+void fit_predict(raft::resources const& handle,
+                 params config,
+                 raft::device_matrix_view<float, int, raft::row_major> dataset,
+                 raft::device_vector_view<int, int> labels);
+
+/**
  * @brief Perform spectral clustering on a precomputed connectivity graph
  * using COO sparse matrix view
  *

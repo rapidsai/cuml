@@ -15,9 +15,13 @@ from cuml.internals.base import Base
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
 from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
     device_vector_view,
+    make_device_matrix_view,
     make_device_vector_view,
+    row_major,
 )
 from pylibraft.common.handle cimport device_resources
 
@@ -36,6 +40,12 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
     cdef void fit_predict(
         const device_resources &handle,
         params config,
+        device_matrix_view[float, int, row_major] dataset,
+        device_vector_view[int, int] labels) except +
+
+    cdef void fit_predict(
+        const device_resources &handle,
+        params config,
         device_vector_view[int, int] rows,
         device_vector_view[int, int] cols,
         device_vector_view[float, int] vals,
@@ -50,13 +60,29 @@ def spectral_clustering(A,
                         n_components=None,
                         n_neighbors=10,
                         n_init=10,
-                        eigen_tol=0.01,
+                        eigen_tol=0.0,
+                        affinity='precomputed',
                         handle=None):
     if handle is None:
         handle = Handle()
 
-    # Convert to COO sparse matrix
-    if cp_sp.issparse(A):
+    cdef float* dataset_ptr = NULL
+    cdef float* affinity_data_ptr = NULL
+    cdef int* affinity_rows_ptr = NULL
+    cdef int* affinity_cols_ptr = NULL
+    cdef int n_samples, n_features
+    cdef int nnz = 0
+    cdef bool is_precomputed = (affinity == 'precomputed')
+
+    if not is_precomputed:
+        # Input is a dataset, convert to appropriate format
+        from cuml.internals.input_utils import input_to_cupy_array
+        A = input_to_cupy_array(
+            A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
+        ).array
+        n_samples, n_features = A.shape
+        dataset_ptr = <float*><uintptr_t>A.data.ptr
+    elif cp_sp.issparse(A):
         A = A.tocoo()
         if A.dtype != np.float32:
             A = A.astype("float32")
@@ -64,29 +90,31 @@ def spectral_clustering(A,
         A = cp_sp.coo_matrix(A, dtype="float32")
     else:
         A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
-    A.sum_duplicates()
 
-    affinity_data = A.data
-    affinity_rows = A.row.astype(np.int32)
-    affinity_cols = A.col.astype(np.int32)
-    affinity_nnz = A.nnz
+    if is_precomputed:
+        A.sum_duplicates()
 
-    # NOTE: C++ gtest includes diagonal (self-loops) in the connectivity graph
-    # so we should NOT remove them to match the C++ behavior
-    # # Remove diagonal
-    valid = affinity_rows != affinity_cols
-    if not valid.all():
-        affinity_data = affinity_data[valid]
-        affinity_rows = affinity_rows[valid]
-        affinity_cols = affinity_cols[valid]
-        affinity_nnz = len(affinity_data)
+        affinity_data = A.data
+        affinity_rows = A.row.astype(np.int32)
+        affinity_cols = A.col.astype(np.int32)
+        affinity_nnz = A.nnz
 
-    cdef float* affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
-    cdef int* affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
-    cdef int* affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+        # NOTE: C++ gtest includes diagonal (self-loops) in the connectivity graph
+        # so we should NOT remove them to match the C++ behavior
+        # # Remove diagonal
+        valid = affinity_rows != affinity_cols
+        if not valid.all():
+            affinity_data = affinity_data[valid]
+            affinity_rows = affinity_rows[valid]
+            affinity_cols = affinity_cols[valid]
+            affinity_nnz = len(affinity_data)
 
-    cdef int n_samples = A.shape[0]
-    cdef int nnz = affinity_nnz
+        affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
+        affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
+        affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+
+        n_samples = A.shape[0]
+        nnz = affinity_nnz
 
     # Allocate labels
     labels = CumlArray.empty(n_samples, dtype=np.int32)
@@ -103,21 +131,31 @@ def spectral_clustering(A,
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     with nogil:
-        fit_predict(
-            handle_[0],
-            config,
-            make_device_vector_view(affinity_rows_ptr, nnz),
-            make_device_vector_view(affinity_cols_ptr, nnz),
-            make_device_vector_view(affinity_data_ptr, nnz),
-            make_device_vector_view(labels_ptr, n_samples)
-        )
+        if is_precomputed:
+            fit_predict(
+                handle_[0],
+                config,
+                make_device_vector_view(affinity_rows_ptr, nnz),
+                make_device_vector_view(affinity_cols_ptr, nnz),
+                make_device_vector_view(affinity_data_ptr, nnz),
+                make_device_vector_view(labels_ptr, n_samples)
+            )
+        else:
+            fit_predict(
+                handle_[0],
+                config,
+                make_device_matrix_view[float, int, row_major](
+                    dataset_ptr, n_samples, n_features
+                ),
+                make_device_vector_view(labels_ptr, n_samples)
+            )
 
     return labels
 
 
 class SpectralClustering(Base):
     def __init__(self, n_clusters=8, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, eigen_tol=0.01, affinity='precomputed',
+                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='precomputed',
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
@@ -137,6 +175,7 @@ class SpectralClustering(Base):
             n_neighbors=self.n_neighbors,
             n_init=self.n_init,
             eigen_tol=self.eigen_tol,
+            affinity=self.affinity,
             handle=self.handle
         )
         return self.labels_
