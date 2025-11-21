@@ -15,7 +15,6 @@ import cuml.accel
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals.api_context_managers import (
-    BaseReturnAnyCM,
     BaseReturnArrayCM,
     InternalAPIContextBase,
     ReturnAnyCM,
@@ -174,7 +173,7 @@ def _make_decorator_function(
 
 api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
 api_base_return_any = _make_decorator_function(
-    BaseReturnAnyCM,
+    ReturnAnyCM,
     needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
