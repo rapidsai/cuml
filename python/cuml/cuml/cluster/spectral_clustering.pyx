@@ -64,6 +64,82 @@ def spectral_clustering(A,
                         eigen_tol=0.0,
                         affinity='precomputed',
                         handle=None):
+    """Apply clustering to a projection of the normalized Laplacian.
+
+    In practice Spectral Clustering is very useful when the structure of
+    the individual clusters is highly non-convex or more generally when
+    a measure of the center and spread of the cluster is not a suitable
+    description of the complete cluster. For instance, when clusters are
+    nested circles on the 2D plane.
+
+    If affinity is the adjacency matrix of a graph, this method can be
+    used to find normalized graph cuts.
+
+    Parameters
+    ----------
+    A : array-like or sparse matrix of shape (n_samples, n_features) or \
+        (n_samples, n_samples)
+        If affinity is 'nearest_neighbors', this is the input data and a k-NN
+        graph will be constructed. If affinity is 'precomputed', this is the
+        affinity matrix. Supported formats for precomputed affinity: scipy
+        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
+        arrays, or dense cupy arrays.
+    n_clusters : int, default=8
+        The number of clusters to form.
+    random_state : int, RandomState instance or None, default=None
+        A pseudo random number generator used for the initialization of the
+        k-means clustering and the eigendecomposition. Use an int to make the
+        results deterministic across calls.
+    n_components : int or None, default=None
+        Number of eigenvectors to use for the spectral embedding. If None,
+        defaults to n_clusters.
+    n_neighbors : int, default=10
+        Number of nearest neighbors for nearest_neighbors graph building.
+        Only used when affinity='nearest_neighbors'.
+    n_init : int, default=10
+        Number of time the k-means algorithm will be run with different
+        centroid seeds. The final results will be the best output of n_init
+        consecutive runs in terms of inertia.
+    eigen_tol : float, default=0.0
+        Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='precomputed'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+
+    Returns
+    -------
+    labels : cupy.ndarray of shape (n_samples,)
+        Cluster labels for each sample.
+
+    Notes
+    -----
+    The graph should contain only one connected component, otherwise the
+    results make little sense.
+
+    This algorithm solves the normalized cut for k=2: it is a normalized
+    spectral clustering.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from sklearn.neighbors import kneighbors_graph
+    >>> from cuml.cluster import spectral_clustering
+    >>> X = cp.random.rand(100, 10, dtype=cp.float32)
+    >>> A = kneighbors_graph(cp.asnumpy(X), n_neighbors=10, include_self=True)
+    >>> A = 0.5 * (A + A.T)  # make symmetric
+    >>> labels = spectral_clustering(A, n_clusters=5, random_state=42)
+    >>> labels.shape
+    (100,)
+    """
     if handle is None:
         handle = Handle()
 
@@ -170,6 +246,100 @@ def spectral_clustering(A,
 
 
 class SpectralClustering(Base):
+    """Apply spectral clustering from the normalized Laplacian.
+
+    In practice spectral clustering is very useful when the structure of
+    the individual clusters is highly non-convex, or when a measure of
+    the center and spread of the cluster is not a suitable description
+    of the complete cluster, such as when clusters are nested circles on
+    the 2D plane.
+
+    If the affinity matrix is the adjacency matrix of a graph, this method
+    can be used to find normalized graph cuts.
+
+    When calling ``fit``, an affinity matrix is constructed using a
+    k-nearest neighbors connectivity matrix.
+
+    Alternatively, a user-provided affinity matrix can be specified by
+    setting ``affinity='precomputed'``.
+
+    Parameters
+    ----------
+    n_clusters : int, default=8
+        The number of clusters to form.
+    n_components : int or None, default=None
+        Number of eigenvectors to use for the spectral embedding. If None,
+        defaults to n_clusters.
+    random_state : int, RandomState instance or None, default=None
+        A pseudo random number generator used for the initialization of the
+        k-means clustering and the eigendecomposition. Use an int to make the
+        results deterministic across calls.
+    n_neighbors : int, default=10
+        Number of neighbors to use when constructing the affinity matrix using
+        the nearest neighbors method. Ignored for ``affinity='precomputed'``.
+    n_init : int, default=10
+        Number of time the k-means algorithm will be run with different
+        centroid seeds. The final results will be the best output of n_init
+        consecutive runs in terms of inertia. Only used for the k-means step.
+    eigen_tol : float, default=0.0
+        Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='precomputed'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors from the input data.
+         - 'precomputed' : interpret X as a precomputed affinity matrix,
+           where larger values indicate greater similarity between instances.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used.
+        See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    labels_ : cupy.ndarray of shape (n_samples,)
+        Cluster labels for each sample.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from sklearn.datasets import make_blobs
+    >>> from cuml.cluster import SpectralClustering
+    >>> X, y = make_blobs(n_samples=100, centers=3, n_features=10,
+    ...                   cluster_std=0.5, random_state=42)
+    >>> X = cp.asarray(X, dtype=cp.float32)
+    >>> sc = SpectralClustering(n_clusters=3, affinity='nearest_neighbors',
+    ...                         n_neighbors=10, random_state=42)
+    >>> sc.fit(X)
+    SpectralClustering()
+    >>> sc.labels_[:10]
+    array([2, 0, 1, 1, 2, 2, 1, 0, 2, 0])
+
+    References
+    ----------
+    - Normalized cuts and image segmentation, 2000
+      Jianbo Shi, Jitendra Malik
+      http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.160.2324
+
+    - A Tutorial on Spectral Clustering, 2007
+      Ulrike von Luxburg
+      http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.165.9323
+
+    - Multiclass spectral clustering, 2003
+      Stella X. Yu, Jianbo Shi
+      https://www1.icsi.berkeley.edu/~stellayu/publication/doc/2003kwayICCV.pdf
+    """
     labels_ = CumlArrayDescriptor()
 
     def __init__(self, n_clusters=8, n_components=None, random_state=None,
@@ -185,6 +355,25 @@ class SpectralClustering(Base):
         self.affinity = affinity
 
     def fit_predict(self, X, y=None) -> CumlArray:
+        """Perform spectral clustering on ``X`` and return cluster labels.
+
+        Parameters
+        ----------
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
+            Training vector, where `n_samples` is the number of samples
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
+        y : Ignored
+            Not used, present here for API consistency by convention.
+
+        Returns
+        -------
+        labels : cupy.ndarray of shape (n_samples,)
+            Cluster labels.
+        """
         self.labels_ = spectral_clustering(
             X,
             n_clusters=self.n_clusters,
@@ -199,5 +388,24 @@ class SpectralClustering(Base):
         return self.labels_
 
     def fit(self, X, y=None) -> "SpectralClustering":
+        """Perform spectral clustering on ``X``.
+
+        Parameters
+        ----------
+        X : array-like or sparse matrix of shape (n_samples, n_features) or \
+            (n_samples, n_samples)
+            Training vector, where `n_samples` is the number of samples
+            and `n_features` is the number of features. If affinity is
+            'precomputed', X is the affinity matrix. Supported formats for
+            precomputed affinity: scipy sparse (CSR, CSC, COO), cupy sparse
+            (CSR, CSC, COO), dense numpy arrays, or dense cupy arrays.
+        y : Ignored
+            Not used, present here for API consistency by convention.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
         self.fit_predict(X, y)
         return self
