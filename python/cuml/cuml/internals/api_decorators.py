@@ -94,8 +94,7 @@ def _make_decorator_function(
     def decorator_function(
         input_arg: str = ...,
         get_output_type: bool = False,
-        set_output_type: bool = False,
-        set_n_features_in: bool = False,
+        is_fit: bool = False,
     ) -> _DecoratorType:
         def decorator_closure(func):
             # This function constitutes the closed decorator that will return
@@ -110,9 +109,7 @@ def _make_decorator_function(
             if needs_self and not has_self:
                 raise Exception("No self found on function!")
 
-            if input_arg is not None and (
-                set_output_type or set_n_features_in or get_output_type
-            ):
+            if input_arg is not None and (is_fit or get_output_type):
                 input_arg_ = _find_arg(sig, input_arg or "X", 0)
             else:
                 input_arg_ = None
@@ -142,11 +139,9 @@ def _make_decorator_function(
                     else:
                         input_val = None
 
-                    if set_output_type:
+                    if is_fit:
                         assert self_val is not None
                         self_val._set_output_type(input_val)
-                    if set_n_features_in and len(input_val.shape) >= 2:
-                        assert self_val is not None
                         self_val._set_n_features_in(input_val)
 
                     if get_output_type:
@@ -175,8 +170,7 @@ def _make_decorator_function(
 api_return_any = _make_decorator_function(process_return=False)
 api_base_return_any = _make_decorator_function(
     needs_self=True,
-    set_output_type=True,
-    set_n_features_in=True,
+    is_fit=True,
     process_return=False,
 )
 api_return_array = _make_decorator_function(process_return=True)
@@ -189,13 +183,9 @@ api_base_fit_transform = _make_decorator_function(
     needs_self=True,
     process_return=True,
     get_output_type=True,
-    set_output_type=True,
-    set_n_features_in=True,
+    is_fit=True,
 )
-
-api_base_return_any_skipall = api_base_return_any(
-    set_output_type=False, set_n_features_in=False
-)
+api_base_return_any_skipall = api_base_return_any(is_fit=False)
 api_base_return_array_skipall = api_base_return_array(get_output_type=False)
 
 
