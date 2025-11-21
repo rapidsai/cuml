@@ -9,7 +9,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
-#include <raft/spatial/knn/ann.cuh>
+#include <raft/spatial/knn/detail/processing.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 
