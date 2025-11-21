@@ -17,11 +17,9 @@ from cuml.internals import input_utils as iu
 from cuml.internals.api_context_managers import (
     BaseReturnAnyCM,
     BaseReturnArrayCM,
-    BaseReturnGenericCM,
     InternalAPIContextBase,
     ReturnAnyCM,
     ReturnArrayCM,
-    ReturnGenericCM,
     set_api_output_type,
 )
 from cuml.internals.constants import CUML_WRAPPED_FLAG
@@ -180,6 +178,7 @@ api_base_return_any = _make_decorator_function(
     needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
+    process_return=False,
 )
 api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
 api_base_return_array = _make_decorator_function(
@@ -188,15 +187,8 @@ api_base_return_array = _make_decorator_function(
     process_return=True,
     get_output_type=True,
 )
-api_return_generic = _make_decorator_function(
-    ReturnGenericCM, process_return=True
-)
-api_base_return_generic = _make_decorator_function(
-    BaseReturnGenericCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-)
+api_return_generic = api_return_array
+api_base_return_generic = api_base_return_array
 api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
     BaseReturnArrayCM,
@@ -211,9 +203,7 @@ api_base_return_any_skipall = api_base_return_any(
     set_output_type=False, set_n_features_in=False
 )
 api_base_return_array_skipall = api_base_return_array(get_output_type=False)
-api_base_return_generic_skipall = api_base_return_generic(
-    get_output_type=False
-)
+api_base_return_generic_skipall = api_base_return_array_skipall
 
 
 @contextlib.contextmanager
