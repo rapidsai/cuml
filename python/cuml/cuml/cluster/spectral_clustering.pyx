@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from pylibraft.common.handle import Handle
 
 import cuml
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.utils import check_random_seed
@@ -154,6 +155,8 @@ def spectral_clustering(A,
 
 
 class SpectralClustering(Base):
+    labels_ = CumlArrayDescriptor()
+
     def __init__(self, n_clusters=8, n_components=None, random_state=None,
                  n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='precomputed',
                  handle=None, verbose=False, output_type=None):
