@@ -67,32 +67,30 @@ def spectral_clustering(A,
     if handle is None:
         handle = Handle()
 
-    cdef float* dataset_ptr = NULL
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
     cdef int* affinity_cols_ptr = NULL
-    cdef int n_samples, n_features
-    cdef int nnz = 0
-    cdef bool is_precomputed = (affinity == 'precomputed')
+    cdef int affinity_nnz = 0
 
-    if not is_precomputed:
-        # Input is a dataset, convert to appropriate format
+    if affinity == "nearest_neighbors":
         from cuml.internals.input_utils import input_to_cupy_array
         A = input_to_cupy_array(
             A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
         ).array
-        n_samples, n_features = A.shape
-        dataset_ptr = <float*><uintptr_t>A.data.ptr
-    elif cp_sp.issparse(A):
-        A = A.tocoo()
-        if A.dtype != np.float32:
-            A = A.astype("float32")
-    elif sp.issparse(A):
-        A = cp_sp.coo_matrix(A, dtype="float32")
-    else:
-        A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
 
-    if is_precomputed:
+        affinity_data_ptr = <float*><uintptr_t>A.data.ptr
+
+        isfinite = cp.isfinite(A).all()
+    elif affinity == "precomputed":
+        # Coerce `A` to a canonical float32 COO sparse matrix
+        if cp_sp.issparse(A):
+            A = A.tocoo()
+            if A.dtype != np.float32:
+                A = A.astype("float32")
+        elif sp.issparse(A):
+            A = cp_sp.coo_matrix(A, dtype="float32")
+        else:
+            A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
         A.sum_duplicates()
 
         affinity_data = A.data
@@ -100,9 +98,7 @@ def spectral_clustering(A,
         affinity_cols = A.col.astype(np.int32)
         affinity_nnz = A.nnz
 
-        # NOTE: C++ gtest includes diagonal (self-loops) in the connectivity graph
-        # so we should NOT remove them to match the C++ behavior
-        # # Remove diagonal
+        # Remove diagonal elements
         valid = affinity_rows != affinity_cols
         if not valid.all():
             affinity_data = affinity_data[valid]
@@ -114,31 +110,50 @@ def spectral_clustering(A,
         affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
         affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
 
-        n_samples = A.shape[0]
-        nnz = affinity_nnz
+        isfinite = cp.isfinite(affinity_data).all()
+    else:
+        raise ValueError(
+            f"`affinity={affinity!r}` is not supported, expected one of "
+            "['nearest_neighbors', 'precomputed']"
+        )
 
-    # Allocate labels
+    cdef int n_samples, n_features
+    n_samples, n_features = A.shape
+
+    if not isfinite:
+        raise ValueError(
+            "Input contains NaN or inf; nonfinite values are not supported"
+        )
+
+    if n_samples < 2:
+        raise ValueError(
+            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+            f"minimum of 2 is required."
+        )
+
+    # Allocate output array
     labels = CumlArray.empty(n_samples, dtype=np.int32)
-    cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
 
     cdef params config
+    config.seed = check_random_seed(random_state)
     config.n_clusters = n_clusters
     config.n_components = n_components if n_components is not None else n_clusters
     config.n_neighbors = n_neighbors
     config.n_init = n_init
     config.eigen_tol = eigen_tol
-    config.seed = check_random_seed(random_state)
 
+    cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
+    cdef bool precomputed = affinity == "precomputed"
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     with nogil:
-        if is_precomputed:
+        if precomputed:
             fit_predict(
                 handle_[0],
                 config,
-                make_device_vector_view(affinity_rows_ptr, nnz),
-                make_device_vector_view(affinity_cols_ptr, nnz),
-                make_device_vector_view(affinity_data_ptr, nnz),
+                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view(affinity_data_ptr, affinity_nnz),
                 make_device_vector_view(labels_ptr, n_samples)
             )
         else:
@@ -146,7 +161,7 @@ def spectral_clustering(A,
                 handle_[0],
                 config,
                 make_device_matrix_view[float, int, row_major](
-                    dataset_ptr, n_samples, n_features
+                    affinity_data_ptr, n_samples, n_features
                 ),
                 make_device_vector_view(labels_ptr, n_samples)
             )

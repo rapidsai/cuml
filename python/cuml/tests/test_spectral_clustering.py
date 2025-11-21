@@ -91,10 +91,6 @@ def test_spectral_clustering_adjusted_rand_score(
     assert ari_sklearn > min_ari
     assert ari_cuml > min_ari
 
-    print(
-        f"\nAdjusted Rand Index: sklearn={ari_sklearn:.3f}, cuml={ari_cuml:.3f}"
-    )
-
 
 @pytest.mark.parametrize(
     "input_type,expected_type",
@@ -194,8 +190,6 @@ def test_precomputed_matrix_formats(converter, dtype):
     ari = adjusted_rand_score(y_true, labels_np)
 
     assert labels_np.shape == (n_samples,)
-
-    print(f"Adjusted Rand Index: {ari:.3f}")
 
     min_ari = 0.8
     assert ari > min_ari
