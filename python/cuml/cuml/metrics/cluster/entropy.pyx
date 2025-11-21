@@ -27,7 +27,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                    const int upper_class_range) except +
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_array()
 def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     """Helper function to avoid code duplication for clustering metrics."""
     cluster_m, n_rows, _, _ = input_to_cupy_array(

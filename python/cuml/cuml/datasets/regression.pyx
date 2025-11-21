@@ -63,7 +63,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_array()
 def make_regression(
     n_samples=100,
     n_features=2,

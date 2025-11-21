@@ -1275,7 +1275,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
     return membership_vec
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_array()
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,

@@ -452,7 +452,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @cuml.internals.api_base_return_generic_skipall
+    @cuml.internals.api_base_return_array_skipall
     def predict(
         self,
         start=0,
@@ -512,7 +512,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @cuml.internals.api_base_return_generic_skipall
+    @cuml.internals.api_base_return_array_skipall
     def forecast(self,
                  nsteps: int,
                  level=None) -> typing.Union[CumlArray,

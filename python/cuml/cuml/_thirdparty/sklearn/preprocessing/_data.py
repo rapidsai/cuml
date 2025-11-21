@@ -42,7 +42,7 @@ from cuml.internals.mixins import (
 )
 
 from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals import api_return_generic
+from ....internals import api_return_array
 from ....internals.array import CumlArray
 from ....internals.array_sparse import SparseCumlArray
 from ....internals.memory_utils import using_output_type
@@ -102,7 +102,7 @@ def _handle_zeros_in_scale(scale, copy=True):
         return scale
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
 
@@ -448,7 +448,7 @@ class MinMaxScaler(TransformerMixin,
         return X
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
 
@@ -1057,7 +1057,7 @@ class MaxAbsScaler(TransformerMixin,
         return X
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
 
@@ -1319,7 +1319,7 @@ class RobustScaler(TransformerMixin,
         return X
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
     """
@@ -1679,7 +1679,7 @@ class PolynomialFeatures(TransformerMixin,
         return XP  # TODO keep order
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
 
@@ -1859,7 +1859,7 @@ class Normalizer(TransformerMixin,
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
 
@@ -1988,7 +1988,7 @@ class Binarizer(TransformerMixin,
         return binarize(X, threshold=self.threshold, copy=copy)
 
 
-@api_return_generic(get_output_type=True)
+@api_return_array(get_output_type=True)
 def add_dummy_feature(X, value=1.0):
     """Augment dataset with an additional dummy feature.
 

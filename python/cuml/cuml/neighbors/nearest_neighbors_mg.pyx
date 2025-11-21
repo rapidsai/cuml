@@ -9,7 +9,7 @@ import typing
 
 import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
-from cuml.internals import api_base_return_generic_skipall
+from cuml.internals import api_base_return_array_skipall
 from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
 
@@ -60,7 +60,7 @@ class NearestNeighborsMG(NearestNeighbors):
         super().__init__(**kwargs)
         self.batch_size = batch_size
 
-    @api_base_return_generic_skipall
+    @api_base_return_array_skipall
     def kneighbors(
         self,
         index,

@@ -6,7 +6,6 @@
 from cuml.internals.api_decorators import (
     api_base_return_any,
     api_base_return_array,
-    api_base_return_generic,
     api_return_any,
 )
 from cuml.internals.base_return_types import _get_base_return_type
@@ -20,9 +19,7 @@ def _wrap_attribute(class_name: str, attribute_name: str, attribute, **kwargs):
 
     return_type = _get_base_return_type(class_name, attribute)
 
-    if return_type == "generic":
-        attribute = api_base_return_generic(**kwargs)(attribute)
-    elif return_type in ("array", "sparsearray"):
+    if return_type in ("generic", "array", "sparsearray"):
         attribute = api_base_return_array(**kwargs)(attribute)
     elif return_type == "base":
         attribute = api_base_return_any(**kwargs)(attribute)

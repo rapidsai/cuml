@@ -186,8 +186,6 @@ api_base_return_array = _make_decorator_function(
     process_return=True,
     get_output_type=True,
 )
-api_return_generic = api_return_array
-api_base_return_generic = api_base_return_array
 api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
     BaseReturnArrayCM,
@@ -202,7 +200,6 @@ api_base_return_any_skipall = api_base_return_any(
     set_output_type=False, set_n_features_in=False
 )
 api_base_return_array_skipall = api_base_return_array(get_output_type=False)
-api_base_return_generic_skipall = api_base_return_array_skipall
 
 
 @contextlib.contextmanager

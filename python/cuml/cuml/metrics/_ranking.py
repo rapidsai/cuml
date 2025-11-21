@@ -14,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
 
-@cuml.internals.api_return_generic(get_output_type=True)
+@cuml.internals.api_return_array(get_output_type=True)
 def precision_recall_curve(
     y_true, probs_pred
 ) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:

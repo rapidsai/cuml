@@ -13,7 +13,7 @@ from cuml.internals.input_utils import (
 from cuml.preprocessing import SimpleImputer
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_array()
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :

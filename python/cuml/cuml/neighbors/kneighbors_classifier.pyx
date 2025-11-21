@@ -277,7 +277,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'type': 'dense',
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_generic()
+    @cuml.internals.api_base_return_array()
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray | list[CumlArray]:
         """
         Use the trained k-nearest neighbors classifier to

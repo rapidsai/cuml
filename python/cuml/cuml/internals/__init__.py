@@ -10,11 +10,8 @@ from cuml.internals.api_decorators import (
     api_base_return_any_skipall,
     api_base_return_array,
     api_base_return_array_skipall,
-    api_base_return_generic,
-    api_base_return_generic_skipall,
     api_return_any,
     api_return_array,
-    api_return_generic,
     exit_internal_api,
 )
 from cuml.internals.base_helpers import BaseMetaClass, _tags_class_and_instance

@@ -8,7 +8,7 @@
 import typing
 
 import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.internals import api_base_return_array_skipall
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -58,7 +58,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     def __init__(self, **kwargs):
         super(KNeighborsClassifierMG, self).__init__(**kwargs)
 
-    @api_base_return_generic_skipall
+    @api_base_return_array_skipall
     def predict(
         self,
         index,
@@ -178,7 +178,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return output_cais
 
-    @api_base_return_generic_skipall
+    @api_base_return_array_skipall
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,

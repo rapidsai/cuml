@@ -99,7 +99,7 @@ def _validate_kernel(dtype):
     )
 
 
-@cuml.internals.api_return_generic(input_arg="labels", get_output_type=True)
+@cuml.internals.api_return_array(input_arg="labels", get_output_type=True)
 def make_monotonic(
     labels, classes=None, copy=False
 ) -> typing.Tuple[CumlArray, CumlArray]:
