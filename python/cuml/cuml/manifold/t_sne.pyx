@@ -253,7 +253,7 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     params.pre_momentum = pre_momentum
     params.post_momentum = post_momentum
     params.random_state = seed
-    params.verbosity = self.verbose
+    params.verbosity = self._verbose_level
     params.square_distances = self.square_distances
     params.algorithm = algo
     params.init = init

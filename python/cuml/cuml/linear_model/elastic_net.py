@@ -265,7 +265,7 @@ class ElasticNet(
                 max_iter=self.max_iter,
                 tol=self.tol,
                 penalty_normalized=False,
-                verbose=self.verbose,
+                verbose=self._verbose_level,
                 handle=self.handle,
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())

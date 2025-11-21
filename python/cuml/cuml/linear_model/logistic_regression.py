@@ -312,7 +312,7 @@ class LogisticRegression(
             max_iter=self.max_iter,
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
-            verbose=self.verbose,
+            verbose=self._verbose_level,
             handle=self.handle,
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,

@@ -281,7 +281,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             C=self.C,
             tol=self.tol,
             epsilon=0.0,
-            verbose=self.verbose,
+            verbose=self._verbose_level,
         )
         self.coef_ = coef
         self.intercept_ = intercept
