@@ -8,9 +8,6 @@ import typing
 from collections import deque
 from typing import TYPE_CHECKING
 
-from cupy.cuda import using_allocator as cupy_using_allocator
-from rmm.allocators.cupy import rmm_cupy_allocator
-
 import cuml.internals.input_utils
 import cuml.internals.memory_utils
 from cuml.internals.array_sparse import SparseCumlArray
@@ -70,7 +67,6 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.callback(cleanup)
 
-        self.enter_context(cupy_using_allocator(rmm_cupy_allocator))
         self.prev_output_type = self.enter_context(_using_mirror_output_type())
 
         # Set the output type to the prev_output_type. If "input", set to None
