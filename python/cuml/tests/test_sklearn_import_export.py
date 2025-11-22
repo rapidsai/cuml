@@ -459,6 +459,16 @@ def test_svc_multiclass_unsupported(random_state):
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("supervised", [False, True])
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
+# need to be updated at that point.
+# See also https://github.com/lmcinnes/umap/issues/1174
+@pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
     X, y = make_blobs(n_samples=200, random_state=random_state)
@@ -824,6 +834,15 @@ def test_random_forest_regressor(random_state, oob_score):
 
 @pytest.mark.parametrize("prediction_data", [False, True])
 @pytest.mark.parametrize("gen_min_span_tree", [False, True])
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - hdbscan will
+# need to be updated at that point.
+@pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
     hdbscan = pytest.importorskip("hdbscan")
 
@@ -882,16 +901,18 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
 
 def test_linear_svr(random_state):
     X, y = make_regression(n_samples=100, random_state=random_state)
-    original = cuml.LinearSVR(loss="squared_epsilon_insensitive", penalty="l2")
+
+    # Test with defaults
+    original = cuml.LinearSVR()
+    assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
+
+    # Test with squared epsilon insensitive loss
+    original = cuml.LinearSVR(loss="squared_epsilon_insensitive")
     assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
 
     # Check inference works after conversion
-    cu_model = cuml.LinearSVR(
-        loss="squared_epsilon_insensitive", penalty="l2"
-    ).fit(X, y)
-    sk_model = sklearn.svm.LinearSVR(loss="squared_epsilon_insensitive").fit(
-        X, y
-    )
+    cu_model = cuml.LinearSVR().fit(X, y)
+    sk_model = sklearn.svm.LinearSVR().fit(X, y)
 
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
