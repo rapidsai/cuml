@@ -13,20 +13,15 @@ class RandomForestRegressor(
     BaseRandomForestModel, DelayedPredictionMixin, BaseEstimator
 ):
     """
-    Experimental API implementing a multi-GPU Random Forest classifier
-    model which fits multiple decision tree classifiers in an
-    ensemble. This uses Dask to partition data over multiple GPUs
-    (possibly on different nodes).
+    Multi-GPU Random Forest regressor model which fits multiple decision tree
+    regressors in an ensemble. This uses Dask to partition data over multiple
+    GPUs (possibly on different nodes).
 
-    Currently, this API makes the following assumptions:
+    This implementation makes the following assumptions:
      * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays
        distributed so that each worker has at least one partition.
-
-    Future versions of the API will support more flexible data
-    distribution and additional input types. User-facing APIs are
-    expected to change in upcoming versions.
 
     The distributed algorithm uses an *embarrassingly-parallel*
     approach. For a forest with `N` trees being built on `w` workers, each
@@ -40,7 +35,7 @@ class RandomForestRegressor(
     single-GPU fitting.
 
     Please check the single-GPU implementation of Random Forest
-    classifier for more information about the underlying algorithm.
+    regressor for more information about the underlying algorithm.
 
     Parameters
     ----------
@@ -117,8 +112,6 @@ class RandomForestRegressor(
         while splitting. When True, it returns the results from workers
         with data (the number of trained estimators will be less than
         n_estimators) When False, throws a RuntimeError.
-        This is an experimental parameter, and may be removed
-        in the future.
 
     """
 
@@ -182,10 +175,10 @@ class RandomForestRegressor(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)

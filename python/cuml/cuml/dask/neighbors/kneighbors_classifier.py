@@ -5,10 +5,9 @@
 
 from uuid import uuid1
 
-import cudf
+import cupy as cp
 import dask.array as da
 import numpy as np
-import pandas as pd
 from dask.dataframe import Series as DaskSeries
 from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
@@ -77,9 +76,6 @@ class KNeighborsClassifier(NearestNeighbors):
         self : KNeighborsClassifier model
         """
 
-        if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
-            raise ValueError("This chunk type is not supported")
-
         self.data_handler = DistributedDataHandler.create(
             data=[X, y], client=self.client
         )
@@ -111,6 +107,8 @@ class KNeighborsClassifier(NearestNeighbors):
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
         elif hasattr(uniq_labels[0], "values"):  # for pandas Series
             uniq_labels = list(map(lambda x: x.values, uniq_labels))
+        elif isinstance(uniq_labels[0], cp.ndarray):  # for CuPy arrays
+            uniq_labels = list(map(lambda x: cp.asnumpy(x), uniq_labels))
         self.uniq_labels = np.sort(np.array(uniq_labels))
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 

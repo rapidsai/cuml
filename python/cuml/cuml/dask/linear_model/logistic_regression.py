@@ -20,8 +20,8 @@ class LogisticRegression(LinearRegression):
     occurrence of certain events, for example probability of success or fail of
     an event.
 
-    cuML's dask Logistic Regression (multi-node multi-gpu) expects dask cuDF
-    DataFrame and provides an algorithms, L-BFGS, to fit the logistic model. It
+    cuML's Dask Logistic Regression (multi-node multi-GPU) expects Dask cuDF
+    DataFrame and provides an L-BFGS algorithm to fit the logistic model. It
     currently supports single class, l2 regularization, and sigmoid loss.
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
@@ -109,6 +109,14 @@ class LogisticRegression(LinearRegression):
 
     Notes
     -----
+    **Known Limitation:** Labels (y) must be of dtype float32. If your labels
+    are integers (e.g., from `make_classification`), convert them first:
+
+    .. code-block:: python
+
+        import cupy as cp
+        y = y.map_blocks(lambda x: x.astype(cp.float32))
+
     cuML's LogisticRegression uses a different solver that the equivalent
     Scikit-learn, except when there is no penalty and `solver=lbfgs` is
     used in Scikit-learn. This can cause (smaller) differences in the
@@ -129,9 +137,9 @@ class LogisticRegression(LinearRegression):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
 

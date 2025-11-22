@@ -15,14 +15,20 @@ from cuml.dask.common.base import (
 
 class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
     """
-    Model-Parallel Multi-GPU Linear Regression Model.
+    Multi-node Multi-GPU Coordinate Descent Solver.
+
+    This solver can be used for linear regression with L1 (Lasso) and/or L2
+    (Ridge) regularization.
+
+    Parameters
+    ----------
+    client : dask.distributed.Client, optional
+        Dask client to use
+    **kwargs : dict
+        Additional arguments passed to the underlying single-GPU CD solver
     """
 
     def __init__(self, *, client=None, **kwargs):
-        """
-        Initializes the linear regression class.
-
-        """
         super().__init__(client=client, **kwargs)
         self._model_fit = False
         self._consec_call = 0
@@ -33,9 +39,9 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
 
@@ -51,7 +57,7 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
@@ -61,7 +67,7 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
         """
         return self._predict(X, delayed=delayed)
 
