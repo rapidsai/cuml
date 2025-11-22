@@ -386,7 +386,7 @@ class DBSCAN(Base,
 
         cdef float eps = self.eps
         cdef int min_samples = self.min_samples
-        cdef level_enum verbose = self.verbose
+        cdef level_enum verbose = self._verbose_level
         cdef bool multi_gpu = self._multi_gpu
         cdef size_t max_mbytes_per_batch = self.max_mbytes_per_batch or 0
 

@@ -252,7 +252,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             C=self.C,
             tol=self.tol,
             epsilon=self.epsilon,
-            verbose=self.verbose,
+            verbose=self._verbose_level,
         )
         self.coef_ = coef
         self.intercept_ = intercept
