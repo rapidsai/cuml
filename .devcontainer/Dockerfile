@@ -40,6 +40,7 @@ ENV HISTFILE="/home/coder/.cache/._bash_history"
 ENV AWS_ROLE_ARN="arn:aws:iam::279114543810:role/nv-gha-token-sccache-devs"
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-devs"
+ENV SCCACHE_S3_USE_PREPROCESSOR_CACHE_MODE=true
 ENV SCCACHE_IDLE_TIMEOUT=0
 
 ###

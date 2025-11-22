@@ -219,7 +219,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
             else output_type
         )
         self._input_type = None
-        self.target_dtype = None
 
         nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
         if nvtx_benchmark and nvtx_benchmark.lower() == "true":
@@ -303,47 +302,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 setattr(self, key, value)
         return self
 
-    def _set_base_attributes(
-        self, output_type=None, target_dtype=None, n_features=None
-    ):
-        """
-        Method to set the base class attributes - output type,
-        target dtype and n_features. It combines the three different
-        function calls. It's called in fit function from estimators.
-
-        Parameters
-        --------
-        output_type : DataFrame (default = None)
-            Is output_type is passed, aets the output_type on the
-            dataframe passed
-        target_dtype : Target column (default = None)
-            If target_dtype is passed, we call _set_target_dtype
-            on it
-        n_features: int or DataFrame (default=None)
-            If an int is passed, we set it to the number passed
-            If dataframe, we set it based on the passed df.
-
-        Examples
-        --------
-
-        .. code-block:: python
-
-                # To set output_type and n_features based on X
-                self._set_base_attributes(output_type=X, n_features=X)
-
-                # To set output_type on X and n_features to 10
-                self._set_base_attributes(output_type=X, n_features=10)
-
-                # To only set target_dtype
-                self._set_base_attributes(output_type=X, target_dtype=y)
-        """
-        if output_type is not None:
-            self._set_output_type(output_type)
-        if target_dtype is not None:
-            self._set_target_dtype(target_dtype)
-        if n_features is not None:
-            self._set_n_features_in(n_features)
-
     def _set_output_type(self, inp):
         self._input_type = determine_array_type(inp)
 
@@ -371,23 +329,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 output_type = determine_array_type(inp)
 
         return output_type
-
-    def _set_target_dtype(self, target):
-        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
-            target
-        )
-
-    def _get_target_dtype(self):
-        """
-        Method to be called by predict/transform methods of
-        inheriting classifier classes. Returns the appropriate output
-        dtype depending on the dtype of the target.
-        """
-        try:
-            out_dtype = self.target_dtype
-        except AttributeError:
-            out_dtype = None
-        return out_dtype
 
     def _set_n_features_in(self, X):
         if isinstance(X, int):

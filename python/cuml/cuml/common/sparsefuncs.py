@@ -263,7 +263,7 @@ def _determine_k_from_arrays(
     return total_elements // n_samples
 
 
-def extract_knn_graph(knn_info, n_neighbors):
+def extract_knn_graph(knn_info, n_neighbors, mem_type="device"):
     """
     Extract the nearest neighbors distances and indices
     from the knn_info parameter.
@@ -367,6 +367,7 @@ def extract_knn_graph(knn_info, n_neighbors):
         deepcopy=deepcopy,
         check_dtype=np.int64,
         convert_to_dtype=np.int64,
+        convert_to_mem_type=mem_type,
     )
 
     knn_dists_m, _, _, _ = input_to_cuml_array(
@@ -375,6 +376,7 @@ def extract_knn_graph(knn_info, n_neighbors):
         deepcopy=deepcopy,
         check_dtype=np.float32,
         convert_to_dtype=np.float32,
+        convert_to_mem_type=mem_type,
     )
 
     return knn_indices_m, knn_dists_m

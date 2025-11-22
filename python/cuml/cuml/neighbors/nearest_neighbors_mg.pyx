@@ -141,9 +141,9 @@ class NearestNeighborsMG(NearestNeighbors):
 
     def get_out_type(self, index, query):
         if len(index) > 0:
-            self._set_base_attributes(output_type=index[0])
+            self._set_output_type(index[0])
         if len(query) > 0:
-            self._set_base_attributes(output_type=query[0])
+            self._set_output_type(query[0])
 
     @staticmethod
     def gen_local_input(index, index_parts_to_ranks, index_nrows,

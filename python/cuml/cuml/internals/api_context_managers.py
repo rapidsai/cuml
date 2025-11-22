@@ -61,22 +61,6 @@ def set_api_output_type(output_type: str):
     GlobalSettings().root_cm.output_type = array_type
 
 
-def set_api_output_dtype(output_dtype):
-    assert GlobalSettings().root_cm is not None
-
-    # Try to convert any array objects to their type
-    if output_dtype is not None and cuml.internals.input_utils.is_array_like(
-        output_dtype
-    ):
-        output_dtype = cuml.internals.input_utils.determine_array_dtype(
-            output_dtype
-        )
-
-        assert output_dtype is not None
-
-    GlobalSettings().root_cm.output_dtype = output_dtype
-
-
 class InternalAPIContext(contextlib.ExitStack):
     def __init__(self):
         super().__init__()
@@ -88,8 +72,6 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.enter_context(cupy_using_allocator(rmm_cupy_allocator))
         self.prev_output_type = self.enter_context(_using_mirror_output_type())
-
-        self.output_dtype = None
 
         # Set the output type to the prev_output_type. If "input", set to None
         # to allow inner functions to specify the input
@@ -124,23 +106,13 @@ class InternalAPIContext(contextlib.ExitStack):
     def push_output_types(self):
         try:
             old_output_type = self.output_type
-            old_output_dtype = self.output_dtype
-
             self.output_type = None
-            self.output_dtype = None
-
             yield
-
         finally:
             self.output_type = (
                 old_output_type
                 if old_output_type is not None
                 else self.output_type
-            )
-            self.output_dtype = (
-                old_output_dtype
-                if old_output_dtype is not None
-                else self.output_dtype
             )
 
 
@@ -348,10 +320,7 @@ class ProcessReturnArray(ProcessReturn):
             and output_type != "input"
         ), ("Invalid root_cm.output_type: '{}'.").format(output_type)
 
-        return ret_val.to_output(
-            output_type=output_type,
-            output_dtype=self._context.root_cm.output_dtype,
-        )
+        return ret_val.to_output(output_type=output_type)
 
 
 class ProcessReturnSparseArray(ProcessReturnArray):
