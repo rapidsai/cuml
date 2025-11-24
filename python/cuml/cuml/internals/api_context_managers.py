@@ -37,10 +37,6 @@ def _using_mirror_output_type():
         GlobalSettings().output_type = prev_output_type
 
 
-def in_internal_api():
-    return GlobalSettings().root_cm is not None
-
-
 def set_api_output_type(output_type: str):
     assert GlobalSettings().root_cm is not None
 

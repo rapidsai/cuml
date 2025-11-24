@@ -3,10 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from cuml.internals.api_context_managers import (
-    in_internal_api,
-    set_api_output_type,
-)
+from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.api_decorators import (
     api_base_fit_transform,
     api_base_return_any,
