@@ -35,7 +35,7 @@ files:
       - rapids_build_backend
       - test_python
       - test_python_dask
-      - test_python_xgboost
+      # - test_python_xgboost
   devcontainers:
     output: none
     includes:
@@ -124,7 +124,7 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      - test_python_xgboost
+      # - test_python_xgboost
   test_python_dask:
     output: none
     includes:
@@ -133,7 +133,7 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      - test_python_xgboost
+      # - test_python_xgboost
       - test_python_dask
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cudf
@@ -202,7 +202,7 @@ files:
       key: test
     includes:
       - test_python
-      - test_python_xgboost
+      # - test_python_xgboost
   py_dask_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -252,8 +252,8 @@ files:
       - depends_on_libraft
       - depends_on_rapids_logger
 channels:
-  - rapidsai
   - rapidsai-nightly
+  - rapidsai
   - conda-forge
 dependencies:
   rapids_build_backend:
@@ -498,18 +498,18 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml
-  test_python_xgboost:
-    common:
-      - output_types: [conda]
-        packages:
-          # We must separate xgboost into its own list so that it is not
-          # included in the "devcontainers" key. The libxgboost package depends
-          # on librmm but we do not want to have a package depending on librmm
-          # in devcontainers since it should be built from source.
-          - &rapids-xgboost rapids-xgboost==26.2.*,>=0.0.0a0
-      - output_types: [requirements, pyproject]
-        packages:
-          - &xgboost xgboost>=2.1.0
+  #test_python_xgboost:
+    #common:
+      #- output_types: [conda]
+        #packages:
+          ## We must separate xgboost into its own list so that it is not
+          ## included in the "devcontainers" key. The libxgboost package depends
+          ## on librmm but we do not want to have a package depending on librmm
+          ## in devcontainers since it should be built from source.
+          #- &rapids-xgboost rapids-xgboost==26.2.*,>=0.0.0a0
+      #- output_types: [requirements, pyproject]
+        #packages:
+          #- &xgboost xgboost>=2.1.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
@@ -523,11 +523,11 @@ dependencies:
       - output_types: conda
         packages:
           - matplotlib-base
-          - *rapids-xgboost
+          # - *rapids-xgboost
       - output_types: requirements
         packages:
           - matplotlib
-          - *xgboost
+          # - *xgboost
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]
