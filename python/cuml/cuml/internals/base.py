@@ -14,48 +14,12 @@ import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
-from cuml.internals import api_context_managers
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-
-
-class VerbosityDescriptor:
-    """Descriptor for ensuring correct type is used for verbosity
-
-    This descriptor ensures that when the 'verbose' attribute of a cuML
-    estimator is accessed external to the cuML API, an integer is returned
-    (consistent with Scikit-Learn's API for verbosity). Internal to the API, an
-    enum is used. Scikit-Learn's numerical values for verbosity are the inverse
-    of those used by spdlog, so the numerical value is also inverted internal
-    to the cuML API. This ensures that cuML code treats verbosity values as
-    expected for an spdlog-based codebase.
-    """
-
-    def __get__(self, obj, cls=None):
-        if api_context_managers.in_internal_api():
-            return logger._verbose_to_level(obj._verbose)
-        else:
-            return obj._verbose
-
-    def __set__(self, obj, value):
-        if api_context_managers.in_internal_api():
-            assert isinstance(value, logger.level_enum), (
-                "The log level should always be provided as a level_enum, "
-                "not an integer"
-            )
-            obj._verbose = logger._verbose_from_level(value)
-        else:
-            if isinstance(value, logger.level_enum):
-                raise ValueError(
-                    "The log level should always be provided as an integer, "
-                    "not using the enum"
-                )
-            obj._verbose = value
 
 
 class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
@@ -191,41 +155,20 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         verbose=False,
         output_type=None,
     ):
-        """
-        Constructor. All children must call init method of this base class.
-
-        """
         self.handle = (
             pylibraft.common.handle.Handle() if handle is None else handle
         )
-
-        # The following manipulation of the root_cm ensures that the verbose
-        # descriptor sees any set or get of the verbose attribute as happening
-        # internal to the cuML API. Currently, __init__ calls do not take place
-        # within an api context manager, so setting "verbose" here would
-        # otherwise appear to be external to the cuML API. This behavior will
-        # be corrected with the update of cuML's API context manager
-        # infrastructure in https://github.com/rapidsai/cuml/pull/6189.
-        GlobalSettings().prev_root_cm = GlobalSettings().root_cm
-        GlobalSettings().root_cm = True
-        self.verbose = logger._verbose_to_level(verbose)
-        # Please see above note on manipulation of the root_cm. This should be
-        # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
-        GlobalSettings().root_cm = GlobalSettings().prev_root_cm
-
+        self.verbose = verbose
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
             if output_type is None
             else output_type
         )
         self._input_type = None
-        self.target_dtype = None
 
         nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
         if nvtx_benchmark and nvtx_benchmark.lower() == "true":
             self.set_nvtx_annotations()
-
-    verbose = VerbosityDescriptor()
 
     def __repr__(self):
         """
@@ -251,6 +194,11 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
             output += " <sk_model_ attribute used>"
         return output
 
+    @property
+    def _verbose_level(self):
+        """The current `verbose` setting as a `logger.level_enum`"""
+        return logger._verbose_to_level(self.verbose)
+
     @classmethod
     def _get_param_names(cls):
         """
@@ -268,20 +216,7 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         need anything other than what is there in this method, then it doesn't
         have to override this method
         """
-        params = dict()
-        variables = self._get_param_names()
-        for key in variables:
-            var_value = getattr(self, key, None)
-            # We are currently internal to the cuML API, but the value we
-            # return will immediately be returned external to the API, so we
-            # must perform the translation from enum to integer before
-            # returning the value. Ordinarily, this is handled by
-            # VerbosityDescriptor for direct access to the verbose
-            # attribute.
-            if key == "verbose":
-                var_value = logger._verbose_from_level(var_value)
-            params[key] = var_value
-        return params
+        return {name: getattr(self, name) for name in self._get_param_names()}
 
     def set_params(self, **params):
         """
@@ -292,57 +227,14 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         """
         if not params:
             return self
-        variables = self._get_param_names()
+        valid_params = self._get_param_names()
         for key, value in params.items():
-            if key not in variables:
-                raise ValueError("Bad param '%s' passed to set_params" % key)
-            else:
-                # Switch verbose to enum since we are now internal to cuML API
-                if key == "verbose":
-                    value = logger._verbose_to_level(value)
-                setattr(self, key, value)
+            if key not in valid_params:
+                raise ValueError(
+                    f"Invalid parameter {key!r} for `{type(self).__name__}`"
+                )
+            setattr(self, key, value)
         return self
-
-    def _set_base_attributes(
-        self, output_type=None, target_dtype=None, n_features=None
-    ):
-        """
-        Method to set the base class attributes - output type,
-        target dtype and n_features. It combines the three different
-        function calls. It's called in fit function from estimators.
-
-        Parameters
-        --------
-        output_type : DataFrame (default = None)
-            Is output_type is passed, aets the output_type on the
-            dataframe passed
-        target_dtype : Target column (default = None)
-            If target_dtype is passed, we call _set_target_dtype
-            on it
-        n_features: int or DataFrame (default=None)
-            If an int is passed, we set it to the number passed
-            If dataframe, we set it based on the passed df.
-
-        Examples
-        --------
-
-        .. code-block:: python
-
-                # To set output_type and n_features based on X
-                self._set_base_attributes(output_type=X, n_features=X)
-
-                # To set output_type on X and n_features to 10
-                self._set_base_attributes(output_type=X, n_features=10)
-
-                # To only set target_dtype
-                self._set_base_attributes(output_type=X, target_dtype=y)
-        """
-        if output_type is not None:
-            self._set_output_type(output_type)
-        if target_dtype is not None:
-            self._set_target_dtype(target_dtype)
-        if n_features is not None:
-            self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
         self._input_type = determine_array_type(inp)
@@ -371,23 +263,6 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 output_type = determine_array_type(inp)
 
         return output_type
-
-    def _set_target_dtype(self, target):
-        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
-            target
-        )
-
-    def _get_target_dtype(self):
-        """
-        Method to be called by predict/transform methods of
-        inheriting classifier classes. Returns the appropriate output
-        dtype depending on the dtype of the target.
-        """
-        try:
-            out_dtype = self.target_dtype
-        except AttributeError:
-            out_dtype = None
-        return out_dtype
 
     def _set_n_features_in(self, X):
         if isinstance(X, int):

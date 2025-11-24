@@ -342,6 +342,7 @@ def test_regressor_predict_dtype(cls):
         (cuml.SVC, {"probability": True}),
         (cuml.LinearSVC, None),
         (cuml.KNeighborsClassifier, None),
+        (cuml.MBSGDClassifier, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -350,8 +351,11 @@ def test_regressor_predict_dtype(cls):
 @pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
 def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
     supports_multitarget = [cuml.KNeighborsClassifier]
+    binary_only = [cuml.MBSGDClassifier]
     if target_kind == "multitarget" and cls not in supports_multitarget:
         pytest.skip(f"{cls.__name__} doesn't support multitarget y")
+    elif target_kind == "multiclass" and cls in binary_only:
+        pytest.skip(f"{cls.__name__} doesn't support multiclass y")
 
     labels = {
         "int-monotonic": [0, 1, 2, 3],
