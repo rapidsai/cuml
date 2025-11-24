@@ -62,7 +62,7 @@ def spectral_clustering(A,
                         n_neighbors=10,
                         n_init=10,
                         eigen_tol=0.0,
-                        affinity='precomputed',
+                        affinity='nearest_neighbors',
                         handle=None):
     """Apply clustering to a projection of the normalized Laplacian.
 
@@ -102,7 +102,7 @@ def spectral_clustering(A,
         consecutive runs in terms of inertia.
     eigen_tol : float, default=0.0
         Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
-    affinity : {'nearest_neighbors', 'precomputed'}, default='precomputed'
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.
@@ -283,7 +283,7 @@ class SpectralClustering(Base):
         consecutive runs in terms of inertia. Only used for the k-means step.
     eigen_tol : float, default=0.0
         Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
-    affinity : {'nearest_neighbors', 'precomputed'}, default='precomputed'
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors from the input data.
@@ -343,7 +343,7 @@ class SpectralClustering(Base):
     labels_ = CumlArrayDescriptor()
 
     def __init__(self, n_clusters=8, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='precomputed',
+                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='nearest_neighbors',
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
