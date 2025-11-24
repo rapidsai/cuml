@@ -113,14 +113,10 @@ def get_internal_context() -> InternalAPIContext:
 
 
 class InternalAPIContextBase(contextlib.ExitStack):
-    def __init__(
-        self, func=None, args=None, is_base_method=False, process_return=True
-    ):
+    def __init__(self, base=None, process_return=None):
         super().__init__()
 
-        self._func = func
-        self._args = args
-        self._is_base_method = is_base_method
+        self._base = base
         self._process_return = process_return
 
         self.root_cm = get_internal_context()
@@ -128,22 +124,20 @@ class InternalAPIContextBase(contextlib.ExitStack):
         self.is_root = False
 
         self._should_set_output_type_from_base = (
-            self._is_base_method
+            self._base is not None
             and self.root_cm.prev_output_type in (None, "input")
         )
 
     def set_output_type_from_base(self, root_cm):
         output_type = root_cm.output_type
 
-        base = self._args[0]
-
         # Check if output_type is None, can happen if no output type has
         # been set by estimator
         if output_type is None:
-            output_type = base.output_type
+            output_type = self._base.output_type
 
         if output_type == "input":
-            output_type = base._input_type
+            output_type = self._base._input_type
 
         if output_type != root_cm.output_type:
             set_api_output_type(output_type)

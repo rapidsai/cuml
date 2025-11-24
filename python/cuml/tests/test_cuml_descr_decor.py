@@ -266,7 +266,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
         assert_array_identical(X_in, X_out)
 
 
-@pytest.mark.parametrize("input_arg", ["X", "y", "bad", ...])
+@pytest.mark.parametrize("input_arg", ["X", "y", "bad", 0])
 @pytest.mark.parametrize("get_output_type", [True, False])
 def test_return_array(input_arg: str, get_output_type: bool):
     """
@@ -296,7 +296,7 @@ def test_return_array(input_arg: str, get_output_type: bool):
             input_arg=input_arg,
             get_output_type=get_output_type,
         )(test_func)
-    except ValueError:
+    except KeyError:
         assert expected_to_fail
         return
     else:

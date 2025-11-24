@@ -5,7 +5,6 @@
 import contextlib
 import functools
 import inspect
-import typing
 
 import numpy as np
 
@@ -21,160 +20,131 @@ from cuml.internals.api_context_managers import (
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.type_utils import _DecoratorType
 
 
-def _wrap_once(wrapped, *args, **kwargs):
-    """Prevent wrapping functions multiple times."""
-    setattr(wrapped, CUML_WRAPPED_FLAG, True)
-    return functools.wraps(wrapped, *args, **kwargs)
+def reflect(func=None, *, on=0, reset=False, skip=False):
+    """Mark a function or method as participating in the reflection system.
 
+    Parameters
+    ----------
+    func : callable or None
+        The function to be decorated, or None to curry to be applied later.
+    on : int, str, or None, default=0
+        The parameter to infer the reflected output type from. By default this
+        will be the first argument to the method or function (excluding
+        ``self``, unless there are no other arguments). Provide a parameter
+        position or name to override. May also provide None to disable
+        this inference entirely; in this case the output type is expected
+        to be specified manually either internal or external to the method.
+    reset : bool, default=False
+        Set to True for methods like ``fit`` that reset the reflected type on
+        an estimator.
+    skip : bool, default=False
+        Set to True to skip output processing for a method. This is mostly
+        useful if output processing will be handled manually.
+    """
+    if func is None:
+        return lambda func: reflect(func, on=on, reset=reset, skip=skip)
 
-def _has_self(sig):
-    return "self" in sig.parameters and list(sig.parameters)[0] == "self"
+    # TODO: remove this once auto-decorating is ripped out
+    setattr(func, CUML_WRAPPED_FLAG, True)
 
+    sig = inspect.signature(func, follow_wrapped=True)
 
-def _find_arg(sig, arg_name, default_position):
-    params = list(sig.parameters)
+    if on is not None:
+        has_self = "self" in sig.parameters
 
-    # Check for default name in input args
-    if arg_name in sig.parameters:
-        param = sig.parameters[arg_name]
-        return arg_name, params.index(arg_name), param.default
-    # Otherwise use argument in list by position
-    elif arg_name is ...:
-        index = int(_has_self(sig)) + default_position
-        param = params[index]
-        return param, index, sig.parameters[param].default
-    else:
-        raise ValueError(f"Unable to find parameter '{arg_name}'.")
+        if isinstance(on, str):
+            param = sig.parameters[on]
+        elif on == 0 and has_self and len(sig.parameters) == 1:
+            # Default to self if there are no other parameters
+            param = sig.parameters["self"]
+        else:
+            # Otherwise exclude self, defaulting to first parameter
+            param = list(sig.parameters.values())[on + has_self]
 
+        if param.kind in (
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ):
+            raise ValueError("Cannot reflect on variadic args/kwargs")
 
-def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
-    """Determine value for a given set of args, kwargs, name and index."""
-    try:
-        value = kwargs[name]
-    except KeyError:
-        try:
-            value = args[index]
-        except IndexError:
-            if default_value is not inspect._empty:
-                value = default_value
+        on = param.name
+
+    @functools.wraps(func)
+    def inner(*args, **kwargs):
+        # Accept list/tuple inputs when accelerator is active
+        accept_lists = cuml.accel.enabled()
+
+        # Bind arguments
+        bound = sig.bind(*args, **kwargs)
+        bound.apply_defaults()
+
+        if on is None:
+            base = None
+        else:
+            on_arg = bound.arguments[on]
+            if accept_lists and isinstance(on_arg, (list, tuple)):
+                on_arg = np.asarray(on_arg)
+
+            # Look for an estimator, first in `on` and then in `self`
+            if isinstance(on_arg, cuml.Base):
+                base = on_arg
+            elif has_self and isinstance(bound.arguments["self"], cuml.Base):
+                base = bound.arguments["self"]
             else:
-                raise IndexError(
-                    f"Specified arg idx: {index}, and argument name: {name}, "
-                    "were not found in args or kwargs."
-                )
-    # Accept list/tuple inputs when requested
-    if accept_lists and isinstance(value, (list, tuple)):
-        return np.asarray(value)
+                base = None
 
-    return value
+        if reset and base is None:
+            raise ValueError("`reset=True` is only valid on estimator methods")
 
+        with InternalAPIContextBase(base=base, process_return=not skip) as cm:
+            if reset:
+                base._set_output_type(on_arg)
+                base._set_n_features_in(on_arg)
 
-def _make_decorator(
-    process_return=True,
-    **defaults,
-) -> typing.Callable[..., _DecoratorType]:
-    # This function generates a function to be applied as decorator to a
-    # wrapped function. For example:
-    #
-    #       a_decorator = _make_decorator(...)
-    #
-    #       ...
-    #
-    #       @a_decorator(...)  # apply decorator where appropriate
-    #       def fit(X, y):
-    #           ...
-    #
-    # Note: The decorator function can be partially closed by directly
-    # providing keyword arguments to this function to be used as defaults.
+            if on is not None:
+                if isinstance(on_arg, cuml.Base):
+                    out_type = on_arg._get_output_type()
+                elif base is not None:
+                    out_type = base._get_output_type(on_arg)
+                else:
+                    out_type = iu.determine_array_type(on_arg)
 
-    def decorator_function(
-        input_arg: str = ...,
-        get_output_type: bool = False,
-        is_fit: bool = False,
-    ) -> _DecoratorType:
-        def decorator_closure(func):
-            # This function constitutes the closed decorator that will return
-            # the wrapped function. It performs function introspection at
-            # function definition time. The code within the wrapper function is
-            # executed at function execution time.
+                set_api_output_type(out_type)
 
-            # Prepare arguments
-            sig = inspect.signature(func, follow_wrapped=True)
+            res = func(*args, **kwargs)
 
-            has_self = _has_self(sig)
+        if skip:
+            return res
+        return cm.process_return(res)
 
-            if input_arg is not None and (is_fit or get_output_type):
-                input_arg_ = _find_arg(sig, input_arg or "X", 0)
-            else:
-                input_arg_ = None
-
-            @_wrap_once(func)
-            def wrapper(*args, **kwargs):
-                # Wraps the decorated function, executed at runtime.
-
-                # Accept list/tuple inputs when accelerator is active
-                accept_lists = cuml.accel.enabled()
-
-                self_val = args[0] if has_self else None
-                with InternalAPIContextBase(
-                    func,
-                    args,
-                    is_base_method=isinstance(self_val, cuml.Base),
-                    process_return=process_return,
-                ) as cm:
-                    if input_arg_:
-                        input_val = _get_value(
-                            args,
-                            kwargs,
-                            *input_arg_,
-                            accept_lists=accept_lists,
-                        )
-                    else:
-                        input_val = None
-
-                    if is_fit:
-                        assert self_val is not None
-                        self_val._set_output_type(input_val)
-                        self_val._set_n_features_in(input_val)
-
-                    if get_output_type:
-                        if self_val is None:
-                            assert input_val is not None
-                            out_type = iu.determine_array_type(input_val)
-                        else:
-                            out_type = self_val._get_output_type(input_val)
-
-                        set_api_output_type(out_type)
-
-                    if process_return:
-                        ret = func(*args, **kwargs)
-                    else:
-                        return func(*args, **kwargs)
-
-                return cm.process_return(ret)
-
-            return wrapper
-
-        return decorator_closure
-
-    return functools.partial(decorator_function, **defaults)
+    return inner
 
 
-# TODO:
-# - infer get_output_type from whether return value is Base
-# - determine why api_return_any is needed? It should only mark internal API?
-# - infer `is_fit` based on method name by default
-api_return_array = _make_decorator()
-api_return_any = _make_decorator(process_return=False)
-api_base_return_any = _make_decorator(is_fit=True, process_return=False)
-api_base_return_array = _make_decorator(get_output_type=True)
-api_base_fit_transform = _make_decorator(is_fit=True, get_output_type=True)
+def api_return_array(input_arg=0, get_output_type=False):
+    return reflect(on=None if not get_output_type else input_arg)
+
+
+def api_return_any():
+    return reflect(on=None, skip=True)
+
+
+def api_base_return_any():
+    return reflect(reset=True)
+
+
+def api_base_return_array(input_arg=0):
+    return reflect(on="self" if input_arg is None else input_arg)
+
+
+def api_base_fit_transform():
+    return reflect(reset=True)
+
+
 # TODO: investigate and remove these
 api_base_return_any_skipall = api_return_any()
-api_base_return_array_skipall = api_return_array()
+api_base_return_array_skipall = reflect
 
 
 @contextlib.contextmanager
