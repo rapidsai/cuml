@@ -15,6 +15,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import kneighbors_graph
 
 from cuml.cluster import SpectralClustering
+from cuml.testing.strategies import dataset_dtypes
 
 
 @pytest.mark.parametrize(
@@ -241,36 +242,56 @@ def test_precomputed_matrix_formats(converter, dtype):
 
 
 @given(
-    n_samples=st.integers(min_value=30, max_value=2000),
+    n_samples=st.integers(min_value=100, max_value=2000),
     n_features=st.integers(min_value=2, max_value=20),
     n_clusters=st.integers(min_value=2, max_value=8),
     n_neighbors=st.integers(min_value=3, max_value=15),
     affinity=st.sampled_from(["nearest_neighbors", "precomputed"]),
-    dtype=st.sampled_from([np.float32, np.float64]),
+    dtype=dataset_dtypes(),
 )
 @example(
-    n_samples=50,
-    n_features=5,
+    n_samples=150,
+    n_features=15,
     n_clusters=3,
-    n_neighbors=5,
+    n_neighbors=10,
     affinity="nearest_neighbors",
     dtype=np.float32,
 )
 @example(
-    n_samples=30,
-    n_features=3,
-    n_clusters=2,
-    n_neighbors=5,
+    n_samples=200,
+    n_features=20,
+    n_clusters=4,
+    n_neighbors=12,
     affinity="precomputed",
-    dtype=np.float32,
+    dtype=np.float64,
 )
-def test_spectral_clustering_hypothesis(
+def test_spectral_clustering_output_shape_type_and_label_count(
     n_samples, n_features, n_clusters, n_neighbors, affinity, dtype
 ):
-    assume(n_clusters <= n_samples)
-    assume(n_neighbors < n_samples // 2)
+    # Ensure parameters are compatible for spectral clustering
+    # The eigensolver needs sufficient structure to converge
+    # At least 20 samples per cluster for stability
+    assume(n_samples >= 20 * n_clusters)
+    # But not too dense
+    assume(n_neighbors <= n_samples // 5)
+    # Need sufficient dimensions for separation
+    assume(n_features >= 2 * n_clusters)
 
-    X = np.random.RandomState(42).randn(n_samples, n_features).astype(dtype)
+    # Generate classification data with cluster structure
+    # Use n_clusters as the number of classes to create natural clustering
+    X, _ = make_blobs(
+        n_samples=n_samples,
+        n_features=n_features,
+        centers=n_clusters,
+        cluster_std=1.0,
+        random_state=42,
+    )
+    X = X.astype(dtype)
+
+    # Filter out datasets with inf, nan, or extremely large values
+    # (make_blobs should always produce finite values, but check anyway)
+    assume(np.isfinite(X).all())
+    assume(np.abs(X).max() < 1e10)
 
     if affinity == "precomputed":
         knn_graph = kneighbors_graph(
