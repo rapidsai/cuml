@@ -69,9 +69,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         Create new multinomial distributed Naive Bayes classifier instance
 
         Parameters
-        -----------
-
-        client : dask.distributed.Client optional Dask client to use
+        ----------
+        client : dask.distributed.Client, optional
+            Dask client to use
         """
         super().__init__(client=client, verbose=verbose, **kwargs)
 
