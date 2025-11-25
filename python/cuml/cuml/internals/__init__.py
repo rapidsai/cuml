@@ -13,6 +13,7 @@ from cuml.internals.api_decorators import (
     api_return_any,
     api_return_array,
     exit_internal_api,
+    reflect,
 )
 from cuml.internals.base_helpers import BaseMetaClass, _tags_class_and_instance
 from cuml.internals.constants import CUML_WRAPPED_FLAG

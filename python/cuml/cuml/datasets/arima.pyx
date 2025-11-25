@@ -54,7 +54,7 @@ inp_to_dtype = {
 }
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect(array=None, default_output_type="cupy")
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double',
@@ -101,11 +101,6 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
     cpp_order.n_exog = 0
-
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
 
     # Define some parameters based on the order
     scale = 1.0

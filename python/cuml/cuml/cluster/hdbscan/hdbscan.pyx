@@ -1114,7 +1114,7 @@ def _check_clusterer(clusterer):
     return state
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect(model="clusterer", array=None)
 def all_points_membership_vectors(clusterer, int batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1144,9 +1144,6 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
 
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
-
-    # Reflect the output type from global settings or the clusterer
-    cuml.internals.set_api_output_type(clusterer._get_output_type())
 
     n_rows = clusterer._raw_data.shape[0]
 
@@ -1186,7 +1183,7 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     return membership_vec
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect(model="clusterer", array="points_to_predict")
 def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert_dtype=True):
     """
     Predict soft cluster membership. The result produces a vector
@@ -1222,9 +1219,6 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
 
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
-
-    # Reflect the output type from global settings, the clusterer, or the input
-    cuml.internals.set_api_output_type(clusterer._get_output_type(points_to_predict))
 
     cdef int n_prediction_points
     points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
@@ -1275,7 +1269,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
     return membership_vec
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect(model="clusterer", array="points_to_predict")
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
@@ -1309,9 +1303,6 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         The soft cluster scores for each of the ``points_to_predict``
     """
     _check_clusterer(clusterer)
-
-    # Reflect the output type from global settings, the clusterer, or the input
-    cuml.internals.set_api_output_type(clusterer._get_output_type(points_to_predict))
 
     if clusterer.n_clusters_ == 0:
         logger.warn(

@@ -1095,7 +1095,7 @@ class NearestNeighbors(Base,
         return self.metric_params or {}
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):
@@ -1174,11 +1174,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
     X = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,

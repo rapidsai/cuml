@@ -63,7 +63,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@cuml.internals.api_return_array()
+@cuml.internals.reflect(array=None, default_output_type="cupy")
 def make_regression(
     n_samples=100,
     n_features=2,
@@ -158,12 +158,6 @@ def make_regression(
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """  # noqa: E501
-
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
     else:

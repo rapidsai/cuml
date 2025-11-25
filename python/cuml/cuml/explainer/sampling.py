@@ -13,7 +13,7 @@ from cuml.internals.input_utils import (
 from cuml.preprocessing import SimpleImputer
 
 
-@cuml.internals.api_return_array()
+@cuml.internals.reflect
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :
@@ -45,7 +45,6 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     output_dtype = get_supported_input_type(X)
     _output_dtype_str = determine_array_type(X)
-    cuml.internals.set_api_output_type(_output_dtype_str)
 
     if output_dtype is None:
         raise TypeError(
