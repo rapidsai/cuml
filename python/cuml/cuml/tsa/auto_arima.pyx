@@ -2,33 +2,26 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import itertools
 import typing
+
+import cupy as cp
+import numpy as np
+from pylibraft.common.handle import Handle
+
+from cuml.common import input_to_cuml_array, using_output_type
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger, reflect
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.tsa.arima import ARIMA
+from cuml.tsa.seasonality import seas_test
+from cuml.tsa.stationarity import kpss_test
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-
-import cupy as cp
-import numpy as np
-
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.tsa.arima import ARIMA
-from cuml.tsa.seasonality import seas_test
-from cuml.tsa.stationarity import kpss_test
 
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
@@ -195,7 +188,7 @@ class AutoARIMA(Base):
 
         self._initial_calc()
 
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -208,7 +201,7 @@ class AutoARIMA(Base):
             raise ValueError(
                 "Missing observations are not supported in AutoARIMA yet")
 
-    @cuml.internals.api_return_any()
+    @reflect(skip=True)
     def search(self,
                s=None,
                d=range(3),
@@ -425,7 +418,7 @@ class AutoARIMA(Base):
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
 
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -452,7 +445,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @cuml.internals.api_base_return_array_skipall
+    @reflect(array=None)
     def predict(
         self,
         start=0,
@@ -512,7 +505,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @cuml.internals.api_base_return_array_skipall
+    @reflect(array=None)
     def forecast(self,
                  nsteps: int,
                  level=None) -> typing.Union[CumlArray,
@@ -542,6 +535,7 @@ class AutoARIMA(Base):
         """
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
+    @reflect(skip=True)
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """

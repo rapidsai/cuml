@@ -21,6 +21,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.linear_model.base import (
     LinearPredictMixin,
     check_deprecated_normalize,
@@ -305,6 +306,7 @@ class LinearRegression(Base,
         return algo
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.

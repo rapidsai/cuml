@@ -2,15 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import math
-import typing
 
 import cupy as cp
 
-import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
 map_kernel_str = r"""
@@ -99,10 +95,7 @@ def _validate_kernel(dtype):
     )
 
 
-@cuml.internals.api_return_array(input_arg="labels", get_output_type=True)
-def make_monotonic(
-    labels, classes=None, copy=False
-) -> typing.Tuple[CumlArray, CumlArray]:
+def make_monotonic(labels, classes=None, copy=False):
     """
     Takes a set of labels that might not be drawn from the
     set [0, n-1] and renumbers them to be drawn that
@@ -148,7 +141,6 @@ def make_monotonic(
     return labels, classes
 
 
-@cuml.internals.api_return_any()
 def check_labels(labels, classes) -> bool:
     """
     Validates that a set of labels is drawn from the unique
@@ -193,8 +185,7 @@ def check_labels(labels, classes) -> bool:
     return valid[0] == 1
 
 
-@cuml.internals.api_return_array(input_arg="labels", get_output_type=True)
-def invert_labels(labels, classes, copy=False) -> CumlArray:
+def invert_labels(labels, classes, copy=False):
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to

@@ -3,7 +3,7 @@
 #
 import warnings
 
-import cuml.internals
+import cuml
 from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
@@ -35,11 +35,12 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         return [*super()._get_param_names(), "estimator"]
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def classes_(self):
         return self.multiclass_estimator.classes_
 
     @generate_docstring(y="dense_anydtype")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y) -> "_BaseMulticlassClassifier":
         """
         Fit a multiclass classifier.
@@ -71,6 +72,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @cuml.internals.reflect
     def predict(self, X) -> CumlArray:
         """
         Predict using multi class classifier.
@@ -88,6 +90,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @cuml.internals.reflect
     def decision_function(self, X) -> CumlArray:
         """
         Calculate the decision function.

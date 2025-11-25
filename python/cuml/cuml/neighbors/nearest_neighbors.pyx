@@ -10,7 +10,7 @@ import cupyx
 import numpy as np
 import scipy.sparse
 
-import cuml.internals
+import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
@@ -20,7 +20,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import using_output_type
+from cuml.internals.outputs import reflect, using_output_type
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -691,6 +691,7 @@ class NearestNeighbors(Base,
                 )
 
     @generate_docstring(X='dense_sparse')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -757,6 +758,7 @@ class NearestNeighbors(Base,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
+    @reflect
     def kneighbors(
         self,
         X=None,
@@ -1017,6 +1019,7 @@ class NearestNeighbors(Base,
         return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
+    @reflect
     def kneighbors_graph(
         self, X=None, n_neighbors=None, mode='connectivity'
     ) -> SparseCumlArray:
@@ -1095,7 +1098,7 @@ class NearestNeighbors(Base,
         return self.metric_params or {}
 
 
-@cuml.internals.reflect
+@reflect
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):

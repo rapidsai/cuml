@@ -1,8 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-
-# distutils: language = c++
 import cupy as cp
 import numpy as np
 from pylibraft.common.handle import Handle
@@ -11,7 +8,7 @@ import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -913,6 +910,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
@@ -1064,6 +1062,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit the HDBSCAN model from features and return
@@ -1114,7 +1113,7 @@ def _check_clusterer(clusterer):
     return state
 
 
-@cuml.internals.reflect(model="clusterer", array=None)
+@reflect(model="clusterer", array=None)
 def all_points_membership_vectors(clusterer, int batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1183,7 +1182,7 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     return membership_vec
 
 
-@cuml.internals.reflect(model="clusterer", array="points_to_predict")
+@reflect(model="clusterer", array="points_to_predict")
 def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert_dtype=True):
     """
     Predict soft cluster membership. The result produces a vector
@@ -1269,7 +1268,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
     return membership_vec
 
 
-@cuml.internals.reflect(model="clusterer", array="points_to_predict")
+@reflect(model="clusterer", array="points_to_predict")
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,

@@ -171,7 +171,7 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.reflect(skip=True)
     def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
@@ -188,7 +188,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.reflect(skip=True)
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -240,7 +240,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.reflect(skip=True)
     def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

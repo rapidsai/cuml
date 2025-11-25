@@ -2,29 +2,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
+from typing import Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
-import cuml.internals.nvtx as nvtx
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger, nvtx, reflect
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-
-from typing import Dict, Mapping, Optional, Tuple, Union
-
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-
 from pylibraft.common.handle cimport handle_t
-
-import cuml.internals.logger as logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
@@ -387,7 +379,7 @@ class ARIMA(Base):
 
         self._initial_calc()
 
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _initial_calc(self):
         """
         This separates the initial calculation from the initialization to make
@@ -441,7 +433,6 @@ class ARIMA(Base):
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
@@ -488,16 +479,19 @@ class ARIMA(Base):
         return ic
 
     @property
+    @reflect
     def aic(self) -> CumlArray:
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
+    @reflect
     def aicc(self) -> CumlArray:
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
+    @reflect
     def bic(self) -> CumlArray:
         """Bayesian Information Criterion"""
         return self._ic("bic")
@@ -509,7 +503,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @reflect
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -585,7 +579,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @reflect(array=None)
     def predict(
         self,
         start=0,
@@ -734,7 +728,7 @@ class ARIMA(Base):
                     d_upper)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
-    @cuml.internals.api_base_return_array_skipall
+    @reflect(array=None)
     def forecast(
         self,
         nsteps: int,
@@ -780,7 +774,6 @@ class ARIMA(Base):
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level, exog)
 
-    @cuml.internals.api_base_return_any_skipall
     def _create_arrays(self):
         """Create the parameter arrays if non-existing"""
         cdef ARIMAOrder order = self.order
@@ -807,7 +800,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -827,7 +820,7 @@ class ARIMA(Base):
                     <double*> d_exog_ptr, <int> self.batch_size,
                     <int> self.n_obs, order, <bool> self.missing)
 
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
@@ -929,7 +922,7 @@ class ARIMA(Base):
         return self
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -997,7 +990,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
                       convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
@@ -1073,6 +1066,7 @@ class ARIMA(Base):
         return grad.to_output("numpy")
 
     @property
+    @reflect(skip=True)
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
@@ -1119,6 +1113,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
+    @reflect(skip=True)
     def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1148,6 +1143,7 @@ class ARIMA(Base):
                    <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
+    @reflect(skip=True)
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -1173,7 +1169,6 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 

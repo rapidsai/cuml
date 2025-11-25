@@ -21,7 +21,7 @@ class LinearPredictMixin:
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_array()
+    @cuml.internals.reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
@@ -63,7 +63,7 @@ class LinearClassifierMixin:
             "shape": "(n_samples,) or (n_samples, n_classes)",
         },
     )
-    @cuml.internals.api_base_return_array()
+    @cuml.internals.reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
         if is_sparse(X):

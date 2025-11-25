@@ -2,22 +2,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
-
-from libc.stdint cimport uintptr_t
+from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nogil:
