@@ -202,7 +202,7 @@ def spectral_clustering(A,
 
     if not isfinite:
         raise ValueError(
-            "Input contains NaN or inf; nonfinite values are not supported"
+            "Input contains NaN or inf; nonfinite values are not supported."
         )
 
     if n_samples < 2:
