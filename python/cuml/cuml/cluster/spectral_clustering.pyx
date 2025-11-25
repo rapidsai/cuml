@@ -64,7 +64,7 @@ def spectral_clustering(A,
                         n_components=None,
                         n_neighbors=10,
                         n_init=10,
-                        eigen_tol=0.0,
+                        eigen_tol='auto',
                         affinity='nearest_neighbors',
                         handle=None):
     """Apply clustering to a projection of the normalized Laplacian.
@@ -103,8 +103,9 @@ def spectral_clustering(A,
         Number of time the k-means algorithm will be run with different
         centroid seeds. The final results will be the best output of n_init
         consecutive runs in terms of inertia.
-    eigen_tol : float, default=0.0
-        Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
+    eigen_tol : float or 'auto', default='auto'
+        Tolerance for the eigensolver. If 'auto', a tolerance values of
+        0.0 is used.
     affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
@@ -219,7 +220,11 @@ def spectral_clustering(A,
     config.n_components = n_components if n_components is not None else n_clusters
     config.n_neighbors = n_neighbors
     config.n_init = n_init
-    config.eigen_tol = eigen_tol
+    # Handle 'auto' for eigen_tol
+    if eigen_tol == 'auto':
+        config.eigen_tol = 0.0
+    else:
+        config.eigen_tol = eigen_tol
 
     cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
     cdef bool precomputed = affinity == "precomputed"
@@ -284,8 +289,9 @@ class SpectralClustering(Base):
         Number of time the k-means algorithm will be run with different
         centroid seeds. The final results will be the best output of n_init
         consecutive runs in terms of inertia. Only used for the k-means step.
-    eigen_tol : float, default=0.0
-        Tolerance for the eigensolver. 0.0 uses the default solver tolerance.
+    eigen_tol : float or 'auto', default='auto'
+        Tolerance for the eigensolver. If 'auto', a tolerance values of
+        0.0 is used.
     affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
@@ -346,7 +352,7 @@ class SpectralClustering(Base):
     labels_ = CumlArrayDescriptor()
 
     def __init__(self, n_clusters=8, *, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='precomputed',
+                 n_neighbors=10, n_init=10, eigen_tol='auto', affinity='precomputed',
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
