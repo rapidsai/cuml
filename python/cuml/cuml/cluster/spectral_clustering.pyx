@@ -335,6 +335,13 @@ class SpectralClustering(Base):
     >>> sc.labels_[:10]
     array([2, 0, 1, 1, 2, 2, 1, 0, 2, 0])
 
+    Notes
+    -----
+    The eigensolver uses the Lanczos approach from the raft implementation
+    https://docs.rapids.ai/api/raft/stable/pylibraft_api/sparse/#pylibraft.sparse.linalg.eigsh.
+
+    Kmeans is used for assigning labels.
+
     References
     ----------
     - Normalized cuts and image segmentation, 2000
