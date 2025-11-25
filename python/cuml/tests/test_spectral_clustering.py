@@ -42,6 +42,13 @@ def test_spectral_clustering_adjusted_rand_score(
     )
     X = X.astype(np.float32)
 
+    shared_params = {
+        "n_clusters": n_clusters,
+        "affinity": affinity,
+        "random_state": 42,
+        "n_neighbors": 10,
+    }
+
     if affinity == "precomputed":
         knn_graph = kneighbors_graph(
             X,
@@ -51,36 +58,18 @@ def test_spectral_clustering_adjusted_rand_score(
         )
         knn_graph = 0.5 * (knn_graph + knn_graph.T)
 
-        sk_spectral = skSpectralClustering(
-            n_clusters=n_clusters,
-            affinity="precomputed",
-            random_state=42,
-        )
+        sk_spectral = skSpectralClustering(**shared_params)
         y_sklearn = sk_spectral.fit_predict(knn_graph)
 
-        cuml_spectral = SpectralClustering(
-            n_clusters=n_clusters,
-            affinity="precomputed",
-            random_state=42,
-        )
+        cuml_spectral = SpectralClustering(**shared_params)
         y_cuml_gpu = cuml_spectral.fit_predict(knn_graph)
         y_cuml = cp.asnumpy(y_cuml_gpu)
     else:
-        sk_spectral = skSpectralClustering(
-            n_clusters=n_clusters,
-            n_neighbors=10,
-            affinity="nearest_neighbors",
-            random_state=42,
-        )
+        sk_spectral = skSpectralClustering(**shared_params)
         y_sklearn = sk_spectral.fit_predict(X)
 
         X_gpu = cp.asarray(X)
-        cuml_spectral = SpectralClustering(
-            n_clusters=n_clusters,
-            affinity="nearest_neighbors",
-            n_neighbors=10,
-            random_state=42,
-        )
+        cuml_spectral = SpectralClustering(**shared_params)
         y_cuml_gpu = cuml_spectral.fit_predict(X_gpu)
         y_cuml = cp.asnumpy(y_cuml_gpu)
 
