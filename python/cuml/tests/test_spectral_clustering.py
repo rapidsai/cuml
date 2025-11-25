@@ -78,10 +78,12 @@ def test_spectral_clustering_adjusted_rand_score(
 
     ari_sklearn = adjusted_rand_score(y_true, y_sklearn)
     ari_cuml = adjusted_rand_score(y_true, y_cuml)
+    ari_sklearn_cuml = adjusted_rand_score(y_sklearn, y_cuml)
 
     min_ari = 0.8
     assert ari_sklearn > min_ari
     assert ari_cuml > min_ari
+    assert ari_sklearn_cuml > min_ari
 
 
 @pytest.mark.parametrize(
