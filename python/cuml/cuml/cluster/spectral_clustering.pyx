@@ -104,8 +104,8 @@ def spectral_clustering(A,
         centroid seeds. The final results will be the best output of n_init
         consecutive runs in terms of inertia.
     eigen_tol : float or 'auto', default='auto'
-        Tolerance for the eigensolver. If 'auto', a tolerance values of
-        0.0 is used.
+        Convergence tolerance passed to the eigensolver. If set to 'auto',
+        a default value of currently 0.0 will be used.
     affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
         How to construct the affinity matrix.
          - 'nearest_neighbors' : construct the affinity matrix by computing a
