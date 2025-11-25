@@ -345,8 +345,8 @@ class SpectralClustering(Base):
     """
     labels_ = CumlArrayDescriptor()
 
-    def __init__(self, n_clusters=8, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='nearest_neighbors',
+    def __init__(self, n_clusters=8, *, n_components=None, random_state=None,
+                 n_neighbors=10, n_init=10, eigen_tol=0.0, affinity='precomputed',
                  handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
