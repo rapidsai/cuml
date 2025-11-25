@@ -15,6 +15,7 @@ import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -146,7 +147,6 @@ def spectral_clustering(A,
     cdef int affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
-        from cuml.internals.input_utils import input_to_cupy_array
         A = input_to_cupy_array(
             A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
         ).array
@@ -326,8 +326,7 @@ class SpectralClustering(Base):
     ...                         n_neighbors=10, random_state=42)
     >>> sc.fit(X)
     SpectralClustering()
-    >>> # Check that we found 3 clusters
-    >>> len(set(sc.labels_.tolist()))
+    >>> sc.labels_[:10]
     array([2, 0, 1, 1, 2, 2, 1, 0, 2, 0])
 
     References
