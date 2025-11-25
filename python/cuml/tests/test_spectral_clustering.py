@@ -111,30 +111,23 @@ def test_output_type_handling(input_type, expected_type):
         random_state=42,
     )
     X_np = X_np.astype(np.float32)
-
-    knn_graph = kneighbors_graph(
-        X_np,
-        n_neighbors=30,
-        mode="connectivity",
-        include_self=True,
-    )
-    knn_graph = 0.5 * (knn_graph + knn_graph.T)
-
-    X = (
-        knn_graph.toarray()
-        if input_type == "numpy"
-        else cp.asarray(knn_graph.toarray())
-    )
+    X = X_np if input_type == "numpy" else cp.asarray(X_np)
 
     model = SpectralClustering(
-        n_clusters=n_clusters, affinity="precomputed", random_state=42
+        n_clusters=n_clusters,
+        affinity="nearest_neighbors",
+        n_neighbors=30,
+        random_state=42,
     )
     model.fit(X)
     assert isinstance(model.labels_, expected_type)
     assert model.labels_.shape == (n_samples,)
 
     out = SpectralClustering(
-        n_clusters=n_clusters, affinity="precomputed", random_state=42
+        n_clusters=n_clusters,
+        affinity="nearest_neighbors",
+        n_neighbors=30,
+        random_state=42,
     ).fit_predict(X)
     assert isinstance(out, expected_type)
     assert out.shape == (n_samples,)
