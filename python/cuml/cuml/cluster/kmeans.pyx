@@ -25,7 +25,6 @@ from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 cimport cuml.cluster.cpp.kmeans as lib
-from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -36,7 +35,7 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.n_clusters = kmeans.n_clusters
     params.max_iter = kmeans.max_iter
     params.tol = kmeans.tol
-    params.verbosity = <level_enum>(<int>kmeans.verbose)
+    params.verbosity = kmeans._verbose_level
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
     params.oversampling_factor = kmeans.oversampling_factor

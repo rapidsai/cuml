@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import hdbscan
 import numpy as np
@@ -20,7 +19,6 @@ from cuml.cluster.hdbscan import (
     membership_vector,
 )
 from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy, _extract_clusters
-from cuml.internals import logger
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
@@ -166,7 +164,6 @@ def test_hdbscan_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -225,7 +222,6 @@ def test_hdbscan_sklearn_datasets(
     X = supervised_learning_dataset
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         gen_min_span_tree=True,
         min_samples=min_samples,
@@ -326,7 +322,6 @@ def test_hdbscan_cluster_patterns(
     X, y = make_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -526,7 +521,6 @@ def test_all_points_membership_vectors_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -576,7 +570,6 @@ def test_all_points_membership_vectors_moons(
     X, y = datasets.make_moons(n_samples=nrows, noise=0.05, random_state=42)
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -632,7 +625,6 @@ def test_all_points_membership_vectors_circles(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -704,7 +696,6 @@ def test_approximate_predict_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -762,7 +753,6 @@ def test_approximate_predict_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -827,7 +817,6 @@ def test_approximate_predict_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -893,7 +882,6 @@ def test_approximate_predict_digits(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -967,7 +955,6 @@ def test_membership_vector_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -1030,7 +1017,6 @@ def test_membership_vector_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -1094,7 +1080,6 @@ def test_membership_vector_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,

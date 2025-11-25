@@ -28,9 +28,9 @@ class NearestNeighbors(BaseEstimator):
     batch_size: int (optional, default 2000000)
         Maximum number of query rows processed at once. This parameter can
         greatly affect the throughput of the algorithm. The optimal setting
-        of this value will vary for different layouts index to query ratios,
-        but it will require `batch_size * n_features * 4` bytes of additional
-        memory on each worker hosting index partitions.
+        of this value will vary for different layouts and index to query
+        ratios, but it will require `batch_size * n_features * 4` bytes of
+        additional memory on each worker hosting index partitions.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
