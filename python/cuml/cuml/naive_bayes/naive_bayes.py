@@ -472,17 +472,24 @@ class GaussianNB(_BaseNB):
         # Ensure y is a CuPy array for indexing
         y_array = cp.asarray(y) if hasattr(y, "to_output") else y
 
+        # Convert sparse matrices to CSR for efficient row indexing
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X = X.tocsr()
+
         # Update mean and variance for each class
         # Following scikit-learn's approach: iterate through unique labels
         for y_i in unique_y:
             # Find the class index using CuPy searchsorted
             i = int(cp.searchsorted(classes_array, y_i))
-            # Create boolean mask for this class
+            # Create boolean mask for this class and get indices
             mask = y_array == y_i
-            X_i = X[mask, :]
+            indices = cp.where(mask)[0]
+
+            # Index X using integer indices (works efficiently with CSR)
+            X_i = X[indices, :]
 
             if sample_weight is not None:
-                sw_i = sample_weight[mask]
+                sw_i = sample_weight[indices]
                 N_i = float(sw_i.sum())
             else:
                 sw_i = None
@@ -551,7 +558,8 @@ class GaussianNB(_BaseNB):
     def _update_mean_variance(n_past, mu, var, X, sample_weight=None):
         """Compute online update of Gaussian mean and variance.
 
-        This is a direct port of scikit-learn's implementation to CuPy.
+        This is a direct port of scikit-learn's implementation to CuPy,
+        with efficient handling of both dense and sparse matrices.
         Given starting sample count, mean, and variance, a new set of
         points X, and optionally sample weights, return the updated mean and
         variance.
@@ -564,8 +572,8 @@ class GaussianNB(_BaseNB):
             Means for Gaussians in original set.
         var : cupy.ndarray of shape (n_features,)
             Variances for Gaussians in original set.
-        X : cupy.ndarray of shape (n_samples, n_features)
-            New data points.
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of shape (n_samples, n_features)
+            New data points. Can be dense or sparse.
         sample_weight : cupy.ndarray of shape (n_samples,), optional
             Weights applied to individual samples.
 
@@ -584,16 +592,44 @@ class GaussianNB(_BaseNB):
             n_new = float(sample_weight.sum())
             if cp.isclose(n_new, 0.0):
                 return mu, var
-            # Weighted average for mean
-            new_mu = cp.average(X, axis=0, weights=sample_weight)
-            # Weighted variance
-            new_var = cp.average(
-                (X - new_mu) ** 2, axis=0, weights=sample_weight
-            )
+
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse weighted mean - avoid densification
+                # X.T @ sample_weight gives sum of weighted features
+                new_mu = cp.asarray((X.T.dot(sample_weight) / n_new)).ravel()
+                # Sparse weighted variance using E[X²] - E[X]²
+                # This avoids creating a dense difference matrix
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(
+                        (X_squared.T.dot(sample_weight) / n_new)
+                    ).ravel()
+                    - new_mu**2
+                )
+            else:
+                # Dense weighted case
+                new_mu = cp.average(X, axis=0, weights=sample_weight)
+                new_var = cp.average(
+                    (X - new_mu) ** 2, axis=0, weights=sample_weight
+                )
         else:
             n_new = X.shape[0]
-            new_var = cp.var(X, axis=0)
-            new_mu = cp.mean(X, axis=0)
+
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse unweighted - efficient for sparse matrices
+                # mean() works efficiently on sparse matrices
+                new_mu = cp.asarray(X.mean(axis=0)).ravel()
+                # Variance: E[X²] - E[X]² (avoids creating dense diff matrix)
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(X_squared.mean(axis=0)).ravel() - new_mu**2
+                )
+            else:
+                # Dense unweighted case
+                new_var = cp.var(X, axis=0)
+                new_mu = cp.mean(X, axis=0)
 
         if n_past == 0:
             return new_mu, new_var
