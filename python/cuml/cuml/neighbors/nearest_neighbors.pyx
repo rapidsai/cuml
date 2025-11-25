@@ -19,8 +19,8 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
-from cuml.internals.memory_utils import using_output_type
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import using_output_type
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import functools
 import gc
 import operator
 import pickle
@@ -24,10 +25,6 @@ from cuml.internals.array import (
     array_to_memory_order,
 )
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import (
-    _get_size_from_shape,
-    determine_array_memtype,
-)
 from cuml.testing.strategies import (
     UNSUPPORTED_CUDF_DTYPES,
     create_cuml_array_input,
@@ -68,6 +65,22 @@ _OUTPUT_TYPES_MAPPING = {
     "dataframe": (cudf.DataFrame, pd.DataFrame),
     "series": (cudf.Series, pd.Series),
 }
+
+
+def determine_array_memtype(X):
+    try:
+        return X.mem_type
+    except AttributeError:
+        pass
+    if hasattr(X, "__cuda_array_interface__"):
+        return MemoryType.device
+    if hasattr(X, "__array_interface__"):
+        return MemoryType.host
+    if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        return MemoryType.device
+    if isinstance(X, (pd.DataFrame, pd.Series)):
+        return MemoryType.host
+    return None
 
 
 def _multidimensional(shape):
@@ -160,7 +173,12 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
 @settings(deadline=None)
 def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     dtype = np.dtype(dtype)
-    values = bytes(_get_size_from_shape(shape, dtype)[0])
+    itemsize = dtype.itemsize
+    if isinstance(shape, int):
+        size = itemsize * shape
+    elif isinstance(shape, tuple):
+        size = functools.reduce(operator.mul, shape)
+    values = bytes(size)
 
     # Convert to data_type to be tested if needed.
     if data_type is not bytes:

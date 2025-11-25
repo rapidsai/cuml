@@ -12,7 +12,7 @@ from cupyx import geterr, lapack, seterr
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_array
+from cuml.internals import api_base_return_array
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (

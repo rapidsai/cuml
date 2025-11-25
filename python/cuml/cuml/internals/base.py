@@ -16,7 +16,7 @@ import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
-from cuml.internals.output_type import (
+from cuml.internals.outputs import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )

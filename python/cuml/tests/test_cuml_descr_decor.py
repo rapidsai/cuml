@@ -286,7 +286,7 @@ def test_return_array(input_arg: str, get_output_type: bool):
 
     def test_func(X, y):
         if not get_output_type:
-            cuml.internals.set_api_output_type(inner_type)
+            cuml.internals.outputs.set_api_output_type(inner_type)
         return X
 
     expected_to_fail = input_arg == "bad" and get_output_type

@@ -45,7 +45,7 @@ from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_array
 from ....internals.array import CumlArray
 from ....internals.array_sparse import SparseCumlArray
-from ....internals.memory_utils import using_output_type
+from ....internals.outputs import using_output_type
 from ....thirdparty_adapters import check_array
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_polynomial_expansion,

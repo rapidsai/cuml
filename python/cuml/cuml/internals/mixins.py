@@ -8,8 +8,8 @@ from copy import deepcopy
 
 from cuml._thirdparty._sklearn_compat import _to_new_tags
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_any_skipall
 from cuml.internals.base_helpers import _tags_class_and_instance
+from cuml.internals.outputs import api_base_return_any_skipall
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #

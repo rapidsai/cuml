@@ -27,7 +27,7 @@ from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
-from ....internals.memory_utils import using_output_type
+from ....internals.outputs import using_output_type
 from ....thirdparty_adapters import check_array
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES, check_is_fitted

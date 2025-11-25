@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from cuml.internals.api_decorators import (
+from cuml.internals.base_return_types import _get_base_return_type
+from cuml.internals.constants import CUML_WRAPPED_FLAG
+from cuml.internals.outputs import (
     api_base_return_any,
     api_base_return_array,
     api_return_any,
 )
-from cuml.internals.base_return_types import _get_base_return_type
-from cuml.internals.constants import CUML_WRAPPED_FLAG
 
 
 def _wrap_attribute(class_name: str, attribute_name: str, attribute, **kwargs):
