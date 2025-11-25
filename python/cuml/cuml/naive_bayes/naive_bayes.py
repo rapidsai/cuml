@@ -469,8 +469,8 @@ class GaussianNB(_BaseNB):
                 % (unique_y[~unique_y_in_classes], self.classes_)
             )
 
-        # Ensure Y is a CuPy array for indexing
-        Y_array = cp.asarray(Y) if hasattr(Y, "to_output") else Y
+        # Ensure y is a CuPy array for indexing
+        y_array = cp.asarray(y) if hasattr(y, "to_output") else y
 
         # Update mean and variance for each class
         # Following scikit-learn's approach: iterate through unique labels
@@ -478,7 +478,7 @@ class GaussianNB(_BaseNB):
             # Find the class index using CuPy searchsorted
             i = int(cp.searchsorted(classes_array, y_i))
             # Create boolean mask for this class
-            mask = Y_array == y_i
+            mask = y_array == y_i
             X_i = X[mask, :]
 
             if sample_weight is not None:
