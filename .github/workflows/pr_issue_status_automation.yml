@@ -64,5 +64,5 @@ jobs:
         ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
         ITEM_NODE_ID: "${{ github.event.pull_request.node_id }}"
         UPDATE_ITEM: true
-        UPDATE_LINKED_ISSUES: true
+        UPDATE_LINKED_ISSUES: false
       secrets: inherit

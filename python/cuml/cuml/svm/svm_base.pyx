@@ -397,7 +397,7 @@ class SVMBase(Base,
         param.cache_size = self.cache_size
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.verbose
+        param.verbosity = self._verbose_level
         param.epsilon = self.epsilon
         param.svmType = lib.SvmType.C_SVC if is_classifier else lib.SvmType.EPSILON_SVR
 
