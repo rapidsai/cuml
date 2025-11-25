@@ -127,12 +127,14 @@ jobs:
       build_type: pull-request
       script: ci/test_cpp.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 20
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
     with:
       build_type: pull-request
+      timeout-minutes: 20
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
@@ -149,6 +151,7 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 120
   optional-job-conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -169,6 +172,7 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 60
   conda-python-scikit-learn-accel-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -191,6 +195,7 @@ jobs:
         | sort_by(.PY_VER)
         | map(.DEPENDENCIES = "intermediate")
       )'
+      timeout-minutes: 60
   conda-python-cuml-accel-upstream-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -202,6 +207,7 @@ jobs:
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 20
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -259,6 +265,7 @@ jobs:
       build_type: pull-request
       script: ci/test_wheel.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 60
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
@@ -268,6 +275,7 @@ jobs:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      timeout-minutes: 60
   devcontainer:
     needs: telemetry-setup
     secrets: inherit
