@@ -317,3 +317,23 @@ def test_spectral_clustering_output_shape_type_and_label_count(
     n_unique = len(np.unique(labels))
     assert n_unique >= 1
     assert n_unique <= n_clusters
+
+
+def test_spectral_clustering_convergence_failure():
+    """Ensure spectral clustering raises a convergence error for unsuitable input.
+
+    When provided with data lacking clustering structure, the eigensolver
+    should fail and raise a RuntimeError indicating lack of convergence.
+    """
+    X = np.random.randn(100, 10).astype(np.float32)
+
+    model = SpectralClustering(
+        n_clusters=3,
+        affinity="precomputed",
+        n_neighbors=10,
+        random_state=42,
+    )
+
+    # Expect a RuntimeError about eigensolver convergence
+    with pytest.raises(RuntimeError, match="eigensolver couldn't converge"):
+        model.fit_predict(X)
