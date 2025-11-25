@@ -10,10 +10,7 @@ import numpy as np
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
-from cuml.internals.api_context_managers import (
-    InternalAPIContextBase,
-    set_api_output_type,
-)
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 
@@ -218,6 +215,49 @@ class using_output_type:
         GlobalSettings().output_type = self.prev_output_type
 
 
+@contextlib.contextmanager
+def enter_internal_api():
+    """Enter an internal API context.
+
+    Returns ``True`` if this is a new internal context, or ``False``
+    if the code was already running within an internal context."""
+    gs = GlobalSettings()
+    if gs._external_output_type is False:
+        # External, this is a new context
+        gs._external_output_type = gs.output_type
+        gs.output_type = "mirror"
+        try:
+            yield True
+        finally:
+            gs.output_type = gs._external_output_type
+            gs._external_output_type = False
+    else:
+        # Already internal, just yield
+        yield False
+
+
+@contextlib.contextmanager
+def exit_internal_api():
+    """Exit an internal API context.
+
+    Code run in this context will run under the original
+    configuration before an internal context was entered"""
+    gs = GlobalSettings()
+    if gs._external_output_type is False:
+        # Already external, nothing to do
+        yield
+    else:
+        orig_external_output_type = gs._external_output_type
+        orig_output_type = gs.output_type
+        gs.output_type = orig_external_output_type
+        gs._external_output_type = False
+        try:
+            yield
+        finally:
+            gs._external_output_type = orig_external_output_type
+            gs.output_type = orig_output_type
+
+
 def _get_param(sig, name_or_index):
     if isinstance(name_or_index, str):
         param = sig.parameters[name_or_index]
@@ -233,6 +273,36 @@ def _get_param(sig, name_or_index):
     return param.name
 
 
+def coerce_arrays(res, output_type):
+    """Traverse a result, converting it to the proper output type"""
+    if isinstance(res, tuple):
+        return tuple(coerce_arrays(i, output_type) for i in res)
+    elif isinstance(res, list):
+        return [coerce_arrays(i, output_type) for i in res]
+    elif isinstance(res, dict):
+        return {k: coerce_arrays(v, output_type) for k, v in res.items()}
+
+    # Get the output type
+    arr_type, is_sparse = iu.determine_array_type_full(res)
+
+    if arr_type is None:
+        # Not an array, just return
+        return res
+
+    # If we are a supported array and not already cuml, convert to cuml
+    if arr_type != "cuml":
+        if is_sparse:
+            res = SparseCumlArray(res, convert_index=False)
+        else:
+            res = iu.input_to_cuml_array(res, order="K").array
+
+    if output_type == "cuml":
+        # Return CumlArray/SparseCumlArray directly
+        return res
+
+    return res.to_output(output_type=output_type)
+
+
 def reflect(
     func=None,
     *,
@@ -240,7 +310,6 @@ def reflect(
     model=default,
     reset=False,
     skip=False,
-    default_output_type=None,
 ):
     """Mark a function or method as participating in the reflection system.
 
@@ -267,9 +336,6 @@ def reflect(
     skip : bool, default=False
         Set to True to skip output processing for a method. This is mostly
         useful if output processing will be handled manually.
-    default_output_type : str or None, default=None
-        The default output type to use for a method when no output type
-        has been set externally.
     """
     # Local to avoid circular imports
     import cuml.accel
@@ -281,7 +347,6 @@ def reflect(
             array=array,
             reset=reset,
             skip=skip,
-            default_output_type=default_output_type,
         )
 
     # TODO: remove this once auto-decorating is ripped out
@@ -306,6 +371,11 @@ def reflect(
     if array is not None:
         array = _get_param(sig, array)
 
+    if reset and (model is None or array is None):
+        raise ValueError(
+            "`reset=True` is not valid with `array=None` or `model=None`"
+        )
+
     @functools.wraps(func)
     def inner(*args, **kwargs):
         # Accept list/tuple inputs when accelerator is active
@@ -320,36 +390,37 @@ def reflect(
         if accept_lists and isinstance(array_arg, (list, tuple)):
             array_arg = np.asarray(array_arg)
 
-        if reset and model_arg is None:
-            raise ValueError("`reset=True` is only valid on estimator methods")
-
-        with InternalAPIContextBase(
-            base=model_arg, process_return=not skip
-        ) as cm:
+        with enter_internal_api() as was_external:
             if reset:
                 model_arg._set_output_type(array_arg)
                 model_arg._set_n_features_in(array_arg)
 
-            if model is not None:
-                if array is not None:
-                    out_type = model_arg._get_output_type(array_arg)
-                else:
-                    out_type = model_arg._get_output_type()
-            elif array is not None:
-                out_type = iu.determine_array_type(array_arg)
-            elif default_output_type is not None:
-                out_type = default_output_type
-            else:
-                out_type = None
-
-            if out_type is not None:
-                set_api_output_type(out_type)
-
             res = func(*args, **kwargs)
 
-        if skip:
-            return res
-        return cm.process_return(res)
+        if not skip:
+            gs = GlobalSettings()
+            if was_external or gs.output_type != "mirror":
+                # We're returning to the user, infer the expected output type
+                if model is not None:
+                    if array is not None:
+                        output_type = model_arg._get_output_type(array_arg)
+                    else:
+                        output_type = model_arg._get_output_type()
+                else:
+                    output_type = gs.output_type
+                    if output_type in ("input", None):
+                        if array is not None:
+                            output_type = iu.determine_array_type(array_arg)
+                        if output_type in ("input", None):
+                            # Nothing to infer from and no explicit type set, default to cupy
+                            output_type = "cupy"
+            else:
+                # We're internal, return as cuml
+                output_type = "cuml"
+
+            res = coerce_arrays(res, output_type)
+
+        return res
 
     return inner
 
@@ -377,21 +448,3 @@ def api_base_fit_transform():
 # TODO: investigate and remove these
 api_base_return_any_skipall = api_return_any()
 api_base_return_array_skipall = reflect
-
-
-@contextlib.contextmanager
-def exit_internal_api():
-    assert GlobalSettings().root_cm is not None
-
-    try:
-        old_root_cm = GlobalSettings().root_cm
-
-        GlobalSettings().root_cm = None
-
-        # Set the global output type to the previous value to pretend we never
-        # entered the API
-        with using_output_type(old_root_cm.prev_output_type):
-            yield
-
-    finally:
-        GlobalSettings().root_cm = old_root_cm

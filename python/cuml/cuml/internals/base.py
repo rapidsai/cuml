@@ -246,15 +246,14 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         Returns the appropriate output type depending on the type of the input,
         class output type and global output type.
         """
-
         # Default to the global type
         output_type = cuml.global_settings.output_type
 
-        # If its None, default to our type
-        if output_type is None or output_type == "mirror":
+        # If not set to an explicit value, use the estimator's setting
+        if output_type in (None, "input", "mirror"):
             output_type = self.output_type
 
-        # If we are input, get the type from the input (if available)
+        # If input, get the type from the input (if available)
         if output_type == "input":
             if inp is None:
                 # No input value provided, use the estimator input type

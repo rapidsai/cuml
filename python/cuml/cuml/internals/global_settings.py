@@ -16,8 +16,8 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     def __init__(self):
         super().__init__()
         self.shared_state = {
-            "root_cm": None,
             "_output_type": None,
+            "_external_output_type": False,
             "_fil_device_type": DeviceType.device,
             "_fil_memory_type": MemoryType.device,
         }

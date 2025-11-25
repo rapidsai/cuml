@@ -177,7 +177,7 @@ def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     if isinstance(shape, int):
         size = itemsize * shape
     elif isinstance(shape, tuple):
-        size = functools.reduce(operator.mul, shape)
+        size = itemsize * functools.reduce(operator.mul, shape)
     values = bytes(size)
 
     # Convert to data_type to be tested if needed.

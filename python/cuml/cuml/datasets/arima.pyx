@@ -54,7 +54,7 @@ inp_to_dtype = {
 }
 
 
-@cuml.internals.reflect(array=None, default_output_type="cupy")
+@cuml.internals.reflect(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double',

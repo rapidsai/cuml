@@ -266,52 +266,29 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
         assert_array_identical(X_in, X_out)
 
 
-@pytest.mark.parametrize("input_arg", ["X", "y", "bad", 0])
-@pytest.mark.parametrize("get_output_type", [True, False])
-def test_return_array(input_arg: str, get_output_type: bool):
+@pytest.mark.parametrize("input_arg", ["X", "y", 0])
+def test_return_array(input_arg: str):
     """
     Test autowrapping on predict that will set target_type
     """
-
     input_type_X = "numpy"
     input_dtype_X = np.float64
 
     input_type_Y = "cupy"
     input_dtype_Y = np.int32
 
-    inner_type = "numba"
-
     X_in = create_input(input_type_X, input_dtype_X, (10, 10), "F")
     Y_in = create_input(input_type_Y, input_dtype_Y, (10, 10), "F")
 
+    @cuml.internals.api_return_array(input_arg=input_arg, get_output_type=True)
     def test_func(X, y):
-        if not get_output_type:
-            cuml.internals.outputs.set_api_output_type(inner_type)
         return X
-
-    expected_to_fail = input_arg == "bad" and get_output_type
-
-    try:
-        test_func = cuml.internals.api_return_array(
-            input_arg=input_arg,
-            get_output_type=get_output_type,
-        )(test_func)
-    except KeyError:
-        assert expected_to_fail
-        return
-    else:
-        assert not expected_to_fail
 
     X_out = test_func(X=X_in, y=Y_in)
 
-    target_type = None
-
-    if not get_output_type:
-        target_type = inner_type
+    if input_arg == "y":
+        target_type = input_type_Y
     else:
-        if input_arg == "y":
-            target_type = input_type_Y
-        else:
-            target_type = input_type_X
+        target_type = input_type_X
 
     assert determine_array_type(X_out) == target_type

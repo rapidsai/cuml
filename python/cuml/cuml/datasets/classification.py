@@ -33,7 +33,7 @@ def _generate_hypercube(samples, dimensions, random_state):
 
 
 @nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
-@cuml.internals.reflect(array=None, default_output_type="cupy")
+@cuml.internals.reflect(array=None)
 def make_classification(
     n_samples=100,
     n_features=20,

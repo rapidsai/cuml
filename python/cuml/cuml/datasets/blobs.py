@@ -71,7 +71,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 
 
 @nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
-@cuml.internals.reflect(array=None, default_output_type="cupy")
+@cuml.internals.reflect(array=None)
 def make_blobs(
     n_samples=100,
     n_features=2,
