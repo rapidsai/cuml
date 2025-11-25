@@ -189,8 +189,8 @@ def spectral_clustering(A,
         isfinite = cp.isfinite(affinity_data).all()
     else:
         raise ValueError(
-            f"`affinity={affinity!r}` is not supported, expected one of "
-            "['nearest_neighbors', 'precomputed']"
+            f"Expected `affinity` to be one of ['nearest_neighbors', 'precomputed'], "
+            f"got {affinity!r}"
         )
 
     cdef int n_samples, n_features
