@@ -157,15 +157,16 @@ def spectral_clustering(A,
         isfinite = cp.isfinite(A).all()
     elif affinity == "precomputed":
         # Coerce `A` to a canonical float32 COO sparse matrix
-        if cp_sp.issparse(A):
-            A = A.tocoo()
-            if A.dtype != np.float32:
-                warnings.warn(
+        if A.dtype != np.float32:
+            warnings.warn(
                     f"Input affinity matrix has dtype {A.dtype}, converting to float32. "
                     "To avoid this conversion, "
                     "please provide the affinity matrix as float32.",
                     UserWarning
                 )
+        if cp_sp.issparse(A):
+            A = A.tocoo()
+            if A.dtype != np.float32:
                 A = A.astype("float32")
         elif sp.issparse(A):
             A = cp_sp.coo_matrix(A, dtype="float32")
@@ -317,7 +318,7 @@ class SpectralClustering(Base):
 
     Attributes
     ----------
-    labels_ : cupy.ndarray of shape (n_samples,)
+    labels_ : cupy.ndarray or np.ndarray of shape (n_samples,)
         Cluster labels for each sample.
 
     Examples
