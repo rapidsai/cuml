@@ -33,7 +33,7 @@ trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest cuml dask"
-timeout 2h ./ci/run_cuml_dask_pytests.sh --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
+timeout 1h ./ci/run_cuml_dask_pytests.sh --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
