@@ -53,17 +53,17 @@ jobs:
         - name: Determine release version
           id: determine-version
           run: |
-            base_branch="${{ github.event.pull_request.base.ref }}"
-
-            if [[ "$base_branch" == release/* ]]; then
-              release="${base_branch#release/}"
+            if [[ "$BASE_BRANCH" == release/* ]]; then
+              release="${BASE_BRANCH#release/}"
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
               echo "override-item=true" >> "$GITHUB_OUTPUT"
-            elif [ "$base_branch" = "main" ] && [ -f VERSION ]; then
+            elif [ "$BASE_BRANCH" = "main" ] && [ -f VERSION ]; then
               release=$(head -n 1 VERSION | cut -d. -f1,2)
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
               echo "override-item=false" >> "$GITHUB_OUTPUT"
             fi
+          env:
+            BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
 
     update-release:
       # This job sets the PR's Release field based on the target branch
