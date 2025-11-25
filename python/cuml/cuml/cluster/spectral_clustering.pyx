@@ -57,7 +57,7 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
 
 
 @cuml.internals.api_return_array(get_output_type=True)
-def spectral_clustering(A,
+def spectral_clustering(X,
                         *,
                         int n_clusters=8,
                         random_state=None,
@@ -80,7 +80,7 @@ def spectral_clustering(A,
 
     Parameters
     ----------
-    A : array-like or sparse matrix of shape (n_samples, n_features) or \
+    X : array-like or sparse matrix of shape (n_samples, n_features) or \
         (n_samples, n_samples)
         If affinity is 'nearest_neighbors', this is the input data and a k-NN
         graph will be constructed. If affinity is 'precomputed', this is the
@@ -148,36 +148,36 @@ def spectral_clustering(A,
     cdef int affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
-        A = input_to_cupy_array(
-            A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
+        X = input_to_cupy_array(
+            X, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
         ).array
 
-        affinity_data_ptr = <float*><uintptr_t>A.data.ptr
+        affinity_data_ptr = <float*><uintptr_t>X.data.ptr
 
-        isfinite = cp.isfinite(A).all()
+        isfinite = cp.isfinite(X).all()
     elif affinity == "precomputed":
-        # Coerce `A` to a canonical float32 COO sparse matrix
-        if A.dtype != np.float32:
+        # Coerce `X` to a canonical float32 COO sparse matrix
+        if X.dtype != np.float32:
             warnings.warn(
-                    f"Input affinity matrix has dtype {A.dtype}, converting to float32. "
+                    f"Input affinity matrix has dtype {X.dtype}, converting to float32. "
                     "To avoid this conversion, "
                     "please provide the affinity matrix as float32.",
                     UserWarning
                 )
-        if cp_sp.issparse(A):
-            A = A.tocoo()
-            if A.dtype != np.float32:
-                A = A.astype("float32")
-        elif sp.issparse(A):
-            A = cp_sp.coo_matrix(A, dtype="float32")
+        if cp_sp.issparse(X):
+            X = X.tocoo()
+            if X.dtype != np.float32:
+                X = X.astype("float32")
+        elif sp.issparse(X):
+            X = cp_sp.coo_matrix(X, dtype="float32")
         else:
-            A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
-        A.sum_duplicates()
+            X = cp_sp.coo_matrix(cp.asarray(X, dtype="float32"))
+        X.sum_duplicates()
 
-        affinity_data = A.data
-        affinity_rows = A.row.astype(np.int32)
-        affinity_cols = A.col.astype(np.int32)
-        affinity_nnz = A.nnz
+        affinity_data = X.data
+        affinity_rows = X.row.astype(np.int32)
+        affinity_cols = X.col.astype(np.int32)
+        affinity_nnz = X.nnz
 
         # Remove diagonal elements
         valid = affinity_rows != affinity_cols
@@ -199,7 +199,7 @@ def spectral_clustering(A,
         )
 
     cdef int n_samples, n_features
-    n_samples, n_features = A.shape
+    n_samples, n_features = X.shape
 
     if not isfinite:
         raise ValueError(
@@ -208,7 +208,7 @@ def spectral_clustering(A,
 
     if n_samples < 2:
         raise ValueError(
-            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
+            f"Found array with {n_samples} sample(s) (shape={X.shape}) while a "
             f"minimum of 2 is required."
         )
 
