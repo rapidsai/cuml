@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
+
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
@@ -162,6 +164,12 @@ def spectral_clustering(A,
         if cp_sp.issparse(A):
             A = A.tocoo()
             if A.dtype != np.float32:
+                warnings.warn(
+                    f"Input affinity matrix has dtype {A.dtype}, converting to float32. "
+                    "To avoid this conversion, "
+                    "please provide the affinity matrix as float32.",
+                    UserWarning
+                )
                 A = A.astype("float32")
         elif sp.issparse(A):
             A = cp_sp.coo_matrix(A, dtype="float32")
