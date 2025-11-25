@@ -65,6 +65,7 @@ dependencies:
 - rapids-build-backend>=0.4.0,<0.5.0.dev0
 - rapids-dask-dependency==25.12.*,>=0.0.0a0
 - rapids-logger==0.2.*,>=0.0.0a0
+- rapids-xgboost==25.12.*,>=0.0.0a0
 - recommonmark
 - rich
 - rmm==25.12.*,>=0.0.0a0
