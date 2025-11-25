@@ -121,7 +121,7 @@ def spectral_clustering(X,
 
     Returns
     -------
-    labels : cupy.ndarray of shape (n_samples,)
+    labels : cupy.ndarray or np.ndarray of shape (n_samples,)
         Cluster labels for each sample.
 
     Notes
