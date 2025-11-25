@@ -259,6 +259,10 @@ def exit_internal_api():
 
 
 def _get_param(sig, name_or_index):
+    """Get an `inspect.Parameter` instance by name or index from a
+    signature, and validates it's not variadic.
+
+    Used for normalizing `array`/`model` args to `reflect`."""
     if isinstance(name_or_index, str):
         param = sig.parameters[name_or_index]
     else:
@@ -355,19 +359,28 @@ def reflect(
     sig = inspect.signature(func, follow_wrapped=True)
     has_self = "self" in sig.parameters
 
+    # Normalize model to str | None
     if model is default:
-        model = "self" if has_self else None
+        if skip and not reset:
+            # We're skipping output processing and not resetting an estimator,
+            # there's no need to touch input parameters at all
+            model = None
+        else:
+            model = "self" if has_self else None
     if model is not None:
         model = _get_param(sig, model)
 
+    # Normalize array to str | None
     if array is default:
-        if model is not None and list(sig.parameters).index(model) == 0:
-            array = 1
-        else:
-            array = 0
-        if len(sig.parameters) <= array:
-            # Not enough parameters, no array-like param to infer from
+        if skip and not reset:
             array = None
+        else:
+            array = int(
+                model is not None and list(sig.parameters).index(model) == 0
+            )
+            if len(sig.parameters) <= array:
+                # Not enough parameters, no array-like param to infer from
+                array = None
     if array is not None:
         array = _get_param(sig, array)
 
@@ -412,7 +425,8 @@ def reflect(
                         if array is not None:
                             output_type = iu.determine_array_type(array_arg)
                         if output_type in ("input", None):
-                            # Nothing to infer from and no explicit type set, default to cupy
+                            # Nothing to infer from and no explicit type set,
+                            # default to cupy
                             output_type = "cupy"
             else:
                 # We're internal, return as cuml
