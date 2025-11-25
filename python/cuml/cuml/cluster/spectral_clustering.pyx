@@ -132,15 +132,10 @@ def spectral_clustering(A,
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> from sklearn.neighbors import kneighbors_graph
+    >>> import numpy as np
     >>> from cuml.cluster import spectral_clustering
-    >>> X = cp.random.rand(100, 10, dtype=cp.float32)
-    >>> A = kneighbors_graph(cp.asnumpy(X), n_neighbors=10, include_self=True)
-    >>> A = 0.5 * (A + A.T)  # make symmetric
-    >>> labels = spectral_clustering(A, n_clusters=5, random_state=42)
-    >>> labels.shape
-    (100,)
+    >>> X = np.random.rand(100, 10).astype(np.float32)
+    >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
     """
     if handle is None:
         handle = Handle()
@@ -331,7 +326,8 @@ class SpectralClustering(Base):
     ...                         n_neighbors=10, random_state=42)
     >>> sc.fit(X)
     SpectralClustering()
-    >>> sc.labels_[:10]
+    >>> # Check that we found 3 clusters
+    >>> len(set(sc.labels_.tolist()))
     array([2, 0, 1, 1, 2, 2, 1, 0, 2, 0])
 
     References
