@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import inspect
 import os
 
@@ -16,10 +15,7 @@ import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
-from cuml.internals.outputs import (
-    INTERNAL_VALID_OUTPUT_TYPES,
-    VALID_OUTPUT_TYPES,
-)
+from cuml.internals.outputs import check_output_type
 
 
 class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
@@ -159,11 +155,16 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
             pylibraft.common.handle.Handle() if handle is None else handle
         )
         self.verbose = verbose
-        self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type
-            if output_type is None
-            else output_type
-        )
+        if output_type is None:
+            output_type = cuml.global_settings.output_type or "input"
+            if output_type == "mirror":
+                raise ValueError(
+                    "Cannot pass output_type='mirror' to Base.__init__(). Did you forget "
+                    "to pass `output_type=self.output_type` to a child estimator? "
+                )
+        else:
+            output_type = check_output_type(output_type)
+        self.output_type = output_type
         self._input_type = None
 
         nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
@@ -313,30 +314,3 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
-
-
-# Internal, non class owned helper functions
-def _check_output_type_str(output_str):
-    if output_str is None:
-        return "input"
-
-    assert output_str != "mirror", (
-        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
-        "to pass `output_type=self.output_type` to a child estimator? "
-        "Currently `cuml.global_settings.output_type==`{}`"
-    ).format(cuml.global_settings.output_type)
-
-    if isinstance(output_str, str):
-        output_type = output_str.lower()
-        # Check for valid output types + "input"
-        if output_type in INTERNAL_VALID_OUTPUT_TYPES:
-            # Return the original version if nothing has changed, otherwise
-            # return the lowered. This is to try and keep references the same
-            # to support sklearn.base.clone() where possible
-            return output_str if output_type == output_str else output_type
-
-    valid_output_types_str = ", ".join([f"'{x}'" for x in VALID_OUTPUT_TYPES])
-    raise ValueError(
-        f"output_type must be one of {valid_output_types_str}"
-        f" Got: {output_str}"
-    )

@@ -17,25 +17,48 @@ from cuml.internals.api_context_managers import (
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 
+__all__ = (
+    "check_output_type",
+    "set_global_output_type",
+    "using_output_type",
+    "reflect",
+    "exit_internal_api",
+)
+
+
 default = type(
     "default",
     (),
     dict.fromkeys(["__repr__", "__reduce__"], lambda s: "default"),
 )()
 
-VALID_OUTPUT_TYPES = (
-    "array",
+OUTPUT_TYPES = (
+    "input",
+    "numpy",
+    "cupy",
+    "cudf",
+    "pandas",
     "numba",
+    "array",
     "dataframe",
     "series",
     "df_obj",
-    "cupy",
-    "numpy",
-    "cudf",
-    "pandas",
 )
 
-INTERNAL_VALID_OUTPUT_TYPES = ("input", *VALID_OUTPUT_TYPES)
+
+def check_output_type(output_type: str) -> str:
+    # normalize as lower, keeping original str reference to appease the sklearn
+    # standard estimator checks as much as possible.
+    if output_type != (temp := output_type.lower()):
+        output_type = temp
+    # Check for allowed types. Allow 'cuml' to support internal estimators
+    if output_type != "cuml" and output_type not in OUTPUT_TYPES:
+        valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
+        raise ValueError(
+            f"output_type must be one of {valid_output_types}"
+            f" or None. Got: {output_type}"
+        )
+    return output_type
 
 
 def set_global_output_type(output_type):
@@ -108,23 +131,8 @@ def set_global_output_type(output_type):
     CPU memory.
 
     """
-    if isinstance(output_type, str):
-        output_type = output_type.lower()
-
-    # Check for allowed types. Allow 'cuml' to support internal estimators
-    if (
-        output_type is not None
-        and output_type != "cuml"
-        and output_type not in INTERNAL_VALID_OUTPUT_TYPES
-    ):
-        valid_output_types_str = ", ".join(
-            [f"'{x}'" for x in VALID_OUTPUT_TYPES]
-        )
-        raise ValueError(
-            f"output_type must be one of {valid_output_types_str}"
-            f" or None. Got: {output_type}"
-        )
-
+    if output_type is not None:
+        output_type = check_output_type(output_type)
     GlobalSettings().output_type = output_type
 
 
@@ -168,7 +176,6 @@ class using_output_type:
 
     Examples
     --------
-
     >>> import cuml
     >>> import cupy as cp
     >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
