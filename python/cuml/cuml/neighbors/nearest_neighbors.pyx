@@ -1174,7 +1174,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-    X = NearestNeighbors(
+    model = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,
         handle=handle,
@@ -1182,16 +1182,15 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=cuml.global_settings.root_cm.output_type
+        output_type="cupy",
     ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    with cuml.internals.exit_internal_api():
-        if not include_self:
-            query = None
-        else:
-            query = X._fit_X
+    if not include_self:
+        query = None
+    else:
+        query = model._fit_X
 
-    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+    return model.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
