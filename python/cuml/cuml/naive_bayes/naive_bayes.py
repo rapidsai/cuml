@@ -454,7 +454,13 @@ class GaussianNB(_BaseNB):
             self.sigma_[:, :] -= self.epsilon_
 
         unique_y = cp.unique(y)
-        unique_y_in_classes = cp.in1d(unique_y, cp.array(self.classes_))
+        # Make sure classes_ is a CuPy array for comparison
+        classes_array = (
+            cp.asarray(self.classes_)
+            if hasattr(self.classes_, "to_output")
+            else self.classes_
+        )
+        unique_y_in_classes = cp.in1d(unique_y, classes_array)
 
         if not cp.all(unique_y_in_classes):
             raise ValueError(
@@ -463,7 +469,44 @@ class GaussianNB(_BaseNB):
                 % (unique_y[~unique_y_in_classes], self.classes_)
             )
 
-        self.theta_, self.sigma_ = self._update_mean_variance(X, Y)
+        # Ensure y is a CuPy array for indexing
+        y_array = cp.asarray(y) if hasattr(y, "to_output") else y
+
+        # Convert sparse matrices to CSR for efficient row indexing
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X = X.tocsr()
+
+        # Update mean and variance for each class
+        # Following scikit-learn's approach: iterate through unique labels
+        for y_i in unique_y:
+            # Find the class index using CuPy searchsorted
+            i = int(cp.searchsorted(classes_array, y_i))
+            # Create boolean mask for this class and get indices
+            mask = y_array == y_i
+            indices = cp.where(mask)[0]
+
+            # Index X using integer indices (works efficiently with CSR)
+            X_i = X[indices, :]
+
+            if sample_weight is not None:
+                sw_i = sample_weight[indices]
+                N_i = float(sw_i.sum())
+            else:
+                sw_i = None
+                N_i = X_i.shape[0]
+
+            # Update mean and variance for this class
+            new_theta, new_sigma = self._update_mean_variance(
+                self.class_count_[i],
+                self.theta_[i, :],
+                self.sigma_[i, :],
+                X_i,
+                sw_i,
+            )
+
+            self.theta_[i, :] = new_theta
+            self.sigma_[i, :] = new_sigma
+            self.class_count_[i] += N_i
 
         self.sigma_[:, :] += self.epsilon_
 
@@ -511,178 +554,137 @@ class GaussianNB(_BaseNB):
             X, y, classes, _refit=False, sample_weight=sample_weight
         )
 
-    def _update_mean_variance(self, X, Y, sample_weight=None):
-        if sample_weight is None:
-            sample_weight = cp.zeros(0)
+    @staticmethod
+    def _update_mean_variance(n_past, mu, var, X, sample_weight=None):
+        """Compute online update of Gaussian mean and variance.
 
-        labels_dtype = self.classes_.dtype
+        This is a direct port of scikit-learn's implementation to CuPy,
+        with efficient handling of both dense and sparse matrices.
+        Given starting sample count, mean, and variance, a new set of
+        points X, and optionally sample weights, return the updated mean and
+        variance.
 
-        mu = self.theta_
-        var = self.sigma_
+        Parameters
+        ----------
+        n_past : float
+            Number of samples represented in old mean and variance.
+        mu : cupy.ndarray of shape (n_features,)
+            Means for Gaussians in original set.
+        var : cupy.ndarray of shape (n_features,)
+            Variances for Gaussians in original set.
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of shape (n_samples, n_features)
+            New data points. Can be dense or sparse.
+        sample_weight : cupy.ndarray of shape (n_samples,), optional
+            Weights applied to individual samples.
 
-        early_return = self.class_count_.sum() == 0
-        n_past = cp.expand_dims(self.class_count_, axis=1).copy()
-        tpb = 32
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
+        Returns
+        -------
+        total_mu : cupy.ndarray of shape (n_features,)
+            Updated mean for each Gaussian over the combined set.
+        total_var : cupy.ndarray of shape (n_features,)
+            Updated variance for each Gaussian over the combined set.
+        """
         if X.shape[0] == 0:
             return mu, var
 
-        # Make sure Y is cp array not CumlArray
-        Y = cp.asarray(Y)
+        # Compute (potentially weighted) mean and variance of new datapoints
+        if sample_weight is not None:
+            n_new = float(sample_weight.sum())
+            if cp.isclose(n_new, 0.0):
+                return mu, var
 
-        new_mu = cp.zeros(
-            (self.n_classes_, self.n_features_), order="F", dtype=X.dtype
-        )
-        new_var = cp.zeros(
-            (self.n_classes_, self.n_features_), order="F", dtype=X.dtype
-        )
-        class_counts = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
-        if cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
-
-            count_features_coo = count_features_coo_kernel(
-                X.dtype, labels_dtype
-            )
-
-            # Run once for averages
-            count_features_coo(
-                (math.ceil(X.nnz / tpb),),
-                (tpb,),
-                (
-                    new_mu,
-                    X.row,
-                    X.col,
-                    X.data,
-                    X.nnz,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    False,
-                ),
-            )
-
-            # Run again for variance
-            count_features_coo(
-                (math.ceil(X.nnz / tpb),),
-                (tpb,),
-                (
-                    new_var,
-                    X.row,
-                    X.col,
-                    X.data,
-                    X.nnz,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    True,
-                ),
-            )
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse weighted mean - avoid densification
+                # X.T @ sample_weight gives sum of weighted features
+                new_mu = cp.asarray((X.T.dot(sample_weight) / n_new)).ravel()
+                # Sparse weighted variance using E[X²] - E[X]²
+                # This avoids creating a dense difference matrix
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(
+                        (X_squared.T.dot(sample_weight) / n_new)
+                    ).ravel()
+                    - new_mu**2
+                )
+            else:
+                # Dense weighted case
+                new_mu = cp.average(X, axis=0, weights=sample_weight)
+                new_var = cp.average(
+                    (X - new_mu) ** 2, axis=0, weights=sample_weight
+                )
         else:
-            count_features_dense = count_features_dense_kernel(
-                X.dtype, labels_dtype
-            )
+            n_new = X.shape[0]
 
-            # Run once for averages
-            count_features_dense(
-                (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-                (tpb, tpb, 1),
-                (
-                    new_mu,
-                    X,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    False,
-                    X.flags["C_CONTIGUOUS"],
-                    False,
-                ),
-            )
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse unweighted - efficient for sparse matrices
+                # mean() works efficiently on sparse matrices
+                new_mu = cp.asarray(X.mean(axis=0)).ravel()
+                # Variance: E[X²] - E[X]² (avoids creating dense diff matrix)
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(X_squared.mean(axis=0)).ravel() - new_mu**2
+                )
+            else:
+                # Dense unweighted case
+                new_var = cp.var(X, axis=0)
+                new_mu = cp.mean(X, axis=0)
 
-            # Run again for variance
-            count_features_dense(
-                (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-                (tpb, tpb, 1),
-                (
-                    new_var,
-                    X,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    True,
-                    X.flags["C_CONTIGUOUS"],
-                    False,
-                ),
-            )
-
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes(
-            (math.ceil(n_rows / tpb),), (tpb,), (class_counts, n_rows, Y)
-        )
-
-        self.class_count_ += class_counts
-        # Avoid any division by zero
-        class_counts = cp.expand_dims(class_counts, axis=1)
-        class_counts += cp.finfo(X.dtype).eps
-
-        new_mu /= class_counts
-
-        # Construct variance from sum squares
-        new_var = (new_var / class_counts) - new_mu**2
-
-        if early_return:
+        if n_past == 0:
             return new_mu, new_var
 
-        # Compute (potentially weighted) mean and variance of new datapoints
-        if sample_weight.shape[0] > 0:
-            n_new = float(sample_weight.sum())
-        else:
-            n_new = class_counts
+        n_total = float(n_past + n_new)
 
-        n_total = n_past + n_new
-        total_mu = (new_mu * n_new + mu * n_past) / n_total
+        # Combine mean of old and new data
+        total_mu = (n_new * new_mu + n_past * mu) / n_total
 
-        old_ssd = var * n_past
+        # Combine variance using sum-of-squared-differences
+        old_ssd = n_past * var
         new_ssd = n_new * new_var
-
-        ssd_sum = old_ssd + new_ssd
-        combined_feature_counts = n_new * n_past / n_total
-        mean_adj = (mu - new_mu) ** 2
-
-        total_ssd = ssd_sum + combined_feature_counts * mean_adj
-
+        total_ssd = (
+            old_ssd + new_ssd + (n_new * n_past / n_total) * (mu - new_mu) ** 2
+        )
         total_var = total_ssd / n_total
+
         return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
-        joint_log_likelihood = []
+        """Calculate the posterior log probability of samples for each class.
 
-        for i in range(len(self.classes_)):
+        This is a more efficient implementation using CuPy broadcasting,
+        following scikit-learn's approach.
+        """
+        n_samples, n_features = X.shape
+        n_classes = len(self.classes_)
+
+        # Pre-compute log of 2*pi*sigma for all classes at once
+        # Shape: (n_classes, n_features)
+        log_2pi_sigma = cp.log(2.0 * cp.pi * self.sigma_)
+
+        # Initialize joint log likelihood array
+        joint_log_likelihood = cp.zeros((n_samples, n_classes))
+
+        for i in range(n_classes):
             jointi = cp.log(self.class_prior[i])
 
-            n_ij = -0.5 * cp.sum(cp.log(2.0 * cp.pi * self.sigma_[i, :]))
+            # Compute the constant term for this class
+            n_ij = -0.5 * cp.sum(log_2pi_sigma[i, :])
 
-            centered = (X - self.theta_[i, :]) ** 2
-            zvals = centered / self.sigma_[i, :]
-            summed = cp.sum(zvals, axis=1)
+            # Compute squared Mahalanobis distance efficiently
+            # (X - theta[i])^2 / sigma[i]
+            diff = (
+                X - self.theta_[i, :]
+            )  # Broadcasting: (n_samples, n_features)
+            scaled_diff_sq = (diff**2) / self.sigma_[i, :]
 
-            n_ij = -(0.5 * summed) + n_ij
-            joint_log_likelihood.append(jointi + n_ij)
+            # Sum over features for each sample
+            mahalanobis = -0.5 * cp.sum(scaled_diff_sq, axis=1)
 
-        return cp.array(joint_log_likelihood).T
+            # Combine all terms
+            joint_log_likelihood[:, i] = jointi + n_ij + mahalanobis
+
+        return joint_log_likelihood
 
     @classmethod
     def _get_param_names(cls):
@@ -720,6 +722,57 @@ class _BaseDiscreteNB(_BaseNB):
         self.handle = None
 
     def _check_X_y(self, X, y):
+        """
+        Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
+        Common validation for all discrete naive bayes estimators.
+        """
+        n_samples_X = X.shape[0]
+
+        n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
+
+        if n_samples_X != n_samples_y:
+            raise ValueError(
+                f"X and y have incompatible shapes. "
+                f"X has {n_samples_X} samples, but y has {n_samples_y} samples."
+            )
+
+        if n_samples_X == 0:
+            raise ValueError("X has 0 samples, cannot fit model on empty data")
+
+        if X.size == 0:
+            raise ValueError("X cannot be empty")
+
+        if len(X.shape) != 2:
+            raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+
+        if X.shape[0] < 1 or X.shape[1] < 1:
+            raise ValueError(
+                f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+            )
+
+        if y.size == 0:
+            raise ValueError("y cannot be empty")
+
+        # Ensure y is 1D or can be squeezed to 1D
+        if len(y.shape) > 2:
+            raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+
+        if len(y.shape) == 2 and y.shape[1] != 1:
+            raise ValueError(
+                f"y must be a column vector if 2D, got shape {y.shape}"
+            )
+
+        # Check for NaN or Inf values in floating point data
+        if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
+            if cupyx.scipy.sparse.isspmatrix(X):
+                if X.data.size > 0 and (
+                    cp.any(cp.isnan(X.data)) or cp.any(cp.isinf(X.data))
+                ):
+                    raise ValueError("Input X contains NaN or infinite values")
+            else:
+                if cp.any(cp.isnan(X)) or cp.any(cp.isinf(X)):
+                    raise ValueError("Input X contains NaN or infinite values")
+
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
@@ -795,9 +848,20 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
+            try:
+                X = input_to_cupy_array(
+                    X,
+                    order="K",
+                    check_dtype=[cp.float32, cp.float64, cp.int32],
+                ).array
+            except Exception as e:
+                if "CUDA" in str(e) or "cuda" in str(e):
+                    raise RuntimeError(
+                        f"CUDA error during input conversion. "
+                        f"This may indicate GPU memory corruption. "
+                        f"Original error: {str(e)}"
+                    )
+                raise
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -841,6 +905,20 @@ class _BaseDiscreteNB(_BaseNB):
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
+
+        # Ensure all GPU operations complete before returning
+        # This is especially important for partial_fit in streaming scenarios
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors but log them if verbose
+                if self.verbose:
+                    import warnings
+
+                    warnings.warn(
+                        "GPU synchronization failed, continuing anyway"
+                    )
 
         return self
 
@@ -1282,12 +1360,22 @@ class BernoulliNB(_BaseDiscreteNB):
         return X
 
     def _check_X_y(self, X, y):
+        """
+        BernoulliNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
         X, y = super()._check_X_y(X, y)
+
+        # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
-            if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
-            else:
-                X = binarize(X, threshold=self.binarize)
+            try:
+                if cupyx.scipy.sparse.isspmatrix(X):
+                    X.data = binarize(X.data, threshold=self.binarize)
+                else:
+                    X = binarize(X, threshold=self.binarize)
+            except Exception as e:
+                raise ValueError(f"Error during binarization: {str(e)}")
+
         return X, y
 
     def _joint_log_likelihood(self, X):
@@ -1324,6 +1412,54 @@ class BernoulliNB(_BaseDiscreteNB):
         self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
             smoothed_cc.reshape(-1, 1)
         )
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier with enhanced error handling
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Weights applied to individual samples (1. for unweighted).
+
+        Returns
+        -------
+        self : object
+        """
+        # Reset internal state to ensure clean fit
+        self.fit_called_ = False
+
+        try:
+            # Call parent's fit through partial_fit
+            return super().fit(X, y, sample_weight)
+
+        except MemoryError as e:
+            # Handle CUDA memory errors specifically
+            if "CUDA error" in str(e) or "cudaError" in str(e):
+                raise RuntimeError(
+                    "CUDA memory error detected. This may be due to:\n"
+                    "1. Insufficient GPU memory\n"
+                    "2. Prior GPU memory corruption\n"
+                    "3. Invalid input data\n"
+                    "Try restarting your Python session or checking your input data.\n"
+                    f"Original error: {str(e)}"
+                )
+            else:
+                raise
+        except Exception as e:
+            # Reset state on error
+            self.fit_called_ = False
+            # Provide more context for other errors
+            raise type(e)(
+                f"Error in BernoulliNB.fit: {str(e)}\n"
+                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
+                f"y={getattr(y, 'shape', 'unknown')}"
+            ) from e
 
     @classmethod
     def _get_param_names(cls):
@@ -1588,15 +1724,26 @@ class CategoricalNB(_BaseDiscreteNB):
         )
 
     def _check_X_y(self, X, y):
+        """
+        CategoricalNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
+        X, y = super()._check_X_y(X, y)
+
+        # CategoricalNB-specific: Convert to int32 and check for negative values
         if cupyx.scipy.sparse.isspmatrix(X):
-            warnings.warn(
-                "X dtype is not int32. X will be "
-                "converted, which will increase memory consumption"
-            )
+            if X.dtype != cp.int32:
+                warnings.warn(
+                    "X dtype is not int32. X will be "
+                    "converted, which will increase memory consumption"
+                )
             X.data = X.data.astype(cp.int32)
+            # Check for empty sparse matrix
+            if X.data.size == 0:
+                raise ValueError("Sparse matrix X has no non-zero elements")
             x_min = X.data.min()
         else:
-            if X.dtype not in [cp.int32]:
+            if X.dtype != cp.int32:
                 warnings.warn(
                     "X dtype is not int32. X will be "
                     "converted, which will increase memory "
@@ -1606,8 +1753,10 @@ class CategoricalNB(_BaseDiscreteNB):
                     X, order="K", convert_to_dtype=cp.int32
                 ).array
             x_min = X.min()
+
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
+
         return X, y
 
     def _check_X(self, X):
