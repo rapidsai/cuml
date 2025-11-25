@@ -354,6 +354,19 @@ class SpectralClustering(Base):
         self.eigen_tol = eigen_tol
         self.affinity = affinity
 
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "n_clusters",
+            "n_components",
+            "random_state",
+            "n_neighbors",
+            "n_init",
+            "eigen_tol",
+            "affinity",
+        ]
+
     def fit_predict(self, X, y=None) -> CumlArray:
         """Perform spectral clustering on ``X`` and return cluster labels.
 
