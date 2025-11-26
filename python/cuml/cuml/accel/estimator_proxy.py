@@ -477,10 +477,10 @@ class ProxyBase(BaseEstimator):
     def _get_metadata_request(self):
         return self._cpu._get_metadata_request()
 
-    @classmethod
-    @functools.wraps(BaseEstimator._get_default_requests)
-    def _get_default_requests(cls):
-        return cls._cpu_class._get_default_requests()
+    # @classmethod
+    # @functools.wraps(BaseEstimator._get_default_requests)
+    # def _get_default_requests(cls):
+    #     return cls._cpu_class._get_default_requests()
 
     @property
     def _metadata_request(self):
