@@ -52,9 +52,9 @@ A few additional general notes:
   or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
   processing.
 
-- The accelerator is compatible with scikit-learn version 1.4 or higher. This
-  compatibility ensures that cuML's implementation of scikit-learn compatible
-  APIs works as expected.
+- The accelerator is tested to be compatible with scikit-learn versions 1.4
+  through 1.7. This ensures that cuML's implementation of scikit-learn
+  compatible APIs works as expected.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
   errors might present as C++ stacktraces instead of python errors.
