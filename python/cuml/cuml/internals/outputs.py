@@ -11,7 +11,6 @@ import numpy as np
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 
 __all__ = (
@@ -353,9 +352,6 @@ def reflect(
             skip=skip,
         )
 
-    # TODO: remove this once auto-decorating is ripped out
-    setattr(func, CUML_WRAPPED_FLAG, True)
-
     sig = inspect.signature(func, follow_wrapped=True)
     has_self = "self" in sig.parameters
 
@@ -437,28 +433,3 @@ def reflect(
         return res
 
     return inner
-
-
-def api_return_array(input_arg=default, get_output_type=False):
-    return reflect(array=None if not get_output_type else input_arg)
-
-
-def api_return_any():
-    return reflect(array=None, skip=True)
-
-
-def api_base_return_any():
-    return reflect(reset=True)
-
-
-def api_base_return_array(input_arg=default):
-    return reflect(array="self" if input_arg is None else input_arg)
-
-
-def api_base_fit_transform():
-    return reflect(reset=True)
-
-
-# TODO: investigate and remove these
-api_base_return_any_skipall = api_return_any()
-api_base_return_array_skipall = reflect

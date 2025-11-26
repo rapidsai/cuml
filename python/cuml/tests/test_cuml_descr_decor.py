@@ -45,27 +45,30 @@ class DummyTestEstimator(cuml.Base):
     def _set_input(self, X):
         self.input_any_ = X
 
-    @cuml.internals.api_base_return_any()
+    @cuml.internals.reflect(reset=True)
     def store_input(self, X):
         self.input_any_ = X
 
-    @cuml.internals.api_return_any()
+    @cuml.internals.reflect(skip=True)
     def get_input(self):
         return self.input_any_
 
-    # === Standard Functions ===
-    def fit(self, X, convert_dtype=True) -> "DummyTestEstimator":
+    @cuml.internals.reflect(reset=True)
+    def fit(self, X, convert_dtype=True):
         self._set_output_type(X)
         self._set_n_features_in(X)
         return self
 
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    @cuml.internals.reflect
+    def predict(self, X, convert_dtype=True):
         return X
 
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    @cuml.internals.reflect
+    def transform(self, X, convert_dtype=False):
         pass
 
-    def fit_transform(self, X, y=None) -> CumlArray:
+    @cuml.internals.reflect
+    def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
 
 
@@ -280,7 +283,7 @@ def test_return_array(input_arg: str):
     X_in = create_input(input_type_X, input_dtype_X, (10, 10), "F")
     Y_in = create_input(input_type_Y, input_dtype_Y, (10, 10), "F")
 
-    @cuml.internals.api_return_array(input_arg=input_arg, get_output_type=True)
+    @cuml.internals.reflect(array=input_arg)
     def test_func(X, y):
         return X
 

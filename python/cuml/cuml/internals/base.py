@@ -18,7 +18,7 @@ from cuml.internals.mixins import TagsMixin
 from cuml.internals.outputs import check_output_type
 
 
-class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
