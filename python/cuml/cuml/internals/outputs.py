@@ -22,12 +22,6 @@ __all__ = (
 )
 
 
-default = type(
-    "default",
-    (),
-    dict.fromkeys(["__repr__", "__reduce__"], lambda s: "default"),
-)()
-
 OUTPUT_TYPES = (
     "input",
     "numpy",
@@ -43,6 +37,7 @@ OUTPUT_TYPES = (
 
 
 def check_output_type(output_type: str) -> str:
+    """Validate and normalize an ``output_type`` value"""
     # normalize as lower, keeping original str reference to appease the sklearn
     # standard estimator checks as much as possible.
     if output_type != (temp := output_type.lower()):
@@ -58,74 +53,79 @@ def check_output_type(output_type: str) -> str:
 
 
 def set_global_output_type(output_type):
-    """
-    Method to set cuML's single GPU estimators global output type.
-    It will be used by all estimators unless overridden in their initialization
-    with their own output_type parameter. Can also be overridden by the context
-    manager method :func:`using_output_type`.
+    """Set the global output type.
+
+    This output type will be used by functions and estimator methods.
+
+    Note that instead of setting globally, an output type may be set
+    contextually using :func:`using_output_type`, or on the estimator itself
+    with the ``output_type`` parameter.
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
+    output_type : {'input', 'cupy', 'numpy', 'cudf', 'pandas', None}
         Desired output type of results and attributes of the estimators.
 
-        * ``'input'`` will mean that the parameters and methods will mirror the
-          format of the data sent to the estimators/methods as much as
-          possible. Specifically:
+        * ``None``: No globally configured output type. This is the same as
+          ``'input'``, except in cases where an estimator explicitly sets
+          an ``output_type``.
 
-          +---------------------------------------+--------------------------+
-          | Input type                            | Output type              |
-          +=======================================+==========================+
-          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
-          +---------------------------------------+--------------------------+
-          | NumPy arrays                          | NumPy arrays             |
-          +---------------------------------------+--------------------------+
-          | Pandas DataFrame or Series            | NumPy arrays             |
-          +---------------------------------------+--------------------------+
-          | Numba device arrays                   | Numba device arrays      |
-          +---------------------------------------+--------------------------+
-          | CuPy arrays                           | CuPy arrays              |
-          +---------------------------------------+--------------------------+
-          | Other `__cuda_array_interface__` objs | CuPy arrays              |
-          +---------------------------------------+--------------------------+
+        * ``'input'``: returns arrays of the same type as the inputs to the
+          function or method. Fitted attributes will be of the same array type
+          as ``X``.
 
-        * ``'cudf'`` will return cuDF Series for single dimensional results and
-          DataFrames for the rest.
+        * ``'cupy'``: returns ``cupy`` arrays.
 
-        * ``'cupy'`` will return CuPy arrays.
+        * ``'numpy'``: returns ``numpy`` arrays.
 
-        * ``'numpy'`` will return NumPy arrays.
+        * ``'cudf'``: returns ``cudf.Series`` for single dimensional results
+          and ``cudf.DataFrame`` otherwise.
+
+        * ``'pandas'``: returns ``pandas.Series`` for single dimensional results
+          and ``pandas.DataFrame`` otherwise.
+
+    See Also
+    --------
+    cuml.using_output_type
+
+    Notes
+    -----
+    ``cupy`` is the most efficient output type, as it supports flexible memory
+    layouts and doesn't require device <-> host transfers.
+
+    ``cudf`` has slightly more overhead for single dimensional outputs. For two
+    dimensional outputs additional copies may be needed due to memory layout
+    requirements of ``cudf.DataFrame``.
+
+    ``numpy`` and ``pandas`` have a more significant overhead as they require
+    device <-> host transfers. Whether that overhead matters is of course
+    application specific.
 
     Examples
     --------
     >>> import cuml
     >>> import cupy as cp
-    >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
-    >>> ary = cp.asarray(ary)
-    >>> prev_output_type = cuml.global_settings.output_type
-    >>> cuml.set_global_output_type('cudf')
-    >>> dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
-    >>> dbscan_float.fit(ary)
-    DBSCAN()
-    >>>
-    >>> # cuML output type
-    >>> dbscan_float.labels_
-    0    0
-    1    1
-    2    2
-    dtype: int32
-    >>> type(dbscan_float.labels_)
-    <class 'cudf.core.series.Series'>
-    >>> cuml.set_global_output_type(prev_output_type)
+    >>> import cudf
+    >>> original_output_type = cuml.global_settings.output_type
 
-    Notes
-    -----
-    ``'cupy'`` and ``'numba'`` options (as well as ``'input'`` when using Numba
-    and CuPy ndarrays for input) have the least overhead. cuDF add memory
-    consumption and processing time needed to build the Series and DataFrames.
-    ``'numpy'`` has the biggest overhead due to the need to transfer data to
-    CPU memory.
+    Fit a model with a cupy array. By default the fitted attributes will be
+    cupy arrays.
 
+    >>> X = cp.array([[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]])
+    >>> model = cuml.DBSCAN(eps=1.0, min_samples=1).fit(X)
+    >>> isinstance(model.labels_, cp.ndarray)
+    True
+
+    With a global output type set though, the fitted attributes will match
+    the configured output type.
+
+    >>> cuml.set_global_output_type("cudf")
+    >>> isinstance(model.labels_, cudf.Series)
+    True
+
+    Reset the output type back to its original value.
+
+    >>> cuml.set_global_output_type(original_output_type)
     """
     if output_type is not None:
         output_type = check_output_type(output_type)
@@ -133,72 +133,54 @@ def set_global_output_type(output_type):
 
 
 class using_output_type:
-    """
-    Context manager method to set cuML's global output type inside a `with`
-    statement. It gets reset to the prior value it had once the `with` code
-    block is executer.
+    """Configure the output type within a context.
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
+    output_type : {'input', 'cupy', 'numpy', 'cudf', 'pandas', None}
         Desired output type of results and attributes of the estimators.
 
-        * ``'input'`` will mean that the parameters and methods will mirror the
-          format of the data sent to the estimators/methods as much as
-          possible. Specifically:
+        * ``None``: No globally configured output type. This is the same as
+          ``'input'``, except in cases where an estimator explicitly sets
+          an ``output_type``.
 
-          +---------------------------------------+--------------------------+
-          | Input type                            | Output type              |
-          +=======================================+==========================+
-          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
-          +---------------------------------------+--------------------------+
-          | NumPy arrays                          | NumPy arrays             |
-          +---------------------------------------+--------------------------+
-          | Pandas DataFrame or Series            | NumPy arrays             |
-          +---------------------------------------+--------------------------+
-          | Numba device arrays                   | Numba device arrays      |
-          +---------------------------------------+--------------------------+
-          | CuPy arrays                           | CuPy arrays              |
-          +---------------------------------------+--------------------------+
-          | Other `__cuda_array_interface__` objs | CuPy arrays              |
-          +---------------------------------------+--------------------------+
+        * ``'input'``: returns arrays of the same type as the inputs to the
+          function or method. Fitted attributes will be of the same array type
+          as ``X``.
 
-        * ``'cudf'`` will return cuDF Series for single dimensional results and
-          DataFrames for the rest.
+        * ``'cupy'``: returns ``cupy`` arrays.
 
-        * ``'cupy'`` will return CuPy arrays.
+        * ``'numpy'``: returns ``numpy`` arrays.
 
-        * ``'numpy'`` will return NumPy arrays.
+        * ``'cudf'``: returns ``cudf.Series`` for single dimensional results
+          and ``cudf.DataFrame`` otherwise.
+
+        * ``'pandas'``: returns ``pandas.Series`` for single dimensional results
+          and ``pandas.DataFrame`` otherwise.
+
+    See Also
+    --------
+    cuml.set_global_output_type
 
     Examples
     --------
     >>> import cuml
     >>> import cupy as cp
-    >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
-    >>> ary = cp.asarray(ary)
-    >>> with cuml.using_output_type('cudf'):
-    ...     dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
-    ...     dbscan_float.fit(ary)
-    ...
-    ...     print("cuML output inside 'with' context")
-    ...     print(dbscan_float.labels_)
-    ...     print(type(dbscan_float.labels_))
-    ...
-    DBSCAN()
-    cuML output inside 'with' context
-    0    0
-    1    1
-    2    2
-    dtype: int32
-    <class 'cudf.core.series.Series'>
-    >>> # use cuml again outside the context manager
-    >>> dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
-    >>> dbscan_float2.fit(ary)
-    DBSCAN()
-    >>> # cuML default output
-    >>> dbscan_float2.labels_
-    array([0, 1, 2], dtype=int32)
-    >>> isinstance(dbscan_float2.labels_, cp.ndarray)
+    >>> import cudf
+
+    Fit a model with a cupy array. By default the fitted attributes will be
+    cupy arrays.
+
+    >>> X = cp.array([[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]])
+    >>> model = cuml.DBSCAN(eps=1.0, min_samples=1).fit(X)
+    >>> isinstance(model.labels_, cp.ndarray)
+    True
+
+    With a global output type set though, the fitted attributes will match
+    the configured output type.
+
+    >>> with cuml.using_output_type("cudf"):
+    ...     print(isinstance(model.labels_, cudf.Series))
     True
     """
 
@@ -309,23 +291,39 @@ def coerce_arrays(res, output_type):
 def reflect(
     func=None,
     *,
-    array=default,
-    model=default,
+    array=...,
+    model=...,
     reset=False,
     skip=False,
 ):
     """Mark a function or method as participating in the reflection system.
 
+    Functions and methods decorated with this get a few additional behaviors:
+
+    - They are run within an "internal API context". This mainly means that
+      reflected functions/methods or estimator fitted attributes will be
+      returned as ``CumlArray`` instances instead of their reflected types. If
+      this is the only behavior you want, decorate with ``reflect(skip=True)``.
+
+    - Their output type is converted to the proper output type following
+      standard cuml behavior. The default behavior covers most cases, but when
+      needed you may want to specify the ``model`` and/or ``array`` parameters
+      manually.
+
+    - For estimators, fit-like methods will store the required metadata like
+      ``_input_type`` to support cases like ``output_type="input"``. To enable
+      this for a method set ``reset=True``.
+
     Parameters
     ----------
     func : callable or None
         The function to be decorated, or None to curry to be applied later.
-    model : int, str, or None, default=default
+    model : int, str, or None, default=...
         The ``cuml.Base`` parameter to infer the reflected output type from. By
         default this will be ``'self'`` (if present), and ``None`` otherwise.
         Provide a parameter position or name to override. May also provide
         ``None`` to disable this inference entirely.
-    array : int, str, or None, default=default
+    array : int, str, or None, default=...
         The array-like parameter to infer the reflected output type from. By
         default this will be the first argument to the method or function
         (excluding ``'self'`` or ``model``), or ``None`` if there are no other
@@ -337,8 +335,10 @@ def reflect(
         Set to True for methods like ``fit`` that reset the reflected type on
         an estimator.
     skip : bool, default=False
-        Set to True to skip output processing for a method. This is mostly
-        useful if output processing will be handled manually.
+        Set to True to skip output type inference and processing for a method.
+        This is mostly useful if this step is unnecessary (but the function
+        should still run within an internal API context), or if output type
+        conversion will be handled manually.
     """
     # Local to avoid circular imports
     import cuml.accel
@@ -356,7 +356,7 @@ def reflect(
     has_self = "self" in sig.parameters
 
     # Normalize model to str | None
-    if model is default:
+    if model is ...:
         if skip and not reset:
             # We're skipping output processing and not resetting an estimator,
             # there's no need to touch input parameters at all
@@ -367,7 +367,7 @@ def reflect(
         model = _get_param(sig, model)
 
     # Normalize array to str | None
-    if array is default:
+    if array is ...:
         if skip and not reset:
             array = None
         else:

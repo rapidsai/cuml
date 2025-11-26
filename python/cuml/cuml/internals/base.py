@@ -19,68 +19,18 @@ from cuml.internals.outputs import check_output_type
 
 
 class Base(TagsMixin):
-    """
-    Base class for all the ML algos. It handles some of the common operations
-    across all algos. Every ML algo class exposed at cython level must inherit
-    from this class.
+    """Base class for cuml estimators.
 
-    Typical estimator design using Base requires three main things:
+    Subclasses should:
 
-    1. Call the base __init__ method explicitly from inheriting estimators in
-        their __init__.
+    - Define ``_get_param_names`` to extend the base implementation with
+      any additional parameter names.
 
-    2. Attributes that users will want to access, and are array-like should
-        use cuml.internals.array, and have a preceding underscore `_` before
-        the name the user expects. That way the __getattr__ of Base will
-        convert it automatically to the appropriate output format for the
-        user. For example, in DBSCAN the user expects to be able to access
-        `model.labels_`, so the code actually has an attribute
-        `model._labels_` that gets converted at the moment the user accesses
-        `labels_` automatically. No need for extra code in inheriting classes
-        as long as they follow that naming convention. It is recommended to
-        create the attributes in the constructor assigned to None, and
-        add a note for users that might look into the code to see what
-        attributes the class might have. For example, in KMeans:
+    - Decorate their ``fit`` method with ``cuml.internals.reflect(reset=True)``
+      to store their fitted input type.
 
-    .. code-block:: python
-
-        def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, output_type)
-
-            # initialize numeric variables
-
-            # internal array attributes
-            self._labels_ = None # accessed via estimator.labels_
-            self._cluster_centers_ = None # accessed via estimator.cluster_centers_  # noqa
-
-    3. To appropriately work for outputs mirroring the format of inputs of the
-        user when appropriate, the code in the inheriting estimator must call
-        the following methods, with input being the data sent by the user:
-
-    - `self._set_output_type(input)` in `fit` methods that modify internal
-        structures. This will allow users to receive the correct format when
-        accessing internal attributes of the class (eg. labels_ in KMeans).:
-
-    .. code-block:: python
-
-        def fit(self, X):
-            self._set_output_type(X)
-            # rest of the fit code
-
-    - `out_type = self._get_output_type(input)` in `predict`/`transform` style
-        methods, that don't modify class attributes. out_type then can be used
-        to return the correct format to the user. For example, in KMeans:
-
-    .. code-block:: python
-
-        def transform(self, X, convert_dtype=False):
-            out_type = self._get_output_type(X)
-            X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
-            preds = CumlArray.zeros(...)
-
-            # method code and call to C++ and whatever else is needed
-
-            return preds.to_output(out_type)
+    - Decorate methods that return array likes with ``cuml.internals.reflect``
+      to properly coerce outputs to the proper type.
 
     Parameters
     ----------
@@ -106,42 +56,34 @@ class Base(TagsMixin):
 
     .. code-block:: python
 
-        from cuml import Base
+        import cupy as cp
+        from cuml.internals import Base, reflect
 
-        # assuming this ML algo has separate 'fit' and 'predict' methods
         class MyAlgo(Base):
-            def __init__(self, ...):
-                super(MyAlgo, self).__init__(...)
-                # other setup logic
-
-            def fit(self, data, ...):
-                # check output format
-                self._check_output_type(data)
-                # train logic goes here
-
-            def predict(self, data, ...):
-                # check output format
-                self._check_output_type(data)
-                # inference logic goes here
+            def __init__(
+                self,
+                *,
+                param=123,
+                handle=None,
+                verbose=False,
+                output_type=None,
+            ):
+                super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+                self.param = param
 
             @classmethod
             def _get_param_names(cls):
-                # return a list of hyperparam names supported by this algo
+                return [*super()._get_param_names(), "param"]
 
-        # stream and handle example:
+            @reflect(reset=True)
+            def fit(self, X, y):
+                # Training logic goes here...
+                return self
 
-        stream = pylibraft.common.Stream()
-        handle = pylibraft.common.Handle(stream=stream)
-
-        algo = MyAlgo(handle=handle)
-        algo.fit(...)
-        result = algo.predict(...)
-
-        # final sync of all gpu-work launched inside this object
-        # this is same as `pylibraft.common.Stream.sync()` call, but safer in case
-        # the default stream inside the `raft::handle_t` is being used
-        base.handle.sync()
-        del base  # optional!
+            @reflect
+            def predict(self, X):
+                # Inference logic goes here...
+                return cp.ones(len(X), dtype="int32")
     """
 
     def __init__(
