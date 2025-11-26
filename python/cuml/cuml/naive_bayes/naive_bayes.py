@@ -396,6 +396,13 @@ class GaussianNB(_BaseNB):
             check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
+        if sample_weight is not None:
+            sample_weight = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=(cp.float32 if convert_dtype else False),
+                check_dtype=[cp.float32, cp.float64],
+                check_rows=X.shape[0],
+            ).array
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
