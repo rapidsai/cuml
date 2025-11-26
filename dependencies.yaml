@@ -330,7 +330,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rich
-          - &scikit_learn scikit-learn>=1.4
+          - &scikit_learn scikit-learn>=1.4a0
           - *treelite
       - output_types: requirements
         packages:
