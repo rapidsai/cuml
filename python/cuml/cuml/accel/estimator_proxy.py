@@ -7,12 +7,15 @@ import functools
 from typing import Any
 
 import sklearn
+from packaging.version import Version
 from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
 from sklearn.utils._set_output import _wrap_data_with_container
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 def is_proxy(instance_or_class) -> bool:
@@ -477,10 +480,22 @@ class ProxyBase(BaseEstimator):
     def _get_metadata_request(self):
         return self._cpu._get_metadata_request()
 
-    @classmethod
-    @functools.wraps(BaseEstimator._get_default_requests)
-    def _get_default_requests(cls):
-        return cls._cpu_class._get_default_requests()
+    if SKLEARN_18:
+
+        @classmethod
+        @functools.wraps(
+            BaseEstimator._get_class_level_metadata_request_values
+        )
+        def _get_class_level_metadata_request_values(cls, method):
+            return cls._cpu_class._get_class_level_metadata_request_values(
+                method
+            )
+    else:
+
+        @classmethod
+        @functools.wraps(BaseEstimator._get_default_requests)
+        def _get_default_requests(cls):
+            return cls._cpu_class._get_default_requests()
 
     @property
     def _metadata_request(self):

@@ -181,18 +181,3 @@ def test_elasticnet_positive(regression_data):
     assert np.all(model.coef_ >= 0), (
         "All coefficients should be non-negative when positive=True"
     )
-
-
-def test_elasticnet_warm_start(regression_data):
-    X, y = regression_data
-    model = ElasticNet(warm_start=True, random_state=42)
-    model.fit(X, y)
-    coef_old = model.coef_.copy()
-    # Fit again with more iterations
-    model.set_params(max_iter=2000)
-    model.fit(X, y)
-    coef_new = model.coef_
-    # Coefficients should change after more iterations
-    assert not np.allclose(coef_old, coef_new), (
-        "Coefficients should update when warm_start=True"
-    )

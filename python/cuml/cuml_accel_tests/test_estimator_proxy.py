@@ -30,7 +30,8 @@ from sklearn.pipeline import Pipeline
 
 from cuml.accel import is_proxy
 
-SKLEARN_VERSION = Version(sklearn.__version__)
+SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 def test_is_proxy():
@@ -70,15 +71,14 @@ def test_method_metadata():
 
 
 def test_sklearn_introspect_estimator_type():
-    assert LogisticRegression._estimator_type == "classifier"
-    assert LogisticRegression()._estimator_type == "classifier"
+    if not SKLEARN_18:
+        assert LogisticRegression._estimator_type == "classifier"
+        assert LogisticRegression()._estimator_type == "classifier"
     assert is_classifier(LogisticRegression())
     assert is_regressor(LinearRegression())
 
 
-@pytest.mark.skipif(
-    SKLEARN_VERSION < Version("1.6"), reason="sklearn >= 1.6 only"
-)
+@pytest.mark.skipif(not SKLEARN_16, reason="sklearn >= 1.6 only")
 def test_sklearn_utils_get_tags():
     """sklearn.utils.get_tags was added in sklearn 1.6"""
     from sklearn.utils import get_tags
@@ -87,9 +87,7 @@ def test_sklearn_utils_get_tags():
     assert get_tags(model) == get_tags(model._cpu)
 
 
-@pytest.mark.skipif(
-    SKLEARN_VERSION >= Version("1.6"), reason="sklearn < 1.6 only"
-)
+@pytest.mark.skipif(SKLEARN_16, reason="sklearn < 1.6 only")
 def test_BaseEstimator__get_tags():
     model = LogisticRegression()
     assert model._get_tags() == model._cpu._get_tags()
@@ -714,9 +712,15 @@ def test_metadata_routing(metadata_routing, fitted):
     check(model._get_metadata_request())
     check(model._metadata_request)
 
-    # Smoketest _get_default_requests
-    defaults = LogisticRegression._get_default_requests()
-    assert defaults.fit.requests.get("sample_weight") is None
+    # Smoketest internal methods
+    if SKLEARN_18:
+        requests = LogisticRegression._get_class_level_metadata_request_values(
+            "fit"
+        )
+        assert requests.get("sample_weight") is None
+    else:
+        defaults = LogisticRegression._get_default_requests()
+        assert defaults.fit.requests.get("sample_weight") is None
 
     # No method caused host transfer
     assert not hasattr(model._cpu, "n_features_in_")

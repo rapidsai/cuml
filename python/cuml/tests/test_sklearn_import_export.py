@@ -6,10 +6,12 @@ import cupy as cp
 import numpy as np
 import pytest
 import scipy.sparse
+import sklearn
 import sklearn.kernel_ridge
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
+from packaging.version import Version
 from sklearn.cluster import KMeans as SkKMeans
 from sklearn.datasets import (
     make_blobs,
@@ -48,6 +50,9 @@ from cuml.testing.utils import array_equal
 ###############################################################################
 
 
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+
 @pytest.fixture
 def random_state():
     return 42
@@ -62,18 +67,7 @@ def assert_roundtrip_consistency(original, roundtrip, exclude=()):
         original_params.pop(name, None)
         roundtrip_params.pop(name, None)
 
-    def dict_diff(a, b):
-        # Get all keys from both dictionaries
-        all_keys = set(a.keys()) | set(b.keys())
-        differences = {}
-        for key in all_keys:
-            if a.get(key) != b.get(key):
-                differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
-        return differences
-
-    assert original_params == roundtrip_params, (
-        f"Differences found: {dict_diff(original_params, roundtrip_params)}"
-    )
+    assert original_params == roundtrip_params
 
     # Next check attributes are consistent. We don't check for equality
     # since that might change. We do check for consistency in attribute
@@ -459,6 +453,7 @@ def test_svc_multiclass_unsupported(random_state):
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("supervised", [False, True])
+@pytest.mark.skipif(SKLEARN_18, reason="umap requires sklearn < 1.8.0")
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
     X, y = make_blobs(n_samples=200, random_state=random_state)
@@ -824,6 +819,7 @@ def test_random_forest_regressor(random_state, oob_score):
 
 @pytest.mark.parametrize("prediction_data", [False, True])
 @pytest.mark.parametrize("gen_min_span_tree", [False, True])
+@pytest.mark.skipif(SKLEARN_18, reason="hdbscan requires sklearn < 1.8.0")
 def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
     hdbscan = pytest.importorskip("hdbscan")
 
