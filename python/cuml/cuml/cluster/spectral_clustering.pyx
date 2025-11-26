@@ -231,25 +231,35 @@ def spectral_clustering(X,
     cdef bool precomputed = affinity == "precomputed"
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
-    with nogil:
-        if precomputed:
-            fit_predict(
-                handle_[0],
-                config,
-                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
-                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
-                make_device_vector_view(affinity_data_ptr, affinity_nnz),
-                make_device_vector_view(labels_ptr, n_samples)
-            )
+    try:
+        with nogil:
+            if precomputed:
+                fit_predict(
+                    handle_[0],
+                    config,
+                    make_device_vector_view(affinity_rows_ptr, affinity_nnz),
+                    make_device_vector_view(affinity_cols_ptr, affinity_nnz),
+                    make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                    make_device_vector_view(labels_ptr, n_samples)
+                )
+            else:
+                fit_predict(
+                    handle_[0],
+                    config,
+                    make_device_matrix_view[float, int, row_major](
+                        affinity_data_ptr, n_samples, n_features
+                    ),
+                    make_device_vector_view(labels_ptr, n_samples)
+                )
+    except RuntimeError as e:
+        error_msg = str(e).lower()
+        if "eigensolver couldn't converge" in error_msg:
+            raise RuntimeError(
+                "Spectral clustering failed to converge. "
+                "Ensure the input data has clear clustering structure."
+            ) from None
         else:
-            fit_predict(
-                handle_[0],
-                config,
-                make_device_matrix_view[float, int, row_major](
-                    affinity_data_ptr, n_samples, n_features
-                ),
-                make_device_vector_view(labels_ptr, n_samples)
-            )
+            raise
 
     return labels
 

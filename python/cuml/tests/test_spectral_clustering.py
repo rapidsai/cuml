@@ -336,6 +336,6 @@ def test_spectral_clustering_convergence_failure():
         random_state=42,
     )
 
-    # Expect a RuntimeError about eigensolver convergence
-    with pytest.raises(RuntimeError, match="eigensolver couldn't converge"):
+    # Expect a RuntimeError about convergence failure
+    with pytest.raises(RuntimeError, match="failed to converge"):
         model.fit_predict(X)
