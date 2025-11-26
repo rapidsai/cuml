@@ -4,9 +4,14 @@
 #
 
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_swiss_roll
 from sklearn.manifold import trustworthiness
 from umap import UMAP
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
 
 
 @pytest.fixture(scope="module")

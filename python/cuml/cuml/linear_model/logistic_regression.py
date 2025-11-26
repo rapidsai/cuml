@@ -4,6 +4,8 @@
 #
 import cupy as cp
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -24,6 +26,8 @@ from cuml.internals.interop import (
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 class LogisticRegression(
@@ -174,27 +178,51 @@ class LogisticRegression(
         ):
             raise UnsupportedOnGPU("`multi_class` is not supported")
 
+        penalty = model.penalty
+        l1_ratio = model.l1_ratio
+
+        # `penalty` was deprecated in sklearn 1.8 and will be removed in 1.10
+        if penalty == "deprecated":
+            if l1_ratio in (None, 0):
+                penalty = "l2"
+                l1_ratio = None
+            else:
+                penalty = "elasticnet"
+
         return {
-            "penalty": model.penalty,
+            "penalty": penalty,
+            "l1_ratio": l1_ratio,
             "tol": model.tol,
             "C": model.C,
             "fit_intercept": model.fit_intercept,
             "class_weight": model.class_weight,
             "max_iter": model.max_iter,
-            "l1_ratio": model.l1_ratio,
             "solver": "qn",
         }
 
     def _params_to_cpu(self):
+        # `penalty` was deprecated in sklearn 1.8 and will be removed in 1.10
+        if SKLEARN_18:
+            extra = {
+                "l1_ratio": {"l1": 1.0, "l2": 0.0, None: 0.0}.get(
+                    self.l1_ratio
+                ),
+                "C": np.inf if self.penalty is None else self.C,
+            }
+        else:
+            extra = {
+                "penalty": self.penalty,
+                "l1_ratio": self.l1_ratio,
+                "C": self.C,
+            }
+
         return {
-            "penalty": self.penalty,
             "tol": self.tol,
-            "C": self.C,
             "fit_intercept": self.fit_intercept,
             "class_weight": self.class_weight,
             "max_iter": self.max_iter,
-            "l1_ratio": self.l1_ratio,
             "solver": "lbfgs" if self.penalty in ("l2", None) else "saga",
+            **extra,
         }
 
     def _attrs_from_cpu(self, model):
