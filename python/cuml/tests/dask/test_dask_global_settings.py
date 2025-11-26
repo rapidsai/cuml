@@ -11,7 +11,6 @@ from dask import delayed
 
 import cuml
 from cuml import set_global_output_type, using_output_type
-from cuml.internals.api_context_managers import _using_mirror_output_type
 from cuml.internals.global_settings import (
     GlobalSettings,
     _global_settings_data,
@@ -62,31 +61,6 @@ def test_using_output_type():
     assert (delayed(all)(results)).compute()
 
 
-def test_using_mirror_output_type():
-    """Ensure that _using_mirror_output_type is thread-safe"""
-
-    def check_correct_type(index):
-        # Force a race condition
-        if index == 0:
-            sleep(0.1)
-        if index % 2 == 0:
-            with _using_mirror_output_type():
-                sleep(0.5)
-                return cuml.global_settings.output_type == "mirror"
-        else:
-            output_type = test_output_types_str[index]
-            with using_output_type(output_type):
-                sleep(0.5)
-                return cuml.global_settings.output_type == output_type
-
-    results = [
-        delayed(check_correct_type)(index)
-        for index in range(len(test_output_types_str))
-    ]
-
-    assert (delayed(all)(results)).compute()
-
-
 def test_global_settings_data():
     """Ensure that GlobalSettingsData objects are properly initialized
     per-thread"""
@@ -102,7 +76,10 @@ def test_global_settings_data():
         sleep(0.5)
         return (
             test_global_settings_data_obj.shared_state["_output_type"] is None
-            and test_global_settings_data_obj.shared_state["root_cm"] is None
+            and test_global_settings_data_obj.shared_state[
+                "_external_output_type"
+            ]
+            is False
             and _global_settings_data.testing_index == index
         )
 

@@ -6,7 +6,6 @@ import cudf
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
 
 
@@ -45,7 +44,6 @@ def _input_to_cupy_or_cudf_series(x, check_rows=None):
     return out
 
 
-@cuml.internals.api_return_any()
 def accuracy_score(y_true, y_pred, *, sample_weight=None, normalize=True):
     """
     Accuracy classification score.
@@ -104,7 +102,6 @@ def accuracy_score(y_true, y_pred, *, sample_weight=None, normalize=True):
         return float(cp.count_nonzero(correct))
 
 
-@cuml.internals.api_return_any()
 def log_loss(
     y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None
 ) -> float:

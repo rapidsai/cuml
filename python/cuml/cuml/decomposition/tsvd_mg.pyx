@@ -2,14 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -56,7 +55,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def _mg_fit_transform(
         self, X_ptr, n_rows, n_cols, dtype, trans_ptr, input_desc_ptr, trans_desc_ptr
     ):

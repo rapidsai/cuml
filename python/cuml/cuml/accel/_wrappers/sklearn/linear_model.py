@@ -9,7 +9,7 @@ from packaging.version import Version
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.array import CumlArray
-from cuml.internals.memory_utils import using_output_type
+from cuml.internals.outputs import using_output_type
 
 __all__ = (
     "LinearRegression",

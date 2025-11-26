@@ -4,7 +4,6 @@
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.common.classification import (
     decode_labels,
     preprocess_labels,
@@ -23,6 +22,7 @@ from cuml.internals.input_utils import (
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import exit_internal_api, reflect
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -298,7 +298,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -313,7 +313,7 @@ class SVC(SVMBase, ClassifierMixin):
         self._support_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -327,7 +327,7 @@ class SVC(SVMBase, ClassifierMixin):
     def intercept_(self, value):
         self._intercept_ = value
 
-    def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
+    def _fit_multiclass(self, X, y, sample_weight):
         if sample_weight is not None:
             warn(
                 "Sample weights are currently ignored for multi class classification"
@@ -380,7 +380,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight):
         from sklearn.calibration import CalibratedClassifierCV
         from sklearn.model_selection import StratifiedKFold
 
@@ -407,7 +407,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_api():
             cccv.fit(X, y, sample_weight=sample_weight)
 
         cal_clf = cccv.calibrated_classifiers_[0]
@@ -439,6 +439,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -502,7 +503,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -517,7 +518,7 @@ class SVC(SVMBase, ClassifierMixin):
             res = self.decision_function(X, convert_dtype=convert_dtype)
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_api():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -530,6 +531,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -586,6 +588,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         }
     )
+    @reflect
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -603,6 +606,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.
