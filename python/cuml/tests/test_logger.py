@@ -11,22 +11,23 @@ import cuml.internals.logger as logger
 
 
 @pytest.mark.parametrize(
-    "verbose, level, verbose_numeric",
+    "verbose, level",
     [
-        (False, logger.level_enum.info, 4),
-        (True, logger.level_enum.debug, 5),
-        (0, logger.level_enum.off, 0),
-        (1, logger.level_enum.critical, 1),
-        (2, logger.level_enum.error, 2),
-        (3, logger.level_enum.warn, 3),
-        (4, logger.level_enum.info, 4),
-        (5, logger.level_enum.debug, 5),
-        (6, logger.level_enum.trace, 6),
+        (False, logger.level_enum.info),
+        (True, logger.level_enum.debug),
+        (-1, logger.level_enum.off),
+        (0, logger.level_enum.off),
+        (1, logger.level_enum.critical),
+        (2, logger.level_enum.error),
+        (3, logger.level_enum.warn),
+        (4, logger.level_enum.info),
+        (5, logger.level_enum.debug),
+        (6, logger.level_enum.trace),
+        (10, logger.level_enum.trace),
     ],
 )
-def test_verbose_to_from_level(verbose, level, verbose_numeric):
+def test_verbose_to_level(verbose, level):
     assert logger._verbose_to_level(verbose) == level
-    assert logger._verbose_from_level(level) == verbose_numeric
 
 
 def test_logger():

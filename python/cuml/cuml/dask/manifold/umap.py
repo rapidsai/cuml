@@ -13,6 +13,19 @@ class UMAP(BaseEstimator, DelayedTransformMixin):
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
 
+    **Important:** This Dask wrapper is designed exclusively for distributed
+    inference; you must first train a `cuml.UMAP` model on a single GPU and
+    then provide the trained model to this wrapper for distributed transform
+    operations. Distributed training is not supported.
+
+    Parameters
+    ----------
+    model : cuml.UMAP, required
+        A **fitted** single-GPU UMAP model instance. The model must be trained
+        before passing it to this wrapper.
+    client : dask.distributed.Client, optional
+        Dask client to use
+
     Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 
     Examples
@@ -58,23 +71,8 @@ class UMAP(BaseEstimator, DelayedTransformMixin):
 
     Notes
     -----
-    This module is heavily based on Leland McInnes' reference UMAP package
-    [1]_.
-
-    However, there are a number of differences and features that are
-    not yet implemented in `cuml.umap`:
-
-    * Using a non-Euclidean distance metric (support for a fixed set
-      of non-Euclidean metrics is planned for an upcoming release).
-    * Using a pre-computed pairwise distance matrix (under consideration
-      for future releases)
-    * Manual initialization of initial embedding positions
-
-    In addition to these missing features, you should expect to see
-    the final embeddings differing between `cuml.umap` and the reference
-    UMAP.
-
-    **Known issue:** If a UMAP model has not yet been fit, it cannot be pickled
+    The single-GPU `cuml.UMAP` module is heavily based on Leland McInnes'
+    reference UMAP package [1]_.
 
     References
     ----------

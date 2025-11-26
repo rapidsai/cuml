@@ -187,7 +187,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease",
             "max_batch_size",
             "random_state",
-            "criterion",
             "n_streams",
             "oob_score",
             "handle",
@@ -421,7 +420,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef uintptr_t y_ptr = y.ptr
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
-        cdef level_enum verbose = <level_enum> self.verbose
+        cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
         if self.max_depth <= 0:

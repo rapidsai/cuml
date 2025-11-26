@@ -2,11 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-
-import logging
 import sys
 
 
@@ -23,6 +18,7 @@ cdef void _log_callback(int lvl, const char * msg) with gil:
     """
     print(msg.decode('utf-8'), end='')
 
+
 cdef void _log_flush() with gil:
     """
     Default spdlogs callback function to flush logs
@@ -38,12 +34,7 @@ def _verbose_to_level(verbose: bool | int) -> level_enum:
     elif verbose is False:
         return level_enum.info
     else:
-        return level_enum(6 - verbose)
-
-
-def _verbose_from_level(level: level_enum) -> int:
-    """Convert a `level_enum` back into an equivalent `verbose` parameter value."""
-    return 6 - int(level)
+        return level_enum(min(max(6 - verbose, 0), 6))
 
 
 cdef class LogLevelSetter:
@@ -179,7 +170,7 @@ def should_log_for(level):
     return default_logger().should_log(level)
 
 
-def _log(level_enum lvl, msg, default_func):
+def _log(level_enum lvl, msg):
     """
     Internal function to log a message at a given level.
 
@@ -189,8 +180,6 @@ def _log(level_enum lvl, msg, default_func):
         Logging level to be set.
     msg : str
         Message to be logged.
-    default_func : function
-        Default logging function to be used if GPU build is disabled.
     """
     cdef string s = msg.encode("UTF-8")
     default_logger().log(lvl, s)
@@ -200,115 +189,73 @@ def trace(msg):
     """
     Logs a trace message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.trace("Hello world! This is a trace message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
     # No trace level in Python so we use the closest thing, debug.
-    _log(level_enum.trace, msg, logging.debug)
+    _log(level_enum.trace, msg)
 
 
 def debug(msg):
     """
     Logs a debug message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.debug("Hello world! This is a debug message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
-    _log(level_enum.debug, msg, logging.debug)
+    _log(level_enum.debug, msg)
 
 
 def info(msg):
     """
     Logs an info message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.info("Hello world! This is a info message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
-    _log(level_enum.info, msg, logging.info)
+    _log(level_enum.info, msg)
 
 
 def warn(msg):
     """
     Logs a warning message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.warn("Hello world! This is a warning message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
-    _log(level_enum.warn, msg, logging.warn)
+    _log(level_enum.warn, msg)
 
 
 def error(msg):
     """
     Logs an error message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.error("Hello world! This is a error message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
-    _log(level_enum.error, msg, logging.error)
+    _log(level_enum.error, msg)
 
 
 def critical(msg):
     """
     Logs a critical message, if it is enabled.
 
-    Examples
-    --------
-
-    .. code-block:: python
-
-                logger.critical("Hello world! This is a critical message")
-
     Parameters
     ----------
     msg : str
         Message to be logged.
     """
-    _log(level_enum.critical, msg, logging.critical)
+    _log(level_enum.critical, msg)
 
 
 def flush():
