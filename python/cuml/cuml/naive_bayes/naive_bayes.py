@@ -398,11 +398,8 @@ class GaussianNB(_BaseNB):
             check_dtype=expected_y_dtype,
         ).array
         if sample_weight is not None:
-            sample_weight = input_to_cupy_array(
-                sample_weight,
-                convert_to_dtype=np.float32,
-                check_rows=X.shape[0],
-            ).array
+            # XXX Hwo to use `input_to_cupy_array` here with `list` as input?
+            sample_weight = cp.asarray(sample_weight, dtype=np.float32)
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
