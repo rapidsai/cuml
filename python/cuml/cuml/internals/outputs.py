@@ -46,8 +46,8 @@ def check_output_type(output_type: str) -> str:
     if output_type != "cuml" and output_type not in OUTPUT_TYPES:
         valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
         raise ValueError(
-            f"output_type must be one of {valid_output_types}"
-            f" or None. Got: {output_type}"
+            f"`output_type` must be one of {valid_output_types}"
+            f" or None. Got: {output_type!r}"
         )
     return output_type
 
@@ -285,6 +285,11 @@ def coerce_arrays(res, output_type):
         # Return CumlArray/SparseCumlArray directly
         return res
 
+    if is_sparse:
+        # Coerce output_type to supported sparse types.
+        # Host types -> scipy, cupy otherwise.
+        output_type = "scipy" if output_type in ["numpy", "pandas"] else "cupy"
+
     return res.to_output(output_type=output_type)
 
 
@@ -353,7 +358,6 @@ def reflect(
         )
 
     sig = inspect.signature(func, follow_wrapped=True)
-    has_self = "self" in sig.parameters
 
     # Normalize model to str | None
     if model is ...:
@@ -362,7 +366,7 @@ def reflect(
             # there's no need to touch input parameters at all
             model = None
         else:
-            model = "self" if has_self else None
+            model = "self" if ("self" in sig.parameters) else None
     if model is not None:
         model = _get_param(sig, model)
 
