@@ -7,6 +7,7 @@ import warnings
 
 import cupy as cp
 import cupyx
+import numpy as np
 import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
@@ -399,8 +400,7 @@ class GaussianNB(_BaseNB):
         if sample_weight is not None:
             sample_weight = input_to_cupy_array(
                 sample_weight,
-                convert_to_dtype=(cp.float32 if convert_dtype else False),
-                check_dtype=[cp.float32, cp.float64],
+                convert_to_dtype=np.float32,
                 check_rows=X.shape[0],
             ).array
 
