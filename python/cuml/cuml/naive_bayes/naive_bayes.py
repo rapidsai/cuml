@@ -398,7 +398,7 @@ class GaussianNB(_BaseNB):
             check_dtype=expected_y_dtype,
         ).array
         if sample_weight is not None:
-            # XXX Hwo to use `input_to_cupy_array` here with `list` as input?
+            # XXX How to use `input_to_cupy_array` here with `list` as input?
             sample_weight = cp.asarray(sample_weight, dtype=np.float32)
 
         if _classes is not None:
@@ -458,12 +458,7 @@ class GaussianNB(_BaseNB):
             self.sigma_[:, :] -= self.epsilon_
 
         unique_y = cp.unique(y)
-        # Make sure classes_ is a CuPy array for comparison
-        classes_array = (
-            cp.asarray(self.classes_)
-            if hasattr(self.classes_, "to_output")
-            else self.classes_
-        )
+        classes_array = cp.asarray(self.classes_)
         unique_y_in_classes = cp.in1d(unique_y, classes_array)
 
         if not cp.all(unique_y_in_classes):
@@ -473,9 +468,6 @@ class GaussianNB(_BaseNB):
                 % (unique_y[~unique_y_in_classes], self.classes_)
             )
 
-        # Ensure y is a CuPy array for indexing
-        y_array = cp.asarray(y) if hasattr(y, "to_output") else y
-
         # Convert sparse matrices to CSR for efficient row indexing
         if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocsr()
@@ -483,10 +475,9 @@ class GaussianNB(_BaseNB):
         # Update mean and variance for each class
         # Following scikit-learn's approach: iterate through unique labels
         for y_i in unique_y:
-            # Find the class index using CuPy searchsorted
             i = int(cp.searchsorted(classes_array, y_i))
-            # Create boolean mask for this class and get indices
-            mask = y_array == y_i
+            # Explicit indices can index sparse arrays
+            mask = y == y_i
             indices = cp.where(mask)[0]
 
             # Index X using integer indices (works efficiently with CSR)
