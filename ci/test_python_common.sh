@@ -32,6 +32,11 @@ if [[ "$(arch)" == "aarch64" ]]; then
   export LD_PRELOAD=/opt/conda/envs/test/lib/libgomp.so.1
 fi
 
+# Manually install scikit-learn 1.8.* for "latest" dependencies
+if [[ "${RAPIDS_DEPENDENCIES}" == "latest" ]]; then
+  pip install -U --pre scikit-learn==1.8.*
+fi
+
 rapids-print-env
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
