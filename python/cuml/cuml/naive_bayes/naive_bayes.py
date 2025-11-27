@@ -14,7 +14,6 @@ import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
@@ -22,101 +21,137 @@ from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
-def count_features_coo_kernel(float_dtype, int_dtype):
+def _count_classes_cupy(Y, n_classes, dtype):
     """
-    A simple reduction kernel that takes in a sparse (COO) array
-    of features and computes the sum (or sum squared) for each class
-    label
+    Count samples per class using CuPy.
+
+    Parameters
+    ----------
+    Y : cupy.ndarray
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+    dtype : dtype
+        Output dtype
+
+    Returns
+    -------
+    class_counts : cupy.ndarray of shape (n_classes,)
+        Count of samples per class
     """
+    # Use bincount which is efficient on GPU
+    class_counts = cp.bincount(Y, minlength=n_classes).astype(dtype)
+    return class_counts
 
-    kernel_str = r"""({0} *out,
-                    int *rows, int *cols,
-                    {0} *vals, int nnz,
-                    int n_rows, int n_cols,
-                    {1} *labels,
-                    {0} *weights,
-                    bool has_weights,
-                    int n_classes,
-                    bool square) {
 
-      int i = blockIdx.x * blockDim.x + threadIdx.x;
+def _count_features_dense_cupy(X, Y, n_classes, categorical=False):
+    """
+    Count feature occurrences per class for dense arrays using CuPy.
 
-      if(i >= nnz) return;
+    Parameters
+    ----------
+    X : cupy.ndarray of shape (n_samples, n_features)
+        Feature matrix
+    Y : cupy.ndarray of shape (n_samples,)
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+    categorical : bool
+        If True, treat features as categorical indices
 
-      int row = rows[i];
-      int col = cols[i];
-      {0} val = vals[i];
-      {1} label = labels[row];
-      unsigned out_idx = (col * n_classes) + label;
-      if(has_weights)
-        val *= weights[i];
+    Returns
+    -------
+    feature_counts : cupy.ndarray
+        For categorical=False: shape (n_classes, n_features)
+        For categorical=True: shape (n_features, n_classes, max_category+1)
+    """
+    n_samples, n_features = X.shape
 
-      if(square) val *= val;
-      atomicAdd(out + out_idx, val);
-    }"""
+    if not categorical:
+        # Standard multinomial/bernoulli counting
+        # Sum features per class: counts[class, feature] = sum of X[i, feature] where Y[i] == class
+        counts = cp.zeros((n_classes, n_features), dtype=X.dtype, order="F")
 
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_features_coo"
+        # Vectorized approach using advanced indexing
+        for class_idx in range(n_classes):
+            mask = Y == class_idx
+            if cp.any(mask):
+                counts[class_idx] = X[mask].sum(axis=0)
+
+        return counts
+    else:
+        # Categorical counting: count occurrences of each category per class per feature
+        highest_feature = int(X.max()) + 1
+        counts = cp.zeros(
+            (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
+        )
+
+        # For each feature, count categorical values per class
+        for feature_idx in range(n_features):
+            for class_idx in range(n_classes):
+                mask = Y == class_idx
+                if cp.any(mask):
+                    feature_vals = X[mask, feature_idx]
+                    # Count occurrences of each category
+                    cat_counts = cp.bincount(
+                        feature_vals.astype(cp.int32),
+                        minlength=highest_feature,
+                    )
+                    counts[feature_idx, class_idx, : len(cat_counts)] = (
+                        cat_counts.astype(X.dtype)
+                    )
+
+        return counts
+
+
+def _count_features_sparse_cupy(
+    x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
+):
+    """
+    Count feature occurrences per class for sparse COO matrices using CuPy.
+
+    Parameters
+    ----------
+    x_coo_rows : cupy.ndarray
+        COO row indices
+    x_coo_cols : cupy.ndarray
+        COO column indices
+    x_coo_data : cupy.ndarray
+        COO data values
+    x_shape : tuple
+        Shape of the sparse matrix (n_rows, n_cols)
+    Y : cupy.ndarray
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+
+    Returns
+    -------
+    feature_counts : cupy.ndarray of shape (n_classes, n_features)
+        Count of features per class
+    """
+    n_rows, n_cols = x_shape
+    counts = cp.zeros((n_classes, n_cols), dtype=x_coo_data.dtype, order="F")
+
+    # For each non-zero element, add its value to the appropriate (class, feature) bin
+    # Get the class label for each non-zero element
+    labels_for_nnz = Y[x_coo_rows]
+
+    # Create flat indices for the counts array: col * n_classes + label
+    flat_indices = x_coo_cols * n_classes + labels_for_nnz
+
+    # Use bincount to accumulate values - this is the key GPU-efficient operation
+    # We need to flatten counts and then reshape
+    flat_counts = cp.bincount(
+        flat_indices, weights=x_coo_data, minlength=n_cols * n_classes
     )
 
+    # Reshape to (n_classes, n_cols) but bincount gives us col-major order
+    # so we need to transpose
+    counts = flat_counts.reshape(n_cols, n_classes).T.astype(x_coo_data.dtype)
 
-def count_classes_kernel(float_dtype, int_dtype):
-    kernel_str = r"""
-    ({0} *out, int n_rows, {1} *labels) {
-
-      int row = blockIdx.x * blockDim.x + threadIdx.x;
-      if(row >= n_rows) return;
-      {1} label = labels[row];
-      atomicAdd(out + label, ({0})1);
-    }"""
-
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_classes"
-    )
-
-
-def count_features_dense_kernel(float_dtype, int_dtype):
-    kernel_str = r"""
-    ({0} *out,
-     {0} *in,
-     int n_rows,
-     int n_cols,
-     {1} *labels,
-     {0} *weights,
-     bool has_weights,
-     int n_classes,
-     bool square,
-     bool rowMajor,
-     bool categorical) {
-
-      int row = blockIdx.x * blockDim.x + threadIdx.x;
-      int col = blockIdx.y * blockDim.y + threadIdx.y;
-
-      if(row >= n_rows || col >= n_cols) return;
-
-      {0} val = !rowMajor ?
-            in[col * n_rows + row] : in[row * n_cols + col];
-      {1} label = labels[row];
-      unsigned out_idx = ((col * n_classes) + label);
-
-      if (categorical)
-      {
-        out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
-        val = 1;
-      }
-      if(has_weights)
-        val *= weights[row];
-
-      if(val == 0.0) return;
-
-      if(square) val *= val;
-
-      atomicAdd(out + out_idx, val);
-    }"""
-
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_features_dense"
-    )
+    # Convert to F-contiguous as expected by the rest of the code
+    return cp.asfortranarray(counts)
 
 
 def _convert_x_sparse(X):
@@ -964,7 +999,6 @@ class _BaseDiscreteNB(_BaseNB):
         """
 
         n_classes = classes.shape[0]
-        sample_weight = cp.zeros(0)
 
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
@@ -978,42 +1012,11 @@ class _BaseDiscreteNB(_BaseNB):
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        counts = cp.zeros(
-            (n_classes, self.n_features_), order="F", dtype=X.dtype
-        )
+        # Count features per class using CuPy
+        counts = _count_features_dense_cupy(X, Y, n_classes, categorical=False)
 
-        class_c = cp.zeros(n_classes, order="F", dtype=X.dtype)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        tpb = 32
-        labels_dtype = classes.dtype
-
-        count_features_dense = count_features_dense_kernel(
-            X.dtype, labels_dtype
-        )
-        count_features_dense(
-            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-            (tpb, tpb, 1),
-            (
-                counts,
-                X,
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                n_classes,
-                False,
-                X.flags["C_CONTIGUOUS"],
-                False,
-            ),
-        )
-
-        tpb = 256
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes_cupy(Y, n_classes, X.dtype)
 
         self.feature_count_ += counts
         self.class_count_ += class_c
@@ -1037,48 +1040,17 @@ class _BaseDiscreteNB(_BaseNB):
                 "Y dtype does not match classes_ dtype. Y will be "
                 "converted, which will increase memory consumption"
             )
-        sample_weight = cp.zeros(0)
 
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        counts = cp.zeros(
-            (n_classes, self.n_features_), order="F", dtype=x_coo_data.dtype
+        # Count features per class using CuPy
+        counts = _count_features_sparse_cupy(
+            x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
         )
 
-        class_c = cp.zeros(n_classes, order="F", dtype=x_coo_data.dtype)
-
-        n_rows = x_shape[0]
-        n_cols = x_shape[1]
-
-        tpb = 256
-
-        labels_dtype = classes.dtype
-
-        count_features_coo = count_features_coo_kernel(
-            x_coo_data.dtype, labels_dtype
-        )
-        count_features_coo(
-            (math.ceil(x_coo_rows.shape[0] / tpb),),
-            (tpb,),
-            (
-                counts,
-                x_coo_rows,
-                x_coo_cols,
-                x_coo_data,
-                x_coo_rows.shape[0],
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                n_classes,
-                False,
-            ),
-        )
-
-        count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes_cupy(Y, n_classes, x_coo_data.dtype)
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
@@ -1854,11 +1826,8 @@ class CategoricalNB(_BaseDiscreteNB):
         Y : cupy.array of monotonic class labels
         """
         n_classes = classes.shape[0]
-        n_rows = x_shape[0]
         n_cols = x_shape[1]
         x_coo_nnz = x_coo_rows.shape[0]
-        labels_dtype = classes.dtype
-        tpb = 256
 
         if Y.dtype != classes.dtype:
             warnings.warn(
@@ -1869,11 +1838,8 @@ class CategoricalNB(_BaseDiscreteNB):
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        class_c = cp.zeros(n_classes, dtype=self.class_count_.dtype)
-        count_classes = count_classes_kernel(
-            self.class_count_.dtype, labels_dtype
-        )
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes_cupy(Y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
@@ -1889,22 +1855,15 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[1]
 
-        count_features_coo = cp.ElementwiseKernel(
-            "int32 row, int32 col, int32 val, int32 nnz, int32 n_classes, \
-             int32 n_cols, raw T labels",
-            "int32 out_row, int32 out_col",
-            """
-            T label = labels[row];
-            out_row = col + n_cols * label;
-            out_col = val;
-            """,
-            "count_features_categorical_coo_kernel",
-        )
-        counts_rows, counts_cols = count_features_coo(
-            x_coo_rows, x_coo_cols, x_coo_data, x_coo_nnz, n_classes, n_cols, Y
-        )
-        # Create the sparse category count matrix from the result of
-        # the raw kernel
+        # Map sparse data to categorical counts using CuPy operations
+        # For each non-zero element at (row, col) with value val:
+        # - Get the class label for that row
+        # - Create an entry at (col + n_cols * label, val)
+        labels_for_nnz = Y[x_coo_rows]
+        counts_rows = x_coo_cols + n_cols * labels_for_nnz
+        counts_cols = x_coo_data
+
+        # Create the sparse category count matrix
         counts = cupyx.scipy.sparse.coo_matrix(
             (cp.ones(x_coo_nnz), (counts_rows, counts_cols)),
             shape=(self.n_features_ * n_classes, highest_feature),
@@ -1920,13 +1879,8 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _count(self, X, Y, classes):
         Y = cp.asarray(Y)
-        tpb = 32
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
         n_classes = classes.shape[0]
-        labels_dtype = classes.dtype
 
-        sample_weight = cp.zeros(0, dtype=X.dtype)
         highest_feature = int(X.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[2]
         # In case of a partial fit, pad the array to have the highest feature
@@ -1937,35 +1891,28 @@ class CategoricalNB(_BaseDiscreteNB):
                 "constant",
             )
         highest_feature = self.category_count_.shape[2]
-        counts = cp.zeros(
-            (self.n_features_, n_classes, highest_feature),
-            order="F",
-            dtype=X.dtype,
+
+        # Use CuPy to count categorical features
+        # This will create counts of shape (n_features, n_classes, max_category+1)
+        counts_raw = _count_features_dense_cupy(
+            X, Y, n_classes, categorical=True
         )
 
-        count_features = count_features_dense_kernel(X.dtype, Y.dtype)
-        count_features(
-            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-            (tpb, tpb, 1),
-            (
-                counts,
-                X,
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                self.n_classes_,
-                False,
-                X.flags["C_CONTIGUOUS"],
-                True,
-            ),
-        )
+        # Pad or trim to match expected highest_feature size
+        if counts_raw.shape[2] < highest_feature:
+            counts = cp.zeros(
+                (self.n_features_, n_classes, highest_feature),
+                order="F",
+                dtype=X.dtype,
+            )
+            counts[:, :, : counts_raw.shape[2]] = counts_raw
+        else:
+            counts = counts_raw[:, :, :highest_feature]
+
         self.category_count_ += counts
 
-        class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
-        count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes_cupy(Y, n_classes, self.class_count_.dtype)
         self.class_count_ += class_c
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
