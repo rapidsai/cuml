@@ -42,7 +42,12 @@ solver_models = solver_config.get_models()
 
 cluster_config = ClassEnumerator(
     module=cuml.cluster,
-    exclude_classes=[cuml.DBSCAN, cuml.AgglomerativeClustering, cuml.HDBSCAN],
+    exclude_classes=[
+        cuml.DBSCAN,
+        cuml.AgglomerativeClustering,
+        cuml.HDBSCAN,
+        cuml.cluster.SpectralClustering,
+    ],
 )
 cluster_models = cluster_config.get_models()
 
@@ -60,6 +65,10 @@ neighbor_models = neighbor_config.get_models()
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
 
 agglomerative_model = {"AgglomerativeClustering": cuml.AgglomerativeClustering}
+
+spectral_clustering_model = {
+    "SpectralClustering": cuml.cluster.SpectralClustering
+}
 
 hdbscan_model = {"HDBSCAN": cuml.HDBSCAN}
 
@@ -598,6 +607,28 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
     def assert_model(pickled_model, X_train):
         pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["agglomerative"], pickle_after_predict)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("keys", spectral_clustering_model.keys())
+@pytest.mark.parametrize(
+    "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
+)
+def test_spectral_clustering_pickle(tmpdir, datatype, keys, data_size):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = spectral_clustering_model[keys](random_state=42)
+        result["spectral_clustering"] = model.fit_predict(X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        pickle_after_predict = pickled_model.fit_predict(X_train)
+        assert array_equal(result["spectral_clustering"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
