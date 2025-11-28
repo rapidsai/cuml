@@ -98,6 +98,13 @@ class LinearRegression(Base,
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
+    cuML's LinearRegression can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects.
+    It provides two algorithms: Singular Value
+    Decomposition (SVD) and Eigndecomposition (Eig) to fit a linear model.
+    SVD is more numerically stable, but Eig (the default) is much faster.
+
     Examples
     --------
 
@@ -138,33 +145,42 @@ class LinearRegression(Base,
     algorithm : {'auto', 'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'auto')
         Choose an algorithm:
 
-          * 'auto' - 'eig', or 'svd' if y multi-target or X has only one column
-          * 'svd' - alias for svd-jacobi
-          * 'eig' - use an eigendecomposition of the covariance matrix
-          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
-          * 'svd-qr' - compute SVD decomposition using QR algorithm
-          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations
+          * 'auto' - ``'eig'``, or ``'svd'`` if y multi-target or X has only one column
+          * ``'svd'`` - alias for svd-jacobi
+          * ``'eig'`` - use an eigendecomposition of the covariance matrix
+          * ``'qr'``  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * ``'svd-qr'`` - compute SVD decomposition using QR algorithm
+          * ``'svd-jacobi'`` - compute SVD decomposition using Jacobi iterations
 
-        Among these algorithms, only 'svd-jacobi' supports the case when the
+        Among these algorithms, only ``'svd-jacobi'`` supports the case when the
         number of features is larger than the sample size; this algorithm
         is force-selected automatically in such a case.
 
-        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
-        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
-        algorithms are more stable.
+        For the broad range of inputs, ``'eig'`` and ``'qr'`` are usually the fastest,
+        followed by ``'svd-jacobi'`` and then ``'svd-qr'``. In theory, `svd`-based
+        algorithms are more numerically stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    copy_X : bool, default=True
-        If True, cuml will copy X when needed to avoid mutating the input array.
-        If you're ok with X being overwritten, setting to False may avoid a copy,
-        reducing memory usage for certain algorithms.
+    copy_X : boolean, default=True
+        If True, it is guaranteed that a copy of X is created, leaving the
+        original X unchanged. However, if set to False, X may be modified
+        directly, which would reduce the memory usage of the estimator.
+
+        .. versionchanged:: 23.08
+            Starting from version 23.08, the new `copy_X` parameter defaults
+            to ``True``, ensuring a copy of X is created after passing it to
+            `fit()`, preventing any changes to the input, but with increased
+            memory usage. This represents a change in behavior from previous
+            versions. With `copy_X=False` a copy might still be created if
+            necessary.
+
     normalize : boolean, default=False
 
         .. deprecated:: 25.12
             ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
+            needed, please use a :class:`sklearn.preprocessing.StandardScaler`
+            to normalize your data before passing to ``fit``.
 
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -194,9 +210,9 @@ class LinearRegression(Base,
     -----
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
-    Consider using Ridge Regression to fix the multicollinearity problem, and
-    consider maybe first DBSCAN to remove the outliers, or statistical analysis
-    to filter possible outliers.
+    Consider using :class:`Ridge` to fix the multicollinearity problem, and
+    consider maybe first :class:`DBSCAN` to remove the outliers, or
+    statistical analysis to filter possible outliers.
 
     **Applications of LinearRegression**
 
@@ -206,8 +222,8 @@ class LinearRegression(Base,
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
+    For additional information, see scikit-learn's documentation for
+    :class:`sklearn.linear_model.LinearRegression`.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
