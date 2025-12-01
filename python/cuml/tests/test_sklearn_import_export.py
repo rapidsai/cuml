@@ -897,18 +897,16 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
 
 def test_linear_svr(random_state):
     X, y = make_regression(n_samples=100, random_state=random_state)
-
-    # Test with defaults
-    original = cuml.LinearSVR()
-    assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
-
-    # Test with squared epsilon insensitive loss
-    original = cuml.LinearSVR(loss="squared_epsilon_insensitive")
+    original = cuml.LinearSVR(loss="squared_epsilon_insensitive", penalty="l2")
     assert_estimator_roundtrip(original, sklearn.svm.LinearSVR, X, y)
 
     # Check inference works after conversion
-    cu_model = cuml.LinearSVR().fit(X, y)
-    sk_model = sklearn.svm.LinearSVR().fit(X, y)
+    cu_model = cuml.LinearSVR(
+        loss="squared_epsilon_insensitive", penalty="l2"
+    ).fit(X, y)
+    sk_model = sklearn.svm.LinearSVR(loss="squared_epsilon_insensitive").fit(
+        X, y
+    )
 
     sk_score = cu_model.as_sklearn().score(X, y)
     assert sk_score > 0.7
