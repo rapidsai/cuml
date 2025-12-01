@@ -99,6 +99,7 @@ requirements:
     - numba-cuda >=0.19.1,<0.20.0a0
     - numpy >=1.23,<3.0a0
     - scikit-learn >=1.4
+    - scipy >=1.11
     - packaging
     - pylibraft =${{ minor_version }}
     - python
