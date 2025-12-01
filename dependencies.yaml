@@ -155,6 +155,7 @@ files:
       - py_run_cuml
       - py_version
       - test_notebooks
+      - test_python_xgboost
   py_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -506,10 +507,25 @@ dependencies:
           # included in the "devcontainers" key. The libxgboost package depends
           # on librmm but we do not want to have a package depending on librmm
           # in devcontainers since it should be built from source.
-          - &rapids-xgboost rapids-xgboost==26.2.*,>=0.0.0a0
+          - rapids-xgboost==26.2.*,>=0.0.0a0
+    specific:
       - output_types: [requirements, pyproject]
-        packages:
-          - &xgboost xgboost>=2.1.0
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu12>=2.1.0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu13>=2.1.0
+          # this unsuffixed dependency is useful in environments where xgboost is built from source
+          # (like RAPIDS DLFW builds)
+          - matrix:
+            packages:
+              - xgboost>=2.1.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
@@ -523,11 +539,9 @@ dependencies:
       - output_types: conda
         packages:
           - matplotlib-base
-          - *rapids-xgboost
       - output_types: requirements
         packages:
           - matplotlib
-          - *xgboost
   depends_on_cuda_python:
     specific:
       - output_types: [conda, requirements, pyproject]
