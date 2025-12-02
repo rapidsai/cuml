@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,39 +11,6 @@ namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Condense {
-
-/*
- * Mark whether each internal node forms a persistent cluster.
- *
- * A node is considered "persistent" if both of its child clusters contain at least
- * min_cluster_size points. Persistence indicates that this node can represent a valid cluster on
- * its own without either child being too small.
- */
-template <typename value_idx, typename value_t>
-CUML_KERNEL void get_persistent_nodes_kernel(const value_idx* children,
-                                             const value_t* deltas,
-                                             const value_idx* sizes,
-                                             uint8_t* is_persistent,
-                                             int min_cluster_size,
-                                             int n_leaves)
-{
-  int n_nodes = 2 * n_leaves - 1;
-  int idx     = blockIdx.x * blockDim.x + threadIdx.x;
-
-  int total_internal = n_nodes - n_leaves;
-
-  if (idx >= total_internal) return;
-
-  int left  = children[idx * 2];
-  int right = children[idx * 2 + 1];
-
-  // If child is internal, its size is in sizes[]
-  // If child is leaf, size = 1
-  int left_count  = (left >= n_leaves) ? sizes[left - n_leaves] : 1;
-  int right_count = (right >= n_leaves) ? sizes[right - n_leaves] : 1;
-
-  is_persistent[idx] = (left_count >= min_cluster_size && right_count >= min_cluster_size) ? 1 : 0;
-}
 
 template <typename value_idx, typename value_t>
 __device__ inline value_t get_lambda(value_idx node, value_idx num_points, const value_t* deltas)

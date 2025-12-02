@@ -33,251 +33,214 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
+#include <tuple>
+#include <vector>
 
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Condense {
 
-template <typename value_idx, typename value_t>
-value_t get_lambda_host(value_idx node, value_idx num_points, const value_t* deltas)
+/**
+ * Helper function for BFS traversal from a given node in the hierarchy
+ */
+template <typename value_idx>
+void bfs_from_node(value_idx bfs_root,
+                   value_idx n_samples,
+                   const value_idx* h_children,
+                   std::vector<value_idx>& result)
 {
-  value_t delta = deltas[node - num_points];
-  return delta > 0.0 ? 1.0 / delta : std::numeric_limits<value_t>::max();
-}
+  std::vector<value_idx> process_queue;
+  process_queue.push_back(bfs_root);
 
-/* Heuristic dispatching to bottom-up implementation. A high persistent_ratio means there are more
-chances to stop early as we climb up the tree, making it more efficient for bottom-up approach
-Note: These thresholds are based on empirical observations from running the algorithm on
-datasets ranging from 30K to 5M points, with varying distributions and thread counts. For more
-details, please refer to the tables in this PR: https://github.com/rapidsai/cuml/pull/7459
-*/
-bool dispatch_to_bottom_up(int num_persistent, int n_leaves)
-{
-  int n_nodes            = 2 * n_leaves - 1;
-  int internal_nodes     = n_nodes - n_leaves;
-  float persistent_ratio = static_cast<float>(num_persistent) / static_cast<float>(internal_nodes);
-  int num_omp_threads    = omp_get_max_threads();
-  if (persistent_ratio >= 0.001) {
-    return true;
-  } else if (persistent_ratio >= 0.0001 && num_omp_threads >= 16) {
-    return true;
-  } else if (num_omp_threads >= 64) {
-    return true;
-  } else {
-    return false;
+  while (!process_queue.empty()) {
+    // Add all nodes in current level to result
+    result.insert(result.end(), process_queue.begin(), process_queue.end());
+
+    // Filter for internal nodes (>= n_samples) and convert to hierarchy indices
+    std::vector<value_idx> internal_nodes;
+    for (value_idx x : process_queue) {
+      if (x >= n_samples) { internal_nodes.push_back(x - n_samples); }
+    }
+
+    // Get children of all internal nodes for next level
+    if (!internal_nodes.empty()) {
+      std::vector<value_idx> next_queue;
+      for (value_idx node : internal_nodes) {
+        value_idx left  = h_children[node * 2];
+        value_idx right = h_children[node * 2 + 1];
+        next_queue.push_back(left);
+        next_queue.push_back(right);
+      }
+      process_queue = next_queue;
+    } else {
+      process_queue.clear();
+    }
   }
 }
 
 /**
- * Bottom-up approach using OpenMP on CPU
+ * Performs a level-by-level BFS traversal of the dendrogram
+ * and applies the following logic at each internal node:
+ *
+ * 1. If both children are >= min_cluster_size:
+ *    - Create new cluster labels for both children
+ *    - Add edges from parent to both children
+ *
+ * 2. If both children are < min_cluster_size:
+ *    - Collapse both subtrees
+ *    - Add edges from parent directly to all leaf nodes in both subtrees
+ *
+ * 3. If only left child is < min_cluster_size:
+ *    - Right child inherits parent's label
+ *    - Collapse left subtree, add edges to all its leaf nodes
+ *
+ * 4. If only right child is < min_cluster_size:
+ *    - Left child inherits parent's label
+ *    - Collapse right subtree, add edges to all its leaf nodes
+ *
+ * we ignore subnodes of the collapsed subtree by using a boolean array
  */
 template <typename value_idx, typename value_t>
-void _build_condensed_hiearchy_bottom_up(const raft::handle_t& handle,
-                                         const value_idx* children,
-                                         const value_t* delta,
-                                         const value_idx* sizes,
-                                         const rmm::device_uvector<uint8_t>& is_persistent,
-                                         int n_leaves,
-                                         int min_cluster_size,
-                                         rmm::device_uvector<value_idx>& out_parent,
-                                         rmm::device_uvector<value_idx>& out_child,
-                                         rmm::device_uvector<value_t>& out_lambda,
-                                         rmm::device_uvector<value_idx>& out_size)
+void _build_condensed_hierarchy(const raft::handle_t& handle,
+                                const value_idx* children,
+                                const value_t* delta,
+                                const value_idx* sizes,
+                                int n_leaves,
+                                int min_cluster_size,
+                                rmm::device_uvector<value_idx>& out_parent,
+                                rmm::device_uvector<value_idx>& out_child,
+                                rmm::device_uvector<value_t>& out_lambda,
+                                rmm::device_uvector<value_idx>& out_size)
 {
-  cudaStream_t stream = handle.get_stream();
-  int total_internal  = n_leaves - 1;
+  cudaStream_t stream  = handle.get_stream();
+  value_idx root       = 2 * (n_leaves - 1);
+  value_idx n_samples  = n_leaves;
+  value_idx next_label = n_samples + 1;
 
-  value_idx root    = 2 * (n_leaves - 1);
-  value_idx n_nodes = 2 * n_leaves - 1;
-
+  // Copy data to host
   std::vector<value_idx> h_children(2 * (n_leaves - 1));
   std::vector<value_t> h_delta(n_leaves - 1);
   std::vector<value_idx> h_sizes(n_leaves - 1);
-  std::vector<uint8_t> h_is_persistent(total_internal, 0);
 
   raft::copy(h_children.data(), children, 2 * (n_leaves - 1), stream);
   raft::copy(h_delta.data(), delta, n_leaves - 1, stream);
   raft::copy(h_sizes.data(), sizes, n_leaves - 1, stream);
-  raft::copy(h_is_persistent.data(), is_persistent.data(), total_internal, stream);
   handle.sync_stream(stream);
 
-  // Allocate host output arrays
-  std::vector<value_idx> h_out_parent((root + 1) * 2, -1);
-  std::vector<value_idx> h_out_child((root + 1) * 2, -1);
-  std::vector<value_t> h_out_lambda((root + 1) * 2, -1);
-  std::vector<value_idx> h_out_sizes((root + 1) * 2, -1);
+  // host side output arrays
+  std::vector<value_idx> h_out_parent;
+  std::vector<value_idx> h_out_child;
+  std::vector<value_t> h_out_lambda;
+  std::vector<value_idx> h_out_sizes;
 
-  {
-    std::vector<int> parent(n_nodes, -1);
+  // Get BFS ordering from root
+  std::vector<value_idx> node_list;
+  bfs_from_node(root, n_samples, h_children.data(), node_list);
 
-    /*
-     * Get parent information for easy pointer chasing.
-     */
-#pragma omp parallel for
-    for (int node = n_leaves; node < n_nodes; node++) {
-      int left      = h_children[(node - n_leaves) * 2];
-      int right     = h_children[(node - n_leaves) * 2 + 1];
-      parent[left]  = node;
-      parent[right] = node;
+  std::vector<value_idx> relabel(root + 1, 0);
+  std::vector<bool> ignore(node_list.size(), false);
+  relabel[root] = n_samples;
+
+  // Process nodes in BFS order
+  for (size_t idx = 0; idx < node_list.size(); idx++) {
+    value_idx node = node_list[idx];
+
+    // Skip if already processed or is a leaf
+    if (ignore[node] || node < n_samples) { continue; }
+
+    value_idx left       = h_children[(node - n_samples) * 2];
+    value_idx right      = h_children[(node - n_samples) * 2 + 1];
+    value_t distance     = h_delta[node - n_samples];
+    value_t lambda_value = distance > 0.0 ? 1.0 / distance : std::numeric_limits<value_t>::max();
+
+    value_idx left_count  = left >= n_samples ? h_sizes[left - n_samples] : 1;
+    value_idx right_count = right >= n_samples ? h_sizes[right - n_samples] : 1;
+
+    if (left_count >= min_cluster_size &&
+        right_count >= min_cluster_size) {  // Case 1: Both children are large enough
+      relabel[left] = next_label++;
+      h_out_parent.push_back(relabel[node]);
+      h_out_child.push_back(relabel[left]);
+      h_out_lambda.push_back(lambda_value);
+      h_out_sizes.push_back(left_count);
+
+      relabel[right] = next_label++;
+      h_out_parent.push_back(relabel[node]);
+      h_out_child.push_back(relabel[right]);
+      h_out_lambda.push_back(lambda_value);
+      h_out_sizes.push_back(right_count);
+    } else if (left_count < min_cluster_size &&
+               right_count < min_cluster_size) {  // Case 2: Both children are too small
+      // Collapse left subtree
+      std::vector<value_idx> left_descendants;
+      bfs_from_node(left, n_samples, h_children.data(), left_descendants);
+      for (value_idx sub_node : left_descendants) {
+        if (sub_node < n_samples) {
+          h_out_parent.push_back(relabel[node]);
+          h_out_child.push_back(sub_node);
+          h_out_lambda.push_back(lambda_value);
+          h_out_sizes.push_back(1);
+        }
+        ignore[sub_node] = true;
+      }
+
+      // Collapse right subtree
+      std::vector<value_idx> right_descendants;
+      bfs_from_node(right, n_samples, h_children.data(), right_descendants);
+      for (value_idx sub_node : right_descendants) {
+        if (sub_node < n_samples) {
+          h_out_parent.push_back(relabel[node]);
+          h_out_child.push_back(sub_node);
+          h_out_lambda.push_back(lambda_value);
+          h_out_sizes.push_back(1);
+        }
+        ignore[sub_node] = true;
+      }
     }
 
-    std::vector<value_idx> relabel(n_nodes, 0);
+    else if (left_count < min_cluster_size) {  // Case 3: Only left child is too small
+      relabel[right] = relabel[node];
 
-    /*
-     * Build the parent–child relationships between internal and leaf nodes,
-     * and assign each leaf a representative ancestor and a lambda value.
-     *
-     *   - Every leaf node should be connected to an internal node
-     *     that lies directly below the nearest persistent node in the hierarchy.
-     *   - The `relabel` array stores this mapping: for each node, it records the
-     *     ancestor that serves as its cluster representative.
-     *  - The first internal ancestor whose size >= min_cluster_size provides
-     *     the lambda value for the leaf.
-     */
-#pragma omp parallel for
-    for (int node = 0; node < n_nodes; node++) {
-      int current         = node;
-      int ancestor        = parent[current];
-      int rel             = -1;
-      float assign_lambda = -1.0f;
-
-      // climb until we reach root or a persistent parent
-      while (ancestor != -1) {
-        if (node < n_leaves && assign_lambda == -1 &&
-            h_sizes[ancestor - n_leaves] >= min_cluster_size) {
-          // if leaf node, keep track of delta value of the first internal node that has >= min
-          // clusters
-          assign_lambda = get_lambda_host(ancestor, n_leaves, h_delta.data());
+      // Collapse left subtree
+      std::vector<value_idx> left_descendants;
+      bfs_from_node(left, n_samples, h_children.data(), left_descendants);
+      for (value_idx sub_node : left_descendants) {
+        if (sub_node < n_samples) {
+          h_out_parent.push_back(relabel[node]);
+          h_out_child.push_back(sub_node);
+          h_out_lambda.push_back(lambda_value);
+          h_out_sizes.push_back(1);
         }
-        bool ancestor_persistent = (ancestor >= n_leaves && h_is_persistent[ancestor - n_leaves]);
-
-        if (ancestor_persistent) {
-          rel = current;
-          break;
-        }
-
-        current  = ancestor;
-        ancestor = parent[current];
-      }
-      // ancestor stays -1 for the root
-      relabel[node] = ancestor == -1 ? root : rel;
-
-      if (node < n_leaves) {
-        h_out_parent[node * 2] = relabel[node];
-        h_out_child[node * 2]  = node;
-        h_out_lambda[node * 2] = assign_lambda;
-        h_out_sizes[node * 2]  = 1;
+        ignore[sub_node] = true;
       }
     }
 
-    /*
-     * Add edges for internal (persistent) nodes to their children using the relabel array.
-     */
-#pragma omp parallel for
-    for (int node = n_leaves; node < n_nodes; node++) {
-      if (h_is_persistent[node - n_leaves]) {
-        value_idx left_child  = h_children[(node - n_leaves) * 2];
-        value_idx right_child = h_children[((node - n_leaves) * 2) + 1];
-        int left_count        = left_child >= n_leaves ? h_sizes[left_child - n_leaves] : 1;
-        int right_count       = right_child >= n_leaves ? h_sizes[right_child - n_leaves] : 1;
-        value_t lambda_value  = get_lambda_host(node, n_leaves, h_delta.data());
+    else {  // Case 4: Only right child is too small
+      relabel[left] = relabel[node];
 
-        h_out_parent[node * 2] = relabel[node];
-        h_out_child[node * 2]  = left_child;
-        h_out_lambda[node * 2] = lambda_value;
-        h_out_sizes[node * 2]  = left_count;
-
-        h_out_parent[node * 2 + 1] = relabel[node];
-        h_out_child[node * 2 + 1]  = right_child;
-        h_out_lambda[node * 2 + 1] = lambda_value;
-        h_out_sizes[node * 2 + 1]  = right_count;
+      // Collapse right subtree
+      std::vector<value_idx> right_descendants;
+      bfs_from_node(right, n_samples, h_children.data(), right_descendants);
+      for (value_idx sub_node : right_descendants) {
+        if (sub_node < n_samples) {
+          h_out_parent.push_back(relabel[node]);
+          h_out_child.push_back(sub_node);
+          h_out_lambda.push_back(lambda_value);
+          h_out_sizes.push_back(1);
+        }
+        ignore[sub_node] = true;
       }
     }
   }
 
-  // Copy results back to device
-  raft::copy(out_parent.data(), h_out_parent.data(), (root + 1) * 2, stream);
-  raft::copy(out_child.data(), h_out_child.data(), (root + 1) * 2, stream);
-  raft::copy(out_lambda.data(), h_out_lambda.data(), (root + 1) * 2, stream);
-  raft::copy(out_size.data(), h_out_sizes.data(), (root + 1) * 2, stream);
-}
-
-/**
- * Top-down BFS approach on GPU
- */
-template <typename value_idx, typename value_t, int tpb = 256>
-void _build_condensed_hierarchy_top_down(const raft::handle_t& handle,
-                                         const value_idx* children,
-                                         const value_t* delta,
-                                         const value_idx* sizes,
-                                         int n_leaves,
-                                         int min_cluster_size,
-                                         rmm::device_uvector<value_idx>& out_parent,
-                                         rmm::device_uvector<value_idx>& out_child,
-                                         rmm::device_uvector<value_t>& out_lambda,
-                                         rmm::device_uvector<value_idx>& out_size)
-{
-  cudaStream_t stream = handle.get_stream();
-  auto exec_policy    = handle.get_thrust_policy();
-
-  // Root is the last edge in the dendrogram
-  value_idx root = 2 * (n_leaves - 1);
-
-  rmm::device_uvector<bool> frontier(root + 1, stream);
-  rmm::device_uvector<bool> next_frontier(root + 1, stream);
-
-  thrust::fill(exec_policy, frontier.begin(), frontier.end(), false);
-  thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
-
-  // Array to propagate the lambda of subtrees actively being collapsed
-  // through multiple bfs iterations.
-  rmm::device_uvector<value_t> ignore(root + 1, stream);
-
-  // Propagate labels from root
-  rmm::device_uvector<value_idx> relabel(root + 1, stream);
-  thrust::fill(exec_policy, relabel.begin(), relabel.end(), -1);
-
-  raft::update_device(relabel.data() + root, &root, 1, stream);
-
-  // Flip frontier for root
-  constexpr bool start = true;
-  raft::update_device(frontier.data() + root, &start, 1, stream);
-
-  thrust::fill(exec_policy, out_parent.begin(), out_parent.end(), -1);
-  thrust::fill(exec_policy, out_child.begin(), out_child.end(), -1);
-  thrust::fill(exec_policy, out_lambda.begin(), out_lambda.end(), -1);
-  thrust::fill(exec_policy, out_size.begin(), out_size.end(), -1);
-  thrust::fill(exec_policy, ignore.begin(), ignore.end(), -1);
-
-  // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(root + 1, static_cast<value_idx>(tpb));
-
-  value_idx n_elements_to_traverse =
-    thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
-
-  while (n_elements_to_traverse > 0) {
-    // TODO: Investigate whether it would be worth performing a gather/argmatch in order
-    // to schedule only the number of threads needed. (it might not be worth it)
-    condense_hierarchy_kernel<<<grid, tpb, 0, stream>>>(frontier.data(),
-                                                        next_frontier.data(),
-                                                        ignore.data(),
-                                                        relabel.data(),
-                                                        children,
-                                                        delta,
-                                                        sizes,
-                                                        n_leaves,
-                                                        min_cluster_size,
-                                                        out_parent.data(),
-                                                        out_child.data(),
-                                                        out_lambda.data(),
-                                                        out_size.data());
-
-    thrust::copy(exec_policy, next_frontier.begin(), next_frontier.end(), frontier.begin());
-    thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
-
-    n_elements_to_traverse = thrust::reduce(
-      exec_policy, frontier.data(), frontier.data() + root + 1, static_cast<value_idx>(0));
+  if (h_out_parent.size() > 0) {
+    raft::copy(out_parent.data(), h_out_parent.data(), h_out_parent.size(), stream);
+    raft::copy(out_child.data(), h_out_child.data(), h_out_child.size(), stream);
+    raft::copy(out_lambda.data(), h_out_lambda.data(), h_out_lambda.size(), stream);
+    raft::copy(out_size.data(), h_out_sizes.data(), h_out_sizes.size(), stream);
+    handle.sync_stream(stream);
   }
 }
 
@@ -334,53 +297,27 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                "total.",
                static_cast<int>(n_vertices));
 
-  int total_internal = n_leaves - 1;
-
-  // Identify persistent nodes (those with size >= min_cluster_size)
-  rmm::device_uvector<uint8_t> is_persistent(total_internal, stream);
-  thrust::fill(exec_policy, is_persistent.begin(), is_persistent.end(), 0);
-
-  size_t grid = raft::ceildiv(total_internal, static_cast<int>(tpb));
-  get_persistent_nodes_kernel<<<grid, tpb, 0, stream>>>(
-    children, delta, sizes, is_persistent.data(), min_cluster_size, n_leaves);
-
-  thrust::device_ptr<uint8_t> is_persistent_ptr(is_persistent.data());
-  int num_persistent =
-    thrust::count(exec_policy, is_persistent_ptr, is_persistent_ptr + total_internal, 1);
-
   // Allocate output arrays
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_child((root + 1) * 2, stream);
   rmm::device_uvector<value_t> out_lambda((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_size((root + 1) * 2, stream);
 
-  // Dispatch to CPU or GPU implementation based on heuristic
-  if (dispatch_to_bottom_up(num_persistent, n_leaves)) {
-    _build_condensed_hiearchy_bottom_up(handle,
-                                        children,
-                                        delta,
-                                        sizes,
-                                        is_persistent,
-                                        n_leaves,
-                                        min_cluster_size,
-                                        out_parent,
-                                        out_child,
-                                        out_lambda,
-                                        out_size);
-  } else {
-    _build_condensed_hierarchy_top_down<value_idx, value_t, tpb>(handle,
-                                                                 children,
-                                                                 delta,
-                                                                 sizes,
-                                                                 n_leaves,
-                                                                 min_cluster_size,
-                                                                 out_parent,
-                                                                 out_child,
-                                                                 out_lambda,
-                                                                 out_size);
-  }
+  thrust::fill(exec_policy, out_parent.begin(), out_parent.end(), -1);
+  thrust::fill(exec_policy, out_child.begin(), out_child.end(), -1);
+  thrust::fill(exec_policy, out_lambda.begin(), out_lambda.end(), -1);
+  thrust::fill(exec_policy, out_size.begin(), out_size.end(), -1);
 
-  handle.sync_stream(stream);
+  _build_condensed_hierarchy(handle,
+                             children,
+                             delta,
+                             sizes,
+                             n_leaves,
+                             min_cluster_size,
+                             out_parent,
+                             out_child,
+                             out_lambda,
+                             out_size);
 
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
