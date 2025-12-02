@@ -81,25 +81,26 @@ def _count_features_dense_cupy(X, Y, n_classes, categorical=False):
         return counts
     else:
         # Categorical counting: count occurrences of each category per class per feature
+        # Optimized version using advanced indexing and cp.add.at
         highest_feature = int(X.max()) + 1
         counts = cp.zeros(
             (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
         )
 
-        # For each feature, count categorical values per class
         for feature_idx in range(n_features):
-            for class_idx in range(n_classes):
-                mask = Y == class_idx
-                if cp.any(mask):
-                    feature_vals = X[mask, feature_idx]
-                    # Count occurrences of each category
-                    cat_counts = cp.bincount(
-                        feature_vals.astype(cp.int32),
-                        minlength=highest_feature,
-                    )
-                    counts[feature_idx, class_idx, : len(cat_counts)] = (
-                        cat_counts.astype(X.dtype)
-                    )
+            feature_vals = X[:, feature_idx].astype(cp.int32)
+
+            # Create flat indices into counts[feature_idx]
+            # Index is: class * highest_feature + category
+            flat_indices = Y.astype(cp.int32) * highest_feature + feature_vals
+
+            flat_counts = cp.bincount(
+                flat_indices, minlength=n_classes * highest_feature
+            )
+
+            counts[feature_idx] = flat_counts.reshape(
+                n_classes, highest_feature
+            ).astype(X.dtype)
 
         return counts
 
