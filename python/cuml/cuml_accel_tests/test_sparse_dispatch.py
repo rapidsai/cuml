@@ -5,7 +5,9 @@
 
 import numpy as np
 import pytest
+import sklearn
 from hdbscan import HDBSCAN
+from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.base import is_classifier, is_regressor
 from sklearn.cluster import DBSCAN, KMeans
@@ -21,6 +23,8 @@ from sklearn.linear_model import (
 from sklearn.neighbors import NearestNeighbors
 from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 from umap import UMAP
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
@@ -44,6 +48,9 @@ estimators = {
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
+    if SKLEARN_18 and estimator_name in ("HDBSCAN", "UMAP"):
+        pytest.skip(f"{estimator_name} requires sklearn < 1.8.0")
+
     X_sparse = csr_matrix([[0.0, 1.0], [1.0, 0.0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])
