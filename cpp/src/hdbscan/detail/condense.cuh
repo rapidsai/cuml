@@ -18,23 +18,12 @@
 
 #include <cub/cub.cuh>
 #include <thrust/copy.h>
-#include <thrust/count.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#else
-#define omp_get_max_threads() 1
-#endif
-
-#include <algorithm>
-#include <cstdint>
-#include <iostream>
-#include <tuple>
 #include <vector>
 
 namespace ML {
@@ -247,10 +236,6 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
 /**
  * Condenses a binary single-linkage tree dendrogram in the Scipy hierarchy
  * format by collapsing subtrees that fall below a minimum cluster size.
- *
- * This function dispatches to either a CPU (bottom-up) or GPU (top-down BFS)
- * implementation based on a heuristic that considers the persistent node ratio
- * and available OpenMP threads.
  *
  * For increased parallelism, the output array sizes are held fixed but
  * the result will be sparse (e.g. zeros in place of parents who have been
