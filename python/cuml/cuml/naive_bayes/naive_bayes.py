@@ -21,9 +21,9 @@ from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
-def _count_classes_cupy(Y, n_classes, dtype):
+def _count_classes(Y, n_classes, dtype):
     """
-    Count samples per class using CuPy.
+    Count samples per class.
 
     Parameters
     ----------
@@ -39,14 +39,13 @@ def _count_classes_cupy(Y, n_classes, dtype):
     class_counts : cupy.ndarray of shape (n_classes,)
         Count of samples per class
     """
-    # Use bincount which is efficient on GPU
     class_counts = cp.bincount(Y, minlength=n_classes).astype(dtype)
     return class_counts
 
 
-def _count_features_dense_cupy(X, Y, n_classes, categorical=False):
+def _count_features_dense(X, Y, n_classes, categorical=False):
     """
-    Count feature occurrences per class for dense arrays using CuPy.
+    Count feature occurrences per class for dense arrays.
 
     Parameters
     ----------
@@ -81,7 +80,6 @@ def _count_features_dense_cupy(X, Y, n_classes, categorical=False):
         return counts
     else:
         # Categorical counting: count occurrences of each category per class per feature
-        # Optimized version using advanced indexing and cp.add.at
         highest_feature = int(X.max()) + 1
         counts = cp.zeros(
             (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
@@ -105,11 +103,11 @@ def _count_features_dense_cupy(X, Y, n_classes, categorical=False):
         return counts
 
 
-def _count_features_sparse_cupy(
+def _count_features_sparse(
     x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
 ):
     """
-    Count feature occurrences per class for sparse COO matrices using CuPy.
+    Count feature occurrences per class for sparse COO matrices.
 
     Parameters
     ----------
@@ -142,7 +140,6 @@ def _count_features_sparse_cupy(
     flat_indices = x_coo_cols * n_classes + labels_for_nnz
 
     # Use bincount to accumulate values - this is the key GPU-efficient operation
-    # We need to flatten counts and then reshape
     flat_counts = cp.bincount(
         flat_indices, weights=x_coo_data, minlength=n_cols * n_classes
     )
@@ -1014,10 +1011,10 @@ class _BaseDiscreteNB(_BaseNB):
         Y = cp.asarray(Y)
 
         # Count features per class using CuPy
-        counts = _count_features_dense_cupy(X, Y, n_classes, categorical=False)
+        counts = _count_features_dense(X, Y, n_classes, categorical=False)
 
         # Count samples per class using CuPy
-        class_c = _count_classes_cupy(Y, n_classes, X.dtype)
+        class_c = _count_classes(Y, n_classes, X.dtype)
 
         self.feature_count_ += counts
         self.class_count_ += class_c
@@ -1042,16 +1039,13 @@ class _BaseDiscreteNB(_BaseNB):
                 "converted, which will increase memory consumption"
             )
 
-        # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        # Count features per class using CuPy
-        counts = _count_features_sparse_cupy(
+        counts = _count_features_sparse(
             x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
         )
 
-        # Count samples per class using CuPy
-        class_c = _count_classes_cupy(Y, n_classes, x_coo_data.dtype)
+        class_c = _count_classes(Y, n_classes, x_coo_data.dtype)
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
@@ -1840,7 +1834,7 @@ class CategoricalNB(_BaseDiscreteNB):
         Y = cp.asarray(Y)
 
         # Count samples per class using CuPy
-        class_c = _count_classes_cupy(Y, n_classes, self.class_count_.dtype)
+        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
@@ -1893,11 +1887,7 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[2]
 
-        # Use CuPy to count categorical features
-        # This will create counts of shape (n_features, n_classes, max_category+1)
-        counts_raw = _count_features_dense_cupy(
-            X, Y, n_classes, categorical=True
-        )
+        counts_raw = _count_features_dense(X, Y, n_classes, categorical=True)
 
         # Pad or trim to match expected highest_feature size
         if counts_raw.shape[2] < highest_feature:
@@ -1912,8 +1902,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
         self.category_count_ += counts
 
-        # Count samples per class using CuPy
-        class_c = _count_classes_cupy(Y, n_classes, self.class_count_.dtype)
+        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
         self.class_count_ += class_c
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
