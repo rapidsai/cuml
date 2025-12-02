@@ -13,6 +13,13 @@ class LabelBinarizer(BaseEstimator):
     A distributed version of LabelBinarizer for one-hot encoding
     a collection of labels.
 
+    Parameters
+    ----------
+    client : dask.distributed.Client, optional
+        Dask client to use
+    **kwargs : dict
+        Additional arguments passed to the underlying single-GPU LabelBinarizer
+
     Examples
     --------
 
@@ -61,16 +68,6 @@ class LabelBinarizer(BaseEstimator):
 
     def __init__(self, *, client=None, **kwargs):
         super().__init__(client=client, **kwargs)
-
-        """
-        Initialize new LabelBinarizer instance
-
-        Parameters
-        ----------
-        client : dask.Client optional client to use
-        kwargs : dict of arguments to proxy to underlying single-process
-                 LabelBinarizer
-        """
         # Sparse output will be added once sparse CuPy arrays are supported
         # by Dask.Array: https://github.com/rapidsai/cuml/issues/1665
         if (

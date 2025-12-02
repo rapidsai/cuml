@@ -40,7 +40,7 @@ nvidia-smi
 rapids-logger "Run gtests"
 export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 # Run libcuml gtests from libcuml-tests package
-./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
+timeout 20m ./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit "${EXITCODE}"
