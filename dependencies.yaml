@@ -517,6 +517,20 @@ dependencies:
             packages:
               - xgboost-cu12>=2.1.0
           - matrix:
+              arch: aarch64
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              # TODO: always install xgboost-cu13 once there are xgboost-cu13 aarch64 wheels
+              #
+              # xgboost-cu13 originally shipped without aarch64 wheels
+              # Using the unsuffixed name pulls in CUDA 12 packages for some versions and may
+              # at some point in the future pull in CUDA 13 packages.
+              #
+              # ref: https://github.com/rapidsai/cuml/pull/7550#issuecomment-3603279934
+              - &xgboost_unsuffixed xgboost>=2.1.0
+          - matrix:
+              arch: x86_64
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
@@ -525,7 +539,7 @@ dependencies:
           # (like RAPIDS DLFW builds)
           - matrix:
             packages:
-              - xgboost>=2.1.0
+              - *xgboost_unsuffixed
   test_notebooks:
     common:
       - output_types: [conda, requirements]
