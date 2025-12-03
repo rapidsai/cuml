@@ -514,8 +514,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(all_algo OR spectralclustering_algo)
     target_sources(
-      cuml_objs PRIVATE src/spectral/spectral_clustering.cu
-                        src/spectral/spectral_embedding.cu
+      cuml_objs PRIVATE src/spectral/spectral_clustering.cu src/spectral/spectral_embedding.cu
     )
   endif()
 
