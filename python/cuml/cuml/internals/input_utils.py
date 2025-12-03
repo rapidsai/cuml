@@ -232,10 +232,7 @@ def is_array_like(X, accept_lists=False):
         hasattr(X, "__cuda_array_interface__")
         or (
             hasattr(X, "__array_interface__")
-            and not (
-                isinstance(X, global_settings.xpy.generic)
-                or isinstance(X, type)
-            )
+            and not (isinstance(X, np.generic) or isinstance(X, type))
         )
         or isinstance(
             X,
@@ -272,7 +269,7 @@ def input_to_cuml_array(
     check_dtype=False,
     convert_to_dtype=False,
     check_mem_type=False,
-    convert_to_mem_type=None,
+    convert_to_mem_type="device",
     safe_dtype_conversion=True,
     check_cols=False,
     check_rows=False,
@@ -498,11 +495,11 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
 
     if safe_dtype:
         cur_dtype = determine_array_dtype(X)
-        if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
+        if not np.can_cast(cur_dtype, to_dtype):
             try:
-                target_dtype_range = global_settings.xpy.iinfo(to_dtype)
+                target_dtype_range = cp.iinfo(to_dtype)
             except ValueError:
-                target_dtype_range = global_settings.xpy.finfo(to_dtype)
+                target_dtype_range = cp.finfo(to_dtype)
             out_of_range = (
                 (X < target_dtype_range.min) | (X > target_dtype_range.max)
             ).any()

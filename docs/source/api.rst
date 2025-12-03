@@ -429,6 +429,13 @@ HDBSCAN
 
 .. autofunction:: cuml.cluster.hdbscan.approximate_predict
 
+Spectral Clustering
+-------------------
+.. autoclass:: cuml.cluster.SpectralClustering
+    :members:
+
+.. autofunction:: cuml.cluster.spectral_clustering
+
 
 Dimensionality Reduction and Manifold Learning
 ==============================================

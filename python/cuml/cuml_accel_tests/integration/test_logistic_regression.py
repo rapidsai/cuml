@@ -2,11 +2,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 @pytest.fixture(scope="module")
@@ -91,7 +94,7 @@ def test_logistic_regression_fit_intercept(classification_data, fit_intercept):
 def test_logistic_regression_intercept_scaling(
     classification_data, intercept_scaling
 ):
-    X, y = classification_data
+    X, y = make_classification(random_state=42)
     # 'intercept_scaling' is only used when solver='liblinear' and fit_intercept=True
     clf = LogisticRegression(
         solver="liblinear",
@@ -152,6 +155,7 @@ def test_logistic_regression_max_iter(classification_data, max_iter):
         ("auto", "liblinear"),
     ],
 )
+@pytest.mark.skipif(SKLEARN_18, reason="parameter removed in sklearn 1.8")
 def test_logistic_regression_multi_class(
     classification_data, multi_class, solver
 ):

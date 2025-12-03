@@ -337,7 +337,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.repulsion_strength = self.repulsion_strength
     params.negative_sample_rate = self.negative_sample_rate
     params.transform_queue_size = self.transform_queue_size
-    params.verbosity = self.verbose
+    params.verbosity = self._verbose_level
     params.a = self._a
     params.b = self._b
     params.target_n_neighbors = self.target_n_neighbors
@@ -522,19 +522,20 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         sparse array (preferably CSR/COO). This feature allows
         the precomputation of the KNN outside of UMAP
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
+        should match the metric used to train the UMAP embeedings. For most efficient
+        memory usage, the precomputed knn graph should be CPU-accessible arrays
+        such as numpy arrays.
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
-        Note: Unfortunately, achieving a high amount of parallelism during
-        the optimization stage often comes at the expense of determinism,
-        since many floating-point additions are being made in parallel
-        without a deterministic ordering. This causes slightly different
-        results across training sessions, even when the same seed is used
-        for random number generation. Setting a random_state will enable
-        consistency of trained embeddings, allowing for reproducible results
-        to 3 digits of precision, but will do so at the expense of potentially
-        slower training and increased memory usage.
+        Note: Unfortunately, achieving a high amount of parallelism during the
+        optimization stage often comes at the expense of determinism, since
+        many floating-point additions are being made in parallel without a
+        deterministic ordering. This causes slightly different results across
+        training sessions, even when the same seed is used for random number
+        generation. Setting a random_state will enable consistency of trained
+        embeddings, but will do so at the expense of potentially slower
+        training and increased memory usage.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -901,7 +902,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            Takes precedence over the precomputed_knn parameter. For most efficient
+            memory usage, the precomputed knn graph should be CPU-accessible arrays
+            such as numpy arrays.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
@@ -969,6 +972,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
                 self._n_neighbors,
+                mem_type=False,     # mirrors the input graph mem type
             )
             if X_is_sparse:
                 knn_indices = input_to_cuml_array(
@@ -1073,7 +1077,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            Takes precedence over the precomputed_knn parameter. For most efficient
+            memory usage, the precomputed knn graph should be CPU-accessible arrays
+            such as numpy arrays.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_

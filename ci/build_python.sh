@@ -5,7 +5,6 @@
 set -euo pipefail
 
 source rapids-configure-sccache
-
 source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
@@ -28,7 +27,7 @@ rapids-logger "Prepending channel ${CPP_CHANNEL} to RATTLER_CHANNELS"
 
 RATTLER_CHANNELS=("--channel" "${CPP_CHANNEL}" "${RATTLER_CHANNELS[@]}")
 
-sccache --zero-stats
+sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building cuml"
 
@@ -40,6 +39,7 @@ rattler-build build --recipe conda/recipes/cuml \
                     "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
+sccache --stop-server >/dev/null 2>&1 || true
 
 # remove build_cache directory to avoid uploading the entire source tree
 # tracked in https://github.com/prefix-dev/rattler-build/issues/1424

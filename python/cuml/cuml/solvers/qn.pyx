@@ -561,7 +561,7 @@ class QN(Base):
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
             init_coef=init_coef,
-            verbose=self.verbose,
+            verbose=self._verbose_level,
             handle=self.handle,
         )
         self.coef_ = coef

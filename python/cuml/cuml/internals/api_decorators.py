@@ -24,7 +24,6 @@ from cuml.internals.api_context_managers import (
     ReturnArrayCM,
     ReturnGenericCM,
     ReturnSparseArrayCM,
-    set_api_output_dtype,
     set_api_output_type,
 )
 from cuml.internals.constants import CUML_WRAPPED_FLAG
@@ -103,11 +102,8 @@ def _make_decorator_function(
 
     def decorator_function(
         input_arg: str = ...,
-        target_arg: str = ...,
         get_output_type: bool = False,
         set_output_type: bool = False,
-        get_output_dtype: bool = False,
-        set_output_dtype: bool = False,
         set_n_features_in: bool = False,
     ) -> _DecoratorType:
         def decorator_closure(func):
@@ -124,19 +120,11 @@ def _make_decorator_function(
                 raise Exception("No self found on function!")
 
             if input_arg is not None and (
-                set_output_type
-                or set_output_dtype
-                or set_n_features_in
-                or get_output_type
+                set_output_type or set_n_features_in or get_output_type
             ):
                 input_arg_ = _find_arg(sig, input_arg or "X", 0)
             else:
                 input_arg_ = None
-
-            if set_output_dtype or (get_output_dtype and not has_self):
-                target_arg_ = _find_arg(sig, target_arg or "y", 1)
-            else:
-                target_arg_ = None
 
             @_wrap_once(func)
             def wrapper(*args, **kwargs):
@@ -157,22 +145,10 @@ def _make_decorator_function(
                         )
                     else:
                         input_val = None
-                    if target_arg_:
-                        target_val = _get_value(
-                            args,
-                            kwargs,
-                            *target_arg_,
-                            accept_lists=accept_lists,
-                        )
-                    else:
-                        target_val = None
 
                     if set_output_type:
                         assert self_val is not None
                         self_val._set_output_type(input_val)
-                    if set_output_dtype:
-                        assert self_val is not None
-                        self_val._set_target_dtype(target_val)
                     if set_n_features_in and len(input_val.shape) >= 2:
                         assert self_val is not None
                         self_val._set_n_features_in(input_val)
@@ -185,15 +161,6 @@ def _make_decorator_function(
                             out_type = self_val._get_output_type(input_val)
 
                         set_api_output_type(out_type)
-
-                    if get_output_dtype:
-                        if self_val is None:
-                            assert target_val is not None
-                            output_dtype = iu.determine_array_dtype(target_val)
-                        else:
-                            output_dtype = self_val._get_target_dtype()
-
-                        set_api_output_dtype(output_dtype)
 
                     if process_return:
                         ret = func(*args, **kwargs)

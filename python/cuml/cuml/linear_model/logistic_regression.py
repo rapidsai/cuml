@@ -2,13 +2,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cudf
 import cupy as cp
 import numpy as np
+import sklearn
+from packaging.version import Version
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import process_class_weight
+from cuml.common.classification import (
+    decode_labels,
+    preprocess_labels,
+    process_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -19,10 +24,10 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.output_utils import cudf_to_pandas
 from cuml.linear_model.base import LinearClassifierMixin
-from cuml.preprocessing import LabelEncoder
 from cuml.solvers.qn import fit_qn
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 class LogisticRegression(
@@ -78,6 +83,12 @@ class LogisticRegression(
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described
         above.
+    lbfgs_memory: int, default = 5
+        Rank of the lbfgs inverse-Hessian approximation. Method will use
+        O(lbfgs_memory * n_features) memory.
+    penalty_normalized : bool, default=True
+        By default the penalty term is divided by the sample size. Set to False
+        to skip this behavior.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -103,6 +114,8 @@ class LogisticRegression(
         The independent term. If `fit_intercept` is False, will be 0.
     n_iter_: array, shape (1,)
         The number of iterations taken for the solvers to converge.
+    classes_ : np.ndarray, shape=(n_classes,)
+        Array of the class labels.
 
     Notes
     -----
@@ -144,6 +157,8 @@ class LogisticRegression(
             "linesearch_max_iter",
             "l1_ratio",
             "solver",
+            "lbfgs_memory",
+            "penalty_normalized",
         ]
 
     @classmethod
@@ -163,27 +178,51 @@ class LogisticRegression(
         ):
             raise UnsupportedOnGPU("`multi_class` is not supported")
 
+        penalty = model.penalty
+        l1_ratio = model.l1_ratio
+
+        # `penalty` was deprecated in sklearn 1.8 and will be removed in 1.10
+        if penalty == "deprecated":
+            if l1_ratio in (None, 0):
+                penalty = "l2"
+                l1_ratio = None
+            else:
+                penalty = "elasticnet"
+
         return {
-            "penalty": model.penalty,
+            "penalty": penalty,
+            "l1_ratio": l1_ratio,
             "tol": model.tol,
             "C": model.C,
             "fit_intercept": model.fit_intercept,
             "class_weight": model.class_weight,
             "max_iter": model.max_iter,
-            "l1_ratio": model.l1_ratio,
             "solver": "qn",
         }
 
     def _params_to_cpu(self):
+        # `penalty` was deprecated in sklearn 1.8 and will be removed in 1.10
+        if SKLEARN_18:
+            extra = {
+                "l1_ratio": {"l1": 1.0, "l2": 0.0, None: 0.0}.get(
+                    self.l1_ratio
+                ),
+                "C": np.inf if self.penalty is None else self.C,
+            }
+        else:
+            extra = {
+                "penalty": self.penalty,
+                "l1_ratio": self.l1_ratio,
+                "C": self.C,
+            }
+
         return {
-            "penalty": self.penalty,
             "tol": self.tol,
-            "C": self.C,
             "fit_intercept": self.fit_intercept,
             "class_weight": self.class_weight,
             "max_iter": self.max_iter,
-            "l1_ratio": self.l1_ratio,
             "solver": "lbfgs" if self.penalty in ("l2", None) else "saga",
+            **extra,
         }
 
     def _attrs_from_cpu(self, model):
@@ -216,6 +255,8 @@ class LogisticRegression(
         linesearch_max_iter=50,
         l1_ratio=None,
         solver="qn",
+        lbfgs_memory=5,
+        penalty_normalized=True,
         verbose=False,
         handle=None,
         output_type=None,
@@ -232,6 +273,8 @@ class LogisticRegression(
         self.linesearch_max_iter = linesearch_max_iter
         self.l1_ratio = l1_ratio
         self.solver = solver
+        self.lbfgs_memory = lbfgs_memory
+        self.penalty_normalized = penalty_normalized
 
     def _get_l1_l2_strength(self):
         if self.solver != "qn":
@@ -273,25 +316,7 @@ class LogisticRegression(
         """
         Fit the model with X and y.
         """
-        # LabelEncoder currently always returns cudf (ignoring output_type),
-        # but we need to explicitly set `output_type` or we'll get an error
-        # on init since `output_type` would default to `mirror`.
-        enc = LabelEncoder(output_type="cudf")
-        y_orig_dtype = getattr(y, "dtype", None)
-        y = enc.fit_transform(y).to_cupy()
-        if y_orig_dtype is None:
-            y_orig_dtype = y.dtype
-        classes = enc.classes_.to_numpy()
-
-        # TODO: LabelEncoder doesn't currently map dtypes the same way as it
-        # does in scikit-learn. Until that's fixed we fix them up here.
-        if y_orig_dtype.kind == "U":
-            classes = classes.astype("U")
-        elif y_orig_dtype == "float16":
-            classes = classes.astype("float16")
-        self.classes_ = classes
-        n_classes = len(self.classes_)
-
+        y, classes = preprocess_labels(y)
         _, sample_weight = process_class_weight(
             classes,
             y,
@@ -307,18 +332,21 @@ class LogisticRegression(
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
-            n_classes=n_classes,
-            loss=("softmax" if n_classes > 2 else "sigmoid"),
+            n_classes=len(classes),
+            loss=("softmax" if len(classes) > 2 else "sigmoid"),
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
             l2_strength=l2_strength,
             max_iter=self.max_iter,
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
-            verbose=self.verbose,
+            verbose=self._verbose_level,
             handle=self.handle,
+            lbfgs_memory=self.lbfgs_memory,
+            penalty_normalized=self.penalty_normalized,
         )
 
+        self.classes_ = classes
         self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = np.asarray([n_iter])
@@ -335,7 +363,7 @@ class LogisticRegression(
         },
     )
     @cuml.internals.api_base_return_any_skipall
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -344,55 +372,14 @@ class LogisticRegression(
             X, convert_dtype=convert_dtype
         ).to_output("cupy")
 
-        # Choose a smaller index type when possible
-        nclasses = len(self.classes_)
-        ind_dtype = (
-            np.int32 if nclasses <= np.iinfo(np.int32).max else np.int64
-        )
-
         if scores.ndim == 1:
-            indices = (scores > 0).astype(ind_dtype)
+            indices = (scores > 0).view(cp.int8)
         else:
             indices = cp.argmax(scores, axis=1)
 
-        # TODO: Scikit-Learn's `LogisticRegression.predict` returns the same
-        # dtype as the input classes, _and_ natively supports non-numeric
-        # dtypes. CumlArray doesn't currently support wrapping containers with
-        # non-numeric dtypes. As such, we cannot rely on the normal decorators
-        # to handle output conversion, and need to handle output coercion
-        # internally. This is a hack.
-        output_type = self._get_output_type(X)
-
-        if self.classes_.dtype.kind in "ifu":
-            if (self.classes_ == np.arange(nclasses)).all():
-                # Fast path for common case of monotonically increasing numeric classes
-                out = indices.astype(self.classes_.dtype)
-            else:
-                # Classes are not monotonically increasing from 0, we need to
-                # do a transform.
-                out = cp.asarray(self.classes_).take(indices)
-
-            # Numeric types can always rely on CumlArray's output_type handling
-            return CumlArray(out).to_output(output_type)
-        else:
-            # Non-numeric classes. We use cudf since it supports all types, and will
-            # error appropriately later on when converting to outputs like `cupy`
-            # that don't support strings.
-            out = (
-                cudf.Series(self.classes_).take(indices).reset_index(drop=True)
-            )
-            if output_type in ("cudf", "df_obj", "series"):
-                return out
-            elif output_type == "dataframe":
-                return out.to_frame()
-            elif output_type == "pandas":
-                return cudf_to_pandas(out)
-            elif output_type in ("numpy", "array"):
-                return out.to_numpy(dtype=self.classes_.dtype)
-            else:
-                raise TypeError(
-                    f"{output_type=} doesn't support objects of dtype {self.classes_.dtype!r}"
-                )
+        with cuml.internals.exit_internal_api():
+            output_type = self._get_output_type(X)
+        return decode_labels(indices, self.classes_, output_type=output_type)
 
     @generate_docstring(
         X="dense_sparse",

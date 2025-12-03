@@ -19,7 +19,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
 
 import cuml
-from cuml.internals import GraphBasedDimRedCallback, logger
+from cuml.internals import GraphBasedDimRedCallback
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
@@ -181,7 +181,6 @@ def test_umap_transform_on_digits_sparse(
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_enum.info,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -219,7 +218,6 @@ def test_umap_transform_on_digits(target_metric):
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_enum.debug,
         init="random",
         n_epochs=0,
         min_dist=0.01,

@@ -9,6 +9,9 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
+
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
@@ -37,7 +40,7 @@ nvidia-smi
 rapids-logger "Run gtests"
 export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 # Run libcuml gtests from libcuml-tests package
-./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
+timeout 20m ./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit "${EXITCODE}"

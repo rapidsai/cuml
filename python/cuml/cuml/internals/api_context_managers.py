@@ -15,7 +15,6 @@ import cuml.internals.input_utils
 import cuml.internals.memory_utils
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.mem_type import MemoryType
 
 if TYPE_CHECKING:
     from cuml.internals.base import Base
@@ -62,35 +61,6 @@ def set_api_output_type(output_type: str):
     GlobalSettings().root_cm.output_type = array_type
 
 
-def set_api_memory_type(mem_type):
-    assert GlobalSettings().root_cm is not None
-
-    try:
-        mem_type = MemoryType.from_str(mem_type)
-    except ValueError:
-        mem_type = cuml.internals.memory_utils.determine_array_memtype(
-            mem_type
-        )
-
-    GlobalSettings().root_cm.memory_type = mem_type
-
-
-def set_api_output_dtype(output_dtype):
-    assert GlobalSettings().root_cm is not None
-
-    # Try to convert any array objects to their type
-    if output_dtype is not None and cuml.internals.input_utils.is_array_like(
-        output_dtype
-    ):
-        output_dtype = cuml.internals.input_utils.determine_array_dtype(
-            output_dtype
-        )
-
-        assert output_dtype is not None
-
-    GlobalSettings().root_cm.output_dtype = output_dtype
-
-
 class InternalAPIContext(contextlib.ExitStack):
     def __init__(self):
         super().__init__()
@@ -103,10 +73,6 @@ class InternalAPIContext(contextlib.ExitStack):
         self.enter_context(cupy_using_allocator(rmm_cupy_allocator))
         self.prev_output_type = self.enter_context(_using_mirror_output_type())
 
-        self._output_type = None
-        self._memory_type = None
-        self.output_dtype = None
-
         # Set the output type to the prev_output_type. If "input", set to None
         # to allow inner functions to specify the input
         self.output_type = (
@@ -118,22 +84,6 @@ class InternalAPIContext(contextlib.ExitStack):
         self.call_stack = {}
 
         GlobalSettings().root_cm = self
-
-    @property
-    def output_type(self):
-        return self._output_type
-
-    @output_type.setter
-    def output_type(self, value: str):
-        self._output_type = value
-
-    @property
-    def memory_type(self):
-        return self._memory_type
-
-    @memory_type.setter
-    def memory_type(self, value):
-        self._memory_type = MemoryType.from_str(value)
 
     def pop_all(self):
         """Preserve the context stack by transferring it to a new instance."""
@@ -156,23 +106,13 @@ class InternalAPIContext(contextlib.ExitStack):
     def push_output_types(self):
         try:
             old_output_type = self.output_type
-            old_output_dtype = self.output_dtype
-
             self.output_type = None
-            self.output_dtype = None
-
             yield
-
         finally:
             self.output_type = (
                 old_output_type
                 if old_output_type is not None
                 else self.output_type
-            )
-            self.output_dtype = (
-                old_output_dtype
-                if old_output_dtype is not None
-                else self.output_dtype
             )
 
 
@@ -316,26 +256,17 @@ class ProcessEnterBaseReturnArray(
 
         def set_output_type():
             output_type = root_cm.output_type
-            mem_type = root_cm.memory_type
 
             # Check if output_type is None, can happen if no output type has
             # been set by estimator
             if output_type is None:
                 output_type = self.base_obj.output_type
-            if mem_type is None:
-                mem_type = self.base_obj.output_mem_type
 
             if output_type == "input":
                 output_type = self.base_obj._input_type
-                mem_type = self.base_obj._input_mem_type
-
-            if mem_type is None:
-                mem_type = GlobalSettings().memory_type
 
             if output_type != root_cm.output_type:
                 set_api_output_type(output_type)
-            if mem_type != root_cm.memory_type:
-                set_api_memory_type(mem_type)
 
             assert output_type != "mirror"
 
@@ -365,23 +296,16 @@ class ProcessReturnArray(ProcessReturn):
         # If we are a supported array and not already cuml, convert to cuml
         if ret_val_type_str is not None and ret_val_type_str != "cuml":
             if is_sparse:
-                ret_val = SparseCumlArray(
-                    ret_val,
-                    convert_to_mem_type=GlobalSettings().memory_type,
-                    convert_index=False,
-                )
+                ret_val = SparseCumlArray(ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
-                    ret_val,
-                    convert_to_mem_type=GlobalSettings().memory_type,
-                    order="K",
+                    ret_val, order="K"
                 ).array
 
         return ret_val
 
     def convert_to_outputtype(self, ret_val):
         output_type = GlobalSettings().output_type
-        memory_type = GlobalSettings().memory_type
 
         if (
             output_type is None
@@ -390,20 +314,13 @@ class ProcessReturnArray(ProcessReturn):
         ):
             output_type = self._context.root_cm.output_type
 
-        if GlobalSettings().memory_type in (None, MemoryType.mirror):
-            memory_type = self._context.root_cm.memory_type
-
         assert (
             output_type is not None
             and output_type != "mirror"
             and output_type != "input"
         ), ("Invalid root_cm.output_type: '{}'.").format(output_type)
 
-        return ret_val.to_output(
-            output_type=output_type,
-            output_dtype=self._context.root_cm.output_dtype,
-            output_mem_type=memory_type,
-        )
+        return ret_val.to_output(output_type=output_type)
 
 
 class ProcessReturnSparseArray(ProcessReturnArray):
@@ -417,15 +334,10 @@ class ProcessReturnSparseArray(ProcessReturnArray):
         # If we are a supported array and not already cuml, convert to cuml
         if ret_val_type_str is not None and ret_val_type_str != "cuml":
             if is_sparse:
-                ret_val = SparseCumlArray(
-                    ret_val,
-                    convert_to_mem_type=GlobalSettings().memory_type,
-                    convert_index=False,
-                )
+                ret_val = SparseCumlArray(ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val,
-                    convert_to_mem_type=GlobalSettings().memory_type,
                     order="K",
                 ).array
 

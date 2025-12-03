@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier
 from sklearn.datasets import (
     load_iris,
     make_blobs,
@@ -42,7 +42,12 @@ solver_models = solver_config.get_models()
 
 cluster_config = ClassEnumerator(
     module=cuml.cluster,
-    exclude_classes=[cuml.DBSCAN, cuml.AgglomerativeClustering, cuml.HDBSCAN],
+    exclude_classes=[
+        cuml.DBSCAN,
+        cuml.AgglomerativeClustering,
+        cuml.HDBSCAN,
+        cuml.cluster.SpectralClustering,
+    ],
 )
 cluster_models = cluster_config.get_models()
 
@@ -60,6 +65,10 @@ neighbor_models = neighbor_config.get_models()
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
 
 agglomerative_model = {"AgglomerativeClustering": cuml.AgglomerativeClustering}
+
+spectral_clustering_model = {
+    "SpectralClustering": cuml.cluster.SpectralClustering
+}
 
 hdbscan_model = {"HDBSCAN": cuml.HDBSCAN}
 
@@ -203,7 +212,7 @@ def test_rf_regression_pickle(
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 @pytest.mark.parametrize("fit_intercept", [True, False])
-def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+def test_linear_model_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -229,13 +238,20 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
         if "LogisticRegression" in keys and nrows == 500000:
             nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
 
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
         if "MBSGD" in keys:
             model = regression_models[keys](
                 fit_intercept=fit_intercept, batch_size=nrows / 100
             )
         else:
             model = regression_models[keys](fit_intercept=fit_intercept)
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -412,9 +428,16 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
         model = neighbor_models[keys]()
+        if is_classifier(model):
+            X_train, y_train, X_test = make_classification_dataset(
+                datatype, nrows, ncols, n_info, 2
+            )
+        else:
+            X_train, y_train, X_test = make_dataset(
+                datatype, nrows, ncols, n_info
+            )
         if keys in k_neighbors_models.keys():
             model.fit(X_train, y_train)
         else:
@@ -584,6 +607,28 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
     def assert_model(pickled_model, X_train):
         pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["agglomerative"], pickle_after_predict)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("keys", spectral_clustering_model.keys())
+@pytest.mark.parametrize(
+    "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
+)
+def test_spectral_clustering_pickle(tmpdir, datatype, keys, data_size):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = spectral_clustering_model[keys](random_state=42)
+        result["spectral_clustering"] = model.fit_predict(X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        pickle_after_predict = pickled_model.fit_predict(X_train)
+        assert array_equal(result["spectral_clustering"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

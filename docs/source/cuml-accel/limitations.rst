@@ -52,9 +52,9 @@ A few additional general notes:
   or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
   processing.
 
-- The accelerator is compatible with scikit-learn version 1.4 or higher. This
-  compatibility ensures that cuML's implementation of scikit-learn compatible
-  APIs works as expected.
+- The accelerator is tested to be compatible with scikit-learn versions 1.4
+  through 1.7. This ensures that cuML's implementation of scikit-learn
+  compatible APIs works as expected.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
   errors might present as C++ stacktraces instead of python errors.
@@ -124,24 +124,6 @@ numeric differences in the ``components_`` and ``explained_variance_`` values.
 These differences should be small for most algorithms, but may be larger for
 randomized or less-numerically-stable solvers like ``"randomized"`` or
 ``"covariance_eigh"``.
-
-Likewise, note that the implementation in ``cuml.accel`` currently may result
-in some of the vectors in ``components_`` having inverted signs. This result is
-not incorrect, but can make it harder to do direct numeric comparisons without
-first normalizing the signs. One common way of handling this is by normalizing
-the first non-zero values in each vector to be positive. You might find the
-following ``numpy`` function useful for this.
-
-.. code-block:: python
-
-    import numpy as np
-
-    def normalize(components):
-        """Normalize the sign of components for easier numeric comparison"""
-        nonzero = components != 0
-        inds = np.where(nonzero.any(axis=1), nonzero.argmax(axis=1), 0)[:, None]
-        first_nonzero = np.take_along_axis(components, inds, 1)
-        return np.sign(first_nonzero) * components
 
 PCA
 ^^^

@@ -287,6 +287,5 @@ class InteropMixin:
 
         # Set output type to numpy, since we can't infer it from the inputs.
         out.output_type = "numpy"
-        out.output_mem_type = MemoryType.host
 
         return out

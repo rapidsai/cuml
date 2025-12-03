@@ -5,7 +5,6 @@
 
 from cuml.internals.api_context_managers import (
     in_internal_api,
-    set_api_output_dtype,
     set_api_output_type,
 )
 from cuml.internals.api_decorators import (

@@ -41,7 +41,7 @@ print('✓ Import test passed')
 
 # Test 2: Run minimal end-to-end example
 rapids-logger "Running BERTopic end-to-end smoke test"
-python -c "
+timeout 20m python -c "
 import warnings
 warnings.filterwarnings('ignore')
 
