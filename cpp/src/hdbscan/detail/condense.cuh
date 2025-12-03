@@ -54,18 +54,14 @@ void bfs_from_node(value_idx bfs_root,
     }
 
     // Get children of all internal nodes for next level
-    if (!internal_nodes.empty()) {
-      std::vector<value_idx> next_queue;
-      for (value_idx node : internal_nodes) {
-        value_idx left  = h_children[node * 2];
-        value_idx right = h_children[node * 2 + 1];
-        next_queue.push_back(left);
-        next_queue.push_back(right);
-      }
-      process_queue = next_queue;
-    } else {
-      process_queue.clear();
+    std::vector<value_idx> next_queue;
+    for (value_idx node : internal_nodes) {
+      value_idx left  = h_children[node * 2];
+      value_idx right = h_children[node * 2 + 1];
+      next_queue.push_back(left);
+      next_queue.push_back(right);
     }
+    process_queue = std::move(next_queue);
   }
 }
 
@@ -89,7 +85,7 @@ void bfs_from_node(value_idx bfs_root,
  *    - Left child inherits parent's label
  *    - Collapse right subtree, add edges to all its leaf nodes
  *
- * we ignore subnodes of the collapsed subtree by using a boolean array
+ * we ignore subnodes of the collapsed subtree by using a ignore array
  */
 template <typename value_idx, typename value_t>
 void _build_condensed_hierarchy(const raft::handle_t& handle,
@@ -124,12 +120,19 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
   std::vector<value_t> h_out_lambda;
   std::vector<value_idx> h_out_sizes;
 
+  auto add_edge = [&](value_idx parent, value_idx child, value_t lambda, value_idx size) {
+    h_out_parent.push_back(parent);
+    h_out_child.push_back(child);
+    h_out_lambda.push_back(lambda);
+    h_out_sizes.push_back(size);
+  };
+
   // Get BFS ordering from root
   std::vector<value_idx> node_list;
   bfs_from_node(root, n_samples, h_children.data(), node_list);
 
   std::vector<value_idx> relabel(root + 1, 0);
-  std::vector<bool> ignore(node_list.size(), false);
+  std::vector<uint8_t> ignore(node_list.size(), 0);
   relabel[root] = n_samples;
 
   // Process nodes in BFS order
@@ -150,42 +153,26 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
     if (left_count >= min_cluster_size &&
         right_count >= min_cluster_size) {  // Case 1: Both children are large enough
       relabel[left] = next_label++;
-      h_out_parent.push_back(relabel[node]);
-      h_out_child.push_back(relabel[left]);
-      h_out_lambda.push_back(lambda_value);
-      h_out_sizes.push_back(left_count);
+      add_edge(relabel[node], relabel[left], lambda_value, left_count);
 
       relabel[right] = next_label++;
-      h_out_parent.push_back(relabel[node]);
-      h_out_child.push_back(relabel[right]);
-      h_out_lambda.push_back(lambda_value);
-      h_out_sizes.push_back(right_count);
+      add_edge(relabel[node], relabel[right], lambda_value, right_count);
     } else if (left_count < min_cluster_size &&
                right_count < min_cluster_size) {  // Case 2: Both children are too small
       // Collapse left subtree
       std::vector<value_idx> left_descendants;
       bfs_from_node(left, n_samples, h_children.data(), left_descendants);
       for (value_idx sub_node : left_descendants) {
-        if (sub_node < n_samples) {
-          h_out_parent.push_back(relabel[node]);
-          h_out_child.push_back(sub_node);
-          h_out_lambda.push_back(lambda_value);
-          h_out_sizes.push_back(1);
-        }
-        ignore[sub_node] = true;
+        if (sub_node < n_samples) { add_edge(relabel[node], sub_node, lambda_value, 1); }
+        ignore[sub_node] = 1;
       }
 
       // Collapse right subtree
       std::vector<value_idx> right_descendants;
       bfs_from_node(right, n_samples, h_children.data(), right_descendants);
       for (value_idx sub_node : right_descendants) {
-        if (sub_node < n_samples) {
-          h_out_parent.push_back(relabel[node]);
-          h_out_child.push_back(sub_node);
-          h_out_lambda.push_back(lambda_value);
-          h_out_sizes.push_back(1);
-        }
-        ignore[sub_node] = true;
+        if (sub_node < n_samples) { add_edge(relabel[node], sub_node, lambda_value, 1); }
+        ignore[sub_node] = 1;
       }
     }
 
@@ -196,13 +183,8 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
       std::vector<value_idx> left_descendants;
       bfs_from_node(left, n_samples, h_children.data(), left_descendants);
       for (value_idx sub_node : left_descendants) {
-        if (sub_node < n_samples) {
-          h_out_parent.push_back(relabel[node]);
-          h_out_child.push_back(sub_node);
-          h_out_lambda.push_back(lambda_value);
-          h_out_sizes.push_back(1);
-        }
-        ignore[sub_node] = true;
+        if (sub_node < n_samples) { add_edge(relabel[node], sub_node, lambda_value, 1); }
+        ignore[sub_node] = 1;
       }
     }
 
@@ -213,13 +195,8 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
       std::vector<value_idx> right_descendants;
       bfs_from_node(right, n_samples, h_children.data(), right_descendants);
       for (value_idx sub_node : right_descendants) {
-        if (sub_node < n_samples) {
-          h_out_parent.push_back(relabel[node]);
-          h_out_child.push_back(sub_node);
-          h_out_lambda.push_back(lambda_value);
-          h_out_sizes.push_back(1);
-        }
-        ignore[sub_node] = true;
+        if (sub_node < n_samples) { add_edge(relabel[node], sub_node, lambda_value, 1); }
+        ignore[sub_node] = 1;
       }
     }
   }
