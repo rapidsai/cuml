@@ -13,7 +13,6 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-// #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>

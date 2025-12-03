@@ -7,7 +7,6 @@
 
 #include <raft/label/classlabels.cuh>
 #include <raft/random/make_blobs.cuh>
-// #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
