@@ -9,7 +9,6 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/distance_type.hpp>
 
-#include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
@@ -23,6 +22,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
 
+#include <cuvs/cluster/agglomerative.hpp>  // build_dendrogram_host
 #include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/all_neighbors.hpp>
@@ -165,14 +165,14 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     /**
      * Build dendrogram of MST
      */
-    raft::cluster::detail::build_dendrogram_host(handle,
-                                                 mst_src.data(),
-                                                 mst_dst.data(),
-                                                 mst_data.data(),
-                                                 params.n_row - 1,
-                                                 out_children.data(),
-                                                 out_delta.data(),
-                                                 out_size.data());
+    cuvs::cluster::agglomerative::helpers::build_dendrogram_host(handle,
+                                                                 mst_src.data(),
+                                                                 mst_dst.data(),
+                                                                 mst_data.data(),
+                                                                 params.n_row - 1,
+                                                                 out_children.data(),
+                                                                 out_delta.data(),
+                                                                 out_size.data());
 
     /**
      * Condense Hierarchy

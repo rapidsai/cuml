@@ -8,7 +8,7 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
+// #include <raft/distance/distance.cuh>
 
 #include <cuvs/distance/distance.hpp>
 

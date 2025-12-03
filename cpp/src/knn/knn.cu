@@ -9,8 +9,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
-#include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/knn.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -216,20 +215,8 @@ void approx_knn_build_index(raft::handle_t& handle,
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
   auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
 
-  index->metric_processor = raft::spatial::knn::create_processor<false, float>(
-    static_cast<raft::distance::DistanceType>(metric),
-    n,
-    D,
-    0,
-    raft::resource::get_cuda_stream(handle));
-  // For cosine/correlation distance, the metric processor translates distance
-  // to inner product via pre/post processing - pass the translated metric to
-  // ANN index
-  if (metric == ML::distance::DistanceType::CosineExpanded ||
-      metric == ML::distance::DistanceType::CorrelationExpanded) {
-    metric = index->metric = ML::distance::DistanceType::InnerProduct;
-  }
-  index->metric_processor->preprocess(index_array);
+  // cuVS handles CosineExpanded and CorrelationExpanded natively,
+  // no preprocessing needed
   auto index_view = raft::make_device_matrix_view<const float, int64_t>(index_array, n, D);
 
   if (ivf_ft_pams) {
@@ -256,8 +243,6 @@ void approx_knn_build_index(raft::handle_t& handle,
   } else {
     RAFT_FAIL("Unrecognized index type.");
   }
-
-  index->metric_processor->revert(index_array);
 }
 
 void approx_knn_search(raft::handle_t& handle,
@@ -268,9 +253,7 @@ void approx_knn_search(raft::handle_t& handle,
                        float* query_array,
                        int n)
 {
-  index->metric_processor->preprocess(query_array);
-  index->metric_processor->set_num_queries(k);
-
+  // cuVS handles metric preprocessing internally
   auto indices_view   = raft::make_device_matrix_view<int64_t, int64_t>(indices, n, k);
   auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
 
@@ -294,15 +277,10 @@ void approx_knn_search(raft::handle_t& handle,
     RAFT_FAIL("The model is not trained");
   }
 
-  index->metric_processor->revert(query_array);
-
-  // perform post-processing to show the real distances
+  // Perform post-processing for L2Sqrt and Lp distances
   if (index->metric == ML::distance::DistanceType::L2SqrtExpanded ||
       index->metric == ML::distance::DistanceType::L2SqrtUnexpanded ||
       index->metric == ML::distance::DistanceType::LpUnexpanded) {
-    /**
-     * post-processing
-     */
     float p = 0.5;  // standard l2
     if (index->metric == ML::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(distances,
@@ -311,7 +289,7 @@ void approx_knn_search(raft::handle_t& handle,
                                  raft::pow_const_op<float>(p),
                                  raft::resource::get_cuda_stream(handle));
   }
-  index->metric_processor->postprocess(distances);
+  // cuVS handles cosine/correlation distance postprocessing internally
 }
 
 void knn_classify(raft::handle_t& handle,

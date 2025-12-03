@@ -12,9 +12,9 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/host_coo_matrix.hpp>
-#include <raft/distance/distance.cuh>
+// #include <raft/distance/distance.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/spatial/knn/knn.cuh>
+// #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

@@ -16,8 +16,8 @@
 #include "ws_util.cuh"
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
+// #include <raft/distance/distance_types.hpp>
+// #include <raft/distance/kernels.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/unary_op.cuh>

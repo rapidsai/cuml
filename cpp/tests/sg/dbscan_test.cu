@@ -10,7 +10,7 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
+// include <raft/distance/distance.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
