@@ -966,7 +966,7 @@ class _BaseDiscreteNB(_BaseNB):
             Currently sample weight is ignored.
         """
         self.fit_called_ = False
-        return self.partial_fit(X, y, sample_weight)
+        return self.partial_fit(X, y, sample_weight=sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
