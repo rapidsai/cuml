@@ -10,8 +10,6 @@
 
 #include <stdint.h>
 
-#include <cstddef>
-
 namespace ML {
 
 // Dense input uses int64_t until FAISS is updated
@@ -116,7 +114,6 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
     auto indices_mem_type = raft::memory_type_from_pointer(knn_graph.knn_indices);
     auto dists_mem_type   = raft::memory_type_from_pointer(knn_graph.knn_dists);
 
-    // Need to allocate if either pointer is not device accessible
     return !raft::is_device_accessible(indices_mem_type) ||
            !raft::is_device_accessible(dists_mem_type);
   }
