@@ -4,11 +4,14 @@
 #
 
 """
-Hypothesis-based property testing for UMAP simplicial set embedding.
+Hypothesis-based property testing for UMAP components.
 
-This test suite uses property-based testing to thoroughly validate the
-simplicial set embedding implementation against the reference UMAP
-implementation across a wide range of parameters and dataset configurations.
+This test suite uses property-based testing to thoroughly validate:
+1. Simplicial set embedding implementation
+2. Spectral initialization
+
+Both are tested against reference UMAP implementations across a wide range
+of parameters and synthetic dataset configurations.
 """
 
 import os
@@ -31,10 +34,12 @@ from sklearn.datasets import (
 # Reference UMAP implementation
 from umap.umap_ import find_ab_params
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
+from umap.umap_ import spectral_layout
 
 import cuml.datasets
 
 # cuML implementation
+from cuml.manifold import SpectralEmbedding
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
@@ -601,5 +606,265 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
             f"cont_def={metrics['cont_def']:.3f}, sp_def={metrics['sp_def']:.3f}, "
             f"pe_def={metrics['pe_def']:.3f}, xent_rel={metrics['xent_rel_increase']:.3f}, "
             f"kl_rel={metrics['kl_rel_increase']:.3f}"
+        )
+        assert False, details
+
+
+@st.composite
+def spectral_params_strategy(draw):
+    """Generate valid spectral initialization parameters."""
+    # n_components: 2 or 3 for visualization
+    n_components = draw(st.sampled_from([2, 3]))
+
+    # n_neighbors: reasonable range for graph construction
+    n_neighbors = draw(st.integers(min_value=10, max_value=30))
+
+    return {
+        "n_components": n_components,
+        "n_neighbors": n_neighbors,
+    }
+
+
+def _generate_baseline_spectral_dataset():
+    """Generate a baseline dataset for the spectral init required example."""
+    X_cp, y = cuml.datasets.make_blobs(
+        n_samples=400,
+        n_features=10,
+        centers=4,
+        cluster_std=1.0,
+        random_state=42,
+    )
+    X_np = cp.asnumpy(X_cp) if isinstance(X_cp, cp.ndarray) else X_cp
+    X_cp = cp.asarray(X_np, dtype=cp.float32)
+    return DatasetWrapper(
+        X_np=X_np,
+        X_cp=X_cp,
+        metric="euclidean",
+        dataset_type="blobs",
+        n_samples=400,
+        n_features=10,
+        n_centers=4,
+        cluster_std=1.0,
+    )
+
+
+def evaluate_spectral_quality(
+    ref_emb,
+    cu_emb,
+    n_components,
+    compare_spectral_fn,
+    # RMSE threshold (Procrustes-aligned - the definitive metric)
+    # Procrustes alignment finds optimal rotation/reflection, handling component
+    # ordering and sign flip differences between implementations
+    rmse_threshold=0.20,
+):
+    """
+    Evaluate spectral embedding quality by comparing cuML against reference.
+
+    For spectral embeddings, Procrustes RMSE is the definitive metric because:
+    1. Eigenvectors are only defined up to sign (can be negated)
+    2. Eigenvectors for equal/close eigenvalues can be in any order
+    3. Different numerical methods may produce different but equivalent bases
+
+    Procrustes alignment finds the optimal orthogonal transformation (rotation +
+    reflection) to align the embeddings, making RMSE the only meaningful metric.
+    Per-component correlations are computed for diagnostic purposes but are NOT
+    used for pass/fail decisions since they don't account for component permutation.
+
+    Returns:
+        tuple: (should_fail, fail_reason, metrics_dict)
+    """
+    # Ensure numpy arrays
+    ref_np = (
+        cp.asnumpy(ref_emb)
+        if isinstance(ref_emb, cp.ndarray)
+        else np.asarray(ref_emb, dtype=np.float32)
+    )
+    cu_np = (
+        cp.asnumpy(cu_emb)
+        if isinstance(cu_emb, cp.ndarray)
+        else np.asarray(cu_emb, dtype=np.float32)
+    )
+
+    # Compare embeddings
+    result = compare_spectral_fn(ref_np, cu_np, n_components)
+    rmse, correlations = result["rmse"], result["correlations"]
+
+    # Compute average correlation (for diagnostics only)
+    avg_corr = np.mean([abs(c) for c in correlations])
+
+    # Decision based solely on Procrustes RMSE
+    should_fail = rmse > rmse_threshold
+    fail_reason = (
+        f"RMSE {rmse:.3f} > threshold {rmse_threshold:.3f}"
+        if should_fail
+        else ""
+    )
+
+    metrics_dict = {
+        "rmse": rmse,
+        "correlations": correlations,
+        "avg_corr": avg_corr,
+    }
+
+    return should_fail, fail_reason, metrics_dict
+
+
+@pytest.mark.slow
+@settings(
+    max_examples=5,  # Random testing across dataset types
+    deadline=120000,  # 120 seconds per test case
+    phases=[
+        hypothesis.Phase.explicit,
+        hypothesis.Phase.reuse,
+        hypothesis.Phase.generate,
+        hypothesis.Phase.target,
+    ],
+    print_blob=False,  # Don't print large dataset arrays in failure messages
+    verbosity=hypothesis.Verbosity.verbose,  # Display information about every run
+)
+@given(
+    dataset=diverse_dataset_strategy(),
+    params=spectral_params_strategy(),
+)
+@example(
+    dataset=_generate_baseline_spectral_dataset(),
+    params={
+        "n_components": 2,
+        "n_neighbors": 15,
+    },
+)
+def test_spectral_init_hypothesis(dataset, params):
+    """
+    Property-based test for spectral initialization using random parameters.
+
+    This test validates the cuML SpectralEmbedding against the reference UMAP
+    spectral_layout using Hypothesis to generate random combinations of
+    datasets and parameters.
+
+    Dataset Types (randomly selected):
+    - Blobs: Traditional clustered data (5-25D, euclidean or cosine)
+    - Circles: Concentric circles topology (2D, euclidean only)
+    - Moons: Two interleaving half circles (2D, euclidean only)
+    - Swiss Roll: Classic 3D manifold structure (euclidean only)
+    - S-Curve: 3D curved manifold (euclidean only)
+
+    Test Coverage:
+    - 5 random parameter/dataset combinations
+    - Both 2D and 3D embeddings
+    - n_neighbors: 10-30
+    - Sample sizes: 800-2000
+
+    Quality Validation:
+    Compares cuML vs reference UMAP spectral layout on RMSE and per-component
+    correlations after Procrustes alignment.
+    """
+    # Skip test if cuvs is not available
+    pytest.importorskip("cuvs")
+
+    # Import umap_metrics (depends on cuvs)
+    try:
+        from umap_metrics import (
+            _build_knn_with_cuvs,
+            compare_spectral_embeddings,
+        )
+    except ImportError as e:
+        pytest.skip(
+            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
+        )
+
+    X_np = dataset["X_np"]
+    X_cp = dataset["X_cp"]
+    metric = dataset["metric"]
+    dataset_type = dataset["dataset_type"]
+
+    n_components = params["n_components"]
+    n_neighbors = params["n_neighbors"]
+    random_state = 42
+
+    # Build KNN graph using cuVS
+    knn_dists_np, knn_inds_np = _build_knn_with_cuvs(
+        X_cp, k=n_neighbors, metric=metric, backend="bruteforce"
+    )
+
+    # Build fuzzy simplicial set using cuML (needed for spectral layout)
+    cu_graph_gpu = cu_fuzzy_simplicial_set(
+        X_cp,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+        metric=metric,
+        knn_indices=cp.asarray(knn_inds_np),
+        knn_dists=cp.asarray(knn_dists_np),
+    )
+    cu_graph_cpu = (
+        cu_graph_gpu.get() if hasattr(cu_graph_gpu, "get") else cu_graph_gpu
+    )
+    cu_graph_cpu = csr_matrix(cu_graph_cpu)
+
+    # Run reference UMAP spectral layout
+    ref_emb = spectral_layout(
+        data=None,
+        graph=cu_graph_cpu,
+        dim=n_components,
+        random_state=np.random.RandomState(random_state),
+    )
+    ref_emb = (
+        cp.asnumpy(ref_emb)
+        if isinstance(ref_emb, cp.ndarray)
+        else np.asarray(ref_emb, dtype=np.float32)
+    )
+
+    # Run cuML SpectralEmbedding
+    cu_emb = SpectralEmbedding(
+        affinity="precomputed",
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+    ).fit_transform(cu_graph_cpu)
+    cu_emb = (
+        cp.asnumpy(cu_emb)
+        if isinstance(cu_emb, cp.ndarray)
+        else np.asarray(cu_emb, dtype=np.float32)
+    )
+
+    # Validate embeddings (shape, NaN/inf, variance, value range)
+    expected_shape = (X_np.shape[0], n_components)
+    for name, emb in [("Reference", ref_emb), ("cuML", cu_emb)]:
+        assert emb.shape == expected_shape, (
+            f"{name} shape {emb.shape} != {expected_shape}"
+        )
+        assert not np.isnan(emb).any(), f"{name} contains NaN"
+        assert not np.isinf(emb).any(), f"{name} contains infinite values"
+        assert np.std(emb, axis=0).min() > 0.001, (
+            f"{name} has insufficient variance"
+        )
+        abs_max = np.abs(emb).max()
+        assert 0.001 < abs_max < 100.0, (
+            f"{name} values out of range: {abs_max:.3e}"
+        )
+
+    # Evaluate spectral embedding quality
+    should_fail, fail_reason, metrics = evaluate_spectral_quality(
+        ref_emb,
+        cu_emb,
+        n_components,
+        compare_spectral_fn=compare_spectral_embeddings,
+    )
+
+    if should_fail:
+        # Format dataset-specific details for error message
+        dataset_info = (
+            f"dataset_type={dataset_type}, n_samples={dataset['n_samples']}"
+        )
+        if "n_features" in dataset:
+            dataset_info += f", n_features={dataset['n_features']}"
+
+        corr_str = ", ".join(f"{abs(c):.3f}" for c in metrics["correlations"])
+        details = (
+            f"Hypothesis spectral init test failed for {dataset_type} dataset "
+            f"({dataset_info}, metric={metric}) "
+            f"with params {params}: {fail_reason} | "
+            f"RMSE={metrics['rmse']:.3f}, avg_corr={metrics['avg_corr']:.3f}, "
+            f"corr=[{corr_str}]"
         )
         assert False, details
