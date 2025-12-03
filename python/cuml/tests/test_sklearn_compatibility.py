@@ -923,10 +923,10 @@ def _check_name(check):
         AgglomerativeClustering(),
         KernelRidge(),
         GaussianNB(),
-        # ComplementNB(),
-        # CategoricalNB(),
-        # BernoulliNB(),
-        # MultinomialNB(),
+        ComplementNB(),
+        CategoricalNB(),
+        BernoulliNB(),
+        MultinomialNB(),
         UMAP(),
         TSNE(),
         TruncatedSVD(),
@@ -969,6 +969,13 @@ def _check_name(check):
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
+
+    # These estimators lead to additional MemoryErrors in the other
+    # estimators. As a result they are currently skipped.
+    if isinstance(estimator, AgglomerativeClustering):
+        pytest.skip(
+            "Estimator sometimes causes persistent memory errors (gh-7345)"
+        )
 
     check_name = _check_name(check)
 
