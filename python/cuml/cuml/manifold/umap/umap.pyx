@@ -930,8 +930,15 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
+
+        mem_type = MemoryType.device
+        if knn_graph is not None or self.precomputed_knn is not None:
+            """mirrors the input data mem type to avoid unnecessary memory copies
+            because we don't need the data if we have precomputed knn """
+            mem_type = False
+
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
@@ -945,7 +952,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 convert_to_mem_type=(
                     MemoryType.host
                     if params.build_algo == lib.graph_build_algo.NN_DESCENT
-                    else MemoryType.device
+                    else mem_type
                 )
             ).array
             X_ptr = X_m.ptr
