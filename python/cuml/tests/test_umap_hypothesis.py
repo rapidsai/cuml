@@ -7,11 +7,12 @@
 Hypothesis-based property testing for UMAP components.
 
 This test suite uses property-based testing to thoroughly validate:
-1. Simplicial set embedding implementation
+1. Fuzzy simplicial set construction
 2. Spectral initialization
+3. Simplicial set embedding
 
-Both are tested against reference UMAP implementations across a wide range
-of parameters and synthetic dataset configurations.
+All components are tested against reference UMAP implementations across a wide
+range of parameters and synthetic dataset configurations.
 """
 
 import os
@@ -33,6 +34,7 @@ from sklearn.datasets import (
 
 # Reference UMAP implementation
 from umap.umap_ import find_ab_params
+from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 from umap.umap_ import spectral_layout
 
@@ -866,5 +868,246 @@ def test_spectral_init_hypothesis(dataset, params):
             f"with params {params}: {fail_reason} | "
             f"RMSE={metrics['rmse']:.3f}, avg_corr={metrics['avg_corr']:.3f}, "
             f"corr=[{corr_str}]"
+        )
+        assert False, details
+
+
+@st.composite
+def fuzzy_params_strategy(draw):
+    """Generate valid fuzzy simplicial set parameters."""
+    # n_neighbors: reasonable range for graph construction
+    n_neighbors = draw(st.integers(min_value=10, max_value=30))
+
+    return {
+        "n_neighbors": n_neighbors,
+    }
+
+
+def _generate_baseline_fuzzy_dataset():
+    """Generate a baseline dataset for the fuzzy simplicial set required example."""
+    X_cp, y = cuml.datasets.make_blobs(
+        n_samples=500,
+        n_features=10,
+        centers=4,
+        cluster_std=1.0,
+        random_state=42,
+    )
+    X_np = cp.asnumpy(X_cp) if isinstance(X_cp, cp.ndarray) else X_cp
+    X_cp = cp.asarray(X_np, dtype=cp.float32)
+    return DatasetWrapper(
+        X_np=X_np,
+        X_cp=X_cp,
+        metric="euclidean",
+        dataset_type="blobs",
+        n_samples=500,
+        n_features=10,
+        n_centers=4,
+        cluster_std=1.0,
+    )
+
+
+def evaluate_fuzzy_quality(
+    ref_graph,
+    cu_graph,
+    compute_metrics_fn,
+    compute_js_fn,
+    # Thresholds for synthetic data (slightly relaxed from benchmark datasets)
+    kl_threshold=0.08,
+    js_threshold=0.08,
+    jaccard_threshold=0.85,
+    row_l1_threshold=0.01,
+):
+    """
+    Evaluate fuzzy simplicial set quality by comparing cuML against reference.
+
+    Metrics:
+    - KL divergence (symmetric): measures distributional difference
+    - JS divergence: bounded version of KL, always finite
+    - Jaccard similarity: edge overlap between graphs
+    - Row-sum L1: difference in row normalization
+
+    Returns:
+        tuple: (should_fail, fail_reason, metrics_dict)
+    """
+    # Compute fuzzy simplicial set metrics
+    kl_sym, jaccard, row_l1 = compute_metrics_fn(ref_graph, cu_graph)
+    js_avg = compute_js_fn(ref_graph, cu_graph, average=True)
+
+    # Check for finite values
+    if not np.isfinite(kl_sym):
+        return (
+            True,
+            "KL divergence is not finite",
+            {
+                "kl_sym": kl_sym,
+                "js_avg": js_avg,
+                "jaccard": jaccard,
+                "row_l1": row_l1,
+            },
+        )
+    if not np.isfinite(js_avg):
+        return (
+            True,
+            "JS divergence is not finite",
+            {
+                "kl_sym": kl_sym,
+                "js_avg": js_avg,
+                "jaccard": jaccard,
+                "row_l1": row_l1,
+            },
+        )
+
+    # Collect issues
+    issues = []
+
+    if kl_sym > kl_threshold:
+        issues.append(f"KL={kl_sym:.4f} > {kl_threshold}")
+    if js_avg > js_threshold:
+        issues.append(f"JS={js_avg:.4f} > {js_threshold}")
+    if jaccard < jaccard_threshold:
+        issues.append(f"Jaccard={jaccard:.3f} < {jaccard_threshold}")
+    if row_l1 > row_l1_threshold:
+        issues.append(f"row_L1={row_l1:.4f} > {row_l1_threshold}")
+
+    # Fail if multiple issues or any severe issue
+    should_fail = len(issues) >= 2
+    fail_reason = f"Multiple issues: {issues}" if should_fail else ""
+
+    metrics_dict = {
+        "kl_sym": kl_sym,
+        "js_avg": js_avg,
+        "jaccard": jaccard,
+        "row_l1": row_l1,
+        "issues": issues,
+    }
+
+    return should_fail, fail_reason, metrics_dict
+
+
+@pytest.mark.slow
+@settings(
+    max_examples=5,  # Random testing across dataset types
+    deadline=120000,  # 120 seconds per test case
+    phases=[
+        hypothesis.Phase.explicit,
+        hypothesis.Phase.reuse,
+        hypothesis.Phase.generate,
+        hypothesis.Phase.target,
+    ],
+    print_blob=False,  # Don't print large dataset arrays in failure messages
+    verbosity=hypothesis.Verbosity.verbose,  # Display information about every run
+)
+@given(
+    dataset=diverse_dataset_strategy(),
+    params=fuzzy_params_strategy(),
+)
+@example(
+    dataset=_generate_baseline_fuzzy_dataset(),
+    params={
+        "n_neighbors": 15,
+    },
+)
+def test_fuzzy_simplicial_set_hypothesis(dataset, params):
+    """
+    Property-based test for fuzzy simplicial set construction using random parameters.
+
+    This test validates the cuML fuzzy_simplicial_set against the reference UMAP
+    implementation using Hypothesis to generate random combinations of datasets
+    and parameters.
+
+    Dataset Types (randomly selected):
+    - Blobs: Traditional clustered data (5-25D, euclidean or cosine)
+    - Circles: Concentric circles topology (2D, euclidean only)
+    - Moons: Two interleaving half circles (2D, euclidean only)
+    - Swiss Roll: Classic 3D manifold structure (euclidean only)
+    - S-Curve: 3D curved manifold (euclidean only)
+
+    Test Coverage:
+    - 5 random parameter/dataset combinations
+    - n_neighbors: 10-30
+    - Sample sizes: 800-2000
+
+    Quality Validation:
+    Compares cuML vs reference UMAP fuzzy graphs on:
+    - Symmetric KL divergence
+    - Jensen-Shannon divergence
+    - Edge Jaccard similarity
+    - Row-sum L1 norm difference
+    """
+    # Skip test if cuvs is not available
+    pytest.importorskip("cuvs")
+
+    # Import umap_metrics (depends on cuvs)
+    try:
+        from umap_metrics import (
+            _build_knn_with_cuvs,
+            compute_fuzzy_js_divergence,
+            compute_fuzzy_simplicial_set_metrics,
+        )
+    except ImportError as e:
+        pytest.skip(
+            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
+        )
+
+    X_np = dataset["X_np"]
+    X_cp = dataset["X_cp"]
+    metric = dataset["metric"]
+    dataset_type = dataset["dataset_type"]
+
+    n_neighbors = params["n_neighbors"]
+    random_state = 42
+
+    # Build KNN graph using cuVS
+    knn_dists_np, knn_inds_np = _build_knn_with_cuvs(
+        X_cp, k=n_neighbors, metric=metric, backend="bruteforce"
+    )
+
+    # Reference fuzzy graph (CPU / SciPy sparse)
+    ref_graph, _, _ = ref_fuzzy_simplicial_set(
+        X_np,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+        metric=metric,
+        knn_indices=knn_inds_np,
+        knn_dists=knn_dists_np,
+    )
+    ref_graph = csr_matrix(ref_graph)
+
+    # cuML fuzzy graph (GPU)
+    cu_graph_gpu = cu_fuzzy_simplicial_set(
+        X_cp,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+        metric=metric,
+        knn_indices=cp.asarray(knn_inds_np),
+        knn_dists=cp.asarray(knn_dists_np),
+    )
+    cu_graph = (
+        cu_graph_gpu.get() if hasattr(cu_graph_gpu, "get") else cu_graph_gpu
+    )
+    cu_graph = csr_matrix(cu_graph)
+
+    # Evaluate fuzzy simplicial set quality
+    should_fail, fail_reason, metrics = evaluate_fuzzy_quality(
+        ref_graph,
+        cu_graph,
+        compute_metrics_fn=compute_fuzzy_simplicial_set_metrics,
+        compute_js_fn=compute_fuzzy_js_divergence,
+    )
+
+    if should_fail:
+        # Format dataset-specific details for error message
+        dataset_info = (
+            f"dataset_type={dataset_type}, n_samples={dataset['n_samples']}"
+        )
+        if "n_features" in dataset:
+            dataset_info += f", n_features={dataset['n_features']}"
+
+        details = (
+            f"Hypothesis fuzzy simplicial set test failed for {dataset_type} dataset "
+            f"({dataset_info}, metric={metric}) "
+            f"with params {params}: {fail_reason} | "
+            f"KL={metrics['kl_sym']:.4f}, JS={metrics['js_avg']:.4f}, "
+            f"Jaccard={metrics['jaccard']:.3f}, row_L1={metrics['row_l1']:.4f}"
         )
         assert False, details
