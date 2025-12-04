@@ -222,9 +222,7 @@ class CUDAHealthPlugin:
 
             # Build failure message
             failure_msg = (
-                "\n"
-                + "=" * 80
-                + "\n"
+                "\n" + "=" * 80 + "\n"
                 f"[CUDA-HEALTH:{self.worker_id}] !!! CUDA HEALTH CHECK FAILED !!!\n"
                 f"  Current test: {item.nodeid}\n"
                 f"  Test number: {self.test_count}\n"
@@ -306,4 +304,3 @@ def pytest_configure(config):
             config.pluginmanager.register(
                 CUDAHealthPlugin(config), plugin_name
             )
-
