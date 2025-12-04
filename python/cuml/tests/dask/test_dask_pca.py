@@ -1,12 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
+
+SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
 
 
 @pytest.mark.mg
@@ -56,11 +59,12 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
     ]
 
     for attr in all_attr:
+        with_sign = SKLEARN_GE_1_5_0 if attr == "components_" else True
         cuml_res = getattr(cupca, attr)
         if type(cuml_res) is np.ndarray:
             cuml_res = cuml_res.to_numpy()
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
+        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 
 
 @pytest.mark.mg

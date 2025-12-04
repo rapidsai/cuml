@@ -57,7 +57,7 @@ timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
 # Run test_sparse_pca_inputs separately
-timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
+timeout 10m ./ci/run_cuml_singlegpu_pytests.sh \
   -k 'test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
 
