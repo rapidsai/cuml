@@ -933,8 +933,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         mem_type = MemoryType.device
         if knn_graph is not None or self.precomputed_knn is not None:
-            """mirrors the input data mem type to avoid unnecessary memory copies
-            because we don't need the data if we have precomputed knn """
+            """Mirrors the input data memory type to avoid unnecessary copies,
+            since the data itself is not needed when precomputed KNN results are provided"""
             mem_type = False
 
         if X_is_sparse:
