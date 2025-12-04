@@ -110,6 +110,7 @@ jobs:
       container_image: "rapidsai/ci-conda:26.02-latest"
       script: "ci/run_clang_tidy.sh"
   conda-cpp-build:
+    needs: checks
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
