@@ -1,22 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import cudf
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
-import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.outputs import reflect
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
@@ -264,9 +260,9 @@ class ExponentialSmoothing(Base):
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
-        return mod_ts_input
+        return CumlArray(data=mod_ts_input)
 
-    @cuml.internals.api_base_return_any_skipall
+    @reflect(skip=True)
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -349,9 +345,9 @@ class ExponentialSmoothing(Base):
 
         self.handle.sync()
         self.fit_executed_flag = True
-        del X_m
         return self
 
+    @reflect(skip=True)
     def forecast(self, h=1, index=None):
         """
         Forecasts future points based on the fitted model.
@@ -437,6 +433,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before forecast()")
 
+    @reflect(skip=True)
     def score(self, index=None):
         """
         Returns the score of the model.
@@ -468,6 +465,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before score()")
 
+    @reflect(skip=True)
     def get_level(self, index=None):
         """
         Returns the level component of the model.
@@ -499,6 +497,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get level values")
 
+    @reflect(skip=True)
     def get_trend(self, index=None):
         """
         Returns the trend component of the model.
@@ -530,6 +529,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get trend values")
 
+    @reflect(skip=True)
     def get_season(self, index=None):
         """
         Returns the season component of the model.

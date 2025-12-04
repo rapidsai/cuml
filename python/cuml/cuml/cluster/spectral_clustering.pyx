@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import warnings
 
 import cupy as cp
@@ -56,7 +55,7 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
         device_vector_view[int, int] labels) except +
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.reflect
 def spectral_clustering(X,
                         *,
                         int n_clusters=8,
@@ -394,6 +393,7 @@ class SpectralClustering(Base):
             "affinity",
         ]
 
+    @cuml.internals.reflect
     def fit_predict(self, X, y=None) -> CumlArray:
         """Perform spectral clustering on ``X`` and return cluster labels.
 
@@ -414,19 +414,10 @@ class SpectralClustering(Base):
         labels : cupy.ndarray of shape (n_samples,)
             Cluster labels.
         """
-        self.labels_ = spectral_clustering(
-            X,
-            n_clusters=self.n_clusters,
-            n_components=self.n_components,
-            random_state=self.random_state,
-            n_neighbors=self.n_neighbors,
-            n_init=self.n_init,
-            eigen_tol=self.eigen_tol,
-            affinity=self.affinity,
-            handle=self.handle
-        )
+        self.fit(X, y=y)
         return self.labels_
 
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 
@@ -447,5 +438,15 @@ class SpectralClustering(Base):
         self : object
             Returns the instance itself.
         """
-        self.fit_predict(X, y)
+        self.labels_ = spectral_clustering(
+            X,
+            n_clusters=self.n_clusters,
+            n_components=self.n_components,
+            random_state=self.random_state,
+            n_neighbors=self.n_neighbors,
+            n_init=self.n_init,
+            eigen_tol=self.eigen_tol,
+            affinity=self.affinity,
+            handle=self.handle
+        )
         return self

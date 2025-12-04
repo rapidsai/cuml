@@ -2,11 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-import cuml.internals
-
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
@@ -24,7 +19,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                              const int upper_class_range) except +
 
 
-@cuml.internals.api_return_any()
 def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
     """
     Computes the Mutual Information between two clusterings.

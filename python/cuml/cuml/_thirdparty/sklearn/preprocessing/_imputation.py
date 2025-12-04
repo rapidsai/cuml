@@ -31,6 +31,7 @@ from cuml.internals.mixins import (
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
+from ....internals.outputs import reflect
 from ....thirdparty_adapters import (
     _get_mask,
     _masked_column_mean,
@@ -299,6 +300,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
         return X
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
@@ -411,6 +413,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         elif strategy == "constant":
             return np.full(X.shape[1], fill_value, dtype=X.dtype)
 
+    @reflect
     def transform(self, X) -> SparseCumlArray:
         """Impute all missing values in X.
 
@@ -674,6 +677,7 @@ class MissingIndicator(TransformerMixin,
 
         return missing_features_info[0]
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
@@ -692,6 +696,7 @@ class MissingIndicator(TransformerMixin,
 
         return self
 
+    @reflect
     def transform(self, X) -> SparseCumlArray:
         """Generate missing values indicator for X.
 
@@ -731,6 +736,7 @@ class MissingIndicator(TransformerMixin,
 
         return imputer_mask
 
+    @reflect(reset=True)
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Generate missing values indicator for X.
 

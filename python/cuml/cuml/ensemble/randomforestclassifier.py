@@ -218,6 +218,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y="dense_intdtype",
         convert_dtype_cast="np.float32",
     )
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
@@ -252,7 +253,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.reflect(skip=True)
     def predict(
         self,
         X,
@@ -302,6 +303,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
+    @cuml.internals.reflect
     def predict_proba(
         self,
         X,
@@ -355,6 +357,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
+    @cuml.internals.reflect(skip=True)
     def score(
         self,
         X,

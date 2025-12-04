@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_output_type
+from cuml.internals.outputs import using_output_type
 
 __all__ = (
     "UnsupportedOnGPU",

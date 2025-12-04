@@ -2,11 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-import cuml.internals
-
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
@@ -25,7 +20,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                      const double beta) except +
 
 
-@cuml.internals.api_return_any()
 def cython_v_measure(labels_true, labels_pred, beta=1.0, handle=None) -> float:
     """
     V-measure metric of a cluster labeling given a ground truth.

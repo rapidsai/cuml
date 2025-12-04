@@ -12,13 +12,11 @@ import numpy as np
 import scipy.sparse
 from pylibraft.common.handle import Handle
 
-import cuml.accel
-import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -888,6 +886,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         X="dense_sparse",
         skip_parameters_heading=True,
     )
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -1053,7 +1052,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(
         self, X, y=None, *, convert_dtype=True, knn_graph=None
     ) -> CumlArray:
@@ -1093,6 +1092,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
@@ -1357,7 +1357,7 @@ def fuzzy_simplicial_set(
     return fss_graph.view_cupy_coo()
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@reflect
 def simplicial_set_embedding(
     data,
     graph,
