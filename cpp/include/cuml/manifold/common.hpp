@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/core/memory_type.hpp>
 
 #include <stdint.h>
 
@@ -110,10 +111,11 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
   {
     // Return true if data is on CPU (need to allocate device memory)
     // Return false if data is already on device (no allocation needed)
-    auto pointer_residency = raft::spatial::knn::detail::utils::check_pointer_residency(
-      knn_graph.knn_indices, knn_graph.knn_dists);
-    return pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::host_only ||
-           pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::mixed;
+    auto indices_mem_type = raft::memory_type_from_pointer(knn_graph.knn_indices);
+    auto dists_mem_type   = raft::memory_type_from_pointer(knn_graph.knn_dists);
+
+    return !raft::is_device_accessible(indices_mem_type) ||
+           !raft::is_device_accessible(dists_mem_type);
   }
 };
 
