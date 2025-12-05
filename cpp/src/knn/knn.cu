@@ -154,7 +154,7 @@ void brute_force_knn(const raft::handle_t& handle,
       raft::make_device_matrix_view<const int64_t, int64_t>(out_I, n * input.size(), k),
       raft::make_device_matrix_view<float, int64_t>(res_D, n, k),
       raft::make_device_matrix_view<int64_t, int64_t>(res_I, n, k),
-      raft::make_device_vector_view<int64_t>(trans.data(), trans.size()));
+      raft::make_device_vector_view<int64_t, int64_t>(trans.data(), trans.size()));
   }
 
   if (translations == nullptr) delete id_ranges;
