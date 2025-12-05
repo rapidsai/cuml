@@ -108,14 +108,16 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   bool alloc_knn_graph() const
   {
-    return false;
-    // // Return true if data is on CPU (need to allocate device memory)
-    // // Return false if data is already on device (no allocation needed)
-    // auto pointer_residency = raft::spatial::knn::detail::utils::check_pointer_residency(
-    //   knn_graph.knn_indices, knn_graph.knn_dists);
-    // return pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::host_only
-    // ||
-    //        pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::mixed;
+    // return false;
+    // Return true if data is on CPU (need to allocate device memory)
+    // Return false if data is already on device (no allocation needed)
+    auto pointer_residency = raft::spatial::knn::detail::utils::check_pointer_residency(
+      knn_graph.knn_indices, knn_graph.knn_dists);
+    bool should_allocate =
+      pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::host_only ||
+      pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::mixed;
+    std::cout << "should_allocate: " << should_allocate << std::endl;
+    return should_allocate;
   }
 };
 

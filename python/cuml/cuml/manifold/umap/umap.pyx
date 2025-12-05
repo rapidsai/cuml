@@ -972,6 +972,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
                 self._n_neighbors,
+                mem_type=False,
             )
             if X_is_sparse:
                 knn_indices = input_to_cuml_array(
@@ -981,6 +982,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_dists_ptr = knn_dists.ptr
         else:
             knn_indices = knn_dists = None
+
+        if knn_indices is not None:
+            print(f"knn indices type: {type(knn_indices)} {knn_indices.shape} \
+            {knn_indices.dtype} {knn_indices.mem_type}")
+        if knn_dists is not None:
+            print(f"knn dists type: {type(knn_dists)} {knn_dists.shape} \
+            {knn_dists.dtype} {knn_dists.mem_type}")
 
         cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
