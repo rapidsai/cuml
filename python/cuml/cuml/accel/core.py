@@ -78,6 +78,7 @@ logger = Logger()
 ACCELERATED_MODULES = [
     "hdbscan",
     "sklearn.cluster",
+    "sklearn.covariance",
     "sklearn.decomposition",
     "sklearn.ensemble",
     "sklearn.kernel_ridge",
