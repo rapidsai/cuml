@@ -7,6 +7,7 @@ set -euo pipefail
 source rapids-configure-sccache
 source rapids-date-string
 
+source ./ci/use_conda_packages_from_prs.sh
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
@@ -18,7 +19,6 @@ sccache --stop-server 2>/dev/null || true
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION
 
-source ./ci/use_conda_packages_from_prs.sh
 # populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
 source rapids-rattler-channel-string
 

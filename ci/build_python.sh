@@ -7,6 +7,8 @@ set -euo pipefail
 source rapids-configure-sccache
 source rapids-date-string
 
+source ./ci/use_conda_packages_from_prs.sh
+
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
@@ -16,7 +18,6 @@ rapids-generate-version > ./VERSION
 rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
-source ./ci/use_conda_packages_from_prs.sh
 
 RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION)
 export RAPIDS_PACKAGE_VERSION
