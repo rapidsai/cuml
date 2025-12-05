@@ -10,7 +10,6 @@ package_name="libcuml"
 package_dir="python/libcuml"
 
 rapids-logger "Generating build requirements"
-source ./ci/use_wheels_from_prs.sh
 
 rapids-dependency-file-generator \
   --output requirements \
