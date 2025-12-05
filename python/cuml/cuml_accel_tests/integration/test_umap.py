@@ -13,6 +13,16 @@ from umap import UMAP
 if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
     pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
 
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
+# need to be updated at that point.
+# See also https://github.com/lmcinnes/umap/issues/1174
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to 'ensure_all_finite':FutureWarning:sklearn"
+)
+
 
 @pytest.fixture(scope="module")
 def manifold_data():
