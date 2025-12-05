@@ -22,8 +22,8 @@ set +e
 
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
-  --numprocesses=8 \
-  --dist=worksteal \
+  --verbose \
+  --exitfirst \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../.coveragerc \
   --cov=cuml \
@@ -31,8 +31,8 @@ rapids-logger "pytest cuml single GPU"
 
   rapids-logger "pytest cuml accelerator"
 ./ci/run_cuml_singlegpu_accel_pytests.sh \
-  --numprocesses=8 \
-  --dist=worksteal \
+  --verbose \
+  --exitfirst \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
   --cov-config=../.coveragerc \
   --cov=cuml \
