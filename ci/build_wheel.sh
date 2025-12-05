@@ -4,7 +4,6 @@
 
 set -euo pipefail
 
-source ./ci/use_wheels_from_prs.sh
 package_name=$1
 package_dir=$2
 
