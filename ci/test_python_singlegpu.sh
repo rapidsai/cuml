@@ -19,7 +19,7 @@ fi
 # Install compute-sanitizer-api for the appropriate CUDA version
 CUDA_VERSION_SHORT="${RAPIDS_CUDA_VERSION%.*}"
 rapids-logger "Installing compute-sanitizer-api for CUDA ${CUDA_VERSION_SHORT}"
-rapids-mamba-retry install -y -c nvidia compute-sanitizer-api cuda-version="${CUDA_VERSION_SHORT}"
+rapids-mamba-retry install -y -c nvidia cuda-sanitizer-api cuda-version="${CUDA_VERSION_SHORT}"
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
