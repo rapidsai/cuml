@@ -16,27 +16,26 @@ if python -c 'import dask' 2>/dev/null; then
   exit 1
 fi
 
+# Install compute-sanitizer-api for the appropriate CUDA version
+CUDA_VERSION_SHORT="${RAPIDS_CUDA_VERSION%.*}"
+rapids-logger "Installing compute-sanitizer-api for CUDA ${CUDA_VERSION_SHORT}"
+rapids-mamba-retry install -y compute-sanitizer-api cuda-version="${CUDA_VERSION_SHORT}"
+
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
-rapids-logger "pytest cuml single GPU"
-./ci/run_cuml_singlegpu_pytests.sh \
+rapids-logger "pytest cuml UMAP under compute-sanitizer"
+cd python/cuml/tests || exit 1
+compute-sanitizer --tool memcheck python -m pytest \
+  --cache-clear \
   --numprocesses=8 \
   --dist=worksteal \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-umap-sanitizer.xml" \
   --cov-config=../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
-
-  rapids-logger "pytest cuml accelerator"
-./ci/run_cuml_singlegpu_accel_pytests.sh \
-  --numprocesses=8 \
-  --dist=worksteal \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
-  --cov-config=../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-umap-sanitizer-coverage.xml" \
+  test_umap.py
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
