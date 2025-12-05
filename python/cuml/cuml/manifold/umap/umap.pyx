@@ -972,7 +972,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
                 self._n_neighbors,
-                mem_type=False,     # mirrors the input graph mem type
             )
             if X_is_sparse:
                 knn_indices = input_to_cuml_array(
