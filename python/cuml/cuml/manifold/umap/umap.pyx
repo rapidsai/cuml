@@ -931,11 +931,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
 
-        mem_type = MemoryType.device
-        if knn_graph is not None or self.precomputed_knn is not None:
-            """Mirrors the input data memory type to avoid unnecessary copies,
-            since the data itself is not needed when precomputed KNN results are provided"""
-            mem_type = False
+        # Don't coerce to device memory when using a precomputed KNN, so
+        # that X may be dropped earlier if passed on host.
+        mem_type = (
+            MemoryType.device
+            if knn_graph is None and self.precomputed_knn is None
+            else False
+        )
 
         if X_is_sparse:
             X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
