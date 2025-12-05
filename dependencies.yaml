@@ -261,7 +261,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.4.0,<0.5.0.dev0
+          - rapids-build-backend>=0.4.0,<0.5.0
       - output_types: [conda]
         packages:
           - scikit-build-core>=0.10.0
@@ -319,15 +319,15 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.0.0,<3.2.0a0
-          - &treelite treelite>=4.6.1,<5.0.0a0
+          - &cython cython>=3.0.0,<3.2.0
+          - &treelite treelite>=4.6.1,<5.0.0
   py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - joblib>=0.11
-          - numba>=0.60.0,<0.62.0a0
-          - &numpy numpy>=1.23,<3.0a0
+          - numba>=0.60.0,<0.62.0
+          - &numpy numpy>=1.23,<3.0
           - scipy>=1.11.0
           - packaging
           - rich
@@ -563,11 +563,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.9.2,<13.0a0
+              - cuda-python>=12.9.2,<13.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cuda-python>=13.0.1,<14.0a0
+              - cuda-python>=13.0.1,<14.0
   depends_on_cudf:
     common:
       - output_types: conda
@@ -771,18 +771,18 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.19.1,<0.20.0a0
+        - numba-cuda>=0.19.1,<0.20.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - numba-cuda[cu12]>=0.19.1,<0.20.0a0
+              - numba-cuda[cu12]>=0.19.1,<0.20.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - numba-cuda[cu13]>=0.19.1,<0.20.0a0
+              - numba-cuda[cu13]>=0.19.1,<0.20.0
   depends_on_pylibraft:
     common:
       - output_types: conda
