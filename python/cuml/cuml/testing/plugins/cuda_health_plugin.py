@@ -8,9 +8,8 @@ Pytest plugin to monitor CUDA health during test execution.
 
 This plugin helps identify tests that cause CUDA memory corruption by:
 1. Checking GPU health before and after each test
-2. Logging CUDA memory state
-3. Detecting illegal memory access errors early
-4. Providing detailed reports on which test caused issues
+2. Detecting illegal memory access errors early
+3. Providing detailed reports on which test caused issues
 
 Usage:
     pytest --cuda-health-check
@@ -113,30 +112,6 @@ class CUDAHealthPlugin:
             sys.stderr.write(full_msg + "\n")
             sys.stderr.flush()
 
-    def _get_memory_info(self):
-        """Get current CUDA memory info."""
-        if not self.cuda_available:
-            return None
-
-        try:
-            mempool = self.cp.get_default_memory_pool()
-
-            info = {
-                "device_used": mempool.used_bytes(),
-                "device_total": mempool.total_bytes(),
-            }
-
-            # Pinned memory pool has different API
-            try:
-                pinned_mempool = self.cp.get_default_pinned_memory_pool()
-                info["pinned_used"] = pinned_mempool.n_free_blocks()
-            except Exception:
-                pass
-
-            return info
-        except Exception as e:
-            return {"error": str(e)}
-
     def _check_cuda_health(self):
         """Check if CUDA is in a healthy state."""
         if not self.cuda_available:
@@ -146,7 +121,8 @@ class CUDAHealthPlugin:
             # Try a simple CUDA operation
             a = self.cp.array([1, 2, 3], dtype=self.cp.float32)
             b = a + 1
-            self.cp.cuda.Stream.null.synchronize()
+            # Sync ALL streams on the device, not just the null stream
+            self.cp.cuda.Device().synchronize()
             del a, b
             return True, "OK"
         except Exception as e:
@@ -160,12 +136,12 @@ class CUDAHealthPlugin:
                 return False, f"UNKNOWN ERROR: {error_msg}"
 
     def _sync_cuda(self):
-        """Synchronize CUDA stream."""
+        """Synchronize all CUDA streams on the device."""
         if not self.cuda_available:
             return
 
         try:
-            self.cp.cuda.Stream.null.synchronize()
+            self.cp.cuda.Device().synchronize()
         except Exception as e:
             self._log(f"Sync failed: {e}", force=True)
 
@@ -189,11 +165,7 @@ class CUDAHealthPlugin:
         self.test_count += 1
 
         if self.verbose:
-            mem_info = self._get_memory_info()
-            self._log(
-                f"[{self.test_count}] SETUP: {item.nodeid} | "
-                f"Memory: {mem_info}"
-            )
+            self._log(f"[{self.test_count}] SETUP: {item.nodeid}")
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_teardown(self, item, nextitem):
@@ -244,10 +216,9 @@ class CUDAHealthPlugin:
             self.last_healthy_test = item.nodeid
 
             if self.verbose:
-                mem_info = self._get_memory_info()
                 self._log(
                     f"[{self.test_count}] TEARDOWN: {item.nodeid} | "
-                    f"Health: {msg} | Memory: {mem_info}"
+                    f"Health: {msg}"
                 )
 
     def pytest_sessionfinish(self, session, exitstatus):
