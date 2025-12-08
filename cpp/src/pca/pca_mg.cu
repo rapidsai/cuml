@@ -78,6 +78,9 @@ void fit_impl(raft::handle_t& handle,
                            n_streams,
                            true);
   } else {
+    for (std::uint32_t i = 0; i < n_streams; i++) {
+      handle.sync_stream(streams[i]);
+    }
     signFlipComponents(handle,
                        input_data[0]->ptr,
                        components,
@@ -191,6 +194,9 @@ void fit_impl(raft::handle_t& handle,
                              n_streams,
                              true);
     } else {
+      for (std::uint32_t i = 0; i < n_streams; i++) {
+        handle.sync_stream(streams[i]);
+      }
       signFlipComponents(h,
                          input_data[0]->ptr,
                          vMatrix.data(),
