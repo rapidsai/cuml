@@ -18,7 +18,6 @@ files:
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
-      - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
@@ -49,7 +48,6 @@ files:
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
-      - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
@@ -74,7 +72,6 @@ files:
       - common_build
       - cuda
       - cuda_version
-      - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft_headers
       - depends_on_librmm
@@ -93,7 +90,6 @@ files:
       - common_build
       - cuda
       - cuda_version
-      - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft_headers
       - depends_on_librmm
@@ -173,7 +169,6 @@ files:
       - common_build
       - depends_on_cuda_python
       - depends_on_libcuml
-      - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
       - depends_on_librmm
@@ -704,11 +699,6 @@ dependencies:
             packages:
               - libcuml-cu13==26.2.*,>=0.0.0a0
           - {matrix: null, packages: [*libcuml_unsuffixed]}
-  depends_on_libcumlprims:
-    common:
-      - output_types: conda
-        packages:
-          - libcumlprims==26.2.*,>=0.0.0a0
   depends_on_libcuvs:
     common:
       - output_types: conda

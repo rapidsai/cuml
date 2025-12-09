@@ -11,7 +11,7 @@ from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
 
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
+cdef extern from "cuml/src_prims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
 
@@ -30,7 +30,7 @@ ctypedef Data[int] intData_t
 ctypedef vector[int*] int_ptr_vector
 ctypedef vector[float*] float_ptr_vector
 
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
+cdef extern from "cuml/src_prims/opg/matrix/part_descriptor.hpp" \
                  namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:

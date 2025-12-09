@@ -8,8 +8,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 
-#include <cumlprims/opg/linalg/gemm.hpp>
-#include <cumlprims/opg/matrix/matrix_utils.hpp>
+#include <cuml/src_prims/opg/linalg/gemm.hpp>
+#include <cuml/src_prims/opg/matrix/matrix_utils.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

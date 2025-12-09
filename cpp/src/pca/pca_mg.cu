@@ -9,11 +9,11 @@
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 
-#include <cumlprims/opg/linalg/qr_based_svd.hpp>
-#include <cumlprims/opg/matrix/matrix_utils.hpp>
-#include <cumlprims/opg/stats/cov.hpp>
-#include <cumlprims/opg/stats/mean.hpp>
-#include <cumlprims/opg/stats/mean_center.hpp>
+#include <opg/linalg/qr_based_svd.hpp>
+#include <opg/matrix/matrix_utils.hpp>
+#include <opg/stats/cov.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -24,7 +24,7 @@
 
 #include <cstddef>
 
-using namespace MLCommon;
+using namespace ML;
 
 namespace ML {
 namespace PCA {

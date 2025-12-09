@@ -8,8 +8,8 @@
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
-#include <cumlprims/opg/linalg/mv_aTb.hpp>
-#include <cumlprims/opg/linalg/norm.hpp>
+#include <opg/linalg/mv_aTb.hpp>
+#include <opg/linalg/norm.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -26,7 +26,7 @@
 
 #include <cstddef>
 
-using namespace MLCommon;
+using namespace ML;
 
 namespace ML {
 namespace CD {

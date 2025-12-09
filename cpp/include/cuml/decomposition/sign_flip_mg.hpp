@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <cumlprims/opg/matrix/data.hpp>
-#include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 #include <raft/core/handle.hpp>
 
 namespace ML {
@@ -29,8 +29,8 @@ namespace opg {
  * @{
  */
 void sign_flip_components_u(raft::handle_t& handle,
-                            std::vector<MLCommon::Matrix::Data<float>*>& input_data,
-                            MLCommon::Matrix::PartDescriptor& input_desc,
+                            std::vector<ML::Matrix::Data<float>*>& input_data,
+                            ML::Matrix::PartDescriptor& input_desc,
                             float* components,
                             std::size_t n_samples,
                             std::size_t n_features,
@@ -40,8 +40,8 @@ void sign_flip_components_u(raft::handle_t& handle,
                             bool center);
 
 void sign_flip_components_u(raft::handle_t& handle,
-                            std::vector<MLCommon::Matrix::Data<double>*>& input_data,
-                            MLCommon::Matrix::PartDescriptor& input_desc,
+                            std::vector<ML::Matrix::Data<double>*>& input_data,
+                            ML::Matrix::PartDescriptor& input_desc,
                             double* components,
                             std::size_t n_samples,
                             std::size_t n_features,
@@ -63,16 +63,16 @@ void sign_flip_components_u(raft::handle_t& handle,
  * @{
  */
 void sign_flip(raft::handle_t& handle,
-               std::vector<MLCommon::Matrix::Data<float>*>& input_data,
-               MLCommon::Matrix::PartDescriptor& input_desc,
+               std::vector<ML::Matrix::Data<float>*>& input_data,
+               ML::Matrix::PartDescriptor& input_desc,
                float* components,
                std::size_t n_components,
                cudaStream_t* streams,
                std::uint32_t n_stream);
 
 void sign_flip(raft::handle_t& handle,
-               std::vector<MLCommon::Matrix::Data<double>*>& input_data,
-               MLCommon::Matrix::PartDescriptor& input_desc,
+               std::vector<ML::Matrix::Data<double>*>& input_data,
+               ML::Matrix::PartDescriptor& input_desc,
                double* components,
                std::size_t n_components,
                cudaStream_t* streams,
