@@ -57,7 +57,6 @@ option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" ON)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
@@ -100,7 +99,6 @@ message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
-message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
@@ -185,7 +183,7 @@ if(NOT DISABLE_OPENMP)
 endif()
 
 # CUDA runtime
-rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+rapids_cuda_init_runtime(USE_STATIC ON)
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -612,12 +610,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
   )
 
-  set(_cuml_cpp_libs_var_name "_cuml_cpp_public_libs")
-  if(CUDA_STATIC_RUNTIME)
-    set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
-    # Add CTK include paths because we're going to make our CTK library links private below
-    target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
-  endif()
+  set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
+  # Add CTK include paths because we're going to make our CTK library links private below
+  target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 
   # The visibility of these depend on whether we're linking the CTK statically, because cumlprims_mg
   # and cuML inherit their CUDA libs from the raft::raft INTERFACE target.
