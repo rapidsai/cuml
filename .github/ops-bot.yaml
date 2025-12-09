@@ -7,3 +7,4 @@ label_checker: true
 release_drafter: true
 recently_updated: true
 forward_merger: true
+merge_barriers: true
