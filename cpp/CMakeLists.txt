@@ -625,7 +625,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(
     cuml_objs
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
            ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
@@ -686,7 +686,7 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
            ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
@@ -763,7 +763,7 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
            ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
