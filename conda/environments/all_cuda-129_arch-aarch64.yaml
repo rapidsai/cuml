@@ -12,13 +12,13 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-python>=12.9.2,<13.0a0
+- cuda-python>=12.9.2,<13.0
 - cuda-version=12.9
 - cudf==26.2.*,>=0.0.0a0
 - cupy>=13.6.0
 - cuvs==26.2.*,>=0.0.0a0
 - cxx-compiler
-- cython>=3.0.0,<3.2.0a0
+- cython>=3.0.0,<3.2.0
 - dask-cuda==26.2.*,>=0.0.0a0
 - dask-cudf==26.2.*,>=0.0.0a0
 - dask-ml
@@ -43,9 +43,9 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba-cuda>=0.19.1,<0.20.0a0
-- numba>=0.60.0,<0.62.0a0
-- numpy>=1.23,<3.0a0
+- numba-cuda>=0.22.1,<0.23.0
+- numba>=0.60.0,<0.62.0
+- numpy>=1.23,<3.0
 - numpydoc
 - numpydoc<1.9
 - nvidia-ml-py>=12
@@ -62,7 +62,7 @@ dependencies:
 - python>=3.10,<3.14
 - pyyaml
 - raft-dask==26.2.*,>=0.0.0a0
-- rapids-build-backend>=0.4.0,<0.5.0.dev0
+- rapids-build-backend>=0.4.0,<0.5.0
 - rapids-dask-dependency==26.2.*,>=0.0.0a0
 - rapids-logger==0.2.*,>=0.0.0a0
 - rapids-xgboost==26.2.*,>=0.0.0a0
@@ -79,6 +79,6 @@ dependencies:
 - statsmodels
 - sysroot_linux-aarch64==2.28
 - tenacity
-- treelite>=4.6.1,<5.0.0a0
+- treelite>=4.6.1,<5.0.0
 - umap-learn==0.5.7
 name: all_cuda-129_arch-aarch64
