@@ -14,9 +14,11 @@ Primary functions:
 - Deterministic formatting and sorting of xfail lists
 - Validation of group conditions
 - Cleanup of empty groups
+- Batch modification of test metadata
 
 CLI Commands:
 - format: Apply consistent formatting and sorting
+- set: Modify metadata (reason, condition, marker, strict) for specified tests
 
 The tool ensures xfail lists remain maintainable and produce clean diffs
 in version control systems.
@@ -170,6 +172,135 @@ class XfailManager:
 
         if xfail_list_path:
             self.load(xfail_list_path)
+
+    def find_test(self, test_id: str) -> Optional[XfailGroup]:
+        """Find the group containing a specific test.
+
+        Args:
+            test_id: The test ID to search for
+
+        Returns:
+            The XfailGroup containing the test, or None if not found
+        """
+        for group in self.groups:
+            if test_id in group.tests:
+                return group
+        return None
+
+    def remove_test(self, test_id: str) -> bool:
+        """Remove a test from its current group.
+
+        Args:
+            test_id: The test ID to remove
+
+        Returns:
+            True if the test was found and removed, False otherwise
+        """
+        for group in self.groups:
+            if test_id in group.tests:
+                group.tests.remove(test_id)
+                return True
+        return False
+
+    def set_test_metadata(
+        self,
+        test_ids: List[str],
+        reason: Optional[str] = None,
+        condition: Optional[str] = None,
+        marker: Optional[str] = None,
+        strict: Optional[bool] = None,
+        run: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Set metadata for specified tests, moving them to appropriate groups.
+
+        For each test, this method:
+        1. Finds the test's current group (if any) to get default metadata
+        2. Overrides only the metadata options that were explicitly provided
+        3. Removes the test from its original group
+        4. Adds the test to a group with the new metadata
+
+        Args:
+            test_ids: List of test IDs to modify
+            reason: New reason (if provided)
+            condition: New condition (if provided)
+            marker: New marker (if provided)
+            strict: New strict value (if provided)
+            run: New run value (if provided)
+
+        Returns:
+            Dictionary with 'moved', 'added', and 'not_found' lists
+        """
+        results = {"moved": [], "added": [], "not_found": []}
+
+        for test_id in test_ids:
+            test_id = QuoteTestID(test_id)
+
+            # Find current group for this test
+            current_group = self.find_test(test_id)
+
+            if current_group:
+                # Get defaults from current group
+                new_reason = (
+                    reason if reason is not None else current_group.reason
+                )
+                new_condition = (
+                    condition
+                    if condition is not None
+                    else current_group.condition
+                )
+                new_marker = (
+                    marker if marker is not None else current_group.marker
+                )
+                new_strict = (
+                    strict if strict is not None else current_group.strict
+                )
+                new_run = run if run is not None else current_group.run
+
+                # Remove from current group
+                self.remove_test(test_id)
+                results["moved"].append(test_id)
+            else:
+                # Test not found - use provided values or defaults
+                if reason is None:
+                    results["not_found"].append(test_id)
+                    continue
+
+                new_reason = reason
+                new_condition = condition
+                new_marker = marker
+                new_strict = strict if strict is not None else True
+                new_run = run if run is not None else True
+                results["added"].append(test_id)
+
+            # Find or create a group with matching metadata
+            target_group = None
+            for group in self.groups:
+                if (
+                    group.reason == new_reason
+                    and group.condition == new_condition
+                    and group.marker == new_marker
+                    and group.strict == new_strict
+                    and group.run == new_run
+                ):
+                    target_group = group
+                    break
+
+            if target_group is None:
+                # Create new group
+                target_group = XfailGroup(
+                    reason=new_reason,
+                    tests=[],
+                    strict=new_strict,
+                    condition=new_condition,
+                    run=new_run,
+                    marker=new_marker,
+                )
+                self.groups.append(target_group)
+
+            # Add test to target group
+            target_group.tests.append(test_id)
+
+        return results
 
     def load(self, xfail_list_path: Union[str, Path]) -> None:
         """Load xfail list from YAML file."""
@@ -358,6 +489,86 @@ def _format_single_file(xfail_path, args):
         return 1
 
 
+def cmd_set(args):
+    """Set metadata for specified tests in the xfail list."""
+    xfail_path = Path(args.xfail_list)
+
+    if not xfail_path.exists():
+        print(
+            f"Error: Xfail list file not found: {xfail_path}", file=sys.stderr
+        )
+        return 1
+
+    # Validate that at least one metadata option is provided
+    has_metadata = any(
+        [
+            args.reason is not None,
+            args.condition is not None,
+            args.marker is not None,
+            args.strict is not None,
+        ]
+    )
+
+    if not has_metadata:
+        print(
+            "Error: At least one of --reason, --condition, --marker, "
+            "or --strict must be provided",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        manager = XfailManager(xfail_path)
+
+        results = manager.set_test_metadata(
+            test_ids=args.test_ids,
+            reason=args.reason,
+            condition=args.condition,
+            marker=args.marker,
+            strict=args.strict,
+        )
+
+        # Report results
+        if results["moved"]:
+            print(f"Moved {len(results['moved'])} test(s) to new group:")
+            for test_id in results["moved"]:
+                print(f"  {test_id}")
+
+        if results["added"]:
+            print(f"Added {len(results['added'])} new test(s):")
+            for test_id in results["added"]:
+                print(f"  {test_id}")
+
+        if results["not_found"]:
+            print(
+                f"Warning: {len(results['not_found'])} test(s) not found "
+                "(--reason required to add new tests):",
+                file=sys.stderr,
+            )
+            for test_id in results["not_found"]:
+                print(f"  {test_id}", file=sys.stderr)
+
+        # Clean up empty groups
+        manager.cleanup_empty_groups()
+
+        # Validate and save
+        validation_errors = manager.validate_conditions()
+        if validation_errors:
+            print("Validation errors:", file=sys.stderr)
+            for error in validation_errors:
+                print(f"  {error}", file=sys.stderr)
+            return 1
+
+        manager.save(xfail_path)
+        print(f"Updated {xfail_path}")
+
+        return 0 if not results["not_found"] else 1
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -382,6 +593,47 @@ def main():
         "--cleanup", action="store_true", help="Remove empty groups"
     )
     format_parser.set_defaults(func=cmd_format)
+
+    # Set command
+    set_parser = subparsers.add_parser(
+        "set",
+        help="Set metadata for specified tests in the xfail list",
+    )
+    set_parser.add_argument(
+        "xfail_list",
+        help="Xfail list file to modify",
+    )
+    set_parser.add_argument(
+        "test_ids",
+        nargs="+",
+        metavar="TEST_ID",
+        help="Test IDs to modify",
+    )
+    set_parser.add_argument(
+        "--reason",
+        help="Set the reason for the xfail group",
+    )
+    set_parser.add_argument(
+        "--condition",
+        help="Set the condition for the xfail group (e.g., 'scikit-learn<1.8')",
+    )
+    set_parser.add_argument(
+        "--marker",
+        help="Set the pytest marker for the xfail group",
+    )
+    set_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=None,
+        help="Set strict=true for the xfail group",
+    )
+    set_parser.add_argument(
+        "--no-strict",
+        action="store_false",
+        dest="strict",
+        help="Set strict=false for the xfail group",
+    )
+    set_parser.set_defaults(func=cmd_set)
 
     args = parser.parse_args()
 
