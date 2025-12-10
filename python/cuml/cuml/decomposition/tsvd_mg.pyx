@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
-import sklearn
-from packaging.version import Version
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
@@ -99,7 +97,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef bool use_float32 = dtype == np.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool flip_signs_based_on_U = (Version(sklearn.__version__) < Version("1.5.0"))
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform Fit
         with nogil:

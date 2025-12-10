@@ -296,7 +296,6 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     }
     // storing gradients for negative samples back to global memory
     if (use_shared_mem && move_other) {
-      __syncthreads();
       for (int d = 0; d < n_components; d++) {
         auto grad = grads_buffer[d * TPB_X];
         raft::myAtomicAdd<T>((T*)oth_write + d, truncate_gradient(rounding, -grad));
@@ -355,7 +354,6 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 
     // storing gradients for positive samples back to global memory
     if constexpr (use_shared_mem) {
-      __syncthreads();
       for (int d = 0; d < n_components; d++) {
         raft::myAtomicAdd<T>((T*)cur_write + d,
                              truncate_gradient(rounding, grads_buffer[d * TPB_X]));

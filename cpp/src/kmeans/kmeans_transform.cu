@@ -22,10 +22,10 @@ void transform_impl(const raft::handle_t& handle,
                     idx_t n_features,
                     value_t* X_new)
 {
-  auto X_view = raft::make_device_matrix_view<const value_t, idx_t>(X, n_samples, n_features);
+  auto X_view = raft::make_device_matrix_view<const value_t, int>(X, n_samples, n_features);
   auto centroids_view =
-    raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
-  auto rX_new = raft::make_device_matrix_view<value_t, idx_t>(X_new, n_samples, n_features);
+    raft::make_device_matrix_view<const value_t, int>(centroids, params.n_clusters, n_features);
+  auto rX_new = raft::make_device_matrix_view<value_t, int>(X_new, n_samples, n_features);
 
   cuvs::cluster::kmeans::transform(handle, params.to_cuvs(), X_view, centroids_view, rX_new);
 }
