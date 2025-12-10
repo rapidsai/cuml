@@ -9,7 +9,6 @@ dependencies:
 - clang-tools==15.0.7
 - clang==15.0.7
 - cmake>=3.30.4
-- cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
 - cuda-version=13.0
