@@ -104,6 +104,13 @@ def parse_args():
         type=str,
         help="Prefix to add to test IDs (e.g., 'sklearn.')",
     )
+    parser.add_argument(
+        "-k",
+        "--filter",
+        type=str,
+        dest="filter_pattern",
+        help="Filter tests by ID pattern (substring match, case-insensitive)",
+    )
     args = parser.parse_args()
 
     # Load config if provided
@@ -130,6 +137,21 @@ def validate_threshold(threshold):
     """Validate that the threshold is between 0 and 100."""
     if not 0 <= threshold <= 100:
         raise ValueError("Threshold must be between 0 and 100")
+
+
+def matches_filter(test_id, pattern):
+    """Check if test ID matches the filter pattern (case-insensitive substring).
+
+    Args:
+        test_id: The test ID to check
+        pattern: The filter pattern (substring match, case-insensitive)
+
+    Returns:
+        True if pattern is None or test_id contains pattern
+    """
+    if pattern is None:
+        return True
+    return pattern.lower() in test_id.lower()
 
 
 def load_existing_xfail_list(path):
@@ -336,13 +358,16 @@ def get_test_id(testcase, prefix: str = "") -> str:
     return base_id
 
 
-def format_traceback_output(testsuite, limit=None, prefix: str = ""):
+def format_traceback_output(
+    testsuite, limit=None, prefix: str = "", filter_pattern=None
+):
     """Format test results showing tracebacks of failed tests.
 
     Args:
         testsuite: XML testsuite element containing test results
         limit: Optional limit on number of entries to show
         prefix: Prefix to add to test IDs
+        filter_pattern: Optional pattern to filter test IDs
 
     Returns:
         List of formatted strings containing test results and tracebacks
@@ -362,6 +387,10 @@ def format_traceback_output(testsuite, limit=None, prefix: str = ""):
 
         if failure is not None or error is not None:
             test_id = get_test_id(testcase, prefix)
+
+            # Apply filter
+            if not matches_filter(test_id, filter_pattern):
+                continue
 
             msg = ""
             details = ""
@@ -466,7 +495,7 @@ def main():
 
     if args.format == "traceback":
         output = format_traceback_output(
-            testsuite, args.limit, args.test_id_prefix
+            testsuite, args.limit, args.test_id_prefix, args.filter_pattern
         )
         print("\n".join(output))
         return
@@ -503,6 +532,9 @@ def main():
             for test_id, result in test_results.items():
                 if args.limit is not None and count >= args.limit:
                     break
+                # Apply filter
+                if not matches_filter(test_id, args.filter_pattern):
+                    continue
                 if result["status"] in ("fail", "xfail"):
                     if not xfail_list:
                         xfail_list.append(
@@ -552,6 +584,9 @@ def main():
             error = testcase.find("error")
             if failure is not None or error is not None:
                 test_id = get_test_id(testcase, args.test_id_prefix)
+                # Apply filter
+                if not matches_filter(test_id, args.filter_pattern):
+                    continue
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
@@ -576,13 +611,16 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
+                test_id = get_test_id(testcase, args.test_id_prefix)
+                # Apply filter
+                if not matches_filter(test_id, args.filter_pattern):
+                    continue
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
                 elif error is not None and error.get("message") is not None:
                     msg = error.get("message")
                 if "XPASS(strict)" in msg:
-                    test_id = get_test_id(testcase, args.test_id_prefix)
                     print(f'  "{test_id}"')
                     count += 1
 
