@@ -8,11 +8,10 @@ import itertools
 import time
 import warnings
 
+import datagen
 import numpy as np
 import pandas as pd
-
-from gpu_check import is_gpu_available, HAS_CUML
-import datagen
+from gpu_check import HAS_CUML, is_gpu_available
 
 # Conditional GPU imports
 cudf_Series = None
@@ -48,7 +47,7 @@ class BenchmarkTimer:
 class SpeedupComparisonRunner:
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute speedup of cuml relative to sklearn baseline.
-    
+
     In CPU-only mode, only runs CPU benchmarks.
     """
 
@@ -91,7 +90,7 @@ class SpeedupComparisonRunner:
 
         cu_elapsed = 0.0
         cpu_elapsed = 0.0
-        
+
         # Run cuML benchmark if GPU available and algorithm has cuML implementation
         if run_cuml and is_gpu_available() and algo_pair.has_cuml():
             setup_overrides = algo_pair.setup_cuml(
@@ -108,7 +107,9 @@ class SpeedupComparisonRunner:
             cu_elapsed = np.min(cuml_timer.timings)
         elif run_cuml and not is_gpu_available():
             if verbose:
-                print(f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)")
+                print(
+                    f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
+                )
 
         # Run CPU benchmark
         if run_cpu and algo_pair.has_cpu():
@@ -231,7 +232,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute accuracy and speedup of cuml relative to sklearn
     baseline.
-    
+
     In CPU-only mode, only runs CPU benchmarks.
     """
 
@@ -306,14 +307,18 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cuml = cuml_model.predict(X_test)
                 else:
                     y_pred_cuml = cuml_model.transform(X_test)
-                
+
                 # Handle cudf Series conversion
                 if HAS_CUML and isinstance(y_pred_cuml, cudf_Series):
                     y_pred_cuml = y_pred_cuml.to_numpy()
-                cuml_accuracy = algo_pair.accuracy_function(y_test, y_pred_cuml)
+                cuml_accuracy = algo_pair.accuracy_function(
+                    y_test, y_pred_cuml
+                )
         elif run_cuml and not is_gpu_available():
             if verbose:
-                print(f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)")
+                print(
+                    f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
+                )
 
         # Run CPU benchmark
         if run_cpu and algo_pair.has_cpu():
@@ -426,7 +431,7 @@ def run_variations(
     if not gpu_available:
         print("Note: Running in CPU-only mode (GPU not available)")
         run_cuml = False
-    
+
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
         bench_rows,

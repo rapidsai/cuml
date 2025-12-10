@@ -18,10 +18,6 @@ import sklearn.neighbors
 import sklearn.preprocessing
 import sklearn.random_projection
 import sklearn.svm
-from sklearn import metrics
-from sklearn.impute import SimpleImputer as skSimpleImputer
-
-from gpu_check import is_gpu_available, HAS_CUML
 from bench_helper_funcs import (
     _training_data_to_numpy,
     fit,
@@ -31,6 +27,9 @@ from bench_helper_funcs import (
     predict,
     transform,
 )
+from gpu_check import HAS_CUML
+from sklearn import metrics
+from sklearn.impute import SimpleImputer as skSimpleImputer
 
 # Conditional GPU imports
 cuml = None
@@ -69,10 +68,10 @@ if HAS_CUML:
         SimpleImputer,
         StandardScaler,
     )
-    
+
     cuml = _cuml
     cuml_metrics = _cuml_metrics
-    
+
     # Import GPU-specific helper functions
     from bench_helper_funcs import (
         _build_cpu_skl_classifier,
@@ -87,6 +86,7 @@ if HAS_CUML:
 # Optional treelite import
 try:
     import treelite as _treelite
+
     treelite = _treelite
 except ImportError:
     treelite = None
@@ -209,7 +209,7 @@ class AlgorithmPair:
         """Runs the cuml-based algorithm's fit method on specified data"""
         if self.cuml_class is None:
             raise ValueError("No cuML implementation for %s" % self.name)
-            
+
         all_args = {**self.shared_args, **self.cuml_args}
         all_args = {**all_args, **override_setup_args}
 
@@ -249,11 +249,11 @@ class AlgorithmPair:
             }
         else:
             return all_args
-    
+
     def has_cpu(self):
         """Check if this algorithm has a CPU implementation."""
         return self.cpu_class is not None
-    
+
     def has_cuml(self):
         """Check if this algorithm has a cuML implementation."""
         return self.cuml_class is not None
@@ -277,7 +277,7 @@ def _numpy_format_hook(data):
 
 def all_algorithms():
     """Returns all defined AlgorithmPair objects.
-    
+
     Each AlgorithmPair contains both CPU (sklearn) and GPU (cuML) implementations.
     When cuML is not installed, cuml_class will be None but cpu_class will still
     be available for CPU-only benchmarking.
@@ -285,32 +285,54 @@ def all_algorithms():
     # Get cuML classes if available, otherwise None
     cuml_KMeans = cuml.cluster.KMeans if HAS_CUML else None
     cuml_PCA = cuml.PCA if HAS_CUML else None
-    cuml_TruncatedSVD = cuml.decomposition.tsvd.TruncatedSVD if HAS_CUML else None
-    cuml_GaussianRandomProjection = cuml.random_projection.GaussianRandomProjection if HAS_CUML else None
-    cuml_SparseRandomProjection = cuml.random_projection.SparseRandomProjection if HAS_CUML else None
-    cuml_NearestNeighbors = cuml.neighbors.NearestNeighbors if HAS_CUML else None
+    cuml_TruncatedSVD = (
+        cuml.decomposition.tsvd.TruncatedSVD if HAS_CUML else None
+    )
+    cuml_GaussianRandomProjection = (
+        cuml.random_projection.GaussianRandomProjection if HAS_CUML else None
+    )
+    cuml_SparseRandomProjection = (
+        cuml.random_projection.SparseRandomProjection if HAS_CUML else None
+    )
+    cuml_NearestNeighbors = (
+        cuml.neighbors.NearestNeighbors if HAS_CUML else None
+    )
     cuml_DBSCAN = cuml.DBSCAN if HAS_CUML else None
     cuml_HDBSCAN = cuml.cluster.HDBSCAN if HAS_CUML else None
-    cuml_LinearRegression = cuml.linear_model.LinearRegression if HAS_CUML else None
+    cuml_LinearRegression = (
+        cuml.linear_model.LinearRegression if HAS_CUML else None
+    )
     cuml_ElasticNet = cuml.linear_model.ElasticNet if HAS_CUML else None
     cuml_Lasso = cuml.linear_model.Lasso if HAS_CUML else None
     cuml_Ridge = cuml.linear_model.Ridge if HAS_CUML else None
-    cuml_LogisticRegression = cuml.linear_model.LogisticRegression if HAS_CUML else None
-    cuml_RandomForestClassifier = cuml.ensemble.RandomForestClassifier if HAS_CUML else None
-    cuml_RandomForestRegressor = cuml.ensemble.RandomForestRegressor if HAS_CUML else None
+    cuml_LogisticRegression = (
+        cuml.linear_model.LogisticRegression if HAS_CUML else None
+    )
+    cuml_RandomForestClassifier = (
+        cuml.ensemble.RandomForestClassifier if HAS_CUML else None
+    )
+    cuml_RandomForestRegressor = (
+        cuml.ensemble.RandomForestRegressor if HAS_CUML else None
+    )
     cuml_TSNE = cuml.manifold.TSNE if HAS_CUML else None
     cuml_SVC = cuml.svm.SVC if HAS_CUML else None
     cuml_SVR = cuml.svm.SVR if HAS_CUML else None
     cuml_LinearSVC = cuml.svm.LinearSVC if HAS_CUML else None
     cuml_LinearSVR = cuml.svm.LinearSVR if HAS_CUML else None
-    cuml_KNeighborsClassifier = cuml.neighbors.KNeighborsClassifier if HAS_CUML else None
-    cuml_KNeighborsRegressor = cuml.neighbors.KNeighborsRegressor if HAS_CUML else None
+    cuml_KNeighborsClassifier = (
+        cuml.neighbors.KNeighborsClassifier if HAS_CUML else None
+    )
+    cuml_KNeighborsRegressor = (
+        cuml.neighbors.KNeighborsRegressor if HAS_CUML else None
+    )
     cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB if HAS_CUML else None
     cuml_UMAP = cuml.manifold.UMAP if HAS_CUML else None
     cuml_ForestInference = cuml.ForestInference if HAS_CUML else None
-    
+
     # Use cuml.metrics when available, sklearn.metrics otherwise
-    accuracy_fn = cuml_metrics.accuracy_score if HAS_CUML else metrics.accuracy_score
+    accuracy_fn = (
+        cuml_metrics.accuracy_score if HAS_CUML else metrics.accuracy_score
+    )
     r2_fn = cuml_metrics.r2_score if HAS_CUML else metrics.r2_score
     trustworthiness_fn = cuml_metrics.trustworthiness if HAS_CUML else None
 
@@ -602,7 +624,7 @@ def all_algorithms():
             bench_func=fit_transform,
         ),
     ]
-    
+
     # Add HDBSCAN if available
     if HDBSCAN is not None:
         algorithms.append(
@@ -615,28 +637,30 @@ def all_algorithms():
                 accepts_labels=False,
             )
         )
-    
+
     # Add UMAP if available
     if UMAP is not None:
-        algorithms.extend([
-            AlgorithmPair(
-                UMAP,
-                cuml_UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Unsupervised",
-                accepts_labels=False,
-                accuracy_function=trustworthiness_fn,
-            ),
-            AlgorithmPair(
-                UMAP,
-                cuml_UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Supervised",
-                accepts_labels=True,
-                accuracy_function=trustworthiness_fn,
-            ),
-        ])
-    
+        algorithms.extend(
+            [
+                AlgorithmPair(
+                    UMAP,
+                    cuml_UMAP,
+                    shared_args=dict(n_neighbors=5, n_epochs=500),
+                    name="UMAP-Unsupervised",
+                    accepts_labels=False,
+                    accuracy_function=trustworthiness_fn,
+                ),
+                AlgorithmPair(
+                    UMAP,
+                    cuml_UMAP,
+                    shared_args=dict(n_neighbors=5, n_epochs=500),
+                    name="UMAP-Supervised",
+                    accepts_labels=True,
+                    accuracy_function=trustworthiness_fn,
+                ),
+            ]
+        )
+
     # Add cuML-only algorithm (MBSGDClassifier has no sklearn equivalent)
     if HAS_CUML:
         algorithms.append(
@@ -650,65 +674,67 @@ def all_algorithms():
                 accuracy_function=cuml_metrics.accuracy_score,
             )
         )
-    
+
     # Add FIL algorithms if treelite and cuML are available
     if HAS_CUML and treelite is not None and _build_fil_classifier is not None:
-        algorithms.extend([
-            AlgorithmPair(
-                treelite,
-                cuml_ForestInference,
-                shared_args=dict(num_rounds=100, max_depth=10),
-                cuml_args=dict(
-                    is_classifier=False,
-                    threshold=0.5,
-                    precision="float32",
-                    layout="depth_first",
+        algorithms.extend(
+            [
+                AlgorithmPair(
+                    treelite,
+                    cuml_ForestInference,
+                    shared_args=dict(num_rounds=100, max_depth=10),
+                    cuml_args=dict(
+                        is_classifier=False,
+                        threshold=0.5,
+                        precision="float32",
+                        layout="depth_first",
+                    ),
+                    name="FIL",
+                    accepts_labels=False,
+                    setup_cpu_func=_build_gtil_classifier,
+                    setup_cuml_func=_build_fil_classifier,
+                    cpu_data_prep_hook=_treelite_format_hook,
+                    accuracy_function=_treelite_fil_accuracy_score,
+                    bench_func=predict,
                 ),
-                name="FIL",
-                accepts_labels=False,
-                setup_cpu_func=_build_gtil_classifier,
-                setup_cuml_func=_build_fil_classifier,
-                cpu_data_prep_hook=_treelite_format_hook,
-                accuracy_function=_treelite_fil_accuracy_score,
-                bench_func=predict,
-            ),
-            AlgorithmPair(
-                treelite,
-                cuml_ForestInference,
-                shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
-                cuml_args=dict(
-                    is_classifier=False,
-                    threshold=0.5,
-                    precision="float32",
-                    layout="depth_first",
+                AlgorithmPair(
+                    treelite,
+                    cuml_ForestInference,
+                    shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
+                    cuml_args=dict(
+                        is_classifier=False,
+                        threshold=0.5,
+                        precision="float32",
+                        layout="depth_first",
+                    ),
+                    name="Sparse-FIL-SKL",
+                    accepts_labels=False,
+                    setup_cpu_func=_build_cpu_skl_classifier,
+                    setup_cuml_func=_build_fil_skl_classifier,
+                    accuracy_function=_treelite_fil_accuracy_score,
+                    bench_func=predict,
                 ),
-                name="Sparse-FIL-SKL",
-                accepts_labels=False,
-                setup_cpu_func=_build_cpu_skl_classifier,
-                setup_cuml_func=_build_fil_skl_classifier,
-                accuracy_function=_treelite_fil_accuracy_score,
-                bench_func=predict,
-            ),
-            AlgorithmPair(
-                treelite,
-                cuml_ForestInference,
-                shared_args=dict(num_rounds=100, max_depth=10),
-                cuml_args=dict(
-                    is_classifier=False,
-                    threshold=0.5,
-                    precision="float32",
-                    layout="depth_first",
+                AlgorithmPair(
+                    treelite,
+                    cuml_ForestInference,
+                    shared_args=dict(num_rounds=100, max_depth=10),
+                    cuml_args=dict(
+                        is_classifier=False,
+                        threshold=0.5,
+                        precision="float32",
+                        layout="depth_first",
+                    ),
+                    name="FIL-Optimized",
+                    accepts_labels=False,
+                    setup_cpu_func=_build_gtil_classifier,
+                    setup_cuml_func=_build_optimized_fil_classifier,
+                    cpu_data_prep_hook=_treelite_format_hook,
+                    accuracy_function=_treelite_fil_accuracy_score,
+                    bench_func=predict,
                 ),
-                name="FIL-Optimized",
-                accepts_labels=False,
-                setup_cpu_func=_build_gtil_classifier,
-                setup_cuml_func=_build_optimized_fil_classifier,
-                cpu_data_prep_hook=_treelite_format_hook,
-                accuracy_function=_treelite_fil_accuracy_score,
-                bench_func=predict,
-            ),
-        ])
-    
+            ]
+        )
+
     # Add MNMG (multi-node multi-GPU) algorithms if cuML.dask is available
     if HAS_CUML:
         try:

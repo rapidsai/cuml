@@ -6,13 +6,12 @@ import os
 import pickle as pickle
 from time import perf_counter
 
+import datagen
 import numpy as np
 import pandas as pd
 import sklearn.ensemble as skl_ensemble
-from sklearn import metrics as sklearn_metrics
-
 from gpu_check import HAS_CUML
-import datagen
+from sklearn import metrics as sklearn_metrics
 
 # Conditional GPU imports
 cudf = None
@@ -29,9 +28,10 @@ if HAS_CUML:
     import cudf
     import cupy as cp
     from numba import cuda
+
     import cuml
-    from cuml.internals import input_utils
     from cuml.fil import get_fil_device_type, set_fil_device_type
+    from cuml.internals import input_utils
     from cuml.internals.device_type import DeviceType
     from cuml.manifold import UMAP
 
@@ -121,7 +121,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking.
-    
+
     Note: This function requires GPU libraries (cuML) to be available.
     """
     if not HAS_CUML:
@@ -182,7 +182,7 @@ class OptimizedFilWrapper:
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters.
-    
+
     Note: This function requires GPU libraries (cuML) to be available.
     """
     if not HAS_CUML:
@@ -270,7 +270,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
     """Trains an SKLearn classifier and returns a FIL version of it.
-    
+
     Note: This function requires GPU libraries (cuML) to be available.
     """
     if not HAS_CUML:
@@ -397,12 +397,14 @@ def _treelite_fil_accuracy_score(y_true, y_pred):
     else:
         # CPU-only fallback using sklearn
         y_pred_binary = (np.asarray(y_pred) > 0.5).astype(np.int32)
-        return sklearn_metrics.accuracy_score(np.asarray(y_true), y_pred_binary)
+        return sklearn_metrics.accuracy_score(
+            np.asarray(y_true), y_pred_binary
+        )
 
 
 def _build_mnmg_umap(m, data, args, tmpdir):
     """Build multi-node multi-GPU UMAP model.
-    
+
     Note: This function requires GPU libraries (cuML) to be available.
     """
     if not HAS_CUML:
