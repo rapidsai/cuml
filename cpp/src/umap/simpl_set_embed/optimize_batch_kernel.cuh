@@ -13,6 +13,8 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda_runtime_api.h>
+
 #include <stdint.h>
 
 #include <cstddef>
@@ -22,6 +24,48 @@ namespace SimplSetEmbed {
 namespace Algo {
 
 using namespace ML;
+
+/**
+ * Update the embeddings and clear the buffers when using deterministic algorithm.
+ */
+template <typename T, typename nnz_t>
+void apply_embedding_updates(T* head_embedding,
+                             T* head_buffer,
+                             int head_n,
+                             T* tail_embedding,
+                             T* tail_buffer,
+                             int tail_n,
+                             UMAPParams const* params,
+                             bool move_other,
+                             rmm::cuda_stream_view stream)
+{
+  ASSERT(params->deterministic, "Only used when deterministic is set to true.");
+  nnz_t n_components = params->n_components;
+  if (move_other) {
+    thrust::for_each(rmm::exec_policy(stream),
+                     thrust::make_counting_iterator(0u),
+                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
+                     [=] __device__(uint32_t i) {
+                       if (i < head_n * n_components) {
+                         head_embedding[i] += head_buffer[i];
+                         head_buffer[i] = 0.0f;
+                       }
+                       if (i < tail_n * n_components) {
+                         tail_embedding[i] += tail_buffer[i];
+                         tail_buffer[i] = 0.0f;
+                       }
+                     });
+  } else {
+    // No need to update reference embedding
+    thrust::for_each(rmm::exec_policy(stream),
+                     thrust::make_counting_iterator(0u),
+                     thrust::make_counting_iterator(0u) + head_n * n_components,
+                     [=] __device__(uint32_t i) {
+                       head_embedding[i] += head_buffer[i];
+                       head_buffer[i] = 0.0f;
+                     });
+  }
+}
 
 /**
  * Calculate the squared distance between two vectors of size n
@@ -106,17 +150,25 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            bool move_other,
                                            UMAPParams params,
                                            T nsr_inv,
-                                           T rounding)
+                                           T rounding,
+                                           size_t offset = 0)
 {
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x + offset;
   nnz_t skip_size = blockDim.x * gridDim.x;
 
   T current_reg[n_components], other_reg[n_components], grads[n_components];
+
+  // Deterministic mode: process exactly one row per thread (no grid-stride loop)
+  // Non-deterministic mode: use grid-stride loop to process multiple rows
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
-      row += skip_size;
-      continue;
+      if (params.deterministic) {
+        return;
+      } else {
+        row += skip_size;
+        continue;
+      }
     }
     auto _epochs_per_sample         = epochs_per_sample[row];
     auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
@@ -205,7 +257,12 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     }
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
-    row += skip_size;
+
+    if (params.deterministic) {
+      return;  // Only process one row in deterministic mode
+    } else {
+      row += skip_size;
+    }
   }
 }
 
@@ -228,17 +285,22 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        bool move_other,
                                        UMAPParams params,
                                        T nsr_inv,
-                                       T rounding)
+                                       T rounding,
+                                       size_t offset = 0)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x + offset;
   nnz_t skip_size = blockDim.x * gridDim.x;
 
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
-      row += skip_size;
-      continue;
+      if (params.deterministic) {
+        return;
+      } else {
+        row += skip_size;
+        continue;
+      }
     }
     auto _epochs_per_sample         = epochs_per_sample[row];
     auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
@@ -361,7 +423,11 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     }
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
-    row += skip_size;
+    if (params.deterministic) {
+      return;  // Only process one row in deterministic mode
+    } else {
+      row += skip_size;
+    }
   }
 }
 
@@ -378,9 +444,10 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  *                     deterministic result.
  */
 template <typename T, typename nnz_t, int TPB_X>
-void call_optimize_batch_kernel(T const* head_embedding,
+void call_optimize_batch_kernel(T* head_embedding,
                                 T* head_buffer,
-                                T const* tail_embedding,
+                                int head_n,
+                                T* tail_embedding,
                                 T* tail_buffer,
                                 int tail_n,
                                 const int* head,
@@ -404,72 +471,97 @@ void call_optimize_batch_kernel(T const* head_embedding,
   requiredSize *= sizeof(T);
   bool use_shared_mem = requiredSize < static_cast<std::size_t>(raft::getSharedMemPerBlock());
   T nsr_inv           = T(1.0) / params->negative_sample_rate;
-  if (params->n_components == 2) {
-    // multicore implementation with registers
-    optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
-      <<<grid, blk, 0, stream>>>(head_embedding,
-                                 head_buffer,
-                                 tail_embedding,
-                                 tail_buffer,
-                                 tail_n,
-                                 head,
-                                 tail,
-                                 nnz,
-                                 epochs_per_sample,
-                                 epoch_of_next_negative_sample,
-                                 epoch_of_next_sample,
-                                 alpha,
-                                 n,
-                                 gamma,
-                                 seed,
-                                 move_other,
-                                 *params,
-                                 nsr_inv,
-                                 rounding);
-  } else if (use_shared_mem) {
-    // multicore implementation with shared memory
-    optimize_batch_kernel<T, nnz_t, TPB_X, true>
-      <<<grid, blk, requiredSize, stream>>>(head_embedding,
-                                            head_buffer,
-                                            tail_embedding,
-                                            tail_buffer,
-                                            tail_n,
-                                            head,
-                                            tail,
-                                            nnz,
-                                            epochs_per_sample,
-                                            epoch_of_next_negative_sample,
-                                            epoch_of_next_sample,
-                                            alpha,
-                                            n,
-                                            gamma,
-                                            seed,
-                                            move_other,
-                                            *params,
-                                            nsr_inv,
-                                            rounding);
+
+  auto stream_view = rmm::cuda_stream_view(stream);
+
+  auto launch_kernel = [&](size_t offset = 0) {
+    if (params->n_components == 2) {
+      // multicore implementation with registers
+      optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
+        <<<grid, blk, 0, stream>>>(head_embedding,
+                                   head_buffer,
+                                   tail_embedding,
+                                   tail_buffer,
+                                   tail_n,
+                                   head,
+                                   tail,
+                                   nnz,
+                                   epochs_per_sample,
+                                   epoch_of_next_negative_sample,
+                                   epoch_of_next_sample,
+                                   alpha,
+                                   n,
+                                   gamma,
+                                   seed,
+                                   move_other,
+                                   *params,
+                                   nsr_inv,
+                                   rounding,
+                                   offset);
+    } else if (use_shared_mem) {
+      // multicore implementation with shared memory
+      optimize_batch_kernel<T, nnz_t, TPB_X, true>
+        <<<grid, blk, requiredSize, stream>>>(head_embedding,
+                                              head_buffer,
+                                              tail_embedding,
+                                              tail_buffer,
+                                              tail_n,
+                                              head,
+                                              tail,
+                                              nnz,
+                                              epochs_per_sample,
+                                              epoch_of_next_negative_sample,
+                                              epoch_of_next_sample,
+                                              alpha,
+                                              n,
+                                              gamma,
+                                              seed,
+                                              move_other,
+                                              *params,
+                                              nsr_inv,
+                                              rounding,
+                                              offset);
+    } else {
+      // multicore implementation without shared memory
+      optimize_batch_kernel<T, nnz_t, TPB_X, false>
+        <<<grid, blk, 0, stream>>>(head_embedding,
+                                   head_buffer,
+                                   tail_embedding,
+                                   tail_buffer,
+                                   tail_n,
+                                   head,
+                                   tail,
+                                   nnz,
+                                   epochs_per_sample,
+                                   epoch_of_next_negative_sample,
+                                   epoch_of_next_sample,
+                                   alpha,
+                                   n,
+                                   gamma,
+                                   seed,
+                                   move_other,
+                                   *params,
+                                   nsr_inv,
+                                   rounding,
+                                   offset);
+    }
+  };
+
+  if (params->deterministic) {
+    for (size_t offset = 0; offset < nnz; offset += TPB_X * grid.x) {
+      launch_kernel(offset);
+      apply_embedding_updates<T, nnz_t>(head_embedding,
+                                        head_buffer,
+                                        head_n,
+                                        tail_embedding,
+                                        tail_buffer,
+                                        tail_n,
+                                        params,
+                                        move_other,
+                                        stream_view);
+    }
   } else {
-    // multicore implementation without shared memory
-    optimize_batch_kernel<T, nnz_t, TPB_X, false>
-      <<<grid, blk, 0, stream>>>(head_embedding,
-                                 head_buffer,
-                                 tail_embedding,
-                                 tail_buffer,
-                                 tail_n,
-                                 head,
-                                 tail,
-                                 nnz,
-                                 epochs_per_sample,
-                                 epoch_of_next_negative_sample,
-                                 epoch_of_next_sample,
-                                 alpha,
-                                 n,
-                                 gamma,
-                                 seed,
-                                 move_other,
-                                 *params,
-                                 nsr_inv,
-                                 rounding);
+    launch_kernel(0);
   }
 }
 }  // namespace Algo
