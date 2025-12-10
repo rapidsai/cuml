@@ -66,6 +66,7 @@ void bfs_from_node(value_idx bfs_root,
 }
 
 /**
+ * This implementation is based on scikit-learn’s _condense_tree implementation.
  * Performs a level-by-level BFS traversal of the dendrogram
  * and applies the following logic at each internal node:
  *
