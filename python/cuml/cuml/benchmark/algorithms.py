@@ -9,27 +9,21 @@ from importlib import import_module
 import numpy as np
 import sklearn
 import sklearn.cluster
+import sklearn.decomposition
 import sklearn.ensemble
+import sklearn.linear_model
+import sklearn.manifold
 import sklearn.naive_bayes
 import sklearn.neighbors
+import sklearn.preprocessing
 import sklearn.random_projection
-import treelite
+import sklearn.svm
 from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
 
-import cuml
-import cuml.decomposition
-import cuml.metrics
-import cuml.naive_bayes
-from cuml.benchmark.bench_helper_funcs import (
-    _build_cpu_skl_classifier,
-    _build_fil_classifier,
-    _build_fil_skl_classifier,
-    _build_gtil_classifier,
-    _build_mnmg_umap,
-    _build_optimized_fil_classifier,
+from gpu_check import is_gpu_available, HAS_CUML
+from bench_helper_funcs import (
     _training_data_to_numpy,
-    _treelite_fil_accuracy_score,
     fit,
     fit_kneighbors,
     fit_predict,
@@ -37,22 +31,73 @@ from cuml.benchmark.bench_helper_funcs import (
     predict,
     transform,
 )
-from cuml.preprocessing import (
-    MaxAbsScaler,
-    MinMaxScaler,
-    Normalizer,
-    PolynomialFeatures,
-    RobustScaler,
-    SimpleImputer,
-    StandardScaler,
-)
 
+# Conditional GPU imports
+cuml = None
+cuml_metrics = None
+treelite = None
+
+# GPU-specific helper functions (only available when GPU libs present)
+_build_cpu_skl_classifier = None
+_build_fil_classifier = None
+_build_fil_skl_classifier = None
+_build_gtil_classifier = None
+_build_mnmg_umap = None
+_build_optimized_fil_classifier = None
+_treelite_fil_accuracy_score = None
+
+# cuML preprocessing classes (fallback to sklearn if not available)
+MaxAbsScaler = sklearn.preprocessing.MaxAbsScaler
+MinMaxScaler = sklearn.preprocessing.MinMaxScaler
+Normalizer = sklearn.preprocessing.Normalizer
+PolynomialFeatures = sklearn.preprocessing.PolynomialFeatures
+RobustScaler = sklearn.preprocessing.RobustScaler
+SimpleImputer = skSimpleImputer
+StandardScaler = sklearn.preprocessing.StandardScaler
+
+if HAS_CUML:
+    import cuml as _cuml
+    import cuml.decomposition
+    import cuml.metrics as _cuml_metrics
+    import cuml.naive_bayes
+    from cuml.preprocessing import (
+        MaxAbsScaler,
+        MinMaxScaler,
+        Normalizer,
+        PolynomialFeatures,
+        RobustScaler,
+        SimpleImputer,
+        StandardScaler,
+    )
+    
+    cuml = _cuml
+    cuml_metrics = _cuml_metrics
+    
+    # Import GPU-specific helper functions
+    from bench_helper_funcs import (
+        _build_cpu_skl_classifier,
+        _build_fil_classifier,
+        _build_fil_skl_classifier,
+        _build_gtil_classifier,
+        _build_mnmg_umap,
+        _build_optimized_fil_classifier,
+        _treelite_fil_accuracy_score,
+    )
+
+# Optional treelite import
+try:
+    import treelite as _treelite
+    treelite = _treelite
+except ImportError:
+    treelite = None
+
+# Optional umap-learn import
 try:
     from umap import UMAP
 except ImportError:
     UMAP = None
 
-
+# Optional hdbscan import
 try:
     from hdbscan import HDBSCAN
 except ImportError:
@@ -80,7 +125,7 @@ class AlgorithmPair:
     cpu_class : class
        Class for CPU version of algorithm. Set to None if not available.
     cuml_class : class
-       Class for cuML algorithm
+       Class for cuML algorithm. Can be None for CPU-only algorithms.
     shared_args : dict
        Arguments passed to both implementations's initializer
     cuml_args : dict
@@ -116,8 +161,12 @@ class AlgorithmPair:
     ):
         if name:
             self.name = name
-        else:
+        elif cuml_class is not None:
             self.name = cuml_class.__name__
+        elif cpu_class is not None:
+            self.name = cpu_class.__name__
+        else:
+            self.name = "Unknown"
         self.accepts_labels = accepts_labels
         self.bench_func = bench_func
         self.setup_cpu_func = setup_cpu_func
@@ -158,6 +207,9 @@ class AlgorithmPair:
 
     def run_cuml(self, data, bench_args={}, **override_setup_args):
         """Runs the cuml-based algorithm's fit method on specified data"""
+        if self.cuml_class is None:
+            raise ValueError("No cuML implementation for %s" % self.name)
+            
         all_args = {**self.shared_args, **self.cuml_args}
         all_args = {**all_args, **override_setup_args}
 
@@ -197,6 +249,14 @@ class AlgorithmPair:
             }
         else:
             return all_args
+    
+    def has_cpu(self):
+        """Check if this algorithm has a CPU implementation."""
+        return self.cpu_class is not None
+    
+    def has_cuml(self):
+        """Check if this algorithm has a cuML implementation."""
+        return self.cuml_class is not None
 
 
 def _labels_to_int_hook(data):
@@ -216,50 +276,87 @@ def _numpy_format_hook(data):
 
 
 def all_algorithms():
-    """Returns all defined AlgorithmPair objects"""
+    """Returns all defined AlgorithmPair objects.
+    
+    Each AlgorithmPair contains both CPU (sklearn) and GPU (cuML) implementations.
+    When cuML is not installed, cuml_class will be None but cpu_class will still
+    be available for CPU-only benchmarking.
+    """
+    # Get cuML classes if available, otherwise None
+    cuml_KMeans = cuml.cluster.KMeans if HAS_CUML else None
+    cuml_PCA = cuml.PCA if HAS_CUML else None
+    cuml_TruncatedSVD = cuml.decomposition.tsvd.TruncatedSVD if HAS_CUML else None
+    cuml_GaussianRandomProjection = cuml.random_projection.GaussianRandomProjection if HAS_CUML else None
+    cuml_SparseRandomProjection = cuml.random_projection.SparseRandomProjection if HAS_CUML else None
+    cuml_NearestNeighbors = cuml.neighbors.NearestNeighbors if HAS_CUML else None
+    cuml_DBSCAN = cuml.DBSCAN if HAS_CUML else None
+    cuml_HDBSCAN = cuml.cluster.HDBSCAN if HAS_CUML else None
+    cuml_LinearRegression = cuml.linear_model.LinearRegression if HAS_CUML else None
+    cuml_ElasticNet = cuml.linear_model.ElasticNet if HAS_CUML else None
+    cuml_Lasso = cuml.linear_model.Lasso if HAS_CUML else None
+    cuml_Ridge = cuml.linear_model.Ridge if HAS_CUML else None
+    cuml_LogisticRegression = cuml.linear_model.LogisticRegression if HAS_CUML else None
+    cuml_RandomForestClassifier = cuml.ensemble.RandomForestClassifier if HAS_CUML else None
+    cuml_RandomForestRegressor = cuml.ensemble.RandomForestRegressor if HAS_CUML else None
+    cuml_TSNE = cuml.manifold.TSNE if HAS_CUML else None
+    cuml_SVC = cuml.svm.SVC if HAS_CUML else None
+    cuml_SVR = cuml.svm.SVR if HAS_CUML else None
+    cuml_LinearSVC = cuml.svm.LinearSVC if HAS_CUML else None
+    cuml_LinearSVR = cuml.svm.LinearSVR if HAS_CUML else None
+    cuml_KNeighborsClassifier = cuml.neighbors.KNeighborsClassifier if HAS_CUML else None
+    cuml_KNeighborsRegressor = cuml.neighbors.KNeighborsRegressor if HAS_CUML else None
+    cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB if HAS_CUML else None
+    cuml_UMAP = cuml.manifold.UMAP if HAS_CUML else None
+    cuml_ForestInference = cuml.ForestInference if HAS_CUML else None
+    
+    # Use cuml.metrics when available, sklearn.metrics otherwise
+    accuracy_fn = cuml_metrics.accuracy_score if HAS_CUML else metrics.accuracy_score
+    r2_fn = cuml_metrics.r2_score if HAS_CUML else metrics.r2_score
+    trustworthiness_fn = cuml_metrics.trustworthiness if HAS_CUML else None
+
     algorithms = [
         AlgorithmPair(
             sklearn.cluster.KMeans,
-            cuml.cluster.KMeans,
+            cuml_KMeans,
             shared_args=dict(
                 init="k-means++", n_clusters=8, max_iter=300, n_init=1
             ),
-            cuml_args=dict(oversampling_factor=0),
+            cuml_args=dict(oversampling_factor=0) if HAS_CUML else {},
             name="KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
         ),
         AlgorithmPair(
             sklearn.decomposition.PCA,
-            cuml.PCA,
+            cuml_PCA,
             shared_args=dict(n_components=10),
             name="PCA",
             accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.decomposition.TruncatedSVD,
-            cuml.decomposition.tsvd.TruncatedSVD,
+            cuml_TruncatedSVD,
             shared_args=dict(n_components=10),
             name="tSVD",
             accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.random_projection.GaussianRandomProjection,
-            cuml.random_projection.GaussianRandomProjection,
+            cuml_GaussianRandomProjection,
             shared_args=dict(n_components=10),
             name="GaussianRandomProjection",
             accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.random_projection.SparseRandomProjection,
-            cuml.random_projection.SparseRandomProjection,
+            cuml_SparseRandomProjection,
             shared_args=dict(n_components=10),
             name="SparseRandomProjection",
             accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
-            cuml.neighbors.NearestNeighbors,
+            cuml_NearestNeighbors,
             shared_args=dict(n_neighbors=64),
             cpu_args=dict(algorithm="brute", n_jobs=-1),
             cuml_args={},
@@ -269,23 +366,15 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
-            cuml.DBSCAN,
+            cuml_DBSCAN,
             shared_args=dict(eps=3, min_samples=2),
             cpu_args=dict(algorithm="brute"),
             name="DBSCAN",
             accepts_labels=False,
         ),
         AlgorithmPair(
-            HDBSCAN,
-            cuml.cluster.HDBSCAN,
-            shared_args={},
-            cpu_args={},
-            name="HDBSCAN",
-            accepts_labels=False,
-        ),
-        AlgorithmPair(
             sklearn.linear_model.LinearRegression,
-            cuml.linear_model.LinearRegression,
+            cuml_LinearRegression,
             shared_args={},
             name="LinearRegression",
             accepts_labels=True,
@@ -293,7 +382,7 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.linear_model.ElasticNet,
-            cuml.linear_model.ElasticNet,
+            cuml_ElasticNet,
             shared_args={"alpha": 0.1, "l1_ratio": 0.5},
             name="ElasticNet",
             accepts_labels=True,
@@ -301,7 +390,7 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.linear_model.Lasso,
-            cuml.linear_model.Lasso,
+            cuml_Lasso,
             shared_args={},
             name="Lasso",
             accepts_labels=True,
@@ -309,7 +398,7 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.linear_model.Ridge,
-            cuml.linear_model.Ridge,
+            cuml_Ridge,
             shared_args={},
             name="Ridge",
             accepts_labels=True,
@@ -317,7 +406,7 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
-            cuml.linear_model.LogisticRegression,
+            cuml_LogisticRegression,
             shared_args=dict(),  # Use default solvers
             name="LogisticRegression",
             accepts_labels=True,
@@ -325,18 +414,18 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
-            cuml.ensemble.RandomForestClassifier,
+            cuml_RandomForestClassifier,
             shared_args={},
             cpu_args={"n_jobs": -1},
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
-            cuml_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook if HAS_CUML else None,
             accuracy_function=metrics.accuracy_score,
         ),
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
-            cuml.ensemble.RandomForestRegressor,
+            cuml_RandomForestRegressor,
             shared_args={},
             cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
@@ -367,172 +456,95 @@ def all_algorithms():
         ),
         AlgorithmPair(
             sklearn.manifold.TSNE,
-            cuml.manifold.TSNE,
+            cuml_TSNE,
             shared_args=dict(),
             name="TSNE",
             accepts_labels=False,
         ),
         AlgorithmPair(
-            None,
-            cuml.linear_model.MBSGDClassifier,
-            shared_args={},
-            cuml_args=dict(eta0=0.005, epochs=100),
-            name="MBSGDClassifier",
-            accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
-        ),
-        AlgorithmPair(
             sklearn.svm.SVC,
-            cuml.svm.SVC,
+            cuml_SVC,
             shared_args={"kernel": "rbf"},
             cuml_args={},
             name="SVC-RBF",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=accuracy_fn,
         ),
         AlgorithmPair(
             sklearn.svm.SVC,
-            cuml.svm.SVC,
+            cuml_SVC,
             shared_args={"kernel": "linear"},
             cuml_args={},
             name="SVC-Linear",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=accuracy_fn,
         ),
         AlgorithmPair(
             sklearn.svm.SVR,
-            cuml.svm.SVR,
+            cuml_SVR,
             shared_args={"kernel": "rbf"},
             cuml_args={},
             name="SVR-RBF",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.r2_score,
+            accuracy_function=r2_fn,
         ),
         AlgorithmPair(
             sklearn.svm.SVR,
-            cuml.svm.SVR,
+            cuml_SVR,
             shared_args={"kernel": "linear"},
             cuml_args={},
             name="SVR-Linear",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.r2_score,
+            accuracy_function=r2_fn,
         ),
         AlgorithmPair(
             sklearn.svm.LinearSVC,
-            cuml.svm.LinearSVC,
+            cuml_LinearSVC,
             shared_args={},
             cuml_args={},
             name="LinearSVC",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=accuracy_fn,
         ),
         AlgorithmPair(
             sklearn.svm.LinearSVR,
-            cuml.svm.LinearSVR,
+            cuml_LinearSVR,
             shared_args={},
             cuml_args={},
             name="LinearSVR",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=r2_fn,
         ),
         AlgorithmPair(
             sklearn.neighbors.KNeighborsClassifier,
-            cuml.neighbors.KNeighborsClassifier,
+            cuml_KNeighborsClassifier,
             shared_args={},
             cuml_args={},
             name="KNeighborsClassifier",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=accuracy_fn,
             bench_func=fit_predict,
         ),
         AlgorithmPair(
             sklearn.neighbors.KNeighborsRegressor,
-            cuml.neighbors.KNeighborsRegressor,
+            cuml_KNeighborsRegressor,
             shared_args={},
             cuml_args={},
             name="KNeighborsRegressor",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.r2_score,
+            accuracy_function=r2_fn,
             bench_func=fit_predict,
         ),
         AlgorithmPair(
             sklearn.naive_bayes.MultinomialNB,
-            cuml.naive_bayes.MultinomialNB,
+            cuml_MultinomialNB,
             shared_args={},
             cuml_args={},
             name="MultinomialNB",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score,
+            accuracy_function=accuracy_fn,
         ),
-        AlgorithmPair(
-            treelite,
-            cuml.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(
-                is_classifier=False,
-                threshold=0.5,
-                precision="float32",
-                layout="depth_first",
-            ),
-            name="FIL",
-            accepts_labels=False,
-            setup_cpu_func=_build_gtil_classifier,
-            setup_cuml_func=_build_fil_classifier,
-            cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.ForestInference,
-            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
-            cuml_args=dict(
-                is_classifier=False,
-                threshold=0.5,
-                precision="float32",
-                layout="depth_first",
-            ),
-            name="Sparse-FIL-SKL",
-            accepts_labels=False,
-            setup_cpu_func=_build_cpu_skl_classifier,
-            setup_cuml_func=_build_fil_skl_classifier,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(
-                is_classifier=False,
-                threshold=0.5,
-                precision="float32",
-                layout="depth_first",
-            ),
-            name="FIL-Optimized",
-            accepts_labels=False,
-            setup_cpu_func=_build_gtil_classifier,
-            setup_cuml_func=_build_optimized_fil_classifier,
-            cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            UMAP,
-            cuml.manifold.UMAP,
-            shared_args=dict(n_neighbors=5, n_epochs=500),
-            name="UMAP-Unsupervised",
-            accepts_labels=False,
-            accuracy_function=cuml.metrics.trustworthiness,
-        ),
-        AlgorithmPair(
-            UMAP,
-            cuml.manifold.UMAP,
-            shared_args=dict(n_neighbors=5, n_epochs=500),
-            name="UMAP-Supervised",
-            accepts_labels=True,
-            accuracy_function=cuml.metrics.trustworthiness,
-        ),
+        # Preprocessing
         AlgorithmPair(
             sklearn.preprocessing.StandardScaler,
             StandardScaler,
@@ -589,204 +601,248 @@ def all_algorithms():
             accepts_labels=False,
             bench_func=fit_transform,
         ),
-        AlgorithmPair(
-            sklearn.preprocessing.StandardScaler,
-            StandardScaler,
-            shared_args=dict(),
-            name="SparseCSRStandardScaler",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            sklearn.preprocessing.MinMaxScaler,
-            MinMaxScaler,
-            shared_args=dict(),
-            name="SparseCSRMinMaxScaler",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            sklearn.preprocessing.MaxAbsScaler,
-            MaxAbsScaler,
-            shared_args=dict(),
-            name="SparseCSRMaxAbsScaler",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            sklearn.preprocessing.Normalizer,
-            Normalizer,
-            shared_args=dict(),
-            name="SparseCSRNormalizer",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            sklearn.preprocessing.RobustScaler,
-            RobustScaler,
-            shared_args=dict(),
-            name="SparseCSCRobustScaler",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            skSimpleImputer,
-            SimpleImputer,
-            shared_args=dict(),
-            name="SparseCSCSimpleImputer",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
-        AlgorithmPair(
-            sklearn.preprocessing.PolynomialFeatures,
-            PolynomialFeatures,
-            shared_args=dict(),
-            name="SparseCSRPolynomialFeatures",
-            accepts_labels=False,
-            bench_func=fit_transform,
-        ),
     ]
-    try:
-        # Importing via import_module avoids rebinding the name `cuml`, which
-        # would otherwise make it a *local* variable and break earlier
-        # references inside this function (see Python's scoping rules) and
-        # causes an error like:
-        #   File "algorithms.py", line 227, in all_algorithms
-        #   cuml.cluster.KMeans,
-        #     ^^^^
-        # UnboundLocalError: cannot access local variable 'cuml' where it is
-        # not associated with a value
-        import_module("cuml.dask")
-    except ImportError:
-        warnings.warn(
-            "Not all dependencies required for `cuml.dask` are installed, the "
-            "dask algorithms will be skipped"
+    
+    # Add HDBSCAN if available
+    if HDBSCAN is not None:
+        algorithms.append(
+            AlgorithmPair(
+                HDBSCAN,
+                cuml_HDBSCAN,
+                shared_args={},
+                cpu_args={},
+                name="HDBSCAN",
+                accepts_labels=False,
+            )
         )
-    else:
-        algorithms.extend(
-            [
-                AlgorithmPair(
-                    None,
-                    cuml.dask.neighbors.KNeighborsClassifier,
-                    shared_args={},
-                    cuml_args={},
-                    name="MNMG.KNeighborsClassifier",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=cuml.metrics.accuracy_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.cluster.KMeans,
-                    shared_args=dict(n_clusters=8, max_iter=300, n_init=1),
-                    cpu_args=dict(init="k-means++"),
-                    cuml_args=dict(init="scalable-k-means++"),
-                    name="MNMG.KMeans",
-                    bench_func=fit_predict,
-                    accepts_labels=False,
-                    accuracy_function=metrics.homogeneity_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.cluster.DBSCAN,
-                    shared_args=dict(eps=3, min_samples=2),
-                    cpu_args=dict(algorithm="brute"),
-                    name="MNMG.DBSCAN",
-                    bench_func=fit_predict,
-                    accepts_labels=False,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.manifold.UMAP,
-                    shared_args=dict(n_neighbors=5, n_epochs=500),
-                    name="MNMG.UMAP-Unsupervised",
-                    bench_func=transform,
-                    setup_cuml_func=_build_mnmg_umap,
-                    accepts_labels=False,
-                    accuracy_function=cuml.metrics.trustworthiness,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.manifold.UMAP,
-                    shared_args=dict(n_neighbors=5, n_epochs=500),
-                    name="MNMG.UMAP-Supervised",
-                    bench_func=transform,
-                    setup_cuml_func=_build_mnmg_umap,
-                    accepts_labels=True,
-                    accuracy_function=cuml.metrics.trustworthiness,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.neighbors.NearestNeighbors,
-                    shared_args=dict(n_neighbors=64),
-                    cpu_args=dict(algorithm="brute", n_jobs=-1),
-                    cuml_args={},
-                    name="MNMG.NearestNeighbors",
-                    accepts_labels=False,
-                    bench_func=fit_kneighbors,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.decomposition.TruncatedSVD,
-                    shared_args=dict(n_components=10),
-                    name="MNMG.tSVD",
-                    accepts_labels=False,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.decomposition.PCA,
-                    shared_args=dict(n_components=10),
-                    name="MNMG.PCA",
-                    accepts_labels=False,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.linear_model.LinearRegression,
-                    shared_args={},
-                    name="MNMG.LinearRegression",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=metrics.r2_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.linear_model.Lasso,
-                    shared_args={},
-                    name="MNMG.Lasso",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=metrics.r2_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.linear_model.ElasticNet,
-                    shared_args={"alpha": 0.1, "l1_ratio": 0.5},
-                    name="MNMG.ElasticNet",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=metrics.r2_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.linear_model.Ridge,
-                    shared_args={},
-                    name="MNMG.Ridge",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=metrics.r2_score,
-                ),
-                AlgorithmPair(
-                    None,
-                    cuml.dask.neighbors.KNeighborsRegressor,
-                    shared_args={},
-                    cuml_args={},
-                    name="MNMG.KNeighborsRegressor",
-                    bench_func=fit_predict,
-                    accepts_labels=True,
-                    accuracy_function=cuml.metrics.r2_score,
-                ),
-            ]
+    
+    # Add UMAP if available
+    if UMAP is not None:
+        algorithms.extend([
+            AlgorithmPair(
+                UMAP,
+                cuml_UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP-Unsupervised",
+                accepts_labels=False,
+                accuracy_function=trustworthiness_fn,
+            ),
+            AlgorithmPair(
+                UMAP,
+                cuml_UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP-Supervised",
+                accepts_labels=True,
+                accuracy_function=trustworthiness_fn,
+            ),
+        ])
+    
+    # Add cuML-only algorithm (MBSGDClassifier has no sklearn equivalent)
+    if HAS_CUML:
+        algorithms.append(
+            AlgorithmPair(
+                None,
+                cuml.linear_model.MBSGDClassifier,
+                shared_args={},
+                cuml_args=dict(eta0=0.005, epochs=100),
+                name="MBSGDClassifier",
+                accepts_labels=True,
+                accuracy_function=cuml_metrics.accuracy_score,
+            )
         )
+    
+    # Add FIL algorithms if treelite and cuML are available
+    if HAS_CUML and treelite is not None and _build_fil_classifier is not None:
+        algorithms.extend([
+            AlgorithmPair(
+                treelite,
+                cuml_ForestInference,
+                shared_args=dict(num_rounds=100, max_depth=10),
+                cuml_args=dict(
+                    is_classifier=False,
+                    threshold=0.5,
+                    precision="float32",
+                    layout="depth_first",
+                ),
+                name="FIL",
+                accepts_labels=False,
+                setup_cpu_func=_build_gtil_classifier,
+                setup_cuml_func=_build_fil_classifier,
+                cpu_data_prep_hook=_treelite_format_hook,
+                accuracy_function=_treelite_fil_accuracy_score,
+                bench_func=predict,
+            ),
+            AlgorithmPair(
+                treelite,
+                cuml_ForestInference,
+                shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
+                cuml_args=dict(
+                    is_classifier=False,
+                    threshold=0.5,
+                    precision="float32",
+                    layout="depth_first",
+                ),
+                name="Sparse-FIL-SKL",
+                accepts_labels=False,
+                setup_cpu_func=_build_cpu_skl_classifier,
+                setup_cuml_func=_build_fil_skl_classifier,
+                accuracy_function=_treelite_fil_accuracy_score,
+                bench_func=predict,
+            ),
+            AlgorithmPair(
+                treelite,
+                cuml_ForestInference,
+                shared_args=dict(num_rounds=100, max_depth=10),
+                cuml_args=dict(
+                    is_classifier=False,
+                    threshold=0.5,
+                    precision="float32",
+                    layout="depth_first",
+                ),
+                name="FIL-Optimized",
+                accepts_labels=False,
+                setup_cpu_func=_build_gtil_classifier,
+                setup_cuml_func=_build_optimized_fil_classifier,
+                cpu_data_prep_hook=_treelite_format_hook,
+                accuracy_function=_treelite_fil_accuracy_score,
+                bench_func=predict,
+            ),
+        ])
+    
+    # Add MNMG (multi-node multi-GPU) algorithms if cuML.dask is available
+    if HAS_CUML:
+        try:
+            import_module("cuml.dask")
+        except ImportError:
+            warnings.warn(
+                "Not all dependencies required for `cuml.dask` are installed, the "
+                "dask algorithms will be skipped"
+            )
+        else:
+            algorithms.extend(
+                [
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.neighbors.KNeighborsClassifier,
+                        shared_args={},
+                        cuml_args={},
+                        name="MNMG.KNeighborsClassifier",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=cuml_metrics.accuracy_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.cluster.KMeans,
+                        shared_args=dict(n_clusters=8, max_iter=300, n_init=1),
+                        cpu_args=dict(init="k-means++"),
+                        cuml_args=dict(init="scalable-k-means++"),
+                        name="MNMG.KMeans",
+                        bench_func=fit_predict,
+                        accepts_labels=False,
+                        accuracy_function=metrics.homogeneity_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.cluster.DBSCAN,
+                        shared_args=dict(eps=3, min_samples=2),
+                        cpu_args=dict(algorithm="brute"),
+                        name="MNMG.DBSCAN",
+                        bench_func=fit_predict,
+                        accepts_labels=False,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.manifold.UMAP,
+                        shared_args=dict(n_neighbors=5, n_epochs=500),
+                        name="MNMG.UMAP-Unsupervised",
+                        bench_func=transform,
+                        setup_cuml_func=_build_mnmg_umap,
+                        accepts_labels=False,
+                        accuracy_function=cuml_metrics.trustworthiness,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.manifold.UMAP,
+                        shared_args=dict(n_neighbors=5, n_epochs=500),
+                        name="MNMG.UMAP-Supervised",
+                        bench_func=transform,
+                        setup_cuml_func=_build_mnmg_umap,
+                        accepts_labels=True,
+                        accuracy_function=cuml_metrics.trustworthiness,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.neighbors.NearestNeighbors,
+                        shared_args=dict(n_neighbors=64),
+                        cpu_args=dict(algorithm="brute", n_jobs=-1),
+                        cuml_args={},
+                        name="MNMG.NearestNeighbors",
+                        accepts_labels=False,
+                        bench_func=fit_kneighbors,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.decomposition.TruncatedSVD,
+                        shared_args=dict(n_components=10),
+                        name="MNMG.tSVD",
+                        accepts_labels=False,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.decomposition.PCA,
+                        shared_args=dict(n_components=10),
+                        name="MNMG.PCA",
+                        accepts_labels=False,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.linear_model.LinearRegression,
+                        shared_args={},
+                        name="MNMG.LinearRegression",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=metrics.r2_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.linear_model.Lasso,
+                        shared_args={},
+                        name="MNMG.Lasso",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=metrics.r2_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.linear_model.ElasticNet,
+                        shared_args={"alpha": 0.1, "l1_ratio": 0.5},
+                        name="MNMG.ElasticNet",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=metrics.r2_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.linear_model.Ridge,
+                        shared_args={},
+                        name="MNMG.Ridge",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=metrics.r2_score,
+                    ),
+                    AlgorithmPair(
+                        None,
+                        cuml.dask.neighbors.KNeighborsRegressor,
+                        shared_args={},
+                        cuml_args={},
+                        name="MNMG.KNeighborsRegressor",
+                        bench_func=fit_predict,
+                        accepts_labels=True,
+                        accuracy_function=cuml_metrics.r2_score,
+                    ),
+                ]
+            )
 
     return algorithms
 
