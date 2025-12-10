@@ -417,7 +417,7 @@ def test_logistic_regression_model_default(dtype):
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    sklog = skLog(multi_class="auto")
+    sklog = skLog()
 
     sklog.fit(X_train, y_train)
 
