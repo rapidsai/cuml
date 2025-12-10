@@ -31,15 +31,11 @@ import numpy as np
 import pandas as pd
 import scipy.sparse
 import sklearn.model_selection
-from sklearn.datasets import (
-    fetch_covtype,
-    load_svmlight_file,
-    make_blobs as sklearn_make_blobs,
-    make_classification as sklearn_make_classification,
-    make_regression as sklearn_make_regression,
-)
-
-from gpu_check import is_gpu_available, HAS_CUML
+from gpu_check import HAS_CUML, is_gpu_available
+from sklearn.datasets import fetch_covtype, load_svmlight_file
+from sklearn.datasets import make_blobs as sklearn_make_blobs
+from sklearn.datasets import make_classification as sklearn_make_classification
+from sklearn.datasets import make_regression as sklearn_make_regression
 
 # Conditional GPU imports
 cudf = None
@@ -52,194 +48,105 @@ if HAS_CUML:
     import cudf
     import cupy as cp
     from numba import cuda
+
     import cuml.datasets as cuml_datasets
     from cuml.internals import input_utils
 
 
-def _gen_data_regression_gpu(
-    n_samples, n_features, random_state=42, dtype=np.float32
-):
-    """GPU version using cuml.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
-
-    X_arr, y_arr = cuml_datasets.make_regression(
-        n_samples=n_samples,
-        n_features=n_features,
-        random_state=random_state,
-        dtype=dtype,
-    )
-
-    X_df = cudf.DataFrame(X_arr)
-    y_df = cudf.Series(np.squeeze(y_arr))
-
-    return X_df, y_df
-
-
-def _gen_data_regression_cpu(
-    n_samples, n_features, random_state=42, dtype=np.float32
-):
-    """CPU version using sklearn.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
-
-    X_arr, y_arr = sklearn_make_regression(
-        n_samples=n_samples,
-        n_features=n_features,
-        random_state=random_state,
-    )
-
-    X_df = pd.DataFrame(X_arr.astype(dtype))
-    y_df = pd.Series(np.squeeze(y_arr).astype(dtype))
-
-    return X_df, y_df
-
-
 def _gen_data_regression(
-    n_samples, n_features, random_state=42, dtype=np.float32
+    n_samples=int(1e6), n_features=100, random_state=42, dtype=np.float32
 ):
-    """Wrapper for make_regression - uses GPU or CPU based on availability"""
+    """Generate regression data using optimal backend."""
     if is_gpu_available() and HAS_CUML:
-        return _gen_data_regression_gpu(n_samples, n_features, random_state, dtype)
-    return _gen_data_regression_cpu(n_samples, n_features, random_state, dtype)
+        X, y = cuml_datasets.make_regression(
+            n_samples=n_samples,
+            n_features=n_features,
+            random_state=random_state,
+            dtype=dtype,
+        )
+        return cudf.DataFrame(X), cudf.Series(np.squeeze(y))
 
-
-def _gen_data_blobs_gpu(
-    n_samples, n_features, random_state=42, centers=None, dtype=np.float32
-):
-    """GPU version using cuml.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
-
-    X_arr, y_arr = cuml_datasets.make_blobs(
+    X, y = sklearn_make_regression(
         n_samples=n_samples,
         n_features=n_features,
-        centers=centers,
-        random_state=random_state,
-        dtype=dtype,
-    )
-
-    return X_arr, y_arr
-
-
-def _gen_data_blobs_cpu(
-    n_samples, n_features, random_state=42, centers=None, dtype=np.float32
-):
-    """CPU version using sklearn.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
-
-    X_arr, y_arr = sklearn_make_blobs(
-        n_samples=n_samples,
-        n_features=n_features,
-        centers=centers,
         random_state=random_state,
     )
-
-    X_df = pd.DataFrame(X_arr.astype(dtype))
-    y_df = pd.Series(y_arr.astype(dtype))
-
-    return X_df, y_df
+    return pd.DataFrame(X.astype(dtype)), pd.Series(
+        np.squeeze(y).astype(dtype)
+    )
 
 
 def _gen_data_blobs(
-    n_samples, n_features, random_state=42, centers=None, dtype=np.float32
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    centers=None,
+    dtype=np.float32,
 ):
-    """Wrapper for make_blobs - uses GPU or CPU based on availability"""
+    """Generate blob data using optimal backend."""
     if is_gpu_available() and HAS_CUML:
-        return _gen_data_blobs_gpu(n_samples, n_features, random_state, centers, dtype)
-    return _gen_data_blobs_cpu(n_samples, n_features, random_state, centers, dtype)
+        X, y = cuml_datasets.make_blobs(
+            n_samples=n_samples,
+            n_features=n_features,
+            centers=centers,
+            random_state=random_state,
+            dtype=dtype,
+        )
+        return X, y
 
-
-def _gen_data_zeros_gpu(n_samples, n_features, dtype=np.float32):
-    """GPU version - returns cupy zeros"""
-    return cp.zeros((n_samples, n_features), dtype=dtype), cp.zeros(
-        n_samples, dtype=dtype
-    )
-
-
-def _gen_data_zeros_cpu(n_samples, n_features, dtype=np.float32):
-    """CPU version - returns numpy zeros"""
-    return np.zeros((n_samples, n_features), dtype=dtype), np.zeros(
-        n_samples, dtype=dtype
-    )
-
-
-def _gen_data_zeros(n_samples, n_features, dtype=np.float32):
-    """Dummy generator for use in testing - returns all 0s"""
-    if is_gpu_available() and HAS_CUML:
-        return _gen_data_zeros_gpu(n_samples, n_features, dtype)
-    return _gen_data_zeros_cpu(n_samples, n_features, dtype)
-
-
-def _gen_data_classification_gpu(
-    n_samples, n_features, random_state=42, n_classes=2, dtype=np.float32
-):
-    """GPU version using cuml.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
-
-    X_arr, y_arr = cuml_datasets.make_classification(
+    X, y = sklearn_make_blobs(
         n_samples=n_samples,
         n_features=n_features,
-        n_classes=n_classes,
+        centers=centers,
         random_state=random_state,
-        dtype=dtype,
     )
-    X_df = cudf.DataFrame(X_arr)
-    y_df = cudf.Series(y_arr)
-    return X_df, y_df
+    return pd.DataFrame(X.astype(dtype)), pd.Series(y.astype(dtype))
 
 
-def _gen_data_classification_cpu(
-    n_samples, n_features, random_state=42, n_classes=2, dtype=np.float32
+def _gen_data_zeros(n_samples=int(1e6), n_features=100, dtype=np.float32):
+    """Dummy generator for use in testing - returns all 0s."""
+    if is_gpu_available() and HAS_CUML:
+        return (
+            cp.zeros((n_samples, n_features), dtype=dtype),
+            cp.zeros(n_samples, dtype=dtype),
+        )
+    return (
+        np.zeros((n_samples, n_features), dtype=dtype),
+        np.zeros(n_samples, dtype=dtype),
+    )
+
+
+def _gen_data_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    n_classes=2,
+    dtype=np.float32,
 ):
-    """CPU version using sklearn.datasets"""
-    if n_samples == 0:
-        n_samples = int(1e6)
-    if n_features == 0:
-        n_features = 100
+    """Generate classification data using optimal backend."""
+    if is_gpu_available() and HAS_CUML:
+        X, y = cuml_datasets.make_classification(
+            n_samples=n_samples,
+            n_features=n_features,
+            n_classes=n_classes,
+            random_state=random_state,
+            dtype=dtype,
+        )
+        return cudf.DataFrame(X), cudf.Series(y)
 
-    # sklearn make_classification has different parameter handling for n_informative
+    # sklearn needs explicit informative/redundant settings
     n_informative = max(2, n_features // 2)
     n_redundant = min(2, n_features - n_informative)
-    n_clusters_per_class = 1
-
-    X_arr, y_arr = sklearn_make_classification(
+    X, y = sklearn_make_classification(
         n_samples=n_samples,
         n_features=n_features,
         n_classes=n_classes,
         n_informative=n_informative,
         n_redundant=n_redundant,
-        n_clusters_per_class=n_clusters_per_class,
+        n_clusters_per_class=1,
         random_state=random_state,
     )
-    X_df = pd.DataFrame(X_arr.astype(dtype))
-    y_df = pd.Series(y_arr)
-    return X_df, y_df
-
-
-def _gen_data_classification(
-    n_samples, n_features, random_state=42, n_classes=2, dtype=np.float32
-):
-    """Wrapper for make_classification - uses GPU or CPU based on availability"""
-    if is_gpu_available() and HAS_CUML:
-        return _gen_data_classification_gpu(
-            n_samples, n_features, random_state, n_classes, dtype
-        )
-    return _gen_data_classification_cpu(
-        n_samples, n_features, random_state, n_classes, dtype
-    )
+    return pd.DataFrame(X.astype(dtype)), pd.Series(y)
 
 
 # Default location to cache datasets
@@ -450,7 +357,9 @@ def _convert_to_numpy(data):
 def _convert_to_cupy(data):
     """Returns tuple data with all elements converted to cupy ndarrays"""
     if not HAS_CUML:
-        raise RuntimeError("CuPy not available. Cannot convert to cupy format.")
+        raise RuntimeError(
+            "CuPy not available. Cannot convert to cupy format."
+        )
     if data is None:
         return None
     elif isinstance(data, tuple):
@@ -472,7 +381,9 @@ def _convert_to_cupy(data):
 def _convert_to_cudf(data):
     """Returns tuple data with all elements converted to cudf DataFrames/Series"""
     if not HAS_CUML:
-        raise RuntimeError("cuDF not available. Cannot convert to cudf format.")
+        raise RuntimeError(
+            "cuDF not available. Cannot convert to cudf format."
+        )
     if data is None:
         return None
     elif isinstance(data, tuple):
@@ -528,7 +439,9 @@ def _convert_to_pandas(data):
 def _convert_to_gpuarray(data, order="F"):
     """Returns tuple data with all elements converted to GPU arrays"""
     if not HAS_CUML:
-        raise RuntimeError("GPU libraries not available. Cannot convert to gpuarray format.")
+        raise RuntimeError(
+            "GPU libraries not available. Cannot convert to gpuarray format."
+        )
     if data is None:
         return None
     elif isinstance(data, tuple):
@@ -645,8 +558,8 @@ def all_datasets():
 def gen_data(
     dataset_name,
     dataset_format,
-    n_samples=0,
-    n_features=0,
+    n_samples=None,
+    n_features=None,
     test_fraction=0.0,
     datasets_root_dir=DATASETS_DIRECTORY,
     dtype=np.float32,
@@ -661,8 +574,10 @@ def gen_data(
         or a specified dataset (higgs currently, others coming soon)
     dataset_format : str
         Type of data to return. (One of cudf, numpy, pandas, gpuarray)
-    n_samples : int
-        Total number of samples to loaded including training and testing samples
+    n_samples : int, optional
+        Total number of samples. If None, uses generator default.
+    n_features : int, optional
+        Number of features. If None, uses generator default.
     test_fraction : float
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
@@ -675,7 +590,7 @@ def gen_data(
     """
     # Get available converters
     data_converters = _get_data_converters()
-    
+
     # Validate dataset format
     if dataset_format not in data_converters:
         available = list(data_converters.keys())
@@ -691,11 +606,14 @@ def gen_data(
         datasets_root_dir, "%s_y.pkl" % dataset_name
     )
 
-    mock_datasets = ["regression", "classification", "blobs", "zero"]
+    mock_datasets = ["regression", "classification", "blobs", "zeros"]
     if dataset_name in mock_datasets:
-        X_df, y_df = _data_generators[dataset_name](
-            n_samples=n_samples, n_features=n_features, dtype=dtype, **kwargs
-        )
+        gen_kwargs = {"dtype": dtype, **kwargs}
+        if n_samples is not None:
+            gen_kwargs["n_samples"] = n_samples
+        if n_features is not None:
+            gen_kwargs["n_features"] = n_features
+        X_df, y_df = _data_generators[dataset_name](**gen_kwargs)
     else:
         if os.path.isfile(pickle_x_file_url):
             # loading data from cache
@@ -708,6 +626,12 @@ def gen_data(
             X.to_pickle(pickle_x_file_url)
             y.to_pickle(pickle_y_file_url)
 
+        # Use full dataset size if not specified
+        if n_samples is None:
+            n_samples = X.shape[0]
+        if n_features is None:
+            n_features = X.shape[1]
+
         if n_samples > X.shape[0]:
             raise ValueError(
                 "%s dataset has only %d rows, cannot support %d"
@@ -719,12 +643,6 @@ def gen_data(
                 "%s dataset has only %d features, cannot support %d"
                 % (dataset_name, X.shape[1], n_features)
             )
-
-        if n_samples == 0:
-            n_samples = X.shape[0]
-
-        if n_features == 0:
-            n_features = X.shape[1]
 
         # Use cudf if GPU available, otherwise use pandas
         if is_gpu_available() and HAS_CUML:
@@ -745,10 +663,12 @@ def gen_data(
             if "random_state" in kwargs
             else {}
         )
+        # Get actual sample count from generated data
+        actual_n_samples = X_df.shape[0]
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
                 *data,
-                test_size=int(n_samples * test_fraction),
+                test_size=int(actual_n_samples * test_fraction),
                 **random_state_dict,
             )
         )

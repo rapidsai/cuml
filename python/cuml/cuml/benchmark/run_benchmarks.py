@@ -5,9 +5,9 @@
 """Command-line ML benchmark runner
 
 This benchmark runner can operate in two modes:
-1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and 
+1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and
    scikit-learn (CPU) implementations.
-2. CPU-only mode: When cuML is not installed, benchmarks only CPU 
+2. CPU-only mode: When cuML is not installed, benchmarks only CPU
    implementations (scikit-learn, umap-learn, etc.)
 
 Usage:
@@ -20,21 +20,25 @@ Usage:
 
 import json
 
-import numpy as np
-
 # Import benchmark modules - supports both standalone and package execution
 import os
 import sys
+
+import numpy as np
 
 # Add the benchmark directory to path for standalone execution
 _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
 if _benchmark_dir not in sys.path:
     sys.path.insert(0, _benchmark_dir)
 
-from gpu_check import is_gpu_available, get_status_string, HAS_CUML
-import algorithms
-import datagen
-import runners
+import algorithms  # noqa: E402
+import datagen  # noqa: E402
+import runners  # noqa: E402
+from gpu_check import (  # noqa: E402
+    HAS_CUML,
+    get_status_string,
+    is_gpu_available,
+)
 
 # Conditional RMM import (RMM is a cuML dependency)
 rmm = None
@@ -90,12 +94,12 @@ def extract_param_overrides(params_to_sweep):
 
 def setup_rmm_allocator(allocator_type):
     """Setup RMM allocator if GPU is available.
-    
+
     Parameters
     ----------
     allocator_type : str
         One of 'cuda', 'managed', 'prefetched'
-    
+
     Returns
     -------
     bool
@@ -103,7 +107,7 @@ def setup_rmm_allocator(allocator_type):
     """
     if not is_gpu_available() or rmm is None:
         return False
-    
+
     if allocator_type == "cuda":
         dev_resource = rmm.mr.CudaMemoryResource()
         rmm.mr.set_current_device_resource(dev_resource)
@@ -119,7 +123,7 @@ def setup_rmm_allocator(allocator_type):
         print("Using Prefetched Managed Memory Resource...")
     else:
         raise ValueError(f"Unknown RMM allocator type: {allocator_type}")
-    
+
     return True
 
 
@@ -132,7 +136,7 @@ if __name__ == "__main__":
         description=r"""
         Command-line benchmark runner, logging results to
         stdout and/or CSV.
-        
+
         This tool supports both GPU (cuML) and CPU-only (scikit-learn) modes.
         Use --skip-gpu to run only CPU benchmarks.
         Use --skip-cpu to run only GPU benchmarks.
@@ -198,10 +202,14 @@ if __name__ == "__main__":
     )
     parser.add_argument("--csv", nargs="?")
     parser.add_argument("--dataset", default="blobs")
-    parser.add_argument("--skip-cpu", action="store_true",
-                       help="Skip CPU/scikit-learn benchmarks")
-    parser.add_argument("--skip-gpu", action="store_true", 
-                       help="Skip GPU/cuML benchmarks")
+    parser.add_argument(
+        "--skip-cpu",
+        action="store_true",
+        help="Skip CPU/scikit-learn benchmarks",
+    )
+    parser.add_argument(
+        "--skip-gpu", action="store_true", help="Skip GPU/cuML benchmarks"
+    )
     parser.add_argument("--input-type", default="numpy")
     parser.add_argument(
         "--test-split",
@@ -291,7 +299,7 @@ if __name__ == "__main__":
 
     # Print status information
     print(f"Benchmark mode: {get_status_string()}")
-    
+
     if args.print_status:
         sys.exit()
 
@@ -324,7 +332,9 @@ if __name__ == "__main__":
     if not run_gpu:
         cpu_valid_types = ["numpy", "pandas"]
         if args.input_type not in cpu_valid_types:
-            print(f"Warning: --input-type={args.input_type} not available without GPU.")
+            print(
+                f"Warning: --input-type={args.input_type} not available without GPU."
+            )
             print(f"Switching to 'numpy'. Available types: {cpu_valid_types}")
             args.input_type = "numpy"
 
