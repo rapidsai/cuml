@@ -120,7 +120,7 @@ test = [
     "pytest-xdist",
     "pytest<9.0",
     "pyyaml",
-    "scikit-learn>=1.4,<1.8.0.dev0",
+    "scikit-learn>=1.4,<1.8.0",
     "seaborn",
     "statsmodels",
     "tenacity",
