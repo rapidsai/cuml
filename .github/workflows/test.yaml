@@ -95,8 +95,19 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_cuml_accel_upstream.sh"
-      # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
-      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+      # Select amd64 with oldest deps, plus an "intermediate" entry based on oldest
+      matrix_filter: '(
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "oldest"))
+        | sort_by(.PY_VER)
+        )
+      +
+      (
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "oldest"))
+        | sort_by(.PY_VER)
+        | map(.DEPENDENCIES = "intermediate")
+      )'
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml:
     secrets: inherit
