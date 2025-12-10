@@ -2,14 +2,44 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Command-line ML benchmark runner"""
+"""Command-line ML benchmark runner
+
+This benchmark runner can operate in two modes:
+1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and 
+   scikit-learn (CPU) implementations.
+2. CPU-only mode: When cuML is not installed, benchmarks only CPU 
+   implementations (scikit-learn, umap-learn, etc.)
+
+Usage:
+  # Run benchmarks (GPU if cuML installed, CPU otherwise)
+  python run_benchmarks.py --dataset classification LogisticRegression
+
+  # Skip GPU benchmarks (CPU only)
+  python run_benchmarks.py --skip-gpu --dataset classification LogisticRegression
+"""
 
 import json
 
 import numpy as np
-import rmm
 
-from cuml.benchmark import algorithms, datagen, runners
+# Import benchmark modules - supports both standalone and package execution
+import os
+import sys
+
+# Add the benchmark directory to path for standalone execution
+_benchmark_dir = os.path.dirname(os.path.abspath(__file__))
+if _benchmark_dir not in sys.path:
+    sys.path.insert(0, _benchmark_dir)
+
+from gpu_check import is_gpu_available, get_status_string, HAS_CUML
+import algorithms
+import datagen
+import runners
+
+# Conditional RMM import (RMM is a cuML dependency)
+rmm = None
+if HAS_CUML:
+    import rmm
 
 PrecisionMap = {
     "fp32": np.float32,
@@ -58,6 +88,41 @@ def extract_param_overrides(params_to_sweep):
     return dict_list
 
 
+def setup_rmm_allocator(allocator_type):
+    """Setup RMM allocator if GPU is available.
+    
+    Parameters
+    ----------
+    allocator_type : str
+        One of 'cuda', 'managed', 'prefetched'
+    
+    Returns
+    -------
+    bool
+        True if RMM was set up, False otherwise
+    """
+    if not is_gpu_available() or rmm is None:
+        return False
+    
+    if allocator_type == "cuda":
+        dev_resource = rmm.mr.CudaMemoryResource()
+        rmm.mr.set_current_device_resource(dev_resource)
+        print("Using CUDA Memory Resource...")
+    elif allocator_type == "managed":
+        managed_resource = rmm.mr.ManagedMemoryResource()
+        rmm.mr.set_current_device_resource(managed_resource)
+        print("Using Managed Memory Resource...")
+    elif allocator_type == "prefetched":
+        upstream_mr = rmm.mr.ManagedMemoryResource()
+        prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
+        rmm.mr.set_current_device_resource(prefetch_mr)
+        print("Using Prefetched Managed Memory Resource...")
+    else:
+        raise ValueError(f"Unknown RMM allocator type: {allocator_type}")
+    
+    return True
+
+
 if __name__ == "__main__":
     import argparse
     import sys
@@ -67,10 +132,17 @@ if __name__ == "__main__":
         description=r"""
         Command-line benchmark runner, logging results to
         stdout and/or CSV.
+        
+        This tool supports both GPU (cuML) and CPU-only (scikit-learn) modes.
+        Use --skip-gpu to run only CPU benchmarks.
+        Use --skip-cpu to run only GPU benchmarks.
 
         Examples:
-          # Simple logistic regression
+          # Simple logistic regression (GPU + CPU if cuML installed)
           python run_benchmarks.py --dataset classification LogisticRegression
+
+          # CPU-only benchmarking
+          python run_benchmarks.py --skip-gpu --dataset classification LogisticRegression
 
           # Compare impact of RF parameters and data sets for multiclass
           python run_benchmarks.py --dataset classification  \
@@ -126,7 +198,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--csv", nargs="?")
     parser.add_argument("--dataset", default="blobs")
-    parser.add_argument("--skip-cpu", action="store_true")
+    parser.add_argument("--skip-cpu", action="store_true",
+                       help="Skip CPU/scikit-learn benchmarks")
+    parser.add_argument("--skip-gpu", action="store_true", 
+                       help="Skip GPU/cuML benchmarks")
     parser.add_argument("--input-type", default="numpy")
     parser.add_argument(
         "--test-split",
@@ -190,6 +265,11 @@ if __name__ == "__main__":
         help="Print the list of all available datasets and exit",
     )
     parser.add_argument(
+        "--print-status",
+        action="store_true",
+        help="Print GPU/CPU status and exit",
+    )
+    parser.add_argument(
         "algorithms",
         nargs="*",
         help="List of algorithms to run, or omit to run all",
@@ -205,29 +285,22 @@ if __name__ == "__main__":
         "--rmm-allocator",
         choices=["cuda", "managed", "prefetched"],
         default="cuda",
-        help="RMM memory resource to use (default: cuda)",
+        help="RMM memory resource to use (default: cuda). Ignored if --skip-gpu.",
     )
     args = parser.parse_args()
 
-    # Setup RMM allocator based on command line option
-    match args.rmm_allocator:
-        case "cuda":
-            dev_resource = rmm.mr.CudaMemoryResource()
-            rmm.mr.set_current_device_resource(dev_resource)
-            print("Using CUDA Memory Resource...")
-        case "managed":
-            managed_resource = rmm.mr.ManagedMemoryResource()
-            rmm.mr.set_current_device_resource(managed_resource)
-            print("Using Managed Memory Resource...")
-        case "prefetched":
-            upstream_mr = rmm.mr.ManagedMemoryResource()
-            prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
-            rmm.mr.set_current_device_resource(prefetch_mr)
-            print("Using Prefetched Managed Memory Resource...")
-        case _:
-            raise ValueError(
-                f"Unknown RMM allocator type: {args.rmm_allocator}"
-            )
+    # Print status information
+    print(f"Benchmark mode: {get_status_string()}")
+    
+    if args.print_status:
+        sys.exit()
+
+    # Determine whether to run GPU benchmarks
+    run_gpu = is_gpu_available() and not args.skip_gpu
+
+    # Setup RMM allocator if running GPU benchmarks
+    if run_gpu:
+        setup_rmm_allocator(args.rmm_allocator)
 
     args.dtype = PrecisionMap[args.dtype]
 
@@ -246,6 +319,14 @@ if __name__ == "__main__":
             "test_split: got %f, want a value between 0.0 and 1.0"
             % args.test_split
         )
+
+    # Validate input type when not running GPU benchmarks
+    if not run_gpu:
+        cpu_valid_types = ["numpy", "pandas"]
+        if args.input_type not in cpu_valid_types:
+            print(f"Warning: --input-type={args.input_type} not available without GPU.")
+            print(f"Switching to 'numpy'. Available types: {cpu_valid_types}")
+            args.input_type = "numpy"
 
     bench_rows = np.logspace(
         np.log10(args.min_rows),
@@ -277,7 +358,11 @@ if __name__ == "__main__":
         for name in args.algorithms:
             algo = algorithms.algorithm_by_name(name)
             if not algo:
-                raise ValueError("No %s 'algorithm' found" % name)
+                # List available algorithms for user
+                available = [a.name for a in algorithms.all_algorithms()]
+                raise ValueError(
+                    f"No '{name}' algorithm found. Available algorithms: {available}"
+                )
             algos_to_run.append(algo)
     else:
         # Run all by default
@@ -296,6 +381,7 @@ if __name__ == "__main__":
         dataset_param_override_list=dataset_param_override_list,
         dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
+        run_cuml=run_gpu,
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps,
     )
