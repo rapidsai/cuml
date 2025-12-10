@@ -2,16 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cudf
 import cupy as cp
 
-import cuml.internals
 from cuml.internals.input_utils import determine_array_type
 from cuml.preprocessing import LabelBinarizer, LabelEncoder
 
 
-@cuml.internals.api_return_any()
 def hinge_loss(
     y_true, pred_decision, labels=None, sample_weights=None
 ) -> float:

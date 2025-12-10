@@ -475,6 +475,7 @@ class PCA(Base,
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -513,7 +514,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
@@ -592,6 +593,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
+    @cuml.internals.reflect
     def inverse_transform(
         self,
         X,
@@ -687,6 +689,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.
