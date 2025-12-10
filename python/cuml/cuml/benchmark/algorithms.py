@@ -282,59 +282,57 @@ def all_algorithms():
     When cuML is not installed, cuml_class will be None but cpu_class will still
     be available for CPU-only benchmarking.
     """
-    # Get cuML classes if available, otherwise None
-    cuml_KMeans = cuml.cluster.KMeans if HAS_CUML else None
-    cuml_PCA = cuml.PCA if HAS_CUML else None
-    cuml_TruncatedSVD = (
-        cuml.decomposition.tsvd.TruncatedSVD if HAS_CUML else None
-    )
-    cuml_GaussianRandomProjection = (
-        cuml.random_projection.GaussianRandomProjection if HAS_CUML else None
-    )
-    cuml_SparseRandomProjection = (
-        cuml.random_projection.SparseRandomProjection if HAS_CUML else None
-    )
-    cuml_NearestNeighbors = (
-        cuml.neighbors.NearestNeighbors if HAS_CUML else None
-    )
-    cuml_DBSCAN = cuml.DBSCAN if HAS_CUML else None
-    cuml_HDBSCAN = cuml.cluster.HDBSCAN if HAS_CUML else None
-    cuml_LinearRegression = (
-        cuml.linear_model.LinearRegression if HAS_CUML else None
-    )
-    cuml_ElasticNet = cuml.linear_model.ElasticNet if HAS_CUML else None
-    cuml_Lasso = cuml.linear_model.Lasso if HAS_CUML else None
-    cuml_Ridge = cuml.linear_model.Ridge if HAS_CUML else None
-    cuml_LogisticRegression = (
-        cuml.linear_model.LogisticRegression if HAS_CUML else None
-    )
-    cuml_RandomForestClassifier = (
-        cuml.ensemble.RandomForestClassifier if HAS_CUML else None
-    )
-    cuml_RandomForestRegressor = (
-        cuml.ensemble.RandomForestRegressor if HAS_CUML else None
-    )
-    cuml_TSNE = cuml.manifold.TSNE if HAS_CUML else None
-    cuml_SVC = cuml.svm.SVC if HAS_CUML else None
-    cuml_SVR = cuml.svm.SVR if HAS_CUML else None
-    cuml_LinearSVC = cuml.svm.LinearSVC if HAS_CUML else None
-    cuml_LinearSVR = cuml.svm.LinearSVR if HAS_CUML else None
-    cuml_KNeighborsClassifier = (
-        cuml.neighbors.KNeighborsClassifier if HAS_CUML else None
-    )
-    cuml_KNeighborsRegressor = (
-        cuml.neighbors.KNeighborsRegressor if HAS_CUML else None
-    )
-    cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB if HAS_CUML else None
-    cuml_UMAP = cuml.manifold.UMAP if HAS_CUML else None
-    cuml_ForestInference = cuml.ForestInference if HAS_CUML else None
-
-    # Use cuml.metrics when available, sklearn.metrics otherwise
-    accuracy_fn = (
-        cuml_metrics.accuracy_score if HAS_CUML else metrics.accuracy_score
-    )
-    r2_fn = cuml_metrics.r2_score if HAS_CUML else metrics.r2_score
-    trustworthiness_fn = cuml_metrics.trustworthiness if HAS_CUML else None
+    # Get cuML classes and metrics if available
+    if HAS_CUML:
+        cuml_KMeans = cuml.cluster.KMeans
+        cuml_PCA = cuml.PCA
+        cuml_TruncatedSVD = cuml.decomposition.tsvd.TruncatedSVD
+        cuml_GaussianRandomProjection = (
+            cuml.random_projection.GaussianRandomProjection
+        )
+        cuml_SparseRandomProjection = (
+            cuml.random_projection.SparseRandomProjection
+        )
+        cuml_NearestNeighbors = cuml.neighbors.NearestNeighbors
+        cuml_DBSCAN = cuml.DBSCAN
+        cuml_HDBSCAN = cuml.cluster.HDBSCAN
+        cuml_LinearRegression = cuml.linear_model.LinearRegression
+        cuml_ElasticNet = cuml.linear_model.ElasticNet
+        cuml_Lasso = cuml.linear_model.Lasso
+        cuml_Ridge = cuml.linear_model.Ridge
+        cuml_LogisticRegression = cuml.linear_model.LogisticRegression
+        cuml_RandomForestClassifier = cuml.ensemble.RandomForestClassifier
+        cuml_RandomForestRegressor = cuml.ensemble.RandomForestRegressor
+        cuml_TSNE = cuml.manifold.TSNE
+        cuml_SVC = cuml.svm.SVC
+        cuml_SVR = cuml.svm.SVR
+        cuml_LinearSVC = cuml.svm.LinearSVC
+        cuml_LinearSVR = cuml.svm.LinearSVR
+        cuml_KNeighborsClassifier = cuml.neighbors.KNeighborsClassifier
+        cuml_KNeighborsRegressor = cuml.neighbors.KNeighborsRegressor
+        cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB
+        cuml_UMAP = cuml.manifold.UMAP
+        cuml_ForestInference = cuml.ForestInference
+        accuracy_fn = cuml_metrics.accuracy_score
+        r2_fn = cuml_metrics.r2_score
+        trustworthiness_fn = cuml_metrics.trustworthiness
+    else:
+        cuml_KMeans = cuml_PCA = cuml_TruncatedSVD = None
+        cuml_GaussianRandomProjection = cuml_SparseRandomProjection = None
+        cuml_NearestNeighbors = cuml_DBSCAN = cuml_HDBSCAN = None
+        cuml_LinearRegression = cuml_ElasticNet = cuml_Lasso = cuml_Ridge = (
+            None
+        )
+        cuml_LogisticRegression = None
+        cuml_RandomForestClassifier = cuml_RandomForestRegressor = None
+        cuml_TSNE = cuml_SVC = cuml_SVR = cuml_LinearSVC = cuml_LinearSVR = (
+            None
+        )
+        cuml_KNeighborsClassifier = cuml_KNeighborsRegressor = None
+        cuml_MultinomialNB = cuml_UMAP = cuml_ForestInference = None
+        accuracy_fn = metrics.accuracy_score
+        r2_fn = metrics.r2_score
+        trustworthiness_fn = None
 
     algorithms = [
         AlgorithmPair(
