@@ -79,13 +79,13 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
     data, labels = make_blobs(
         n_samples=n_samples, n_features=n_features, centers=10, random_state=42
     )
-    print(data.shape, build_algo)
+
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-    print(f"embedding shape: {embedding.shape}")
+
     assert not np.isnan(embedding).any()
     assert not np.isnan(cuml_embedding).any()
 
@@ -256,7 +256,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         data, labels = make_blobs(
             n_samples=500, n_features=10, centers=10, random_state=42
         )
-    print(f"data shape: {data.shape}")
+
     model = umap.UMAP(
         n_neighbors=10, min_dist=0.01, target_metric=target_metric
     )
