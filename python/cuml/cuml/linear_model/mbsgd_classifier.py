@@ -228,7 +228,7 @@ class MBSGDClassifier(
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.run_in_internal_api
+    @cuml.internals.run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
@@ -240,6 +240,6 @@ class MBSGDClassifier(
 
         thresh = 0 if self.loss == "hinge" else 0.5
         indices = (scores > thresh).view(cp.int8)
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(indices, self.classes_, output_type=output_type)

@@ -253,7 +253,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.run_in_internal_api
+    @cuml.internals.run_in_internal_context
     def predict(
         self,
         X,
@@ -295,7 +295,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         inds = fil.predict(X, threshold=threshold).to_output("cupy")
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -357,7 +357,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
-    @cuml.internals.run_in_internal_api
+    @cuml.internals.run_in_internal_context
     def score(
         self,
         X,

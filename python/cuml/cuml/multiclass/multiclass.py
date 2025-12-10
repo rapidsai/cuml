@@ -58,7 +58,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
 
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             wrapper = cls(self.estimator, n_jobs=None).fit(X, y)
 
         self.multiclass_estimator = wrapper
@@ -79,7 +79,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         """
         X = input_to_host_array_with_sparse_support(X)
 
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             return self.multiclass_estimator.predict(X)
 
     @generate_docstring(
@@ -96,7 +96,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         Calculate the decision function.
         """
         X = input_to_host_array_with_sparse_support(X)
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             return self.multiclass_estimator.decision_function(X)
 
 

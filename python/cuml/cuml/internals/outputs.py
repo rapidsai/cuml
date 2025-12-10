@@ -18,7 +18,8 @@ __all__ = (
     "set_global_output_type",
     "using_output_type",
     "reflect",
-    "exit_internal_api",
+    "run_in_internal_context",
+    "exit_internal_context",
 )
 
 
@@ -197,8 +198,8 @@ class using_output_type:
 
 
 @contextlib.contextmanager
-def enter_internal_api():
-    """Enter an internal API context.
+def enter_internal_context():
+    """Enter an internal context.
 
     Returns ``True`` if this is a new internal context, or ``False``
     if the code was already running within an internal context."""
@@ -218,8 +219,8 @@ def enter_internal_api():
 
 
 @contextlib.contextmanager
-def exit_internal_api():
-    """Exit an internal API context.
+def exit_internal_context():
+    """Exit an internal context.
 
     Code run in this context will run under the original
     configuration before an internal context was entered"""
@@ -293,8 +294,8 @@ def coerce_arrays(res, output_type):
     return res.to_output(output_type=output_type)
 
 
-def run_in_internal_api(func):
-    """Decorate a function to run within an "internal API context".
+def run_in_internal_context(func):
+    """Decorate a function to run within an "internal context".
 
     This mainly means that reflected functions/methods or estimator fitted
     attributes will be returned as ``CumlArray`` instances instead of their
@@ -306,7 +307,7 @@ def run_in_internal_api(func):
 
     @functools.wraps(func)
     def inner(*args, **kwargs):
-        with enter_internal_api():
+        with enter_internal_context():
             return func(*args, **kwargs)
 
     return inner
@@ -323,11 +324,11 @@ def reflect(
 
     Functions and methods decorated with this get a few additional behaviors:
 
-    - They are run within an "internal API context". This mainly means that
+    - They are run within an "internal context". This mainly means that
       reflected functions/methods or estimator fitted attributes will be
       returned as ``CumlArray`` instances instead of their reflected types. If
-      this is the only behavior you want, you should use `run_in_internal_api`
-      instead.
+      this is the only behavior you want, you should use
+      `run_in_internal_context` instead.
 
     - Their output type is converted to the proper output type following
       standard cuml behavior. The default behavior covers most cases, but when
@@ -408,7 +409,7 @@ def reflect(
         if accept_lists and isinstance(array_arg, (list, tuple)):
             array_arg = np.asarray(array_arg)
 
-        with enter_internal_api() as was_external:
+        with enter_internal_context() as was_external:
             if reset:
                 model_arg._set_output_type(array_arg)
                 model_arg._set_n_features_in(array_arg)

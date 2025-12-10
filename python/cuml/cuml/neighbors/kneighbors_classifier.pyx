@@ -14,7 +14,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
-from cuml.internals.outputs import reflect, run_in_internal_api
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.weights import compute_weights
 
@@ -207,7 +207,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
-    @run_in_internal_api
+    @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
@@ -270,7 +270,7 @@ class KNeighborsClassifier(ClassifierMixin,
 
         self.handle.sync()
 
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(out, self.classes_, output_type=output_type)
 

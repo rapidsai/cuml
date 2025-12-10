@@ -14,7 +14,7 @@ from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_api
+from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -76,7 +76,7 @@ class DummyEstimator(Base):
     def example_no_args(self):
         return cp.zeros(3)
 
-    @run_in_internal_api
+    @run_in_internal_context
     def check_descriptor(self):
         # When run in an internal context, a descriptor returns its original
         # internal value.
@@ -297,8 +297,8 @@ def test_internal_calls(output_type):
     assert_output_type(res, expected)
 
 
-def test_run_in_internal_api():
-    @run_in_internal_api
+def test_run_in_internal_context():
+    @run_in_internal_context
     def always_returns_numpy(func, X):
         result = func(X)
         # Internal calls return internal types by default
@@ -352,7 +352,7 @@ def test_estimator_method_with_no_array_input():
         assert_output_type(model.example_no_args(), "pandas")
 
 
-def test_cuml_array_descriptor_type_in_internal_api():
+def test_cuml_array_descriptor_type_in_internal_context():
     X = rand_array("numpy")
     model = DummyEstimator().fit(X)
     assert_output_type(model.X_, "numpy")

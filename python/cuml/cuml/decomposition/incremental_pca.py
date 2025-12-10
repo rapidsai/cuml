@@ -259,7 +259,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.run_in_internal_api
+    @cuml.internals.run_in_internal_context
     def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.

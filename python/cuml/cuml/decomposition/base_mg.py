@@ -6,11 +6,11 @@ import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common import input_to_cuml_array
-from cuml.internals import run_in_internal_api
+from cuml.internals import run_in_internal_context
 
 
 class BaseDecompositionMG:
-    @run_in_internal_api
+    @run_in_internal_context
     def fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
         """
         Fit function for PCA/TSVD MG. This not meant to be used as

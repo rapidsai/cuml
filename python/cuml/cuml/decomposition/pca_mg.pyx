@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
-from cuml.internals import run_in_internal_api
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -53,7 +53,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
 
 class PCAMG(BaseDecompositionMG, PCA):
-    @run_in_internal_api
+    @run_in_internal_context
     def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
         # Validate and initialize parameters
         cdef paramsPCAMG params

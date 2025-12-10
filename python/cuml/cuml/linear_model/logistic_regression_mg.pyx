@@ -4,7 +4,7 @@
 #
 import numpy as np
 
-from cuml.internals import run_in_internal_api
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.linear_model import LogisticRegression
 from cuml.linear_model.base_mg import MGFitMixin
@@ -144,7 +144,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             convert_index=self._convert_index,
         )
 
-    @run_in_internal_api
+    @run_in_internal_context
     def _fit(self, X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 

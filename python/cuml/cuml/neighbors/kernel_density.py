@@ -14,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
-from cuml.internals.outputs import reflect, run_in_internal_api
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
@@ -433,7 +433,7 @@ class KernelDensity(Base, InteropMixin):
 
         return log_probabilities
 
-    @run_in_internal_api
+    @run_in_internal_context
     def score(self, X, y=None) -> float:
         """Compute the total log-likelihood under the model.
 

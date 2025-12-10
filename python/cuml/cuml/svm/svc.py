@@ -23,9 +23,9 @@ from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import (
-    exit_internal_api,
+    exit_internal_context,
     reflect,
-    run_in_internal_api,
+    run_in_internal_context,
 )
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
@@ -411,7 +411,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
 
-        with exit_internal_api():
+        with exit_internal_context():
             cccv.fit(X, y, sample_weight=sample_weight)
 
         cal_clf = cccv.calibrated_classifiers_[0]
@@ -507,7 +507,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @run_in_internal_api
+    @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -522,7 +522,7 @@ class SVC(SVMBase, ClassifierMixin):
             res = self.decision_function(X, convert_dtype=convert_dtype)
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
-        with exit_internal_api():
+        with exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
