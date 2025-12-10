@@ -108,14 +108,13 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  nnz_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = blockDim.x * gridDim.x;
 
   T current_reg[n_components], other_reg[n_components], grads[n_components];
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
-      if (row > nnz - skip_size) break;
       row += skip_size;
       continue;
     }
@@ -206,7 +205,6 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     }
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
-    if (row > nnz - skip_size) break;
     row += skip_size;
   }
 }
@@ -233,13 +231,12 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  nnz_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = blockDim.x * gridDim.x;
 
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
-      if (row > nnz - skip_size) break;
       row += skip_size;
       continue;
     }
@@ -364,7 +361,6 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     }
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
-    if (row > nnz - skip_size) break;
     row += skip_size;
   }
 }
