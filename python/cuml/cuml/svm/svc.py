@@ -22,7 +22,11 @@ from cuml.internals.input_utils import (
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import exit_internal_api, reflect
+from cuml.internals.outputs import (
+    exit_internal_api,
+    reflect,
+    run_in_internal_api,
+)
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -503,7 +507,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect(skip=True)
+    @run_in_internal_api
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class

@@ -253,7 +253,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.reflect(skip=True)
+    @cuml.internals.run_in_internal_api
     def predict(
         self,
         X,
@@ -357,7 +357,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
-    @cuml.internals.reflect(skip=True)
+    @cuml.internals.run_in_internal_api
     def score(
         self,
         X,

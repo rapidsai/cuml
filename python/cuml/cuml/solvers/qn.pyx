@@ -12,7 +12,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import reflect, run_in_internal_api
 from cuml.metrics import accuracy_score
 
 from libc.stdint cimport uintptr_t
@@ -608,6 +608,6 @@ class QN(Base):
 
         return CumlArray(data=out, index=out_index)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

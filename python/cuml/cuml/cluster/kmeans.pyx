@@ -18,7 +18,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import reflect, run_in_internal_api
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -777,7 +777,7 @@ class KMeans(Base,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    @reflect(skip=True)
+    @run_in_internal_api
     def score(self, X, y=None, sample_weight=None, *, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.

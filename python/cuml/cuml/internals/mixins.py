@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from cuml._thirdparty._sklearn_compat import _to_new_tags
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import run_in_internal_api
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #
@@ -217,7 +217,7 @@ class RegressorMixin:
             "description": "R^2 of self.predict(X) wrt. y.",
         }
     )
-    @reflect(skip=True)
+    @run_in_internal_api
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
@@ -252,7 +252,7 @@ class ClassifierMixin:
             ),
         }
     )
-    @reflect(skip=True)
+    @run_in_internal_api
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

@@ -23,7 +23,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import reflect, run_in_internal_api
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -300,7 +300,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples,)",
         },
     )
-    @reflect(skip=True)
+    @run_in_internal_api
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
         if self.probability:

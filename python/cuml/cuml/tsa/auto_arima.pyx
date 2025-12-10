@@ -11,7 +11,7 @@ from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, reflect
+from cuml.internals import logger, reflect, run_in_internal_api
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.tsa.arima import ARIMA
@@ -188,7 +188,7 @@ class AutoARIMA(Base):
 
         self._initial_calc()
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -201,7 +201,7 @@ class AutoARIMA(Base):
             raise ValueError(
                 "Missing observations are not supported in AutoARIMA yet")
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def search(self,
                s=None,
                d=range(3),
@@ -418,7 +418,7 @@ class AutoARIMA(Base):
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -535,7 +535,7 @@ class AutoARIMA(Base):
         """
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """

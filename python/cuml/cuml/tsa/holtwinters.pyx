@@ -10,7 +10,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import run_in_internal_api
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -262,7 +262,7 @@ class ExponentialSmoothing(Base):
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return CumlArray(data=mod_ts_input)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -347,7 +347,7 @@ class ExponentialSmoothing(Base):
         self.fit_executed_flag = True
         return self
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def forecast(self, h=1, index=None):
         """
         Forecasts future points based on the fitted model.
@@ -433,7 +433,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before forecast()")
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def score(self, index=None):
         """
         Returns the score of the model.
@@ -465,7 +465,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before score()")
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def get_level(self, index=None):
         """
         Returns the level component of the model.
@@ -497,7 +497,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get level values")
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def get_trend(self, index=None):
         """
         Returns the trend component of the model.
@@ -529,7 +529,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get trend values")
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def get_season(self, index=None):
         """
         Returns the season component of the model.

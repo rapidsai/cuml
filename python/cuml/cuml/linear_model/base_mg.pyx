@@ -6,7 +6,7 @@ import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common.sparse_utils import is_sparse
-from cuml.internals import reflect
+from cuml.internals import run_in_internal_api
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
@@ -17,7 +17,7 @@ from cuml.common.opg_data_utils_mg cimport *
 
 
 class MGFitMixin(object):
-    @reflect(skip=True)
+    @run_in_internal_api
     def fit(
         self,
         input_data,

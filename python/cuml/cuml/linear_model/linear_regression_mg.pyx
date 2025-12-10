@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-from cuml.internals import reflect
+from cuml.internals import run_in_internal_api
 from cuml.linear_model.base import check_deprecated_normalize
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model.linear_regression import Algo, LinearRegression
@@ -42,7 +42,7 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
 
 
 class LinearRegressionMG(MGFitMixin, LinearRegression):
-    @reflect(skip=True)
+    @run_in_internal_api
     def _fit(self, X, y, coef_ptr, input_desc):
         check_deprecated_normalize(self)
 

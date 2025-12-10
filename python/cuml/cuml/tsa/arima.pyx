@@ -7,7 +7,7 @@ from typing import Dict, Mapping, Optional, Tuple, Union
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, nvtx, reflect
+from cuml.internals import logger, nvtx, reflect, run_in_internal_api
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
@@ -379,7 +379,7 @@ class ARIMA(Base):
 
         self._initial_calc()
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def _initial_calc(self):
         """
         This separates the initial calculation from the initialization to make
@@ -800,7 +800,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
-    @reflect(skip=True)
+    @run_in_internal_api
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -820,7 +820,7 @@ class ARIMA(Base):
                     <double*> d_exog_ptr, <int> self.batch_size,
                     <int> self.n_obs, order, <bool> self.missing)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
@@ -922,7 +922,7 @@ class ARIMA(Base):
         return self
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
-    @reflect(skip=True)
+    @run_in_internal_api
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -990,7 +990,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
-    @reflect(skip=True)
+    @run_in_internal_api
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
                       convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
@@ -1066,7 +1066,7 @@ class ARIMA(Base):
         return grad.to_output("numpy")
 
     @property
-    @reflect(skip=True)
+    @run_in_internal_api
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
@@ -1113,7 +1113,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
-    @reflect(skip=True)
+    @run_in_internal_api
     def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1143,7 +1143,7 @@ class ARIMA(Base):
                    <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
-    @reflect(skip=True)
+    @run_in_internal_api
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 

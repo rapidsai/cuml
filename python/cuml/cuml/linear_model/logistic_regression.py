@@ -362,7 +362,7 @@ class LogisticRegression(
             "shape": "(n_samples, 1)",
         },
     )
-    @cuml.internals.reflect(skip=True)
+    @cuml.internals.run_in_internal_api
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.

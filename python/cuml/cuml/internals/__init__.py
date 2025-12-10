@@ -4,4 +4,8 @@
 #
 from cuml.internals.base import Base
 from cuml.internals.internals import GraphBasedDimRedCallback
-from cuml.internals.outputs import exit_internal_api, reflect
+from cuml.internals.outputs import (
+    exit_internal_api,
+    reflect,
+    run_in_internal_api,
+)

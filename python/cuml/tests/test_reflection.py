@@ -14,7 +14,7 @@ from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect
+from cuml.internals import reflect, run_in_internal_api
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -76,7 +76,7 @@ class DummyEstimator(Base):
     def example_no_args(self):
         return cp.zeros(3)
 
-    @reflect(skip=True)
+    @run_in_internal_api
     def check_descriptor(self):
         # When run in an internal context, a descriptor returns its original
         # internal value.
@@ -297,10 +297,8 @@ def test_internal_calls(output_type):
     assert_output_type(res, expected)
 
 
-def test_skip_true():
-    """skip=True applies internal context, but skips output processing"""
-
-    @reflect(skip=True)
+def test_run_in_internal_api():
+    @run_in_internal_api
     def always_returns_numpy(func, X):
         result = func(X)
         # Internal calls return internal types by default

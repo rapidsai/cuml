@@ -293,13 +293,31 @@ def coerce_arrays(res, output_type):
     return res.to_output(output_type=output_type)
 
 
+def run_in_internal_api(func):
+    """Decorate a function to run within an "internal API context".
+
+    This mainly means that reflected functions/methods or estimator fitted
+    attributes will be returned as ``CumlArray`` instances instead of their
+    reflected types.
+
+    Unlike `reflect`, functions decorated with this do not participate in the
+    reflection system.
+    """
+
+    @functools.wraps(func)
+    def inner(*args, **kwargs):
+        with enter_internal_api():
+            return func(*args, **kwargs)
+
+    return inner
+
+
 def reflect(
     func=None,
     *,
     array=...,
     model=...,
     reset=False,
-    skip=False,
 ):
     """Mark a function or method as participating in the reflection system.
 
@@ -308,7 +326,8 @@ def reflect(
     - They are run within an "internal API context". This mainly means that
       reflected functions/methods or estimator fitted attributes will be
       returned as ``CumlArray`` instances instead of their reflected types. If
-      this is the only behavior you want, decorate with ``reflect(skip=True)``.
+      this is the only behavior you want, you should use `run_in_internal_api`
+      instead.
 
     - Their output type is converted to the proper output type following
       standard cuml behavior. The default behavior covers most cases, but when
@@ -339,11 +358,6 @@ def reflect(
     reset : bool, default=False
         Set to True for methods like ``fit`` that reset the reflected type on
         an estimator.
-    skip : bool, default=False
-        Set to True to skip output type inference and processing for a method.
-        This is mostly useful if this step is unnecessary (but the function
-        should still run within an internal API context), or if output type
-        conversion will be handled manually.
     """
     # Local to avoid circular imports
     import cuml.accel
@@ -354,33 +368,24 @@ def reflect(
             model=model,
             array=array,
             reset=reset,
-            skip=skip,
         )
 
     sig = inspect.signature(func, follow_wrapped=True)
 
     # Normalize model to str | None
     if model is ...:
-        if skip and not reset:
-            # We're skipping output processing and not resetting an estimator,
-            # there's no need to touch input parameters at all
-            model = None
-        else:
-            model = "self" if ("self" in sig.parameters) else None
+        model = "self" if ("self" in sig.parameters) else None
     if model is not None:
         model = _get_param(sig, model)
 
     # Normalize array to str | None
     if array is ...:
-        if skip and not reset:
+        array = int(
+            model is not None and list(sig.parameters).index(model) == 0
+        )
+        if len(sig.parameters) <= array:
+            # Not enough parameters, no array-like param to infer from
             array = None
-        else:
-            array = int(
-                model is not None and list(sig.parameters).index(model) == 0
-            )
-            if len(sig.parameters) <= array:
-                # Not enough parameters, no array-like param to infer from
-                array = None
     if array is not None:
         array = _get_param(sig, array)
 
@@ -410,30 +415,27 @@ def reflect(
 
             res = func(*args, **kwargs)
 
-        if not skip:
-            gs = GlobalSettings()
-            if was_external or gs.output_type != "mirror":
-                # We're returning to the user, infer the expected output type
-                if model is not None:
-                    if array is not None:
-                        output_type = model_arg._get_output_type(array_arg)
-                    else:
-                        output_type = model_arg._get_output_type()
+        gs = GlobalSettings()
+        if was_external or gs.output_type != "mirror":
+            # We're returning to the user, infer the expected output type
+            if model is not None:
+                if array is not None:
+                    output_type = model_arg._get_output_type(array_arg)
                 else:
-                    output_type = gs.output_type
-                    if output_type in ("input", None):
-                        if array is not None:
-                            output_type = iu.determine_array_type(array_arg)
-                        if output_type in ("input", None):
-                            # Nothing to infer from and no explicit type set,
-                            # default to cupy
-                            output_type = "cupy"
+                    output_type = model_arg._get_output_type()
             else:
-                # We're internal, return as cuml
-                output_type = "cuml"
+                output_type = gs.output_type
+                if output_type in ("input", None):
+                    if array is not None:
+                        output_type = iu.determine_array_type(array_arg)
+                    if output_type in ("input", None):
+                        # Nothing to infer from and no explicit type set,
+                        # default to cupy
+                        output_type = "cupy"
+        else:
+            # We're internal, return as cuml
+            output_type = "cuml"
 
-            res = coerce_arrays(res, output_type)
-
-        return res
+        return coerce_arrays(res, output_type)
 
     return inner
