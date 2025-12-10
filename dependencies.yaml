@@ -485,7 +485,7 @@ dependencies:
           - pytest-cov
           - pytest-xdist
           - seaborn
-          - *scikit_learn
+          - scikit-learn>=1.4,<1.8.0
           - statsmodels
           - tenacity
           - umap-learn==0.5.7
