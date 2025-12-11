@@ -530,11 +530,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         usage. This is because high parallelism during optimization involves
         non-deterministic floating-point addition ordering.
 
-        For fully reproducible results, ``build_algo`` must also be set to
-        ``'brute_force_knn'``, as NN Descent produces non-deterministic KNN
-        graphs. Alternatively, a pre-computed KNN graph can be provided via
-        the ``precomputed_knn`` parameter to bypass the graph construction
-        step entirely.
+        Note: Explicitly setting ``build_algo='nn_descent'`` will break
+        reproducibility, as NN Descent produces non-deterministic KNN graphs.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
