@@ -328,6 +328,8 @@ void _fit(const raft::handle_t& handle,
   InitEmbed::run<value_t, nnz_t>(
     handle, inputs.n, inputs.d, &graph, params, embeddings_ptr, stream, params->init);
 
+  // std::cout << "done with init" << std::endl;
+
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
     params->callback->on_preprocess_end(embeddings_ptr);
@@ -336,6 +338,7 @@ void _fit(const raft::handle_t& handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
+  raft::print_device_vector("graph.rows()", graph.rows(), 1, std::cout);
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
     inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream);
   raft::common::nvtx::pop_range();
