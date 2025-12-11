@@ -2,9 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import warnings
 
 from libc.stdint cimport uintptr_t
@@ -250,7 +247,7 @@ def nan_euclidean_distances(
     return distances
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.reflect
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, metric_arg=2, **kwds):
     """
@@ -441,7 +438,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     return dest_m
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.reflect
 def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                               convert_dtype=True, metric_arg=2, **kwds):
     """

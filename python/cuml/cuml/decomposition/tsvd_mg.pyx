@@ -4,9 +4,9 @@
 #
 import numpy as np
 
-import cuml.internals
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -53,7 +53,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _mg_fit_transform(
         self, X_ptr, n_rows, n_cols, dtype, trans_ptr, input_desc_ptr, trans_desc_ptr
     ):

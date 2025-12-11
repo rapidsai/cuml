@@ -95,7 +95,7 @@ requirements:
     - libcuml =${{ version }}
     - libcumlprims =${{ minor_version }}
     - numba >=0.60.0,<0.62.0
-    - numba-cuda >=0.19.1,<0.20.0
+    - numba-cuda >=0.22.1,<0.23.0
     - numpy >=1.23,<3.0
     - scikit-learn >=1.4
     - scipy >=1.11.0

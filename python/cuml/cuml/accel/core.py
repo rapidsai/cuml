@@ -11,7 +11,7 @@ from typing import Literal
 from cuda.bindings import runtime
 
 from cuml.accel.accelerator import Accelerator
-from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.outputs import set_global_output_type
 
 
 class Logger:
