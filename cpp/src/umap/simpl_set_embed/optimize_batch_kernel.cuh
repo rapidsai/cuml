@@ -108,8 +108,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  nnz_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (static_cast<size_t>(blockIdx.x) * static_cast<size_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = static_cast<size_t>(blockDim.x) * gridDim.x;
 
   T current_reg[n_components], other_reg[n_components], grads[n_components];
   while (row < nnz) {
@@ -231,8 +231,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  nnz_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  nnz_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (static_cast<size_t>(blockIdx.x) * static_cast<size_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = static_cast<size_t>(blockDim.x) * gridDim.x;
 
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
@@ -296,7 +296,6 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     }
     // storing gradients for negative samples back to global memory
     if (use_shared_mem && move_other) {
-      __syncthreads();
       for (int d = 0; d < n_components; d++) {
         auto grad = grads_buffer[d * TPB_X];
         raft::myAtomicAdd<T>((T*)oth_write + d, truncate_gradient(rounding, -grad));
@@ -355,7 +354,6 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 
     // storing gradients for positive samples back to global memory
     if constexpr (use_shared_mem) {
-      __syncthreads();
       for (int d = 0; d < n_components; d++) {
         raft::myAtomicAdd<T>((T*)cur_write + d,
                              truncate_gradient(rounding, grads_buffer[d * TPB_X]));
