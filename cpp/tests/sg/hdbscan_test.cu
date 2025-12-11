@@ -165,14 +165,19 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     /**
      * Build dendrogram of MST
      */
-    cuvs::cluster::agglomerative::helpers::build_dendrogram_host(handle,
-                                                                 mst_src.data(),
-                                                                 mst_dst.data(),
-                                                                 mst_data.data(),
-                                                                 params.n_row - 1,
-                                                                 out_children.data(),
-                                                                 out_delta.data(),
-                                                                 out_size.data());
+    auto mst_rows =
+      raft::make_device_vector_view<const IdxT, IdxT>(mst_src.data(), params.n_row - 1);
+    auto mst_cols =
+      raft::make_device_vector_view<const IdxT, IdxT>(mst_dst.data(), params.n_row - 1);
+    auto mst_weights =
+      raft::make_device_vector_view<const T, IdxT>(mst_data.data(), params.n_row - 1);
+    auto children_view = raft::make_device_matrix_view<IdxT, IdxT, raft::row_major>(
+      out_children.data(), params.n_row - 1, 2);
+    auto delta_view = raft::make_device_vector_view<T, IdxT>(out_delta.data(), params.n_row - 1);
+    auto size_view  = raft::make_device_vector_view<IdxT, IdxT>(out_size.data(), params.n_row - 1);
+
+    cuvs::cluster::agglomerative::helpers::build_dendrogram_host(
+      handle, mst_rows, mst_cols, mst_weights, children_view, delta_view, size_view);
 
     /**
      * Condense Hierarchy
@@ -205,14 +210,13 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
                                                inverse_label_map,
                                                false);
 
-    //    CUML_LOG_DEBUG("Evaluating results");
-    //    if (params.expected.size() == params.n_row) {
-    //      score = MLCommon::Metrics::compute_adjusted_rand_index(
-    //        labels.data(), expected_device.data(), params.n_row,
-    //        handle.get_stream());
-    //    } else {
-    //      score = 1.0;
-    //    }
+    CUML_LOG_DEBUG("Evaluating results");
+    if (params.expected.size() == params.n_row) {
+      score = raft::stats::adjusted_rand_index(
+        labels.data(), expected_device.data(), params.n_row, handle.get_stream());
+    } else {
+      score = 1.0;
+    }
   }
 
   void SetUp() override { basicTest(); }
@@ -225,18 +229,12 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
   double score;
 };
 
-#if 0
-// gtest-1.11.0 makes it a runtime error to define and not instantiate this test case.
-
 typedef ClusterCondensingTest<float, int64_t> ClusterCondensingTestF_Int;
 TEST_P(ClusterCondensingTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
-// This will be reactivate in 21.08 with better, contrived examples to
-// test Cluster Condensation correctly
-// INSTANTIATE_TEST_CASE_P(ClusterCondensingTest, ClusterCondensingTestF_Int,
-//                         ::testing::ValuesIn(cluster_condensing_inputs));
-
-#endif
+INSTANTIATE_TEST_CASE_P(ClusterCondensingTest,
+                        ClusterCondensingTestF_Int,
+                        ::testing::ValuesIn(cluster_condensing_inputs));
 
 template <typename T, typename IdxT>
 class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>> {
