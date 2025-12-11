@@ -22,7 +22,6 @@
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
 
-#include <cuvs/cluster/agglomerative.hpp>  // build_dendrogram_host
 #include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/all_neighbors.hpp>
