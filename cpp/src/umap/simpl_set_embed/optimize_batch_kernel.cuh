@@ -108,8 +108,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  size_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  size_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (static_cast<size_t>(blockIdx.x) * static_cast<size_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = static_cast<size_t>(blockDim.x) * gridDim.x;
 
   T current_reg[n_components], other_reg[n_components], grads[n_components];
   while (row < nnz) {
@@ -231,8 +231,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  size_t row       = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
-  size_t skip_size = blockDim.x * gridDim.x;
+  size_t row       = (static_cast<size_t>(blockIdx.x) * static_cast<size_t>(TPB_X)) + threadIdx.x;
+  size_t skip_size = static_cast<size_t>(blockDim.x) * gridDim.x;
 
   while (row < nnz) {
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
