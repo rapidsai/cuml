@@ -226,13 +226,15 @@ void optimize_layout(T* head_embedding,
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier) {
+  if (has_outlier || params->deterministic) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
     // distributed across threads, rather than being processed by consecutive threads that are
     // scheduled together. This approach relies on the GPU's inability to physically schedule all
     // nnz edges at once.
+    // also shuffle when want deterministic behavior to ensure that updates for the same vertex are
+    // processed in different kernel launches.
     auto first =
       thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
                                                    thrust::device_pointer_cast(tail),
