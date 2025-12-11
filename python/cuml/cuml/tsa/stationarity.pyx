@@ -1,22 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-
-# distutils: language = c++
-
 import numpy as np
+from pylibraft.common.handle import Handle
+
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.outputs import reflect
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
-
-import cuml.internals
-from cuml.internals.array import CumlArray
-
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.internals.input_utils import input_to_cuml_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
@@ -39,7 +32,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         double pval_threshold) except +
 
 
-@cuml.internals.api_return_array(input_arg="y", get_output_type=True)
+@reflect
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
               handle=None, convert_dtype=True) -> CumlArray:
     """

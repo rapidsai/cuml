@@ -2,14 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
-import sklearn
-from packaging.version import Version
 
-import cuml.internals
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -56,7 +53,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
 
 class PCAMG(BaseDecompositionMG, PCA):
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
         # Validate and initialize parameters
         cdef paramsPCAMG params
@@ -94,7 +91,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool use_float32 = (dtype == np.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool flip_signs_based_on_U = (Version(sklearn.__version__) < Version("1.5.0"))
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
         with nogil:
