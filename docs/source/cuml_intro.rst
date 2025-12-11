@@ -77,10 +77,8 @@ fit a model with a NumPy array, the ``model.coef_`` property
 containing fitted coefficients will also be a NumPy array. If you fit
 a model using cuDF's GPU-based DataFrame and Series objects, the
 model's output properties will be cuDF objects. You can always
-override this behavior and select a default datatype with the
-`memory_utils.set_global_output_type
-<https://docs.rapids.ai/api/cuml/nightly/api.html#datatype-configuration>`_
-function.
+override this behavior and select a default datatype with
+:func:`cuml.set_global_output_type`.
 
 The `RAPIDS Configurable Input and Output Types
 <https://medium.com/@dantegd/e719d72c135b>`_ blog post goes into much

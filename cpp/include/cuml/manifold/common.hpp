@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
 #include <stdint.h>
 
 namespace ML {
@@ -106,15 +104,7 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() const
-  {
-    // Return true if data is on CPU (need to allocate device memory)
-    // Return false if data is already on device (no allocation needed)
-    auto pointer_residency = raft::spatial::knn::detail::utils::check_pointer_residency(
-      knn_graph.knn_indices, knn_graph.knn_dists);
-    return pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::host_only ||
-           pointer_residency == raft::spatial::knn::detail::utils::pointer_residency::mixed;
-  }
+  bool alloc_knn_graph() const { return false; }
 };
 
 };  // end namespace ML

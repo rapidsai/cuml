@@ -10,7 +10,7 @@ import cupyx
 import numpy as np
 import scipy.sparse
 
-import cuml.internals
+import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
@@ -19,8 +19,8 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
-from cuml.internals.memory_utils import using_output_type
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect, using_output_type
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -691,6 +691,7 @@ class NearestNeighbors(Base,
                 )
 
     @generate_docstring(X='dense_sparse')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -757,6 +758,7 @@ class NearestNeighbors(Base,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
+    @reflect
     def kneighbors(
         self,
         X=None,
@@ -1017,6 +1019,7 @@ class NearestNeighbors(Base,
         return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
+    @reflect
     def kneighbors_graph(
         self, X=None, n_neighbors=None, mode='connectivity'
     ) -> SparseCumlArray:
@@ -1095,7 +1098,7 @@ class NearestNeighbors(Base,
         return self.metric_params or {}
 
 
-@cuml.internals.api_return_sparse_array()
+@reflect
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):
@@ -1174,12 +1177,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
-    X = NearestNeighbors(
+    model = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,
         handle=handle,
@@ -1187,16 +1185,15 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=cuml.global_settings.root_cm.output_type
+        output_type="cupy",
     ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    with cuml.internals.exit_internal_api():
-        if not include_self:
-            query = None
-        else:
-            query = X._fit_X
+    if not include_self:
+        query = None
+    else:
+        query = model._fit_X
 
-    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+    return model.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)

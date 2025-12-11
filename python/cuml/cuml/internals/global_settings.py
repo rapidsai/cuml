@@ -16,8 +16,14 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     def __init__(self):
         super().__init__()
         self.shared_state = {
-            "root_cm": None,
+            # The global output type setting. May be one of a number of valid
+            # strings ["cupy", "numpy", ...], or `None` to indicate no global
+            # setting configured. See `cuml.internals.outputs` for more details.
             "_output_type": None,
+            # The original value of `_output_type` is cached as `_external_output_type`
+            # when running within an internal context. A value of `False` indicates
+            # that the code is not within an internal context.
+            "_external_output_type": False,
             "_fil_device_type": DeviceType.device,
             "_fil_memory_type": MemoryType.device,
         }

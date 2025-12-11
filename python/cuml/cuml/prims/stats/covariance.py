@@ -8,7 +8,6 @@ import math
 import cupy as cp
 import cupyx
 
-import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r"""
@@ -95,7 +94,6 @@ def _copy_kernel(dtype):
     return cuda_kernel_factory(copy_kernel, (dtype,), "copy_kernel")
 
 
-@cuml.internals.api_return_any()
 def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
     """
     Computes a covariance between two matrices using
@@ -222,7 +220,6 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
         return cov_result, gram_matrix, mean_x, mean_y
 
 
-@cuml.internals.api_return_any()
 def _cov_sparse(x, return_gram=False, return_mean=False):
     """
     Computes the mean and the covariance of matrix X of

@@ -1,3 +1,148 @@
+# cuml 25.12.00 (10 Dec 2025)
+
+### 🚨 Breaking Changes
+* Make `dask` an optional dependency by @jcrist in https://github.com/rapidsai/cuml/pull/7303
+* Using `int64_t` for HDBSCAN and dropping `int` by @jinsolp in https://github.com/rapidsai/cuml/pull/7104
+* UMAP - delay embedding allocation by @viclafargue in https://github.com/rapidsai/cuml/pull/7313
+* Don't infer dtype from model in `cuml.explainer` by @jcrist in https://github.com/rapidsai/cuml/pull/7358
+* Cleanup LinearRegression by @jcrist in https://github.com/rapidsai/cuml/pull/7355
+* Cleanup `AgglomerativeClustering` by @jcrist in https://github.com/rapidsai/cuml/pull/7379
+* Cleanup `LinearSVC`/`LinearSVR` by @jcrist in https://github.com/rapidsai/cuml/pull/7376
+* Require CUDA 12.2+ by @jakirkham in https://github.com/rapidsai/cuml/pull/7408
+* Several improvements to `Ridge` by @jcrist in https://github.com/rapidsai/cuml/pull/7410
+* Expose `n_iter_` in SVC/SVR by @jcrist in https://github.com/rapidsai/cuml/pull/7461
+* Standardize regression `predict` output dtype by @jcrist in https://github.com/rapidsai/cuml/pull/7464
+* Support non-numeric class labels everywhere by @jcrist in https://github.com/rapidsai/cuml/pull/7480
+* Rename TSNE `n_iter` to `max_iter` by @jcrist in https://github.com/rapidsai/cuml/pull/7500
+* Cleanup `cuml.multiclass` by @jcrist in https://github.com/rapidsai/cuml/pull/7508
+* Cleanup `SGD`/`MBSGDClassifier`/`MBSGDRegressor` by @jcrist in https://github.com/rapidsai/cuml/pull/7504
+### 🐛 Bug Fixes
+* Avoid pyyaml runtime dependency. by @csadorf in https://github.com/rapidsai/cuml/pull/7312
+* Make conversion from scikit-learn SVM to cuML more robust by @csadorf in https://github.com/rapidsai/cuml/pull/7324
+* Revert "CI: Auto-assign priority to PRs from linked issues (#7354)" by @csadorf in https://github.com/rapidsai/cuml/pull/7357
+* Adding checks for UMAP precomputed KNN feature by @viclafargue in https://github.com/rapidsai/cuml/pull/7300
+* Unpin treelite and xfail some tests affected by the XGBoost/treelite incompatibility by @csadorf in https://github.com/rapidsai/cuml/pull/7366
+* Fix issue in Dask DBSCAN by @viclafargue in https://github.com/rapidsai/cuml/pull/7359
+* CI: Increase nightly CI check window to 14 days. by @csadorf in https://github.com/rapidsai/cuml/pull/7392
+* Fix overflow in coordinate descent by @jcrist in https://github.com/rapidsai/cuml/pull/7399
+* Fix output argument passed by value causing the copy constructor on owning CSR matrix by @achirkin in https://github.com/rapidsai/cuml/pull/7390
+* Fix Dask DBSCAN tree reduction by @viclafargue in https://github.com/rapidsai/cuml/pull/7398
+* Fixup the test_kernel_density test. by @csadorf in https://github.com/rapidsai/cuml/pull/7404
+* Fetch rapids-cmake configuration for cmake-format in CI style checks by @bdice in https://github.com/rapidsai/cuml/pull/7406
+* Fix string slicing dtype mismatch in PorterStemmer for cudf-pandas mode by @csadorf in https://github.com/rapidsai/cuml/pull/7413
+* Set the same `random_state` value for `None` in `cuml.dask.KMeans` for all workers by @divyegala in https://github.com/rapidsai/cuml/pull/7417
+* Init checks for Dask KMeans by @viclafargue in https://github.com/rapidsai/cuml/pull/7391
+* Fix `DBSCAN` overflow by @divyegala in https://github.com/rapidsai/cuml/pull/7421
+* Fix HDBSCAN nn-descent errors with default arguments (min_samples=None) by @viclafargue in https://github.com/rapidsai/cuml/pull/7402
+* CI: Xfail test_umap_outliers to mitigate flaky test failure. by @csadorf in https://github.com/rapidsai/cuml/pull/7430
+* Ensure `n_components < n_cols` in `cuml.dask.tsvd` by @divyegala in https://github.com/rapidsai/cuml/pull/7441
+* Skip test_extract_partitions_shape by @csadorf in https://github.com/rapidsai/cuml/pull/7453
+* refactored update-version.sh to handle new branching strategy by @rockhowse in https://github.com/rapidsai/cuml/pull/7455
+* [BUG] Fix RandomForest Builder Sampling by @tarang-jain in https://github.com/rapidsai/cuml/pull/7422
+* Fix the RandomForest sampling bias by @csadorf in https://github.com/rapidsai/cuml/pull/7449
+* Pin Cython pre-3.2.0 and PyTest pre-9 by @jakirkham in https://github.com/rapidsai/cuml/pull/7472
+* Remove SpectralEmbedding from xfail list by @csadorf in https://github.com/rapidsai/cuml/pull/7487
+* Fix UMAP Outliers for small data by @jinsolp in https://github.com/rapidsai/cuml/pull/7473
+* Fix PCA sign flip by @zhuxr11 in https://github.com/rapidsai/cuml/pull/7331
+* A few small fixes for multi-gpu `PCA`/`TruncatedSVD` by @jcrist in https://github.com/rapidsai/cuml/pull/7560
+* Remove unnecessary `syncthreads` in UMAP optimize by @jinsolp in https://github.com/rapidsai/cuml/pull/7575
+* Revert precomputed kNN on CPU for UMAP by @jinsolp in https://github.com/rapidsai/cuml/pull/7576
+* Pin scikit-learn<1.8 in test dependencies by @csadorf in https://github.com/rapidsai/cuml/pull/7588
+### 📖 Documentation
+* Add Spectral Embedding algorithm to README.md by @aamijar in https://github.com/rapidsai/cuml/pull/7348
+* Fix and improve build docs by @csadorf in https://github.com/rapidsai/cuml/pull/7383
+* Mention pip as install path in README. by @csadorf in https://github.com/rapidsai/cuml/pull/7414
+* Use current system architecture in conda environment creation command by @bdice in https://github.com/rapidsai/cuml/pull/7447
+* Use `sklearn.datasets.fetch_covtype` in example notebook by @jcrist in https://github.com/rapidsai/cuml/pull/7581
+### 🚀 New Features
+* Provide a static target for `libcuml` by @divyegala in https://github.com/rapidsai/cuml/pull/7351
+* HDBSCAN with NN Descent build option by @jinsolp in https://github.com/rapidsai/cuml/pull/7339
+* [FEA] Implement kfold. by @trivialfis in https://github.com/rapidsai/cuml/pull/7296
+* [FEA] Feature Importances for Random Forests by @tarang-jain in https://github.com/rapidsai/cuml/pull/7275
+* SpectralClustering estimator by @aamijar in https://github.com/rapidsai/cuml/pull/7372
+### 🛠️ Improvements
+* Update `RAPIDS_BRANCH`, codify changes in `update-version.sh` by @KyleFromNVIDIA in https://github.com/rapidsai/cuml/pull/7268
+* Avoid usage of deprecated cudf `from_pandas` by @TomAugspurger in https://github.com/rapidsai/cuml/pull/7284
+* Branch 25.12 merge branch 25.10 by @jcrist in https://github.com/rapidsai/cuml/pull/7291
+* Update to rapids-logger 0.2 by @bdice in https://github.com/rapidsai/cuml/pull/7301
+* Cleanup TSNE python implementation by @jcrist in https://github.com/rapidsai/cuml/pull/7311
+* Cleanup `cuml.decomposition` by @jcrist in https://github.com/rapidsai/cuml/pull/7316
+* A few HDBSCAN cleanups by @jcrist in https://github.com/rapidsai/cuml/pull/7319
+* Run the scikit-learn test suite in parallel again by @csadorf in https://github.com/rapidsai/cuml/pull/7315
+* A few `cuml.neighbors` cleanups by @jcrist in https://github.com/rapidsai/cuml/pull/7320
+* Cleanup DBSCAN by @jcrist in https://github.com/rapidsai/cuml/pull/7325
+* Release GIL in `SpectralEmbedding` by @jcrist in https://github.com/rapidsai/cuml/pull/7326
+* Cleanup `*.pxd` files and `cimport`s by @jcrist in https://github.com/rapidsai/cuml/pull/7327
+* Accelerate linear model predict on C-ordered inputs by @jcrist in https://github.com/rapidsai/cuml/pull/7329
+* Remove `cuml.ensemble`/`cuml.dask.ensemble` deprecated features by @jcrist in https://github.com/rapidsai/cuml/pull/7332
+* Cleanup `Ridge` by @jcrist in https://github.com/rapidsai/cuml/pull/7330
+* Add SparseRandomProjection, AgglomerativeClustering and GaussianRandomProjection to common checks by @betatim in https://github.com/rapidsai/cuml/pull/7307
+* Enable `sccache-dist` connection pool by @trxcllnt in https://github.com/rapidsai/cuml/pull/7344
+* Use pinned_host_memory_resource instead of pinned_memory_resource. by @bdice in https://github.com/rapidsai/cuml/pull/7340
+* Propagate `Dask`/`UCX` exceptions by @viclafargue in https://github.com/rapidsai/cuml/pull/7308
+* Add `libcuml` linkage smoke test by @divyegala in https://github.com/rapidsai/cuml/pull/7343
+* Cleanup SVM by @jcrist in https://github.com/rapidsai/cuml/pull/7347
+* Remove outdated link flags from CMakeLists.txt by @hcho3 in https://github.com/rapidsai/cuml/pull/7349
+* Fix flaky `test_logistic_regression_weighting` test by @csadorf in https://github.com/rapidsai/cuml/pull/7321
+* CI: Auto-assign priority to PRs from linked issues by @csadorf in https://github.com/rapidsai/cuml/pull/7354
+* Reduce warnings verbosity in tests by @csadorf in https://github.com/rapidsai/cuml/pull/7322
+* Add xgboost to benchmark utilities by @dantegd in https://github.com/rapidsai/cuml/pull/7350
+* Use main in RAPIDS_BRANCH by @bdice in https://github.com/rapidsai/cuml/pull/7364
+* Use main shared-workflows branch by @bdice in https://github.com/rapidsai/cuml/pull/7369
+* Use SPDX for all copyright headers by @KyleFromNVIDIA in https://github.com/rapidsai/cuml/pull/7373
+* Add commit to use SPDX copyright headers to git ignore blame revs. by @csadorf in https://github.com/rapidsai/cuml/pull/7381
+* CI: Fix the auto-release assignment GA job. by @csadorf in https://github.com/rapidsai/cuml/pull/7380
+* Cleanup `ElasticNet`, `Lasso`, and `CD` by @jcrist in https://github.com/rapidsai/cuml/pull/7382
+* Add cuVS to python test dependencies by @jinsolp in https://github.com/rapidsai/cuml/pull/7385
+* Support `KernelDensity` in `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/7397
+* Deprecate `normalize` option to all linear models by @jcrist in https://github.com/rapidsai/cuml/pull/7415
+* Expose `n_iter_` in `LinearSVC`/`LinearSVR` by @jcrist in https://github.com/rapidsai/cuml/pull/7419
+* Bring back `KMeansMG` by @jcrist in https://github.com/rapidsai/cuml/pull/7420
+* Remove reachability.hpp Header by @tarang-jain in https://github.com/rapidsai/cuml/pull/7416
+* Add Out-of-Bag (OOB) Score Support to RandomForest by @csadorf in https://github.com/rapidsai/cuml/pull/7401
+* Add Third-Party Integration Tests for BERTopic by @csadorf in https://github.com/rapidsai/cuml/pull/7388
+* Expose `_fit_X` and `_y` on neighbors estimators in cuml.accel by @jcrist in https://github.com/rapidsai/cuml/pull/7437
+* Refactor pytests spectral embedding by @aamijar in https://github.com/rapidsai/cuml/pull/7435
+* Remove shims for CCCL < 3.1 compatibility by @bdice in https://github.com/rapidsai/cuml/pull/7432
+* Cleanup `LogisticRegression`/`QN`/`LogisticRegressionMG` by @jcrist in https://github.com/rapidsai/cuml/pull/7433
+* Remove `double` instantiations for `cuml.explainer` kernels by @aamijar in https://github.com/rapidsai/cuml/pull/7384
+* Migrate to new CCCL memory resource interface by @bdice in https://github.com/rapidsai/cuml/pull/7450
+* Expose `n_iter_` in `Ridge` by @jcrist in https://github.com/rapidsai/cuml/pull/7458
+* Expose `n_iter_` on `ElasticNet`/`Lasso`/`CD` by @jcrist in https://github.com/rapidsai/cuml/pull/7457
+* Support of `weights` argument in KNeighbors by @viclafargue in https://github.com/rapidsai/cuml/pull/7289
+* Pin pytest<9.0 by @jcrist in https://github.com/rapidsai/cuml/pull/7468
+* Cleanup `UMAP` and `simpl_set` by @jcrist in https://github.com/rapidsai/cuml/pull/7456
+* Remove cupy allocator utils by @jcrist in https://github.com/rapidsai/cuml/pull/7463
+* Make `cuml.manifold.umap.find_ab_params` public by @jcrist in https://github.com/rapidsai/cuml/pull/7477
+* Assorted classifier improvements by @jcrist in https://github.com/rapidsai/cuml/pull/7475
+* Improve sparse support in `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/7462
+* Remove Extra Test in Random Forest by @tarang-jain in https://github.com/rapidsai/cuml/pull/7485
+* Update RMM includes from `<rmm/mr/device/*>` to `<rmm/mr/*>` by @bdice in https://github.com/rapidsai/cuml/pull/7483
+* Use ruff-check, ruff-format instead of black, flake8, isort by @KyleFromNVIDIA in https://github.com/rapidsai/cuml/pull/7429
+* Add ruff formatting migration to .git-blame-ignore-revs by @csadorf in https://github.com/rapidsai/cuml/pull/7489
+* Bump Treelite to 4.6.1 by @hcho3 in https://github.com/rapidsai/cuml/pull/7471
+* Document `SVC(probability=True)` requires 5 samples per class by @jcrist in https://github.com/rapidsai/cuml/pull/7491
+* Expose `penalty_normalized` and `lbfgs_memory` in `LogisticRegression` by @jcrist in https://github.com/rapidsai/cuml/pull/7490
+* Remove caveat in cuml.accel docs about PCA/TSVD sign by @jcrist in https://github.com/rapidsai/cuml/pull/7492
+* Fixup `test_serialize` strides check by @jcrist in https://github.com/rapidsai/cuml/pull/7497
+* Use `sccache-dist` build cluster for conda and wheel builds by @trxcllnt in https://github.com/rapidsai/cuml/pull/7440
+* Remove global, contextual, and estimator-level `memory_type` settings by @jcrist in https://github.com/rapidsai/cuml/pull/7501
+* Use s3 for preprocessor cache by @trxcllnt in https://github.com/rapidsai/cuml/pull/7510
+* Update UMAP `random_state` doc by @jcrist in https://github.com/rapidsai/cuml/pull/7518
+* Remove `target_dtype` and supporting infra by @jcrist in https://github.com/rapidsai/cuml/pull/7516
+* Improved memory efficiency in UMAP given precomputed knn graphs by @jinsolp in https://github.com/rapidsai/cuml/pull/7481
+* Temporarily drop xgboost from CI by @jcrist in https://github.com/rapidsai/cuml/pull/7526
+* Improve Dask documentation and fix a few minor issues by @csadorf in https://github.com/rapidsai/cuml/pull/7499
+* Revert "Temporarily drop xgboost from CI (#7526)" by @csadorf in https://github.com/rapidsai/cuml/pull/7534
+* Add minimal support for sklearn 1.8.0rc1 by @jcrist in https://github.com/rapidsai/cuml/pull/7546
+* Bump SciPy lower bound to 1.11 by @jcrist in https://github.com/rapidsai/cuml/pull/7551
+
+## New Contributors
+* @rockhowse made their first contribution in https://github.com/rapidsai/cuml/pull/7455
+* @zhuxr11 made their first contribution in https://github.com/rapidsai/cuml/pull/7331
+
+**Full Changelog**: https://github.com/rapidsai/cuml/compare/v25.12.00a...release/25.12
+
 # cuml 25.10.00 (8 Oct 2025)
 
 ## 🚨 Breaking Changes

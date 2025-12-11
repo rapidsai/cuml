@@ -177,7 +177,7 @@ def custom_kernel(X, Y, func, **kwds):
     return K
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.reflect
 def pairwise_kernels(
     X,
     Y=None,

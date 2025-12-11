@@ -17,6 +17,7 @@ from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import reflect
 from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
@@ -158,6 +159,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
@@ -201,6 +203,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
@@ -258,6 +261,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_proba(self, X) -> CumlArray:
         """
         Return probability estimates for the test vector X.
@@ -339,6 +343,7 @@ class GaussianNB(_BaseNB):
         self.fit_called_ = False
         self.classes_ = None
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -366,6 +371,7 @@ class GaussianNB(_BaseNB):
     @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
+    @reflect(reset=True)
     def _partial_fit(
         self,
         X,
@@ -472,6 +478,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -741,6 +748,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -math.log(self.n_classes_)
             )
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "_BaseDiscreteNB":
@@ -788,6 +796,7 @@ class _BaseDiscreteNB(_BaseNB):
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )
+    @reflect(reset=True)
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
@@ -844,6 +853,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         return self
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
@@ -1633,6 +1643,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
         """Fit Naive Bayes classifier according to X, y
 
@@ -1658,6 +1669,7 @@ class CategoricalNB(_BaseDiscreteNB):
         """
         return super().fit(X, y, sample_weight=sample_weight)
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "CategoricalNB":

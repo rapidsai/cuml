@@ -26,8 +26,8 @@ void predict_impl(const raft::handle_t& handle,
                   idx_t* labels,
                   value_t& inertia)
 {
-  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
-  std::optional<raft::device_vector_view<const value_t>> sw = std::nullopt;
+  auto X_view = raft::make_device_matrix_view<const value_t, idx_t>(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const value_t, idx_t>> sw = std::nullopt;
   if (sample_weight != nullptr)
     sw = std::make_optional(
       raft::make_device_vector_view<const value_t, idx_t>(sample_weight, n_samples));

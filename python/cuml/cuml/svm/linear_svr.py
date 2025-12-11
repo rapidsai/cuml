@@ -15,6 +15,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin
 
 __all__ = ["LinearSVR"]
@@ -209,6 +210,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":

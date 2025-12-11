@@ -4,7 +4,7 @@
 #
 import numpy as np
 
-import cuml.internals
+from cuml.internals import run_in_internal_context
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -61,7 +61,7 @@ class CDMG(MGFitMixin, CD):
     """
     Cython class for MNMG code usage. Not meant for end user consumption.
     """
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _fit(self, uintptr_t X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef bool use_f32 = self.dtype == np.float32

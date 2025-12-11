@@ -2,33 +2,24 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 import cupy as cp
 import numpy as np
 
-from cuml.internals import logger
-
-from cuml.internals cimport logger
-
 import cuml.internals
-
-from libc.stdint cimport uintptr_t
-from libcpp cimport nullptr
-
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
 from cuml.linear_model.base import check_deprecated_normalize
 
+from libc.stdint cimport uintptr_t
+from libcpp cimport nullptr
 from pylibraft.common.handle cimport handle_t
+
+from cuml.internals cimport logger
 
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars" nogil:
@@ -285,6 +276,7 @@ class Lars(Base, RegressorMixin):
                 self.beta_ = self.beta_ / x_scale[self.active_]
 
     @generate_docstring(y='dense_anydtype')
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True) -> 'Lars':
         """
         Fit the model with X and y.
@@ -337,6 +329,7 @@ class Lars(Base, RegressorMixin):
 
         return self
 
+    @reflect
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
