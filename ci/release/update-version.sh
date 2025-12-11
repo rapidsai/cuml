@@ -105,7 +105,6 @@ DEPENDENCIES=(
   dask-cudf
   libcuml
   libcuml-tests
-  libcumlprims
   libcuvs
   libraft-headers
   libraft

@@ -9,8 +9,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
-#include <cumlprims/opg/matrix/data.hpp>
-#include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <cuml/src_prims/opg/matrix/data.hpp>
+#include <cuml/src_prims/opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/spatial/knn/knn.cuh>

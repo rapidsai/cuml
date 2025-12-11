@@ -31,10 +31,10 @@
 #include <vector>
 using namespace MLCommon;
 
-#include <cumlprims/opg/matrix/math.hpp>
-#include <cumlprims/opg/stats/mean.hpp>
-#include <cumlprims/opg/stats/mean_center.hpp>
-#include <cumlprims/opg/stats/stddev.hpp>
+#include <cuml/src_prims/opg/matrix/math.hpp>
+#include <cuml/src_prims/opg/stats/mean.hpp>
+#include <cuml/src_prims/opg/stats/mean_center.hpp>
+#include <cuml/src_prims/opg/stats/stddev.hpp>
 
 namespace ML {
 namespace GLM {

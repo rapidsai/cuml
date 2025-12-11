@@ -9,10 +9,10 @@
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
 
-#include <cumlprims/opg/linalg/mm_aTa.hpp>
-#include <cumlprims/opg/stats/mean.hpp>
-#include <cumlprims/opg/stats/mean_center.hpp>
-#include <cumlprims/opg/stats/stddev.hpp>
+#include <opg/linalg/mm_aTa.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
+#include <opg/stats/stddev.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
@@ -23,7 +23,7 @@
 
 #include <cstddef>
 
-using namespace MLCommon;
+using namespace ML;
 
 namespace ML {
 namespace TSVD {

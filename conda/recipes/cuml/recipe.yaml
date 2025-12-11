@@ -76,7 +76,6 @@ requirements:
     - cudf =${{ minor_version }}
     - cython >=3.0.0,<3.2.0
     - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
     - pip
     - pylibraft =${{ minor_version }}
     - python =${{ py_version }}
@@ -94,7 +93,6 @@ requirements:
     - cupy >=13.6.0
     - joblib >=0.11
     - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
     - numba >=0.60.0,<0.62.0
     - numba-cuda >=0.22.1,<0.23.0
     - numpy >=1.23,<3.0

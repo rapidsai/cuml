@@ -53,7 +53,6 @@ option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
-option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
@@ -70,9 +69,6 @@ option(CUML_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the sta
 # dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
-option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target"
-       OFF
-)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
 
@@ -93,7 +89,6 @@ message(VERBOSE
         "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}"
 )
 message(VERBOSE "CUML_CPP: Disabling OpenMP: ${DISABLE_OPENMP}")
-message(VERBOSE "CUML_CPP: Enabling algorithms that use libcumlprims_mg: ${ENABLE_CUMLPRIMS_MG}")
 message(VERBOSE "CUML_CPP: Enabling kernel resource usage info: ${KERNEL_INFO}")
 message(VERBOSE "CUML_CPP: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
 message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
@@ -218,13 +213,12 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif()
 
-# SingleGPU build disables cumlprims_mg and comms components
+# SingleGPU build disables comms components
 if(SINGLEGPU)
   message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
   message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
-  set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
 endif()
 
@@ -292,9 +286,7 @@ if(all_algo OR treeshap_algo)
   endif()
 endif()
 
-if(ENABLE_CUMLPRIMS_MG)
-  include(cmake/thirdparty/get_cumlprims_mg.cmake)
-endif()
+# cumlprims_mg functionality has been moved into cuML directly
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
@@ -541,7 +533,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/umap/umap.cu)
   endif()
 
-  # Multi-GPU components. TODO: separate mnmg that require cumlprims from those that don't
+  # Multi-GPU components
   if(NOT SINGLEGPU)
     target_sources(
       cuml_objs
@@ -556,6 +548,24 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/pca/sign_flip_mg.cu
               src/solver/cd_mg.cu
               src/tsvd/tsvd_mg.cu
+              # OPG primitives (moved from cumlprims_mg)
+              src_prims/opg/matrix/part_descriptor.cu
+              src_prims/opg/matrix/matrix_utils.cu
+              src_prims/opg/matrix/math.cu
+              src_prims/opg/linalg/qr.cu
+              src_prims/opg/linalg/eig.cu
+              src_prims/opg/linalg/svd.cu
+              src_prims/opg/linalg/gemm.cu
+              src_prims/opg/linalg/lstsq.cu
+              src_prims/opg/linalg/mm_aTa.cu
+              src_prims/opg/linalg/mv_aTb.cu
+              src_prims/opg/linalg/norm.cu
+              src_prims/opg/linalg/mean_squared_error.cu
+              src_prims/opg/linalg/qr_based_svd.cu
+              src_prims/opg/stats/mean.cu
+              src_prims/opg/stats/mean_center.cu
+              src_prims/opg/stats/stddev.cu
+              src_prims/opg/stats/cov.cu
     )
   endif()
 
@@ -619,14 +629,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
   endif()
 
-  # The visibility of these depend on whether we're linking the CTK statically, because cumlprims_mg
-  # and cuML inherit their CUDA libs from the raft::raft INTERFACE target.
-  list(APPEND ${_cuml_cpp_libs_var_name} $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>)
+  # The visibility of these depend on whether we're linking the CTK statically
 
   target_link_libraries(
     cuml_objs
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
-           ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -686,8 +694,8 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
-           ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -763,8 +771,8 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
-           ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft
+           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 

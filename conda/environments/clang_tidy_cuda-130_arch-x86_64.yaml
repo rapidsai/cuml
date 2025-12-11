@@ -17,7 +17,6 @@ dependencies:
 - gcc_linux-64=14.*
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==26.2.*,>=0.0.0a0
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
