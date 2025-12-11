@@ -2,11 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
 
 
@@ -63,7 +61,6 @@ def _normalize_regression_metric_args(
     return y_true, y_pred, sample_weight, multioutput
 
 
-@cuml.internals.api_return_any()
 def r2_score(
     y_true,
     y_pred,
@@ -178,7 +175,6 @@ def _mse(y_true, y_pred, sample_weight, multioutput, squared):
     return float(out if squared else cp.sqrt(out))
 
 
-@cuml.internals.api_return_any()
 def mean_squared_error(
     y_true,
     y_pred,
@@ -231,7 +227,6 @@ def mean_squared_error(
     return _mse(y_true, y_pred, sample_weight, multioutput, squared)
 
 
-@cuml.internals.api_return_any()
 def mean_absolute_error(
     y_true, y_pred, sample_weight=None, multioutput="uniform_average"
 ):
@@ -310,7 +305,6 @@ def _weighted_median(X, weights):
     return X[sorted_idx[median_idx, col_idx], col_idx]
 
 
-@cuml.internals.api_return_any()
 def median_absolute_error(
     y_true,
     y_pred,
@@ -374,7 +368,6 @@ def median_absolute_error(
     return float(cp.average(output_errors, weights=multioutput))
 
 
-@cuml.internals.api_return_any()
 def mean_squared_log_error(
     y_true,
     y_pred,
