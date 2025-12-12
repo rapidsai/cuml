@@ -72,7 +72,7 @@ dependencies:
 - scikit-build-core>=0.10.0
 - scikit-learn>=1.4
 - scikit-learn>=1.4,<1.8.0
-- scipy>=1.11.0
+- scipy>=1.13.0
 - seaborn
 - sphinx
 - sphinx-copybutton
