@@ -612,7 +612,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
   # Add CTK include paths because we're going to make our CTK library links private below
-  target_include_directories(cuml_objs SYSTEM PUBLIC "$<BUILD_LOCAL_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>)
+  target_include_directories(
+    cuml_objs SYSTEM
+    PUBLIC
+      "$<BUILD_LOCAL_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>)
 
   # The visibility of these depend on whether we're linking the CTK statically, because cumlprims_mg
   # and cuML inherit their CUDA libs from the raft::raft INTERFACE target.
@@ -796,7 +799,9 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld
+      "
+  )
 
 endif()
 
