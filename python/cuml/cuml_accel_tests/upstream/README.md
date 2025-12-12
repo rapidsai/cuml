@@ -20,10 +20,28 @@ upstream libraries (scikit-learn, ...) with cuML acceleration support.
   Options:
   - `-v, --verbose`          : Display detailed failure information
   - `-f, --fail-below VALUE` : Set a minimum pass rate threshold (0-100)
-  - `--format FORMAT`        : Output format (summary or xfail_list)
-  - `--update-xfail-list PATH` : Path to existing xfail list to update
-  - `-i, --in-place`        : Update the xfail list file in place
-  - `--xpassed ACTION`      : How to handle XPASS tests (keep/remove/mark-flaky)
+  - `--format FORMAT`        : Output format (summary, xfail_list, or traceback)
+  - `--limit N`              : Limit output to first N entries
+  - `--test-id-prefix PREFIX`: Prefix to add to test IDs (e.g., 'sklearn.')
+  - `-k, --filter PATTERN`   : Filter tests by ID pattern (substring match)
+
+- `xfail_manager.py`
+  Tool for managing xfail lists with consistent formatting and batch modifications.
+  Commands:
+  - `format`: Apply consistent formatting and sorting to xfail list files
+  - `set`: Modify metadata (reason, condition, marker, strict, run) for specified tests
+
+  Example usage:
+  ```bash
+  # Format an xfail list
+  ./xfail_manager.py format xfail-list.yaml
+
+  # Set a new reason for specific tests
+  ./xfail_manager.py set xfail-list.yaml "test_foo" "test_bar" --reason "Known issue #123"
+
+  # Mark tests as non-strict (flaky)
+  ./xfail_manager.py set xfail-list.yaml "test_flaky" --no-strict
+  ```
 
 ## Usage
 
@@ -44,6 +62,11 @@ Generate a summary from the report:
 ./summarize-results.py -v -f 80 report.xml
 ```
 
+View tracebacks for specific failures:
+```bash
+./summarize-results.py --format=traceback -k "logistic" report.xml
+```
+
 ## Xfail List
 
 The xfail list (`xfail-list.yaml`) is used to mark tests that are expected to fail. This is useful for:
@@ -56,26 +79,22 @@ The xfail list (`xfail-list.yaml`) is used to mark tests that are expected to fa
 The `run-tests.sh` script automatically uses an `xfail-list.yaml` file if present in the same directory.
 
 ### Generating an Xfail List
-The `summarize-results.py` script provides several ways to manage the xfail list:
-
-1. Generate a new xfail list from test results:
+Generate a new xfail list from test results:
 ```bash
 ./summarize-results.py --format=xfail_list report.xml > xfail-list.yaml
 ```
 
-2. Update an existing xfail list (in place):
+### Modifying an Xfail List
+Use `xfail_manager.py` to modify existing xfail lists:
 ```bash
-./summarize-results.py --update-xfail-list=xfail-list.yaml --in-place report.xml
-```
+# Set metadata for specific tests
+./xfail_manager.py set xfail-list.yaml "test_id_1" "test_id_2" --reason "New reason"
 
-The script handles XPASS tests in three ways (controlled by `--xpassed`):
-- `keep`: Preserve all xpassed tests in the list (default)
-- `remove`: Remove xpassed tests from the list
-- `mark-flaky`: Convert strict xpassed tests to non-strict (flaky)
+# Mark tests as flaky (non-strict)
+./xfail_manager.py set xfail-list.yaml "flaky_test" --no-strict
 
-Example with all options:
-```bash
-./summarize-results.py --update-xfail-list=xfail-list.yaml --in-place --xpassed=mark-flaky report.xml
+# Add a condition
+./xfail_manager.py set xfail-list.yaml "test_id" --condition "scikit-learn<1.8"
 ```
 
 ### Format
