@@ -39,7 +39,7 @@ class Logger:
         return "<Logger level={self.level.name!r}>"
 
     def _log(self, msg):
-        print(f"[cuml.accel] {msg}")
+        print(f"[cuml.accel] {msg}", flush=True)
 
     def set_level(self, level: str) -> None:
         """Set the logger level.
