@@ -6,11 +6,12 @@
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
+import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 
 
@@ -46,21 +47,15 @@ def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
             emp_cov = cp.cov(X.T, ddof=0).reshape(1, 1)
         return 0.0, emp_cov, float(emp_cov[0, 0])
 
-    # Center data if needed
     if not assume_centered:
         X = X - cp.mean(X, axis=0, keepdims=True)
 
-    # Empirical covariance (biased estimator, ddof=0)
     emp_cov = cp.dot(X.T, X) / n_samples
 
-    # Compute mu = trace(emp_cov) / n_features
-    # Using X^2 for numerical stability (matches sklearn)
     X2 = X**2
     emp_cov_trace = cp.sum(X2, axis=0) / n_samples
     mu = float(cp.sum(emp_cov_trace) / n_features)
 
-    # Compute beta_ and delta_ using blocked computation for memory efficiency
-    # This follows the Ledoit-Wolf formula as implemented in sklearn
     beta_ = 0.0
     delta_ = 0.0
 
@@ -69,24 +64,19 @@ def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
         for j in range(0, n_features, block_size):
             j_end = min(j + block_size, n_features)
 
-            # beta_ accumulates sum of X2.T @ X2
             beta_ += float(cp.sum(cp.dot(X2[:, i:i_end].T, X2[:, j:j_end])))
-
-            # delta_ accumulates sum of squared elements of X.T @ X
             delta_ += float(
                 cp.sum(cp.dot(X[:, i:i_end].T, X[:, j:j_end]) ** 2)
             )
 
     delta_ /= n_samples**2
 
-    # Final beta and delta computation (Ledoit-Wolf formula)
     beta = (1.0 / (n_features * n_samples)) * (beta_ / n_samples - delta_)
     delta = (
         delta_ - 2.0 * mu * float(cp.sum(emp_cov_trace)) + n_features * mu**2
     )
     delta /= n_features
 
-    # Shrinkage is min(beta, delta) / delta, with edge case handling
     beta = min(beta, delta)
     if beta == 0:
         shrinkage = 0.0
@@ -208,26 +198,22 @@ class LedoitWolf(Base, InteropMixin):
         }
 
     def _attrs_from_cpu(self, model):
-        attrs = {
+        return {
             "covariance_": to_gpu(model.covariance_),
             "location_": to_gpu(model.location_),
+            "precision_": to_gpu(model.precision_) if self.store_precision else None,
             "shrinkage_": model.shrinkage_,
             **super()._attrs_from_cpu(model),
         }
-        if self.store_precision and hasattr(model, "precision_"):
-            attrs["precision_"] = to_gpu(model.precision_)
-        return attrs
 
     def _attrs_to_cpu(self, model):
-        attrs = {
+        return {
             "covariance_": to_cpu(self.covariance_),
             "location_": to_cpu(self.location_),
+            "precision_": to_cpu(self.precision_) if self.store_precision else None,
             "shrinkage_": self.shrinkage_,
             **super()._attrs_to_cpu(model),
         }
-        if self.store_precision and self.precision_ is not None:
-            attrs["precision_"] = to_cpu(self.precision_)
-        return attrs
 
     def __init__(
         self,
@@ -250,6 +236,7 @@ class LedoitWolf(Base, InteropMixin):
         self.shrinkage_ = None
 
     @generate_docstring()
+    @cuml.internals.api_base_return_any()
     def fit(self, X, y=None) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
@@ -266,32 +253,23 @@ class LedoitWolf(Base, InteropMixin):
         self : LedoitWolf
             Returns the instance itself.
         """
-        X_m, n_samples, n_features, dtype = input_to_cuml_array(
+        X_arr, _, n_features, dtype = input_to_cupy_array(
             X,
             check_dtype=[np.float32, np.float64],
             order="C",
         )
 
-        self._set_n_features_in(X_m)
-        self._set_output_type(X)
-
-        X_arr = cp.asarray(X_m)
-
-        # Compute location (mean)
         if self.assume_centered:
             location = cp.zeros(n_features, dtype=dtype)
         else:
             location = cp.mean(X_arr, axis=0)
 
-        # Compute shrinkage and empirical covariance
         shrinkage, emp_cov, mu = _ledoit_wolf_shrinkage(
             X_arr,
             assume_centered=self.assume_centered,
             block_size=self.block_size,
         )
 
-        # Compute shrunk covariance:
-        # (1 - shrinkage) * emp_cov + shrinkage * mu * I
         shrunk_cov = (1.0 - shrinkage) * emp_cov
         shrunk_cov.flat[:: n_features + 1] += shrinkage * mu
 
@@ -299,7 +277,6 @@ class LedoitWolf(Base, InteropMixin):
         self.location_ = CumlArray(data=location)
         self.covariance_ = CumlArray(data=shrunk_cov)
 
-        # Compute precision matrix if requested
         if self.store_precision:
             self.precision_ = CumlArray(data=cp.linalg.pinv(shrunk_cov))
         else:
@@ -341,31 +318,18 @@ class LedoitWolf(Base, InteropMixin):
         log_likelihood : float
             Log-likelihood of the data under the fitted Gaussian model.
         """
-        X_m = input_to_cuml_array(
+        X_arr, _, n_features, _ = input_to_cupy_array(
             X_test,
             check_dtype=[np.float32, np.float64],
             check_cols=self.n_features_in_,
             order="C",
-        ).array
+        )
 
-        X_arr = cp.asarray(X_m)
-        n_samples, n_features = X_arr.shape
-
-        # Get precision matrix
         precision = cp.asarray(self.get_precision())
         location = cp.asarray(self.location_)
 
-        # Center the data
         X_centered = X_arr - location
-
-        # Compute log-likelihood
-        # log_likelihood = -0.5 * (n_features * log(2*pi)
-        #                         - log|precision|
-        #                         + (X - mu)^T @ precision @ (X - mu))
         log_det_precision = cp.linalg.slogdet(precision)[1]
-
-        # Compute sum of Mahalanobis distances
-        # (X - mu) @ precision @ (X - mu)^T for each sample
         mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
 
         log_likelihood = -0.5 * (
@@ -396,13 +360,11 @@ class LedoitWolf(Base, InteropMixin):
             The Mean Squared Error (in the sense of the Frobenius norm)
             between `self` and `comp_cov`.
         """
-        comp_cov_m = input_to_cuml_array(
+        comp_cov_arr, _, _, _ = input_to_cupy_array(
             comp_cov,
             check_dtype=[np.float32, np.float64],
             order="C",
-        ).array
-
-        comp_cov_arr = cp.asarray(comp_cov_m)
+        )
         self_cov = cp.asarray(self.covariance_)
 
         diff = self_cov - comp_cov_arr
@@ -438,21 +400,16 @@ class LedoitWolf(Base, InteropMixin):
         mahalanobis_distances : ndarray of shape (n_samples,)
             Squared Mahalanobis distances of the observations.
         """
-        X_m = input_to_cuml_array(
+        X_arr, _, _, _ = input_to_cupy_array(
             X,
             check_dtype=[np.float32, np.float64],
             check_cols=self.n_features_in_,
             order="C",
-        ).array
-
-        X_arr = cp.asarray(X_m)
+        )
         precision = cp.asarray(self.get_precision())
         location = cp.asarray(self.location_)
 
-        # Center the data
         X_centered = X_arr - location
-
-        # Compute Mahalanobis distance: (X - mu) @ precision @ (X - mu)^T
         mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
 
         return CumlArray(data=mahal).to_output(self._get_output_type(X))
