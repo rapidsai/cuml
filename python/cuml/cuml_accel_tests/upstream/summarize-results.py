@@ -99,36 +99,20 @@ def parse_args():
         type=int,
         help="Limit output to first N entries (default: no limit)",
     )
-    parser.add_argument(
-        "--test-id-prefix",
-        type=str,
-        help="Prefix to add to test IDs (e.g., 'sklearn.')",
-    )
-    parser.add_argument(
-        "-k",
-        "--filter",
-        type=str,
-        dest="filter_pattern",
-        help="Filter tests by ID pattern (substring match, case-insensitive)",
-    )
     args = parser.parse_args()
-
-    # Load config if provided
-    config = load_config(args.config) if args.config is not None else {}
 
     # Handle fail-below threshold logic:
     # 1. Use command line value if provided
     # 2. Use config value if no command line value
     # 3. Use default of 0.0 if neither is provided
     if args.fail_below is None:
-        args.fail_below = config.get("threshold", {}).get("fail_below", 0.0)
-
-    # Handle test-id-prefix logic:
-    # 1. Use command line value if provided
-    # 2. Use config value if no command line value
-    # 3. Use empty string if neither is provided
-    if args.test_id_prefix is None:
-        args.test_id_prefix = config.get("test_id_prefix", "")
+        if args.config is not None:
+            config = load_config(args.config)
+            args.fail_below = config.get("threshold", {}).get(
+                "fail_below", 0.0
+            )
+        else:
+            args.fail_below = 0.0
 
     return args
 
@@ -137,21 +121,6 @@ def validate_threshold(threshold):
     """Validate that the threshold is between 0 and 100."""
     if not 0 <= threshold <= 100:
         raise ValueError("Threshold must be between 0 and 100")
-
-
-def matches_filter(test_id, pattern):
-    """Check if test ID matches the filter pattern (case-insensitive substring).
-
-    Args:
-        test_id: The test ID to check
-        pattern: The filter pattern (substring match, case-insensitive)
-
-    Returns:
-        True if pattern is None or test_id contains pattern
-    """
-    if pattern is None:
-        return True
-    return pattern.lower() in test_id.lower()
 
 
 def load_existing_xfail_list(path):
@@ -272,14 +241,14 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
     return final_groups
 
 
-def get_test_results(testsuite, prefix: str = ""):
+def get_test_results(testsuite):
     """Extract test results from testsuite.
 
     Returns dict mapping test IDs to their results.
     """
     results = {}
     for testcase in testsuite.findall(".//testcase"):
-        test_id = QuoteTestID(get_test_id(testcase, prefix))
+        test_id = QuoteTestID(get_test_id(testcase))
 
         failure = testcase.find("failure")
         error = testcase.find("error")
@@ -348,26 +317,18 @@ def format_table(rows, col_sep="  "):
     return formatted_rows
 
 
-def get_test_id(testcase, prefix: str = "") -> str:
+def get_test_id(testcase) -> str:
     classname = testcase.get("classname", "")
     name = testcase.get("name")
-    base_id = f"{classname}::{name}" if classname else name
-    # Add prefix if provided and not already present
-    if prefix and not base_id.startswith(prefix):
-        return f"{prefix}{base_id}"
-    return base_id
+    return f"{classname}::{name}" if classname else name
 
 
-def format_traceback_output(
-    testsuite, limit=None, prefix: str = "", filter_pattern=None
-):
+def format_traceback_output(testsuite, limit=None):
     """Format test results showing tracebacks of failed tests.
 
     Args:
         testsuite: XML testsuite element containing test results
         limit: Optional limit on number of entries to show
-        prefix: Prefix to add to test IDs
-        filter_pattern: Optional pattern to filter test IDs
 
     Returns:
         List of formatted strings containing test results and tracebacks
@@ -386,11 +347,7 @@ def format_traceback_output(
         error = testcase.find("error")
 
         if failure is not None or error is not None:
-            test_id = get_test_id(testcase, prefix)
-
-            # Apply filter
-            if not matches_filter(test_id, filter_pattern):
-                continue
+            test_id = get_test_id(testcase)
 
             msg = ""
             details = ""
@@ -407,7 +364,7 @@ def format_traceback_output(
             elif msg == "xfail":
                 continue  # Skip xfailed tests
 
-            output.append(f'\nTest: "{test_id}"')
+            output.append(f"\nTest: {test_id}")
             output.append("-" * 80)
             if msg:
                 output.append(f"Error: {msg}")
@@ -494,15 +451,13 @@ def main():
     pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
 
     if args.format == "traceback":
-        output = format_traceback_output(
-            testsuite, args.limit, args.test_id_prefix, args.filter_pattern
-        )
+        output = format_traceback_output(testsuite, args.limit)
         print("\n".join(output))
         return
 
     if args.format == "xfail_list" or args.update_xfail_list:
         # Get test results
-        test_results = get_test_results(testsuite, args.test_id_prefix)
+        test_results = get_test_results(testsuite)
 
         if args.update_xfail_list:
             if not args.update_xfail_list.exists():
@@ -532,9 +487,6 @@ def main():
             for test_id, result in test_results.items():
                 if args.limit is not None and count >= args.limit:
                     break
-                # Apply filter
-                if not matches_filter(test_id, args.filter_pattern):
-                    continue
                 if result["status"] in ("fail", "xfail"):
                     if not xfail_list:
                         xfail_list.append(
@@ -583,10 +535,7 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
-                test_id = get_test_id(testcase, args.test_id_prefix)
-                # Apply filter
-                if not matches_filter(test_id, args.filter_pattern):
-                    continue
+                test_id = get_test_id(testcase)
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
@@ -595,9 +544,9 @@ def main():
                 if "XPASS" in msg:
                     continue  # Skip xpassed tests in failure list
                 elif msg == "xfail":
-                    print(f'  "{test_id}" (xfail)')
+                    print(f"  {test_id} (xfail)")
                 else:
-                    print(f'  "{test_id}"')
+                    print(f"  {test_id}")
                 count += 1
 
     # List strict xpasses in verbose mode
@@ -611,17 +560,14 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
-                test_id = get_test_id(testcase, args.test_id_prefix)
-                # Apply filter
-                if not matches_filter(test_id, args.filter_pattern):
-                    continue
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
                 elif error is not None and error.get("message") is not None:
                     msg = error.get("message")
                 if "XPASS(strict)" in msg:
-                    print(f'  "{test_id}"')
+                    test_id = get_test_id(testcase)
+                    print(f"  {test_id}")
                     count += 1
 
     # Check threshold

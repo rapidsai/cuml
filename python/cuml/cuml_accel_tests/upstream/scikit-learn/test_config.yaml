@@ -1,6 +1,3 @@
 # Configuration for scikit-learn tests
 threshold:
   fail_below: 85  # Minimum pass rate threshold [0-100]
-
-# Prefix to add to test IDs (e.g., "sklearn." for scikit-learn tests)
-test_id_prefix: "sklearn."
