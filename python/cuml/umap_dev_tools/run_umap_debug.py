@@ -20,10 +20,8 @@ from umap_metrics import (
 )
 from web_results_generation import generate_web_report
 
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
-from cuml.manifold.simpl_set import (
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
 
