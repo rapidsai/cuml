@@ -14,6 +14,21 @@ set -eu
 
 UMAP_TAG="release-0.5.7"
 
+# Skip tests for scikit-learn >= 1.8 -- umap-learn is not compatible with scikit-learn 1.8 yet
+python -c "
+import sys
+from packaging.version import Version
+import sklearn
+sys.exit(
+    int(
+        Version(sklearn.__version__) >= Version('1.8')
+    )
+)
+" || {
+    echo "Skipping umap tests for scikit-learn >= 1.8"
+    exit 0
+}
+
 THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 UMAP_REPO="${THIS_DIRECTORY}/umap-upstream"
 

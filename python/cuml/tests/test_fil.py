@@ -10,7 +10,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 import treelite
+from packaging.version import Version
 
 # Import XGBoost before scikit-learn to work around a libgomp bug
 # See https://github.com/dmlc/xgboost/issues/7110
@@ -910,6 +912,9 @@ def test_device_selection(device_id, model_kind, tmp_path):
         )
         xgb_model.fit(X, y)
         model_path = os.path.join(tmp_path, "xgb_class.ubj")
+        # skip with sklearn version 1.8.0.dev0
+        if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+            pytest.skip("xgboost is incompatible with sklearn >= 1.8.0.dev0")
         xgb_model.save_model(model_path)
         fm = ForestInference.load(
             model_path,

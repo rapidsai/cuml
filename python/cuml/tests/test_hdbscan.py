@@ -6,6 +6,8 @@ import hdbscan
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
+from packaging.version import Version
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.datasets import make_blobs
@@ -22,6 +24,11 @@ from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy, _extract_clusters
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip(
+        "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
+    )
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 

@@ -9,7 +9,9 @@ import joblib
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
+import sklearn
 import umap
+from packaging.version import Version
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -28,6 +30,9 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
