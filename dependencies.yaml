@@ -498,7 +498,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-ml
+          - dask-ml>=2024
   test_python_xgboost:
     common:
       - output_types: [conda]
