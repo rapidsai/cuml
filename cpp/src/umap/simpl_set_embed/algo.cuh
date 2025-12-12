@@ -92,48 +92,6 @@ void optimization_iteration_finalization(
 }
 
 /**
- * Update the embeddings and clear the buffers when using deterministic algorithm.
- */
-template <typename T, typename nnz_t>
-void apply_embedding_updates(T* head_embedding,
-                             T* head_buffer,
-                             int head_n,
-                             T* tail_embedding,
-                             T* tail_buffer,
-                             int tail_n,
-                             UMAPParams* params,
-                             bool move_other,
-                             rmm::cuda_stream_view stream)
-{
-  ASSERT(params->deterministic, "Only used when deterministic is set to true.");
-  nnz_t n_components = params->n_components;
-  if (move_other) {
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
-                     [=] __device__(uint32_t i) {
-                       if (i < head_n * n_components) {
-                         head_embedding[i] += head_buffer[i];
-                         head_buffer[i] = 0.0f;
-                       }
-                       if (i < tail_n * n_components) {
-                         tail_embedding[i] += tail_buffer[i];
-                         tail_buffer[i] = 0.0f;
-                       }
-                     });
-  } else {
-    // No need to update reference embedding
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + head_n * n_components,
-                     [=] __device__(uint32_t i) {
-                       head_embedding[i] += head_buffer[i];
-                       head_buffer[i] = 0.0f;
-                     });
-  }
-}
-
-/**
  * \brief Constructs a rounding factor used to truncate elements in a sum such that the
  * sum of the truncated elements is the same no matter what the order of the sum is.
  *
@@ -268,13 +226,15 @@ void optimize_layout(T* head_embedding,
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier) {
+  if (has_outlier || params->deterministic) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
     // distributed across threads, rather than being processed by consecutive threads that are
     // scheduled together. This approach relies on the GPU's inability to physically schedule all
     // nnz edges at once.
+    // also shuffle when want deterministic behavior to ensure that updates for the same vertex are
+    // processed in different kernel launches.
     auto first =
       thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
                                                    thrust::device_pointer_cast(tail),
@@ -289,6 +249,15 @@ void optimize_layout(T* head_embedding,
       // number of threads per SM, but it is difficult to generalize due to limited cases where this
       // happens. Increase this value if we observe outliers on smaller datasets.
       num_chunks = 4;
+    }
+  }
+
+  // TODO: find heuristics for this
+  if (params->deterministic) {
+    if (min_n <= 100000) {
+      num_chunks = 4;
+    } else {
+      num_chunks = 8;
     }
   }
 
@@ -335,6 +304,7 @@ void optimize_layout(T* head_embedding,
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
+                                                head_n,
                                                 tail_embedding,
                                                 d_tail_buffer,
                                                 tail_n,
@@ -354,17 +324,6 @@ void optimize_layout(T* head_embedding,
                                                 blk,
                                                 stream,
                                                 rounding);
-    if (params->deterministic) {
-      apply_embedding_updates<T, nnz_t>(head_embedding,
-                                        d_head_buffer,
-                                        head_n,
-                                        tail_embedding,
-                                        d_tail_buffer,
-                                        tail_n,
-                                        params,
-                                        move_other,
-                                        stream_view);
-    }
     RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }
