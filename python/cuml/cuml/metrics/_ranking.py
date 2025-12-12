@@ -14,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
 
-@cuml.internals.api_return_generic(get_output_type=True)
+@cuml.internals.reflect
 def precision_recall_curve(
     y_true, probs_pred
 ) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
@@ -107,7 +107,6 @@ def precision_recall_curve(
     return precision, recall, thresholds
 
 
-@cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)

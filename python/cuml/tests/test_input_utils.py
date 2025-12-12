@@ -13,7 +13,11 @@ from numba import cuda as nbcuda
 from pandas import Series as pdSeries
 
 from cuml.common import CumlArray, input_to_cuml_array, input_to_host_array
-from cuml.internals.input_utils import convert_dtype, input_to_cupy_array
+from cuml.internals.input_utils import (
+    convert_dtype,
+    input_to_cupy_array,
+    is_array_like,
+)
 from cuml.manifold import umap
 
 ###############################################################################
@@ -457,3 +461,18 @@ def test_numpy_output():
     # Check that this is a cudf.pandas wrapped array
     assert hasattr(X, "_fsproxy_fast_type")
     assert isinstance(reducer.fit_transform(X), np.ndarray)
+
+
+def test_is_array_like_with_lists():
+    """Test is_array_like function with list/tuple inputs."""
+    # Test lists and tuples are accepted when accept_lists=True
+    assert is_array_like([1, 2, 3], accept_lists=True)
+    assert is_array_like((1, 2, 3), accept_lists=True)
+
+    # Test lists and tuples are rejected when accept_lists=False
+    assert not is_array_like([1, 2, 3], accept_lists=False)
+    assert not is_array_like((1, 2, 3), accept_lists=False)
+
+    # Test numpy arrays are always accepted
+    assert is_array_like(np.array([1, 2, 3]), accept_lists=True)
+    assert is_array_like(np.array([1, 2, 3]), accept_lists=False)

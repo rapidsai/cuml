@@ -5,7 +5,6 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
 
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -13,6 +12,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 
@@ -81,7 +81,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         raise NotImplementedError
 
     @generate_docstring()
-    @cuml.internals.api_base_return_any()
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
         n_samples, n_features = X.shape
@@ -119,6 +119,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         return self
 
     @generate_docstring()
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
         # Coerce X to a cupy array or cupyx sparse matrix
@@ -154,6 +155,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         return CumlArray(data=out, index=index)
 
     @generate_docstring()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """Fit to data, then transform it."""
         return self.fit(X, convert_dtype=convert_dtype).transform(

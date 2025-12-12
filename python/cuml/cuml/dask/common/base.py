@@ -20,12 +20,11 @@ from toolz import first
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.internals import BaseMetaClass
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 
 
-class BaseEstimator(object, metaclass=BaseMetaClass):
+class BaseEstimator:
     def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators.

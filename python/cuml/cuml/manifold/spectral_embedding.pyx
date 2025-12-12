@@ -8,7 +8,6 @@ import numpy as np
 import scipy.sparse as sp
 from pylibraft.common.handle import Handle
 
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -20,6 +19,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -60,7 +60,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@reflect
 def spectral_embedding(A,
                        *,
                        int n_components=8,
@@ -379,6 +379,7 @@ class SpectralEmbedding(Base,
             **super()._attrs_to_cpu(model),
         }
 
+    @reflect
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
@@ -402,6 +403,7 @@ class SpectralEmbedding(Base,
         self.fit(X, y)
         return self.embedding_
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 

@@ -9,6 +9,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.weights import compute_weights
 
@@ -31,11 +32,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     ) except +
 
 
-class KNeighborsRegressor(RegressorMixin,
-                          FMajorInputTagMixin,
-                          NearestNeighbors):
+class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors):
     """
-
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
@@ -176,6 +174,7 @@ class KNeighborsRegressor(RegressorMixin,
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -202,6 +201,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to

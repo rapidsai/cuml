@@ -12,7 +12,7 @@ from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
+from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
@@ -20,8 +20,8 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.memory_utils import cuda_ptr
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.linear_model.base import (
     LinearPredictMixin,
     check_deprecated_normalize,
@@ -322,6 +322,7 @@ class LinearRegression(Base,
         return algo
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.

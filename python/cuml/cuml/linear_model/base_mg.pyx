@@ -2,14 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-# distutils: language = c++
-
-
 import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
-import cuml.internals
 from cuml.common.sparse_utils import is_sparse
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
@@ -20,8 +17,7 @@ from cuml.common.opg_data_utils_mg cimport *
 
 
 class MGFitMixin(object):
-
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(
         self,
         input_data,

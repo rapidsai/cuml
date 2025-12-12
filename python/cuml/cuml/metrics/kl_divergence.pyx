@@ -2,11 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
@@ -26,7 +24,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
         int n) except +
 
 
-@cuml.internals.api_return_any()
 def kl_divergence(P, Q, handle=None, convert_dtype=True):
     """
     Calculates the "Kullback-Leibler" Divergence

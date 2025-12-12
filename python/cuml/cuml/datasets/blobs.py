@@ -71,7 +71,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 
 
 @nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.reflect(array=None)
 def make_blobs(
     n_samples=100,
     n_features=2,
@@ -151,12 +151,6 @@ def make_blobs(
     --------
     make_classification: a more intricate variant
     """
-
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
     generator = _create_rs_generator(random_state=random_state)
 
     centers, n_centers = _get_centers(
