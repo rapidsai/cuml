@@ -78,23 +78,6 @@ def parse_args():
         help="Output format (default: summary)",
     )
     parser.add_argument(
-        "--update-xfail-list",
-        type=Path,
-        help="Path to existing xfail list to update",
-    )
-    parser.add_argument(
-        "-i",
-        "--in-place",
-        action="store_true",
-        help="Update the xfail list file in place",
-    )
-    parser.add_argument(
-        "--xpassed",
-        choices=["keep", "remove", "mark-flaky"],
-        default="keep",
-        help="How to handle XPASS tests (default: keep)",
-    )
-    parser.add_argument(
         "--limit",
         type=int,
         help="Limit output to first N entries (default: no limit)",
@@ -152,124 +135,6 @@ def matches_filter(test_id, pattern):
     if pattern is None:
         return True
     return pattern.lower() in test_id.lower()
-
-
-def load_existing_xfail_list(path):
-    """Load existing xfail list from file."""
-    if not path.exists():
-        return []
-    with open(path) as f:
-        return yaml.safe_load(f) or []
-
-
-def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
-    """Update existing xfail list based on test results.
-
-    Args:
-        existing_list: List of existing xfail groups
-        test_results: Dict containing test results by test ID
-        xpassed_action: How to handle XPASS tests
-            ("keep", "remove", or "mark-flaky")
-
-    Returns:
-        Updated xfail list
-    """
-    # Convert existing list to dict for easier lookup
-    existing_by_id = {}
-    for group in existing_list:
-        for test_id in group.get("tests", []):
-            existing_by_id[QuoteTestID(test_id)] = group
-
-    updated_groups = {}
-
-    # First process existing groups
-    for group in existing_list:
-        reason = group["reason"]
-        strict = group.get("strict", True)
-        tests = group.get("tests", [])
-        condition = group.get("condition", None)
-        marker = group.get("marker", None)
-
-        # Track which tests from this group are still relevant
-        relevant_tests = []
-
-        for test_id in tests:
-            test_id = QuoteTestID(test_id)
-            if test_id in test_results:
-                result = test_results[test_id]
-                if result["status"] in ("fail", "xfail"):
-                    # Keep failing tests
-                    relevant_tests.append(test_id)
-                elif result["status"] == "xpass":
-                    if xpassed_action == "keep":
-                        # Keep all xpassed tests
-                        relevant_tests.append(test_id)
-                    elif xpassed_action == "mark-flaky" and strict:
-                        # Move strict xpassed tests to flaky group instead of
-                        # modifying their existing group
-                        flaky_reason = "Test is flaky with cuml.accel"
-                        if flaky_reason not in updated_groups:
-                            updated_groups[flaky_reason] = OrderedDict(
-                                [
-                                    ("reason", flaky_reason),
-                                    ("strict", False),
-                                    ("tests", []),
-                                ]
-                            )
-                            if condition is not None:
-                                updated_groups[flaky_reason]["condition"] = (
-                                    condition
-                                )
-                            if marker is not None:
-                                updated_groups[flaky_reason]["marker"] = marker
-                        updated_groups[flaky_reason]["tests"].append(test_id)
-                    # For "remove", we don't add xpassed tests at all
-                elif not strict:
-                    # Always keep non-strict tests
-                    relevant_tests.append(test_id)
-            else:
-                # Test not in results - keep it to be safe
-                relevant_tests.append(test_id)
-
-        if relevant_tests:
-            if reason not in updated_groups:
-                updated_groups[reason] = OrderedDict(
-                    [
-                        ("reason", reason),
-                        ("strict", strict),
-                        ("tests", []),
-                    ]
-                )
-                if condition is not None:
-                    updated_groups[reason]["condition"] = condition
-                if marker is not None:
-                    updated_groups[reason]["marker"] = marker
-            updated_groups[reason]["tests"].extend(relevant_tests)
-
-    # Then add any new failing tests
-    for test_id, result in test_results.items():
-        if test_id not in existing_by_id and result["status"] in (
-            "fail",
-            "xfail",
-        ):
-            # Create a new group for this test
-            reason = "Test fails with cuml.accel"
-            if reason not in updated_groups:
-                updated_groups[reason] = OrderedDict(
-                    [
-                        ("reason", reason),
-                        ("strict", True),
-                        ("tests", []),
-                    ]
-                )
-            updated_groups[reason]["tests"].append(test_id)
-
-    # Convert back to list and sort
-    final_groups = []
-    for group in sorted(updated_groups.values(), key=lambda x: x["reason"]):
-        group["tests"] = sorted(group["tests"])
-        final_groups.append(group)
-    return final_groups
 
 
 def get_test_results(testsuite, prefix: str = ""):
@@ -500,59 +365,37 @@ def main():
         print("\n".join(output))
         return
 
-    if args.format == "xfail_list" or args.update_xfail_list:
+    if args.format == "xfail_list":
         # Get test results
         test_results = get_test_results(testsuite, args.test_id_prefix)
 
-        if args.update_xfail_list:
-            if not args.update_xfail_list.exists():
-                print(f"Error: Xfail list not found: {args.update_xfail_list}")
-                sys.exit(1)
-            # Update existing xfail list
-            existing_list = load_existing_xfail_list(args.update_xfail_list)
-            xfail_list = update_xfail_list(
-                existing_list, test_results, args.xpassed
-            )
-            # Write to file if in-place, otherwise print
-            setup_yaml()
-            if args.in_place:
-                with open(args.update_xfail_list, "w") as f:
-                    yaml.dump(
-                        xfail_list, f, sort_keys=False, width=float("inf")
-                    )
-                print(f"Updated {args.update_xfail_list}")
-            else:
-                print(
-                    yaml.dump(xfail_list, sort_keys=False, width=float("inf"))
-                )
-        else:
-            # Generate new xfail list
-            xfail_list = []
-            count = 0
-            for test_id, result in test_results.items():
-                if args.limit is not None and count >= args.limit:
-                    break
-                # Apply filter
-                if not matches_filter(test_id, args.filter_pattern):
-                    continue
-                if result["status"] in ("fail", "xfail"):
-                    if not xfail_list:
-                        xfail_list.append(
-                            OrderedDict(
-                                [
-                                    ("reason", "Test fails with cuml.accel"),
-                                    ("strict", True),
-                                    ("tests", []),
-                                ]
-                            )
+        # Generate xfail list output
+        xfail_list = []
+        count = 0
+        for test_id, result in test_results.items():
+            # Apply filter first
+            if not matches_filter(test_id, args.filter_pattern):
+                continue
+            if args.limit is not None and count >= args.limit:
+                break
+            if result["status"] in ("fail", "xfail"):
+                if not xfail_list:
+                    xfail_list.append(
+                        OrderedDict(
+                            [
+                                ("reason", "Test fails with cuml.accel"),
+                                ("strict", True),
+                                ("tests", []),
+                            ]
                         )
-                    xfail_list[0]["tests"].append(test_id)
-                    count += 1
-            if xfail_list:
-                xfail_list[0]["tests"].sort()
-            # Print to stdout
-            setup_yaml()
-            print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))
+                    )
+                xfail_list[0]["tests"].append(test_id)
+                count += 1
+        if xfail_list:
+            xfail_list[0]["tests"].sort()
+        # Print to stdout
+        setup_yaml()
+        print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))
         return
 
     # Print summary
