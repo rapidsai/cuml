@@ -68,7 +68,7 @@ dependencies:
 - rich
 - rmm==26.2.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
-- scikit-learn>=1.4
+- scikit-learn>=1.5
 - scipy>=1.13.0
 - seaborn
 - sphinx
