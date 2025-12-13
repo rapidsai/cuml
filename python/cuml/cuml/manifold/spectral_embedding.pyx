@@ -218,7 +218,7 @@ def spectral_embedding(A,
 
     cdef params config
     cdef uint64_t seed_value
-    # nullopt means no seed (non-deterministic), has_value enables deterministic mode
+    # No seed use nullopt (non-deterministic) or set user seed (deterministic)
     if random_state is None:
         config.seed = nullopt
     else:
