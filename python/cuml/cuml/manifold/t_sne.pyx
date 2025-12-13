@@ -8,7 +8,6 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -24,6 +23,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -594,6 +594,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -714,7 +715,7 @@ class TSNE(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.

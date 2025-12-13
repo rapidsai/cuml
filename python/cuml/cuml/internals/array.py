@@ -15,7 +15,6 @@ import pandas as pd
 from numba import cuda
 from numba.cuda import is_cuda_array as is_numba_array
 
-import cuml.accel
 import cuml.internals.nvtx as nvtx
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
@@ -202,6 +201,9 @@ class CumlArray:
                 self._mem_type = MemoryType.device
             self._owner = data
         else:  # Not a CUDA array object
+            # Local to avoid circular imports
+            import cuml.accel
+
             if hasattr(data, "__array_interface__"):
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
@@ -974,6 +976,7 @@ class CumlArray:
 
         """
         # Local to workaround circular imports
+        import cuml.accel
         from cuml.common.sparse_utils import is_sparse
 
         if is_sparse(X):
@@ -1223,6 +1226,13 @@ def is_array_contiguous(arr):
         return arr.flags["C_CONTIGUOUS"] or arr.flags["F_CONTIGUOUS"]
     except (AttributeError, KeyError):
         return array_to_memory_order(arr) is not None
+
+
+def cuda_ptr(X):
+    """Returns a pointer to a backing device array, or None if not a device array"""
+    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
+        return interface["data"][0]
+    return None
 
 
 def elements_in_representable_range(arr, dtype):

@@ -5,9 +5,6 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
-#include <raft/core/memory_type.hpp>
-
 #include <stdint.h>
 
 namespace ML {
@@ -107,16 +104,7 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() const
-  {
-    // Return true if data is on CPU (need to allocate device memory)
-    // Return false if data is already on device (no allocation needed)
-    auto indices_mem_type = raft::memory_type_from_pointer(knn_graph.knn_indices);
-    auto dists_mem_type   = raft::memory_type_from_pointer(knn_graph.knn_dists);
-
-    return !raft::is_device_accessible(indices_mem_type) ||
-           !raft::is_device_accessible(dists_mem_type);
-  }
+  bool alloc_knn_graph() const { return false; }
 };
 
 };  // end namespace ML
