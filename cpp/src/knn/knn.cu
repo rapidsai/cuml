@@ -39,7 +39,6 @@ struct knnIndexImpl {
   std::unique_ptr<cuvs::neighbors::ivf_flat::index<float, int64_t>> ivf_flat;
   std::unique_ptr<cuvs::neighbors::ivf_pq::index<int64_t>> ivf_pq;
 
-  // Storage for correlation preprocessing (to revert user data)
   std::unique_ptr<rmm::device_uvector<float>> corr_norms;
   std::unique_ptr<rmm::device_uvector<float>> corr_means;
 };
@@ -270,6 +269,7 @@ void approx_knn_build_index(raft::handle_t& handle,
     params.n_lists    = ivf_pq_pams->nlist;
     params.pq_bits    = ivf_pq_pams->n_bits;
     params.pq_dim     = ivf_pq_pams->M;
+    // TODO: handle ivf_pq_pams.usePrecomputedTables ?
 
     index->pimpl->ivf_pq = std::make_unique<cuvs::neighbors::ivf_pq::index<int64_t>>(
       cuvs::neighbors::ivf_pq::build(handle, params, index_view));
@@ -325,14 +325,16 @@ void approx_knn_search(raft::handle_t& handle,
   auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
 
   if (index->pimpl->ivf_flat) {
-    auto query_view = raft::make_device_matrix_view<const float, int64_t>(query_array, n, D);
+    auto query_view = raft::make_device_matrix_view<const float, int64_t>(
+      query_array, n, index->pimpl->ivf_flat->dim());
     cuvs::neighbors::ivf_flat::search_params params;
     params.n_probes = index->nprobe;
 
     cuvs::neighbors::ivf_flat::search(
       handle, params, *index->pimpl->ivf_flat, query_view, indices_view, distances_view);
   } else if (index->pimpl->ivf_pq) {
-    auto query_view = raft::make_device_matrix_view<const float, int64_t>(query_array, n, D);
+    auto query_view = raft::make_device_matrix_view<const float, int64_t>(
+      query_array, n, index->pimpl->ivf_pq->dim());
     cuvs::neighbors::ivf_pq::search_params params;
     params.n_probes = index->nprobe;
 
@@ -349,13 +351,20 @@ void approx_knn_search(raft::handle_t& handle,
     raft::stats::meanAdd<false, false>(query_array, query_array, query_means->data(), D, n, stream);
   }
 
-  // Post-processing for L2Sqrt/Lp metrics
+  // perform post-processing to show the real distances
   if (index->metric == ML::distance::DistanceType::L2SqrtExpanded ||
       index->metric == ML::distance::DistanceType::L2SqrtUnexpanded ||
       index->metric == ML::distance::DistanceType::LpUnexpanded) {
-    float p = 0.5;
+    /**
+     * post-processing
+     */
+    float p = 0.5;  // standard l2
     if (index->metric == ML::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
-    raft::linalg::unaryOp<float>(distances, distances, n * k, raft::pow_const_op<float>(p), stream);
+    raft::linalg::unaryOp<float>(distances,
+      distances,
+      n * k,
+      raft::pow_const_op<float>(p),
+      raft::resource::get_cuda_stream(handle));
   }
 
   // Post-process correlation: convert inner product to correlation distance
