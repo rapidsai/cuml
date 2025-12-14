@@ -164,19 +164,15 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     /**
      * Build dendrogram of MST
      */
-    auto mst_rows =
-      raft::make_device_vector_view<const IdxT, IdxT>(mst_src.data(), params.n_row - 1);
-    auto mst_cols =
-      raft::make_device_vector_view<const IdxT, IdxT>(mst_dst.data(), params.n_row - 1);
-    auto mst_weights =
-      raft::make_device_vector_view<const T, IdxT>(mst_data.data(), params.n_row - 1);
-    auto children_view = raft::make_device_matrix_view<IdxT, IdxT, raft::row_major>(
-      out_children.data(), params.n_row - 1, 2);
-    auto delta_view = raft::make_device_vector_view<T, IdxT>(out_delta.data(), params.n_row - 1);
-    auto size_view  = raft::make_device_vector_view<IdxT, IdxT>(out_size.data(), params.n_row - 1);
-
     cuvs::cluster::agglomerative::helpers::build_dendrogram(
-      handle, mst_rows, mst_cols, mst_weights, children_view, delta_view, size_view);
+      handle,
+      raft::make_device_vector_view<const IdxT, IdxT>(mst_src.data(), params.n_row - 1),
+      raft::make_device_vector_view<const IdxT, IdxT>(mst_dst.data(), params.n_row - 1),
+      raft::make_device_vector_view<const T, IdxT>(mst_data.data(), params.n_row - 1),
+      raft::make_device_matrix_view<IdxT, IdxT, raft::row_major>(
+        out_children.data(), params.n_row - 1, 2),
+      raft::make_device_vector_view<T, IdxT>(out_delta.data(), params.n_row - 1),
+      raft::make_device_vector_view<IdxT, IdxT>(out_size.data(), params.n_row - 1));
 
     /**
      * Condense Hierarchy
