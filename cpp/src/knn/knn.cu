@@ -361,10 +361,10 @@ void approx_knn_search(raft::handle_t& handle,
     float p = 0.5;  // standard l2
     if (index->metric == ML::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(distances,
-      distances,
-      n * k,
-      raft::pow_const_op<float>(p),
-      raft::resource::get_cuda_stream(handle));
+                                 distances,
+                                 n * k,
+                                 raft::pow_const_op<float>(p),
+                                 raft::resource::get_cuda_stream(handle));
   }
 
   // Post-process correlation: convert inner product to correlation distance
