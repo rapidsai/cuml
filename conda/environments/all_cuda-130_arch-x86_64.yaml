@@ -21,7 +21,7 @@ dependencies:
 - cython>=3.0.0,<3.2.0
 - dask-cuda==26.2.*,>=0.0.0a0
 - dask-cudf==26.2.*,>=0.0.0a0
-- dask-ml
+- dask-ml>=2024
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - graphviz
@@ -71,7 +71,6 @@ dependencies:
 - rmm==26.2.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - scikit-learn>=1.4
-- scikit-learn>=1.4,<1.8.0
 - scipy>=1.11.0
 - seaborn
 - sphinx
