@@ -9,7 +9,9 @@ import joblib
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
+import sklearn
 import umap
+from packaging.version import Version
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -28,6 +30,9 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
@@ -917,10 +922,6 @@ def test_umap_small_fit_large_transform():
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
-    all_neighbors = pytest.importorskip("cuvs.neighbors.all_neighbors")
-    nn_descent = pytest.importorskip("cuvs.neighbors.nn_descent")
-
-    k = n_neighbors
     n_rows = 50_000
 
     # This dataset was specifically chosen because UMAP produces outliers
@@ -928,28 +929,7 @@ def test_umap_outliers(n_neighbors, n_components):
     data, _ = make_moons(n_samples=n_rows, noise=0.0, random_state=42)
     data = data.astype(np.float32)
 
-    # precompute knn for faster testing with CPU UMAP
-    nn_descent_params = nn_descent.IndexParams(
-        metric="euclidean",
-        graph_degree=k,
-        intermediate_graph_degree=k * 2,
-    )
-    params = all_neighbors.AllNeighborsParams(
-        algo="nn_descent",
-        metric="euclidean",
-        nn_descent_params=nn_descent_params,
-    )
-    indices, distances = all_neighbors.build(
-        data,
-        k,
-        params,
-        distances=cp.empty((n_rows, k), dtype=cp.float32),
-    )
-    indices = cp.asnumpy(indices)
-    distances = cp.asnumpy(distances)
-
     gpu_umap = cuUMAP(
-        precomputed_knn=(indices, distances),
         build_algo="nn_descent",
         init="spectral",
         n_neighbors=n_neighbors,
@@ -957,21 +937,11 @@ def test_umap_outliers(n_neighbors, n_components):
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 
-    cpu_umap = umap.UMAP(
-        precomputed_knn=(indices, distances),
-        init="spectral",
-        n_neighbors=n_neighbors,
-        n_components=n_components,
-    )
-    cpu_umap_embeddings = cpu_umap.fit_transform(data)
-
-    # test to see if there are values in the final embedding that are too out of range
-    # compared to the cpu umap output.
-    lower_bound = 3 * cpu_umap_embeddings.min()
-    upper_bound = 3 * cpu_umap_embeddings.max()
-
-    # UMAP embeddings may appear mirrored or flipped (signs of axes are arbitrary)
-    threshold = max(abs(lower_bound), abs(upper_bound))
+    # Ideally, this threshold should be determined by running the CPU UMAP implementation
+    # and comparing the max and min values of the resulting embedding. However, running CPU UMAP
+    # with this data size using spectral initialization is too slow to run repetitively in CI.
+    # Instead, we hardwire a locally determined threshold for this dataset.
+    threshold = 50.0
 
     assert np.all(
         (gpu_umap_embeddings >= -threshold)
