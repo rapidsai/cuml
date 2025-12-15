@@ -13,7 +13,6 @@
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -714,7 +713,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       work.res_I.data(), batch_size * work.idxRanks.size(), params.k),
     raft::make_device_matrix_view<dist_t, int64_t>(distances, batch_size, params.k),
     raft::make_device_matrix_view<ind_t, int64_t>(indices, batch_size, params.k),
-    raft::make_device_vector_view<trans_t>(trans.data(), trans.size()));
+    raft::make_device_vector_view<trans_t, int64_t>(trans.data(), trans.size()));
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
