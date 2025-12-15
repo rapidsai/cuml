@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None):
     ns = parse_args(sys.argv[1:] if argv is None else argv)
 
     # Parse verbose into log_level
-    log_level = {0: "warn", 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
+    log_level = {0: None, 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
 
     # Enable acceleration
     install(disable_uvm=ns.disable_uvm, log_level=log_level)

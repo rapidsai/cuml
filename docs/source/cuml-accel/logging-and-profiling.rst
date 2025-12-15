@@ -64,6 +64,14 @@ Since the magic command doesn't accept arguments, use the programmatic installat
    # Install with desired log level before other imports
    cuml.accel.install(log_level="debug")
 
+Environment Variable
+~~~~~~~~~~~~~~~~~~~~
+
+The log level may also be configured by setting the ``CUML_ACCEL_LOG_LEVEL``
+environment variable to ``warn``, ``info`` or ``debug`` (case insensitive).
+This will be used if no explicit level is passed through either
+``cuml.accel.install`` or the CLI.
+
 Example
 -------
 

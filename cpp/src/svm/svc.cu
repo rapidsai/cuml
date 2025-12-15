@@ -128,7 +128,8 @@ SVC<math_t>::SVC(raft::handle_t& handle,
                  int nochange_steps,
                  rapids_logger::level_enum verbosity)
   : handle(handle),
-    param(SvmParameter{C, cache_size, max_outer_iter, -1, nochange_steps, tol, verbosity}),
+    param(
+      SvmParameter{C, cache_size, max_outer_iter, -1, nochange_steps, tol, verbosity, 0, C_SVC}),
     kernel_params(kernel_params)
 {
   model.n_support      = 0;
