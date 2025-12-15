@@ -9,7 +9,6 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
