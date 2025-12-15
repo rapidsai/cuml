@@ -257,7 +257,7 @@ void optimize_layout(T* head_embedding,
     if (min_n <= 100000) {
       num_chunks = 4;
     } else {
-      num_chunks = 8;
+      num_chunks = 210;
     }
   }
 
@@ -276,21 +276,39 @@ void optimize_layout(T* head_embedding,
   // Buffers used to store the gradient updates to avoid conflicts
   rmm::device_uvector<T> head_buffer(0, stream_view);
   rmm::device_uvector<T> tail_buffer(0, stream_view);
+
+  // Flags to track which vertices were modified per chunk (for sparse apply)
+  rmm::device_uvector<uint32_t> head_flags(0, stream_view);
+  rmm::device_uvector<uint32_t> tail_flags(0, stream_view);
   // Write to embedding directly if deterministic is not needed.
-  T* d_head_buffer = head_embedding;
-  T* d_tail_buffer = tail_embedding;
+  T* d_head_buffer       = head_embedding;
+  T* d_tail_buffer       = tail_embedding;
+  uint32_t* d_head_flags = nullptr;
+  uint32_t* d_tail_flags = nullptr;
   if (params->deterministic) {
     nnz_t n_components = params->n_components;
     head_buffer.resize(head_n * n_components, stream_view);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
+
+    // Bit flag: 1 bit per vertex, so (n_vertices + 31) / 32 uint32_t words
+    int head_flag_words = (head_n + 31) >> 5;
+    head_flags.resize(head_flag_words, stream_view);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(head_flags.data(), '\0', sizeof(uint32_t) * head_flag_words, stream));
+    d_head_buffer = head_buffer.data();
+    d_head_flags  = head_flags.data();
     // No need for tail if it's not being written.
     if (move_other) {
       tail_buffer.resize(tail_n * n_components, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
+      int tail_flag_words = (tail_n + 31) >> 5;
+      tail_flags.resize(tail_flag_words, stream_view);
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(tail_flags.data(), '\0', sizeof(uint32_t) * tail_flag_words, stream));
+      d_tail_flags = tail_flags.data();
     }
-    d_head_buffer = head_buffer.data();
     d_tail_buffer = tail_buffer.data();
   }
 
@@ -304,9 +322,11 @@ void optimize_layout(T* head_embedding,
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
+                                                d_head_flags,
                                                 head_n,
                                                 tail_embedding,
                                                 d_tail_buffer,
+                                                d_tail_flags,
                                                 tail_n,
                                                 head,
                                                 tail,

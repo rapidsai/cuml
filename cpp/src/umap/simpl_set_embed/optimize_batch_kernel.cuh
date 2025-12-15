@@ -26,44 +26,86 @@ namespace Algo {
 using namespace ML;
 
 /**
- * Update the embeddings and clear the buffers when using deterministic algorithm.
+ * Set a bit in the flags to mark a vertex as modified.
+ * Uses atomic OR for thread safety.
  */
-template <typename T, typename nnz_t>
-void apply_embedding_updates(T* head_embedding,
-                             T* head_buffer,
-                             int head_n,
-                             T* tail_embedding,
-                             T* tail_buffer,
-                             int tail_n,
-                             UMAPParams const* params,
-                             bool move_other,
-                             rmm::cuda_stream_view stream)
+__device__ __forceinline__ void set_vertex_modified(uint32_t* flags, int vertex_id)
+{
+  int word_idx = vertex_id >> 5;  // vertex_id / 32
+  int bit_idx  = vertex_id & 31;  // vertex_id % 32
+  atomicOr(&flags[word_idx], 1u << bit_idx);
+}
+
+/**
+ * Sparse apply kernel: only updates vertices that have their bit set in the flags.
+ */
+template <typename T, int TPB_X = 256>
+CUML_KERNEL void sparse_apply_kernel(
+  T* embedding, T* buffer, uint32_t* flags, int n_vertices, int n_components)
+{
+  int tid           = blockIdx.x * TPB_X + threadIdx.x;
+  int total_threads = gridDim.x * TPB_X;
+
+  int n_words = (n_vertices + 31) >> 5;
+
+  // each thread strides through the flags in word units
+  for (int word_idx = tid; word_idx < n_words; word_idx += total_threads) {
+    uint32_t word = flags[word_idx];
+    if (word == 0) continue;  // Skip if no bits set
+
+    while (word != 0) {
+      int bit_pos   = __ffs(word) - 1;            // Find first set bit (1-indexed, so -1)
+      int vertex_id = (word_idx << 5) + bit_pos;  // word_idx * 32 (word size) + bit_pos
+
+      if (vertex_id < n_vertices) {
+        // Apply update for this vertex
+        int base = vertex_id * n_components;
+        for (int d = 0; d < n_components; d++) {
+          embedding[base + d] += buffer[base + d];
+          buffer[base + d] = T(0.0);
+        }
+      }
+
+      // Clear the first set bit just processed
+      word &= ~(1u << bit_pos);
+    }
+
+    flags[word_idx] = 0;
+  }
+}
+
+/**
+ * Update the embeddings using sparse apply - only touches modified vertices.
+ * use flags to track which vertices received gradient updates.
+ */
+template <typename T, typename nnz_t, int TPB_X = 256>
+void sparse_apply_embedding_updates(T* head_embedding,
+                                    T* head_buffer,
+                                    uint32_t* head_flags,
+                                    int head_n,
+                                    T* tail_embedding,
+                                    T* tail_buffer,
+                                    uint32_t* tail_flags,
+                                    int tail_n,
+                                    UMAPParams const* params,
+                                    bool move_other,
+                                    cudaStream_t stream)
 {
   ASSERT(params->deterministic, "Only used when deterministic is set to true.");
-  nnz_t n_components = params->n_components;
+
+  // flags: one thread per 32-vertex word
+  int head_words = raft::ceildiv(head_n, 32);
+  dim3 grid_head(raft::ceildiv(head_words, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  sparse_apply_kernel<T, TPB_X><<<grid_head, blk, 0, stream>>>(
+    head_embedding, head_buffer, head_flags, head_n, params->n_components);
+
   if (move_other) {
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
-                     [=] __device__(uint32_t i) {
-                       if (i < head_n * n_components) {
-                         head_embedding[i] += head_buffer[i];
-                         head_buffer[i] = 0.0f;
-                       }
-                       if (i < tail_n * n_components) {
-                         tail_embedding[i] += tail_buffer[i];
-                         tail_buffer[i] = 0.0f;
-                       }
-                     });
-  } else {
-    // No need to update reference embedding
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + head_n * n_components,
-                     [=] __device__(uint32_t i) {
-                       head_embedding[i] += head_buffer[i];
-                       head_buffer[i] = 0.0f;
-                     });
+    int tail_words = raft::ceildiv(tail_n, 32);
+    dim3 grid_tail(raft::ceildiv(tail_words, TPB_X), 1, 1);
+    sparse_apply_kernel<T, TPB_X><<<grid_tail, blk, 0, stream>>>(
+      tail_embedding, tail_buffer, tail_flags, tail_n, params->n_components);
   }
 }
 
@@ -134,8 +176,10 @@ DI T truncate_gradient(T const rounding_factor, T const x)
 template <typename T, typename nnz_t, int TPB_X, nnz_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
+                                           uint32_t* head_flags,
                                            T const* tail_embedding,
                                            T* tail_buffer,
+                                           uint32_t* tail_flags,
                                            MLCommon::FastIntDiv tail_n,
                                            const int* head,
                                            const int* tail,
@@ -211,6 +255,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
       for (int d = 0; d < n_components; d++) {
         raft::myAtomicAdd(oth_write + d, truncate_gradient(rounding, -grads[d]));
       }
+      if (tail_flags != nullptr) { set_vertex_modified(tail_flags, k); }
     }
     epoch_of_next_sample[row] = _epoch_of_next_sample + _epochs_per_sample;
     // number of negative samples to choose
@@ -256,6 +301,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     for (int d = 0; d < n_components; d++) {
       raft::myAtomicAdd(cur_write + d, truncate_gradient(rounding, grads[d]));
     }
+    if (head_flags != nullptr) { set_vertex_modified(head_flags, j); }
+
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 
@@ -270,8 +317,10 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
 template <typename T, typename nnz_t, int TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
+                                       uint32_t* head_flags,
                                        T const* tail_embedding,
                                        T* tail_buffer,
+                                       uint32_t* tail_flags,
                                        MLCommon::FastIntDiv tail_n,
                                        const int* head,
                                        const int* tail,
@@ -358,12 +407,18 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
         }
       }
     }
+
+    if constexpr (!use_shared_mem) {
+      if (head_flags != nullptr) { set_vertex_modified(head_flags, j); }
+      if (move_other && tail_flags != nullptr) { set_vertex_modified(tail_flags, k); }
+    }
     // storing gradients for negative samples back to global memory
     if (use_shared_mem && move_other) {
       for (int d = 0; d < n_components; d++) {
         auto grad = grads_buffer[d * TPB_X];
         raft::myAtomicAdd<T>((T*)oth_write + d, truncate_gradient(rounding, -grad));
       }
+      if (tail_flags != nullptr) { set_vertex_modified(tail_flags, k); }
     }
     epoch_of_next_sample[row] = _epoch_of_next_sample + _epochs_per_sample;
     // number of negative samples to choose
@@ -422,6 +477,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
         raft::myAtomicAdd<T>((T*)cur_write + d,
                              truncate_gradient(rounding, grads_buffer[d * TPB_X]));
       }
+      if (head_flags != nullptr) { set_vertex_modified(head_flags, j); }
     }
     epoch_of_next_negative_sample[row] =
       _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
@@ -438,6 +494,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  *                     result is required.  They are the same pointer if random seed is not
  *                     provided.
  * @param tail_buffer: Similar to head_buffer, but for tail_embedding.
+ * @param head_flags: flags tracking which head vertices were modified (for sparse apply).
+ * @param tail_flags: flags tracking which tail vertices were modified (for sparse apply).
  * @param head:        Row index in COO connectivity graph.
  * @param tail:        Column index in COO connectivity graph.
  * @param alpha:       Learning rate
@@ -448,9 +506,11 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 template <typename T, typename nnz_t, int TPB_X>
 void call_optimize_batch_kernel(T* head_embedding,
                                 T* head_buffer,
+                                uint32_t* head_flags,
                                 int head_n,
                                 T* tail_embedding,
                                 T* tail_buffer,
+                                uint32_t* tail_flags,
                                 int tail_n,
                                 const int* head,
                                 const int* tail,
@@ -482,8 +542,10 @@ void call_optimize_batch_kernel(T* head_embedding,
       optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
         <<<grid, blk, 0, stream>>>(head_embedding,
                                    head_buffer,
+                                   head_flags,
                                    tail_embedding,
                                    tail_buffer,
+                                   tail_flags,
                                    tail_n,
                                    head,
                                    tail,
@@ -505,8 +567,10 @@ void call_optimize_batch_kernel(T* head_embedding,
       optimize_batch_kernel<T, nnz_t, TPB_X, true>
         <<<grid, blk, requiredSize, stream>>>(head_embedding,
                                               head_buffer,
+                                              head_flags,
                                               tail_embedding,
                                               tail_buffer,
+                                              tail_flags,
                                               tail_n,
                                               head,
                                               tail,
@@ -528,8 +592,10 @@ void call_optimize_batch_kernel(T* head_embedding,
       optimize_batch_kernel<T, nnz_t, TPB_X, false>
         <<<grid, blk, 0, stream>>>(head_embedding,
                                    head_buffer,
+                                   head_flags,
                                    tail_embedding,
                                    tail_buffer,
+                                   tail_flags,
                                    tail_n,
                                    head,
                                    tail,
@@ -552,15 +618,17 @@ void call_optimize_batch_kernel(T* head_embedding,
   if (params->deterministic) {
     for (size_t offset = 0; offset < nnz; offset += TPB_X * grid.x) {
       launch_kernel(offset);
-      apply_embedding_updates<T, nnz_t>(head_embedding,
-                                        head_buffer,
-                                        head_n,
-                                        tail_embedding,
-                                        tail_buffer,
-                                        tail_n,
-                                        params,
-                                        move_other,
-                                        stream_view);
+      sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
+                                                      head_buffer,
+                                                      head_flags,
+                                                      head_n,
+                                                      tail_embedding,
+                                                      tail_buffer,
+                                                      tail_flags,
+                                                      tail_n,
+                                                      params,
+                                                      move_other,
+                                                      stream);
     }
   } else {
     launch_kernel(0);
