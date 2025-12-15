@@ -26,7 +26,6 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
                   float *coef,
                   float *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -39,7 +38,6 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
                   double *coef,
                   double *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -86,7 +84,6 @@ class RidgeMG(MGFitMixin, Ridge):
                 <float*><size_t>coef_ptr,
                 <float*>&intercept_f32,
                 <bool>self.fit_intercept,
-                False,
                 algo,
                 False)
         else:
@@ -99,7 +96,6 @@ class RidgeMG(MGFitMixin, Ridge):
                 <double*><size_t>coef_ptr,
                 <double*>&intercept_f64,
                 <bool>self.fit_intercept,
-                False,
                 algo,
                 False)
 

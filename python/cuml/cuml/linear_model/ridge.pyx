@@ -37,7 +37,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        float *coef,
                        float *intercept,
                        bool fit_intercept,
-                       bool normalize,
                        int algo,
                        float *sample_weight) except +
 
@@ -51,7 +50,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        double *coef,
                        double *intercept,
                        bool fit_intercept,
-                       bool normalize,
                        int algo,
                        double *sample_weight) except +
 
@@ -376,7 +374,6 @@ class Ridge(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    False,
                     1,
                     <float*>sample_weight_ptr,
                 )
@@ -392,7 +389,6 @@ class Ridge(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    False,
                     1,
                     <double*>sample_weight_ptr,
                 )

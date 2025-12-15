@@ -39,7 +39,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      float *sample_weight) except +
 
@@ -51,7 +50,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      double *sample_weight) except +
 
@@ -392,7 +390,6 @@ class LinearRegression(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    False,
                     algo,
                     <float*>sample_weight_ptr,
                 )
@@ -406,7 +403,6 @@ class LinearRegression(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    False,
                     algo,
                     <double*>sample_weight_ptr,
                 )

@@ -24,7 +24,6 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
                   float *coef,
                   float *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -35,7 +34,6 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
                   double *coef,
                   double *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -59,7 +57,6 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <float*><size_t>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
-                False,
                 algo,
                 False)
 
@@ -73,7 +70,6 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <double*><size_t>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
-                False,
                 algo,
                 False)
 
