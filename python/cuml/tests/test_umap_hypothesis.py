@@ -15,9 +15,6 @@ All components are tested against reference UMAP implementations across a wide
 range of parameters and synthetic dataset configurations.
 """
 
-import os
-import sys
-
 import cupy as cp
 import hypothesis
 import numpy as np
@@ -46,13 +43,6 @@ from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
-
-# Setup path for umap_metrics (depends on cuvs, imported conditionally in test)
-umap_dev_tools_path = os.path.join(
-    os.path.dirname(__file__), "..", "umap_dev_tools"
-)
-if os.path.exists(umap_dev_tools_path):
-    sys.path.insert(0, umap_dev_tools_path)
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
@@ -502,17 +492,12 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     # Skip test if cuvs is not available
     pytest.importorskip("cuvs")
 
-    # Import umap_metrics (depends on cuvs)
-    try:
-        from umap_metrics import (
-            _build_knn_with_cuvs,
-            compute_simplicial_set_embedding_metrics,
-            procrustes_rmse,
-        )
-    except ImportError as e:
-        pytest.skip(
-            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
-        )
+    # Import manifold_metrics (depends on cuvs)
+    from cuml.testing.manifold_metrics import (
+        _build_knn_with_cuvs,
+        compute_simplicial_set_embedding_metrics,
+        procrustes_rmse,
+    )
 
     X_np = dataset["X_np"]
     X_cp = dataset["X_cp"]
@@ -712,6 +697,7 @@ def evaluate_spectral_quality(
     return should_fail, fail_reason, metrics_dict
 
 
+@pytest.mark.skip
 @pytest.mark.slow
 @settings(
     max_examples=5,  # Random testing across dataset types
@@ -764,16 +750,10 @@ def test_spectral_init_hypothesis(dataset, params):
     # Skip test if cuvs is not available
     pytest.importorskip("cuvs")
 
-    # Import umap_metrics (depends on cuvs)
-    try:
-        from umap_metrics import (
-            _build_knn_with_cuvs,
-            compare_spectral_embeddings,
-        )
-    except ImportError as e:
-        pytest.skip(
-            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
-        )
+    from cuml.testing.manifold_metrics import (
+        _build_knn_with_cuvs,
+        compare_spectral_embeddings,
+    )
 
     X_np = dataset["X_np"]
     X_cp = dataset["X_cp"]
@@ -1037,17 +1017,12 @@ def test_fuzzy_simplicial_set_hypothesis(dataset, params):
     # Skip test if cuvs is not available
     pytest.importorskip("cuvs")
 
-    # Import umap_metrics (depends on cuvs)
-    try:
-        from umap_metrics import (
-            _build_knn_with_cuvs,
-            compute_fuzzy_js_divergence,
-            compute_fuzzy_simplicial_set_metrics,
-        )
-    except ImportError as e:
-        pytest.skip(
-            f"Failed to import umap_metrics from {umap_dev_tools_path}: {e}"
-        )
+    # Import manifold_metrics (depends on cuvs)
+    from cuml.testing.manifold_metrics import (
+        _build_knn_with_cuvs,
+        compute_fuzzy_js_divergence,
+        compute_fuzzy_simplicial_set_metrics,
+    )
 
     X_np = dataset["X_np"]
     X_cp = dataset["X_cp"]

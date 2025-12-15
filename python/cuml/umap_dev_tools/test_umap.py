@@ -26,8 +26,7 @@ from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
-
-from .umap_metrics import (
+from cuml.testing.manifold_metrics import (
     _build_knn_with_cuvs,
     _build_knn_with_umap,
     compare_spectral_embeddings,
