@@ -352,14 +352,11 @@ void approx_knn_search(raft::handle_t& handle,
   }
 
   // perform post-processing to show the real distances
-  if (index->metric == ML::distance::DistanceType::L2SqrtExpanded ||
-      index->metric == ML::distance::DistanceType::L2SqrtUnexpanded ||
-      index->metric == ML::distance::DistanceType::LpUnexpanded) {
+  if (index->metric == ML::distance::DistanceType::LpUnexpanded) {
     /**
      * post-processing
      */
-    float p = 0.5;  // standard l2
-    if (index->metric == ML::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
+    float p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(distances,
                                  distances,
                                  n * k,
