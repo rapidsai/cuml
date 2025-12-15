@@ -92,7 +92,6 @@ unfit_pickle_xfail = [
     "KalmanFilter",
     "BaseRandomForestModel",
     "ForestInference",
-    "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
 ]
@@ -100,7 +99,6 @@ unfit_clone_xfail = [
     "AutoARIMA",
     "ARIMA",
     "BaseRandomForestModel",
-    "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
     "UMAP",
