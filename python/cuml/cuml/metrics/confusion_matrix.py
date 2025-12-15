@@ -2,12 +2,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import cupyx
 import numpy as np
 
-import cuml.internals
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
@@ -15,7 +13,6 @@ from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
 
 
-@cuml.internals.api_return_any()
 def confusion_matrix(
     y_true,
     y_pred,

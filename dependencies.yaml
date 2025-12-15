@@ -498,7 +498,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-ml
+          - dask-ml>=2024
   test_python_xgboost:
     common:
       - output_types: [conda]
@@ -544,7 +544,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - dask-ml==2023.3.24
+          - dask-ml==2025.1.0
           - jupyter
           - *numpy
           - pandas
@@ -771,18 +771,18 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.19.1,<0.20.0
+        - numba-cuda>=0.22.1,<0.23.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - numba-cuda[cu12]>=0.19.1,<0.20.0
+              - numba-cuda[cu12]>=0.22.1,<0.23.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - numba-cuda[cu13]>=0.19.1,<0.20.0
+              - numba-cuda[cu13]>=0.22.1,<0.23.0
   depends_on_pylibraft:
     common:
       - output_types: conda

@@ -21,7 +21,7 @@ dependencies:
 - cython>=3.0.0,<3.2.0
 - dask-cuda==26.2.*,>=0.0.0a0
 - dask-cudf==26.2.*,>=0.0.0a0
-- dask-ml
+- dask-ml>=2024
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - graphviz
@@ -43,7 +43,7 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba-cuda>=0.19.1,<0.20.0
+- numba-cuda>=0.22.1,<0.23.0
 - numba>=0.60.0,<0.62.0
 - numpy>=1.23,<3.0
 - numpydoc
