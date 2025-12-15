@@ -40,7 +40,7 @@ fi
 # Run upstream tests
 pytest -p cuml.accel \
     "${UMAP_REPO}/umap/tests/" \
-    --rootdir="${THIS_DIRECTORY}" \
+    --rootdir="${UMAP_REPO}" \
     --config-file="${THIS_DIRECTORY}/../pytest.ini" \
     --xfail-list="${THIS_DIRECTORY}/xfail-list.yaml" \
     "$@"
