@@ -66,7 +66,6 @@ class CDMG(MGFitMixin, CD):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef bool use_f32 = self.dtype == np.float32
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool normalize = self.normalize
         cdef int max_iter = self.max_iter
         cdef double alpha = self.alpha
         cdef double l1_ratio = self.l1_ratio
@@ -86,7 +85,7 @@ class CDMG(MGFitMixin, CD):
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
+                    False,
                     max_iter,
                     <float>alpha,
                     <float>l1_ratio,
@@ -103,7 +102,7 @@ class CDMG(MGFitMixin, CD):
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
+                    False,
                     max_iter,
                     alpha,
                     l1_ratio,

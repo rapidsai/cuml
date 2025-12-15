@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 import pytest
 import sklearn
-from sklearn.datasets import fetch_california_housing, make_regression
+from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
@@ -216,11 +216,3 @@ def test_lars_copy_X(datatype):
     # assert cp.any(X0 != X)
     #
     # assert abs(culars1.score(X, y) - culars2.score(X, y)) < 1e-9
-
-
-def test_deprecated_normalize():
-    X, y = make_regression(random_state=42)
-    model = cuLars(normalize=True)
-
-    with pytest.warns(FutureWarning, match="normalize"):
-        model.fit(X, y)

@@ -13,7 +13,6 @@ from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
-from cuml.linear_model.base import check_deprecated_normalize
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
@@ -70,13 +69,6 @@ class Lars(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
     copy_X : boolean (default = True)
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
@@ -147,16 +139,21 @@ class Lars(Base, RegressorMixin):
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, *, fit_intercept=True, normalize=False,
-                 handle=None, verbose=False, output_type=None, copy_X=True,
-                 fit_path=True, n_nonzero_coefs=500, eps=None,
-                 precompute='auto'):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
+    def __init__(
+        self,
+        *,
+        fit_intercept=True,
+        handle=None,
+        verbose=False,
+        output_type=None,
+        copy_X=True,
+        fit_path=True,
+        n_nonzero_coefs=500,
+        eps=None,
+        precompute='auto',
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.fit_intercept = fit_intercept
-        self.normalize = normalize
         self.copy_X = copy_X
         self.eps = eps
         self.fit_path = fit_path
@@ -173,12 +170,6 @@ class Lars(Base, RegressorMixin):
         if self.fit_intercept:
             y_mean = cp.mean(y)
             y = y - y_mean
-            if self.normalize:
-                x_mean = cp.mean(X, axis=0)
-                x_scale = cp.sqrt(cp.var(X, axis=0) *
-                                  self.dtype.type(X.shape[0]))
-                x_scale[x_scale==0] = 1
-                X = (X - x_mean) / x_scale
         return X, y, x_mean, x_scale, y_mean
 
     def _set_intercept(self, x_mean, x_scale, y_mean):
@@ -282,8 +273,6 @@ class Lars(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         self._set_n_features_in(X)
         self._set_output_type(X)
 
@@ -386,6 +375,12 @@ class Lars(Base, RegressorMixin):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['copy_X', 'fit_intercept', 'fit_path', 'n_nonzero_coefs',
-             'normalize', 'precompute', 'eps']
+        return [
+            *super()._get_param_names(),
+            'copy_X',
+            'fit_intercept',
+            'fit_path',
+            'n_nonzero_coefs',
+            'precompute',
+            'eps'
+        ]
