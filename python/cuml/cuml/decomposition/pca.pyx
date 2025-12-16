@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
@@ -14,7 +13,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -397,7 +396,8 @@ class PCA(Base,
         cdef uintptr_t mean_ptr = mean.ptr
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
@@ -428,7 +428,7 @@ class PCA(Base,
                     params,
                     flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components
@@ -565,7 +565,8 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* h_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -584,7 +585,7 @@ class PCA(Base,
                                     <double*> mean_ptr,
                                     <double*> X_inv_ptr,
                                     params)
-        self.handle.sync()
+        handle.sync()
 
         return out
 
@@ -658,7 +659,8 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -681,7 +683,7 @@ class PCA(Base,
                     <double*> mean_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
         return out
 
     @generate_docstring(X='dense_sparse',

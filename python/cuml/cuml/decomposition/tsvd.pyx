@@ -10,7 +10,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
@@ -349,7 +349,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef uintptr_t out_ptr = out.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Perform fit
         with nogil:
@@ -377,7 +378,7 @@ class TruncatedSVD(Base,
                     params,
                     flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components
@@ -419,7 +420,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -438,7 +440,7 @@ class TruncatedSVD(Base,
                     <double*> out_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out
 
@@ -471,7 +473,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -490,6 +493,6 @@ class TruncatedSVD(Base,
                     <double*> out_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out
