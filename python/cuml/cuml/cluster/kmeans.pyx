@@ -322,11 +322,12 @@ class KMeans(Base,
     random_state : int or None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
-    init : {'scalable-k-means++', 'k-means||', 'random'} or an \
+    init : {'scalable-k-means++', 'k-means||', 'k-means++', 'random'} or an \
             ndarray (default = 'scalable-k-means++')
 
          - ``'scalable-k-means++'`` or ``'k-means||'``: Uses fast and stable
-           scalable kmeans++ initialization.
+           scalable kmeans++ initialization. k-means++ is the constrained case of k-means||
+           with `oversampling_factor=0`
          - ``'random'``: Choose `n_cluster` observations (rows) at random
            from data for the initial centroids.
          - If an ndarray is passed, it should be of
@@ -422,7 +423,7 @@ class KMeans(Base,
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         elif isinstance(model.init, str):
             if model.init == "k-means++":
-                init = "scalable-k-means++"
+                init = "k-means++"
             elif model.init == "random":
                 init = "random"
             else:
