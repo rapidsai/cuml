@@ -9,6 +9,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.outputs import reflect
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -27,7 +28,6 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
         float *coef,
         float *intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         int loss,
         float alpha,
@@ -46,7 +46,6 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
         double *coef,
         double *intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         int loss,
         double alpha,
@@ -85,7 +84,6 @@ def fit_coordinate_descent(
     double alpha=0.0001,
     double l1_ratio=0.15,
     bool fit_intercept=True,
-    bool normalize=False,
     int max_iter=1000,
     double tol=1e-3,
     bool shuffle=True,
@@ -187,7 +185,6 @@ def fit_coordinate_descent(
                 <float*>coef_ptr,
                 &intercept_f32,
                 fit_intercept,
-                normalize,
                 max_iter,
                 0,
                 <float>alpha,
@@ -206,7 +203,6 @@ def fit_coordinate_descent(
                 <double*>coef_ptr,
                 &intercept_f64,
                 fit_intercept,
-                normalize,
                 max_iter,
                 0,
                 alpha,
@@ -248,13 +244,6 @@ class CD(Base, FMajorInputTagMixin):
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
     max_iter : int (default = 1000)
         The number of times the model should iterate through the entire
         dataset during training
@@ -325,15 +314,14 @@ class CD(Base, FMajorInputTagMixin):
             "alpha",
             "l1_ratio",
             "fit_intercept",
-            "normalize",
             "max_iter",
             "tol",
             "shuffle",
         ]
 
     def __init__(self, *, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
-                 fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
-                 shuffle=True, handle=None, output_type=None, verbose=False):
+                 fit_intercept=True, max_iter=1000, tol=1e-3, shuffle=True,
+                 handle=None, output_type=None, verbose=False):
 
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
@@ -341,19 +329,16 @@ class CD(Base, FMajorInputTagMixin):
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
-        self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
         self.shuffle = shuffle
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
         """
-        from cuml.linear_model.base import check_deprecated_normalize
-        check_deprecated_normalize(self)
-
         coef, intercept, n_iter = fit_coordinate_descent(
             X,
             y,
@@ -363,7 +348,6 @@ class CD(Base, FMajorInputTagMixin):
             alpha=self.alpha,
             l1_ratio=self.l1_ratio,
             fit_intercept=self.fit_intercept,
-            normalize=self.normalize,
             max_iter=self.max_iter,
             tol=self.tol,
             shuffle=self.shuffle,
@@ -379,6 +363,7 @@ class CD(Base, FMajorInputTagMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
