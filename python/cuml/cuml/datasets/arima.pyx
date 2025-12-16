@@ -2,15 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 from random import randint
 
 import numpy as np
-from pylibraft.common.handle import Handle
 
-import cuml.internals
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray as cumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -54,7 +50,7 @@ inp_to_dtype = {
 }
 
 
-@cuml.internals.reflect(array=None)
+@reflect(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double',
@@ -112,7 +108,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     else:
         dtype = inp_to_dtype[dtype]
 
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')

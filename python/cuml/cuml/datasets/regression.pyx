@@ -2,17 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 from random import randint
 
 import numpy as np
-from pylibraft.common.handle import Handle
 
-import cuml.internals
 import cuml.internals.nvtx as nvtx
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -63,7 +59,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@cuml.internals.reflect(array=None)
+@reflect(array=None)
 def make_regression(
     n_samples=100,
     n_features=2,
@@ -165,7 +161,7 @@ def make_regression(
     if effective_rank is None:
         effective_rank = -1
 
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')
