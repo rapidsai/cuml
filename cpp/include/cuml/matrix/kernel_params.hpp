@@ -13,7 +13,7 @@ struct KernelParams;
 
 namespace ML::matrix {
 
-enum class KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
+enum class KernelType { LINEAR, POLYNOMIAL, RBF, TANH, PRECOMPUTED };
 
 struct KernelParams {
   KernelType kernel;

@@ -13,7 +13,13 @@ cuvs::distance::kernels::KernelParams KernelParams::to_cuvs() const
 {
   cuvs::distance::kernels::KernelParams params;
 
-  params.kernel = static_cast<cuvs::distance::kernels::KernelType>(this->kernel);
+  // For precomputed kernels, we use LINEAR as a placeholder since cuvs
+  // doesn't have PRECOMPUTED. The actual kernel won't be used.
+  if (this->kernel == KernelType::PRECOMPUTED) {
+    params.kernel = cuvs::distance::kernels::KernelType::LINEAR;
+  } else {
+    params.kernel = static_cast<cuvs::distance::kernels::KernelType>(this->kernel);
+  }
   params.degree = this->degree;
   params.gamma  = this->gamma;
   params.coef0  = this->coef0;

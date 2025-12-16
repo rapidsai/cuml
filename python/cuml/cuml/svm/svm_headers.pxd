@@ -11,7 +11,7 @@ from cuml.internals.logger cimport level_enum
 cdef extern from "cuml/matrix/kernel_params.hpp" namespace "ML::matrix" nogil:
 
     enum class KernelType:
-        LINEAR, POLYNOMIAL, RBF, TANH
+        LINEAR, POLYNOMIAL, RBF, TANH, PRECOMPUTED
 
     cdef struct KernelParams:
         KernelType kernel

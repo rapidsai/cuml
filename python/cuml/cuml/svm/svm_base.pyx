@@ -172,8 +172,8 @@ class SVMBase(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.kernel == "precomputed" or callable(model.kernel):
-            raise UnsupportedOnGPU(f"`kernel={model.kernel!r}` is not supported")
+        if callable(model.kernel):
+            raise UnsupportedOnGPU(f"callable kernel `{model.kernel!r}` is not supported")
 
         if (cache_size := model.cache_size) == 200:
             # XXX: the cache sizes differ between cuml and sklearn, for now we
@@ -356,12 +356,13 @@ class SVMBase(Base,
             "linear": lib.KernelType.LINEAR,
             "poly": lib.KernelType.POLYNOMIAL,
             "rbf": lib.KernelType.RBF,
-            "sigmoid": lib.KernelType.TANH
+            "sigmoid": lib.KernelType.TANH,
+            "precomputed": lib.KernelType.PRECOMPUTED,
         }.get(self.kernel)
         if kernel is None:
             raise ValueError(
-                f"Expected `kernel` to be in [`'linear', 'poly', 'rbf', 'sigmoid'], "
-                f"got {kernel}"
+                f"Expected `kernel` to be in ['linear', 'poly', 'rbf', 'sigmoid', "
+                f"'precomputed'], got {self.kernel}"
             )
         return kernel
 
