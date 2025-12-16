@@ -43,10 +43,7 @@ from cuml.internals.global_settings import (
     GlobalSettings,
     _global_settings_data,
 )
-from cuml.internals.memory_utils import (
-    set_global_output_type,
-    using_output_type,
-)
+from cuml.internals.outputs import set_global_output_type, using_output_type
 from cuml.kernel_ridge.kernel_ridge import KernelRidge
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso

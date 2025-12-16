@@ -2,13 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import cupy as cp
 from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
@@ -23,7 +19,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-@cuml.internals.api_return_any()
 def adjusted_rand_score(labels_true, labels_pred, handle=None,
                         convert_dtype=True) -> float:
     """
