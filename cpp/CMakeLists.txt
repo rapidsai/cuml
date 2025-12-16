@@ -23,6 +23,9 @@ project(
   LANGUAGES CXX CUDA
 )
 
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
