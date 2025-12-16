@@ -172,7 +172,7 @@ def get_tidy_args(cmd, exe):
     # Adjust compiler command
     if "c++" in command[0]:
         command[0] = "clang-cpp"
-        command.insert(1, "-std=c++17")
+        command.insert(1, "-std=c++20")
     elif command[0][-2:] == "cc":
         command[0] = "clang"
     else:
