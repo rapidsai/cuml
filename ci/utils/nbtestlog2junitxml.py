@@ -1,4 +1,5 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #########################
 # Generate a junit-xml file from parsing a nbtest log #
 #########################
@@ -13,7 +14,7 @@ from enum import Enum
 startingPatt = re.compile(r"^STARTING: ([\w\.\-]+)$")
 skippingPatt = re.compile(
     r"^SKIPPING: ([\w\.\-]+)\s*(\(([\w\.\-\ \,]+)\))?\s*$"
-    )
+)
 exitCodePatt = re.compile(r"^EXIT CODE: (\d+)$")
 folderPatt = re.compile(r"^FOLDER: ([\w\.\-]+)$")
 timePatt = re.compile(r"^real\s+([\d\.ms]+)$")
@@ -41,12 +42,7 @@ def makeFailureElement(outputLines):
 
 
 def setFileNameAttr(attrDict, fileName):
-    attrDict.update(file=fileName,
-                    classname="",
-                    line="",
-                    name="",
-                    time=""
-                    )
+    attrDict.update(file=fileName, classname="", line="", name="", time="")
 
 
 def setClassNameAttr(attrDict, className):
@@ -91,8 +87,9 @@ def parseLog(logFile, testSuiteElement):
         attrDict = {}
         setFileNameAttr(attrDict, "nbtest")
 
-        parserStateEnum = Enum("parserStateEnum",
-                               "newTest startingLine finishLine exitCode")
+        parserStateEnum = Enum(
+            "parserStateEnum", "newTest startingLine finishLine exitCode"
+        )
         parserState = parserStateEnum.newTest
 
         testOutput = ""
@@ -112,7 +109,7 @@ def parseLog(logFile, testSuiteElement):
                     message = m.group(3) or ""
                     skippedElement.append(
                         Element("skipped", message=message, type="")
-                        )
+                    )
                     testSuiteElement.append(skippedElement)
                     incrNumAttr(testSuiteElement, "skipped")
                     incrNumAttr(testSuiteElement, "tests")
@@ -171,12 +168,9 @@ if __name__ == "__main__":
     import sys
 
     testSuitesElement = Element("testsuites")
-    testSuiteElement = Element("testsuite",
-                               name="nbtest",
-                               hostname="")
+    testSuiteElement = Element("testsuite", name="nbtest", hostname="")
     parseLog(sys.argv[1], testSuiteElement)
     testSuitesElement.append(testSuiteElement)
     ElementTree(testSuitesElement).write(
-        sys.argv[1]+".xml",
-        xml_declaration=True
-        )
+        sys.argv[1] + ".xml", xml_declaration=True
+    )

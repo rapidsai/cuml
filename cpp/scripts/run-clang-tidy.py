@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import argparse
@@ -34,7 +23,9 @@ SEPARATOR = "-" * 16
 
 def _read_config_file(config_file):
     try:
-        return tomli.loads(Path(config_file).read_text())["tool"]["run-clang-tidy"]
+        return tomli.loads(Path(config_file).read_text())["tool"][
+            "run-clang-tidy"
+        ]
     except KeyError:
         return {}
     except tomli.TOMLDecodeError as error:
@@ -73,7 +64,10 @@ def parse_args():
         "-j", type=int, default=-1, help="Number of parallel jobs to launch."
     )
     argparser.add_argument(
-        "-c", "--config", type=str, help="Path to config file (default=pyproject.toml)."
+        "-c",
+        "--config",
+        type=str,
+        help="Path to config file (default=pyproject.toml).",
     )
     args = argparser.parse_args()
 
@@ -100,7 +94,8 @@ def parse_args():
     version = version.group(1)
     if version != EXPECTED_VERSION:
         raise Exception(
-            "clang-tidy exe must be v%s found '%s'" % (EXPECTED_VERSION, version)
+            "clang-tidy exe must be v%s found '%s'"
+            % (EXPECTED_VERSION, version)
         )
     if not os.path.exists(args.cdb):
         raise Exception("Compilation database '%s' missing" % args.cdb)
@@ -127,7 +122,7 @@ def get_gpu_archs(command):
 def get_index(arr, item):
     try:
         return arr.index(item)
-    except:
+    except ValueError:
         return -1
 
 
@@ -147,7 +142,9 @@ def remove_item_plus_one(arr, item):
 
 
 def get_clang_tidy_version():
-    result = subprocess.run(["clang-tidy", "--version"], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["clang-tidy", "--version"], capture_output=True, text=True, check=True
+    )
     match = re.search(r"version ([0-9]+\.[0-9]+\.[0-9]+)", result.stdout)
     return match.group(1).strip()
 
@@ -163,7 +160,7 @@ def get_clang_includes(exe):
         os.path.join(dir, "include", "ClangHeaders"),
         # Also include main clang include directory for omp.h
         "-I",
-        os.path.join(dir, "lib", "clang", get_clang_tidy_version(), "include")
+        os.path.join(dir, "lib", "clang", get_clang_tidy_version(), "include"),
     ]
     return headers
 
@@ -205,10 +202,18 @@ def get_tidy_args(cmd, exe):
 def run_clang_tidy_command(tidy_cmd):
     cmd = " ".join(tidy_cmd)
     result = subprocess.run(
-        cmd, check=False, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        cmd,
+        check=False,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     )
     passed = result.returncode == 0
-    out = "" if passed else f"CMD: {cmd}: {result.stdout.decode('utf-8').rstrip()}"
+    out = (
+        ""
+        if passed
+        else f"CMD: {cmd}: {result.stdout.decode('utf-8').rstrip()}"
+    )
     return passed, out
 
 
@@ -289,7 +294,9 @@ def run_tidy_for_all_files(args, all_files):
         ):
             continue
         if pool is not None:
-            pool.apply_async(run_clang_tidy, args=(cmd, args), callback=collect_result)
+            pool.apply_async(
+                run_clang_tidy, args=(cmd, args), callback=collect_result
+            )
         else:
             passed, stdout, file = run_clang_tidy(cmd, args)
             collect_result((passed, stdout, file))

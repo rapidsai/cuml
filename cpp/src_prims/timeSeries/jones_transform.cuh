@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 /**
  * @file jones_transform.cuh
@@ -34,66 +23,37 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
- * @brief Lambda to map to the partial autocorrelation
- *
- * @tparam Type: Data type of the input
- * @param in: the input to the functional mapping
- * @return : the Partial autocorrelation (ie, tanh(in/2))
- */
-template <typename Type>
-struct PAC {
-  HDI Type operator()(Type in) { return raft::tanh(in * 0.5); }
-};
-
-/**
 * @brief Inline device function for the transformation operation
 
 * @tparam Type: Data type of the input
-* @tparam IdxT: indexing data type
-* @tparam value: the pValue/qValue for the transformation
 * @param tmp: the temporary array used in transformation
 * @param myNewParams: will contain the transformed params
+* @param parameter: the pValue/qValue for the transformation
 * @param isAr: tell the type of transform (if ar or ma transform)
 * @param clamp: whether to clamp transformed params between -1 and 1
 */
-template <typename DataT, typename IdxT, int VALUE>
-inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr, bool clamp)
+template <typename DataT>
+DI void transform(DataT* tmp, DataT* myNewParams, int parameter, bool isAr, bool clamp)
 {
-  // do the ar transformation
-  PAC<DataT> pac;
-  for (int i = 0; i < VALUE; ++i) {
-    tmp[i]         = pac(tmp[i]);
+  for (int i = 0; i < parameter; ++i) {
+    tmp[i]         = raft::tanh(tmp[i] * 0.5);
     myNewParams[i] = tmp[i];
   }
-  if (isAr) {
-    for (int j = 1; j < VALUE; ++j) {
-      DataT a = myNewParams[j];
 
-      for (int k = 0; k < j; ++k) {
-        tmp[k] -= a * myNewParams[j - k - 1];
-      }
-
-      for (int iter = 0; iter < j; ++iter) {
-        myNewParams[iter] = tmp[iter];
-      }
+  DataT sign = isAr ? -1 : 1;
+  for (int j = 1; j < parameter; ++j) {
+    DataT a = myNewParams[j];
+    for (int k = 0; k < j; ++k) {
+      tmp[k] += sign * (a * myNewParams[j - k - 1]);
     }
-  } else {  // do the ma transformation
-    for (int j = 1; j < VALUE; ++j) {
-      DataT a = myNewParams[j];
-
-      for (int k = 0; k < j; ++k) {
-        tmp[k] += a * myNewParams[j - k - 1];
-      }
-
-      for (int iter = 0; iter < j; ++iter) {
-        myNewParams[iter] = tmp[iter];
-      }
+    for (int iter = 0; iter < j; ++iter) {
+      myNewParams[iter] = tmp[iter];
     }
   }
 
   if (clamp) {
     // Clamp values to avoid numerical issues when very close to 1
-    for (int i = 0; i < VALUE; ++i) {
+    for (int i = 0; i < parameter; ++i) {
       myNewParams[i] = max(-0.9999, min(myNewParams[i], 0.9999));
     }
   }
@@ -103,43 +63,28 @@ inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr, bool
 * @brief Inline device function for the inverse transformation operation
 
 * @tparam Type: Data type of the input
-* @tparam IdxT: indexing data type
-* @tparam value: the pValue/qValue for the inverse transformation
 * @param tmp: the temporary array used in transformation
 * @param myNewParams: will contain the transformed params
+* @param parameter: the pValue/qValue for the inverse transformation
 * @param isAr: tell the type of inverse transform (if ar or ma transform)
 */
-template <typename DataT, typename IdxT, int VALUE>
-inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
+template <typename DataT>
+DI void invtransform(DataT* tmp, DataT* myNewParams, int parameter, bool isAr)
 {
-  // do the ar transformation
-  if (isAr) {
-    for (int j = VALUE - 1; j > 0; --j) {
-      DataT a = myNewParams[j];
+  DataT sign = isAr ? 1 : -1;
+  for (int j = parameter - 1; j > 0; --j) {
+    DataT a = myNewParams[j];
 
-      for (int k = 0; k < j; ++k) {
-        tmp[k] = (myNewParams[k] + a * myNewParams[j - k - 1]) / (1 - (a * a));
-      }
-
-      for (int iter = 0; iter < j; ++iter) {
-        myNewParams[iter] = tmp[iter];
-      }
+    for (int k = 0; k < j; ++k) {
+      tmp[k] = (myNewParams[k] + sign * (a * myNewParams[j - k - 1])) / (1 - (a * a));
     }
-  } else {  // do the ma transformation
-    for (int j = VALUE - 1; j > 0; --j) {
-      DataT a = myNewParams[j];
 
-      for (int k = 0; k < j; ++k) {
-        tmp[k] = (myNewParams[k] - a * myNewParams[j - k - 1]) / (1 - (a * a));
-      }
-
-      for (int iter = 0; iter < j; ++iter) {
-        myNewParams[iter] = tmp[iter];
-      }
+    for (int iter = 0; iter < j; ++iter) {
+      myNewParams[iter] = tmp[iter];
     }
   }
 
-  for (int i = 0; i < VALUE; ++i) {
+  for (int i = 0; i < parameter; ++i) {
     myNewParams[i] = 2 * raft::atanh(myNewParams[i]);
   }
 }
@@ -147,46 +92,46 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
 /**
  * @brief kernel to perform jones transformation
  * @tparam DataT: type of the params
- * @tparam VALUE: the parameter for the batch of ARIMA(p,q,d) models (either p or q depending on
- * whether coefficients are of type AR or MA respectively)
- * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
  * @param newParams: pointer to the memory where the new params are to be stored
  * @param params: pointer to the memory where the initial params are stored
  * @param batchSize: number of models in a batch
+ * @param parameter: the parameter for the batch of ARIMA(p,q,d) models (either p or q
+ * depending on whether coefficients are of type AR or MA respectively)
  * @param isAr: if the coefficients to be transformed are Autoregressive or moving average
  * @param isInv: if the transformation type is regular or inverse
  * @param clamp: whether to clamp transformed params between -1 and 1
  */
-template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-CUML_KERNEL void jones_transform_kernel(
-  DataT* newParams, const DataT* params, IdxT batchSize, bool isAr, bool isInv, bool clamp)
+template <typename DataT>
+CUML_KERNEL void jones_transform_kernel(DataT* newParams,
+                                        const DataT* params,
+                                        int batchSize,
+                                        int parameter,
+                                        bool isAr,
+                                        bool isInv,
+                                        bool clamp)
 {
   // calculating the index of the model that the coefficients belong to
-  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
+  int modelIndex = threadIdx.x + ((int)blockIdx.x * blockDim.x);
 
-  DataT tmp[VALUE];
-  DataT myNewParams[VALUE];
+  DataT tmp[8];
+  DataT myNewParams[8];
 
   if (modelIndex < batchSize) {
-// load
-#pragma unroll
-    for (int i = 0; i < VALUE; ++i) {
-      tmp[i]         = params[modelIndex * VALUE + i];
+    // load
+    for (int i = 0; i < parameter; ++i) {
+      tmp[i]         = params[modelIndex * parameter + i];
       myNewParams[i] = tmp[i];
     }
 
     // the transformation/inverse transformation operation
     if (isInv)
-      invtransform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr);
+      invtransform<DataT>(tmp, myNewParams, parameter, isAr);
     else
-      transform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr, clamp);
+      transform<DataT>(tmp, myNewParams, parameter, isAr, clamp);
 
-// store
-#pragma unroll
-    for (int i = 0; i < VALUE; ++i) {
-      newParams[modelIndex * VALUE + i] = myNewParams[i];
+    // store
+    for (int i = 0; i < parameter; ++i) {
+      newParams[modelIndex * parameter + i] = myNewParams[i];
     }
   }
 }
@@ -207,19 +152,20 @@ CUML_KERNEL void jones_transform_kernel(
  * @param stream: the cudaStream object
  * @param clamp: whether to clamp transformed params between -1 and 1
  */
-template <typename DataT, typename IdxT = int>
+template <typename DataT>
 void jones_transform(const DataT* params,
-                     IdxT batchSize,
-                     IdxT parameter,
+                     int batchSize,
+                     int parameter,
                      DataT* newParams,
                      bool isAr,
                      bool isInv,
                      cudaStream_t stream,
                      bool clamp = true)
 {
-  ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");
+  ASSERT(batchSize >= 1, "Unsupported batchSize '%d'!", batchSize);
+  ASSERT(parameter >= 1 && parameter <= 8, "Unsupported parameter '%d'!", parameter);
 
-  IdxT nElements = batchSize * parameter;
+  int nElements = batchSize * parameter;
 
   // copying contents
   raft::copy(newParams, params, (size_t)nElements, stream);
@@ -229,51 +175,8 @@ void jones_transform(const DataT* params,
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
   dim3 numBlocks(raft::ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
 
-  // calling the kernel
-
-  switch (parameter) {
-    case 1:
-      jones_transform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 2:
-      jones_transform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 3:
-      jones_transform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 4:
-      jones_transform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 5:
-      jones_transform_kernel<DataT, 5, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 6:
-      jones_transform_kernel<DataT, 6, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 7:
-      jones_transform_kernel<DataT, 7, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    case 8:
-      jones_transform_kernel<DataT, 8, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-          newParams, params, batchSize, isAr, isInv, clamp);
-      break;
-    default: ASSERT(false, "Unsupported parameter '%d'!", parameter);
-  }
+  jones_transform_kernel<DataT><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+    newParams, params, batchSize, parameter, isAr, isInv, clamp);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

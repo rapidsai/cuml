@@ -1,20 +1,8 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
-
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 
@@ -30,6 +18,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+
+#include <utility>
 
 namespace ML {
 namespace TSNE {
@@ -47,14 +37,14 @@ namespace TSNE {
  */
 
 template <typename value_idx, typename value_t>
-value_t Barnes_Hut(value_t* VAL,
-                   const value_idx* COL,
-                   const value_idx* ROW,
-                   const value_idx NNZ,
-                   const raft::handle_t& handle,
-                   value_t* Y,
-                   const value_idx n,
-                   const TSNEParams& params)
+std::pair<float, int> Barnes_Hut(value_t* VAL,
+                                 const value_idx* COL,
+                                 const value_idx* ROW,
+                                 const value_idx NNZ,
+                                 const raft::handle_t& handle,
+                                 value_t* Y,
+                                 const value_idx n,
+                                 const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -162,8 +152,9 @@ value_t Barnes_Hut(value_t* VAL,
 
   value_t momentum      = params.pre_momentum;
   value_t learning_rate = params.pre_learning_rate;
+  int iter              = 0;
 
-  for (int iter = 0; iter < params.max_iter; iter++) {
+  for (; iter < params.max_iter; iter++) {
     RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(rep_forces.data()),
                                   0,
                                   rep_forces.size() * sizeof(*rep_forces.data()),
@@ -330,7 +321,7 @@ value_t Barnes_Hut(value_t* VAL,
   raft::copy(Y, YY.data(), n, stream);
   raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 
-  return kl_div;
+  return std::make_pair(kl_div, iter);
 }
 
 }  // namespace TSNE

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <raft/core/handle.hpp>
@@ -83,39 +72,35 @@ void weightedPearson(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Find y_mu
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     y_tmp.data(),
     Y,
     W,
     (uint64_t)1,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y, math_t w) { return N * w * y / WS; },
     stream);
 
   raft::stats::mean<false>(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false, stream);
 
   // Find x_mu
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, true>(
     x_tmp.data(),
     X,
     W,
     n_progs,
     n_samples,
-    false,
-    true,
     [N, WS] __device__(math_t x, math_t w) { return N * w * x / WS; },
     stream);
 
   raft::stats::mean<false>(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, stream);
 
   // Find y_diff
-  raft::stats::meanCenter(
-    y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples, false, true, stream);
+  raft::stats::meanCenter<false, true>(
+    y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples, stream);
 
   // Find x_diff
-  raft::stats::meanCenter(x_diff.data(), X, x_mu.data(), n_progs, n_samples, false, true, stream);
+  raft::stats::meanCenter<false, true>(x_diff.data(), X, x_mu.data(), n_progs, n_samples, stream);
 
   // Find y_std
   raft::linalg::stridedReduction(
@@ -145,27 +130,23 @@ void weightedPearson(const raft::handle_t& h,
     [] __device__(math_t in) { return raft::sqrt(in); });
 
   // Cross covariance
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     corr.data(),
     x_diff.data(),
     y_diff.data(),
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, HYstd] __device__(math_t xd, math_t yd, math_t w) { return N * w * xd * yd / HYstd; },
     stream);
 
   // Find Correlation coeff
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, true>(
     corr.data(),
     corr.data(),
     x_std.data(),
     n_progs,
     n_samples,
-    false,
-    true,
     [] __device__(math_t c, math_t xd) { return c / xd; },
     stream);
 
@@ -265,15 +246,13 @@ void meanAbsoluteError(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Compute absolute differences
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) { return N * w * raft::abs(y - y_p) / WS; },
     stream);
 
@@ -300,15 +279,13 @@ void meanSquareError(const raft::handle_t& h,
   math_t WS = dWS.value(stream);
 
   // Compute square differences
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) {
       return N * w * (y_p - y) * (y_p - y) / WS;
     },
@@ -358,15 +335,13 @@ void logLoss(const raft::handle_t& h,
   // Compute logistic loss as described in
   // http://fa.bianp.net/blog/2019/evaluate_logistic/
   // in an attempt to avoid encountering nan values. Modified for weighted logistic regression.
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<false, false>(
     error.data(),
     Y_pred,
     Y,
     W,
     n_progs,
     n_samples,
-    false,
-    false,
     [N, WS] __device__(math_t yp, math_t y, math_t w) {
       math_t logsig;
       if (yp < -33.3)

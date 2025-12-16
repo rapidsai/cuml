@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -334,15 +323,13 @@ struct Standardizer {
     col_slice(W, Wweights, 0, D);
 
     auto mul_lambda = [] __device__(const T a, const T b) { return a * b; };
-    raft::linalg::matrixVectorOp(Wweights.data,
-                                 Wweights.data,
-                                 std_inv.data,
-                                 Wweights.n,
-                                 Wweights.m,
-                                 false,
-                                 true,
-                                 mul_lambda,
-                                 handle.get_stream());
+    raft::linalg::matrixVectorOp<false, true>(Wweights.data,
+                                              Wweights.data,
+                                              std_inv.data,
+                                              Wweights.n,
+                                              Wweights.m,
+                                              mul_lambda,
+                                              handle.get_stream());
 
     if (has_bias) {
       SimpleVec<T> Wbias;
@@ -367,8 +354,8 @@ struct Standardizer {
     SimpleDenseMat<T> Gweights;
     col_slice(G, Gweights, 0, D);
 
-    raft::matrix::matrixVectorBinaryMult(
-      Gweights.data, std_inv.data, Gweights.m, D, false, true, stream);
+    raft::matrix::matrixVectorBinaryMult<false, true>(
+      Gweights.data, std_inv.data, Gweights.m, D, stream);
 
     if (has_bias) {
       SimpleVec<T> Gbias;

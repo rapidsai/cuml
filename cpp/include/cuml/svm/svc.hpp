@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -47,17 +36,18 @@ namespace SVM {
  * @param [in] kernel_params parameters for the kernel function
  * @param [out] model parameters of the trained model
  * @param [in] sample_weight optional sample weights, size [n_rows]
+ * @return n_iter: the number of solver iterations run during fitting
  */
 template <typename math_t>
-void svcFit(const raft::handle_t& handle,
-            math_t* input,
-            int n_rows,
-            int n_cols,
-            math_t* labels,
-            const SvmParameter& param,
-            ML::matrix::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight);
+int svcFit(const raft::handle_t& handle,
+           math_t* input,
+           int n_rows,
+           int n_cols,
+           math_t* labels,
+           const SvmParameter& param,
+           ML::matrix::KernelParams& kernel_params,
+           SvmModel<math_t>& model,
+           const math_t* sample_weight);
 
 /**
  * @brief Fit a support vector classifier to the training data.
@@ -80,20 +70,21 @@ void svcFit(const raft::handle_t& handle,
  * @param [in] kernel_params parameters for the kernel function
  * @param [out] model parameters of the trained model
  * @param [in] sample_weight optional sample weights, size [n_rows]
+ * @return n_iter: the number of solver iterations run during fitting
  */
 template <typename math_t>
-void svcFitSparse(const raft::handle_t& handle,
-                  int* indptr,
-                  int* indices,
-                  math_t* data,
-                  int n_rows,
-                  int n_cols,
-                  int nnz,
-                  math_t* labels,
-                  const SvmParameter& param,
-                  ML::matrix::KernelParams& kernel_params,
-                  SvmModel<math_t>& model,
-                  const math_t* sample_weight);
+int svcFitSparse(const raft::handle_t& handle,
+                 int* indptr,
+                 int* indices,
+                 math_t* data,
+                 int n_rows,
+                 int n_cols,
+                 int nnz,
+                 math_t* labels,
+                 const SvmParameter& param,
+                 ML::matrix::KernelParams& kernel_params,
+                 SvmModel<math_t>& model,
+                 const math_t* sample_weight);
 
 /**
  * @brief Predict classes or decision function value for samples in input.

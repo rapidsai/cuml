@@ -135,7 +135,7 @@ methods to run clang-tidy on your local machine: using Docker or Conda.
         docker run --rm --pull always \
             --mount type=bind,source="$(pwd)",target=/opt/repo --workdir /opt/repo \
             -e SCCACHE_S3_NO_CREDENTIALS=1 \
-            rapidsai/ci-conda:latest /opt/repo/ci/run_clang_tidy.sh
+            rapidsai/ci-conda:26.02-latest /opt/repo/ci/run_clang_tidy.sh
         ```
 
 
@@ -144,7 +144,7 @@ methods to run clang-tidy on your local machine: using Docker or Conda.
     1. Navigate to the repository root directory.
     2. Create and activate the needed conda environment:
         ```bash
-        conda env create --yes -n cuml-clang-tidy -f conda/environments/clang_tidy_cuda-118_arch-x86_64.yaml
+        conda env create --yes -n cuml-clang-tidy -f conda/environments/clang_tidy_cuda-130_arch-$(uname -m).yaml
         conda activate cuml-clang-tidy
         ```
     3. Generate the compile command database with

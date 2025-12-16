@@ -1,0 +1,38 @@
+- reason: These tests always fail, and leave some lingering state that causes downstream tests to fail.
+  marker: cuml_accel_bad_failures
+  run: false
+  tests:
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_all_points_membership_vectors"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_approximate_predict_score"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_min_cluster_size"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_no_clusters"
+  - "hdbscan.tests.test_hdbscan::test_min_span_tree_plot"
+  - "hdbscan.tests.test_hdbscan::test_missing_data"
+- reason: Test fails with cuml.accel
+  marker: cuml_accel_bugs
+  tests:
+  - "hdbscan.tests.test_flat::test_flat_base_default"
+  - "hdbscan.tests.test_flat::test_flat_base_epsilon"
+  - "hdbscan.tests.test_flat::test_switch_to_leaf"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_approximate_predict"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_centroids_medoids"
+  - "hdbscan.tests.test_hdbscan::test_hdbscan_input_lists"
+- reason: Private attributes not exposed the way hdbscan wants them
+  marker: cuml_accel_hdbscan_attributes
+  tests:
+  - "hdbscan.tests.test_branches::test_allow_single_branch_with_persistence"
+  - "hdbscan.tests.test_branches::test_approximate_predict"
+  - "hdbscan.tests.test_branches::test_badargs"
+  - "hdbscan.tests.test_branches::test_branch_detector"
+  - "hdbscan.tests.test_branches::test_caching"
+  - "hdbscan.tests.test_branches::test_centroid_medoids"
+  - "hdbscan.tests.test_branches::test_cluster_approximation_graph_plot"
+  - "hdbscan.tests.test_branches::test_condensed_tree_plot"
+  - "hdbscan.tests.test_branches::test_exemplars"
+  - "hdbscan.tests.test_branches::test_label_sides_as_branches"
+  - "hdbscan.tests.test_branches::test_max_branch_size"
+  - "hdbscan.tests.test_branches::test_min_branch_size"
+  - "hdbscan.tests.test_branches::test_single_linkage_tree_plot"
+  - "hdbscan.tests.test_branches::test_trees_networkx_output_formats"
+  - "hdbscan.tests.test_branches::test_trees_numpy_output_formats"
+  - "hdbscan.tests.test_branches::test_trees_pandas_output_formats"

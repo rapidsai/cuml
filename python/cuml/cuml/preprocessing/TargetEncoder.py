@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import warnings
@@ -115,7 +104,7 @@ class TargetEncoder:
             )
             raise ValueError(msg)
         if stat not in {"mean", "var", "median"}:
-            msg = "stat should be 'mean', 'var' or 'median'." f"got {stat}."
+            msg = f"stat should be 'mean', 'var' or 'median'.got {stat}."
             raise ValueError(msg)
 
         if not isinstance(seed, int):
@@ -340,7 +329,7 @@ class TargetEncoder:
                 return y[:, 0]
             else:
                 raise ValueError(
-                    f"Input of shape {y.shape} " "is not a 1-D array."
+                    f"Input of shape {y.shape} is not a 1-D array."
                 )
         else:
             raise TypeError(
@@ -440,9 +429,7 @@ class TargetEncoder:
         self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
         for col in df.columns:
             if col not in self.train.columns:
-                raise ValueError(
-                    f"Input column {col} " "is not in train data."
-                )
+                raise ValueError(f"Input column {col} is not in train data.")
             if not (df[col] == self.train[col]).all():
                 return False
         return True

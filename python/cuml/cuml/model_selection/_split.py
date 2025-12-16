@@ -1,25 +1,14 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
 import cudf
 import cupy as cp
 import numpy as np
-from numba import cuda
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray, array_to_memory_order
@@ -28,6 +17,7 @@ from cuml.internals.input_utils import (
     determine_df_obj_type,
 )
 from cuml.internals.output_utils import output_to_df_obj_like
+from cuml.internals.utils import check_random_seed
 
 
 def _compute_stratify_split_indices(
@@ -351,7 +341,10 @@ def train_test_split(
             stratify, *_ = input_to_cuml_array(stratify)
             stratify = stratify[idxs]
 
-            (train_indices, test_indices,) = _compute_stratify_split_indices(
+            (
+                train_indices,
+                test_indices,
+            ) = _compute_stratify_split_indices(
                 idxs,
                 stratify,
                 train_size,
@@ -420,7 +413,131 @@ def train_test_split(
         return X_train, X_test
 
 
-class StratifiedKFold:
+class _KFoldBase(ABC):
+    """Base class for k-fold split."""
+
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
+        if n_splits < 2 or not isinstance(n_splits, int):
+            raise ValueError(
+                f"n_splits {n_splits} is not a integer at least 2"
+            )
+
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.seed = random_state
+
+    @abstractmethod
+    def split(self, X, y):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_n_splits(self, X=None, y=None):
+        """Returns the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        raise NotImplementedError()
+
+
+class KFold(_KFoldBase):
+    """K-Folds cross-validator.
+
+    Provides train/test indices to split data in train/test sets. Split dataset into k
+    consecutive folds (without shuffling by default).
+
+    Each fold is then used once as a validation set while the k - 1 remaining folds form
+    the training set.
+
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds. Must be at least 2.
+
+    shuffle : bool, default=False
+        Whether to shuffle the samples before splitting. Note that the samples within
+        each split will not be shuffled.
+
+    random_state : int, CuPy RandomState, NumPy RandomState, or None, default=None
+        When `shuffle` is True, `random_state` affects the ordering of the
+        indices, which controls the randomness of each fold. Otherwise, this
+        parameter has no effect.
+        Pass an int for reproducible output across multiple function calls.
+
+    """
+
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
+        super().__init__(
+            n_splits=n_splits, shuffle=shuffle, random_state=random_state
+        )
+
+    def split(self, X, y=None):
+        """Generate indices to split data into training and test set.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+
+        Yields
+        ------
+        train : CuPy ndarray
+            The training set indices for that split.
+
+        test : CuPy ndarray
+            The testing set indices for that split.
+        """
+        n_samples = X.shape[0]
+        if y is not None and n_samples != len(y):
+            raise ValueError("Expecting same length of x and y")
+        if n_samples < self.n_splits:
+            raise ValueError(
+                f"n_splits: {self.n_splits} must be smaller than the number of samples: {n_samples}."
+            )
+
+        indices = cp.arange(n_samples)
+
+        if self.shuffle:
+            cp.random.RandomState(check_random_seed(self.seed)).shuffle(
+                indices
+            )
+
+        fold_sizes = cp.full(
+            self.n_splits, n_samples // self.n_splits, dtype=cp.int64
+        )
+        fold_sizes[: n_samples % self.n_splits] += 1
+
+        current = 0
+        for fold_size in fold_sizes:
+            start, stop = current, current + fold_size
+            test = indices[start:stop]
+
+            mask = cp.zeros(n_samples, dtype=cp.bool_)
+            mask[start:stop] = True
+
+            train = indices[cp.logical_not(mask)]
+            yield train, test
+            current = stop
+
+    def get_n_splits(self, X=None, y=None):
+        return self.n_splits
+
+
+class StratifiedKFold(_KFoldBase):
     """
     A cudf based implementation of Stratified K-Folds cross-validator.
 
@@ -456,23 +573,18 @@ class StratifiedKFold:
     """
 
     def __init__(self, n_splits=5, shuffle=False, random_state=None):
-        if n_splits < 2 or not isinstance(n_splits, int):
-            raise ValueError(
-                f"n_splits {n_splits} is not a integer at least 2"
-            )
+        super().__init__(
+            n_splits=n_splits, shuffle=shuffle, random_state=random_state
+        )
 
         if random_state is not None and not isinstance(random_state, int):
             raise ValueError(f"random_state {random_state} is not an integer")
 
-        self.n_splits = n_splits
-        self.shuffle = shuffle
-        self.seed = random_state
-
     def get_n_splits(self, X=None, y=None):
         return self.n_splits
 
-    def split(self, x, y):
-        if len(x) != len(y):
+    def split(self, X, y):
+        if len(X) != len(y):
             raise ValueError("Expecting same length of x and y")
         y = input_to_cuml_array(y).array.to_output("cupy")
         if len(cp.unique(y)) < 2:
@@ -498,16 +610,7 @@ class StratifiedKFold:
         if self.n_splits > dg[col].min():
             raise ValueError(msg)
 
-        def get_order_in_group(y, ids, order):
-            for i in range(cuda.threadIdx.x, len(y), cuda.blockDim.x):
-                order[i] = i
-
-        got = grpby.apply_grouped(
-            get_order_in_group,
-            incols=["y", "ids"],
-            outcols={"order": "int32"},
-            tpb=64,
-        )
+        got = grpby.apply(lambda df: df.assign(order=range(len(df))))
         got = got.sort_values("ids")
 
         for i in range(self.n_splits):

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/common/distance_type.hpp>
@@ -22,11 +11,12 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
+#include <raft/core/host_coo_matrix.hpp>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_buffer.hpp>
 
 #include <cuvs/distance/distance.hpp>
 #include <datasets/digits.h>
@@ -36,6 +26,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <memory>
 #include <type_traits>
 #include <vector>
 
@@ -143,22 +134,10 @@ class UMAPParametrizableTest : public ::testing::Test {
       handle.sync_stream(stream);
     }
 
-    float* model_embedding = nullptr;
-    rmm::device_uvector<float>* model_embedding_b{};
-    if (test_params.fit_transform) {
-      model_embedding = embedding_ptr;
-    } else {
-      model_embedding_b =
-        new rmm::device_uvector<float>(n_samples * umap_params.n_components, stream);
-      model_embedding = model_embedding_b->data();
-    }
+    std::unique_ptr<rmm::device_buffer> model_embedding_buffer;
 
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      model_embedding, 0, n_samples * umap_params.n_components * sizeof(float), stream));
-
-    handle.sync_stream(stream);
-
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph =
+      raft::make_host_coo_matrix<float, int, int, uint64_t>(handle, n_samples, n_samples);
 
     if (test_params.supervised) {
       ML::UMAP::fit(handle,
@@ -169,8 +148,8 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_indices,
                     knn_dists,
                     &umap_params,
-                    model_embedding,
-                    &graph);
+                    model_embedding_buffer,
+                    graph);
     } else {
       ML::UMAP::fit(handle,
                     X,
@@ -180,9 +159,12 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_indices,
                     knn_dists,
                     &umap_params,
-                    model_embedding,
-                    &graph);
+                    model_embedding_buffer,
+                    graph);
     }
+
+    // Extract pointer from device_buffer after fit allocates and fills it
+    float* model_embedding = static_cast<float*>(model_embedding_buffer->data());
 
     if (test_params.refine) {
       std::cout << "using refine";
@@ -200,7 +182,12 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
     handle.sync_stream(stream);
 
-    if (!test_params.fit_transform) {
+    if (test_params.fit_transform) {
+      // Copy the model embedding to the output embedding_ptr
+      raft::copy(embedding_ptr, model_embedding, n_samples * umap_params.n_components, stream);
+      handle.sync_stream(stream);
+    } else {
+      // Use transform for non-fit_transform case
       RAFT_CUDA_TRY(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
@@ -218,8 +205,6 @@ class UMAPParametrizableTest : public ::testing::Test {
                           embedding_ptr);
 
       handle.sync_stream(stream);
-
-      delete model_embedding_b;
     }
 
     if (test_params.knn_params) {
@@ -302,31 +287,20 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     float* e1 = embeddings1.data();
 
-#if CUDART_VERSION >= 11020
-    // Always use random init w/ CUDA 11.2. For some reason the
-    // spectral solver doesn't always converge w/ this CUDA version.
     umap_params.init         = 0;
     umap_params.random_state = 43;
     umap_params.n_epochs     = 500;
-#endif
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params, umap_params);
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
-    // v21.08: Reproducibility looks to be busted for CTK 11.4. Need to figure out
-    // why this is happening and re-enable this.
-#if CUDART_VERSION == 11040
-    return;
-#else
     // Disable reproducibility tests after transformation
     if (!test_params.fit_transform) { return; }
-#endif
 
     rmm::device_uvector<float> embeddings2(n_samples * umap_params.n_components, stream);
     float* e2 = embeddings2.data();
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params, umap_params);
 
-#if CUDART_VERSION >= 11020
     auto equal = are_equal(e1, e2, n_samples * umap_params.n_components, stream);
 
     if (!equal) {
@@ -335,10 +309,6 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
 
     ASSERT_TRUE(equal);
-#else
-    ASSERT_TRUE(MLCommon::devArrMatch(
-      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
-#endif
   }
 
   void SetUp() override

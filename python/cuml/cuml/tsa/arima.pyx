@@ -1,41 +1,22 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
+from typing import Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
-import cuml.internals.nvtx as nvtx
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger, nvtx, reflect, run_in_internal_context
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-
-from typing import Dict, Mapping, Optional, Tuple, Union
-
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-
 from pylibraft.common.handle cimport handle_t
-
-import cuml.internals.logger as logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
@@ -50,10 +31,10 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
 
     cdef cppclass ARIMAMemory[DataT]:
         ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
-                    char* in_buf)
+                    char* in_buf) except +
 
         @staticmethod
-        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
+        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs) except +
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
@@ -61,55 +42,55 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
 
     void cpp_pack "pack" (
         handle_t& handle, const ARIMAParams[double]& params,
-        const ARIMAOrder& order, int batch_size, double* param_vec)
+        const ARIMAOrder& order, int batch_size, double* param_vec) except +
 
     void cpp_unpack "unpack" (
         handle_t& handle, ARIMAParams[double]& params,
-        const ARIMAOrder& order, int batch_size, const double* param_vec)
+        const ARIMAOrder& order, int batch_size, const double* param_vec) except +
 
     bool detect_missing(
-        handle_t& handle, const double* d_y, int n_elem)
+        handle_t& handle, const double* d_y, int n_elem) except +
 
     void batched_diff(
         handle_t& handle, double* d_y_diff, const double* d_y, int batch_size,
-        int n_obs, const ARIMAOrder& order)
+        int n_obs, const ARIMAOrder& order) except +
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
+        bool trans, bool host_loglike, LoglikeMethod method, int truncate) except +
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, const double* d_exog, int batch_size, int n_obs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
         double* loglike, bool trans, bool host_loglike, LoglikeMethod method,
-        int truncate)
+        int truncate) except +
 
     void batched_loglike_grad(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, int truncate)
+        bool trans, LoglikeMethod method, int truncate) except +
 
     void cpp_predict "predict" (
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, const double* d_exog_fut,
         int batch_size, int nobs, int start, int end, const ARIMAOrder& order,
         const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
-        double level, double* d_lower, double* d_upper)
+        double level, double* d_lower, double* d_upper) except +
 
     void information_criterion(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* d_y, const double* d_exog, int batch_size, int nobs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type)
+        double* ic, int ic_type) except +
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
         const double* d_exog, int batch_size, int nobs,
-        const ARIMAOrder& order, bool missing)
+        const ARIMAOrder& order, bool missing) except +
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
@@ -117,7 +98,7 @@ cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML" nogil:
     void batched_jones_transform(
         handle_t& handle, ARIMAMemory[double]& arima_mem,
         const ARIMAOrder& order, int batchSize, bool isInv,
-        const double* h_params, double* h_Tparams)
+        const double* h_params, double* h_Tparams) except +
 
 
 cdef class ARIMAParamsWrapper:
@@ -321,7 +302,7 @@ class ARIMA(Base):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
-        self._set_base_attributes(output_type=endog)
+        self._set_output_type(endog)
 
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
@@ -398,7 +379,7 @@ class ARIMA(Base):
 
         self._initial_calc()
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _initial_calc(self):
         """
         This separates the initial calculation from the initialization to make
@@ -452,7 +433,6 @@ class ARIMA(Base):
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
@@ -499,16 +479,19 @@ class ARIMA(Base):
         return ic
 
     @property
+    @reflect
     def aic(self) -> CumlArray:
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
+    @reflect
     def aicc(self) -> CumlArray:
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
+    @reflect
     def bic(self) -> CumlArray:
         """Bayesian Information Criterion"""
         return self._ic("bic")
@@ -520,7 +503,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @cuml.internals.api_base_return_generic(input_arg=None)
+    @reflect
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -596,7 +579,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @cuml.internals.api_base_return_generic(input_arg=None)
+    @reflect(array=None)
     def predict(
         self,
         start=0,
@@ -745,7 +728,7 @@ class ARIMA(Base):
                     d_upper)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
-    @cuml.internals.api_base_return_generic_skipall
+    @reflect(array=None)
     def forecast(
         self,
         nsteps: int,
@@ -791,7 +774,6 @@ class ARIMA(Base):
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level, exog)
 
-    @cuml.internals.api_base_return_any_skipall
     def _create_arrays(self):
         """Create the parameter arrays if non-existing"""
         cdef ARIMAOrder order = self.order
@@ -818,7 +800,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -838,7 +820,7 @@ class ARIMA(Base):
                     <double*> d_exog_ptr, <int> self.batch_size,
                     <int> self.n_obs, order, <bool> self.missing)
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
@@ -940,7 +922,7 @@ class ARIMA(Base):
         return self
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -1008,7 +990,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
                       convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
@@ -1084,6 +1066,7 @@ class ARIMA(Base):
         return grad.to_output("numpy")
 
     @property
+    @run_in_internal_context
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
@@ -1130,6 +1113,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
+    @run_in_internal_context
     def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1159,6 +1143,7 @@ class ARIMA(Base):
                    <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
+    @run_in_internal_context
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -1184,7 +1169,6 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 

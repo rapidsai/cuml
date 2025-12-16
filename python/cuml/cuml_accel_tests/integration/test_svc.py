@@ -1,19 +1,9 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 import pytest
 from sklearn.datasets import make_classification
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 
 
@@ -50,9 +40,16 @@ def test_svc(binary):
 def test_svc_probability(binary):
     X, y = binary
     svc = SVC(probability=True).fit(X, y)
+    # Inference and score works
     assert svc.score(X, y) > 0.5
+
+    # probA_ and probB_ exist and are the correct shape
     assert svc.probA_.shape == (1,)
     assert svc.probB_.shape == (1,)
+
+    # predict_proba works
+    y_pred = svc.predict_proba(X).argmax(axis=1)
+    assert accuracy_score(y_pred, y) > 0.5
 
 
 def test_svc_multiclass(multiclass):
@@ -69,3 +66,6 @@ def test_conditional_methods():
     svc.probability = True
     assert hasattr(svc, "predict_proba")
     assert hasattr(svc, "predict_log_proba")
+    # Ensure these methods aren't forwarded CPU attributes
+    assert svc.predict_proba is not svc._cpu.predict_proba
+    assert svc.predict_log_proba is not svc._cpu.predict_log_proba

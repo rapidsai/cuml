@@ -1,36 +1,21 @@
 #
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-from cuml.common import input_to_cuml_array
-from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import determine_array_type
-
-from cuml.internals.treelite cimport *
-from cuml.internals.treelite import safe_treelite_call
-
-from libc.stdint cimport uintptr_t
-
 import re
 
 import numpy as np
 import treelite
-from sklearn.ensemble import RandomForestClassifier as sklrfc
-from sklearn.ensemble import RandomForestRegressor as sklrfr
+
+import cuml
+from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import determine_array_type
+from cuml.internals.treelite import safe_treelite_call
+
+from libc.stdint cimport uintptr_t
+
+from cuml.internals.treelite cimport *
 
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer" nogil:
@@ -178,15 +163,20 @@ cdef class TreeExplainer:
                 model = model.booster_
             tl_model = treelite.frontend.from_lightgbm(model)
         # cuML RF model object
-        elif isinstance(model, (curfr, curfc)):
-            tl_model = model.convert_to_treelite_model()
+        elif isinstance(model, (cuml.RandomForestClassifier, cuml.RandomForestRegressor)):
+            tl_model = model.as_treelite()
         # scikit-learn RF model object
-        elif isinstance(model, (sklrfr, sklrfc)):
-            tl_model = treelite.sklearn.import_model(model)
         elif isinstance(model, treelite.Model):
             tl_model = model
         else:
-            raise ValueError(f"Unrecognized model object type: {type(model)}")
+            from sklearn.ensemble import (
+                RandomForestClassifier,
+                RandomForestRegressor,
+            )
+            if isinstance(model, (RandomForestClassifier, RandomForestRegressor)):
+                tl_model = treelite.sklearn.import_model(model)
+            else:
+                raise ValueError(f"Unrecognized model object type: {type(model)}")
 
         # Get num_class
         self.num_class = tl_model.get_header_accessor().get_field("num_class").copy()

@@ -1,23 +1,20 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/decomposition/sign_flip_mg.hpp>
 
 #include <raft/core/comms.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -110,6 +107,139 @@ void flip(T* input, std::size_t n_rows, std::size_t n_cols, T* max_vals, cudaStr
     });
 }
 
+template <typename T>
+void col_means_mg(const raft::handle_t& handle,
+                  std::vector<Matrix::Data<T>*>& input,
+                  Matrix::PartDescriptor& input_desc,
+                  T* dots,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  cudaStream_t* streams,
+                  std::uint32_t n_stream)
+{
+  const auto& comm                                = handle.get_comms();
+  int rank                                        = comm.get_rank();
+  std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
+  std::size_t local_block_size = std::max(size_t(comm.get_size()), local_blocks.size());
+  rmm::device_uvector<T> col_means_raw(local_block_size * n_cols, streams[0]);
+  for (std::size_t i = 0; i < input.size(); i++) {
+    T* input_chunk           = input[i]->ptr;
+    std::size_t n_rows_chunk = local_blocks[i]->size;
+    // Compute col_mean_chunk = sum(col_values) / n_rows
+    raft::linalg::reduce<false, false>(col_means_raw.data() + (i * n_cols),
+                                       input_chunk,
+                                       n_cols,
+                                       n_rows_chunk,
+                                       T(0),
+                                       streams[i],
+                                       false,
+                                       raft::identity_op(),
+                                       raft::add_op(),
+                                       raft::div_const_op<T>(n_rows));
+  }
+  for (std::uint32_t i = 0; i < n_stream; i++) {
+    handle.sync_stream(streams[i]);
+  }
+  // Compute sum(col_mean_chunk)
+  raft::stats::sum<true>(dots, col_means_raw.data(), n_cols, local_block_size, streams[0]);
+}
+
+template <typename T>
+void sign_flip_components_u_imp(raft::handle_t& handle,
+                                std::vector<Matrix::Data<T>*>& input,
+                                Matrix::PartDescriptor& input_desc,
+                                T* components,
+                                std::size_t n_samples,
+                                std::size_t n_features,
+                                std::size_t n_components,
+                                cudaStream_t* streams,
+                                std::uint32_t n_stream,
+                                bool center)
+{
+  const auto& comm = handle.get_comms();
+  int rank         = comm.get_rank();
+
+  std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
+
+  auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+    components, n_components, n_features);
+  std::size_t local_block_size = std::max(size_t(comm.get_size()), local_blocks.size());
+  rmm::device_uvector<T> max_vals_raw(local_block_size * n_components, streams[0]);
+  rmm::device_uvector<T> max_vals(n_components, streams[0]);
+  auto max_vals_view = raft::make_device_vector_view<T, std::size_t>(max_vals.data(), n_components);
+
+  auto max_abs_op = [] __device__(T a, T b) {
+    T abs_a = a >= T(0) ? a : -a;
+    T abs_b = b >= T(0) ? b : -b;
+    return abs_a >= abs_b ? a : b;
+  };
+
+  // Step 1: compute column means from input and center input
+  rmm::device_uvector<T> col_means(n_features, streams[0]);
+  col_means_mg<T>(
+    handle, input, input_desc, col_means.data(), n_samples, n_features, streams, n_stream);
+  handle.sync_stream(streams[0]);
+
+  // Step 2: compute col-wise max abs per chunk
+  for (std::size_t i = 0; i < input.size(); i++) {
+    T* input_chunk              = input[i]->ptr;
+    std::size_t n_samples_chunk = local_blocks[i]->size;
+    if (center) {
+      raft::stats::meanCenter<false, true>(
+        input_chunk, input_chunk, col_means.data(), n_features, n_samples_chunk, streams[i]);
+    }
+    rmm::device_uvector<T> US_chunk(n_samples_chunk * n_components, streams[i]);
+    raft::linalg::gemm(handle,
+                       input_chunk,
+                       n_samples_chunk,
+                       n_features,
+                       components,
+                       US_chunk.data(),
+                       n_samples_chunk,
+                       n_components,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_T,
+                       T(1),
+                       T(0),
+                       streams[i]);
+    raft::linalg::reduce<false, false>(max_vals_raw.data() + i * n_components,
+                                       US_chunk.data(),
+                                       n_components,
+                                       n_samples_chunk,
+                                       T(0),
+                                       streams[i],
+                                       false,
+                                       raft::identity_op(),
+                                       max_abs_op,
+                                       raft::identity_op());
+  }
+  for (std::uint32_t i = 0; i < n_stream; i++) {
+    handle.sync_stream(streams[i]);
+  }
+  raft::linalg::reduce<true, false>(max_vals.data(),
+                                    max_vals_raw.data(),
+                                    n_components,
+                                    local_block_size,
+                                    T(0),
+                                    streams[0],
+                                    false,
+                                    raft::identity_op(),
+                                    max_abs_op,
+                                    raft::identity_op());
+  handle.sync_stream(streams[0]);
+
+  // Step 3: flip rows where needed
+  raft::linalg::map_offset(
+    handle,
+    components_view,
+    [components_view, max_vals_view, n_components, n_features] __device__(auto idx) {
+      std::size_t row    = idx % n_components;
+      std::size_t column = idx / n_components;
+      return (max_vals_view(row) < T(0)) ? (-components_view(row, column))
+                                         : components_view(row, column);
+    });
+}
+
 /**
  * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
@@ -168,6 +298,52 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   flip(components, input_desc.N, n_components, max_vals.data(), streams[0]);
+}
+
+void sign_flip_components_u(raft::handle_t& handle,
+                            std::vector<Matrix::Data<float>*>& input_data,
+                            Matrix::PartDescriptor& input_desc,
+                            float* components,
+                            std::size_t n_samples,
+                            std::size_t n_features,
+                            std::size_t n_components,
+                            cudaStream_t* streams,
+                            std::uint32_t n_stream,
+                            bool center)
+{
+  sign_flip_components_u_imp(handle,
+                             input_data,
+                             input_desc,
+                             components,
+                             n_samples,
+                             n_features,
+                             n_components,
+                             streams,
+                             n_stream,
+                             center);
+}
+
+void sign_flip_components_u(raft::handle_t& handle,
+                            std::vector<Matrix::Data<double>*>& input_data,
+                            Matrix::PartDescriptor& input_desc,
+                            double* components,
+                            std::size_t n_samples,
+                            std::size_t n_features,
+                            std::size_t n_components,
+                            cudaStream_t* streams,
+                            std::uint32_t n_stream,
+                            bool center)
+{
+  sign_flip_components_u_imp(handle,
+                             input_data,
+                             input_desc,
+                             components,
+                             n_samples,
+                             n_features,
+                             n_components,
+                             streams,
+                             n_stream,
+                             center);
 }
 
 void sign_flip(raft::handle_t& handle,

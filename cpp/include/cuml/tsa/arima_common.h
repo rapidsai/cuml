@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -19,7 +8,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/aligned.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>
@@ -82,26 +71,14 @@ struct ARIMAParams {
   void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-    if (order.k && !tr)
-      mu = (DataT*)rmm_alloc.allocate_async(
-        batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+    if (order.k && !tr) mu = (DataT*)rmm_alloc.allocate(stream, batch_size * sizeof(DataT));
     if (order.n_exog && !tr)
-      beta = (DataT*)rmm_alloc.allocate_async(
-        order.n_exog * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.p)
-      ar = (DataT*)rmm_alloc.allocate_async(
-        order.p * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.q)
-      ma = (DataT*)rmm_alloc.allocate_async(
-        order.q * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.P)
-      sar = (DataT*)rmm_alloc.allocate_async(
-        order.P * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.Q)
-      sma = (DataT*)rmm_alloc.allocate_async(
-        order.Q * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    sigma2 = (DataT*)rmm_alloc.allocate_async(
-      batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+      beta = (DataT*)rmm_alloc.allocate(stream, order.n_exog * batch_size * sizeof(DataT));
+    if (order.p) ar = (DataT*)rmm_alloc.allocate(stream, order.p * batch_size * sizeof(DataT));
+    if (order.q) ma = (DataT*)rmm_alloc.allocate(stream, order.q * batch_size * sizeof(DataT));
+    if (order.P) sar = (DataT*)rmm_alloc.allocate(stream, order.P * batch_size * sizeof(DataT));
+    if (order.Q) sma = (DataT*)rmm_alloc.allocate(stream, order.Q * batch_size * sizeof(DataT));
+    sigma2 = (DataT*)rmm_alloc.allocate(stream, batch_size * sizeof(DataT));
   }
 
   /**
@@ -116,26 +93,14 @@ struct ARIMAParams {
   void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-    if (order.k && !tr)
-      rmm_alloc.deallocate_async(
-        mu, batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+    if (order.k && !tr) rmm_alloc.deallocate(stream, mu, batch_size * sizeof(DataT));
     if (order.n_exog && !tr)
-      rmm_alloc.deallocate_async(
-        beta, order.n_exog * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.p)
-      rmm_alloc.deallocate_async(
-        ar, order.p * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.q)
-      rmm_alloc.deallocate_async(
-        ma, order.q * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.P)
-      rmm_alloc.deallocate_async(
-        sar, order.P * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    if (order.Q)
-      rmm_alloc.deallocate_async(
-        sma, order.Q * batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    rmm_alloc.deallocate_async(
-      sigma2, batch_size * sizeof(DataT), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+      rmm_alloc.deallocate(stream, beta, order.n_exog * batch_size * sizeof(DataT));
+    if (order.p) rmm_alloc.deallocate(stream, ar, order.p * batch_size * sizeof(DataT));
+    if (order.q) rmm_alloc.deallocate(stream, ma, order.q * batch_size * sizeof(DataT));
+    if (order.P) rmm_alloc.deallocate(stream, sar, order.P * batch_size * sizeof(DataT));
+    if (order.Q) rmm_alloc.deallocate(stream, sma, order.Q * batch_size * sizeof(DataT));
+    rmm_alloc.deallocate(stream, sigma2, batch_size * sizeof(DataT));
   }
 
   /**

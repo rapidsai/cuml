@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from uuid import uuid1
@@ -39,9 +28,9 @@ class NearestNeighbors(BaseEstimator):
     batch_size: int (optional, default 2000000)
         Maximum number of query rows processed at once. This parameter can
         greatly affect the throughput of the algorithm. The optimal setting
-        of this value will vary for different layouts index to query ratios,
-        but it will require `batch_size * n_features * 4` bytes of additional
-        memory on each worker hosting index partitions.
+        of this value will vary for different layouts and index to query
+        ratios, but it will require `batch_size * n_features * 4` bytes of
+        additional memory on each worker hosting index partitions.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -168,7 +157,6 @@ class NearestNeighbors(BaseEstimator):
         return n_neighbors
 
     def _create_models(self, comms):
-
         """
         Each Dask worker creates a single model
         """
@@ -194,7 +182,6 @@ class NearestNeighbors(BaseEstimator):
     def _query_models(
         self, n_neighbors, comms, nn_models, index_handler, query_handler
     ):
-
         worker_info = comms.worker_info(comms.worker_addresses)
 
         """
@@ -334,10 +321,15 @@ class NearestNeighbors(BaseEstimator):
         comms.destroy()
 
         if _return_futures:
-            ret = nn_fit, out_i_futures if not return_distance else (
+            ret = (
                 nn_fit,
-                out_d_futures,
-                out_i_futures,
+                out_i_futures
+                if not return_distance
+                else (
+                    nn_fit,
+                    out_d_futures,
+                    out_i_futures,
+                ),
             )
         else:
             ret = (

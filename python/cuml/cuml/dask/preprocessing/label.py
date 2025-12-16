@@ -1,21 +1,8 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import cupy as cp
 
-from cuml.common import rmm_cupy_ary
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import _extract_partitions
 from cuml.preprocessing.label import LabelBinarizer as LB
@@ -25,6 +12,13 @@ class LabelBinarizer(BaseEstimator):
     """
     A distributed version of LabelBinarizer for one-hot encoding
     a collection of labels.
+
+    Parameters
+    ----------
+    client : dask.distributed.Client, optional
+        Dask client to use
+    **kwargs : dict
+        Additional arguments passed to the underlying single-GPU LabelBinarizer
 
     Examples
     --------
@@ -73,18 +67,7 @@ class LabelBinarizer(BaseEstimator):
     """
 
     def __init__(self, *, client=None, **kwargs):
-
         super().__init__(client=client, **kwargs)
-
-        """
-        Initialize new LabelBinarizer instance
-
-        Parameters
-        ----------
-        client : dask.Client optional client to use
-        kwargs : dict of arguments to proxy to underlying single-process
-                 LabelBinarizer
-        """
         # Sparse output will be added once sparse CuPy arrays are supported
         # by Dask.Array: https://github.com/rapidsai/cuml/issues/1665
         if (
@@ -92,7 +75,7 @@ class LabelBinarizer(BaseEstimator):
             and self.kwargs["sparse_output"] is True
         ):
             raise ValueError(
-                "Sparse output not yet " "supported in distributed mode"
+                "Sparse output not yet supported in distributed mode"
             )
 
     @staticmethod
@@ -100,17 +83,13 @@ class LabelBinarizer(BaseEstimator):
         return LB(**kwargs)
 
     @staticmethod
-    def _func_unique_classes(y):
-        return rmm_cupy_ary(cp.unique, y)
-
-    @staticmethod
     def _func_xform(y, *, model):
-        xform_in = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+        xform_in = cp.asarray(y, dtype=y.dtype)
         return model.transform(xform_in)
 
     @staticmethod
     def _func_inv_xform(y, *, model, threshold):
-        y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+        y = cp.asarray(y, dtype=y.dtype)
         return model.inverse_transform(y, threshold=threshold)
 
     def fit(self, y):
@@ -131,15 +110,10 @@ class LabelBinarizer(BaseEstimator):
         # Take the unique classes and broadcast them all around the cluster.
         futures = self.client.sync(_extract_partitions, y)
 
-        unique = [
-            self.client.submit(LabelBinarizer._func_unique_classes, f)
-            for w, f in futures
-        ]
+        unique = [self.client.submit(cp.unique, f) for w, f in futures]
 
         classes = self.client.compute(unique, True)
-        classes = rmm_cupy_ary(
-            cp.unique, rmm_cupy_ary(cp.stack, classes, axis=0)
-        )
+        classes = cp.unique(cp.stack(classes, axis=0))
 
         self._set_internal_model(LB(**self.kwargs).fit(classes))
 

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "benchmark.cuh"
@@ -21,6 +10,9 @@
 
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/device_buffer.hpp>
+
+#include <memory>
 #include <utility>
 
 namespace ML {
@@ -68,18 +60,18 @@ class UmapBase : public BlobsFixture<float, int> {
   void allocateTempBuffers(const ::benchmark::State& state) override
   {
     alloc(yFloat, this->params.nrows);
-    alloc(embeddings, this->params.nrows * uParams.n_components);
     cast<float, int>(yFloat, this->data.y.data(), this->params.nrows, this->stream);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override
   {
     dealloc(yFloat, this->params.nrows);
-    dealloc(embeddings, this->params.nrows * uParams.n_components);
+    embeddings_buffer.reset();
   }
 
   UMAPParams uParams;
-  float *yFloat, *embeddings;
+  float* yFloat;
+  std::unique_ptr<rmm::device_buffer> embeddings_buffer;
 };  // class UmapBase
 
 std::vector<Params> getInputs()
@@ -118,7 +110,8 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      *this->handle, this->params.nrows, this->params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               yFloat,
@@ -127,8 +120,8 @@ class UmapSupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
-              &graph);
+              embeddings_buffer,
+              graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -140,7 +133,8 @@ class UmapUnsupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      *this->handle, this->params.nrows, this->params.nrows);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               nullptr,
@@ -149,8 +143,8 @@ class UmapUnsupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
-              &graph);
+              embeddings_buffer,
+              graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -162,13 +156,15 @@ class UmapTransform : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
+    // Extract the embeddings pointer from the device_buffer
+    float* embeddings_ptr = static_cast<float*>(embeddings_buffer->data());
     UMAP::transform(*this->handle,
                     this->data.X.data(),
                     this->params.nrows,
                     this->params.ncols,
                     this->data.X.data(),
                     this->params.nrows,
-                    embeddings,
+                    embeddings_ptr,
                     this->params.nrows,
                     &uParams,
                     transformed);
@@ -178,7 +174,8 @@ class UmapTransform : public UmapBase {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    auto graph = raft::sparse::COO<float, int>(stream);
+    auto graph = raft::make_host_coo_matrix<float, int, int, uint64_t>(
+      handle, this->params.nrows, this->params.nrows);
     UMAP::fit(handle,
               this->data.X.data(),
               yFloat,
@@ -187,8 +184,8 @@ class UmapTransform : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings,
-              &graph);
+              embeddings_buffer,
+              graph);
   }
   void deallocateBuffers(const ::benchmark::State& state)
   {

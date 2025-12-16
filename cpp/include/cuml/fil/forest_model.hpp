@@ -1,25 +1,17 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include <cuml/fil/decision_forest.hpp>
 #include <cuml/fil/detail/index_type.hpp>
 #include <cuml/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/fil/detail/raft_proto/cuda_check.hpp>
 #include <cuml/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/fil/detail/raft_proto/handle.hpp>
 #include <cuml/fil/infer_kind.hpp>
+
+#include <cuda_runtime.h>
 
 #include <cstddef>
 #include <type_traits>
@@ -297,9 +289,12 @@ struct forest_model {
                infer_kind predict_type                        = infer_kind::default_kind,
                std::optional<index_type> specified_chunk_size = std::nullopt)
   {
-    // TODO(wphicks): Make sure buffer lands on same device as model
-    auto out_buffer = raft_proto::buffer{output, num_rows * num_outputs(), out_mem_type};
-    auto in_buffer  = raft_proto::buffer{input, num_rows * num_features(), in_mem_type};
+    int current_device_id;
+    raft_proto::cuda_check(cudaGetDevice(&current_device_id));
+    auto out_buffer =
+      raft_proto::buffer{output, num_rows * num_outputs(), out_mem_type, current_device_id};
+    auto in_buffer =
+      raft_proto::buffer{input, num_rows * num_features(), in_mem_type, current_device_id};
     predict(handle, out_buffer, in_buffer, predict_type, specified_chunk_size);
   }
 

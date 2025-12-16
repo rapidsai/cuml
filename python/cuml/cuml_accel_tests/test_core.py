@@ -1,17 +1,7 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 import importlib
+import multiprocessing
 from inspect import Parameter, signature
 
 import pytest
@@ -42,6 +32,45 @@ def test_enabled():
     assert cuml.accel.enabled()
 
 
+@pytest.mark.parametrize("method", ["spawn", "fork"])
+def test_enabled_in_subprocesses(method):
+    ctx = multiprocessing.get_context(method)
+    with ctx.Pool(processes=1) as pool:
+        enabled = pool.apply(cuml.accel.enabled)
+    assert enabled
+
+
+def test_enabled_in_loky_executor():
+    try:
+        # Recent versions of joblib vendor loky
+        from joblib.externals import loky
+    except ImportError:
+        loky = pytest.importorskip("loky")
+
+    from sklearn.datasets import make_classification
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = make_classification()
+
+    with loky.get_reusable_executor(max_workers=1) as executor:
+        enabled = executor.submit(cuml.accel.enabled).result()
+        assert enabled
+        remote = executor.submit(LogisticRegression().fit, X, y).result()
+        assert cuml.accel.is_proxy(remote)
+
+
+def get_level():
+    return cuml.accel.core.logger.level.name.lower()
+
+
+def test_log_level_forwarded_to_subprocesses(monkeypatch):
+    monkeypatch.setenv("CUML_ACCEL_LOG_LEVEL", "debug")
+    ctx = multiprocessing.get_context("spawn")
+    with ctx.Pool(processes=1) as pool:
+        log_level = pool.apply(get_level)
+    assert log_level == "debug"
+
+
 def iter_proxy_class_methods():
     """Generate test cases of (cls, method_name) for all ProxyBase proxied methods"""
     classes = proxy_base_subclasses()
@@ -51,7 +80,23 @@ def iter_proxy_class_methods():
             if not name.startswith("_") and callable(
                 getattr(cls._cpu_class, name)
             ):
-                yield cls, name
+                # XXX: xfail umap.UMAP.get_feature_names_out for now
+                if (
+                    cls._cpu_class.__name__ == "UMAP"
+                    and name == "get_feature_names_out"
+                ):
+                    yield pytest.param(
+                        cls,
+                        name,
+                        marks=[
+                            pytest.mark.xfail(
+                                reason="umap-learn <= 0.5.7 doesn't implement `get_feature_names_out` properly",
+                                strict=True,
+                            )
+                        ],
+                    )
+                else:
+                    yield cls, name
 
 
 @pytest.mark.parametrize("cls, name", iter_proxy_class_methods())

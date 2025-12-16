@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_params.hpp>
@@ -151,16 +140,19 @@ int main(int argc, char* argv[])
 
     double inertia = 0;
     int n_iter     = 0;
-    ML::kmeans::fit_predict(handle,
-                            params,
-                            d_srcdata,
-                            n_samples,
-                            n_features,
-                            0,
-                            d_pred_centroids,
-                            d_pred_labels,
-                            inertia,
-                            n_iter);
+
+    ML::kmeans::fit(
+      handle, params, d_srcdata, n_samples, n_features, 0, d_pred_centroids, inertia, n_iter);
+    ML::kmeans::predict(handle,
+                        params,
+                        d_pred_centroids,
+                        d_srcdata,
+                        n_samples,
+                        n_features,
+                        0,
+                        true,
+                        d_pred_labels,
+                        inertia);
 
     std::vector<int> h_pred_labels(n_samples);
     CUDA_RT_CALL(cudaMemcpyAsync(h_pred_labels.data(),

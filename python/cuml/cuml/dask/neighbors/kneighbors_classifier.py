@@ -1,25 +1,13 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from uuid import uuid1
 
-import cudf
+import cupy as cp
 import dask.array as da
 import numpy as np
-import pandas as pd
 from dask.dataframe import Series as DaskSeries
 from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
@@ -88,9 +76,6 @@ class KNeighborsClassifier(NearestNeighbors):
         self : KNeighborsClassifier model
         """
 
-        if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
-            raise ValueError("This chunk type is not supported")
-
         self.data_handler = DistributedDataHandler.create(
             data=[X, y], client=self.client
         )
@@ -122,6 +107,8 @@ class KNeighborsClassifier(NearestNeighbors):
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
         elif hasattr(uniq_labels[0], "values"):  # for pandas Series
             uniq_labels = list(map(lambda x: x.values, uniq_labels))
+        elif isinstance(uniq_labels[0], cp.ndarray):  # for CuPy arrays
+            uniq_labels = list(map(lambda x: cp.asnumpy(x), uniq_labels))
         self.uniq_labels = np.sort(np.array(uniq_labels))
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 

@@ -1,19 +1,7 @@
 #
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import warnings
 
 import cupy as cp
@@ -24,7 +12,7 @@ from cupyx import geterr, lapack, seterr
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_array
+from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -247,7 +235,9 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
     def _attrs_from_cpu(self, model):
         if not isinstance(model.X_fit_, np.ndarray):
-            raise UnsupportedOnGPU
+            # We only support coercing dense X_fit_ values, but in sklearn
+            # this may also be a sparse matrix
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         return {
             "dual_coef_": to_gpu(model.dual_coef_),
@@ -299,44 +289,44 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         )
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
-
         ravel = False
         if len(y.shape) == 1:
             y = y.reshape(-1, 1)
             ravel = True
 
-        X_m, n_rows, self.n_features_in_, self.dtype = input_to_cuml_array(
+        X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
-        )
+        ).array
 
-        y_m, _, _, _ = input_to_cuml_array(
+        y_m = input_to_cuml_array(
             y,
-            check_dtype=self.dtype,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-            check_rows=n_rows,
-        )
+            check_dtype=X_m.dtype,
+            convert_to_dtype=(X_m.dtype if convert_dtype else None),
+            check_rows=X_m.shape[0],
+        ).array
 
-        if self.n_features_in_ < 1:
-            msg = "X matrix must have at least a column"
-            raise TypeError(msg)
+        if X.shape[1] < 1:
+            raise ValueError("X matrix must have at least a column")
 
         K = self._get_kernel(X_m)
-        self.dual_coef_ = _solve_cholesky_kernel(
+        dual_coef = _solve_cholesky_kernel(
             K, cp.asarray(y_m), cp.asarray(self.alpha), sample_weight
-        )
-
+        ).astype(X_m.dtype, copy=False)
         if ravel:
-            self.dual_coef_ = self.dual_coef_.ravel()
+            dual_coef = dual_coef.ravel()
+
         self.X_fit_ = X_m
+        self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
-    @api_base_return_array()
-    def predict(self, X):
+    @reflect
+    def predict(self, X, *, convert_dtype=True):
         """
         Predict using the kernel ridge model.
 
@@ -353,9 +343,15 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         C : array of shape (n_samples,) or (n_samples, n_targets)
             Returns predicted values.
         """
-        X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64]
-        )
+        dtype = self.X_fit_.dtype
 
-        K = self._get_kernel(X_m, self.X_fit_)
-        return CumlArray(cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_)))
+        X_m = input_to_cuml_array(
+            X,
+            check_dtype=dtype,
+            convert_to_dtype=(dtype if convert_dtype else None),
+            check_cols=self.n_features_in_,
+        ).array
+
+        K = cp.asarray(self._get_kernel(X_m, self.X_fit_), dtype=dtype)
+        dual_coef = self.dual_coef_.to_output("cupy")
+        return CumlArray(cp.dot(K, dual_coef))

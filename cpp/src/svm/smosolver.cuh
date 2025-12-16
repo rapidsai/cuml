@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -27,8 +16,6 @@
 #include "ws_util.cuh"
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -93,6 +80,7 @@ void SmoSolver<math_t>::GetNonzeroDeltaAlpha(const math_t* vec,
  * @param [out] support_matrix support vectors in matrix format, size [n_support, n_cols]
  * @param [out] idx the original training set indices of the support vectors, size [n_support]
  * @param [out] b scalar constant for the decision function
+ * @param [in] max_iter: maximum number of total iterations (default -1 for no limit)
  * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
  * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
  */
@@ -108,6 +96,7 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
                               SupportStorage<math_t>* support_matrix,
                               int** idx,
                               math_t* b,
+                              int max_iter,
                               int max_outer_iter,
                               int max_inner_iter)
 {
@@ -121,8 +110,8 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
 
   // Init counters
   max_outer_iter        = GetDefaultMaxIter(n_train, max_outer_iter);
+  n_outer_iter          = 0;
   n_iter                = 0;
-  int n_inner_iter      = 0;
   diff_prev             = 0;
   n_small_diff          = 0;
   n_increased_diff      = 0;
@@ -132,7 +121,7 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
   rmm::device_uvector<math_t> nz_da(n_ws, stream);
   rmm::device_uvector<int> nz_da_idx(n_ws, stream);
 
-  while (n_iter < max_outer_iter && keep_going) {
+  while (keep_going) {
     RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
     raft::common::nvtx::push_range("SmoSolver::ws_select");
     ws.Select(f.data(), alpha.data(), y, C_vec.data());
@@ -146,6 +135,8 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
 
     raft::common::nvtx::pop_range();
     raft::common::nvtx::push_range("SmoSolver::SmoBlockSolve");
+    int max_iter_this_block =
+      (max_iter == -1 ? max_inner_iter : std::min(max_inner_iter, max_iter - n_iter));
     SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(y,
                                                                n_train,
                                                                alpha.data(),
@@ -157,7 +148,7 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
                                                                C_vec.data(),
                                                                tol,
                                                                return_buff.data(),
-                                                               max_inner_iter,
+                                                               max_iter_this_block,
                                                                svmType);
 
     RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -197,16 +188,22 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
 
     math_t diff = host_return_buff[0];
     keep_going  = CheckStoppingCondition(diff);
-    n_inner_iter += host_return_buff[1];
-    n_iter++;
-    if (n_iter % 500 == 0) { CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff); }
+    n_iter += host_return_buff[1];
+    n_outer_iter++;
+    if ((max_iter != -1 && n_iter >= max_iter) || n_outer_iter >= max_outer_iter) {
+      keep_going = false;
+    }
+
+    if (n_outer_iter % 500 == 0) {
+      CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_outer_iter, (double)diff);
+    }
   }
 
   CUML_LOG_DEBUG(
     "SMO solver finished after %d outer iterations, total inner %d"
     " iterations, and diff %lf",
+    n_outer_iter,
     n_iter,
-    n_inner_iter,
     diff_prev);
 
   Results<math_t, MatrixViewType> res(handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType);

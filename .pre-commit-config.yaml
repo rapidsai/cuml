@@ -1,5 +1,6 @@
 ---
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -7,12 +8,17 @@ repos:
       hooks:
           - id: trailing-whitespace
           - id: end-of-file-fixer
-    - repo: https://github.com/psf/black
-      rev: 22.10.0
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.14.3
       hooks:
-          - id: black
-            files: python/.*
-            args: [--config, python/cuml/pyproject.toml]
+          - id: ruff-check
+            args: [--fix]
+            exclude: ^python/.*/_thirdparty/
+          - id: ruff-format
+            exclude: |
+              (?x)
+                ^python/.*/_thirdparty/|
+                ^python/cuml/cuml/feature_extraction/_stop_words[.]py$
     - repo: https://github.com/pycqa/isort
       rev: 5.13.2
       hooks:
@@ -20,18 +26,8 @@ repos:
             files: python/.*
             args: ["--settings-path", "python/cuml/pyproject.toml"]
             exclude: ^python/.*/_thirdparty/
-    - repo: https://github.com/PyCQA/flake8
-      rev: 7.1.1
-      hooks:
-          - id: flake8
-            args: [--config=python/cuml/.flake8]
-            files: python/.*$
-            types: [file]
-            types_or: [python, cython]
-            exclude: thirdparty
-            additional_dependencies: [flake8-force]
     - repo: https://github.com/MarcoGorelli/cython-lint
-      rev: v0.15.0
+      rev: v0.16.6
       hooks:
           - id: cython-lint
     - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -55,6 +51,37 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
+            exclude: (^|/)tests?/
+          - id: cmake-format
+            name: cmake-format
+            entry: ./cpp/scripts/run-cmake-format.sh cmake-format
+            language: python
+            types: [cmake]
+            exclude: .*/thirdparty/.*
+            # Note that pre-commit autoupdate does not update the versions
+            # of dependencies, so we'll have to update this manually.
+            additional_dependencies:
+              - cmakelang==0.6.13
+            verbose: true
+            require_serial: true
+          - id: cmake-lint
+            name: cmake-lint
+            entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
+            language: python
+            types: [cmake]
+            # Note that pre-commit autoupdate does not update the versions
+            # of dependencies, so we'll have to update this manually.
+            additional_dependencies:
+              - cmakelang==0.6.13
+            verbose: true
+            require_serial: true
+            exclude: .*/thirdparty/.*
+          - id: no-import-in-pxd
+            name: no-import-in-pxd
+            description: "Don't use `import` in .pxd files, only `cimport` statements make sense here"
+            entry: '^import | import '
+            language: pygrep
+            files: "^.*.pxd$"
           - id: include-check
             name: include-check
             entry: python cpp/scripts/include_checker.py
@@ -74,34 +101,74 @@ repos:
           - id: xfail-format
             name: Format xfail lists
             description: 'Ensure xfail lists are properly formatted according to standards'
-            entry: python python/cuml/cuml/accel/tests/xfail_manager.py
+            entry: python python/cuml/cuml_accel_tests/upstream/xfail_manager.py
             language: python
             files: '.*xfail.*\.yaml$'
             args: ['format', '--cleanup']
             additional_dependencies: ['pyyaml>=6.0', 'packaging>=21.0']
     - repo: https://github.com/rapidsai/pre-commit-hooks
-      rev: v0.6.0
+      rev: v1.1.0
       hooks:
         - id: verify-copyright
+          name: verify-copyright-cuml
+          args: [--fix, --spdx]
           files: |
             (?x)
-                [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
-                CMakeLists[.]txt$|
-                CMakeLists_standalone[.]txt$|
-                [.]flake8[.]cython$|
-                meta[.]yaml$
+              [.](cmake|c|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|bat)$|
+              CMakeLists[.]txt$|
+              CMakeLists_standalone[.]txt$|
+              [.]flake8[.]cython$|
+              meta[.]yaml$|
+              ^[.]pre-commit-config[.]yaml$|
+              [.]flake8$|
+              pyproject[.]toml$|
+              recipe[.]yaml$|
+              Makefile$|
+              dependencies[.]yaml$|
+              pytest[.]ini$
           exclude: |
-            (?x)
-                cpp/src/tsne/cannylab/bh[.]cu$|
-                python/cuml/cuml/_thirdparty
+            (?x)^(
+              cpp/src/tsne/cannylab/bh[.]cu$|
+              python/cuml/cuml/_thirdparty/_sklearn_compat[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/|
+              python/cuml/cuml/_thirdparty/sklearn/utils/|
+              docs/source/sphinxext/github_link[.]py$|
+              python/cuml/cuml/feature_extraction/_stop_words[.]py$
+            )
+        - id: verify-copyright
+          name: verify-copyright-scikit-learn-bsd
+          args: [--fix, --spdx, "--spdx-license-identifier=BSD-3-Clause"]
+          files: |
+            (?x)^(
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/__init__[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_column_transformer[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_function_transformer[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_imputation[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/__init__[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/extmath[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/skl_dependencies[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/sparsefuncs[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/utils/validation[.]py$|
+              python/cuml/cuml/feature_extraction/_stop_words[.]py$
+            )
+        - id: verify-copyright
+          name: verify-copyright-scikit-learn-dual
+          args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+          files: |
+            (?x)^(
+              python/cuml/cuml/_thirdparty/_sklearn_compat[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_data[.]py$|
+              python/cuml/cuml/_thirdparty/sklearn/preprocessing/_discretization[.]py$|
+              docs/source/sphinxext/github_link[.]py$
+            )
         - id: verify-alpha-spec
         - id: verify-codeowners
           args: [--fix, --project-prefix=cuml]
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.19.0
+      rev: v1.20.0
       hooks:
           - id: rapids-dependency-file-generator
-            args: ["--clean"]
+            args: ["--clean", "--warn-all", "--strict"]
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.10.0.1
       hooks:

@@ -1,45 +1,27 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
 import itertools
 import typing
+
+import cupy as cp
+import numpy as np
+from pylibraft.common.handle import Handle
+
+from cuml.common import input_to_cuml_array, using_output_type
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger, reflect, run_in_internal_context
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.tsa.arima import ARIMA
+from cuml.tsa.seasonality import seas_test
+from cuml.tsa.stationarity import kpss_test
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-
-import cupy as cp
-import numpy as np
-
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.tsa.arima import ARIMA
-from cuml.tsa.seasonality import seas_test
-from cuml.tsa.stationarity import kpss_test
 
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
@@ -48,59 +30,59 @@ from cuml.tsa.stationarity import kpss_test
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML" nogil:
     int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
-                                   int* index, int batch_size)
+                                   int* index, int batch_size) except +
 
     void divide_by_mask_execute(const handle_t& handle, const float* d_in,
                                 const bool* mask, const int* index,
                                 float* d_out0, float* d_out1, int batch_size,
-                                int n_obs)
+                                int n_obs) except +
     void divide_by_mask_execute(const handle_t& handle, const double* d_in,
                                 const bool* mask, const int* index,
                                 double* d_out0, double* d_out1,
-                                int batch_size, int n_obs)
+                                int batch_size, int n_obs) except +
     void divide_by_mask_execute(const handle_t& handle, const int* d_in,
                                 const bool* mask, const int* index,
                                 int* d_out0, int* d_out1, int batch_size,
-                                int n_obs)
+                                int n_obs) except +
 
     void divide_by_min_build_index(const handle_t& handle,
                                    const float* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
-                                   int batch_size, int n_sub)
+                                   int batch_size, int n_sub) except +
     void divide_by_min_build_index(const handle_t& handle,
                                    const double* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
-                                   int batch_size, int n_sub)
+                                   int batch_size, int n_sub) except +
 
     void divide_by_min_execute(const handle_t& handle, const float* d_in,
                                const int* d_batch, const int* d_index,
                                float** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
     void divide_by_min_execute(const handle_t& handle, const double* d_in,
                                const int* d_batch, const int* d_index,
                                double** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
     void divide_by_min_execute(const handle_t& handle, const int* d_in,
                                const int* d_batch, const int* d_index,
                                int** hd_out, int batch_size, int n_sub,
-                               int n_obs)
+                               int n_obs) except +
 
     void cpp_build_division_map "ML::build_division_map" (
         const handle_t& handle, const int* const* hd_id, const int* h_size,
-        int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
+        int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub) except +
 
     void cpp_merge_series "ML::merge_series" (
         const handle_t& handle, const float* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
-        int batch_size, int n_sub, int n_obs)
+        int batch_size, int n_sub, int n_obs) except +
     void cpp_merge_series "ML::merge_series" (
         const handle_t& handle, const double* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
-        int batch_size, int n_sub, int n_obs)
+        int batch_size, int n_sub, int n_obs) except +
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML" nogil:
     bool detect_missing(
-        handle_t& handle, const double* d_y, int n_elem)
+        handle_t& handle, const double* d_y, int n_elem) except +
 
 tests_map = {
     "kpss": kpss_test,
@@ -194,7 +176,7 @@ class AutoARIMA(Base):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
-        self._set_base_attributes(output_type=endog)
+        self._set_output_type(endog)
 
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
@@ -206,7 +188,7 @@ class AutoARIMA(Base):
 
         self._initial_calc()
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -219,7 +201,7 @@ class AutoARIMA(Base):
             raise ValueError(
                 "Missing observations are not supported in AutoARIMA yet")
 
-    @cuml.internals.api_return_any()
+    @run_in_internal_context
     def search(self,
                s=None,
                d=range(3),
@@ -436,7 +418,7 @@ class AutoARIMA(Base):
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -463,7 +445,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @cuml.internals.api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         start=0,
@@ -523,7 +505,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @cuml.internals.api_base_return_generic_skipall
+    @reflect(array=None)
     def forecast(self,
                  nsteps: int,
                  level=None) -> typing.Union[CumlArray,
@@ -553,6 +535,7 @@ class AutoARIMA(Base):
         """
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
+    @run_in_internal_context
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """

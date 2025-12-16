@@ -1,44 +1,33 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# distutils: language = c++
-
-
 import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals import run_in_internal_context
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
 
-import cuml.internals
-from cuml.internals.array import CumlArray
-
 from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.internals.input_utils import input_to_cuml_array
-
-from cuml.decomposition.utils cimport *
-
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.array_sparse import SparseCumlArray
 
 
 class MGFitMixin(object):
-
-    @cuml.internals.api_base_return_any_skipall
-    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank, order='F', convert_index=np.int32):
+    @run_in_internal_context
+    def fit(
+        self,
+        input_data,
+        n_rows,
+        n_cols,
+        partsToSizes,
+        rank,
+        order='F',
+        convert_index=np.int32,
+    ):
         """
         Fit function for MNMG linear regression classes
         This not meant to be used as

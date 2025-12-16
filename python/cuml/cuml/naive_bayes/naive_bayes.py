@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import math
 import warnings
@@ -28,6 +17,7 @@ from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import reflect
 from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
@@ -86,7 +76,6 @@ def count_classes_kernel(float_dtype, int_dtype):
 
 
 def count_features_dense_kernel(float_dtype, int_dtype):
-
     kernel_str = r"""
     ({0} *out,
      {0} *in,
@@ -146,7 +135,6 @@ def _convert_x_sparse(X):
 
 
 class _BaseNB(Base, ClassifierMixin):
-
     classes_ = CumlArrayDescriptor()
     class_count_ = CumlArrayDescriptor()
     feature_count_ = CumlArrayDescriptor()
@@ -171,6 +159,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
@@ -214,6 +203,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
@@ -271,6 +261,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_proba(self, X) -> CumlArray:
         """
         Return probability estimates for the test vector X.
@@ -344,7 +335,6 @@ class GaussianNB(_BaseNB):
         handle=None,
         verbose=False,
     ):
-
         super(GaussianNB, self).__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
@@ -353,6 +343,7 @@ class GaussianNB(_BaseNB):
         self.fit_called_ = False
         self.classes_ = None
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -368,6 +359,7 @@ class GaussianNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -379,6 +371,7 @@ class GaussianNB(_BaseNB):
     @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
+    @reflect(reset=True)
     def _partial_fit(
         self,
         X,
@@ -390,7 +383,7 @@ class GaussianNB(_BaseNB):
     ) -> "GaussianNB":
         if getattr(self, "classes_") is None and _classes is None:
             raise ValueError(
-                "classes must be passed on the first call " "to partial_fit."
+                "classes must be passed on the first call to partial_fit."
             )
 
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
@@ -406,6 +399,7 @@ class GaussianNB(_BaseNB):
         y = input_to_cupy_array(
             y,
             convert_to_dtype=(expected_y_dtype if convert_dtype else False),
+            check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
 
@@ -452,7 +446,7 @@ class GaussianNB(_BaseNB):
             if self.priors is not None:
                 if len(self.priors) != n_classes:
                     raise ValueError(
-                        "Number of priors must match number of" " classes."
+                        "Number of priors must match number of classes."
                     )
                 if not cp.isclose(self.priors.sum(), 1):
                     raise ValueError("The sum of the priors should be 1.")
@@ -484,6 +478,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -524,7 +519,6 @@ class GaussianNB(_BaseNB):
         )
 
     def _update_mean_variance(self, X, Y, sample_weight=None):
-
         if sample_weight is None:
             sample_weight = cp.zeros(0)
 
@@ -599,7 +593,6 @@ class GaussianNB(_BaseNB):
                 ),
             )
         else:
-
             count_features_dense = count_features_dense_kernel(
                 X.dtype, labels_dtype
             )
@@ -737,12 +730,10 @@ class _BaseDiscreteNB(_BaseNB):
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
-
         if class_prior is not None:
-
             if class_prior.shape[0] != self.n_classes_:
                 raise ValueError(
-                    "Number of classes must match " "number of priors"
+                    "Number of classes must match number of priors"
                 )
 
             self.class_log_prior_ = cp.log(class_prior)
@@ -757,6 +748,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -math.log(self.n_classes_)
             )
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "_BaseDiscreteNB":
@@ -804,6 +796,7 @@ class _BaseDiscreteNB(_BaseNB):
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )
+    @reflect(reset=True)
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
@@ -860,6 +853,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         return self
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
@@ -1036,7 +1030,6 @@ class _BaseDiscreteNB(_BaseNB):
 
 
 class MultinomialNB(_BaseDiscreteNB):
-
     # TODO: Make this extend cuml.Base:
     # https://github.com/rapidsai/cuml/issues/1834
 
@@ -1650,6 +1643,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
         """Fit Naive Bayes classifier according to X, y
 
@@ -1675,6 +1669,7 @@ class CategoricalNB(_BaseDiscreteNB):
         """
         return super().fit(X, y, sample_weight=sample_weight)
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "CategoricalNB":
@@ -1856,9 +1851,7 @@ class CategoricalNB(_BaseDiscreteNB):
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
             features = self.category_count_.row % self.n_features_
-            cupyx.scatter_max(
-                highest_feature, features, self.category_count_.col
-            )
+            cp.maximum.at(highest_feature, features, self.category_count_.col)
             highest_feature = (highest_feature + 1) * alpha
 
             smoothed_class_count = self.category_count_.sum(axis=1)
@@ -1874,7 +1867,7 @@ class CategoricalNB(_BaseDiscreteNB):
             self.smoothed_class_count = cp.log(smoothed_class_count)
         else:
             indices = self.category_count_.nonzero()
-            cupyx.scatter_max(highest_feature, indices[0], indices[2])
+            cp.maximum.at(highest_feature, indices[0], indices[2])
             highest_feature = (highest_feature + 1) * alpha
 
             smoothed_class_count = (
@@ -1925,7 +1918,7 @@ class CategoricalNB(_BaseDiscreteNB):
                     jll_data[cp.where(jll_data == 0)] += cp.log(self.alpha)
                     jll_zeros[cp.where(jll_zeros == 0)] += cp.log(self.alpha)
                 jll_data -= jll_zeros
-                cupyx.scatter_add(jll[:, i], X.row, jll_data)
+                cp.add.at(jll[:, i], X.row, jll_data)
 
         else:
             col_indices = cp.indices(X.shape)[1].flatten()

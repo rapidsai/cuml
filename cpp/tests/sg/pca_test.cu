@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/decomposition/params.hpp>
@@ -79,7 +68,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     data_h.resize(len);
     raft::update_device(data.data(), data_h.data(), len, stream);
 
-    std::vector<T> trans_data_ref_h = {-2.3231, -0.3517, 2.6748, -0.3979, 0.6571, -0.2592};
+    std::vector<T> trans_data_ref_h = {-2.3231, -0.3517, 2.6748, 0.3979, -0.6571, 0.2592};
     trans_data_ref_h.resize(len);
     raft::update_device(trans_data_ref.data(), trans_data_ref_h.data(), len, stream);
 
@@ -208,7 +197,7 @@ TEST_P(PcaTestValF, Result)
   ASSERT_TRUE(devArrMatch(explained_vars.data(),
                           explained_vars_ref.data(),
                           params.n_col,
-                          MLCommon::CompareApproxAbs<float>(params.tolerance),
+                          MLCommon::CompareApprox<float>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -218,7 +207,7 @@ TEST_P(PcaTestValD, Result)
   ASSERT_TRUE(devArrMatch(explained_vars.data(),
                           explained_vars_ref.data(),
                           params.n_col,
-                          MLCommon::CompareApproxAbs<double>(params.tolerance),
+                          MLCommon::CompareApprox<double>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -228,7 +217,7 @@ TEST_P(PcaTestLeftVecF, Result)
   ASSERT_TRUE(devArrMatch(components.data(),
                           components_ref.data(),
                           (params.n_col * params.n_col),
-                          MLCommon::CompareApproxAbs<float>(params.tolerance),
+                          MLCommon::CompareApprox<float>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -238,7 +227,7 @@ TEST_P(PcaTestLeftVecD, Result)
   ASSERT_TRUE(devArrMatch(components.data(),
                           components_ref.data(),
                           (params.n_col * params.n_col),
-                          MLCommon::CompareApproxAbs<double>(params.tolerance),
+                          MLCommon::CompareApprox<double>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -248,7 +237,7 @@ TEST_P(PcaTestTransDataF, Result)
   ASSERT_TRUE(devArrMatch(trans_data.data(),
                           trans_data_ref.data(),
                           (params.n_row * params.n_col),
-                          MLCommon::CompareApproxAbs<float>(params.tolerance),
+                          MLCommon::CompareApprox<float>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -258,7 +247,7 @@ TEST_P(PcaTestTransDataD, Result)
   ASSERT_TRUE(devArrMatch(trans_data.data(),
                           trans_data_ref.data(),
                           (params.n_row * params.n_col),
-                          MLCommon::CompareApproxAbs<double>(params.tolerance),
+                          MLCommon::CompareApprox<double>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -268,7 +257,7 @@ TEST_P(PcaTestDataVecSmallF, Result)
   ASSERT_TRUE(devArrMatch(data.data(),
                           data_back.data(),
                           (params.n_col * params.n_col),
-                          MLCommon::CompareApproxAbs<float>(params.tolerance),
+                          MLCommon::CompareApprox<float>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -278,7 +267,7 @@ TEST_P(PcaTestDataVecSmallD, Result)
   ASSERT_TRUE(devArrMatch(data.data(),
                           data_back.data(),
                           (params.n_col * params.n_col),
-                          MLCommon::CompareApproxAbs<double>(params.tolerance),
+                          MLCommon::CompareApprox<double>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -290,7 +279,7 @@ TEST_P(PcaTestDataVecF, Result)
   ASSERT_TRUE(devArrMatch(data2.data(),
                           data2_back.data(),
                           (params.n_col2 * params.n_col2),
-                          MLCommon::CompareApproxAbs<float>(params.tolerance),
+                          MLCommon::CompareApprox<float>(params.tolerance),
                           handle.get_stream()));
 }
 
@@ -300,7 +289,7 @@ TEST_P(PcaTestDataVecD, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                     data2_back.data(),
                                     (params.n_col2 * params.n_col2),
-                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    MLCommon::CompareApprox<double>(params.tolerance),
                                     handle.get_stream()));
 }
 

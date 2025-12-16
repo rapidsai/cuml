@@ -1,19 +1,7 @@
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
-import json
 import math
 import warnings
 from collections.abc import Iterable
@@ -49,7 +37,6 @@ class BaseRandomForestModel(object):
         ignore_empty_partitions,
         **kwargs,
     ):
-
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
@@ -184,7 +171,8 @@ class BaseRandomForestModel(object):
             for indiv_worker_model_bytes in mod_bytes
         ]
         concatenated_model = treelite.Model.concatenate(tl_model_objs)
-        model._deserialize_from_treelite(concatenated_model)
+        model._treelite_model_bytes = concatenated_model.serialize_bytes()
+        model._fil_model = None
         return model
 
     def _partial_inference(self, X, op_type, delayed, **kwargs):
@@ -254,58 +242,6 @@ class BaseRandomForestModel(object):
             )
         wait_and_raise_from_futures(model_params)
         return self
-
-    def _get_summary_text(self):
-        """
-        Obtain the summary of the forest as text
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _get_summary_text_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(futures, errors="raise")
-        return "\n".join(all_dump)
-
-    def _get_detailed_text(self):
-        """
-        Obtain the detailed information of the forest as text
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _get_detailed_text_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(futures, errors="raise")
-        return "\n".join(all_dump)
-
-    def _get_json(self):
-        """
-        Export the Random Forest model as a JSON string
-        """
-        dump = list()
-        for n, w in enumerate(self.workers):
-            dump.append(
-                self.client.submit(
-                    _get_json_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-        all_dump = self.client.gather(dump, errors="raise")
-        combined_dump = []
-        for e in all_dump:
-            obj = json.loads(e)
-            combined_dump.extend(obj)
-        return json.dumps(combined_dump)
 
     def get_combined_model(self):
         """
@@ -399,18 +335,6 @@ def _func_predict_proba_partial(model, input_data, **kwargs):
         return cp.expand_dims(prediction, axis=1)
 
 
-def _get_summary_text_func(model):
-    return model.get_summary_text()
-
-
-def _get_detailed_text_func(model):
-    return model.get_detailed_text()
-
-
-def _get_json_func(model):
-    return model.get_json()
-
-
 def _func_get_params(model, deep):
     return model.get_params(deep)
 
@@ -420,4 +344,4 @@ def _func_set_params(model, **params):
 
 
 def _serialize_treelite_bytes(model):
-    return model._serialize_treelite_bytes()
+    return model._treelite_model_bytes

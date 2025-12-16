@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 
@@ -23,9 +12,6 @@ import numpy as np
 import scipy.sparse
 from dask.distributed import default_client
 
-from cuml.common import rmm_cupy_ary
-from cuml.internals.memory_utils import with_cupy_rmm
-
 
 def validate_dask_array(darray, client=None):
     if len(darray.chunks) > 2:
@@ -35,7 +21,7 @@ def validate_dask_array(darray, client=None):
 
 
 def _conv_df_to_sparse(x):
-    cupy_ary = rmm_cupy_ary(cp.asarray, x.to_cupy(), dtype=x.dtypes[0])
+    cupy_ary = cp.asarray(x.to_cupy(), dtype=x.dtypes[0])
 
     return cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
@@ -54,7 +40,7 @@ def _conv_array_to_sparse(arr):
     elif isinstance(arr, cudf.DataFrame):
         ret = _conv_df_to_sparse(arr)
     elif isinstance(arr, np.ndarray):
-        cupy_ary = rmm_cupy_ary(cp.asarray, arr, dtype=arr.dtype)
+        cupy_ary = cp.asarray(arr, dtype=arr.dtype)
         ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
     elif isinstance(arr, cp.ndarray):
@@ -64,7 +50,6 @@ def _conv_array_to_sparse(arr):
     return ret
 
 
-@with_cupy_rmm
 def to_sparse_dask_array(cudf_or_array, client=None):
     """
     Converts an array or cuDF to a sparse Dask array backed by sparse CuPy.
@@ -84,7 +69,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
     """
     ret = cudf_or_array
     shape = cudf_or_array.shape
-    meta = cupyx.scipy.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
+    meta = cupyx.scipy.sparse.csr_matrix(cp.zeros(1))
 
     if isinstance(ret, dask.dataframe.DataFrame):
         ret = ret.to_dask_array()
@@ -93,7 +78,6 @@ def to_sparse_dask_array(cudf_or_array, client=None):
         return cudf_or_array.map_blocks(_conv_array_to_sparse, meta=meta)
 
     else:
-
         ret = _conv_array_to_sparse(ret)
 
         # Push to worker

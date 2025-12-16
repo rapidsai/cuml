@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -127,6 +116,7 @@ struct TSNEParams {
  * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
+ * @param[out] n_iter              (optional) The number of iterations TSNE ran for.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -143,7 +133,8 @@ void TSNE_fit(const raft::handle_t& handle,
               int64_t* knn_indices,
               float* knn_dists,
               TSNEParams& params,
-              float* kl_div = nullptr);
+              float* kl_div = nullptr,
+              int* n_iter   = nullptr);
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN)
@@ -161,6 +152,7 @@ void TSNE_fit(const raft::handle_t& handle,
  * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
+ * @param[out] n_iter              (optional) The number of iterations TSNE ran for.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -180,6 +172,7 @@ void TSNE_fit_sparse(const raft::handle_t& handle,
                      int* knn_indices,
                      float* knn_dists,
                      TSNEParams& params,
-                     float* kl_div = nullptr);
+                     float* kl_div = nullptr,
+                     int* n_iter   = nullptr);
 
 }  // namespace ML

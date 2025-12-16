@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numbers
@@ -82,7 +71,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 
 
 @nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.reflect(array=None)
 def make_blobs(
     n_samples=100,
     n_features=2,
@@ -162,12 +151,6 @@ def make_blobs(
     --------
     make_classification: a more intricate variant
     """
-
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
     generator = _create_rs_generator(random_state=random_state)
 
     centers, n_centers = _get_centers(

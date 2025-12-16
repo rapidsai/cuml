@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 import tempfile
 import warnings
@@ -68,6 +57,13 @@ try:
     from hdbscan import HDBSCAN
 except ImportError:
     HDBSCAN = None
+
+
+try:
+    from xgboost import XGBClassifier, XGBRegressor
+except ImportError:
+    XGBClassifier = None
+    XGBRegressor = None
 
 
 class AlgorithmPair:
@@ -344,6 +340,28 @@ def all_algorithms():
             shared_args={},
             cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            XGBClassifier,
+            XGBClassifier,
+            shared_args={"tree_method": "hist", "n_estimators": 100},
+            cpu_args={"n_jobs": -1},
+            cuml_args={"device": "cuda"},
+            name="xgboost-classification",
+            accepts_labels=True,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook,
+            accuracy_function=metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            XGBRegressor,
+            XGBRegressor,
+            shared_args={"tree_method": "hist", "n_estimators": 100},
+            cpu_args={"n_jobs": -1},
+            cuml_args={"device": "cuda"},
+            name="xgboost-regression",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),

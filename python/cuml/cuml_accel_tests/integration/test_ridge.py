@@ -1,21 +1,12 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
@@ -88,9 +79,9 @@ def test_ridge_fit_intercept(regression_data, fit_intercept):
     y_pred = model.predict(X)
     # Compute R^2 score
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.5
-    ), f"R^2 score should be reasonable with fit_intercept={fit_intercept}"
+    assert r2 > 0.5, (
+        f"R^2 score should be reasonable with fit_intercept={fit_intercept}"
+    )
 
 
 def test_ridge_random_state(regression_data):
@@ -117,9 +108,9 @@ def test_ridge_copy_X(regression_data, copy_X):
     model.fit(X, y)
     if copy_X:
         # X should remain unchanged
-        assert np.allclose(
-            X, X_original
-        ), "X has been modified when copy_X=True"
+        assert np.allclose(X, X_original), (
+            "X has been modified when copy_X=True"
+        )
     else:
         # X might be modified when copy_X=False
         pass  # We cannot guarantee X remains unchanged
@@ -148,9 +139,9 @@ def test_ridge_positive(regression_data):
     model = Ridge(positive=True, solver="lbfgs", random_state=42)
     model.fit(X, y)
     # All coefficients should be non-negative
-    assert np.all(
-        model.coef_ >= 0
-    ), "All coefficients should be non-negative when positive=True"
+    assert np.all(model.coef_ >= 0), (
+        "All coefficients should be non-negative when positive=True"
+    )
 
 
 def test_ridge_solver_attribute_default():
@@ -172,7 +163,9 @@ def test_ridge_solver_attribute_after_fit(solver):
 
     expected = "cholesky" if solver == "auto" else solver
     assert model.solver == solver
-    assert model.solver_ == expected
+    # Old versions of scikit-learn don't have the solver_ attribute
+    if Version(sklearn.__version__) >= Version("1.5.0"):
+        assert model.solver_ == expected
 
 
 def test_ridge_solver_attribute_invalid(regression_data):

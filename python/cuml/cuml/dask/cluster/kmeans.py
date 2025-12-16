@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -25,7 +14,7 @@ from cuml.dask.common.base import (
 )
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.utils import check_random_seed
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -98,7 +87,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
-        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
+        from cuml.cluster.kmeans_mg import KMeansMG
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
@@ -109,7 +98,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return cumlKMeans(handle=handle, output_type=datatype, **kwargs).fit(
+        return KMeansMG(handle=handle, output_type=datatype, **kwargs).fit(
             inp_data, sample_weight=inp_weights
         )
 
@@ -126,7 +115,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             sample_weight *= scale
         return sample_weight
 
-    @with_cupy_rmm
     def fit(self, X, sample_weight=None):
         """
         Fit a multi-node multi-GPU KMeans model
@@ -153,6 +141,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(inputs, client=self.client)
         self.datatype = data.datatype
 
+        # Ensure a consistent `random_state` across all calls
+        kwargs = self.kwargs.copy()
+        kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
+
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
@@ -164,7 +156,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                 wf[1],
                 self.datatype,
                 data.multiple,
-                **self.kwargs,
+                **kwargs,
                 workers=[wf[0]],
                 pure=False,
             )
@@ -175,11 +167,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         comms.destroy()
 
-        _results = [res.result() for res in kmeans_fit]
-        _labels = [model.labels_ for model in _results]
-        self.labels_ = cp.concatenate(_labels)
-
-        self._set_internal_model(kmeans_fit[0])
+        models = [res.result() for res in kmeans_fit]
+        first = models[0]
+        first.labels_ = cp.concatenate([model.labels_ for model in models])
+        first.inertia_ = sum(model.inertia_ for model in models)
+        self._set_internal_model(first)
 
         return self
 
@@ -262,7 +254,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self._transform(X, n_dims=2, delayed=delayed)
 
-    @with_cupy_rmm
     def score(self, X, sample_weight=None):
         """
         Computes the inertia score for the trained KMeans centroids.
@@ -288,9 +279,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             delayed=False,
             output_futures=True,
         )
-
-        return -1 * cp.sum(
-            cp.asarray(self.client.compute(scores, sync=True)) * -1.0
+        return -1.0 * sum(
+            -1.0 * score for score in self.client.compute(scores, sync=True)
         )
 
     def _get_param_names(self):

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -26,8 +15,6 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-
-#include <thrust/transform.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -78,19 +65,19 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
                                                                knn_dists,
                                                                knn_inds,
                                                                n_prediction_points,
-                                                               neighborhood,
+                                                               static_cast<value_idx>(neighborhood),
                                                                min_mr_dists.data(),
                                                                min_mr_inds);
 
   // obtain lambda values from minimum mutual reachability distances
-  thrust::transform(exec_policy,
-                    min_mr_dists.data(),
-                    min_mr_dists.data() + n_prediction_points,
-                    prediction_lambdas,
-                    [] __device__(value_t dist) {
-                      if (dist > 0) return (1 / dist);
-                      return std::numeric_limits<value_t>::max();
-                    });
+  raft::linalg::map_offset(
+    handle,
+    raft::make_device_vector_view<value_t, value_idx>(prediction_lambdas, n_prediction_points),
+    [min_mr_dists = min_mr_dists.data()] __device__(auto idx) {
+      value_t dist = min_mr_dists[idx];
+      if (dist > 0) return (1 / dist);
+      return std::numeric_limits<value_t>::max();
+    });
 }
 
 /**

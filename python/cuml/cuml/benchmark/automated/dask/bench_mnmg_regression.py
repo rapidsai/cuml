@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import pytest
@@ -39,7 +28,10 @@ def regression(request):
 
 
 def bench_linear_regression(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,
@@ -51,7 +43,10 @@ def bench_linear_regression(
 
 
 def bench_mnmg_lasso(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.Lasso", bench_step, regression, client=client
@@ -59,7 +54,10 @@ def bench_mnmg_lasso(
 
 
 def bench_mnmg_elastic(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.ElasticNet", bench_step, regression, client=client
@@ -67,7 +65,10 @@ def bench_mnmg_elastic(
 
 
 def bench_mnmg_ridge(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark, "MNMG.Ridge", bench_step, regression, client=client
@@ -75,7 +76,10 @@ def bench_mnmg_ridge(
 
 
 def bench_mnmg_knnregressor(
-    gpubenchmark, bench_step, regression, client  # noqa: F811
+    gpubenchmark,
+    bench_step,
+    regression,
+    client,  # noqa: F811
 ):
     _benchmark_algo(
         gpubenchmark,

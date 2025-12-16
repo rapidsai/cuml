@@ -1,23 +1,11 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
 import dask.array as da
 import numpy as np
 
-from cuml.common import with_cupy_rmm
 from cuml.dask._compat import DASK_2025_4_0
 from cuml.dask.common.utils import get_client
 from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
@@ -33,7 +21,6 @@ def _create_covariance(dims, seed, dtype="float32"):
     return 2 * local_rs.rand(*dims, dtype=dtype) - 1
 
 
-@with_cupy_rmm
 def make_classification(
     n_samples=100,
     n_features=20,

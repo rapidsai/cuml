@@ -1,16 +1,5 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 import pytest
@@ -40,9 +29,9 @@ def test_linear_regression_copy_X(regression_data, copy_X):
     LinearRegression(copy_X=copy_X).fit(X, y)
     if copy_X:
         # X should remain unchanged
-        assert np.array_equal(
-            X, X_original
-        ), "X has been modified when copy_X=True"
+        assert np.array_equal(X, X_original), (
+            "X has been modified when copy_X=True"
+        )
     else:
         # X might be modified when copy_X=False
         pass  # We cannot guarantee X remains unchanged

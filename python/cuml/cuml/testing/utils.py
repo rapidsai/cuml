@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 import inspect
 from copy import deepcopy
 from itertools import dropwhile
@@ -135,9 +124,8 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         str_b[0] = f"b: {str_b[0][3:]}"
 
         # Create assertion error message and raise exception.
-        assertion_error_msg = (
-            dedent(
-                f"""
+        assertion_error_msg = dedent(
+            f"""
         Arrays are not equal
 
         unit_tol:  {unit_tol}
@@ -145,9 +133,7 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         with_sign: {with_sign}
 
         """
-            )
-            + "\n".join(str_a + str_b)
-        )
+        ) + "\n".join(str_a + str_b)
         raise AssertionError(assertion_error_msg)
 
 
@@ -233,10 +219,10 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
         la, lb = ref[i], actual[i]
 
         if i in core_set:  # core point
-            assert (
-                la == lb
-            ), "Core point mismatch at #{}: " "{} (expected {})".format(
-                i, lb, la
+            assert la == lb, (
+                "Core point mismatch at #{}: {} (expected {})".format(
+                    i, lb, la
+                )
             )
         elif la == -1:  # noise point
             assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
@@ -494,7 +480,7 @@ def generate_inputs_from_categories(
         if cudf_pandas_active:
             df = pandas_df
         else:
-            df = cudf.DataFrame.from_pandas(pandas_df)
+            df = cudf.DataFrame(pandas_df)
         return df, ary
 
 
@@ -640,6 +626,10 @@ def compare_svm(
                 "Skipping decision function test due to low  accuracy",
                 accuracy2,
             )
+
+    # Compare `class_weight_` attribute for classifiers, if present
+    if hasattr(svm1, "class_weight_"):
+        np.testing.assert_allclose(svm1.class_weight_, svm2.class_weight_)
 
     # Compare support_ (dataset indices of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists

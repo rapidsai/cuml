@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 # distutils: language = c++
@@ -46,7 +35,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
         float tail_strength,
         float noise,
         bool shuffle,
-        uint64_t seed)
+        uint64_t seed) except +
 
     void cpp_make_regression "ML::Datasets::make_regression" (
         const handle_t& handle,
@@ -62,7 +51,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
         double tail_strength,
         double noise,
         bool shuffle,
-        uint64_t seed)
+        uint64_t seed) except +
 
 inp_to_dtype = {
     'single': np.float32,
@@ -74,7 +63,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.reflect(array=None)
 def make_regression(
     n_samples=100,
     n_features=2,
@@ -109,8 +98,7 @@ def make_regression(
         ...                                noise=0.3, random_state=10)
 
         >>> # Perform a linear regression on this problem
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression()
         >>> reg = lr.fit(data, values)
         >>> print(reg.coef_) # doctest: +SKIP
         [-2.6980877e-02  7.7027252e+01  1.1498465e+01  8.5468025e+00
@@ -169,12 +157,6 @@ def make_regression(
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """  # noqa: E501
-
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
     else:

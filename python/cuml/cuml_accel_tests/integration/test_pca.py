@@ -1,21 +1,12 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_classification
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -43,23 +34,31 @@ def test_pca_n_components(pca_data, n_components):
     X_transformed = pca.transform(X)
     # Check the shape of the transformed data
     if n_components != "mle":
-        assert (
-            X_transformed.shape[1] == n_components
-        ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
+        assert X_transformed.shape[1] == n_components, (
+            f"Expected {n_components} components, got {X_transformed.shape[1]}"
+        )
     # Check that explained variance ratios sum up appropriately
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance <= 1.1
-    ), "Total explained variance cannot exceed with margin for parallel error"
-    assert (
-        total_variance > 0.0
-    ), "Total explained variance ratio should be positive"
+    assert total_variance <= 1.1, (
+        "Total explained variance cannot exceed with margin for parallel error"
+    )
+    assert total_variance > 0.0, (
+        "Total explained variance ratio should be positive"
+    )
 
 
 @pytest.mark.parametrize(
     "svd_solver", ["auto", "full", "arpack", "randomized", "covariance_eigh"]
 )
 def test_pca_svd_solver(pca_data, svd_solver):
+    if (
+        Version(sklearn.__version__) < Version("1.5.0")
+        and svd_solver == "covariance_eigh"
+    ):
+        pytest.skip(
+            "svd_solver 'covariance_eigh' is not supported in scikit-learn < 1.5.0"
+        )
+
     X, _ = pca_data
     pca = PCA(n_components=5, svd_solver=svd_solver, random_state=42).fit(X)
     X_transformed = pca.transform(X)
@@ -93,9 +92,9 @@ def test_pca_tol(pca_data, tol):
     # Since 'arpack' is iterative, tol might affect convergence
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance > 0.5
-    ), "Total explained variance should be significant"
+    assert total_variance > 0.5, (
+        "Total explained variance should be significant"
+    )
 
 
 def test_pca_random_state(pca_data):
@@ -135,9 +134,9 @@ def test_pca_iterated_power(pca_data, iterated_power):
     pca.transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
-    assert (
-        total_variance > 0.5
-    ), f"Total explained variance should be significant with iterated_power={iterated_power}"
+    assert total_variance > 0.5, (
+        f"Total explained variance should be significant with iterated_power={iterated_power}"
+    )
 
 
 def test_pca_explained_variance_ratio(pca_data):

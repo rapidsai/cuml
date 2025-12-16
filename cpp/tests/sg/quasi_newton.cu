@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/linear_model/glm.hpp>
@@ -201,9 +190,6 @@ T run_api(const raft::handle_t& cuml_handle,
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 {
-#if CUDART_VERSION >= 11020
-  GTEST_SKIP();
-#endif
   MLCommon::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
@@ -324,9 +310,6 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
 {
-#if CUDART_VERSION >= 11020
-  GTEST_SKIP();
-#endif
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 
@@ -627,9 +610,6 @@ TEST_F(QuasiNewtonTest, predict_softmax)
 
 TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
 {
-#if CUDART_VERSION >= 11020
-  GTEST_SKIP();
-#endif
   // Prepare a sparse input matrix from the dense matrix X.
   // Yes, it's not sparse at all, yet the test does check whether the behaviour
   // of dense and sparse variants is the same.

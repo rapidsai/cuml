@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: Andreas Mueller
+# SPDX-FileCopyrightText: Joris Van den Bossche
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Original authors from Sckit-Learn:
 #          Andreas Mueller
 #          Joris Van den Bossche
@@ -290,7 +295,9 @@ def _list_indexing(X, key, key_dtype):
 
 
 def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X).to_output('cupy')
+    with cuml.using_output_type("cupy"):
+        res = transformer.transform(X)
+
     # if we have a weight for this transformer, multiply output
     if weight is None:
         return res
@@ -826,6 +833,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             else:
                 raise
 
+    @cuml.internals.reflect
     def fit(self, X, y=None) -> "ColumnTransformer":
         """Fit all transformers using X.
 
@@ -849,6 +857,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Fit all transformers, transform the data and concatenate results.
 
@@ -906,6 +915,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         return self._hstack(list(Xs))
 
+    @cuml.internals.reflect
     def transform(self, X) -> SparseCumlArray:
         """Transform X separately by each transformer, concatenate results.
 

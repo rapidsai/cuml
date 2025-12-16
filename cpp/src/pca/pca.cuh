@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -110,7 +99,8 @@ void pcaFit(const raft::handle_t& handle,
             math_t* mu,
             math_t* noise_vars,
             const paramsPCA& prms,
-            cudaStream_t stream)
+            cudaStream_t stream,
+            bool flip_signs_based_on_U = false)
 {
   auto cublas_handle = handle.get_cublas_handle();
 
@@ -127,15 +117,25 @@ void pcaFit(const raft::handle_t& handle,
   auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
-  raft::stats::cov(
-    handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
+  raft::stats::cov<false>(
+    handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, true, stream);
   truncCompExpVars(
     handle, cov.data(), components, explained_var, explained_var_ratio, noise_vars, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);
 
-  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
+
+  signFlipComponents(handle,
+                     input,
+                     components,
+                     prms.n_rows,
+                     prms.n_cols,
+                     prms.n_components,
+                     stream,
+                     true,
+                     flip_signs_based_on_U);
 }
 
 /**
@@ -167,7 +167,8 @@ void pcaFitTransform(const raft::handle_t& handle,
                      math_t* mu,
                      math_t* noise_vars,
                      const paramsPCA& prms,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     bool flip_signs_based_on_U = false)
 {
   pcaFit(handle,
          input,
@@ -178,9 +179,9 @@ void pcaFitTransform(const raft::handle_t& handle,
          mu,
          noise_vars,
          prms,
-         stream);
+         stream,
+         flip_signs_based_on_U);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 }
 
 // TODO: implement pcaGetCovariance function
@@ -237,12 +238,12 @@ void pcaInverseTransform(const raft::handle_t& handle,
                                  scalar,
                                  prms.n_cols * prms.n_components,
                                  stream);
-    raft::matrix::matrixVectorBinaryMultSkipZero(
-      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
+    raft::matrix::matrixVectorBinaryMultSkipZero<true, true>(
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, stream);
   }
 
   tsvdInverseTransform(handle, trans_input, components_copy.data(), input, prms, stream);
-  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 }
 
 // TODO: implement pcaScore function
@@ -296,13 +297,13 @@ void pcaTransform(const raft::handle_t& handle,
                                  scalar,
                                  prms.n_cols * prms.n_components,
                                  stream);
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<true, true>(
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, stream);
   }
 
-  raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  raft::stats::meanCenter<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
   tsvdTransform(handle, input, components_copy.data(), trans_input, prms, stream);
-  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 }
 
 };  // end namespace ML

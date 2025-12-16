@@ -1,22 +1,10 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
 
 import math
-import typing
 import warnings
 from typing import Literal
 
@@ -25,11 +13,7 @@ import numpy as np
 import treelite.sklearn
 from pylibraft.common.handle import Handle
 
-import cuml.internals
-from cuml.common import input_to_cuml_array
-from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import ForestInference
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
@@ -37,10 +21,79 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
 )
 from cuml.internals.treelite import safe_treelite_call
-from cuml.prims.label.classlabels import check_labels, make_monotonic
+from cuml.internals.utils import check_random_seed
+from cuml.metrics import accuracy_score, r2_score
 
-from cuml.ensemble.randomforest_shared cimport *
-from cuml.internals.treelite cimport *
+from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
+
+from cuml.internals.logger cimport level_enum
+from cuml.internals.treelite cimport (
+    TreeliteFreeModel,
+    TreeliteModelHandle,
+    TreeliteSerializeModelToBytes,
+)
+
+
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
+    cdef enum CRITERION:
+        GINI,
+        ENTROPY,
+        MSE,
+        MAE,
+        POISSON,
+        GAMMA,
+        INVERSE_GAUSSIAN,
+        CRITERION_END
+
+    cdef struct RF_params:
+        pass
+
+    cdef RF_params set_rf_params(
+        int max_depth,
+        int max_leaves,
+        float max_features,
+        int max_n_bins,
+        int min_samples_leaf,
+        int min_samples_split,
+        float min_impurity_decrease,
+        bool bootstrap,
+        int n_trees,
+        float max_samples,
+        uint64_t seed,
+        CRITERION split_criterion,
+        int cfg_n_streams,
+        int max_batch_size
+    ) except +
+
+    cdef void fit_treelite[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        int n_unique_labels,
+        RF_params params,
+        bool* bootstrap_masks,
+        T* feature_importances,
+        level_enum verbosity
+    ) except +
+
+    cdef void fit_treelite[T, L](
+        handle_t& handle,
+        TreeliteModelHandle* model,
+        T* values,
+        int n_rows,
+        int n_cols,
+        L* labels,
+        RF_params params,
+        bool* bootstrap_masks,
+        T* feature_importances,
+        level_enum verbosity
+    ) except +
+
 
 _split_criterion_lookup = {
     "0": GINI,
@@ -63,15 +116,19 @@ _split_criterion_lookup = {
 _criterion_to_split_criterion = {
     "gini": "gini",
     "entropy": "entropy",
-    "poisson": "poisson",
     "squared_error": "mse",
+    "poisson": "poisson",
 }
 
 _split_criterion_to_criterion = {
-    GINI: "gini",
-    ENTROPY: "entropy",
-    POISSON: "poisson",
-    MSE: "squared_error",
+    "gini": "gini",
+    0: "gini",
+    "entropy": "entropy",
+    1: "entropy",
+    "mse": "squared_error",
+    2: "squared_error",
+    "poisson": "poisson",
+    4: "poisson",
 }
 
 
@@ -130,8 +187,8 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease",
             "max_batch_size",
             "random_state",
-            "criterion",
             "n_streams",
+            "oob_score",
             "handle",
             "verbose",
             "output_type",
@@ -139,29 +196,33 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.oob_score:
-            raise UnsupportedOnGPU
+        if model.oob_score and callable(model.oob_score):
+            raise UnsupportedOnGPU("callable `oob_score` is not supported")
 
         if model.warm_start:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
         if model.monotonic_cst is not None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`monotonic_cst={model.monotonic_cst!r} is not supported")
+
+        if model.ccp_alpha != 0:
+            raise UnsupportedOnGPU(f"`ccp_alpha={model.ccp_alpha}` is not supported")
+
+        if model.min_weight_fraction_leaf != 0:
+            raise UnsupportedOnGPU(
+                f"`min_weight_fraction_leaf={model.min_weight_fraction_leaf}` is not supported"
+            )
 
         if (split_criterion := _criterion_to_split_criterion.get(model.criterion)) is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`criterion={model.criterion!r}` is not supported")
 
         # We only forward some parameters, falling back to cuml defaults otherwise
         conditional_params = {}
 
         if isinstance(model.max_samples, int):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("`int` values for `max_samples` are not supported")
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
-
-        if model.random_state is not None:
-            # determinism requires 1 CUDA stream
-            conditional_params["n_streams"] = 1
 
         if model.max_depth is not None:
             conditional_params["max_depth"] = model.max_depth
@@ -176,12 +237,15 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": model.min_impurity_decrease,
             "bootstrap": model.bootstrap,
             "random_state": model.random_state,
+            "oob_score": model.oob_score,
             **conditional_params
         }
 
     def _params_to_cpu(self):
         if (criterion := _split_criterion_to_criterion.get(self.split_criterion)) is None:
-            raise UnsupportedOnCPU
+            raise UnsupportedOnCPU(
+                f"`split_criterion={self.split_criterion!r}` is not supported"
+            )
 
         return {
             "n_estimators": self.n_estimators,
@@ -195,39 +259,52 @@ class BaseRandomForestModel(Base, InteropMixin):
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
             "max_samples": self.max_samples,
+            "oob_score": self.oob_score,
         }
 
     def _attrs_from_cpu(self, model):
         tl_model = treelite.sklearn.import_model(model)
-        return {
-            "treelite_serialized_bytes": tl_model.serialize_bytes(),
-            "dtype": np.float64,
-            "update_labels": False,
+        attrs = {
+            "_treelite_model_bytes": tl_model.serialize_bytes(),
             "n_outputs_": model.n_outputs_,
-            "n_rows": model._n_samples,
-            "n_cols": model.n_features_in_,
+            "_n_samples": model._n_samples,
+            "_n_samples_bootstrap": model._n_samples_bootstrap,
             **super()._attrs_from_cpu(model)
         }
+        # Transfer OOB attributes if present
+        if hasattr(model, 'oob_score_'):
+            attrs["oob_score_"] = model.oob_score_
+        if hasattr(model, 'oob_decision_function_'):
+            attrs["oob_decision_function_"] = model.oob_decision_function_
+        if hasattr(model, 'oob_prediction_'):
+            attrs["oob_prediction_"] = model.oob_prediction_
+        # Note: feature_importances_ is NOT transferred from sklearn to cuML
+        # because cuML caches the impurity decrease directly (BestMetric()) which
+        # is not available in sklearn models created via treelite export
+        return attrs
 
     def _attrs_to_cpu(self, model):
-        self._serialize_treelite_bytes()
-        tl_model = treelite.Model.deserialize_bytes(self.treelite_serialized_bytes)
+        tl_model = treelite.Model.deserialize_bytes(self._treelite_model_bytes)
         sk_model = treelite.sklearn.export_model(tl_model)
-
-        # Compute _n_samples_bootstrap
-        if self.max_samples is None:
-            n_samples_bootstrap = self.n_rows
-        else:
-            n_samples_bootstrap = max(round(self.n_rows * self.max_samples), 1)
-
-        return {
+        attrs = {
             "estimator_": sk_model.estimator,
             "estimators_": sk_model.estimators_,
             "n_outputs_": self.n_outputs_,
-            "_n_samples": self.n_rows,
-            "_n_samples_bootstrap": n_samples_bootstrap,
+            "_n_samples": self._n_samples,
+            "_n_samples_bootstrap": self._n_samples_bootstrap,
             **super()._attrs_to_cpu(model)
         }
+        # Transfer OOB attributes if present
+        if hasattr(self, 'oob_score_'):
+            attrs["oob_score_"] = self.oob_score_
+        if hasattr(self, 'oob_decision_function_'):
+            attrs["oob_decision_function_"] = self.oob_decision_function_
+        if hasattr(self, 'oob_prediction_'):
+            attrs["oob_prediction_"] = self.oob_prediction_
+        # Note: feature_importances_ is NOT transferred from cuML to sklearn
+        # because sklearn's computation requires tree impurities that aren't
+        # available in sklearn models created via treelite export
+        return attrs
 
     def __init__(
         self,
@@ -247,6 +324,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         random_state=None,
         criterion=None,
         n_streams=4,
+        oob_score=False,
         handle=None,
         verbose=False,
         output_type=None,
@@ -256,10 +334,7 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
-        if max_depth <= 0:
-            raise ValueError("Must specify max_depth >0 ")
-
-        self.split_criterion = _normalize_split_criterion(split_criterion)
+        self.split_criterion = split_criterion
         self.n_estimators = n_estimators
         self.bootstrap = bootstrap
         self.max_samples = max_samples
@@ -273,177 +348,321 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.max_batch_size = max_batch_size
         self.random_state = random_state
         self.n_streams = n_streams
+        self.oob_score = oob_score
 
-        self.rf_forest = 0
-        self.rf_forest64 = 0
-        self.treelite_serialized_bytes = None
-        self.n_cols = None
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # FIL model isn't currently pickleable
+        state.pop("_fil_model", None)
+        return state
 
-    def set_params(self, **params):
-        self.treelite_serialized_bytes = None
-        return super().set_params(**params)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def __len__(self):
         """Return the number of estimators in the ensemble."""
         return self.n_estimators
 
-    def _serialize_treelite_bytes(self) -> bytes:
+    def as_treelite(self):
         """
-        Serialize the cuML RF model as bytes.
-        Internally, the RF model is serialized as follows:
-        * The RF model is converted to a Treelite model object.
-        * The Treelite model object is then serialized as bytes.
+        Converts this estimator to a Treelite model.
 
-        The serialized byte sequence will be internally cached to
-        self.treelite_serialized_bytes.
+        Returns
+        -------
+        treelite.Model
         """
-        if self.treelite_serialized_bytes:  # Cache hit
-            return self.treelite_serialized_bytes
+        return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
 
-        if not self.rf_forest:
-            raise NotFittedError("Attempting to serialize an un-fit forest.")
-
-        # Convert RF model object to Treelite model object
-        if self.dtype not in [np.float32, np.float64]:
-            raise ValueError("Unknown dtype.")
-
-        cdef TreeliteModelHandle tl_handle = NULL
-        if self.RF_type == CLASSIFICATION:
-            if self.dtype == np.float32:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, int]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                )
-            elif self.dtype == np.float64:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[double, int]*>
-                    <uintptr_t> self.rf_forest64,
-                    <int> self.n_cols
-                )
-        else:
-            if self.dtype == np.float32:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, float]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                )
-            elif self.dtype == np.float64:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[double, double]*>
-                    <uintptr_t> self.rf_forest64,
-                    <int> self.n_cols
-                )
-
-        cdef const char* tl_bytes = NULL
-        cdef size_t tl_bytes_len
-        safe_treelite_call(
-            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
-            "Failed to serialize RF model to bytes due to internal error: "
-            "Failed to serialize Treelite model to bytes."
-        )
-        cdef bytes tl_serialized_bytes = tl_bytes[:tl_bytes_len]
-        self.treelite_serialized_bytes = tl_serialized_bytes
-        return self.treelite_serialized_bytes
-
-    def _deserialize_from_treelite(self, tl_model):
+    def as_fil(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None,
+    ):
         """
-        Update the cuML RF model to match the given Treelite model.
+        Create a Forest Inference (FIL) model from the trained cuML
+        Random Forest model.
+
+        Parameters
+        ----------
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+
+        Returns
+        -------
+        fil_model : ForestInference
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
         """
-        self._reset_forest_data()
-        self.treelite_serialized_bytes = tl_model.serialize_bytes()
-        self.n_cols = tl_model.num_feature
-        self.n_estimators = tl_model.num_tree
-
-        return self
-
-    @cuml.internals.api_base_return_generic(set_output_type=True,
-                                            set_n_features_in=True,
-                                            get_output_type=False)
-    def _dataset_setup_for_fit(
-            self, X, y,
-            convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
-        # Reset the old tree data for new fit call
-        self._reset_forest_data()
-
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64],
-                                order='F')
-        if self.n_bins > self.n_rows:
-            warnings.warn("The number of bins, `n_bins` is greater than "
-                          "the number of samples used for training. "
-                          "Changing `n_bins` to number of training samples.")
-            self.n_bins = self.n_rows
-
-        if self.RF_type == CLASSIFICATION:
-            y_m, _, _, y_dtype = \
-                input_to_cuml_array(
-                    y, check_dtype=np.int32,
-                    convert_to_dtype=(np.int32 if convert_dtype
-                                      else None),
-                    check_rows=self.n_rows, check_cols=1)
-            if y_dtype != np.int32:
-                raise TypeError("The labels `y` need to be of dtype"
-                                " `int32`")
-            self.classes_ = cp.unique(y_m)
-            self.num_classes = self.n_classes_ = len(self.classes_)
-            self.use_monotonic = not check_labels(
-                y_m, cp.arange(self.num_classes, dtype=np.int32))
-            if self.use_monotonic:
-                y_m, _ = make_monotonic(y_m)
-
-        else:
-            y_m, _, _, y_dtype = \
-                input_to_cuml_array(
-                    y,
-                    convert_to_dtype=(self.dtype if convert_dtype
-                                      else None),
-                    check_rows=self.n_rows, check_cols=1)
-
-        if len(y_m.shape) == 1:
-            self.n_outputs_ = 1
-        else:
-            self.n_outputs_ = y_m.shape[1]
-        self.n_features_in_ = X_m.shape[1]
-
-        max_feature_val = compute_max_features(self.max_features, self.n_cols)
-        if isinstance(self.min_samples_leaf, float):
-            self.min_samples_leaf = \
-                math.ceil(self.min_samples_leaf * self.n_rows)
-        if isinstance(self.min_samples_split, float):
-            self.min_samples_split = \
-                max(2, math.ceil(self.min_samples_split * self.n_rows))
-        return X_m, y_m, max_feature_val
-
-    def _predict_model_on_gpu(
-        self,
-        X,
-        is_classifier = False,
-        predict_proba = False,
-        threshold = 0.5,
-        convert_dtype = True,
-        layout = "depth_first",
-        default_chunk_size = None,
-        align_bytes = None,
-    ) -> CumlArray:
-        treelite_bytes = self._serialize_treelite_bytes()
-        fil_model = ForestInference(
-            treelite_model=treelite_bytes,
+        return ForestInference(
             handle=self.handle,
-            output_type=self.output_type,
             verbose=self.verbose,
-            is_classifier=is_classifier,
+            output_type=self.output_type,
+            treelite_model=self._treelite_model_bytes,
+            is_classifier=(self._estimator_type == "classifier"),
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        if predict_proba:
-            return fil_model.predict_proba(X)
-        return fil_model.predict(X, threshold=threshold)
+
+    def _fit_forest(self, X, y):
+        cdef bool is_classifier = self._estimator_type == "classifier"
+        cdef bool is_float32 = X.dtype == np.float32
+
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t y_ptr = y.ptr
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        cdef level_enum verbose = <level_enum> self._verbose_level
+        cdef int n_classes = self.n_classes_ if is_classifier else 0
+
+        if self.max_depth <= 0:
+            raise ValueError("Must specify max_depth > 0")
+
+        # Validate OOB score parameter
+        if callable(self.oob_score):
+            raise ValueError(
+                "oob_score must be a boolean. "
+                "Custom scorer functions are not supported."
+            )
+
+        # Validate OOB score requirements
+        if self.oob_score and not self.bootstrap:
+            raise ValueError("Out of bag estimation only available if bootstrap=True")
+
+        cdef float max_features = compute_max_features(self.max_features, n_cols)
+        cdef uint64_t seed = (
+            0 if self.random_state is None
+            else check_random_seed(self.random_state)
+        )
+        cdef int min_samples_leaf = (
+            self.min_samples_leaf if isinstance(self.min_samples_leaf, int)
+            else math.ceil(self.min_samples_leaf * n_rows)
+        )
+        cdef int min_samples_split = (
+            self.min_samples_split if isinstance(self.min_samples_split, int)
+            else max(2, math.ceil(self.min_samples_split * n_rows))
+        )
+
+        cdef int n_bins
+        if self.n_bins > n_rows:
+            warnings.warn("The number of bins, `n_bins` is greater than "
+                          "the number of samples used for training. "
+                          "Changing `n_bins` to number of training samples.")
+            n_bins = n_rows
+        else:
+            n_bins = self.n_bins
+
+        cdef RF_params params = set_rf_params(
+            self.max_depth,
+            self.max_leaves,
+            max_features,
+            n_bins,
+            min_samples_leaf,
+            min_samples_split,
+            self.min_impurity_decrease,
+            self.bootstrap,
+            self.n_estimators,
+            self.max_samples,
+            seed,
+            _normalize_split_criterion(self.split_criterion),
+            self.n_streams,
+            self.max_batch_size,
+        )
+
+        cdef TreeliteModelHandle tl_handle
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+
+        # Store oob_score in C variable for nogil block
+        cdef bool use_oob_score = self.oob_score
+
+        # Allocate buffer for bootstrap masks if OOB score is enabled
+        bootstrap_masks_cp = None
+        cdef bool* bootstrap_masks_ptr = NULL
+        cdef uintptr_t masks_ptr_val = 0
+        if use_oob_score:
+            bootstrap_masks_cp = cp.zeros((self.n_estimators, n_rows), dtype=cp.bool_)
+            masks_ptr_val = bootstrap_masks_cp.data.ptr
+            bootstrap_masks_ptr = <bool*> masks_ptr_val
+
+        cdef object feature_importances = np.empty(n_cols, dtype=X.dtype)
+        cdef uintptr_t feature_importances_ptr = <uintptr_t> feature_importances.ctypes.data
+
+        with nogil:
+            if is_classifier:
+                if is_float32:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        bootstrap_masks_ptr,
+                        <float*> feature_importances_ptr,
+                        verbose
+                    )
+                else:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <int*> y_ptr,
+                        n_classes,
+                        params,
+                        bootstrap_masks_ptr,
+                        <double*> feature_importances_ptr,
+                        verbose
+                    )
+            else:
+                if is_float32:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <float*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <float*> y_ptr,
+                        params,
+                        bootstrap_masks_ptr,
+                        <float*> feature_importances_ptr,
+                        verbose
+                    )
+                else:
+                    fit_treelite(
+                        handle_[0],
+                        &tl_handle,
+                        <double*> X_ptr,
+                        n_rows,
+                        n_cols,
+                        <double*> y_ptr,
+                        params,
+                        bootstrap_masks_ptr,
+                        <double*> feature_importances_ptr,
+                        verbose
+                    )
+
+        # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
+        # manage ownership, and keep the loaded model around. However, this
+        # only works if the `libtreelite` is ABI compatible with the one used
+        # by `cuml`. This is currently true for conda environments, but not for
+        # wheels where `cuml` and `treelite` use different manylinux ABIs. So
+        # for now we need to do this serialize-and-reload dance. If/when this
+        # is fixed we could instead store the loaded model and use that instead.
+        cdef const char* tl_bytes = NULL
+        cdef size_t tl_bytes_len
+        safe_treelite_call(
+            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
+            "Failed to serialize Treelite model to bytes:"
+        )
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle), "Failed to free Treelite model:"
+        )
+
+        self._n_samples = y.shape[0]
+        self._n_samples_bootstrap = (
+            self._n_samples if self.max_samples is None
+            else max(round(self._n_samples * self.max_samples), 1)
+        )
+        self.n_outputs_ = 1
+        self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
+        # Ensure cached fil model is reset
+        self._fil_model = None
+
+        # Compute OOB score if requested
+        if self.oob_score:
+            self._compute_oob_score(X, y, bootstrap_masks_cp)
+
+        self.feature_importances_ = feature_importances
+        return self
+
+    def _get_inference_fil_model(
+        self,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+    ):
+        if (
+            layout == "depth_first" and default_chunk_size is None and align_bytes is None
+        ):
+            # default parameters, get (or create) the cached fil model
+            if (fil_model := getattr(self, "_fil_model", None)) is None:
+                fil_model = self._fil_model = self.as_fil()
+        else:
+            fil_model = self.as_fil(
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+            )
+        return fil_model
+
+    def _compute_oob_score(self, X, y, bootstrap_masks_cp):
+        """
+        Compute OOB score using per-tree predictions and bootstrap masks.
+        """
+        # Get per-tree predictions using FIL
+        fil_model = self.as_fil()
+        # Per tree predictions shape: (n_samples, n_trees) for regression
+        #                          or (n_samples, n_trees, n_classes) for classification
+        per_tree_preds = fil_model.predict_per_tree(X)
+
+        n_samples = X.shape[0]
+
+        # Determine output shape based on prediction dimensionality
+        # For regression: (n_samples,)
+        # For classification: (n_samples, n_classes)
+        output_shape = (n_samples,) + per_tree_preds.shape[2:]
+        oob_predictions = cp.zeros(output_shape, dtype=cp.float64, order="C")
+        oob_counts = cp.zeros(n_samples, dtype=cp.int32, order="C")
+
+        # For each tree, accumulate predictions for OOB samples
+        for tree_idx in range(self.n_estimators):
+            # Get OOB mask for this tree (samples NOT in bootstrap)
+            in_bag_mask = bootstrap_masks_cp[tree_idx]
+            oob_mask = ~in_bag_mask
+
+            # Accumulate predictions for OOB samples
+            oob_predictions[oob_mask] += per_tree_preds[oob_mask, tree_idx]
+            oob_counts[oob_mask] += 1
+
+        # Average OOB predictions (broadcasting handles both 1D and 2D cases)
+        valid_oob = oob_counts > 0
+
+        # Warn if some samples don't have OOB predictions
+        if not valid_oob.all():
+            warnings.warn(
+                "Some inputs do not have OOB scores. This probably means "
+                "too few trees were used to compute any reliable OOB estimates.",
+                UserWarning
+            )
+
+        if oob_predictions.ndim > 1:
+            oob_predictions[valid_oob] /= oob_counts[valid_oob, cp.newaxis]
+        else:
+            oob_predictions[valid_oob] /= oob_counts[valid_oob]
+
+        # Assign OOB predictions to the appropriate attribute based on estimator
+        # type and compute the OOB score
+        if self._estimator_type == "classifier":
+            self.oob_decision_function_ = oob_predictions
+
+            # Compute accuracy score for classification
+            oob_pred_classes = cp.argmax(oob_predictions[valid_oob], axis=1)
+            y_valid = y[valid_oob]
+            self.oob_score_ = float(accuracy_score(y_valid, oob_pred_classes))
+        else:
+            self.oob_prediction_ = oob_predictions
+
+            # Compute R² score for regression
+            self.oob_score_ = float(r2_score(y[valid_oob], oob_predictions[valid_oob]))

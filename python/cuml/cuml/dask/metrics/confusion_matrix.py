@@ -1,31 +1,18 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
 import cupyx
+import dask.array as da
 import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
-from cuml.dask.metrics.utils import sorted_unique_labels
-from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.prims.label import make_monotonic
 
 
-@with_cupy_rmm
 def _local_cm(inputs, labels, use_sample_weight):
     if use_sample_weight:
         y_true, y_pred, sample_weight = inputs
@@ -51,7 +38,6 @@ def _local_cm(inputs, labels, use_sample_weight):
     return cp.nan_to_num(cm)
 
 
-@with_cupy_rmm
 def confusion_matrix(
     y_true,
     y_pred,
@@ -91,7 +77,9 @@ def confusion_matrix(
     client = get_client(client)
 
     if labels is None:
-        labels = sorted_unique_labels(y_true, y_pred)
+        labels = da.unique(
+            da.concatenate([da.unique(y_true), da.unique(y_pred)])
+        ).compute()
 
     if normalize not in ["true", "pred", "all", None]:
         msg = (

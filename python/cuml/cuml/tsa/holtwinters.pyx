@@ -1,33 +1,18 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
 import cudf
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
-import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.outputs import run_in_internal_context
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
@@ -275,9 +260,9 @@ class ExponentialSmoothing(Base):
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
-        return mod_ts_input
+        return CumlArray(data=mod_ts_input)
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -360,9 +345,9 @@ class ExponentialSmoothing(Base):
 
         self.handle.sync()
         self.fit_executed_flag = True
-        del X_m
         return self
 
+    @run_in_internal_context
     def forecast(self, h=1, index=None):
         """
         Forecasts future points based on the fitted model.
@@ -448,6 +433,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before forecast()")
 
+    @run_in_internal_context
     def score(self, index=None):
         """
         Returns the score of the model.
@@ -479,6 +465,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before score()")
 
+    @run_in_internal_context
     def get_level(self, index=None):
         """
         Returns the level component of the model.
@@ -510,6 +497,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get level values")
 
+    @run_in_internal_context
     def get_trend(self, index=None):
         """
         Returns the trend component of the model.
@@ -541,6 +529,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get trend values")
 
+    @run_in_internal_context
     def get_season(self, index=None):
         """
         Returns the season component of the model.

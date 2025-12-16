@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/linear_model/preprocess_mg.hpp>
@@ -64,10 +53,10 @@ void ridgeSolve(const raft::handle_t& handle,
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  raft::matrix::matrixVectorBinaryDivSkipZero(
-    S, S_nnz, size_t(1), UDesc.N, false, true, streams[0], true);
+  raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
+    S, S_nnz, size_t(1), UDesc.N, streams[0], true);
 
-  raft::matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true, streams[0]);
+  raft::matrix::matrixVectorBinaryMult<false, true>(V, S, UDesc.N, UDesc.N, streams[0]);
 
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
@@ -149,20 +138,17 @@ void fit_impl(raft::handle_t& handle,
               T* coef,
               T* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               cudaStream_t* streams,
               int n_streams,
               bool verbose)
 {
   rmm::device_uvector<T> mu_input(0, streams[0]);
-  rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);
     mu_labels.resize(1, streams[0]);
-    if (normalize) { norm2_input.resize(input_desc.N, streams[0]); }
 
     GLM::opg::preProcessData(handle,
                              input_data,
@@ -170,9 +156,7 @@ void fit_impl(raft::handle_t& handle,
                              labels,
                              mu_input.data(),
                              mu_labels.data(),
-                             norm2_input.data(),
                              fit_intercept,
-                             normalize,
                              streams,
                              n_streams,
                              verbose);
@@ -196,9 +180,7 @@ void fit_impl(raft::handle_t& handle,
                               intercept,
                               mu_input.data(),
                               mu_labels.data(),
-                              norm2_input.data(),
                               fit_intercept,
-                              normalize,
                               streams,
                               n_streams,
                               verbose);
@@ -221,7 +203,6 @@ void fit_impl(raft::handle_t& handle,
  * @output param coef: learned regression coefficients
  * @output param intercept: intercept value
  * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
  * @input param verbose
  */
 template <typename T>
@@ -234,7 +215,6 @@ void fit_impl(raft::handle_t& handle,
               T* coef,
               T* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               bool verbose)
 {
@@ -258,7 +238,6 @@ void fit_impl(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            streams,
            n_streams,
@@ -356,7 +335,6 @@ void fit(raft::handle_t& handle,
          float* coef,
          float* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose)
 {
@@ -369,7 +347,6 @@ void fit(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            verbose);
 }
@@ -383,7 +360,6 @@ void fit(raft::handle_t& handle,
          double* coef,
          double* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose)
 {
@@ -396,7 +372,6 @@ void fit(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            verbose);
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "benchmark.cuh"
@@ -51,16 +40,25 @@ class KMeans : public BlobsFixture<D> {
     using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) { state.SkipWithError("KMeans only supports row-major inputs"); }
     this->loopOnState(state, [this]() {
-      ML::kmeans::fit_predict(*this->handle,
-                              kParams,
-                              this->data.X.data(),
-                              this->params.nrows,
-                              this->params.ncols,
-                              nullptr,
-                              centroids,
-                              this->data.y.data(),
-                              inertia,
-                              nIter);
+      ML::kmeans::fit(*this->handle,
+                      kParams,
+                      this->data.X.data(),
+                      this->params.nrows,
+                      this->params.ncols,
+                      nullptr,
+                      centroids,
+                      inertia,
+                      nIter);
+      ML::kmeans::predict(*this->handle,
+                          kParams,
+                          centroids,
+                          this->data.X.data(),
+                          this->params.nrows,
+                          this->params.ncols,
+                          nullptr,
+                          true,
+                          this->data.y.data(),
+                          inertia);
     });
   }
 

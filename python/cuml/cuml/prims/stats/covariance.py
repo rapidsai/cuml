@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import math
@@ -19,7 +8,6 @@ import math
 import cupy as cp
 import cupyx
 
-import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r"""
@@ -106,7 +94,6 @@ def _copy_kernel(dtype):
     return cuda_kernel_factory(copy_kernel, (dtype,), "copy_kernel")
 
 
-@cuml.internals.api_return_any()
 def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
     """
     Computes a covariance between two matrices using
@@ -233,7 +220,6 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
         return cov_result, gram_matrix, mean_x, mean_y
 
 
-@cuml.internals.api_return_any()
 def _cov_sparse(x, return_gram=False, return_mean=False):
     """
     Computes the mean and the covariance of matrix X of

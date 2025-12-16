@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from cuml.dask.common.base import (
@@ -37,8 +26,8 @@ class PCA(
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask-cuDF object as input
-    and provides 2 algorithms, Full and Jacobi. Full (default) uses a full
+    cuML's multi-node multi-GPU (MNMG) PCA expects a Dask cuDF object as input
+    and provides 2 algorithms: Full and Jacobi. Full (default) uses a full
     eigendecomposition then selects the top K eigenvectors. The Jacobi
     algorithm can be much faster as it iteratively tries to correct the top K
     eigenvectors, but might be less accurate.
@@ -131,6 +120,9 @@ class PCA(
 
     Notes
     -----
+    **Known Limitation:** The `random_state` parameter is not supported in the
+    multi-node multi-GPU implementation. Results may vary slightly between runs.
+
     PCA considers linear combinations of features, specifically those that
     maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
@@ -149,7 +141,6 @@ class PCA(
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-
         super().__init__(
             model_func=PCA._create_pca,
             client=client,

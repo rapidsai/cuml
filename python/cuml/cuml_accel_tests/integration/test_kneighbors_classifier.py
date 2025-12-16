@@ -1,20 +1,7 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
@@ -45,9 +32,9 @@ def test_knn_classifier_n_neighbors(classification_data, n_neighbors):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with n_neighbors={n_neighbors}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with n_neighbors={n_neighbors}"
+    )
 
 
 @pytest.mark.parametrize("weights", ["uniform", "distance"])
@@ -69,9 +56,9 @@ def test_knn_classifier_algorithm(classification_data, algorithm):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with algorithm={algorithm}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with algorithm={algorithm}"
+    )
 
 
 @pytest.mark.parametrize("leaf_size", [10, 30, 50])
@@ -81,9 +68,9 @@ def test_knn_classifier_leaf_size(classification_data, leaf_size):
     model.fit(X, y)
     y_pred = model.predict(X)
     acc = accuracy_score(y, y_pred)
-    assert (
-        acc > 0.7
-    ), f"Accuracy should be reasonable with leaf_size={leaf_size}"
+    assert acc > 0.7, (
+        f"Accuracy should be reasonable with leaf_size={leaf_size}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -108,7 +95,6 @@ def test_knn_classifier_p_parameter(classification_data, p):
     assert acc > 0.7, f"Accuracy should be reasonable with p={p}"
 
 
-@pytest.mark.xfail(reason="Dispatching with callable not supported yet")
 def test_knn_classifier_weights_callable(classification_data):
     X, y = classification_data
 
@@ -163,6 +149,14 @@ def test_knn_classifier_predict_proba(classification_data):
     ), "Probability matrix shape should be (n_samples, n_classes)"
 
 
+def test_knn_classifier_private_attrs(classification_data):
+    model = KNeighborsClassifier().fit(*classification_data)
+    assert isinstance(model._fit_X, np.ndarray)
+    assert isinstance(model._y, np.ndarray)
+    assert model._tree is None
+    assert model._fit_method == "brute"
+
+
 def test_knn_classifier_sparse_input():
     from scipy.sparse import csr_matrix
 
@@ -185,11 +179,11 @@ def test_knn_classifier_multilabel():
     model.fit(X, y)
     y_pred = model.predict(X)
     # Check that the predicted shape matches the true labels
-    assert (
-        y_pred.shape == y.shape
-    ), "Predicted labels should have the same shape as true labels"
+    assert y_pred.shape == y.shape, (
+        "Predicted labels should have the same shape as true labels"
+    )
     # Calculate accuracy for multi-label
     acc = (y_pred == y).mean()
-    assert (
-        acc > 0.7
-    ), "Accuracy should be reasonable for multi-label classification"
+    assert acc > 0.7, (
+        "Accuracy should be reasonable for multi-label classification"
+    )

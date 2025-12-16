@@ -1,4 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
 import dask
@@ -9,7 +10,6 @@ from cuml.dask.common import to_sparse_dask_array
 
 
 def load_text_corpus(client):
-
     categories = [
         "alt.atheism",
         "soc.religion.christian",

@@ -1,22 +1,7 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
-import math
 import typing
 import warnings
 
@@ -25,26 +10,24 @@ import cupyx
 import numpy as np
 import scipy.sparse
 
-import cuml.internals
-from cuml.common import input_to_cuml_array
+import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect, using_output_type
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
 from cuml.metrics.distance_type cimport DistanceType
-from cuml.neighbors.ann cimport *
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
@@ -109,6 +92,25 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         int n
     ) except +
 
+    cdef cppclass knnIndex:
+        pass
+
+    cdef cppclass knnIndexParam:
+        pass
+
+    cdef cppclass IVFParam(knnIndexParam):
+        int nlist
+        int nprobe
+
+    cdef cppclass IVFFlatParam(IVFParam):
+        pass
+
+    cdef cppclass IVFPQParam(IVFParam):
+        int M
+        int n_bits
+        bool usePrecomputedTables
+
+
 cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
     void brute_force_knn(handle_t &handle,
                          const int *idxIndptr,
@@ -131,7 +133,7 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse" nogil:
                          DistanceType metric,
                          float metricArg) except +
 
-# Kernel to check for zeros in the second column of D_ndarr
+# Kernel to check for zeros in the second column of distances
 check_zero_kernel = cp.RawKernel(r'''
 extern "C" __global__
 void check_zero_kernel(float* D, int n_rows, int n_cols, int* zero_found) {
@@ -174,6 +176,259 @@ void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
     }
 }
 ''', 'swap_kernel')
+
+
+def _drop_self_edges(distances: CumlArray, indices: CumlArray):
+    """Drop edges between a point and itself in the knn graph"""
+    index = indices.index
+    distances_cp = distances.to_output('cupy')
+    indices_cp = indices.to_output('cupy')
+
+    rows, cols = indices_cp.shape
+
+    # Launch config
+    threads_per_block = 32
+    blocks = (rows + threads_per_block - 1) // threads_per_block
+
+    # Allocate memory for the flag
+    zero_found = cp.zeros(1, dtype=cp.int32)
+
+    # Run the kernel to check for zeros
+    check_zero_kernel(
+        (blocks,),
+        (threads_per_block,),
+        (distances_cp.ravel(), rows, cols, zero_found.ravel())
+    )
+
+    # only run kernel if there are multiple zero distances
+    if zero_found.item():
+        threads_per_block = 32
+        blocks = (rows + threads_per_block - 1) // threads_per_block
+        swap_kernel(
+            (blocks,),
+            (threads_per_block,),
+            (indices_cp.ravel(), distances_cp.ravel(), rows, cols)
+        )
+
+    # Drop first column, ensuring C contiguous and correct dtypes
+    indices_cp = cp.ascontiguousarray(indices_cp[:, 1:], dtype=cp.int64)
+    distances_cp = cp.ascontiguousarray(distances_cp[:, 1:], dtype=cp.float32)
+
+    distances = CumlArray(distances_cp, index=index)
+    indices = CumlArray(indices_cp, index=index)
+
+    return distances, indices
+
+
+METRICS = {
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "l2": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "taxicab": DistanceType.L1,
+    "braycurtis": DistanceType.BrayCurtis,
+    "canberra": DistanceType.Canberra,
+    "minkowski": DistanceType.LpUnexpanded,
+    "lp": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "linf": DistanceType.Linf,
+    "jensenshannon": DistanceType.JensenShannon,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "inner_product": DistanceType.InnerProduct,
+    "jaccard": DistanceType.JaccardExpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "haversine": DistanceType.Haversine,
+}
+
+
+cdef DistanceType _metric_to_distance_type(str metric):
+    try:
+        return METRICS[metric]
+    except Exception:
+        raise ValueError(f"Metric {metric} is not supported") from None
+
+
+cdef class RBCIndex:
+    """An RBC index."""
+    cdef uintptr_t index
+
+    def __dealloc__(self):
+        if self.index != 0:
+            rbc_free_index(self.index)
+            self.index = 0
+
+    def __reduce__(self):
+        raise TypeError("Instances of RBCIndex aren't pickleable")
+
+    @staticmethod
+    def build(handle, X, metric):
+        """Build a new RBC index."""
+        if X.shape[1] > 3:
+            raise ValueError(
+                "The rbc algorithm is not supported for >3 dimensions currently."
+            )
+        cdef RBCIndex self = RBCIndex.__new__(RBCIndex)
+
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef int64_t n_rows = X.shape[0]
+        cdef int64_t n_cols = X.shape[1]
+        cdef DistanceType distance_type = _metric_to_distance_type(metric)
+
+        with nogil:
+            rbc_build_index(
+                handle_[0],
+                self.index,
+                X_ptr,
+                n_rows,
+                n_cols,
+                distance_type,
+            )
+        handle.sync()
+        return self
+
+    def kneighbors(RBCIndex self, handle, X, uint32_t n_neighbors):
+        """Query the index for the k nearest neighbors."""
+        distances = CumlArray.zeros(
+            (X.shape[0], n_neighbors),
+            dtype=np.float32,
+            order="C",
+            index=X.index,
+        )
+        indices = CumlArray.zeros(
+            (X.shape[0], n_neighbors),
+            dtype=np.int64,
+            order="C",
+            index=X.index,
+        )
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef uint32_t n_rows = X.shape[0]
+        cdef int64_t n_cols = X.shape[1]
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
+
+        with nogil:
+            rbc_knn_query(
+                handle_[0],
+                self.index,
+                n_neighbors,
+                X_ptr,
+                n_rows,
+                n_cols,
+                indices_ptr,
+                distances_ptr,
+            )
+        handle.sync()
+        return distances, indices
+
+
+cdef class ApproxIndex:
+    """An approximate nearest neighbors index (IVFQ or IVFFlat)"""
+    cdef knnIndex* index
+
+    def __dealloc__(self):
+        if self.index != NULL:
+            del self.index
+
+    cdef _init_ivfflat(self, IVFFlatParam *out, params):
+        if params is None:
+            params = {"nlist": 8, "nprobe": 2}
+        out.nlist = params["nlist"]
+        out.nprobe = params["nprobe"]
+
+    cdef _init_ivfpq(self, IVFPQParam *out, params):
+        # TODO: These parameter defaults don't work for all datasets and
+        # don't match the defaults in cuVS. The defaults here should be
+        # redone to match cuVS.
+        if params is None:
+            params = {
+                "nlist": 8,
+                "nprobe": 3,
+                "M": 0,
+                "n_bits": 8,
+            }
+        out.nlist = params["nlist"]
+        out.nprobe = params["nprobe"]
+        out.M = params["M"]
+        out.n_bits = params["n_bits"]
+
+    @staticmethod
+    def build(handle, X, metric, algorithm, params=None, float p=2):
+        """Build a new approx index."""
+        cdef ApproxIndex self = ApproxIndex.__new__(ApproxIndex)
+
+        cdef IVFFlatParam flat_params
+        cdef IVFPQParam pq_params
+        cdef knnIndexParam *build_params
+
+        if algorithm == "ivfflat":
+            self._init_ivfflat(&flat_params, params)
+            build_params = &flat_params
+        elif algorithm == "ivfpq":
+            self._init_ivfpq(&pq_params, params)
+            build_params = &pq_params
+        else:
+            raise ValueError("algorithm must be one of {'ivfflat', 'ivfpq'}")
+
+        cdef DistanceType distance_type = _metric_to_distance_type(metric)
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+
+        with nogil:
+            self.index = new knnIndex()
+            approx_knn_build_index(
+                handle_[0],
+                self.index,
+                build_params,
+                distance_type,
+                p,
+                X_ptr,
+                n_rows,
+                n_cols,
+            )
+        handle.sync()
+
+        return self
+
+    def kneighbors(ApproxIndex self, handle, X, int n_neighbors):
+        """Query the index for the k nearest neighbors."""
+        distances = CumlArray.zeros(
+            (X.shape[0], n_neighbors),
+            dtype=np.float32,
+            order="C",
+            index=X.index,
+        )
+        indices = CumlArray.zeros(
+            (X.shape[0], n_neighbors),
+            dtype=np.int64,
+            order="C",
+            index=X.index,
+        )
+
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+        cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef int n_rows = X.shape[0]
+
+        with nogil:
+            approx_knn_search(
+                handle_[0],
+                distances_ptr,
+                indices_ptr,
+                self.index,
+                n_neighbors,
+                X_ptr,
+                n_rows,
+            )
+        handle.sync()
+        return distances, indices
 
 
 class NearestNeighbors(Base,
@@ -299,20 +554,18 @@ class NearestNeighbors(Base,
 
     Notes
     -----
-
-    Warning: Approximate Nearest Neighbor methods might be unstable
-    in this version of cuML. This is due to a known issue in
-    the FAISS release that this cuML version is linked to.
-    (see cuML issue #4020)
-
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
 
+    Pickling ``NearestNeighbors`` instances is supported for all algorithms.
+    However, for RBC, IVFPQ or IVFFlat the index will currently be rebuilt upon
+    load rather than serialized as part of the pickled binary. For approximate
+    indices like IVFPQ or IVFFlat this may result in small differences between
+    the original and reloaded models, as the generated indices may differ.
     """
-
     _fit_X = CumlArrayDescriptor(order='C')
 
     _cpu_class_path = "sklearn.neighbors.NearestNeighbors"
@@ -332,10 +585,11 @@ class NearestNeighbors(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not isinstance(model.metric, str):
-            raise UnsupportedOnGPU
-        elif model.metric not in cuml.neighbors.VALID_METRICS["brute"]:
-            raise UnsupportedOnGPU
+        if not (
+            isinstance(model.metric, str) and
+            model.metric in cuml.neighbors.VALID_METRICS["brute"]
+        ):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         return {
             "n_neighbors": model.n_neighbors,
@@ -397,164 +651,114 @@ class NearestNeighbors(Base,
         n_jobs=None,  # Ignored, here for sklearn API compatibility
         output_type=None,
     ):
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_neighbors = n_neighbors
-        self.n_indices = 0
         self.metric = metric
         self.metric_params = metric_params
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
-        self._fit_method = self.algorithm
         self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
         self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
-        self.knn_index = None
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # TODO: Indices currently aren't pickleable. For now we drop them and
+        # recreate them on load.
+        state.pop("_index", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if (fit_method := state.get("_fit_method")) in ("rbc", "ivfpq", "ivfflat"):
+            # TODO: These index types currently aren't pickleable. For now we
+            # recreate them on load.
+            with using_output_type("cuml"):
+                X = getattr(self, "_fit_X", None)
+            if fit_method == "rbc":
+                self._index = RBCIndex.build(
+                    self.handle, X, self.effective_metric_,
+                )
+            else:
+                self._index = ApproxIndex.build(
+                    self.handle,
+                    X,
+                    self.effective_metric_,
+                    fit_method,
+                    params=self.algo_params,
+                    p=self.p,
+                )
 
     @generate_docstring(X='dense_sparse')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
         """
-        if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
+        sparse = is_sparse(X)
 
-        self.n_samples_fit_, self.n_features_in_ = X.shape
+        if sparse:
+            valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
+            self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32)
+        else:
+            valid_metrics = cuml.neighbors.VALID_METRICS
+            self._fit_X, _, _, _ = input_to_cuml_array(
+                X,
+                order='C',
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+            )
+
+        self.n_samples_fit_, self.n_features_in_ = self._fit_X.shape
 
         if self.algorithm == "auto":
-            if (self.n_features_in_ == 2 or self.n_features_in_ == 3) and \
-                    not is_sparse(X) and self.effective_metric_ in \
-                    cuml.neighbors.VALID_METRICS["rbc"] and \
-                    math.sqrt(X.shape[0]) >= self.n_neighbors:
+            if (
+                self.n_features_in_ in (2, 3)
+                and not sparse
+                and self.effective_metric_ in cuml.neighbors.VALID_METRICS["rbc"]
+                and X.shape[0]**0.5 >= self.n_neighbors
+            ):
                 self._fit_method = "rbc"
             else:
                 self._fit_method = "brute"
-
-        if self.algorithm == "rbc" and self.n_features_in_ > 3:
-            raise ValueError("The rbc algorithm is not supported for"
-                             " >3 dimensions currently.")
-
-        if is_sparse(X):
-            valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
-            valid_metric_str = "_SPARSE"
-            self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                                          convert_format=False)
-
+        elif self.algorithm in {"brute", "ivfpq", "ivfflat", "rbc"}:
+            self._fit_method = self.algorithm
         else:
-            valid_metrics = cuml.neighbors.VALID_METRICS
-            valid_metric_str = ""
-            self._fit_X, _, _, _ = \
-                input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
+            raise ValueError(f"algorithm={self.algorithm!r} is not supported")
 
-        self._output_index = self._fit_X.index
-        self.feature_names_in_ = self._fit_X.index
+        if sparse and self._fit_method != "brute":
+            raise ValueError(
+                f"algorithm={self._fit_method!r} doesn't support sparse data"
+            )
 
-        if self.effective_metric_ not in \
-                valid_metrics[self._fit_method]:
-            raise ValueError("Metric %s is not valid. "
-                             "Use sorted(cuml.neighbors.VALID_METRICS%s[%s]) "
-                             "to get valid options." %
-                             (valid_metric_str,
-                              self.effective_metric_,
-                              self._fit_method))
+        if self.effective_metric_ not in valid_metrics[self._fit_method]:
+            raise ValueError(
+                f"Metric {self.effective_metric_} is not supported. See "
+                f"`cuml.neighbors.VALID_METRICS{'_SPARSE' * sparse}[{self._fit_method!r}]`"
+                f"for a list of valid options."
+            )
 
-        cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
-        cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        cdef uintptr_t rbc_index = 0
-        if self._fit_method in ['ivfflat', 'ivfpq']:
-            warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
-                          "might be unstable in this version of cuML. "
-                          "This is due to a known issue in the FAISS "
-                          "release that this cuML version is linked to. "
-                          "(see cuML issue #4020)")
-
-            if not is_dense(X):
-                raise ValueError("Approximate Nearest Neighbors methods "
-                                 "require dense data")
-
-            additional_info = {'n_samples': self.n_samples_fit_,
-                               'n_features': self.n_features_in_}
-            knn_index = new knnIndex()
-            self.knn_index = <uintptr_t> knn_index
-            algo_params = <knnIndexParam*><uintptr_t> \
-                build_algo_params(self._fit_method, self.algo_params,
-                                  additional_info)
-            metric = self._build_metric_type(self.effective_metric_)
-
-            approx_knn_build_index(handle_[0],
-                                   <knnIndex*>knn_index,
-                                   <knnIndexParam*>algo_params,
-                                   <DistanceType>metric,
-                                   <float>self.p,
-                                   <float*><uintptr_t>self._fit_X.ptr,
-                                   <int>self.n_samples_fit_,
-                                   <int>self.n_features_in_)
-            self.handle.sync()
-
-            destroy_algo_params(<uintptr_t>algo_params)
-
-            del self._fit_X
+        if self._fit_method in ('ivfflat', 'ivfpq'):
+            self._index = ApproxIndex.build(
+                self.handle,
+                self._fit_X,
+                self.effective_metric_,
+                self._fit_method,
+                params=self.algo_params,
+                p=self.p,
+            )
         elif self._fit_method == "rbc":
-            metric = self._build_metric_type(self.effective_metric_)
+            self._index = RBCIndex.build(self.handle, self._fit_X, self.effective_metric_)
 
-            rbc_build_index(handle_[0],
-                            rbc_index,
-                            <float*><uintptr_t>self._fit_X.ptr,
-                            self.n_samples_fit_,
-                            self.n_features_in_,
-                            <DistanceType>metric)
-            self.knn_index = <uintptr_t>rbc_index
-
-        self.n_indices = 1
         return self
-
-    @staticmethod
-    def _build_metric_type(metric):
-        if metric == "euclidean" or metric == "l2":
-            m = DistanceType.L2SqrtExpanded
-        elif metric == "sqeuclidean":
-            m = DistanceType.L2Expanded
-        elif metric in ["cityblock", "l1", "manhattan", 'taxicab']:
-            m = DistanceType.L1
-        elif metric == "braycurtis":
-            m = DistanceType.BrayCurtis
-        elif metric == "canberra":
-            m = DistanceType.Canberra
-        elif metric == "minkowski" or metric == "lp":
-            m = DistanceType.LpUnexpanded
-        elif metric == "chebyshev" or metric == "linf":
-            m = DistanceType.Linf
-        elif metric == "jensenshannon":
-            m = DistanceType.JensenShannon
-        elif metric == "cosine":
-            m = DistanceType.CosineExpanded
-        elif metric == "correlation":
-            m = DistanceType.CorrelationExpanded
-        elif metric == "inner_product":
-            m = DistanceType.InnerProduct
-        elif metric == "jaccard":
-            m = DistanceType.JaccardExpanded
-        elif metric == "hellinger":
-            m = DistanceType.HellingerExpanded
-        elif metric == "haversine":
-            m = DistanceType.Haversine
-        else:
-            raise ValueError("Metric %s is not supported" % metric)
-
-        return m
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
+    @reflect
     def kneighbors(
         self,
         X=None,
@@ -610,332 +814,215 @@ class NearestNeighbors(Base,
         indices : {}
             The indices of the k-nearest neighbors for each column vector in X
         """
-
-        return self._kneighbors_internal(X, n_neighbors, return_distance,
-                                         convert_dtype,
-                                         two_pass_precision=two_pass_precision)
-
-    def _kneighbors_internal(self, X=None, n_neighbors=None,
-                             return_distance=True, convert_dtype=True,
-                             _output_type=None, two_pass_precision=False):
-        """
-        Query the GPU index for the k nearest neighbors of column vectors in X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        n_neighbors : Integer
-            Number of neighbors to search. If not provided, the n_neighbors
-            from the model instance is used (default=10)
-
-        return_distance: Boolean
-            If False, distances will not be returned
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the kneighbors method will automatically
-            convert the inputs to np.float32.
-
-        _output_cumlarray : bool, optional (default = False)
-            When set to True, the class self.output_type is overwritten
-            and this method returns the output as a cumlarray
-
-        two_pass_precision : bool, optional (default = False)
-            When set to True, a slow second pass will be used to improve the
-            precision of results returned for searches using L2-derived
-            metrics. FAISS uses the Euclidean distance decomposition trick to
-            compute distances in this case, which may result in numerical
-            errors for certain data. In particular, when several samples
-            are close to the query sample (relative to typical inter-sample
-            distances), numerical instability may cause the computed distance
-            between the query and itself to be larger than the computed
-            distance between the query and another sample. As a result, the
-            query is not returned as the nearest neighbor to itself.  If this
-            flag is set to true, distances to the query vectors will be
-            recomputed with high precision for all retrieved samples, and the
-            results will be re-sorted accordingly. Note that for large values
-            of k or large numbers of query vectors, this correction becomes
-            impractical in terms of both runtime and memory. It should be used
-            with care and only when strictly necessary (when precise results
-            are critical and samples may be tightly clustered).
-
-        Returns
-        -------
-        distances: cupy ndarray
-            The distances of the k-nearest neighbors for each column vector
-            in X
-
-        indices: cupy ndarray
-            The indices of the k-nearest neighbors for each column vector in X
-        """
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
-        use_training_data = X is None
-        if X is None:
+        if use_training_data := (X is None):
+            if not hasattr(self, "_fit_X"):
+                raise ValueError(
+                    "Model needs to be trained before calling kneighbors()"
+                )
             X = self._fit_X
             n_neighbors += 1
 
-        if (n_neighbors is None and self.n_neighbors is None) \
-                or n_neighbors <= 0:
+        if (n_neighbors is None and self.n_neighbors is None) or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
 
         if n_neighbors > self.n_samples_fit_:
-            raise ValueError("n_neighbors must be <= number of "
-                             "samples in index")
-
-        if X is None:
-            raise ValueError("Model needs to be trained "
-                             "before calling kneighbors()")
+            raise ValueError("n_neighbors must be <= number of samples in index")
 
         if X.shape[1] != self.n_features_in_:
-            raise ValueError("Dimensions of X need to match dimensions of "
-                             "indices (%d)" % self.n_features_in_)
-
-        if hasattr(self, '_fit_X') and isinstance(self._fit_X,
-                                                  SparseCumlArray):
-            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
-        else:
-            D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
-                                                      convert_dtype)
-
-        self.handle.sync()
-
-        out_type = _output_type \
-            if _output_type is not None else self._get_output_type(X)
-
-        if two_pass_precision:
-            metric = self._build_metric_type(self.effective_metric_)
-            metric_is_l2_based = (
-                metric == DistanceType.L2SqrtExpanded or
-                metric == DistanceType.L2Expanded or
-                (metric == DistanceType.LpUnexpanded and self.p == 2)
+            raise ValueError(
+                f"Dimensions of X need to match dimensions of indices "
+                f"({self.n_features_in_})"
             )
 
-            # FAISS employs imprecise distance algorithm only for L2-based
-            # expanded metrics. This code correct numerical instabilities
-            # that could arise.
-            if metric_is_l2_based:
-                index = I_ndarr.index
-                X = input_to_cupy_array(
-                    X,
-                    convert_to_dtype=(np.float32 if convert_dtype
-                                      else None),
-                ).array
-                I_cparr = I_ndarr.to_output('cupy')
-
-                self_diff = X[I_cparr] - X[:, cp.newaxis, :]
-                precise_distances = cp.sum(
-                    self_diff * self_diff, axis=2
-                )
-
-                correct_order = cp.argsort(precise_distances, axis=1)
-
-                D_cparr = cp.take_along_axis(precise_distances,
-                                             correct_order,
-                                             axis=1)
-                I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
-
-                D_ndarr = cuml.common.input_to_cuml_array(
-                    D_cparr,
-                    convert_to_dtype=(np.float32 if convert_dtype
-                                      else None),
-                ).array
-                D_ndarr.index = index
-                I_ndarr = cuml.common.input_to_cuml_array(
-                    I_cparr,
-                    convert_to_dtype=(np.int64 if convert_dtype
-                                      else None),
-                ).array
-                I_ndarr.index = index
+        if hasattr(self, '_fit_X') and isinstance(self._fit_X, SparseCumlArray):
+            distances, indices = self._kneighbors_sparse(X, n_neighbors)
+        else:
+            distances, indices = self._kneighbors_dense(
+                X, n_neighbors, convert_dtype, two_pass_precision
+            )
 
         if use_training_data:
-            I_ndarr = I_ndarr.to_output('cupy')
-            D_ndarr = D_ndarr.to_output('cupy')
+            distances, indices = _drop_self_edges(distances, indices)
 
-            rows, cols = I_ndarr.shape
+        return (distances, indices) if return_distance else indices
 
-            # Launch config
-            threads_per_block = 32
-            blocks = (rows + threads_per_block - 1) // threads_per_block
-
-            # Allocate memory for the flag
-            zero_found = cp.zeros(1, dtype=cp.int32)
-
-            # Run the kernel to check for zeros
-            check_zero_kernel((blocks,), (threads_per_block,), (D_ndarr.ravel(), rows, cols, zero_found.ravel()))
-
-            threads_per_block = 32
-            blocks = (rows + threads_per_block - 1) // threads_per_block
-
-            # only run kernel if there are multiple zero distances
-            if zero_found:
-                swap_kernel((blocks,), (threads_per_block,), (I_ndarr.ravel(), D_ndarr.ravel(), rows, cols))
-
-            # slicing does not copy
-            I_ndarr = I_ndarr[:, 1:]
-            D_ndarr = D_ndarr[:, 1:]
-
-            I_ndarr = CumlArray.from_input(I_ndarr, force_contiguous=True)
-            D_ndarr = CumlArray.from_input(D_ndarr, force_contiguous=True)
-
-        I_ndarr = I_ndarr.to_output(out_type)
-        D_ndarr = D_ndarr.to_output(out_type)
-
-        return (D_ndarr, I_ndarr) if return_distance else I_ndarr
-
-    def _kneighbors_dense(self, X, n_neighbors, convert_dtype=True):
-
+    def _kneighbors_dense(
+        self, X, int n_neighbors, convert_dtype=True, two_pass_precision=False
+    ):
         if not is_dense(X):
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
-        _metric = self._build_metric_type(self.effective_metric_)
+        cdef int n_rows, n_cols
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+            X,
+            order="C",
+            check_dtype=np.float32,
+            check_cols=self.n_features_in_,
+            convert_to_dtype=(np.float32 if convert_dtype else False),
+        )
 
-        X_m, N, _, _ = \
-            input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else False))
+        use_index = self._fit_method != "brute"
+        if self._fit_method == "rbc" and n_neighbors > self.n_samples_fit_**0.5:
+            warnings.warn(
+                f"algorithm='rbc' requires sqrt(n_samples) >= n_neighbors "
+                f"({self.n_samples_fit_**0.5:.2f} > {n_neighbors}). "
+                f"Falling back to algorithm='brute'."
+            )
+            use_index = False
 
-        # Need to establish result matrices for indices (Nxk)
-        # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C",
-                                  index=X_m.index)
-        D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C",
-                                  index=X_m.index)
+        if use_index:
+            return self._index.kneighbors(self.handle, X_m, n_neighbors)
 
-        cdef uintptr_t _I_ptr = I_ndarr.ptr
-        cdef uintptr_t _D_ptr = D_ndarr.ptr
+        distances = CumlArray.zeros(
+            (X_m.shape[0], n_neighbors), dtype=np.float32, order="C", index=X_m.index,
+        )
+        indices = CumlArray.zeros(
+            (X_m.shape[0], n_neighbors), dtype=np.int64, order="C", index=X_m.index,
+        )
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef vector[float*] *inputs = new vector[float*]()
-        cdef vector[int] *sizes = new vector[int]()
-        cdef knnIndex* knn_index = <knnIndex*> 0
-        cdef uintptr_t rbc_index = 0
+        cdef vector[float*] inputs
+        cdef vector[int] sizes
+        inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
+        sizes.push_back(<int>self.n_samples_fit_)
+        cdef DistanceType distance_type = _metric_to_distance_type(self.effective_metric_)
+        cdef float* X_ptr = <float*><uintptr_t>X_m.ptr
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
+        cdef float metric_arg = self.p
 
-        fallback_to_brute = self._fit_method == "rbc" and \
-            n_neighbors > math.sqrt(self.n_samples_fit_)
-
-        if fallback_to_brute:
-            warnings.warn("algorithm='rbc' requires sqrt(%s) be "
-                          "> n_neighbors (%s). falling back to "
-                          "brute force search" %
-                          (self.n_samples_fit_, n_neighbors))
-
-        if self._fit_method == 'brute' or fallback_to_brute:
-            inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
-            sizes.push_back(<int>self.n_samples_fit_)
-
+        with nogil:
             brute_force_knn(
                 handle_[0],
-                deref(inputs),
-                deref(sizes),
-                <int>self.n_features_in_,
-                <float*><uintptr_t>X_m.ptr,
-                <int>N,
-                <int64_t*>_I_ptr,
-                <float*>_D_ptr,
-                <int>n_neighbors,
+                inputs,
+                sizes,
+                n_cols,
+                X_ptr,
+                n_rows,
+                indices_ptr,
+                distances_ptr,
+                n_neighbors,
                 True,
                 True,
-                <DistanceType>_metric,
-                # minkowski order is currently the only metric argument.
-                <float>self.p
+                distance_type,
+                metric_arg
             )
-        elif self._fit_method == "rbc":
-            rbc_index = <uintptr_t>self.knn_index
-            rbc_knn_query(handle_[0],
-                          rbc_index,
-                          <uint32_t> n_neighbors,
-                          <float*><uintptr_t>X_m.ptr,
-                          <uint32_t> N,
-                          <int64_t>self.n_features_in_,
-                          <int64_t*>_I_ptr,
-                          <float*>_D_ptr)
-        else:
-            knn_index = <knnIndex*><uintptr_t> self.knn_index
-            approx_knn_search(
-                handle_[0],
-                <float*>_D_ptr,
-                <int64_t*>_I_ptr,
-                <knnIndex*>knn_index,
-                <int>n_neighbors,
-                <float*><uintptr_t>X_m.ptr,
-                <int>N
+        self.handle.sync()
+
+        if two_pass_precision:
+            distances, indices = self._maybe_apply_two_pass_precision(
+                X_m, distances, indices
             )
 
-        return D_ndarr, I_ndarr
+        return distances, indices
 
-    def _kneighbors_sparse(self, X, n_neighbors):
+    def _maybe_apply_two_pass_precision(self, X, distances, indices):
+        # FAISS employs imprecise distance algorithm only for L2-based
+        # expanded metrics. This code corrects numerical instabilities
+        # that could arise.
+        metric = _metric_to_distance_type(self.effective_metric_)
+        if not (
+            metric == DistanceType.L2SqrtExpanded or
+            metric == DistanceType.L2Expanded or
+            (metric == DistanceType.LpUnexpanded and self.p == 2)
+        ):
+            # Nothing to do
+            return distances, indices
 
+        index = indices.index
+        X_cp = X.to_output("cupy", output_dtype=cp.float32)
+        indices_cp = indices.to_output('cupy')
+
+        self_diff = X_cp[indices_cp] - X_cp[:, cp.newaxis, :]
+        distances_cp = cp.sum(self_diff * self_diff, axis=2)
+        correct_order = cp.argsort(distances_cp, axis=1)
+
+        distances_cp = cp.take_along_axis(distances_cp, correct_order, axis=1)
+        indices_cp = cp.take_along_axis(indices_cp, correct_order, axis=1)
+
+        distances = CumlArray(
+            data=cp.ascontiguousarray(distances_cp, dtype=cp.float32), index=index
+        )
+        indices = CumlArray(
+            data=cp.ascontiguousarray(indices_cp, dtype=cp.int64), index=index
+        )
+        return distances, indices
+
+    def _kneighbors_sparse(self, X, int n_neighbors):
         if isinstance(self._fit_X, SparseCumlArray) and not is_sparse(X):
             raise ValueError("A NearestNeighbors model trained on sparse "
                              "data requires sparse input to kneighbors()")
 
-        batch_size_index = 10000
-        if self.algo_params is not None and \
-                "batch_size_index" in self.algo_params:
-            batch_size_index = self.algo_params['batch_size_index']
+        algo_params = self.algo_params or {}
+        cdef size_t batch_size_index = algo_params.get("batch_size_index", 10000)
+        cdef size_t batch_size_query = algo_params.get("batch_size_query", 10000)
 
-        batch_size_query = 10000
-        if self.algo_params is not None and \
-                "batch_size_query" in self.algo_params:
-            batch_size_query = self.algo_params['batch_size_query']
+        cdef DistanceType metric = _metric_to_distance_type(self.effective_metric_)
+        cdef float metric_arg = self.p
 
-        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                              convert_format=False)
-        _metric = self._build_metric_type(self.effective_metric_)
+        # Extract query input components
+        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
+        cdef int* X_indptr = <int *><uintptr_t>X_m.indptr.ptr
+        cdef int* X_indices = <int *><uintptr_t>X_m.indices.ptr
+        cdef float* X_data = <float *><uintptr_t>X_m.data.ptr
+        cdef size_t X_nnz = X_m.nnz
+        cdef int X_n_rows = X_m.shape[0]
+        cdef int X_n_cols = X_m.shape[1]
 
-        cdef uintptr_t _idx_indptr = self._fit_X.indptr.ptr
-        cdef uintptr_t _idx_indices = self._fit_X.indices.ptr
-        cdef uintptr_t _idx_data = self._fit_X.data.ptr
+        # Extract index components
+        cdef int* idx_indptr = <int *><uintptr_t>self._fit_X.indptr.ptr
+        cdef int* idx_indices = <int *><uintptr_t>self._fit_X.indices.ptr
+        cdef float* idx_data = <float *><uintptr_t>self._fit_X.data.ptr
+        cdef size_t idx_nnz = self._fit_X.nnz
+        cdef int idx_n_rows = self._fit_X.shape[0]
+        cdef int idx_n_cols = self._fit_X.shape[1]
 
-        cdef uintptr_t _search_indptr = X_m.indptr.ptr
-        cdef uintptr_t _search_indices = X_m.indices.ptr
-        cdef uintptr_t _search_data = X_m.data.ptr
-
-        # Need to establish result matrices for indices (Nxk)
-        # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
-                                  dtype=np.int32, order="C")
-        D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
-                                  dtype=np.float32, order="C")
-
-        cdef uintptr_t _I_ptr = I_ndarr.ptr
-        cdef uintptr_t _D_ptr = D_ndarr.ptr
+        # Allocate outputs
+        indices = CumlArray.zeros(
+            (X_m.shape[0], n_neighbors), dtype=np.int32, order="C"
+        )
+        distances = CumlArray.zeros(
+            (X_m.shape[0], n_neighbors), dtype=np.float32, order="C"
+        )
+        cdef int* indices_ptr = <int *><uintptr_t>indices.ptr
+        cdef float* distances_ptr = <float *><uintptr_t>distances.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        with nogil:
+            brute_force_knn(
+                handle_[0],
+                idx_indptr,
+                idx_indices,
+                idx_data,
+                idx_nnz,
+                idx_n_rows,
+                idx_n_cols,
+                X_indptr,
+                X_indices,
+                X_data,
+                X_nnz,
+                X_n_rows,
+                X_n_cols,
+                indices_ptr,
+                distances_ptr,
+                n_neighbors,
+                batch_size_index,
+                batch_size_query,
+                metric,
+                metric_arg,
+            )
+        self.handle.sync()
 
-        brute_force_knn(handle_[0],
-                        <int*> _idx_indptr,
-                        <int*> _idx_indices,
-                        <float*> _idx_data,
-                        self._fit_X.nnz,
-                        self.n_samples_fit_,
-                        self.n_features_in_,
-                        <int*> _search_indptr,
-                        <int*> _search_indices,
-                        <float*> _search_data,
-                        X_m.nnz,
-                        X_m.shape[0],
-                        X_m.shape[1],
-                        <int*>_I_ptr,
-                        <float*>_D_ptr,
-                        n_neighbors,
-                        <size_t>batch_size_index,
-                        <size_t>batch_size_query,
-                        <DistanceType> _metric,
-                        <float>self.p)
-
-        return D_ndarr, I_ndarr
+        return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    def kneighbors_graph(self,
-                         X=None,
-                         n_neighbors=None,
-                         mode='connectivity') -> SparseCumlArray:
+    @reflect
+    def kneighbors_graph(
+        self, X=None, n_neighbors=None, mode='connectivity'
+    ) -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
@@ -963,7 +1050,7 @@ class NearestNeighbors(Base,
             numpy's CSR sparse graph (host)
 
         """
-        if not self._fit_X:
+        if not hasattr(self, "_fit_X"):
             raise ValueError('This NearestNeighbors instance has not been '
                              'fitted yet, call "fit" before using this '
                              'estimator')
@@ -972,17 +1059,16 @@ class NearestNeighbors(Base,
             n_neighbors = self.n_neighbors
 
         if mode == 'connectivity':
-            indices = self._kneighbors_internal(X, n_neighbors,
-                                                return_distance=False,
-                                                _output_type="cupy")
+            indices = self.kneighbors(X, n_neighbors, return_distance=False)
 
             n_samples = indices.shape[0]
+            indices = indices.to_output("cupy")
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
-            distances, indices = self._kneighbors_internal(X, n_neighbors,
-                                                           _output_type="cupy")
-            distances = cp.ravel(distances)
+            distances, indices = self.kneighbors(X, n_neighbors)
+            indices = indices.to_output("cupy")
+            distances = cp.ravel(distances.to_output("cupy"))
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
@@ -994,14 +1080,10 @@ class NearestNeighbors(Base,
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        sparse_csr = cupyx.scipy.sparse.csr_matrix((distances,
-                                                    cp.ravel(
-                                                        cp.asarray(indices)),
-                                                    rowptr),
-                                                   shape=(n_samples,
-                                                          self.n_samples_fit_))
-
-        return sparse_csr
+        return cupyx.scipy.sparse.csr_matrix(
+            (distances, indices, rowptr),
+            shape=(n_samples, self.n_samples_fit_)
+        )
 
     @property
     def effective_metric_(self):
@@ -1015,20 +1097,8 @@ class NearestNeighbors(Base,
     def effective_metric_params_(self):
         return self.metric_params or {}
 
-    def __del__(self):
-        cdef knnIndex* knn_index = <knnIndex*>0
 
-        kidx = self.__dict__['knn_index'] \
-            if 'knn_index' in self.__dict__ else None
-        if kidx is not None:
-            if self._fit_method in ["ivfflat", "ivfpq"]:
-                knn_index = <knnIndex*><uintptr_t>kidx
-                del knn_index
-            else:
-                rbc_free_index(<uintptr_t>kidx)
-
-
-@cuml.internals.api_return_sparse_array()
+@reflect
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):
@@ -1107,12 +1177,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
-    X = NearestNeighbors(
+    model = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,
         handle=handle,
@@ -1120,16 +1185,15 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=cuml.global_settings.root_cm.output_type
+        output_type="cupy",
     ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    with cuml.internals.exit_internal_api():
-        if not include_self:
-            query = None
-        else:
-            query = X._fit_X
+    if not include_self:
+        query = None
+    else:
+        query = model._fit_X
 
-    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+    return model.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -25,8 +14,8 @@
 #include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
-#include <raft/cluster/detail/mst.cuh>            // build_sorted_mst
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -41,103 +30,10 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 
-#include <cuvs/neighbors/reachability.hpp>
+#include <cuvs/cluster/agglomerative.hpp>
 
 namespace ML {
 namespace HDBSCAN {
-
-/**
- * Functor with reduction ops for performing fused 1-nn
- * computation and guaranteeing only cross-component
- * neighbors are considered.
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-struct FixConnectivitiesRedOp {
-  value_t* core_dists;
-  value_idx m;
-
-  DI FixConnectivitiesRedOp() : m(0) {}
-
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_) {};
-
-  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
-  {
-    if (rit < m && other.value < std::numeric_limits<value_t>::max()) {
-      value_t core_dist_rit   = core_dists[rit];
-      value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
-
-      value_t core_dist_out;
-      if (out->key > -1) {
-        core_dist_out = max(core_dist_rit, max(core_dists[out->key], out->value));
-      } else {
-        core_dist_out = out->value;
-      }
-
-      bool smaller = core_dist_other < core_dist_out;
-      out->key     = smaller ? other.key : out->key;
-      out->value   = smaller ? core_dist_other : core_dist_out;
-    }
-  }
-
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
-  {
-    if (rit < m && a.key > -1) {
-      value_t core_dist_rit = core_dists[rit];
-      value_t core_dist_a   = max(core_dist_rit, max(core_dists[a.key], a.value));
-
-      value_t core_dist_b;
-      if (b.key > -1) {
-        core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
-      } else {
-        core_dist_b = b.value;
-      }
-
-      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a) : KVP(b.key, core_dist_b);
-    }
-
-    return b;
-  }
-
-  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal) const
-  {
-    out->key   = -1;
-    out->value = maxVal;
-  }
-
-  DI void init_key(value_t& out, value_idx idx) const { return; }
-  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
-
-  DI value_t get_value(KVP& out) const { return out.value; }
-  DI value_t get_value(value_t& out) const { return out; }
-
-  void gather(const raft::resources& handle, value_idx* map)
-  {
-    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::gather(raft::resource::get_thrust_policy(handle),
-                   map,
-                   map + m,
-                   core_dists,
-                   tmp_core_dists.data_handle());
-    raft::copy_async(
-      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
-  }
-
-  void scatter(const raft::resources& handle, value_idx* map)
-  {
-    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::scatter(raft::resource::get_thrust_policy(handle),
-                    core_dists,
-                    core_dists + m,
-                    map,
-                    tmp_core_dists.data_handle());
-    raft::copy_async(
-      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
-  }
-};
 
 /**
  * Constructs a linkage by computing mutual reachability, mst, and
@@ -165,64 +61,92 @@ void build_linkage(const raft::handle_t& handle,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
-  auto stream = handle.get_stream();
-
-  /**
-   * Mutual reachability graph
-   */
-  rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
-  // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
-  // and be consistent with Scikit learn Contrib.
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream,
-                                                                (params.min_samples + 1) * m * 2);
-
-  cuvs::neighbors::reachability::mutual_reachability_graph(
-    handle,
-    raft::make_device_matrix_view<const value_t, int64_t>(X, m, n),
-    params.min_samples + 1,
-    raft::make_device_vector_view<value_idx>(mutual_reachability_indptr.data(), m + 1),
-    raft::make_device_vector_view<value_t>(core_dists, m),
-    mutual_reachability_coo,
-    static_cast<cuvs::distance::DistanceType>(metric),
-    params.alpha);
-
-  /**
-   * Construct MST sorted by weights
-   */
-
-  rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists, m);
-  // during knn graph connection
-  raft::cluster::detail::build_sorted_mst(handle,
-                                          X,
-                                          mutual_reachability_indptr.data(),
-                                          mutual_reachability_coo.cols(),
-                                          mutual_reachability_coo.vals(),
-                                          m,
-                                          n,
-                                          out.get_mst_src(),
-                                          out.get_mst_dst(),
-                                          out.get_mst_weights(),
-                                          color.data(),
-                                          mutual_reachability_coo.nnz,
-                                          red_op,
-                                          static_cast<raft::distance::DistanceType>(metric),
-                                          (size_t)10);
-
-  /**
-   * Perform hierarchical labeling
-   */
+  auto stream    = handle.get_stream();
   size_t n_edges = m - 1;
+  cuvs::cluster::agglomerative::helpers::linkage_graph_params::mutual_reachability_params
+    linkage_params;
+  // (min_samples+1) is used to account for self-loops in the KNN graph
+  // and be consistent with scikit-learn-contrib.
+  if (static_cast<size_t>(params.min_samples + 1) > m) {
+    RAFT_LOG_WARN(
+      "min_samples (%d) must be less than the number of samples in X (%zu), setting min_samples to "
+      "%zu",
+      params.min_samples,
+      m,
+      m - 1);
+    linkage_params.min_samples = m;
+  } else {
+    linkage_params.min_samples = params.min_samples + 1;
+  }
+  linkage_params.alpha                       = params.alpha;
+  linkage_params.all_neighbors_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+  linkage_params.all_neighbors_params.overlap_factor = params.build_params.overlap_factor;
+  linkage_params.all_neighbors_params.n_clusters     = params.build_params.n_clusters;
 
-  raft::cluster::detail::build_dendrogram_host(handle,
-                                               out.get_mst_src(),
-                                               out.get_mst_dst(),
-                                               out.get_mst_weights(),
-                                               n_edges,
-                                               out.get_children(),
-                                               out.get_deltas(),
-                                               out.get_sizes());
+  if (params.build_algo == Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN) {
+    auto brute_force_params = cuvs::neighbors::graph_build_params::brute_force_params{};
+    brute_force_params.build_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+    linkage_params.all_neighbors_params.graph_build_params = brute_force_params;
+  } else if (params.build_algo == Common::GRAPH_BUILD_ALGO::NN_DESCENT) {
+    auto nn_descent_params           = cuvs::neighbors::graph_build_params::nn_descent_params{};
+    nn_descent_params.max_iterations = params.build_params.nn_descent_params.max_iterations;
+    nn_descent_params.graph_degree   = params.build_params.nn_descent_params.graph_degree;
+    nn_descent_params.intermediate_graph_degree =
+      params.build_params.nn_descent_params.intermediate_graph_degree;
+    nn_descent_params.termination_threshold =
+      params.build_params.nn_descent_params.termination_threshold;
+    if (static_cast<int>(nn_descent_params.graph_degree) < linkage_params.min_samples) {
+      // linkage_params.min_samples functions as the k for the knn
+      RAFT_LOG_WARN(
+        "NN Descent graph_degree (%d) must be larger than or equal to min_samples + 1 (%zu), "
+        "setting graph_degree to min_samples + 1 and scaling intermediate_graph_degree accordingly "
+        "to 2*graph_degree",
+        static_cast<int>(nn_descent_params.graph_degree),
+        static_cast<int>(linkage_params.min_samples));
+      nn_descent_params.graph_degree              = linkage_params.min_samples;
+      nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 2;
+    }
+    nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(metric);
+    linkage_params.all_neighbors_params.graph_build_params = nn_descent_params;
+  } else {
+    RAFT_FAIL("Unsupported build algo. build algo must be either brute force or nn descent");
+  }
+
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
+  bool data_on_device = attr.type == cudaMemoryTypeDevice;
+
+  if (data_on_device) {
+    cuvs::cluster::agglomerative::helpers::build_linkage(
+      handle,
+      raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
+      linkage_params,
+      static_cast<cuvs::distance::DistanceType>(metric),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
+        out.get_mst_weights(),
+        raft::make_device_coordinate_structure_view(
+          out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
+      raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
+      raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
+      raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
+      std::make_optional<raft::device_vector_view<value_t, value_idx>>(
+        raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+  } else {
+    cuvs::cluster::agglomerative::helpers::build_linkage(
+      handle,
+      raft::make_host_matrix_view<const value_t, value_idx>(X, m, n),
+      linkage_params,
+      static_cast<cuvs::distance::DistanceType>(metric),
+      raft::make_device_coo_matrix_view<value_t, value_idx, value_idx, size_t>(
+        out.get_mst_weights(),
+        raft::make_device_coordinate_structure_view(
+          out.get_mst_src(), out.get_mst_dst(), value_idx(m), value_idx(m), n_edges)),
+      raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), n_edges, 2),
+      raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), n_edges),
+      raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), n_edges),
+      std::make_optional<raft::device_vector_view<value_t, value_idx>>(
+        raft::make_device_vector_view<value_t, value_idx>(core_dists, m)));
+  }
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
@@ -240,6 +164,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
   auto exec_policy = handle.get_thrust_policy();
 
   int min_cluster_size = params.min_cluster_size;
+
+  RAFT_EXPECTS(params.min_samples <= m, "min_samples must be at most the number of samples in X");
 
   build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
@@ -274,7 +200,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       params.cluster_selection_method,
                                       out._get_inverse_label_map(),
                                       params.allow_single_cluster,
-                                      params.max_cluster_size,
+                                      static_cast<value_idx>(params.max_cluster_size),
                                       params.cluster_selection_epsilon);
 
   out.set_n_clusters(n_selected_clusters);
@@ -303,7 +229,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                     out.get_labels(),
                     [label_map = label_map.data()] __device__(value_idx label) {
                       if (label != -1) return label_map[label];
-                      return -1;
+                      return static_cast<value_idx>(-1);
                     });
 }
 

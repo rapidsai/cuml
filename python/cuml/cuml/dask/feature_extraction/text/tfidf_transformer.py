@@ -1,24 +1,12 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import dask
 import dask.array
 from toolz import first
 
-from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.func import reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -27,9 +15,8 @@ from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 
 class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
-
     """
-    Distributed TF-IDF  transformer
+    Distributed TF-IDF transformer
 
     Examples
     --------
@@ -76,14 +63,13 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-
         """
-        Create new  distributed TF-IDF transformer instance
+        Create new distributed TF-IDF transformer instance
 
         Parameters
-        -----------
-
-        client : dask.distributed.Client optional Dask client to use
+        ----------
+        client : dask.distributed.Client, optional
+            Dask client to use
         """
         super().__init__(client=client, verbose=verbose, **kwargs)
 
@@ -94,7 +80,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         self._set_internal_model(s_TfidfTransformer(**kwargs))
 
     @staticmethod
-    @with_cupy_rmm
     def _set_doc_stats(X, kwargs):
         model = s_TfidfTransformer(**kwargs)
         # Below is only required if we have to set stats
@@ -117,9 +102,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         model._set_idf_diag()
         return model
 
-    @with_cupy_rmm
     def fit(self, X, y=None):
-
         """
         Fit distributed TFIDF Transformer
 

@@ -1,26 +1,21 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 import functools
 from typing import Any
 
 import sklearn
-from sklearn.base import BaseEstimator
+from packaging.version import Version
+from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
+from sklearn.utils._set_output import _wrap_data_with_container
 
+from cuml.accel import profilers
+from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 def is_proxy(instance_or_class) -> bool:
@@ -109,6 +104,16 @@ class ProxyBase(BaseEstimator):
     See the definitions in ``cuml.accel._wrappers.linear_model`` for examples.
     """
 
+    # A set of attribute names that aren't supported by `cuml.accel`.
+    # Attributes in this set will raise a nicer error message than the default
+    # AttributeError.
+    _not_implemented_attributes = frozenset()
+
+    # A set of additional attribute names to proxy through that don't match the
+    # `*_` naming convention. Typically this is private attributes that
+    # consumers might still be using.
+    _other_attributes = frozenset()
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # The CPU estimator, always defined. This is the source of truth for any
         # hyperparameters. It also may have fit attributes on it - these are lazily
@@ -186,7 +191,15 @@ class ProxyBase(BaseEstimator):
             try:
                 params = self._gpu_class._params_from_cpu(self._cpu)
                 self._gpu.set_params(**params)
-            except UnsupportedOnGPU:
+                logger.debug(
+                    f"`{self._cpu_class.__name__}` parameters synced to GPU"
+                )
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Hyperparameters not supported"
+                logger.info(
+                    f"`{self._cpu_class.__name__}` parameters failed to sync to GPU, "
+                    f"falling back to CPU: {reason}"
+                )
                 self._sync_attrs_to_cpu()
                 self._gpu = None
 
@@ -198,6 +211,9 @@ class ProxyBase(BaseEstimator):
         if self._gpu is not None and not self._synced:
             self._gpu._sync_attrs_to_cpu(self._cpu)
             self._synced = True
+            logger.debug(
+                f"`{self._cpu_class.__name__}` fitted attributes synced to CPU"
+            )
 
     @classmethod
     def _reconstruct_from_cpu(cls, cpu):
@@ -227,25 +243,37 @@ class ProxyBase(BaseEstimator):
         from cuml.common.sparse_utils import is_sparse
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
-            # Sparse inputs not supported
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         # Determine the function to call. Check for an override on the proxy class,
         # falling back to the GPU class method if one exists.
         gpu_func = getattr(self, f"_gpu_{method}", None)
         if gpu_func is None:
             if (gpu_func := getattr(self._gpu, method, None)) is None:
-                # Method is not implemented in cuml
-                raise UnsupportedOnGPU
+                raise UnsupportedOnGPU("Method is not implemented in cuml")
 
         out = gpu_func(*args, **kwargs)
+
+        if method in ("transform", "fit_transform"):
+            # Ensure transform result is properly wrapped for `set_output`
+            out = _wrap_data_with_container("transform", out, args[0], self)
+
         return self if out is self._gpu else out
 
     def _call_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the proxied estimators."""
 
+        if method.startswith("set_") and method.endswith("_request"):
+            # This is a metadata request setter (like `set_{method}_request`),
+            # always dispatch directly to CPU.
+            getattr(self._cpu, method)(*args, **kwargs)
+            return self
+
+        qualname = f"{self._cpu_class.__name__}.{method}"
+
         is_fit = method in ("fit", "fit_transform", "fit_predict")
 
+        reason = None
         if is_fit:
             # Attempt to call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
@@ -256,8 +284,9 @@ class ProxyBase(BaseEstimator):
                 self._gpu = self._gpu_class(
                     **self._gpu_class._params_from_cpu(self._cpu)
                 )
-            except UnsupportedOnGPU:
+            except UnsupportedOnGPU as exc:
                 # Unsupported, fallback to CPU
+                reason = str(exc) or "Hyperparameters not supported"
                 self._gpu = None
             else:
                 # New estimator successfully initialized on GPU, reset on CPU
@@ -267,17 +296,64 @@ class ProxyBase(BaseEstimator):
         if self._gpu is not None:
             # The hyperparameters are supported, try calling the method
             try:
-                return self._call_gpu_method(method, *args, **kwargs)
-            except UnsupportedOnGPU:
+                with profilers.track_gpu_call(qualname):
+                    out = self._call_gpu_method(method, *args, **kwargs)
+                logger.info(f"`{qualname}` ran on GPU")
+                return out
+            except UnsupportedOnGPU as exc:
+                reason = str(exc) or "Method parameters not supported"
                 # Unsupported. If it's a `fit` we need to clear
                 # the GPU state before falling back to CPU.
                 if is_fit:
                     self._gpu = None
 
+        if reason is not None:
+            logger.info(
+                f"`{self._cpu_class.__name__}.{method}` falling back to CPU: {reason}"
+            )
+
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
-        out = getattr(self._cpu, method)(*args, **kwargs)
+        with profilers.track_cpu_call(
+            qualname, reason=reason or "Estimator not fit on GPU"
+        ):
+            out = getattr(self._cpu, method)(*args, **kwargs)
+        logger.info(f"`{qualname}` ran on CPU")
         return self if out is self._cpu else out
+
+    ############################################################
+    # set_output handling                                      #
+    ############################################################
+
+    def _gpu_set_output(self, *, transform=None):
+        # `set_output` can always call the CPU model (where the output config state
+        # is stored). It's defined as a `_gpu_*` method so it only shows up on the
+        # proxy for models that define `set_output`, and can avoid unnecessary calls
+        # to sync fit attributes to CPU
+        self._cpu.set_output(transform=transform)
+        return self._gpu
+
+    def _gpu_get_feature_names_out(self, input_features=None):
+        # In the common case `get_feature_names_out` doesn't require fitted attributes
+        # on the CPU. Here we detect and special case a common mixin, falling back to
+        # CPU when necessary. This helps avoid unnecessary device -> host transfers.
+        cpu_method = self._cpu_class.get_feature_names_out
+        if cpu_method is ClassNamePrefixFeaturesOutMixin.get_feature_names_out:
+            # Can run cpu method directly on GPU instance, it only references `_n_features_out`
+            return cpu_method(self._gpu, input_features=input_features)
+
+        # Fallback to CPU
+        raise UnsupportedOnGPU
+
+    @property
+    def _sklearn_output_config(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_output_config
+
+    @property
+    def _sklearn_auto_wrap_output_keys(self):
+        # Used by sklearn to handle wrapping output type, just proxy through to the CPU model
+        return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
     # Standard magic methods                                   #
@@ -297,15 +373,38 @@ class ProxyBase(BaseEstimator):
         )
 
     def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            # Never proxy magic methods or private attributes
+        is_private = name.startswith("_")
+
+        if (
+            name.endswith("_")
+            and not is_private
+            or name in self._other_attributes
+        ):
+            # Fit attributes require syncing
+            self._sync_attrs_to_cpu()
+
+            try:
+                return getattr(self._cpu, name)
+            except AttributeError:
+                # We special case `feature_names_in_` here since it's the only common
+                # fitted attribute that cuml doesn't support anywhere.
+                if (
+                    name in self._not_implemented_attributes
+                    or name == "feature_names_in_"
+                ) and is_fitted(self._cpu):
+                    raise AttributeError(
+                        f"The `{type(self).__name__}.{name}` attribute is not yet "
+                        "implemented in `cuml.accel`.\n\n"
+                        "If this attribute is important for your use case, please open "
+                        "an issue: https://github.com/rapidsai/cuml/issues."
+                    ) from None
+                raise
+        elif is_private:
+            # Don't proxy magic methods or private attributes by default
             raise AttributeError(
                 f"{type(self).__name__!r} object has no attribute {name!r}"
             )
 
-        if name.endswith("_"):
-            # Fit attributes require syncing
-            self._sync_attrs_to_cpu()
         return getattr(self._cpu, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -370,6 +469,39 @@ class ProxyBase(BaseEstimator):
         return out
 
     ############################################################
+    # Metadata Routing Methods                                 #
+    ############################################################
+
+    @functools.wraps(BaseEstimator.get_metadata_routing)
+    def get_metadata_routing(self):
+        return self._cpu.get_metadata_routing()
+
+    @functools.wraps(BaseEstimator._get_metadata_request)
+    def _get_metadata_request(self):
+        return self._cpu._get_metadata_request()
+
+    if SKLEARN_18:
+
+        @classmethod
+        @functools.wraps(
+            BaseEstimator._get_class_level_metadata_request_values
+        )
+        def _get_class_level_metadata_request_values(cls, method):
+            return cls._cpu_class._get_class_level_metadata_request_values(
+                method
+            )
+    else:
+
+        @classmethod
+        @functools.wraps(BaseEstimator._get_default_requests)
+        def _get_default_requests(cls):
+            return cls._cpu_class._get_default_requests()
+
+    @property
+    def _metadata_request(self):
+        return self._cpu._metadata_request
+
+    ############################################################
     # Methods on BaseEstimator used internally by sklearn      #
     ############################################################
 
@@ -398,8 +530,10 @@ class ProxyBase(BaseEstimator):
         return self._cpu._more_tags()
 
     def _repr_mimebundle_(self, **kwargs):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_mimebundle_(**kwargs)
 
     @property
     def _repr_html_(self):
+        self._sync_attrs_to_cpu()
         return self._cpu._repr_html_

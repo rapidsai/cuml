@@ -1,19 +1,8 @@
 # This contains code with copyright by the scikit-learn project, subject to the
 # license in /thirdparty/LICENSES/LICENSE.scikit_learn
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 #
 
 import inspect
@@ -21,7 +10,6 @@ import os
 import re
 import subprocess
 import sys
-from functools import partial
 from operator import attrgetter
 
 orig = inspect.isfunction
@@ -29,12 +17,11 @@ orig = inspect.isfunction
 
 # See https://opendreamkit.org/2017/06/09/CythonSphinx/
 def isfunction(obj):
-
     orig_val = orig(obj)
 
     new_val = hasattr(type(obj), "__code__")
 
-    if (orig_val != new_val):
+    if orig_val != new_val:
         return new_val
 
     return orig_val
@@ -42,19 +29,20 @@ def isfunction(obj):
 
 inspect.isfunction = isfunction
 
-REVISION_CMD = 'git rev-parse --short HEAD'
+REVISION_CMD = "git rev-parse --short HEAD"
 
-source_regex = re.compile(r"^File: (.*?) \(starting at line ([0-9]*?)\)$",
-                          re.MULTILINE)
+source_regex = re.compile(
+    r"^File: (.*?) \(starting at line ([0-9]*?)\)$", re.MULTILINE
+)
 
 
 def _get_git_revision():
     try:
         revision = subprocess.check_output(REVISION_CMD.split()).strip()
     except (subprocess.CalledProcessError, OSError):
-        print('Failed to execute git to get revision')
+        print("Failed to execute git to get revision")
         return None
-    return revision.decode('utf-8')
+    return revision.decode("utf-8")
 
 
 def _linkcode_resolve(domain, info, package, url_fmt, revision):
@@ -74,14 +62,14 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
 
     if revision is None:
         return
-    if domain not in ('py', 'pyx'):
+    if domain not in ("py", "pyx"):
         return
-    if not info.get('module') or not info.get('fullname'):
+    if not info.get("module") or not info.get("fullname"):
         return
 
-    class_name = info['fullname'].split('.')[0]
-    module = __import__(info['module'], fromlist=[class_name])
-    obj = attrgetter(info['fullname'])(module)
+    class_name = info["fullname"].split(".")[0]
+    module = __import__(info["module"], fromlist=[class_name])
+    obj = attrgetter(info["fullname"])(module)
 
     # Unwrap the object to get the correct source
     # file in case that is wrapped by a decorator
@@ -104,42 +92,45 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
         # Possibly Cython code. Search docstring for source
         m = source_regex.search(obj.__doc__)
 
-        if (m is not None):
+        if m is not None:
             source_file = m.group(1)
             lineno = m.group(2)
 
             # fn is expected to be the absolute path.
             fn = os.path.relpath(source_file, start=package)
-            print("{}:{}".format(
-                os.path.abspath(os.path.join("..", "python", "cuml", fn)),
-                lineno))
+            print(
+                "{}:{}".format(
+                    os.path.abspath(os.path.join("..", "python", "cuml", fn)),
+                    lineno,
+                )
+            )
         else:
             return
     else:
         if fn.endswith(".pyx"):
-            sp_path = next(x for x in sys.path if re.match(".*site-packages$", x))
+            sp_path = next(
+                x for x in sys.path if re.match(".*site-packages$", x)
+            )
             fn = fn.replace("/opt/conda/conda-bld/work/python/cuml", sp_path)
 
         # Convert to relative from module root
-        fn = os.path.relpath(fn,
-                             start=os.path.dirname(
-                                 __import__(package).__file__))
+        fn = os.path.relpath(
+            fn, start=os.path.dirname(__import__(package).__file__)
+        )
 
     # Get the line number if we need it. (Can work without it)
-    if (lineno is None):
+    if lineno is None:
         try:
             lineno = inspect.getsourcelines(obj)[1]
         except Exception:
-
             # Can happen if its a cyfunction. See if it has `__code__`
-            if (hasattr(obj, "__code__")):
+            if hasattr(obj, "__code__"):
                 lineno = obj.__code__.co_firstlineno
             else:
-                lineno = ''
-    return url_fmt.format(revision=revision,
-                          package=package,
-                          path=fn,
-                          lineno=lineno)
+                lineno = ""
+    return url_fmt.format(
+        revision=revision, package=package, path=fn, lineno=lineno
+    )
 
 
 def make_linkcode_resolve(package, url_fmt):
@@ -154,7 +145,9 @@ def make_linkcode_resolve(package, url_fmt):
                                    '{path}#L{lineno}')
     """
     revision = _get_git_revision()
-    return partial(_linkcode_resolve,
-                   revision=revision,
-                   package=package,
-                   url_fmt=url_fmt)
+
+    # Using a partial function doesn't work with sphinx.ext.linkcode.
+    def linkcode_resolve(domain, info):
+        return _linkcode_resolve(domain, info, package, url_fmt, revision)
+
+    return linkcode_resolve

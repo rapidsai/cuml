@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 """
@@ -120,7 +109,7 @@ _return_values_docstrings = {
     "configuration, shape ={shape}",
     "dense_sparse_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
     "configuration, shape ={shape}",
-    "custom_type": "{name} : {type}\n" "    {description}",
+    "custom_type": "{name} : {type}\n    {description}",
 }
 
 _return_values_possible_values = ["name", "type", "shape", "description"]
@@ -226,6 +215,8 @@ def generate_docstring(
         if (
             "X" in params or "y" in params or parameters
         ) and not skip_parameters_heading:
+            if not func.__doc__.endswith("\n"):
+                func.__doc__ += "\n"
             func.__doc__ += "\nParameters\n----------\n"
 
         # Check if we want to prepend the parameters
@@ -238,7 +229,7 @@ def generate_docstring(
         # Process each parameter
         for par, value in params.items():
             if par == "self":
-                pass
+                continue
 
             # X and y are the most common
             elif par == "X" and par not in skip_parameters:

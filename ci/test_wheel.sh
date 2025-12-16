@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
@@ -42,15 +43,19 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
+# Run linkage test for libcuml
+rapids-logger "Testing libcuml linkage"
+python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v
+
 rapids-logger "pytest cuml single GPU"
-./ci/run_cuml_singlegpu_pytests.sh \
+timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   -k 'not test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
 # Run test_sparse_pca_inputs separately
-./ci/run_cuml_singlegpu_pytests.sh \
+timeout 10m ./ci/run_cuml_singlegpu_pytests.sh \
   -k 'test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
 

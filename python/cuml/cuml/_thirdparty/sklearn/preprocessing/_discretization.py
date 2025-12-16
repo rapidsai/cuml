@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: Henry Lin <hlin117@gmail.com>
+# SPDX-FileCopyrightText: Tom Dupré la Tour
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
+
 # Original authors from Sckit-Learn:
 #         Henry Lin <hlin117@gmail.com>
 #         Tom Dupré la Tour
@@ -9,21 +14,6 @@
 # it was since modified to allow GPU acceleration.
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
-
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 
 import numbers
 import warnings
@@ -37,7 +27,7 @@ from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
-from ....internals.memory_utils import using_output_type
+from ....internals.outputs import using_output_type, reflect
 from ....thirdparty_adapters import check_array
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES, check_is_fitted
@@ -147,8 +137,6 @@ class KBinsDiscretizer(TransformerMixin,
            [ 0.5,  3.5, -1.5,  1.5]])
 
     """
-
-    bin_edges_internal_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
@@ -164,6 +152,7 @@ class KBinsDiscretizer(TransformerMixin,
             "strategy"
         ]
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.
@@ -247,7 +236,7 @@ class KBinsDiscretizer(TransformerMixin,
                                   'decreasing the number of bins.' % jj)
                     n_bins[jj] = len(bin_edges[jj]) - 1
 
-        self.bin_edges_internal_ = bin_edges
+        self.bin_edges_ = bin_edges
         self.n_bins_ = n_bins
 
         if 'onehot' in self.encode:
@@ -294,6 +283,7 @@ class KBinsDiscretizer(TransformerMixin,
                              .format(KBinsDiscretizer.__name__, indices))
         return n_bins
 
+    @reflect
     def transform(self, X) -> SparseCumlArray:
         """
         Discretize the data.
@@ -316,7 +306,7 @@ class KBinsDiscretizer(TransformerMixin,
             raise ValueError("Incorrect number of features. Expecting {}, "
                              "received {}.".format(n_features, Xt.shape[1]))
 
-        bin_edges = self.bin_edges_internal_
+        bin_edges = self.bin_edges_
         for jj in range(Xt.shape[1]):
             # Values which are close to a bin edge are susceptible to numeric
             # instability. Add eps to X so these values are binned correctly
@@ -336,6 +326,7 @@ class KBinsDiscretizer(TransformerMixin,
         Xt = self._encoder.transform(Xt)
         return Xt
 
+    @reflect
     def inverse_transform(self, Xt) -> SparseCumlArray:
         """
         Transform discretized data back to original feature space.
@@ -366,13 +357,9 @@ class KBinsDiscretizer(TransformerMixin,
                              "received {}.".format(n_features, Xinv.shape[1]))
 
         for jj in range(n_features):
-            bin_edges = self.bin_edges_internal_[jj]
+            bin_edges = self.bin_edges_[jj]
             bin_centers = (bin_edges[1:] + bin_edges[:-1]) * 0.5
             idxs = np.asnumpy(Xinv[:, jj])
             Xinv[:, jj] = bin_centers[idxs.astype(np.int32)]
 
         return Xinv
-
-    @property
-    def bin_edges_(self):
-        return self.bin_edges_internal_

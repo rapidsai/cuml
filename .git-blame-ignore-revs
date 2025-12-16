@@ -30,3 +30,12 @@ cc68aee1b224cdca0587ecd7c57b098b07b9b1af
 
 # Add isort to pre-commit hooks and fix circular imports
 b01e2d1d4cf358dbc0a435a663c546fa9cf3e3cb
+
+# Update cython-lint and enforce line length
+99f5ee8770683b51a4fd002781247610aeeaeadb
+
+# Use SPDX for all copyright headers
+6f7a1052f545c7d51d6893ac5791ace574671ed5
+
+# Use ruff-check, ruff-format instead of black, flake8, isort
+da72b463715e28d29e8db3be8d7c339ddcba4dcb

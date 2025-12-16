@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import math
@@ -25,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
 
-@cuml.internals.api_return_generic(get_output_type=True)
+@cuml.internals.reflect
 def precision_recall_curve(
     y_true, probs_pred
 ) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
@@ -100,7 +89,7 @@ def precision_recall_curve(
 
     if cp.any(y_true) == 0:
         raise ValueError(
-            "precision_recall_curve cannot be used when " "y_true is all zero."
+            "precision_recall_curve cannot be used when y_true is all zero."
         )
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
@@ -118,7 +107,6 @@ def precision_recall_curve(
     return precision, recall, thresholds
 
 
-@cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
@@ -166,9 +154,8 @@ def roc_auc_score(y_true, y_score):
 
 
 def _binary_clf_curve(y_true, y_score):
-
     if y_true.dtype.kind == "f" and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  " "is not supported.")
+        raise ValueError("Continuous format of y_true  is not supported.")
 
     ids = cp.argsort(-y_score)
     sorted_score = y_score[ids]

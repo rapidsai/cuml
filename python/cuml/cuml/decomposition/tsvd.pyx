@@ -1,27 +1,11 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
-from enum import IntEnum
-
+import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -30,25 +14,14 @@ from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
-from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-from cuml.decomposition.utils cimport *
+from cuml.decomposition.common cimport paramsTSVD, solver
 
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
-
-    cdef void tsvdFit(handle_t& handle,
-                      float *input,
-                      float *components,
-                      float *singular_vals,
-                      const paramsTSVD &prms) except +
-
-    cdef void tsvdFit(handle_t& handle,
-                      double *input,
-                      double *components,
-                      double *singular_vals,
-                      const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                float *input,
@@ -57,7 +30,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -66,7 +40,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -91,11 +66,6 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                             double *components,
                             double *trans_input,
                             const paramsTSVD &prms) except +
-
-
-class Solver(IntEnum):
-    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
-    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
 class TruncatedSVD(Base,
@@ -239,6 +209,7 @@ class TruncatedSVD(Base,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
+    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -299,140 +270,128 @@ class TruncatedSVD(Base,
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
-        # params
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components
         self.n_iter = n_iter
         self.random_state = random_state
         self.tol = tol
-        self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
 
-        # internal array attributes
-        self.components_ = None
-        self.explained_variance_ = None
-
-        self.explained_variance_ratio_ = None
-
-        self.singular_values_ = None
-
-    def _get_algorithm_c_name(self, algorithm):
-        algo_map = {
-            'full': Solver.COV_EIG_DQ,
-            'auto': Solver.COV_EIG_DQ,
-            'jacobi': Solver.COV_EIG_JACOBI
-        }
-        if algorithm not in algo_map:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
-        return algo_map[algorithm]
-
-    def _build_params(self, n_rows, n_cols):
-        cdef paramsTSVD *params = new paramsTSVD()
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = n_cols
-        params.n_iterations = self.n_iter
-        params.tol = self.tol
-        params.algorithm = <solver> (<underlying_type_t_solver> (
-            self.c_algorithm))
-
-        return <size_t>params
-
-    def _initialize_arrays(self, n_components, n_rows, n_cols):
-
-        self.components_ = CumlArray.zeros((n_components, n_cols),
-                                           dtype=self.dtype)
-        self.explained_variance_ = CumlArray.zeros(n_components,
-                                                   dtype=self.dtype)
-        self.explained_variance_ratio_ = CumlArray.zeros(n_components,
-                                                         dtype=self.dtype)
-        self.singular_values_ = CumlArray.zeros(n_components,
-                                                dtype=self.dtype)
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.components_.shape[0]
 
     @generate_docstring()
+    @cuml.internals.reflect
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
-        Fit LSI model on training cudf DataFrame X. y is currently ignored.
+        Fit model on training cudf DataFrame X. y is currently ignored.
 
         """
-
         self.fit_transform(X)
-
         return self
 
     @generate_docstring(return_values={'name': 'trans',
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
-        Fit LSI model to X and perform dimensionality reduction on X.
+        Fit model to X and perform dimensionality reduction on X.
         y is currently ignored.
 
         """
-        X_m, self.n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64])
-        cdef uintptr_t _input_ptr = X_m.ptr
+        # Validate input
+        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64]
+        )
 
-        self._initialize_arrays(self.n_components, self.n_rows,
-                                self.n_features_in_)
+        # Validate and initialize parameters
+        if self.n_components > n_cols:
+            raise ValueError(
+                f"`n_components` ({self.n_components}) must be <= than the "
+                f"number of features in X ({n_cols})"
+            )
 
-        cdef uintptr_t _comp_ptr = self.components_.ptr
-
-        cdef uintptr_t _explained_var_ptr = \
-            self.explained_variance_.ptr
-
-        cdef uintptr_t _explained_var_ratio_ptr = \
-            self.explained_variance_ratio_.ptr
-
-        cdef uintptr_t _singular_vals_ptr = \
-            self.singular_values_.ptr
-
-        if self.n_components> self.n_features_in_:
-            raise ValueError(' n_components must be < n_features')
-
-        cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-            self._build_params(self.n_rows, self.n_features_in_)
-        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                        dtype=self.dtype, index=X_m.index)
-        cdef uintptr_t t_input_ptr = _trans_input_.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if self.dtype == np.float32:
-            tsvdFitTransform(handle_[0],
-                             <float*> _input_ptr,
-                             <float*> t_input_ptr,
-                             <float*> _comp_ptr,
-                             <float*> _explained_var_ptr,
-                             <float*> _explained_var_ratio_ptr,
-                             <float*> _singular_vals_ptr,
-                             deref(params))
+        cdef paramsTSVD params
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
+        params.n_components = self.n_components
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.n_iterations = self.n_iter
+        params.tol = self.tol
+        if self.algorithm in ("auto", "full"):
+            params.algorithm = solver.COV_EIG_DQ
+        elif self.algorithm == "jacobi":
+            params.algorithm = solver.COV_EIG_JACOBI
         else:
-            tsvdFitTransform(handle_[0],
-                             <double*> _input_ptr,
-                             <double*> t_input_ptr,
-                             <double*> _comp_ptr,
-                             <double*> _explained_var_ptr,
-                             <double*> _explained_var_ratio_ptr,
-                             <double*> _singular_vals_ptr,
-                             deref(params))
+            raise ValueError(
+                f"Expected `algorithm` to be one of ['auto', 'full', 'jacobi'], "
+                f"got {self.algorithm!r}"
+            )
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
+        # Allocate output arrays
+        components = CumlArray.zeros((self.n_components, n_cols), dtype=dtype)
+        explained_variance = CumlArray.zeros(self.n_components, dtype=dtype)
+        explained_variance_ratio = CumlArray.zeros(self.n_components, dtype=dtype)
+        singular_values = CumlArray.zeros(self.n_components, dtype=dtype)
+        out = CumlArray.zeros((n_rows, self.n_components), dtype=dtype, index=X_m.index)
+
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t components_ptr = components.ptr
+        cdef uintptr_t explained_variance_ptr = explained_variance.ptr
+        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
+        cdef uintptr_t singular_values_ptr = singular_values.ptr
+        cdef uintptr_t out_ptr = out.ptr
+        cdef bool use_float32 = dtype == np.float32
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Perform fit
+        with nogil:
+            if use_float32:
+                tsvdFitTransform(
+                    handle_[0],
+                    <float*> X_ptr,
+                    <float*> out_ptr,
+                    <float*> components_ptr,
+                    <float*> explained_variance_ptr,
+                    <float*> explained_variance_ratio_ptr,
+                    <float*> singular_values_ptr,
+                    params,
+                    flip_signs_based_on_U
+                )
+            else:
+                tsvdFitTransform(
+                    handle_[0],
+                    <double*> X_ptr,
+                    <double*> out_ptr,
+                    <double*> components_ptr,
+                    <double*> explained_variance_ptr,
+                    <double*> explained_variance_ratio_ptr,
+                    <double*> singular_values_ptr,
+                    params,
+                    flip_signs_based_on_U
+                )
         self.handle.sync()
 
-        return _trans_input_
+        # Store results
+        self.components_ = components
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.singular_values_ = singular_values
+
+        return out
 
     @generate_docstring(return_values={'name': 'X_original',
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
+    @cuml.internals.reflect
     def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
@@ -440,90 +399,97 @@ class TruncatedSVD(Base,
 
         """
         dtype = self.components_.dtype
-        _X_m, _n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=dtype,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else None))
+        X_m, n_rows, _, _ = input_to_cuml_array(
+            X,
+            check_dtype=dtype,
+            convert_to_dtype=(dtype if convert_dtype else None),
+            check_cols=self.n_components,
+        )
 
         cdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = _n_rows
+        params.n_rows = n_rows
         params.n_cols = self.n_features_in_
 
-        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=dtype, index=_X_m.index)
+        out = CumlArray.zeros(
+            (n_rows, self.n_features_in_), dtype=dtype, index=X_m.index
+        )
 
-        cdef uintptr_t trans_input_ptr = _X_m.ptr
-        cdef uintptr_t input_ptr = input_data.ptr
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
-
+        cdef bool use_float32 = dtype == np.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if dtype.type == np.float32:
-            tsvdInverseTransform(handle_[0],
-                                 <float*> trans_input_ptr,
-                                 <float*> components_ptr,
-                                 <float*> input_ptr,
-                                 params)
-        else:
-            tsvdInverseTransform(handle_[0],
-                                 <double*> trans_input_ptr,
-                                 <double*> components_ptr,
-                                 <double*> input_ptr,
-                                 params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
+        with nogil:
+            if use_float32:
+                tsvdInverseTransform(
+                    handle_[0],
+                    <float*> X_ptr,
+                    <float*> components_ptr,
+                    <float*> out_ptr,
+                    params
+                )
+            else:
+                tsvdInverseTransform(
+                    handle_[0],
+                    <double*> X_ptr,
+                    <double*> components_ptr,
+                    <double*> out_ptr,
+                    params
+                )
         self.handle.sync()
 
-        return input_data
+        return out
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
         """
         dtype = self.components_.dtype
-        self.n_features_in_ = self.components_.shape[1]
-
-        _X_m, _n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=dtype,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_features_in_)
+        X_m, n_rows, _, _ = input_to_cuml_array(
+            X,
+            check_dtype=dtype,
+            convert_to_dtype=(dtype if convert_dtype else None),
+            check_cols=self.n_features_in_,
+        )
 
         cdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = _n_rows
+        params.n_rows = n_rows
         params.n_cols = self.n_features_in_
 
-        t_input_data = \
-            CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype, index=_X_m.index)
+        out = CumlArray.zeros((n_rows, self.n_components), dtype=dtype, index=X_m.index)
 
-        cdef uintptr_t input_ptr = _X_m.ptr
-        cdef uintptr_t trans_input_ptr = t_input_data.ptr
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
-
+        cdef bool use_float32 = dtype == np.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if dtype.type == np.float32:
-            tsvdTransform(handle_[0],
-                          <float*> input_ptr,
-                          <float*> components_ptr,
-                          <float*> trans_input_ptr,
-                          params)
-        else:
-            tsvdTransform(handle_[0],
-                          <double*> input_ptr,
-                          <double*> components_ptr,
-                          <double*> trans_input_ptr,
-                          params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
+        with nogil:
+            if use_float32:
+                tsvdTransform(
+                    handle_[0],
+                    <float*> X_ptr,
+                    <float*> components_ptr,
+                    <float*> out_ptr,
+                    params
+                )
+            else:
+                tsvdTransform(
+                    handle_[0],
+                    <double*> X_ptr,
+                    <double*> components_ptr,
+                    <double*> out_ptr,
+                    params
+                )
         self.handle.sync()
 
-        return t_input_data
+        return out

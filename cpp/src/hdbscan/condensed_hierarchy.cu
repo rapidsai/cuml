@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/cluster/hdbscan.hpp>
@@ -181,32 +170,7 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
                     return thrust::get<3>(tup) != -1;
                   });
 
-  // TODO: Avoid the copies here by updating kernel
-  rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
-  raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
-  raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
-
-  // find n_clusters
   auto parents_ptr = thrust::device_pointer_cast(parents.data());
-  auto max_parent =
-    *(thrust::max_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges));
-
-  // now invert labels
-  auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto& x) {
-    return x >= n_leaves ? max_parent - x + n_leaves : x;
-  };
-
-  thrust::transform(thrust::cuda::par.on(stream),
-                    parent_child.begin(),
-                    parent_child.end(),
-                    parent_child.begin(),
-                    invert_op);
-
-  raft::label::make_monotonic(
-    parent_child.data(), parent_child.data(), parent_child.size(), stream, true);
-
-  raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
-  raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
 
   auto parents_min_max =
     thrust::minmax_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);

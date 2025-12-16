@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from collections.abc import Iterable
@@ -30,12 +19,11 @@ from toolz import first
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.internals import BaseMetaClass
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 
 
-class BaseEstimator(object, metaclass=BaseMetaClass):
+class BaseEstimator:
     def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators.
@@ -316,7 +304,6 @@ class DelayedParallelFunc(object):
         # TODO: Add eager path back in
 
         if output_collection_type == "cupy":
-
             # todo: add parameter for option of not checking directly
             shape = (np.nan,) * n_dims
             preds_arr = [
@@ -383,7 +370,6 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
 
 class SyncFitMixinLinearModel(object):
     def _fit(self, model_func, data):
-
         n_cols = data[0].shape[1]
 
         data = DistributedDataHandler.create(data=data, client=self.client)

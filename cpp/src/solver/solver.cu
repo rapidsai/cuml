@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "cd.cuh"
@@ -286,82 +275,78 @@ void sgdPredictBinaryClass(raft::handle_t& handle,
     handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.get_stream());
 }
 
-void cdFit(raft::handle_t& handle,
-           float* input,
-           int n_rows,
-           int n_cols,
-           float* labels,
-           float* coef,
-           float* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           int loss,
-           float alpha,
-           float l1_ratio,
-           bool shuffle,
-           float tol,
-           float* sample_weight)
+int cdFit(raft::handle_t& handle,
+          float* input,
+          int n_rows,
+          int n_cols,
+          float* labels,
+          float* coef,
+          float* intercept,
+          bool fit_intercept,
+          int epochs,
+          int loss,
+          float alpha,
+          float l1_ratio,
+          bool shuffle,
+          float tol,
+          float* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit<float>(handle,
-               input,
-               n_rows,
-               n_cols,
-               labels,
-               coef,
-               intercept,
-               fit_intercept,
-               normalize,
-               epochs,
-               loss_funct,
-               alpha,
-               l1_ratio,
-               shuffle,
-               tol,
-               sample_weight);
+  return cdFit<float>(handle,
+                      input,
+                      n_rows,
+                      n_cols,
+                      labels,
+                      coef,
+                      intercept,
+                      fit_intercept,
+                      epochs,
+                      loss_funct,
+                      alpha,
+                      l1_ratio,
+                      shuffle,
+                      tol,
+                      sample_weight);
 }
 
-void cdFit(raft::handle_t& handle,
-           double* input,
-           int n_rows,
-           int n_cols,
-           double* labels,
-           double* coef,
-           double* intercept,
-           bool fit_intercept,
-           bool normalize,
-           int epochs,
-           int loss,
-           double alpha,
-           double l1_ratio,
-           bool shuffle,
-           double tol,
-           double* sample_weight)
+int cdFit(raft::handle_t& handle,
+          double* input,
+          int n_rows,
+          int n_cols,
+          double* labels,
+          double* coef,
+          double* intercept,
+          bool fit_intercept,
+          int epochs,
+          int loss,
+          double alpha,
+          double l1_ratio,
+          bool shuffle,
+          double tol,
+          double* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit<double>(handle,
-                input,
-                n_rows,
-                n_cols,
-                labels,
-                coef,
-                intercept,
-                fit_intercept,
-                normalize,
-                epochs,
-                loss_funct,
-                alpha,
-                l1_ratio,
-                shuffle,
-                tol,
-                sample_weight);
+  return cdFit<double>(handle,
+                       input,
+                       n_rows,
+                       n_cols,
+                       labels,
+                       coef,
+                       intercept,
+                       fit_intercept,
+                       epochs,
+                       loss_funct,
+                       alpha,
+                       l1_ratio,
+                       shuffle,
+                       tol,
+                       sample_weight);
 }
 
 void cdPredict(raft::handle_t& handle,

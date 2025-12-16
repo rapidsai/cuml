@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -38,6 +27,8 @@ namespace opg {
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
+ * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
+ * < 1.5)
  */
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<float>*>& input_data,
@@ -49,7 +40,8 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose = false);
+         bool verbose               = false,
+         bool flip_signs_based_on_U = false);
 
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -61,7 +53,8 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose = false);
+         bool verbose               = false,
+         bool flip_signs_based_on_U = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the pca
@@ -78,6 +71,8 @@ void fit(raft::handle_t& handle,
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
+ * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
+ * < 1.5)
  */
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -91,7 +86,8 @@ void fit_transform(raft::handle_t& handle,
                    float* mu,
                    float* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose);
+                   bool verbose,
+                   bool flip_signs_based_on_U);
 
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -105,7 +101,8 @@ void fit_transform(raft::handle_t& handle,
                    double* mu,
                    double* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose);
+                   bool verbose,
+                   bool flip_signs_based_on_U);
 
 /**
  * @brief performs MNMG transform operation for the pca

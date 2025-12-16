@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from collections import namedtuple
@@ -22,8 +11,7 @@ import cupyx
 import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
-import scipy.sparse as scipy_sparse
-from scipy.sparse import isspmatrix as scipy_isspmatrix
+import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
@@ -48,14 +36,16 @@ _input_type_to_str = {
     cudf.Index: "cudf",
     numba_cuda.devicearray.DeviceNDArrayBase: "numba",
     cupyx.scipy.sparse.spmatrix: "cupy",
-    scipy_sparse.spmatrix: "numpy",
+    scipy.sparse.spmatrix: "numpy",
+    scipy.sparse.sparray: "numpy",
 }
 
 _input_type_to_mem_type = {
     np.ndarray: MemoryType.host,
     pd.Series: MemoryType.host,
     pd.DataFrame: MemoryType.host,
-    scipy_sparse.spmatrix: MemoryType.host,
+    scipy.sparse.spmatrix: MemoryType.host,
+    scipy.sparse.sparray: MemoryType.host,
     cp.ndarray: MemoryType.device,
     cudf.Series: MemoryType.device,
     cudf.DataFrame: MemoryType.device,
@@ -66,7 +56,8 @@ _input_type_to_mem_type = {
 _SPARSE_TYPES = [
     SparseCumlArray,
     cupyx.scipy.sparse.spmatrix,
-    scipy_sparse.spmatrix,
+    scipy.sparse.spmatrix,
+    scipy.sparse.sparray,
 ]
 
 
@@ -141,11 +132,14 @@ def get_supported_input_type(X):
         if not isinstance(X, np.generic) and not isinstance(X, type):
             return np.ndarray
 
-    if cupyx.scipy.sparse.isspmatrix(X):
+    if cupyx.scipy.sparse.issparse(X):
         return cupyx.scipy.sparse.spmatrix
 
-    if scipy_sparse.isspmatrix(X):
-        return scipy_sparse.spmatrix
+    if scipy.sparse.isspmatrix(X):
+        return scipy.sparse.spmatrix
+
+    if scipy.sparse.issparse(X) and X.ndim == 2:
+        return scipy.sparse.sparray
 
     # Return None if this type is not supported
     return None
@@ -177,7 +171,6 @@ def determine_df_obj_type(X):
 
 
 def determine_array_dtype(X):
-
     if X is None:
         return None
 
@@ -239,10 +232,7 @@ def is_array_like(X, accept_lists=False):
         hasattr(X, "__cuda_array_interface__")
         or (
             hasattr(X, "__array_interface__")
-            and not (
-                isinstance(X, global_settings.xpy.generic)
-                or isinstance(X, type)
-            )
+            and not (isinstance(X, np.generic) or isinstance(X, type))
         )
         or isinstance(
             X,
@@ -258,9 +248,9 @@ def is_array_like(X, accept_lists=False):
     ):
         return True
 
-    if cupyx.scipy.sparse.isspmatrix(X):
+    if cupyx.scipy.sparse.issparse(X):
         return True
-    if scipy_isspmatrix(X):
+    if scipy.sparse.issparse(X):
         return True
     if numba_cuda.devicearray.is_cuda_ndarray(X):
         return True
@@ -279,7 +269,7 @@ def input_to_cuml_array(
     check_dtype=False,
     convert_to_dtype=False,
     check_mem_type=False,
-    convert_to_mem_type=None,
+    convert_to_mem_type="device",
     safe_dtype_conversion=True,
     check_cols=False,
     check_rows=False,
@@ -333,7 +323,7 @@ def input_to_cuml_array(
         (default) to not check at all.
 
     check_rows: boolean (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
+        Set to an int `i` to check that input X has `i` rows. Set to False
         (default) to not check at all.
 
     fail_on_order: boolean (default: False)
@@ -478,7 +468,7 @@ def input_to_host_array(
 def input_to_host_array_with_sparse_support(X):
     if X is None:
         return None
-    if scipy_sparse.issparse(X):
+    if scipy.sparse.issparse(X):
         return X
     _array_type, is_sparse = determine_array_type_full(X)
     if is_sparse:
@@ -505,11 +495,11 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
 
     if safe_dtype:
         cur_dtype = determine_array_dtype(X)
-        if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
+        if not np.can_cast(cur_dtype, to_dtype):
             try:
-                target_dtype_range = global_settings.xpy.iinfo(to_dtype)
+                target_dtype_range = cp.iinfo(to_dtype)
             except ValueError:
-                target_dtype_range = global_settings.xpy.finfo(to_dtype)
+                target_dtype_range = cp.finfo(to_dtype)
             out_of_range = (
                 (X < target_dtype_range.min) | (X > target_dtype_range.max)
             ).any()

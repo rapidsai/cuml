@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
@@ -44,7 +33,7 @@ def _generate_hypercube(samples, dimensions, random_state):
 
 
 @nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.reflect(array=None)
 def make_classification(
     n_samples=100,
     n_features=20,
@@ -213,8 +202,6 @@ def make_classification(
            selection benchmark", 2003.
 
     """
-    cuml.internals.set_api_output_type("cupy")
-
     generator = _create_rs_generator(random_state)
 
     # Count features, clusters and samples
@@ -240,7 +227,7 @@ def make_classification(
     if weights is not None:
         if len(weights) not in [n_classes, n_classes - 1]:
             raise ValueError(
-                "Weights specified but incompatible with number " "of classes."
+                "Weights specified but incompatible with number of classes."
             )
         if len(weights) == n_classes - 1:
             if isinstance(weights, list):
@@ -340,9 +327,9 @@ def make_classification(
             X_k = cp.dot(X_k, A)  # introduce random covariance
 
             if n_redundant > 0:
-                X[
-                    start:stop, n_informative : n_informative + n_redundant
-                ] = cp.dot(X_k, B)
+                X[start:stop, n_informative : n_informative + n_redundant] = (
+                    cp.dot(X_k, B)
+                )
 
             X_k += centroid  # shift the cluster to a vertex
             X[start:stop, :n_informative] = X_k

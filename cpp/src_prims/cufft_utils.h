@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -43,10 +32,14 @@ const char* getCufftErrStr(cufftResult status)
     case CUFFT_EXEC_FAILED: return "Failed to execute an FFT on the GPU.";
     case CUFFT_SETUP_FAILED: return "The cuFFT library failed to initialize.";
     case CUFFT_INVALID_SIZE: return "User specified an invalid transform size.";
+#if defined(CUDART_VERSION) && CUDART_VERSION < 13000
     case CUFFT_INCOMPLETE_PARAMETER_LIST: return "Missing parameters in call.";
+#endif
     case CUFFT_INVALID_DEVICE:
       return "Execution of a plan was on different GPU than plan creation.";
+#if defined(CUDART_VERSION) && CUDART_VERSION < 13000
     case CUFFT_PARSE_ERROR: return "Internal plan database error.";
+#endif
     case CUFFT_NO_WORKSPACE: return "No workspace has been provided prior to plan execution.";
     case CUFFT_NOT_IMPLEMENTED:
       return "Function does not implement functionality for parameters given.";

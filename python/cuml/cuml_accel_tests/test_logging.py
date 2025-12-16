@@ -1,0 +1,128 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+#
+import pytest
+from sklearn.datasets import make_classification, make_regression
+from sklearn.linear_model import Ridge
+from sklearn.svm import SVC
+
+from cuml.accel.core import logger
+
+
+@pytest.fixture(autouse=True)
+def reset_level():
+    """A fixture to reset the log level back to default after every test"""
+    yield
+    logger.set_level("warn")
+
+
+@pytest.fixture
+def get_logs(capsys):
+    """A fixture to get the logs output by a test"""
+
+    def get_logs():
+        out, _ = capsys.readouterr()
+        return [
+            line for line in out.split("\n") if line.startswith("[cuml.accel]")
+        ]
+
+    return get_logs
+
+
+@pytest.mark.parametrize(
+    "log_level,expected",
+    [
+        (
+            "warn",
+            [],
+        ),
+        (
+            "info",
+            [
+                "[cuml.accel] `Ridge.fit` ran on GPU",
+                "[cuml.accel] `Ridge.fit` ran on GPU",
+                "[cuml.accel] `Ridge.predict` ran on GPU",
+            ],
+        ),
+        (
+            "debug",
+            [
+                "[cuml.accel] `Ridge.fit` ran on GPU",
+                "[cuml.accel] `Ridge` fitted attributes synced to CPU",
+                "[cuml.accel] `Ridge` parameters synced to GPU",
+                "[cuml.accel] `Ridge.fit` ran on GPU",
+                "[cuml.accel] `Ridge.predict` ran on GPU",
+            ],
+        ),
+    ],
+)
+def test_logging_multiple_operations(get_logs, log_level, expected):
+    logger.set_level(log_level)
+
+    X, y = make_regression(random_state=42)
+    ridge = Ridge(random_state=42)
+    ridge.fit(X, y)
+    _ = ridge.coef_
+    ridge.alpha = 2.0
+    ridge.fit(X, y)
+    ridge.predict(X)
+
+    assert get_logs() == expected
+
+
+def test_unsupported_hyperparams(get_logs):
+    logger.set_level("info")
+
+    X, y = make_regression(random_state=42)
+    ridge = Ridge(random_state=42, positive=True)
+    ridge.fit(X, y)
+    ridge.predict(X)
+
+    expected = [
+        "[cuml.accel] `Ridge.fit` falling back to CPU: `positive=True` is not supported",
+        "[cuml.accel] `Ridge.fit` ran on CPU",
+        "[cuml.accel] `Ridge.predict` ran on CPU",
+    ]
+    assert get_logs() == expected
+
+
+@pytest.mark.parametrize("log_level", ["info", "debug"])
+def test_unsupported_hyperparams_in_set_params(get_logs, log_level):
+    logger.set_level(log_level)
+
+    X, y = make_regression(random_state=42)
+    ridge = Ridge(random_state=42)
+    ridge.fit(X, y)
+    # Triggers a fallback to CPU
+    ridge.set_params(positive=True)
+    ridge.predict(X)
+
+    expected = [
+        "[cuml.accel] `Ridge.fit` ran on GPU",
+        (
+            "[cuml.accel] `Ridge` parameters failed to sync to GPU, falling back to "
+            "CPU: `positive=True` is not supported"
+        ),
+        "[cuml.accel] `Ridge` fitted attributes synced to CPU",
+        "[cuml.accel] `Ridge.predict` ran on CPU",
+    ]
+    if log_level == "info":
+        del expected[2]  # only logged at debug
+    assert get_logs() == expected
+
+
+def test_unsupported_parameters(get_logs):
+    logger.set_level("info")
+
+    X, y = make_classification(random_state=42, n_classes=3, n_informative=4)
+    model = SVC()
+    model.fit(X, y)
+    model.predict(X)
+
+    expected = [
+        "[cuml.accel] `SVC.fit` falling back to CPU: Multiclass `y` is not supported",
+        "[cuml.accel] `SVC.fit` ran on CPU",
+        "[cuml.accel] `SVC.predict` ran on CPU",
+    ]
+    assert get_logs() == expected

@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
@@ -43,9 +32,9 @@ def test_nearest_neighbors_n_neighbors(synthetic_data, n_neighbors):
     model.fit(X)
     distances, indices = model.kneighbors(X)
     # Check that the correct number of neighbors is returned
-    assert (
-        indices.shape[1] == n_neighbors
-    ), f"Should return {n_neighbors} neighbors"
+    assert indices.shape[1] == n_neighbors, (
+        f"Should return {n_neighbors} neighbors"
+    )
 
 
 @pytest.mark.parametrize(
@@ -57,9 +46,9 @@ def test_nearest_neighbors_algorithm(synthetic_data, algorithm):
     model.fit(X)
     distances, indices = model.kneighbors(X)
     # Check that the output shape is correct
-    assert (
-        indices.shape[0] == X.shape[0]
-    ), f"Number of samples should remain the same with algorithm={algorithm}"
+    assert indices.shape[0] == X.shape[0], (
+        f"Number of samples should remain the same with algorithm={algorithm}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -104,9 +93,9 @@ def test_nearest_neighbors_radius(synthetic_data):
     distances, indices = model.radius_neighbors(X)
     # Check that all returned distances are within the radius
     for dist in distances:
-        assert np.all(
-            dist <= radius
-        ), f"All distances should be within the radius {radius}"
+        assert np.all(dist <= radius), (
+            f"All distances should be within the radius {radius}"
+        )
 
 
 def test_nearest_neighbors_invalid_algorithm(synthetic_data):
@@ -137,9 +126,9 @@ def test_nearest_neighbors_kneighbors_graph(synthetic_data):
     assert graph.getformat() == "csr", "Graph should be in CSR format"
     # Check that each row has n_neighbors non-zero entries
     row_counts = np.diff(graph.indptr)
-    assert np.all(
-        row_counts == n_neighbors
-    ), f"Each sample should have {n_neighbors} neighbors in the graph"
+    assert np.all(row_counts == n_neighbors), (
+        f"Each sample should have {n_neighbors} neighbors in the graph"
+    )
 
 
 def test_nearest_neighbors_radius_neighbors_graph(synthetic_data):
@@ -167,9 +156,9 @@ def test_nearest_neighbors_return_distance(synthetic_data, return_distance):
     result = model.kneighbors(X, return_distance=return_distance)
     if return_distance:
         distances, indices = result
-        assert (
-            distances.shape == indices.shape
-        ), "Distances and indices should have the same shape"
+        assert distances.shape == indices.shape, (
+            "Distances and indices should have the same shape"
+        )
     else:
         indices = result
         assert indices.shape == (

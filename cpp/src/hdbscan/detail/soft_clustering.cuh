@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -40,7 +29,6 @@
 
 #include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
-#include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
 
@@ -124,26 +112,29 @@ void dist_membership_vector(const raft::handle_t& handle,
 
     // Softmax computation is ignored in distance membership
     if (softmax) {
-      thrust::transform(exec_policy,
-                        min_dist.data_handle(),
-                        min_dist.data_handle() + samples_per_batch * n_selected_clusters,
-                        dist_membership_vec + batch_offset * n_selected_clusters,
-                        [=] __device__(value_t val) {
-                          if (val != 0) { return value_t(exp(1.0 / val)); }
-                          return std::numeric_limits<value_t>::max();
-                        });
+      raft::linalg::map_offset(handle,
+                               raft::make_device_vector_view<value_t, value_idx>(
+                                 dist_membership_vec + batch_offset * n_selected_clusters,
+                                 samples_per_batch * n_selected_clusters),
+                               [min_dist = min_dist.data_handle()] __device__(auto idx) {
+                                 value_t val = min_dist[idx];
+                                 if (val != 0) { return value_t(exp(1.0 / val)); }
+                                 return std::numeric_limits<value_t>::max();
+                               });
     }
 
     // Transform the distances to obtain membership based on proximity to exemplars
     else {
-      thrust::transform(exec_policy,
-                        min_dist.data_handle(),
-                        min_dist.data_handle() + samples_per_batch * n_selected_clusters,
-                        dist_membership_vec + batch_offset * n_selected_clusters,
-                        [=] __device__(value_t val) {
-                          if (val > 0) { return value_t(1.0 / val); }
-                          return std::numeric_limits<value_t>::max() / n_selected_clusters;
-                        });
+      raft::linalg::map_offset(
+        handle,
+        raft::make_device_vector_view<value_t, value_idx>(
+          dist_membership_vec + batch_offset * n_selected_clusters,
+          samples_per_batch * n_selected_clusters),
+        [min_dist = min_dist.data_handle(), n_selected_clusters] __device__(auto idx) {
+          value_t val = min_dist[idx];
+          if (val > 0) { return value_t(1.0 / val); }
+          return std::numeric_limits<value_t>::max() / n_selected_clusters;
+        });
     }
   }
   // Normalize the obtained result to sum to 1.0
@@ -158,7 +149,7 @@ void all_points_outlier_membership_vector(
   value_idx* selected_clusters,
   value_idx* index_into_children,
   size_t m,
-  int n_selected_clusters,
+  size_t n_selected_clusters,
   value_t* merge_heights,
   value_t* outlier_membership_vec,
   bool softmax)
@@ -179,7 +170,7 @@ void all_points_outlier_membership_vector(
                                                     index_into_children,
                                                     parents,
                                                     m,
-                                                    n_selected_clusters,
+                                                    static_cast<value_idx>(n_selected_clusters),
                                                     raft::util::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
@@ -191,14 +182,12 @@ void all_points_outlier_membership_vector(
                              return deaths[parents[index_into_children[idx]] - n_leaves];
                            });
 
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     outlier_membership_vec,
     merge_heights,
     leaf_max_lambdas.data_handle(),
-    n_selected_clusters,
-    (value_idx)m,
-    true,
-    false,
+    static_cast<value_idx>(n_selected_clusters),
+    static_cast<value_idx>(m),
     [] __device__(value_t mat_in, value_t vec_in) {
       return exp(-(vec_in + 1e-8) / mat_in);
     },  //+ 1e-8 to avoid zero lambda
@@ -264,7 +253,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
                                value_idx* selected_clusters,
                                value_idx* index_into_children,
                                size_t n_prediction_points,
-                               int n_selected_clusters,
+                               size_t n_selected_clusters,
                                value_t* merge_heights,
                                value_t* outlier_membership_vec,
                                bool softmax)
@@ -288,7 +277,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
                                                     index_into_children,
                                                     parents,
                                                     n_prediction_points,
-                                                    n_selected_clusters,
+                                                    static_cast<value_idx>(n_selected_clusters),
                                                     raft::util::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
@@ -304,14 +293,12 @@ void outlier_membership_vector(const raft::handle_t& handle,
       return deaths[parents[index_into_children[min_mr_inds[idx]]] - n_leaves];
     });
 
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     outlier_membership_vec,
     merge_heights,
     nearest_cluster_max_lambda.data_handle(),
     n_selected_clusters,
-    (value_idx)n_prediction_points,
-    true,
-    false,
+    n_prediction_points,
     [] __device__(value_t mat_in, value_t vec_in) {
       value_t denominator = vec_in - mat_in;
       if (denominator <= 0) { denominator = 1e-8; }
@@ -462,25 +449,23 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     merge_heights.data(),
                                     prob_in_some_cluster.data());
 
-    thrust::transform(exec_policy,
-                      dist_membership_vec.begin(),
-                      dist_membership_vec.end(),
-                      membership_vec,
-                      membership_vec,
-                      thrust::multiplies<value_t>());
+    raft::linalg::map_offset(
+      handle,
+      raft::make_device_vector_view<value_t, value_idx>(membership_vec, m * n_selected_clusters),
+      [dist_membership_vec = dist_membership_vec.data(), membership_vec] __device__(auto idx) {
+        return dist_membership_vec[idx] * membership_vec[idx];
+      });
 
     // Normalize to obtain probabilities conditioned on points belonging to some cluster
     Utils::normalize(membership_vec, n_selected_clusters, m, stream);
 
     // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
-    raft::linalg::matrixVectorOp(
+    raft::linalg::matrixVectorOp<true, false>(
       membership_vec,
       membership_vec,
       prob_in_some_cluster.data(),
       n_selected_clusters,
       (value_idx)m,
-      true,
-      false,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
   }
@@ -620,14 +605,12 @@ void membership_vector(const raft::handle_t& handle,
 
   // Multiply conditional probabilities with probability of point belonging to some cluster. This
   // gives the joint distribution.
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, false>(
     membership_vec,
     membership_vec,
     prob_in_some_cluster_.data(),
     n_selected_clusters,
     (value_idx)n_prediction_points,
-    true,
-    false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
     stream);
 }

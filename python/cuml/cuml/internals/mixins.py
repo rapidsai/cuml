@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import inspect
@@ -19,8 +8,7 @@ from copy import deepcopy
 
 from cuml._thirdparty._sklearn_compat import _to_new_tags
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_any_skipall
-from cuml.internals.base_helpers import _tags_class_and_instance
+from cuml.internals.outputs import run_in_internal_context
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #
@@ -54,6 +42,34 @@ _default_tags = {
     "_skip_test": False,
     "_xfail_checks": False,
 }
+
+
+class _tags_class_and_instance:
+    """
+    Decorator for mixins to allow for dynamic and static _get_tags.
+    In general, most methods are either dynamic or static, so this decorator
+    is only meant to be used in the mixins _get_tags.
+    """
+
+    def __init__(self, _class, _instance=None):
+        self._class = _class
+        self._instance = _instance
+
+    def instance_method(self, _instance):
+        """
+        Factory to create a _tags_class_and_instance instance method with
+        the existing class associated.
+        """
+        return _tags_class_and_instance(self._class, _instance)
+
+    def __get__(self, _instance, _class):
+        # if the caller had no instance (i.e. it was a class) or there is no
+        # instance associated we the method we return the class call
+        if _instance is None or self._instance is None:
+            return self._class.__get__(_class, None)
+
+        # otherwise return instance call
+        return self._instance.__get__(_instance, _class)
 
 
 class TagsMixin:
@@ -198,10 +214,10 @@ class RegressorMixin:
         return_values={
             "name": "score",
             "type": "float",
-            "description": "R^2 of self.predict(X) " "wrt. y.",
+            "description": "R^2 of self.predict(X) wrt. y.",
         }
     )
-    @api_base_return_any_skipall
+    @run_in_internal_context
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
@@ -236,7 +252,7 @@ class ClassifierMixin:
             ),
         }
     )
-    @api_base_return_any_skipall
+    @run_in_internal_context
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

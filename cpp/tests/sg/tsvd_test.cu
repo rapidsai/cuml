@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/decomposition/params.hpp>
@@ -78,7 +67,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     rmm::device_uvector<T> singular_vals(params.n_col, stream);
 
     std::vector<T> components_ref_h = {
-      -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215, -0.3757};
+      0.3951, 0.1532, 0.9058, 0.7111, -0.6752, -0.1959, 0.5816, 0.7215, -0.3757};
     components_ref_h.resize(len_comp);
 
     components_ref.resize(len_comp, stream);
@@ -172,7 +161,7 @@ TEST_P(TsvdTestLeftVecF, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
                                     components_ref.data(),
                                     (params.n_col * params.n_col),
-                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    MLCommon::CompareApprox<float>(params.tolerance),
                                     handle.get_stream()));
 }
 
@@ -182,7 +171,7 @@ TEST_P(TsvdTestLeftVecD, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
                                     components_ref.data(),
                                     (params.n_col * params.n_col),
-                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    MLCommon::CompareApprox<double>(params.tolerance),
                                     handle.get_stream()));
 }
 
@@ -192,7 +181,7 @@ TEST_P(TsvdTestDataVecF, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                     data2_back.data(),
                                     (params.n_col2 * params.n_col2),
-                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    MLCommon::CompareApprox<float>(params.tolerance),
                                     handle.get_stream()));
 }
 
@@ -202,7 +191,7 @@ TEST_P(TsvdTestDataVecD, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                     data2_back.data(),
                                     (params.n_col2 * params.n_col2),
-                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    MLCommon::CompareApprox<double>(params.tolerance),
                                     handle.get_stream()));
 }
 

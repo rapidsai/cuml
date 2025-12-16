@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include <cuml/fil/detail/bitset.hpp>
@@ -148,9 +137,16 @@ struct decision_forest_builder {
   void set_row_postproc(row_op val) { row_postproc_ = val; }
   /* Set the value to divide by during postprocessing */
   void set_average_factor(double val) { average_factor_ = val; }
-  /* Set the the bias term to remove during postprocessing */
-  void set_bias(double val) { bias_ = val; }
-  /* Set the the value of the constant used in the postprocessing operation
+  /* Set the bias term, which is added to the output. The bias term
+   * should have the same length as output_size. */
+  void set_bias(std::vector<double> val)
+  {
+    bias_.resize(val.size());
+    std::transform(val.begin(), val.end(), bias_.begin(), [](double e) {
+      return static_cast<typename node_type::threshold_type>(e);
+    });
+  }
+  /* Set the value of the constant used in the postprocessing operation
    * (if any) */
   void set_postproc_constant(double val) { postproc_constant_ = val; }
   /* Set the number of outputs per row for this model */
@@ -171,11 +167,11 @@ struct decision_forest_builder {
       row_postproc_{},
       element_postproc_{},
       average_factor_{},
-      bias_{},
       postproc_constant_{},
       nodes_{},
       root_node_indexes_{},
-      vector_output_{}
+      vector_output_{},
+      bias_{}
   {
   }
 
@@ -202,6 +198,7 @@ struct decision_forest_builder {
                          mem_type,
                          device,
                          stream},
+      raft_proto::buffer{raft_proto::buffer{bias_.data(), bias_.size()}, mem_type, device, stream},
       num_feature,
       num_class,
       max_num_categories_ != 0,
@@ -223,7 +220,6 @@ struct decision_forest_builder {
       row_postproc_,
       element_postproc_,
       static_cast<typename node_type::threshold_type>(average_factor_),
-      static_cast<typename node_type::threshold_type>(bias_),
       static_cast<typename node_type::threshold_type>(postproc_constant_)};
 #pragma GCC diagnostic pop
   }
@@ -236,12 +232,12 @@ struct decision_forest_builder {
   row_op row_postproc_;
   element_op element_postproc_;
   double average_factor_;
-  double bias_;
   double postproc_constant_;
 
   std::vector<node_type> nodes_;
   std::vector<index_type> root_node_indexes_;
   std::vector<typename node_type::threshold_type> vector_output_;
+  std::vector<typename node_type::threshold_type> bias_;
   std::vector<typename node_type::index_type> categorical_storage_;
   std::vector<index_type> node_id_mapping_;
 };

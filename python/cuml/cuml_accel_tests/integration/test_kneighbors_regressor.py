@@ -1,19 +1,7 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_regression
@@ -64,9 +52,9 @@ def test_knn_regressor_algorithm(regression_data, algorithm):
     model.fit(X, y)
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.7
-    ), f"R^2 score should be reasonable with algorithm={algorithm}"
+    assert r2 > 0.7, (
+        f"R^2 score should be reasonable with algorithm={algorithm}"
+    )
 
 
 @pytest.mark.parametrize("leaf_size", [10, 30, 50])
@@ -76,9 +64,9 @@ def test_knn_regressor_leaf_size(regression_data, leaf_size):
     model.fit(X, y)
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.7
-    ), f"R^2 score should be reasonable with leaf_size={leaf_size}"
+    assert r2 > 0.7, (
+        f"R^2 score should be reasonable with leaf_size={leaf_size}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -102,7 +90,6 @@ def test_knn_regressor_p_parameter(regression_data, p):
     assert r2 > 0.7, f"R^2 score should be reasonable with p={p}"
 
 
-@pytest.mark.xfail(reason="Dispatching with callable not supported yet")
 def test_knn_regressor_weights_callable(regression_data):
     X, y = regression_data
 
@@ -143,6 +130,14 @@ def test_knn_regressor_invalid_weights(regression_data):
         model.fit(X, y)
 
 
+def test_knn_regressor_private_attrs(regression_data):
+    model = KNeighborsRegressor().fit(*regression_data)
+    assert isinstance(model._fit_X, np.ndarray)
+    assert isinstance(model._y, np.ndarray)
+    assert model._tree is None
+    assert model._fit_method == "brute"
+
+
 def test_knn_regressor_sparse_input():
     from scipy.sparse import csr_matrix
 
@@ -162,8 +157,8 @@ def test_knn_regressor_multioutput():
     model.fit(X, y)
     y_pred = model.predict(X)
     # Check that the predicted shape matches the true targets
-    assert (
-        y_pred.shape == y.shape
-    ), "Predicted outputs should have the same shape as true outputs"
+    assert y_pred.shape == y.shape, (
+        "Predicted outputs should have the same shape as true outputs"
+    )
     # Calculate R^2 score for multi-output regression
     r2_score(y, y_pred)

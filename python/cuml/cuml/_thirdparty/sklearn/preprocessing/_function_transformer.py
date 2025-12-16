@@ -1,4 +1,5 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
 
 # This code originates from the Scikit-Learn library,
 # it was since modified to allow GPU acceleration.
@@ -11,6 +12,7 @@ import warnings
 import cuml
 
 from ....internals.array_sparse import SparseCumlArray
+from ....internals.outputs import reflect
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import _allclose_dense_sparse
 
@@ -96,6 +98,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
                               " want to proceed regardless, set"
                               " 'check_inverse=False'.", UserWarning)
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "FunctionTransformer":
         """Fit transformer by checking X.
 
@@ -114,6 +117,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
             self._check_inverse_transform(X)
         return self
 
+    @reflect
     def transform(self, X) -> SparseCumlArray:
         """Transform X using the forward function.
 
@@ -129,6 +133,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         """
         return self._transform(X, func=self.func, kw_args=self.kw_args)
 
+    @reflect
     def inverse_transform(self, X) -> SparseCumlArray:
         """Transform X using the inverse function.
 

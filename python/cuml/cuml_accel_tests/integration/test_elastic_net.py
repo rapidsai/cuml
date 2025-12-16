@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
@@ -59,9 +48,9 @@ def test_elasticnet_l1_ratio(regression_data, l1_ratio):
     # Check sparsity of coefficients when l1_ratio=1 (equivalent to Lasso)
     if l1_ratio == 1.0:
         num_nonzero = np.sum(model.coef_ != 0)
-        assert (
-            num_nonzero < X.shape[1]
-        ), "Some coefficients should be zero when l1_ratio=1.0"
+        assert num_nonzero < X.shape[1], (
+            "Some coefficients should be zero when l1_ratio=1.0"
+        )
 
 
 @pytest.mark.parametrize("max_iter", [100])
@@ -90,9 +79,9 @@ def test_elasticnet_fit_intercept(regression_data, fit_intercept):
     y_pred = model.predict(X)
     # Compute R^2 score
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.5
-    ), f"R^2 score should be reasonable with fit_intercept={fit_intercept}"
+    assert r2 > 0.5, (
+        f"R^2 score should be reasonable with fit_intercept={fit_intercept}"
+    )
 
 
 @pytest.mark.parametrize("precompute", [True, False])
@@ -103,9 +92,9 @@ def test_elasticnet_precompute(regression_data, precompute):
     y_pred = model.predict(X)
     # Compute R^2 score
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.5
-    ), f"R^2 score should be reasonable with precompute={precompute}"
+    assert r2 > 0.5, (
+        f"R^2 score should be reasonable with precompute={precompute}"
+    )
 
 
 @pytest.mark.parametrize("selection", ["cyclic", "random"])
@@ -116,9 +105,9 @@ def test_elasticnet_selection(regression_data, selection):
     y_pred = model.predict(X)
     # Compute R^2 score
     r2 = r2_score(y, y_pred)
-    assert (
-        r2 > 0.5
-    ), f"R^2 score should be reasonable with selection={selection}"
+    assert r2 > 0.5, (
+        f"R^2 score should be reasonable with selection={selection}"
+    )
 
 
 def test_elasticnet_random_state(regression_data):
@@ -163,9 +152,9 @@ def test_elasticnet_l1_ratio_effect(regression_data):
     model_l2.fit(X, y)
     num_nonzero_l1 = np.sum(model_l1.coef_ != 0)
     num_nonzero_l2 = np.sum(model_l2.coef_ != 0)
-    assert (
-        num_nonzero_l1 <= num_nonzero_l2
-    ), "L1 regularization should produce sparser coefficients than L2"
+    assert num_nonzero_l1 <= num_nonzero_l2, (
+        "L1 regularization should produce sparser coefficients than L2"
+    )
 
 
 @pytest.mark.parametrize("copy_X", [True, False])
@@ -176,9 +165,9 @@ def test_elasticnet_copy_X(regression_data, copy_X):
     model.fit(X, y)
     if copy_X:
         # X should remain unchanged
-        assert np.allclose(
-            X, X_original
-        ), "X has been modified when copy_X=True"
+        assert np.allclose(X, X_original), (
+            "X has been modified when copy_X=True"
+        )
     else:
         # X might be modified when copy_X=False
         pass  # We cannot guarantee X remains unchanged
@@ -189,21 +178,6 @@ def test_elasticnet_positive(regression_data):
     model = ElasticNet(positive=True, random_state=42)
     model.fit(X, y)
     # All coefficients should be non-negative
-    assert np.all(
-        model.coef_ >= 0
-    ), "All coefficients should be non-negative when positive=True"
-
-
-def test_elasticnet_warm_start(regression_data):
-    X, y = regression_data
-    model = ElasticNet(warm_start=True, random_state=42)
-    model.fit(X, y)
-    coef_old = model.coef_.copy()
-    # Fit again with more iterations
-    model.set_params(max_iter=2000)
-    model.fit(X, y)
-    coef_new = model.coef_
-    # Coefficients should change after more iterations
-    assert not np.allclose(
-        coef_old, coef_new
-    ), "Coefficients should update when warm_start=True"
+    assert np.all(model.coef_ >= 0), (
+        "All coefficients should be non-negative when positive=True"
+    )

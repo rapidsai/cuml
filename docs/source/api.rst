@@ -15,8 +15,9 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. autofunction:: cuml.internals.memory_utils.set_global_output_type
- .. autofunction:: cuml.internals.memory_utils.using_output_type
+.. autofunction:: cuml.set_global_output_type
+
+.. autofunction:: cuml.using_output_type
 
 .. _verbosity-levels:
 
@@ -64,6 +65,9 @@ Model Selection and Data Splitting
 ----------------------------------
 
  .. autofunction:: cuml.model_selection.train_test_split
+
+ .. autoclass:: cuml.model_selection.KFold
+    :members:
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
@@ -296,9 +300,6 @@ Mini Batch SGD Regressor
 Multiclass Classification
 -------------------------
 
-.. autoclass:: cuml.multiclass.MulticlassClassifier
-    :members:
-
 .. autoclass:: cuml.multiclass.OneVsOneClassifier
     :members:
 
@@ -426,6 +427,13 @@ HDBSCAN
 
 .. autofunction:: cuml.cluster.hdbscan.approximate_predict
 
+Spectral Clustering
+-------------------
+.. autoclass:: cuml.cluster.SpectralClustering
+    :members:
+
+.. autofunction:: cuml.cluster.spectral_clustering
+
 
 Dimensionality Reduction and Manifold Learning
 ==============================================
@@ -457,6 +465,8 @@ UMAP
 
 .. autofunction:: cuml.manifold.umap.simplicial_set_embedding
 
+.. autofunction:: cuml.manifold.umap.find_ab_params
+
 
 Random Projections
 ------------------
@@ -475,6 +485,14 @@ TSNE
 
 .. autoclass:: cuml.TSNE
     :members:
+
+Spectral Embedding
+------------------
+
+.. autoclass:: cuml.manifold.SpectralEmbedding
+    :members:
+
+.. autofunction:: cuml.manifold.spectral_embedding
 
 Neighbors
 ==========
@@ -634,6 +652,17 @@ Dask Base Classes and Mixins
 
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
    :members:
+
+cuml.accel
+==========
+
+.. autofunction:: cuml.accel.install
+
+.. autofunction:: cuml.accel.enabled
+
+.. autofunction:: cuml.accel.profile
+
+.. autofunction:: cuml.accel.is_proxy
 
 Experimental
 ============

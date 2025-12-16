@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
@@ -31,7 +32,6 @@ export PIP_NO_BUILD_ISOLATION=0
 #       but it really is intentionally included in 'libcuml' wheels
 EXCLUDE_ARGS=(
   --exclude "libcumlprims_mg.so"
-  --exclude "libcuvs.so"
   --exclude "libraft.so"
   --exclude "libcublas.so.*"
   --exclude "libcublasLt.so.*"
@@ -42,9 +42,10 @@ EXCLUDE_ARGS=(
   --exclude "libnvJitLink.so.*"
   --exclude "librapids_logger.so"
   --exclude "librmm.so"
+  --exclude "libnccl.so.*"
 )
 
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCUML_USE_CUVS_STATIC=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 # repair wheels and write to the location that artifact-uploading code expects to find them

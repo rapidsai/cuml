@@ -9,7 +9,7 @@ programming. In most cases, cuML's Python API matches the API from
 
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/cuml/tree/branch-25.08/notebooks/tools).
+Notebook](https://github.com/rapidsai/cuml/tree/main/notebooks/tools).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU, using cuDF:
 ```python
@@ -42,7 +42,7 @@ growing list of algorithms. The following Python snippet reads input from a CSV 
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 
 
-Initialize a `LocalCUDACluster` configured with [UCX](https://github.com/rapidsai/ucx-py) for fast transport of CUDA arrays
+Initialize a `LocalCUDACluster` configured with [UCXX](https://github.com/rapidsai/ucxx) for fast transport of CUDA arrays
 ```python
 # Initialize UCX for high-speed transport of CUDA arrays
 from dask_cuda import LocalCUDACluster
@@ -74,7 +74,7 @@ neighbors = nn.kneighbors(df)
 For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 example [walkthrough
-notebooks](https://github.com/rapidsai/cuml/tree/branch-25.08/notebooks). Finally, you
+notebooks](https://github.com/rapidsai/cuml/tree/main/notebooks). Finally, you
 can find complete end-to-end examples in the [notebooks-contrib
 repo](https://github.com/rapidsai/notebooks-contrib).
 
@@ -86,12 +86,14 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)  | |
 |  | K-Means | Multi-node multi-GPU via Dask |
 |  | Single-Linkage Agglomerative Clustering | |
+|  | Spectral Clustering | |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
 | | Incremental PCA | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
+| | Spectral Embedding | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
@@ -102,19 +104,17 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
 | | Inference for decision tree-based models | Forest Inference Library (FIL) |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Preprocessing** | Standardization, or mean removal and variance scaling / Normalization / Encoding categorical features / Discretization / Imputation of missing values / Polynomial features generation / and coming soon custom transformers and non-linear transformation | Based on Scikit-Learn preprocessing
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
-| **Model Explanation**                                 | SHAP Kernel Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
-|                                                       | SHAP Permutation Explainer
-| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
+| **Model Explanation** | SHAP Kernel Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
+|  | SHAP Permutation Explainer | [Based on SHAP](https://shap.readthedocs.io/en/latest/) |
 | **Execution device interoperability** | | Run estimators interchangeably from host/cpu or device/gpu with minimal code change [demo](https://docs.rapids.ai/api/cuml/stable/execution_device_interoperability.html) |
-| **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+| **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCXX](https://github.com/rapidsai/ucxx), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 
 ---
 
@@ -122,14 +122,14 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 
 See [the RAPIDS Release Selector](https://docs.rapids.ai/install#selector) for
 the command line to install either nightly or official release cuML packages
-via Conda or Docker.
+via conda, pip, or Docker.
 
 ## Build/Install from Source
 See the build [guide](BUILD.md).
 
 ## Scikit-learn Compatibility
 
-cuML is compatible with scikit-learn version 1.5 or higher.
+cuML is compatible with scikit-learn version 1.4 or higher.
 
 ## Contributing
 

@@ -1,35 +1,17 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-# distutils: extra_compile_args = -Ofast
-# cython: boundscheck = False
-# cython: wraparound = False
-
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 import warnings
 
 import cupy
 import numpy as np
+import sklearn
+from packaging.version import Version
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_infos
-from cuml.internals import logger
+from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -40,11 +22,10 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
-from libc.stdlib cimport free
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
@@ -101,7 +82,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int64_t* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -115,7 +97,157 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         int* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        float* kl_div) except +
+        float* kl_div,
+        int* n_iter) except +
+
+
+# Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
+if Version(sklearn.__version__) >= Version("1.5.0"):
+    _SKLEARN_MAX_ITER_PARAM = "max_iter"
+else:
+    _SKLEARN_MAX_ITER_PARAM = "n_iter"
+
+_SUPPORTED_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded
+}
+
+_SUPPORTED_METHODS = {
+    "barnes_hut": TSNE_ALGORITHM.BARNES_HUT,
+    "exact": TSNE_ALGORITHM.EXACT,
+    "fft": TSNE_ALGORITHM.FFT,
+}
+
+_SUPPORTED_INITS = {
+    "random": TSNE_INIT.RANDOM,
+    "pca": TSNE_INIT.PCA,
+}
+
+
+def _check_numeric(estimator, name, gt=None, ge=None, lt=None, le=None):
+    """Check that a numeric parameter `name` is within valid bounds"""
+    value = getattr(estimator, name)
+    cls_name = type(estimator).__name__
+    if gt is not None and value <= gt:
+        raise ValueError(f"{cls_name} requires `{name} > {gt}`, got {value}")
+    if ge is not None and value < ge:
+        raise ValueError(f"{cls_name} requires `{name} >= {ge}`, got {value}")
+    if lt is not None and value >= lt:
+        raise ValueError(f"{cls_name} requires `{name} < {lt}`, got {value}")
+    if le is not None and value > le:
+        raise ValueError(f"{cls_name} requires `{name} <= {le}`, got {value}")
+    return value
+
+
+def _check_mapping(estimator, name, mapping):
+    """Check that a parameter `name` contained within a valid mapping"""
+    value = getattr(estimator, name)
+    cls_name = type(estimator).__name__
+    try:
+        return mapping[value]
+    except KeyError:
+        raise ValueError(
+            f"{cls_name} expects `{name}` to be one of {sorted(mapping)}, got {value}"
+        ) from None
+
+
+cdef _init_params(self, int n_samples, TSNEParams &params):
+    """Validate TSNE parameters and initialize a TSNEParams instance."""
+    if (n_components := self.n_components) != 2:
+        raise ValueError(
+            f"Currently TSNE only supports n_components = 2, got {self.n_components}"
+        )
+    perplexity = _check_numeric(self, "perplexity", gt=0)
+    early_exaggeration = _check_numeric(self, "early_exaggeration", ge=1.0)
+    late_exaggeration = _check_numeric(self, "late_exaggeration", ge=1.0)
+    learning_rate = _check_numeric(self, "learning_rate", gt=0)
+    adaptive_learning = _check_mapping(
+        self, "learning_rate_method", {"adaptive": True, "none": False, None: False}
+    )
+    min_grad_norm = _check_numeric(self, "min_grad_norm", ge=0)
+    angle = _check_numeric(self, "angle", ge=0, le=1)
+    n_neighbors = _check_numeric(self, "n_neighbors", gt=0)
+    perplexity_max_iter = _check_numeric(self, "perplexity_max_iter", ge=0)
+    exaggeration_iter = _check_numeric(self, "exaggeration_iter", ge=0)
+    pre_momentum = _check_numeric(self, "pre_momentum", gt=0, lt=1)
+    post_momentum = _check_numeric(self, "post_momentum", gt=0, lt=1)
+    init = _check_mapping(self, "init", _SUPPORTED_INITS)
+    algo = _check_mapping(self, "method", _SUPPORTED_METHODS)
+    metric = _check_mapping(self, "metric", _SUPPORTED_METRICS)
+
+    if n_samples < 2:
+        raise ValueError("TSNE requires >= 2 samples")
+
+    max_iter = _check_numeric(self, "max_iter", gt=0)
+
+    exaggeration_iter = min(exaggeration_iter, max_iter)
+    if n_neighbors > 1023:
+        warnings.warn(
+            f"n_neighbors ({n_neighbors}) should be < 1024, "
+            "thresholding n_neighbors to 1023"
+        )
+        n_neighbors = 1023
+    n_neighbors = min(n_neighbors, n_samples)
+
+    if perplexity > n_samples:
+        warnings.warn(
+            f"perplexity ({perplexity}) should be less than n_samples, "
+            f"thresholding perplexity to {n_samples}"
+        )
+        perplexity = n_samples
+
+    if adaptive_learning and algo is not TSNE_ALGORITHM.EXACT:
+        # Adjust parameters when using adaptive learning
+        if n_samples <= 2000:
+            n_neighbors = min(max(n_neighbors, 90), n_samples)
+        else:
+            # A linear trend from (n=2000, neigh=100) to (n=60000,neigh=30)
+            n_neighbors = max(int(102 - 0.0012 * n_samples), 30)
+
+        pre_learning_rate = max(n_samples / 3.0, 1)
+        post_learning_rate = pre_learning_rate
+        early_exaggeration = 24.0 if n_samples > 10000 else 12.0
+    else:
+        pre_learning_rate = learning_rate
+        post_learning_rate = learning_rate * 2
+
+    cdef long long seed = (
+        -1 if self.random_state is None
+        else check_random_seed(self.random_state)
+    )
+
+    params.dim = n_components
+    params.n_neighbors = n_neighbors
+    params.theta = angle
+    params.epssq = 0.0025
+    params.perplexity = perplexity
+    params.perplexity_max_iter = perplexity_max_iter
+    params.perplexity_tol = 1e-5
+    params.early_exaggeration = early_exaggeration
+    params.late_exaggeration = late_exaggeration
+    params.exaggeration_iter = exaggeration_iter
+    params.min_gain = 0.01
+    params.pre_learning_rate = pre_learning_rate
+    params.post_learning_rate = post_learning_rate
+    params.max_iter = max_iter
+    params.min_grad_norm = min_grad_norm
+    params.pre_momentum = pre_momentum
+    params.post_momentum = post_momentum
+    params.random_state = seed
+    params.verbosity = self._verbose_level
+    params.square_distances = self.square_distances
+    params.algorithm = algo
+    params.init = init
+    params.metric = metric
+    params.p = (self.metric_params or {}).get("p", 2.0)
 
 
 class TSNE(Base,
@@ -151,7 +283,7 @@ class TSNE(Base,
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
         t-SNE could look like a cloud / ball of points.
-    n_iter : int (default 1000)
+    max_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
         Currently unused. When the KL Divergence becomes too small after some
@@ -231,9 +363,15 @@ class TSNE(Base,
 
     Attributes
     ----------
+    embedding_ : array
+        Stores the embedding vectors.
     kl_divergence_ : float
         Kullback-Leibler divergence after optimization. An experimental
         feature at this time.
+    learning_rate_ : float
+        Effective learning rate.
+    n_iter_ : int
+        Number of iterations run.
 
     References
     ----------
@@ -267,9 +405,7 @@ class TSNE(Base,
         (https://arxiv.org/abs/1807.11824).
 
     """
-
-    X_m = CumlArrayDescriptor()
-    embedding_ = CumlArrayDescriptor()
+    embedding_ = CumlArrayDescriptor(order="F")
 
     _cpu_class_path = "sklearn.manifold.TSNE"
 
@@ -281,7 +417,7 @@ class TSNE(Base,
             "early_exaggeration",
             "late_exaggeration",
             "learning_rate",
-            "n_iter",
+            "max_iter",
             "n_iter_without_progress",
             "min_grad_norm",
             "metric",
@@ -303,16 +439,19 @@ class TSNE(Base,
     @classmethod
     def _params_from_cpu(cls, model):
         if model.n_components != 2:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU("Only `n_components=2` is supported")
 
         # Our barnes_hut implementation can sometimes hang, see #3865 and #3360.
         # fft should be at least as good, and doesn't have this issue.
         method = {"exact": "exact", "barnes_hut": "fft"}.get(model.method, None)
         if method is None:
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`method={model.method!r}` is not supported")
 
-        if not (isinstance(model.init, str) and model.init in ("pca", "random")):
-            raise UnsupportedOnGPU
+        if not (isinstance(model.init, str) and model.init in _SUPPORTED_INITS):
+            raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
+
+        if not (isinstance(model.metric, str) and model.metric in _SUPPORTED_METRICS):
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         params = {
             "n_components": model.n_components,
@@ -330,21 +469,19 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if model.max_iter is not None:
-            # max_iter may be None, in that case use cuml's default
-            params["n_iter"] = model.max_iter
+        if (max_iter := getattr(model, _SKLEARN_MAX_ITER_PARAM, None)) is not None:
+            params["max_iter"] = max_iter
 
         return params
 
     def _params_to_cpu(self):
         method = "exact" if self.method == "Exact" else "barnes_hut"
 
-        return {
+        params = {
             "n_components": self.n_components,
             "perplexity": self.perplexity,
             "early_exaggeration": self.early_exaggeration,
             "learning_rate": self.learning_rate,
-            "max_iter": self.n_iter,
             "n_iter_without_progress": self.n_iter_without_progress,
             "min_grad_norm": self.min_grad_norm,
             "metric": self.metric,
@@ -352,12 +489,16 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
+            _SKLEARN_MAX_ITER_PARAM: self.max_iter,
         }
+        return params
 
     def _attrs_from_cpu(self, model):
         return {
             "embedding_": to_gpu(model.embedding_),
             "kl_divergence_": to_gpu(model.kl_divergence_),
+            "learning_rate_": model.learning_rate_,
+            "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
         }
 
@@ -365,101 +506,47 @@ class TSNE(Base,
         return {
             "embedding_": to_cpu(self.embedding_),
             "kl_divergence_": to_cpu(self.kl_divergence_),
-            # XXX: In sklearn `learning_rate_` is either `self.learning_rate` or an inferred
-            # value if that's `"auto"`. In cuml our inferred value differs and is stored
-            # separately in `pre_learning_rate`/`post_learning_rate`. The most equivalent
-            # value is `pre_learning_rate`, which we forward here for now.
-            "learning_rate_": self.pre_learning_rate,
+            "learning_rate_": self.learning_rate_,
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
         }
 
-    def __init__(self, *,
-                 n_components=2,
-                 perplexity=30.0,
-                 early_exaggeration=12.0,
-                 late_exaggeration=1.0,
-                 learning_rate=200.0,
-                 n_iter=1000,
-                 n_iter_without_progress=300,
-                 min_grad_norm=1e-07,
-                 metric='euclidean',
-                 metric_params=None,
-                 init='random',
-                 verbose=False,
-                 random_state=None,
-                 method='fft',
-                 angle=0.5,
-                 learning_rate_method='adaptive',
-                 n_neighbors=90,
-                 perplexity_max_iter=100,
-                 exaggeration_iter=250,
-                 pre_momentum=0.5,
-                 post_momentum=0.8,
-                 square_distances=True,
-                 precomputed_knn=None,
-                 handle=None,
-                 output_type=None):
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        if perplexity < 0:
-            raise ValueError("perplexity = {} should be more than 0.".format(
-                             perplexity))
-        if early_exaggeration < 0:
-            raise ValueError("early_exaggeration = {} should be more "
-                             "than 0.".format(early_exaggeration))
-        if late_exaggeration < 0:
-            raise ValueError("late_exaggeration = {} should be more "
-                             "than 0.".format(late_exaggeration))
-        if learning_rate < 0:
-            raise ValueError("learning_rate = {} should be more "
-                             "than 0.".format(learning_rate))
-        if n_iter < 0:
-            raise ValueError("n_iter = {} should be more than 0.".format(
-                             n_iter))
-        if n_iter <= 100:
-            warnings.warn("n_iter = {} might cause TSNE to output wrong "
-                          "results. Set it higher.".format(n_iter))
-        if init.lower() != 'random' and init.lower() != 'pca':
-            raise ValueError("TSNE does not support {} but only random and pca "
-                             "initialization.".format(init))
-        if angle < 0 or angle > 1:
-            raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
-        if n_neighbors < 0:
-            raise ValueError("n_neighbors = {} should be more "
-                             "than 0.".format(n_neighbors))
-        if n_neighbors > 1023:
-            warnings.warn("n_neighbors = {} should be less than 1024")
-            n_neighbors = 1023
-        if perplexity_max_iter < 0:
-            raise ValueError("perplexity_max_iter = {} should be more "
-                             "than 0.".format(perplexity_max_iter))
-        if exaggeration_iter < 0:
-            raise ValueError("exaggeration_iter = {} should be more "
-                             "than 0.".format(exaggeration_iter))
-        if exaggeration_iter > n_iter:
-            raise ValueError("exaggeration_iter = {} should be more less "
-                             "than n_iter = {}.".format(exaggeration_iter,
-                                                        n_iter))
-        if pre_momentum < 0 or pre_momentum > 1:
-            raise ValueError("pre_momentum = {} should be more than 0 "
-                             "and less than 1.".format(pre_momentum))
-        if post_momentum < 0 or post_momentum > 1:
-            raise ValueError("post_momentum = {} should be more than 0 "
-                             "and less than 1.".format(post_momentum))
-        if pre_momentum > post_momentum:
-            raise ValueError("post_momentum = {} should be more than "
-                             "pre_momentum = {}".format(post_momentum,
-                                                        pre_momentum))
-
+    def __init__(
+        self,
+        *,
+        n_components=2,
+        perplexity=30.0,
+        early_exaggeration=12.0,
+        late_exaggeration=1.0,
+        learning_rate=200.0,
+        max_iter=1000,
+        n_iter_without_progress=300,
+        min_grad_norm=1e-07,
+        metric='euclidean',
+        metric_params=None,
+        init='random',
+        random_state=None,
+        method='fft',
+        angle=0.5,
+        n_neighbors=90,
+        perplexity_max_iter=100,
+        exaggeration_iter=250,
+        pre_momentum=0.5,
+        post_momentum=0.8,
+        learning_rate_method='adaptive',
+        square_distances=True,
+        precomputed_knn=None,
+        verbose=False,
+        handle=None,
+        output_type=None,
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
         self.late_exaggeration = late_exaggeration
         self.learning_rate = learning_rate
-        self.n_iter = n_iter
+        self.max_iter = max_iter
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
         self.metric = metric
@@ -473,36 +560,20 @@ class TSNE(Base,
         self.exaggeration_iter = exaggeration_iter
         self.pre_momentum = pre_momentum
         self.post_momentum = post_momentum
-        if learning_rate_method is None:
-            self.learning_rate_method = 'none'
-        else:
-            # To support `sklearn.base.clone()`, we must minimize altering
-            # argument references unless absolutely necessary. Check to see if
-            # lowering the string results in the same value, and if so, keep
-            # the same reference that was passed in. This may seem redundant,
-            # but it allows `clone()` to function without raising an error
-            if (learning_rate_method.lower() != learning_rate_method):
-                learning_rate_method = learning_rate_method.lower()
-
-            self.learning_rate_method = learning_rate_method
-        self.epssq = 0.0025
-        self.perplexity_tol = 1e-5
-        self.min_gain = 0.01
-        self.pre_learning_rate = learning_rate
-        self.post_learning_rate = learning_rate * 2
+        self.learning_rate_method = learning_rate_method
         self.square_distances = square_distances
+        self.precomputed_knn = precomputed_knn
 
-        self.X_m = None
-        self.embedding_ = None
-
-        self.sparse_fit = False
-
-        self.precomputed_knn = extract_knn_infos(precomputed_knn,
-                                                 n_neighbors)
+    @property
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
 
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -519,143 +590,101 @@ class TSNE(Base,
         should match the metric used to train the TSNE embeedings.
         Takes precedence over the precomputed_knn parameter.
         """
-        if self.n_components < 0:
-            raise ValueError("n_components = {} should be more "
-                             "than 0.".format(self.n_components))
-        if self.n_components != 2:
-            raise ValueError("Currently TSNE supports n_components = 2; "
-                             "but got n_components = {}".format(self.n_components))
-        cdef int n, p
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if handle_ == NULL:
-            raise ValueError("cuML Handle is Null! Terminating TSNE.")
+        cdef int n_samples, n_features
+        cdef uintptr_t X_ptr = 0
+        cdef uintptr_t X_indptr_ptr = 0
+        cdef uintptr_t X_indices_ptr = 0
+        cdef int X_nnz = 0
+        cdef bool sparse_fit = is_sparse(X)
 
-        if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
-
-        if is_sparse(X):
-
-            self.X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
-                                       convert_format=False)
-            n, p = self.X_m.shape
-            self.sparse_fit = True
-
-        # Handle dense inputs
+        # Normalize input X
+        if sparse_fit:
+            X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32)
+            n_samples, n_features = X_m.shape
+            X_ptr = <uintptr_t>X_m.data.ptr
+            X_indptr_ptr = <uintptr_t>X_m.indptr.ptr
+            X_indices_ptr = <uintptr_t>X_m.indices.ptr
+            X_nnz = X_m.nnz
         else:
-            self.X_m, n, p, _ = \
-                input_to_cuml_array(X, order='F', check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
+            X_m, n_samples, n_features, _ = input_to_cuml_array(
+                X, order='F', check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else None)
+            )
+            X_ptr = X_m.ptr
 
-        self.n_features_in_ = p
+        # Initialize TSNEParams
+        cdef TSNEParams params
+        _init_params(self, n_samples, params)
 
-        if n <= 1:
-            raise ValueError("There needs to be more than 1 sample to build "
-                             "nearest the neighbors graph")
-
-        self.n_neighbors = min(n, self.n_neighbors)
-        if self.perplexity > n:
-            warnings.warn("Perplexity = {} should be less than the "
-                          "# of datapoints = {}.".format(self.perplexity, n))
-            self.perplexity = n
-
+        # Normalize precomputed knn graph if provided
         cdef uintptr_t knn_dists_ptr = 0
         cdef uintptr_t knn_indices_ptr = 0
-        if knn_graph is not None or self.precomputed_knn is not None:
-            if knn_graph is not None:
-                knn_indices, knn_dists = extract_knn_infos(knn_graph,
-                                                           self.n_neighbors)
-            elif self.precomputed_knn is not None:
-                knn_indices, knn_dists = self.precomputed_knn
+        if knn_graph is None:
+            knn_graph = self.precomputed_knn
+        if knn_graph is not None:
+            knn_indices, knn_dists = extract_knn_graph(knn_graph, params.n_neighbors)
 
-            if self.sparse_fit:
-                knn_indices, _, _, _ = \
-                    input_to_cuml_array(knn_indices, convert_to_dtype=np.int32)
+            if sparse_fit:
+                # Sparse fitting requires the indices to be int32
+                knn_indices = input_to_cuml_array(
+                    knn_indices, convert_to_dtype=np.int32
+                ).array
 
             knn_dists_ptr = knn_dists.ptr
             knn_indices_ptr = knn_indices.ptr
 
-        # Prepare output embeddings
-        self.embedding_ = CumlArray.zeros(
-            (n, self.n_components),
+        # Allocate output array
+        embedding = CumlArray.zeros(
+            (n_samples, self.n_components),
             order="F",
             dtype=np.float32,
-            index=self.X_m.index)
+            index=X_m.index,
+        )
+        cdef uintptr_t embed_ptr = embedding.ptr
 
-        cdef uintptr_t embed_ptr = self.embedding_.ptr
-
-        # Find best params if learning rate method is adaptive
-        if self.learning_rate_method=='adaptive' and (self.method=="barnes_hut"
-                                                      or self.method=='fft'):
-            logger.debug("Learning rate is adaptive. In TSNE paper, "
-                         "it has been shown that as n->inf, "
-                         "Barnes Hut works well if n_neighbors->30, "
-                         "learning_rate->20000, early_exaggeration->24.")
-            logger.debug("cuML uses an adpative method."
-                         "n_neighbors decreases to 30 as n->inf. "
-                         "Likewise for the other params.")
-            if n <= 2000:
-                self.n_neighbors = min(max(self.n_neighbors, 90), n)
-            else:
-                # A linear trend from (n=2000, neigh=100) to (n=60000,neigh=30)
-                self.n_neighbors = max(int(102 - 0.0012 * n), 30)
-            self.pre_learning_rate = max(n / 3.0, 1)
-            self.post_learning_rate = self.pre_learning_rate
-            self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.level_enum.debug):
-                logger.debug("New n_neighbors = {}, learning_rate = {}, "
-                             "exaggeration = {}"
-                             .format(self.n_neighbors, self.pre_learning_rate,
-                                     self.early_exaggeration))
-
-        if self.method == 'barnes_hut':
-            algo = TSNE_ALGORITHM.BARNES_HUT
-        elif self.method == 'fft':
-            algo = TSNE_ALGORITHM.FFT
-        elif self.method == 'exact':
-            algo = TSNE_ALGORITHM.EXACT
-        else:
-            raise ValueError("Allowed methods are 'exact', 'barnes_hut' and "
-                             "'fft'.")
-
-        cdef TSNEParams* params = <TSNEParams*> <size_t> \
-            self._build_tsne_params(algo)
-
+        # Execute fit
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float kl_divergence = 0
+        cdef int n_iter = 0
 
-        if self.sparse_fit:
-            TSNE_fit_sparse(handle_[0],
-                            <int*><uintptr_t>
-                            self.X_m.indptr.ptr,
-                            <int*><uintptr_t>
-                            self.X_m.indices.ptr,
-                            <float*><uintptr_t>
-                            self.X_m.data.ptr,
-                            <float*> embed_ptr,
-                            <int> self.X_m.nnz,
-                            <int> n,
-                            <int> p,
-                            <int*> knn_indices_ptr,
-                            <float*> knn_dists_ptr,
-                            <TSNEParams&> deref(params),
-                            &kl_divergence)
-        else:
-            TSNE_fit(handle_[0],
-                     <float*><uintptr_t> self.X_m.ptr,
-                     <float*> embed_ptr,
-                     <int> n,
-                     <int> p,
-                     <int64_t*> knn_indices_ptr,
-                     <float*> knn_dists_ptr,
-                     <TSNEParams&> deref(params),
-                     &kl_divergence)
-
+        with nogil:
+            if sparse_fit:
+                TSNE_fit_sparse(
+                    handle_[0],
+                    <int*>X_indptr_ptr,
+                    <int*>X_indices_ptr,
+                    <float*>X_ptr,
+                    <float*>embed_ptr,
+                    X_nnz,
+                    n_samples,
+                    n_features,
+                    <int*>knn_indices_ptr,
+                    <float*>knn_dists_ptr,
+                    params,
+                    &kl_divergence,
+                    &n_iter,
+                )
+            else:
+                TSNE_fit(
+                    handle_[0],
+                    <float*>X_ptr,
+                    <float*>embed_ptr,
+                    n_samples,
+                    n_features,
+                    <int64_t*> knn_indices_ptr,
+                    <float*> knn_dists_ptr,
+                    params,
+                    &kl_divergence,
+                    &n_iter,
+                )
         self.handle.sync()
-        free(params)
 
+        # Store fitted attributes
         self._kl_divergence_ = kl_divergence
-        logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
+        self.n_iter_ = n_iter
+        self.learning_rate_ = params.pre_learning_rate
+        self.embedding_ = embedding
+
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -665,80 +694,13 @@ class TSNE(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """
-        return self.fit(X, convert_dtype=convert_dtype,
-                        knn_graph=knn_graph)._transform(X)
-
-    def _transform(self, X) -> CumlArray:
-        """
-        Internal transform function to allow base wrappers default
-        functionality to work
-        """
+        self.fit(X, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
-
-    def _build_tsne_params(self, algo):
-        cdef long long seed = -1
-        if self.random_state is not None:
-            seed = check_random_seed(self.random_state)
-
-        cdef TSNEParams* params = new TSNEParams()
-        params.dim = <int> self.n_components
-        params.n_neighbors = <int> self.n_neighbors
-        params.theta = <float> self.angle
-        params.epssq = <float> self.epssq
-        params.perplexity = <float> self.perplexity
-        params.perplexity_max_iter = <int> self.perplexity_max_iter
-        params.perplexity_tol = <float> self.perplexity_tol
-        params.early_exaggeration = <float> self.early_exaggeration
-        params.late_exaggeration = <float> self.late_exaggeration
-        params.exaggeration_iter = <int> self.exaggeration_iter
-        params.min_gain = <float> self.min_gain
-        params.pre_learning_rate = <float> self.pre_learning_rate
-        params.post_learning_rate = <float> self.post_learning_rate
-        params.max_iter = <int> self.n_iter
-        params.min_grad_norm = <float> self.min_grad_norm
-        params.pre_momentum = <float> self.pre_momentum
-        params.post_momentum = <float> self.post_momentum
-        params.random_state = <long long> seed
-        params.verbosity = self.verbose
-        params.square_distances = <bool> self.square_distances
-        params.algorithm = algo
-
-        if self.init.lower() == 'random':
-            params.init = TSNE_INIT.RANDOM
-        elif self.init.lower() == 'pca':
-            params.init = TSNE_INIT.PCA
-
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtExpanded,
-            "euclidean": DistanceType.L2SqrtExpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded
-        }
-
-        if self.metric.lower() in metric_parsing:
-            params.metric = metric_parsing[self.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
-
-        if self.metric_params is None:
-            params.p = <float> 2.0
-        else:
-            params.p = <float>self.metric_params.get('p')
-
-        return <size_t> params
 
     @property
     def kl_divergence_(self):
@@ -751,20 +713,3 @@ class TSNE(Base,
     @kl_divergence_.setter
     def kl_divergence_(self, value):
         self._kl_divergence_ = value
-
-    def __del__(self):
-
-        if hasattr(self, "embedding_"):
-            del self.embedding_
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        if "handle" in state:
-            del state["handle"]
-        return state
-
-    def __setstate__(self, state):
-        super(TSNE, self).__init__(handle=None,
-                                   verbose=state['_verbose'])
-        self.__dict__.update(state)
-        return state

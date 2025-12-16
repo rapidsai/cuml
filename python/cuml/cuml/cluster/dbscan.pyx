@@ -1,29 +1,17 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
 
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -80,7 +68,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML::Dbscan" nogil:
                   float *input,
                   int64_t n_rows,
                   int64_t n_cols,
-                  double eps,
+                  float eps,
                   int min_pts,
                   DistanceType metric,
                   int64_t *labels,
@@ -112,6 +100,11 @@ _SUPPORTED_METRICS = {
     "euclidean": DistanceType.L2SqrtExpanded,
     "cosine": DistanceType.CosineExpanded,
     "precomputed": DistanceType.Precomputed
+}
+
+_SUPPORTED_ALGOS = {
+    "brute": EpsNnMethod.BRUTE_FORCE,
+    "rbc": EpsNnMethod.RBC
 }
 
 
@@ -199,8 +192,9 @@ class DBSCAN(Base,
         :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
-        The the attribute `core_sample_indices_` will not be used, setting this
-        to False will avoid unnecessary kernel launches
+        If True (the default), ``core_sample_indices_`` and ``components_`` will
+        be computed and stored as fitted attributes. Set to False to avoid
+        computing these attributes, removing a small amount of overhead.
 
     Attributes
     ----------
@@ -210,7 +204,10 @@ class DBSCAN(Base,
         output_type.
     core_sample_indices_ : array-like or cuDF series
         The indices of the core samples. Only calculated if
-        calc_core_sample_indices==True
+        ``calc_core_sample_indices=True``.
+    components_ : array-like or cuDF series
+        Copy of each core sample found by training. Only calculated if
+        ``calc_core_sample_indices=True``.
 
     Notes
     -----
@@ -230,8 +227,10 @@ class DBSCAN(Base,
     For additional docs, see `scikitlearn's DBSCAN
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
+    _multi_gpu = False
 
     core_sample_indices_ = CumlArrayDescriptor(order="C")
+    components_ = CumlArrayDescriptor(order="C")
     labels_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.cluster.DBSCAN"
@@ -250,13 +249,11 @@ class DBSCAN(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if callable(model.metric):
-            raise UnsupportedOnGPU
-        elif model.metric not in _SUPPORTED_METRICS:
-            raise UnsupportedOnGPU
+        if callable(model.metric) or model.metric not in _SUPPORTED_METRICS:
+            raise UnsupportedOnGPU(f"`metric={model.metric!r}` is not supported")
 
         if model.algorithm not in ("auto", "brute"):
-            raise UnsupportedOnGPU
+            raise UnsupportedOnGPU(f"`algorithm={model.algorithm!r}` is not supported")
 
         return {
             "eps": model.eps,
@@ -276,6 +273,7 @@ class DBSCAN(Base,
     def _attrs_from_cpu(self, model):
         return {
             "core_sample_indices_": to_gpu(model.core_sample_indices_, order="C"),
+            "components_": to_gpu(model.components_, order="C"),
             "labels_": to_gpu(model.labels_, order="C"),
             **super()._attrs_from_cpu(model),
         }
@@ -283,23 +281,25 @@ class DBSCAN(Base,
     def _attrs_to_cpu(self, model):
         return {
             "core_sample_indices_": to_cpu(self.core_sample_indices_, order="C"),
+            "components_": to_cpu(self.components_, order="C"),
             "labels_": to_cpu(self.labels_, order="C"),
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *,
-                 eps=0.5,
-                 handle=None,
-                 min_samples=5,
-                 metric='euclidean',
-                 algorithm='brute',
-                 verbose=False,
-                 max_mbytes_per_batch=None,
-                 output_type=None,
-                 calc_core_sample_indices=True):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+    def __init__(
+        self,
+        *,
+        eps=0.5,
+        handle=None,
+        min_samples=5,
+        metric='euclidean',
+        algorithm='brute',
+        verbose=False,
+        max_mbytes_per_batch=None,
+        output_type=None,
+        calc_core_sample_indices=True,
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
@@ -307,171 +307,8 @@ class DBSCAN(Base,
         self.metric = metric
         self.algorithm = algorithm
 
-        # internal array attributes
-        self.labels_ = None
-
-        # One used when `self.calc_core_sample_indices == True`
-        self.core_sample_indices_ = None
-
-        # C++ API expects this to be numeric.
-        if self.max_mbytes_per_batch is None:
-            self.max_mbytes_per_batch = 0
-
-    def _fit(self, X, out_dtype, opg, sample_weight,
-             convert_dtype=True) -> "DBSCAN":
-        """
-        Protected auxiliary function for `fit`. Takes an additional parameter
-        opg that is set to `False` for SG, `True` for OPG (multi-GPU)
-        """
-        if out_dtype not in ["int32", np.int32, "int64", np.int64]:
-            raise ValueError(f"Invalid value for out_dtype: {out_dtype}. "
-                             "Valid values are {'int32', 'int64', "
-                             "np.int32, np.int64}")
-
-        X_m, n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(
-                X,
-                order='C',
-                convert_to_dtype=(np.float32 if convert_dtype
-                                  else None),
-                check_dtype=[np.float32, np.float64]
-            )
-
-        if n_rows == 0:
-            raise ValueError("No rows in the input array. DBScan cannot be "
-                             "fitted!")
-
-        cdef uintptr_t input_ptr = X_m.ptr
-
-        cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
-        if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(
-                    sample_weight,
-                    convert_to_dtype=(self.dtype if convert_dtype
-                                      else None),
-                    check_dtype=self.dtype,
-                    check_rows=n_rows,
-                    check_cols=1)
-            sample_weight_ptr = sample_weight_m.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
-                                       index=X_m.index)
-        cdef uintptr_t labels_ptr = self.labels_.ptr
-
-        cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
-
-        # metric
-        if (metric := _SUPPORTED_METRICS.get(self.metric.lower())) is None:
-            raise ValueError(f"Invalid value for metric: {self.metric}")
-
-        # algo
-        algo_parsing = {
-            "brute": EpsNnMethod.BRUTE_FORCE,
-            "rbc": EpsNnMethod.RBC
-        }
-        if self.algorithm in algo_parsing:
-            algorithm = algo_parsing[self.algorithm.lower()]
-        else:
-            raise ValueError("Invalid value for algorithm: {}"
-                             .format(self.algorithm))
-
-        # Create the output core_sample_indices only if needed
-        if self.calc_core_sample_indices:
-            self.core_sample_indices_ = \
-                CumlArray.empty(n_rows, dtype=out_dtype)
-            core_sample_indices_ptr = self.core_sample_indices_.ptr
-
-        if self.dtype == np.float32:
-            if out_dtype == "int32" or out_dtype is np.int32:
-                fit(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> self.n_features_in_,
-                    <float> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int*> labels_ptr,
-                    <int*> core_sample_indices_ptr,
-                    <float*> sample_weight_ptr,
-                    <size_t>self.max_mbytes_per_batch,
-                    <EpsNnMethod> algorithm,
-                    <level_enum> self.verbose,
-                    <bool> opg)
-            else:
-                fit(handle_[0],
-                    <float*>input_ptr,
-                    <int64_t> n_rows,
-                    <int64_t> self.n_features_in_,
-                    <float> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int64_t*> labels_ptr,
-                    <int64_t*> core_sample_indices_ptr,
-                    <float*> sample_weight_ptr,
-                    <size_t>self.max_mbytes_per_batch,
-                    <EpsNnMethod> algorithm,
-                    <level_enum> self.verbose,
-                    <bool> opg)
-
-        else:
-            if out_dtype == "int32" or out_dtype is np.int32:
-                fit(handle_[0],
-                    <double*>input_ptr,
-                    <int> n_rows,
-                    <int> self.n_features_in_,
-                    <double> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int*> labels_ptr,
-                    <int*> core_sample_indices_ptr,
-                    <double*> sample_weight_ptr,
-                    <size_t> self.max_mbytes_per_batch,
-                    <EpsNnMethod> algorithm,
-                    <level_enum> self.verbose,
-                    <bool> opg)
-            else:
-                fit(handle_[0],
-                    <double*>input_ptr,
-                    <int64_t> n_rows,
-                    <int64_t> self.n_features_in_,
-                    <double> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int64_t*> labels_ptr,
-                    <int64_t*> core_sample_indices_ptr,
-                    <double*> sample_weight_ptr,
-                    <size_t> self.max_mbytes_per_batch,
-                    <EpsNnMethod> algorithm,
-                    <level_enum> self.verbose,
-                    <bool> opg)
-
-        # make sure that the `fit` is complete before the following
-        # delete call happens
-        self.handle.sync()
-        del X_m
-
-        # Finally, resize the core_sample_indices array if necessary
-        if self.calc_core_sample_indices:
-            # Temp convert to cupy array (better than using `cupy.asarray`)
-            with using_output_type("cupy"):
-                # First get the min index. These have to monotonically
-                # increasing, so the min index should be the first returned -1
-                min_index = cp.argmin(self.core_sample_indices_).item()
-                # Check for the case where there are no -1's
-                if ((min_index == 0 and
-                        self.core_sample_indices_[min_index].item() != -1)):
-                    # Nothing to delete. The array has no -1's
-                    pass
-                else:
-                    self.core_sample_indices_ = \
-                        self.core_sample_indices_[:min_index]
-
-        return self
-
     @generate_docstring(skip_parameters_heading=True)
+    @reflect(reset=True)
     def fit(
         self,
         X,
@@ -486,9 +323,9 @@ class DBSCAN(Base,
 
         Parameters
         ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
+        out_dtype: dtype
+            Determines the precision of the output labels array. Options
+            are int32 or int64, defaults to int32.
 
         sample_weight: array-like of shape (n_samples,), default=None
             Weight of each sample, such that a sample with a weight of at
@@ -496,13 +333,172 @@ class DBSCAN(Base,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        return self._fit(X, out_dtype, False, sample_weight)
+        if out_dtype not in [np.dtype("int32"), np.dtype("int64")]:
+            raise ValueError(
+                f"Expected out_dtype to be one of ['int32', 'int64'], got {out_dtype!s}"
+            )
+
+        cdef int64_t n_rows, n_cols
+        X, n_rows, n_cols, _ = input_to_cuml_array(
+            X,
+            order='C',
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[np.float32, np.float64]
+        )
+
+        if n_rows * n_cols > (2**31 - 1):
+            out_dtype = "int64"
+            logger.info("Using int64 for out_dtype because n_rows * n_cols >= INT_MAX")
+
+        if n_rows == 0 or n_cols == 0:
+            raise ValueError(
+                f"DBSCAN requires at least one row and one column to fit, "
+                f"got X shape={X.shape}"
+            )
+
+        if sample_weight is not None:
+            sample_weight = input_to_cuml_array(
+                sample_weight,
+                convert_to_dtype=(X.dtype if convert_dtype else None),
+                check_dtype=X.dtype,
+                check_rows=n_rows,
+                check_cols=1
+            ).array
+
+        # Allocate output arrays
+        labels = CumlArray.empty(n_rows, dtype=out_dtype, index=X.index)
+        core_sample_indices = (
+            CumlArray.empty(n_rows, dtype=out_dtype)
+            if self.calc_core_sample_indices else None
+        )
+
+        # Validate and coerce parameters
+        cdef DistanceType metric
+        try:
+            metric = _SUPPORTED_METRICS[self.metric.lower()]
+        except KeyError:
+            raise ValueError(f"Invalid value for metric: {self.metric}") from None
+
+        cdef EpsNnMethod algorithm
+        try:
+            algorithm = _SUPPORTED_ALGOS[self.algorithm.lower()]
+        except KeyError:
+            raise ValueError(f"Invalid value for algorithm: {self.algorithm}") from None
+
+        cdef float eps = self.eps
+        cdef int min_samples = self.min_samples
+        cdef level_enum verbose = self._verbose_level
+        cdef bool multi_gpu = self._multi_gpu
+        cdef size_t max_mbytes_per_batch = self.max_mbytes_per_batch or 0
+
+        cdef uintptr_t X_ptr = X.ptr
+        cdef uintptr_t labels_ptr = labels.ptr
+        cdef uintptr_t sample_weight_ptr = (
+            0 if sample_weight is None else sample_weight.ptr
+        )
+        cdef uintptr_t core_sample_indices_ptr = (
+            0 if core_sample_indices is None else core_sample_indices.ptr
+        )
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef bool X_f32 = X.dtype == np.float32
+        cdef bool labels_i32 = labels.dtype == np.int32
+
+        # Perform Fit
+        with nogil:
+            if X_f32:
+                if labels_i32:
+                    fit(handle_[0],
+                        <float*>X_ptr,
+                        n_rows,
+                        n_cols,
+                        eps,
+                        min_samples,
+                        metric,
+                        <int*>labels_ptr,
+                        <int*>core_sample_indices_ptr,
+                        <float*>sample_weight_ptr,
+                        max_mbytes_per_batch,
+                        algorithm,
+                        verbose,
+                        multi_gpu)
+                else:
+                    fit(handle_[0],
+                        <float*>X_ptr,
+                        n_rows,
+                        n_cols,
+                        eps,
+                        min_samples,
+                        metric,
+                        <int64_t*>labels_ptr,
+                        <int64_t*>core_sample_indices_ptr,
+                        <float*>sample_weight_ptr,
+                        max_mbytes_per_batch,
+                        algorithm,
+                        verbose,
+                        multi_gpu)
+            else:
+                if labels_i32:
+                    fit(handle_[0],
+                        <double*>X_ptr,
+                        n_rows,
+                        n_cols,
+                        eps,
+                        min_samples,
+                        metric,
+                        <int*>labels_ptr,
+                        <int*>core_sample_indices_ptr,
+                        <double*>sample_weight_ptr,
+                        max_mbytes_per_batch,
+                        algorithm,
+                        verbose,
+                        multi_gpu)
+                else:
+                    fit(handle_[0],
+                        <double*>X_ptr,
+                        n_rows,
+                        n_cols,
+                        eps,
+                        min_samples,
+                        metric,
+                        <int64_t*>labels_ptr,
+                        <int64_t*>core_sample_indices_ptr,
+                        <double*>sample_weight_ptr,
+                        max_mbytes_per_batch,
+                        algorithm,
+                        verbose,
+                        multi_gpu)
+        self.handle.sync()
+
+        if core_sample_indices is not None:
+            # Trim the core_sample_indices array if necessary. In the common case
+            # `core_sample_indices` will have many trailing `-1` to trim
+            core_sample_indices_cp = core_sample_indices.to_output("cupy")
+            # First get the min index. These are monotonically increasing, so
+            # the min index should be the first returned -1
+            min_index = cp.argmin(core_sample_indices_cp).item()
+            if not (min_index == 0 and core_sample_indices_cp[0].item() != -1):
+                core_sample_indices_cp = core_sample_indices_cp[:min_index].copy()
+                components = X[core_sample_indices_cp]
+                core_sample_indices = CumlArray(data=core_sample_indices_cp)
+            else:
+                # Trimming not necessary, all points are core samples
+                components = X
+        else:
+            components = None
+
+        # Store fitted attributes
+        self.labels_ = labels
+        self.core_sample_indices_ = core_sample_indices
+        self.components_ = components
+
+        return self
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

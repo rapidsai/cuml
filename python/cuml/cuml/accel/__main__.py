@@ -1,54 +1,21 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
 
 import argparse
-import code
-import runpy
 import sys
-import warnings
 from textwrap import dedent
 
+import cuml.accel.runners as runners
 from cuml.accel.core import install
-from cuml.internals import logger
 
 
-def execute_source(source: str, filename: str = "<stdin>") -> None:
-    """Execute source the same way python's interpreter would.
-
-    source: str
-        The source code to execute.
-    filename: str, optional
-        The filename to execute it as. Defaults to `"<stdin>"`
-    """
-    try:
-        exec(compile(source, filename, "exec"))
-    except SystemExit:
-        raise
-    except BaseException:
-        typ, value, tb = sys.exc_info()
-        # Drop our frame from the traceback before formatting
-        sys.__excepthook__(
-            typ,
-            value.with_traceback(tb.tb_next),
-            tb.tb_next,
-        )
-        # Exit on error with the proper code
-        code = 130 if typ is KeyboardInterrupt else 1
-        sys.exit(code)
+def error(msg: str, exit_code: int = 1) -> None:
+    """Print an error message to stderr and exit."""
+    print(f"error: {msg}", file=sys.stderr)
+    sys.exit(exit_code)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -92,29 +59,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Enable the profiler.",
+    )
+    parser.add_argument(
+        "--line-profile",
+        action="store_true",
+        help="Enable the line profiler.",
+    )
+    parser.add_argument(
         "--disable-uvm",
         action="store_true",
         help="Disable UVM (managed memory) allocations.",
-    )
-    # --convert-to-sklearn, --format, --output, and --cudf-pandas are deprecated
-    # and hidden from the CLI --help with `argparse.SUPPRESS
-    parser.add_argument("--convert-to-sklearn", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--format",
-        choices=["pickle", "joblib"],
-        type=str.lower,
-        default="pickle",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--output",
-        default="converted_sklearn_model.pkl",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--cudf-pandas",
-        action="store_true",
-        help=argparse.SUPPRESS,
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -170,76 +127,44 @@ def main(argv: list[str] | None = None):
     # Parse arguments
     ns = parse_args(sys.argv[1:] if argv is None else argv)
 
-    # If the user requested a conversion, handle it and exit
-    if ns.convert_to_sklearn:
-        warnings.warn(
-            "`--convert-to-sklearn`, `--format`, and `--output` are deprecated and will "
-            "be removed in 25.10. Estimators created with `cuml.accel` may now be "
-            "serialized and loaded in environments without `cuml` without the need for "
-            "running a conversion step.",
-            FutureWarning,
-        )
-        with open(ns.convert_to_sklearn, "rb") as f:
-            if ns.format == "pickle":
-                import pickle as serializer
-            elif ns.format == "joblib":
-                import joblib as serializer
-            estimator = serializer.load(f)
-
-        with open(ns.output, "wb") as f:
-            serializer.dump(estimator, f)
-        sys.exit()
-
-    # Enable cudf.pandas if requested
-    if ns.cudf_pandas:
-        warnings.warn(
-            "`--cudf-pandas` is deprecated and will be removed in 25.10. Instead, please "
-            "invoke both accelerators explicitly like\n\n"
-            "  $ python -m cudf.pandas -m cuml.accel ...",
-            FutureWarning,
-        )
-        import cudf.pandas
-
-        cudf.pandas.install()
-
     # Parse verbose into log_level
-    default_logger_level_index = list(logger.level_enum).index(
-        logger.level_enum.warn
-    )
-    log_level = list(logger.level_enum)[
-        max(0, default_logger_level_index - ns.verbose)
-    ]
+    log_level = {0: None, 1: "info", 2: "debug"}.get(min(ns.verbose, 2))
 
     # Enable acceleration
     install(disable_uvm=ns.disable_uvm, log_level=log_level)
 
     if ns.module is not None:
+        if ns.line_profile:
+            error("--line-profile is not supported with -m")
         # Execute a module
         sys.argv[:] = [ns.module, *ns.args]
-        runpy.run_module(ns.module, run_name="__main__", alter_sys=True)
+        runners.run_module(ns.module, profile=ns.profile)
     elif ns.cmd is not None:
         # Execute a cmd
         sys.argv[:] = ["-c", *ns.args]
-        execute_source(ns.cmd, "<stdin>")
+        runners.run_source(
+            ns.cmd, profile=ns.profile, line_profile=ns.line_profile
+        )
     elif ns.script != "-":
         # Execute a script
         sys.argv[:] = [ns.script, *ns.args]
-        runpy.run_path(ns.script, run_name="__main__")
+        runners.run_path(
+            ns.script, profile=ns.profile, line_profile=ns.line_profile
+        )
     else:
         sys.argv[:] = ["-", *ns.args]
         if sys.stdin.isatty():
-            # Start an interpreter as similar to `python` as possible
-            if sys.flags.quiet:
-                banner = ""
-            else:
-                banner = f"Python {sys.version} on {sys.platform}"
-                if not sys.flags.no_site:
-                    cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
-                    banner += "\n" + cprt
-            code.interact(banner=banner, exitmsg="")
+            if ns.line_profile:
+                error("--line-profile requires a script or cmd")
+            # Start an interpreter
+            runners.run_interpreter(profile=ns.profile)
         else:
             # Execute stdin
-            execute_source(sys.stdin.read(), "<stdin>")
+            runners.run_source(
+                sys.stdin.read(),
+                profile=ns.profile,
+                line_profile=ns.line_profile,
+            )
 
 
 if __name__ == "__main__":

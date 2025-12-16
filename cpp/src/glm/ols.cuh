@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -48,7 +37,6 @@ namespace detail {
  * @param coef          device pointer to hold the solution for weights of size n_cols
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
- * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
@@ -63,7 +51,6 @@ void olsFit(const raft::handle_t& handle,
             math_t* coef,
             math_t* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo              = 0,
             math_t* sample_weight = nullptr)
 {
@@ -75,13 +62,11 @@ void olsFit(const raft::handle_t& handle,
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
 
   rmm::device_uvector<math_t> mu_input(0, stream);
-  rmm::device_uvector<math_t> norm2_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
-    if (normalize) { norm2_input.resize(n_cols, stream); }
     preProcessData(handle,
                    input,
                    n_rows,
@@ -90,16 +75,14 @@ void olsFit(const raft::handle_t& handle,
                    intercept,
                    mu_input.data(),
                    mu_labels.data(),
-                   norm2_input.data(),
                    fit_intercept,
-                   normalize,
                    sample_weight);
   }
 
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryMult<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -127,8 +110,8 @@ void olsFit(const raft::handle_t& handle,
   raft::common::nvtx::pop_range();
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
+      input, sample_weight, n_rows, n_cols, stream);
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -149,9 +132,7 @@ void olsFit(const raft::handle_t& handle,
                     intercept,
                     mu_input.data(),
                     mu_labels.data(),
-                    norm2_input.data(),
-                    fit_intercept,
-                    normalize);
+                    fit_intercept);
   } else {
     *intercept = math_t(0);
   }

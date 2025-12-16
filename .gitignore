@@ -75,6 +75,7 @@ compile_commands.json
 # ref: https://github.com/rapidsai/cuml/pull/6201
 pytest.ini
 !python/cuml/cuml/benchmark/automated/pytest.ini
+!python/cuml/cuml_accel_tests/upstream/pytest.ini
 
 # testing
-ci/**/scikit-learn/
+python/cuml/cuml_accel_tests/upstream/umap/umap-upstream

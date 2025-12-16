@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include <cuml/fil/detail/index_type.hpp>
@@ -43,11 +32,13 @@ struct forest {
   HOST DEVICE forest(node_type* forest_nodes,
                      index_type* forest_root_indexes,
                      index_type* node_id_mapping,
+                     io_type* bias,
                      index_type num_trees,
                      index_type num_outputs)
     : nodes_{forest_nodes},
       root_node_indexes_{forest_root_indexes},
       node_id_mapping_{node_id_mapping},
+      bias_{bias},
       num_trees_{num_trees},
       num_outputs_{num_outputs}
   {
@@ -63,6 +54,9 @@ struct forest {
    * Only used when infer_type == infer_kind::leaf_id */
   HOST DEVICE const auto* get_node_id_mapping() const { return node_id_mapping_; }
 
+  /* Return pointer to the bias term */
+  HOST DEVICE const auto* bias() const { return bias_; }
+
   /* Return the number of trees in this forest */
   HOST DEVICE auto tree_count() const { return num_trees_; }
 
@@ -74,6 +68,7 @@ struct forest {
   node_type* nodes_;
   index_type* root_node_indexes_;
   index_type* node_id_mapping_;
+  io_type* bias_;
   index_type num_trees_;
   index_type num_outputs_;
 };

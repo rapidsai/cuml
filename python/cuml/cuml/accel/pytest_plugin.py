@@ -1,17 +1,6 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import warnings
@@ -19,9 +8,9 @@ from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
 
-import yaml
 from packaging.requirements import Requirement
 
+from cuml.accel._sklearn_patch import apply_sklearn_patches
 from cuml.accel.core import install
 
 
@@ -43,6 +32,10 @@ class UnmatchedXfailTests(UserWarning):
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
+
+    # Apply sklearn patches BEFORE installing cuml.accel to prevent duplicates
+    apply_sklearn_patches()
+
     try:
         install()
     except RuntimeError:
@@ -93,6 +86,8 @@ def pytest_collection_modifyitems(config, items):
     xfail_list_path = config.getoption("xfail_list")
     if not xfail_list_path:
         return
+
+    import yaml  # needed to parse the YAML-formatted xfail list
 
     xfail_list_path = Path(xfail_list_path)
     if not xfail_list_path.exists():

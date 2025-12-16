@@ -10,13 +10,12 @@ This document provides comprehensive guidelines and best practices for contribut
 4. [Documentation](#documentation)
 5. [Testing and Unit Testing](#testing-and-unit-testing)
 6. [Memory Management](#memory-management)
-7. [Asynchronous Operations and Stream Ordering](#asynchronous-operations-and-stream-ordering)
-8. [Thread Safety](#thread-safety)
-9. [Creating New Estimators](#creating-new-estimators)
-10. [Deprecation Policy](#deprecation-policy)
-11. [Logging](#logging)
-12. [Multi-GPU Support](#multi-gpu-support)
-13. [Benchmarking](#benchmarking)
+7. [Thread Safety](#thread-safety)
+8. [Creating New Estimators](#creating-new-estimators)
+9. [Deprecation Policy](#deprecation-policy)
+10. [Logging](#logging)
+11. [Multi-GPU Support](#multi-gpu-support)
+12. [Benchmarking](#benchmarking)
 
 ## Prerequisites
 
@@ -301,44 +300,6 @@ mem_type = determine_array_memtype(array)
 - Use appropriate memory types for your operations
 - Consider memory layout (C/F order) for optimal performance
 - Handle memory allocation failures gracefully
-
-## Asynchronous Operations and Stream Ordering
-To schedule the execution of algorithms concurrently, create separate streams and handles for each operation. Here's a minimal working example:
-
-```python
-import cuml
-from pylibraft.common import Stream, Handle
-import numpy as np
-
-# Create two separate streams and handles
-s1 = Stream()
-h1 = Handle(s1)
-
-s2 = Stream()
-h2 = Handle(s2)
-
-# Create sample data
-X1 = np.array([[1, 2], [2, 3]], dtype=np.float32)
-X2 = np.array([[4, 5], [6, 7]], dtype=np.float32)
-
-# Create and run algorithms concurrently
-kmeans1 = cuml.KMeans(handle=h1, n_clusters=2)
-kmeans2 = cuml.KMeans(handle=h2, n_clusters=2)
-
-# These operations will run concurrently
-kmeans1.fit(X1)
-kmeans2.fit(X2)
-
-# Wait for both operations to complete
-s1.sync()
-s2.sync()
-
-# Access results
-print(kmeans1.cluster_centers_)
-print(kmeans2.cluster_centers_)
-```
-
-To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Thread Safety
 

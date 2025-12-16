@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -126,7 +115,13 @@ void parent_csr(const raft::handle_t& handle,
   auto n_clusters         = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
-    raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes, stream);
+    raft::sparse::op::coo_sort(static_cast<value_idx>(0),
+                               static_cast<value_idx>(0),
+                               cluster_tree_edges,
+                               parents,
+                               children,
+                               sizes,
+                               stream);
 
     raft::sparse::convert::sorted_coo_to_csr(
       parents, cluster_tree_edges, indptr, n_clusters + 1, stream);
@@ -323,7 +318,7 @@ void cluster_epsilon_search(const raft::handle_t& handle,
 
   // copying selected clusters by index
   thrust::copy_if(thrust_policy,
-                  thrust::make_counting_iterator(value_idx(0)),
+                  thrust::make_counting_iterator(0),
                   thrust::make_counting_iterator(n_clusters),
                   is_cluster,
                   selected_clusters.data(),
@@ -388,7 +383,7 @@ void select_clusters(const raft::handle_t& handle,
                      int* is_cluster,
                      Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
                      bool allow_single_cluster,
-                     int max_cluster_size,
+                     value_idx max_cluster_size,
                      float cluster_selection_epsilon)
 {
   auto stream        = handle.get_stream();

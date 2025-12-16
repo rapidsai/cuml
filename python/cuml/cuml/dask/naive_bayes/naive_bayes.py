@@ -1,25 +1,12 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import cupy as cp
 import dask
 import dask.array
 from toolz import first
 
-from cuml.common import rmm_cupy_ary, with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
 from cuml.dask.common.func import reduce, tree_reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -28,7 +15,6 @@ from cuml.naive_bayes import MultinomialNB as MNB
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
-
     """
     Distributed Naive Bayes classifier for multinomial models
 
@@ -83,9 +69,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         Create new multinomial distributed Naive Bayes classifier instance
 
         Parameters
-        -----------
-
-        client : dask.distributed.Client optional Dask client to use
+        ----------
+        client : dask.distributed.Client, optional
+            Dask client to use
         """
         super().__init__(client=client, verbose=verbose, **kwargs)
 
@@ -96,19 +82,13 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         self._set_internal_model(MNB(**kwargs))
 
     @staticmethod
-    @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
-
         X, y = Xy
 
         model = MNB(**kwargs)
         model.partial_fit(X, y, classes=classes)
 
         return model
-
-    @staticmethod
-    def _unique(x):
-        return rmm_cupy_ary(cp.unique, x)
 
     @staticmethod
     def _merge_counts_to_model(models):
@@ -124,7 +104,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         model.update_log_probs()
         return model
 
-    @with_cupy_rmm
     def fit(self, X, y, classes=None):
         """
         Fit distributed Naive Bayes classifier model
@@ -158,7 +137,7 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         futures = DistributedDataHandler.create([X, y], self.client)
 
         classes = (
-            self._unique(y.map_blocks(MultinomialNB._unique).compute())
+            cp.unique(y.map_blocks(cp.unique).compute())
             if classes is None
             else classes
         )
@@ -242,8 +221,8 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
         @dask.delayed
         def _count_accurate_predictions(y_hat, y):
-            y_hat = rmm_cupy_ary(cp.asarray, y_hat, dtype=y_hat.dtype)
-            y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+            y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
+            y = cp.asarray(y, dtype=y.dtype)
             return y.shape[0] - cp.count_nonzero(y - y_hat)
 
         delayed_parts = zip(y_hat.to_delayed(), y.to_delayed())

@@ -1,23 +1,13 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 """Command-line ML benchmark runner"""
 
 import json
 
 import numpy as np
+import rmm
 
 from cuml.benchmark import algorithms, datagen, runners
 
@@ -211,7 +201,33 @@ if __name__ == "__main__":
         default="fp32",
         help="Precision of the dataset to benchmark with",
     )
+    parser.add_argument(
+        "--rmm-allocator",
+        choices=["cuda", "managed", "prefetched"],
+        default="cuda",
+        help="RMM memory resource to use (default: cuda)",
+    )
     args = parser.parse_args()
+
+    # Setup RMM allocator based on command line option
+    match args.rmm_allocator:
+        case "cuda":
+            dev_resource = rmm.mr.CudaMemoryResource()
+            rmm.mr.set_current_device_resource(dev_resource)
+            print("Using CUDA Memory Resource...")
+        case "managed":
+            managed_resource = rmm.mr.ManagedMemoryResource()
+            rmm.mr.set_current_device_resource(managed_resource)
+            print("Using Managed Memory Resource...")
+        case "prefetched":
+            upstream_mr = rmm.mr.ManagedMemoryResource()
+            prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
+            rmm.mr.set_current_device_resource(prefetch_mr)
+            print("Using Prefetched Managed Memory Resource...")
+        case _:
+            raise ValueError(
+                f"Unknown RMM allocator type: {args.rmm_allocator}"
+            )
 
     args.dtype = PrecisionMap[args.dtype]
 

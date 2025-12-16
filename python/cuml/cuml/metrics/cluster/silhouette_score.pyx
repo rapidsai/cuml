@@ -1,34 +1,19 @@
 #
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import cupy as cp
 import numpy as np
-
-from libc.stdint cimport uintptr_t
+from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nogil:

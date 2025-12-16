@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include <cuml/forest/exceptions.hpp>
@@ -80,6 +69,12 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
 
   auto threshold() const { return tl_tree_.Threshold(node_id_); }
 
+// Temporarily disable free-nonheap-object warning to work around spurious warnings emitted by
+// GCC 14.x. See https://github.com/rapidsai/cuml/pull/7471#issuecomment-3525796585 for more
+// details.
+// TODO(hcho3): Remove this pragma once GCC is upgraded to 15.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
   auto max_num_categories() const
   {
     auto result = std::remove_const_t<std::remove_reference_t<decltype(get_categories()[0])>>{};
@@ -91,6 +86,7 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
     }
     return result;
   }
+#pragma GCC diagnostic pop
 
   auto get_output() const
   {

@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 from dask.distributed import get_worker
@@ -26,14 +15,20 @@ from cuml.dask.common.base import (
 
 class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
     """
-    Model-Parallel Multi-GPU Linear Regression Model.
+    Multi-node Multi-GPU Coordinate Descent Solver.
+
+    This solver can be used for linear regression with L1 (Lasso) and/or L2
+    (Ridge) regularization.
+
+    Parameters
+    ----------
+    client : dask.distributed.Client, optional
+        Dask client to use
+    **kwargs : dict
+        Additional arguments passed to the underlying single-GPU CD solver
     """
 
     def __init__(self, *, client=None, **kwargs):
-        """
-        Initializes the linear regression class.
-
-        """
         super().__init__(client=client, **kwargs)
         self._model_fit = False
         self._consec_call = 0
@@ -44,9 +39,9 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
 
@@ -62,7 +57,7 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
@@ -72,7 +67,7 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
         """
         return self._predict(X, delayed=delayed)
 

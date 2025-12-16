@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -135,7 +124,7 @@ struct MembershipVectorInputs {
   std::vector<T> expected_probabilities;
 };
 
-const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
+const std::vector<HDBSCANInputs<float, int64_t>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
    5,
@@ -256,7 +245,7 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
     -1, -1, -1, -1, -1, -1, -1, -1, 3,  0,  4,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 4,  -1, -1,
     -1, -1, -1, -1, 1,  -1, 1,  -1, -1, -1, -1, -1, -1, -1, -1, 2,  6,  5,  -1, -1, -1}}};
 
-const std::vector<ClusterCondensingInputs<float, int>> cluster_condensing_inputs = {
+const std::vector<ClusterCondensingInputs<float, int64_t>> cluster_condensing_inputs = {
   {9,
    3,
    {0, 2, 4, 6, 7, 1, 8, 8},
@@ -868,8 +857,8 @@ const std::vector<ClusterCondensingInputs<float, int>> cluster_condensing_inputs
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}}};
 
 namespace Iris {
-constexpr int n_row            = 150;
-const std::vector<int> parents = {
+constexpr int n_row                = 150;
+const std::vector<int64_t> parents = {
   150, 150, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152,
   152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
   152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
@@ -880,7 +869,7 @@ const std::vector<int> parents = {
   154, 154, 154, 154, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 154, 154, 154, 154,
   154, 154, 154, 154, 154, 154, 154, 154, 154, 154};
 
-const std::vector<int> children = {
+const std::vector<int64_t> children = {
   151, 152, 41,  131, 15,  117, 14,  118, 22,  106, 18,  98,  13,  109, 33,  57,  44,  60,
   93,  32,  129, 24,  68,  43,  122, 16,  135, 5,   134, 23,  119, 20,  125, 8,   114, 36,
   108, 31,  148, 10,  87,  46,  100, 35,  105, 6,   62,  19,  107, 42,  113, 25,  130, 11,
@@ -913,7 +902,7 @@ const std::vector<float> lambdas = {
   2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.67261242,
   2.67261242, 2.67261242};
 
-const std::vector<int> sizes = {
+const std::vector<int64_t> sizes = {
   50, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -924,7 +913,7 @@ const std::vector<int> sizes = {
 namespace Digits {
 constexpr int n_row = 1797;
 
-const std::vector<int> parents = {
+const std::vector<int64_t> parents = {
   1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797,
   1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797,
   1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797, 1797,
@@ -1041,7 +1030,7 @@ const std::vector<int> parents = {
   1828, 1828, 1825, 1834, 1825, 1834, 1825, 1834, 1834, 1834, 1834, 1834, 1834, 1834, 1834, 1834,
   1834, 1825, 1825, 1825, 1825, 1825, 1825, 1825, 1825, 1825, 1825};
 
-const std::vector<int> children = {
+const std::vector<int64_t> children = {
   1113, 1149, 1572, 1660, 1595, 985,  1024, 77,   1727, 1551, 757,  1562, 891,  1581, 673,  1552,
   1729, 421,  1274, 1195, 1154, 1150, 1690, 1152, 1264, 792,  9,    1038, 1593, 1580, 1628, 1712,
   1685, 905,  341,  1100, 769,  1574, 502,  87,   1210, 1165, 1657, 1571, 1057, 1118, 538,  678,
@@ -1390,7 +1379,7 @@ const std::vector<float> lambdas = {
   0.06917145, 0.05902813, 0.05902813, 0.05902813, 0.05902813, 0.05902813, 0.05902813, 0.05902813,
   0.05902813, 0.05902813, 0.05902813};
 
-const std::vector<int> sizes = {
+const std::vector<int64_t> sizes = {
   1,   1,   1,   1,   1,   1, 1,    1,   1,  1, 1,    1,    1,  1, 1,   1,    1,  1,  1,  1,  1,
   1,   1,   1,   1,   1,   1, 1,    1,   1,  1, 1,    1,    1,  1, 1,   1,    1,  1,  1,  1,  1,
   1,   1,   1,   1,   1,   1, 1,    1,   1,  1, 1,    1,    1,  1, 1,   1,    1,  1,  1,  1,  1,
@@ -1481,7 +1470,7 @@ const std::vector<int> sizes = {
   1,   1,   1,   1,   1,   1, 1,    1};
 };  // namespace Digits
 
-const std::vector<ClusterSelectionInputs<float, int>> cluster_selection_inputs = {
+const std::vector<ClusterSelectionInputs<float, int64_t>> cluster_selection_inputs = {
   {150,
    5,
    10,
@@ -2325,7 +2314,7 @@ const std::vector<ClusterSelectionInputs<float, int>> cluster_selection_inputs =
     -1, -1, -1, -1, 11, 13, -1, 15, 13, -1, -1, -1, -1, -1, 13, -1, 1,  16, 11, -1, -1, 18, 13, -1,
     -1, -1, -1, -1, 3,  -1, 3,  3,  -1, -1, -1, -1, -1, -1, -1, -1, 15, 1,  -1, -1, -1}}};
 
-const std::vector<AllPointsMembershipVectorsInputs<float, int>>
+const std::vector<AllPointsMembershipVectorsInputs<float, int64_t>>
   all_points_membership_vectors_inputs = {
     {MLCommon::Datasets::Digits::n_samples,
      MLCommon::Datasets::Digits::n_features,
@@ -6191,7 +6180,7 @@ const std::vector<AllPointsMembershipVectorsInputs<float, int>>
       0.0501381,   0.053290438, 0.047078118, 0.040903572, 0.0667583,   0.056616243, 0.07065173,
       0.0443147,   0.04315245,  0.056318313, 0.049550712, 0.042784892}}};
 
-const std::vector<ApproximatePredictInputs<float, int>> approximate_predict_inputs = {
+const std::vector<ApproximatePredictInputs<float, int64_t>> approximate_predict_inputs = {
   {1000,
    15,
    200,
@@ -9544,7 +9533,7 @@ const std::vector<ApproximatePredictInputs<float, int>> approximate_predict_inpu
     0.9011331,  0.77075315, 0.9326203,  0.8810431,  0.90232337, 0.8286241,  1.0,
     0.83256954, 0.83346933, 0.83974075, 0.6880056}}};
 
-const std::vector<MembershipVectorInputs<float, int>> membership_vector_inputs = {
+const std::vector<MembershipVectorInputs<float, int64_t>> membership_vector_inputs = {
   {1000,
    15,
    200,

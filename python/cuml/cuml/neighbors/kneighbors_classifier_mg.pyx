@@ -1,39 +1,22 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.common import input_to_cuml_array
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
+
+from cuml.common.opg_data_utils_mg cimport *
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
@@ -69,7 +52,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     def __init__(self, **kwargs):
         super(KNeighborsClassifierMG, self).__init__(**kwargs)
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         index,
@@ -189,7 +172,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return output_cais
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,

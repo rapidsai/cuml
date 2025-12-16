@@ -1,16 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 """Data generators for cuML benchmarks
 
 The main entry point for consumers is gen_data, which
@@ -126,7 +115,6 @@ DATASETS_DIRECTORY = "."
 
 
 def _gen_data_airline_regression(datasets_root_dir):
-
     url = "http://kt.ijs.si/elena_ikonomovska/datasets/airline/airline_14col.data.bz2"
 
     local_url = os.path.join(datasets_root_dir, os.path.basename(url))
@@ -183,7 +171,6 @@ def _gen_data_airline_classification(datasets_root_dir):
 
 
 def _gen_data_bosch(datasets_root_dir):
-
     local_url = os.path.join(datasets_root_dir, "train_numeric.csv.zip")
 
     if not os.path.isfile(local_url):
@@ -202,7 +189,6 @@ def _gen_data_bosch(datasets_root_dir):
 
 
 def _gen_data_covtype(datasets_root_dir):
-
     X, y = fetch_covtype(return_X_y=True)
     # Labele range in covtype start from 1, making it start from 0
     y = y - 1
@@ -214,7 +200,6 @@ def _gen_data_covtype(datasets_root_dir):
 
 
 def _gen_data_epsilon(datasets_root_dir):
-
     url_train = (
         "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary"
         "/epsilon_normalized.bz2"
@@ -254,7 +239,6 @@ def _gen_data_epsilon(datasets_root_dir):
 
 
 def _gen_data_fraud(datasets_root_dir):
-
     local_url = os.path.join(datasets_root_dir, "creditcard.csv.zip")
 
     if not os.path.isfile(local_url):
@@ -270,7 +254,6 @@ def _gen_data_fraud(datasets_root_dir):
 
 
 def _gen_data_higgs(datasets_root_dir):
-
     higgs_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz"  # noqa
 
     local_url = os.path.join(datasets_root_dir, os.path.basename(higgs_url))
@@ -298,7 +281,6 @@ def _gen_data_higgs(datasets_root_dir):
 
 
 def _gen_data_year(datasets_root_dir):
-
     year_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00203/YearPredictionMSD.txt.zip"
 
     local_url = os.path.join(datasets_root_dir, "YearPredictionMSD.txt.zip")
@@ -361,9 +343,9 @@ def _convert_to_cudf(data):
     elif isinstance(data, (cudf.DataFrame, cudf.Series)):
         return data
     elif isinstance(data, pd.DataFrame):
-        return cudf.DataFrame.from_pandas(data)
+        return cudf.DataFrame(data)
     elif isinstance(data, pd.Series):
-        return cudf.Series.from_pandas(data)
+        return cudf.Series(data)
     elif isinstance(data, np.ndarray):
         data = np.squeeze(data)
         if data.ndim == 1:
@@ -411,11 +393,9 @@ def _convert_to_gpuarray(data, order="F"):
     elif isinstance(data, tuple):
         return tuple([_convert_to_gpuarray(d, order=order) for d in data])
     elif isinstance(data, pd.DataFrame):
-        return _convert_to_gpuarray(
-            cudf.DataFrame.from_pandas(data), order=order
-        )
+        return _convert_to_gpuarray(cudf.DataFrame(data), order=order)
     elif isinstance(data, pd.Series):
-        gs = cudf.Series.from_pandas(data)
+        gs = cudf.Series(data)
         return cuda.as_cuda_array(gs)
     else:
         return input_utils.input_to_cuml_array(data, order=order)[0].to_output(
@@ -575,10 +555,8 @@ def gen_data(
         if n_features == 0:
             n_features = X.shape[1]
 
-        X_df = cudf.DataFrame.from_pandas(
-            X.iloc[0:n_samples, 0:n_features].astype(dtype)
-        )
-        y_df = cudf.Series.from_pandas(y.iloc[0:n_samples].astype(dtype))
+        X_df = cudf.DataFrame(X.iloc[0:n_samples, 0:n_features].astype(dtype))
+        y_df = cudf.Series(y.iloc[0:n_samples].astype(dtype))
 
     data = (X_df, y_df)
     if test_fraction != 0.0:

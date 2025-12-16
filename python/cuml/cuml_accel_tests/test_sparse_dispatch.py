@@ -1,22 +1,13 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
 import pytest
+import sklearn
 from hdbscan import HDBSCAN
+from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.base import is_classifier, is_regressor
 from sklearn.cluster import DBSCAN, KMeans
@@ -30,8 +21,10 @@ from sklearn.linear_model import (
     Ridge,
 )
 from sklearn.neighbors import NearestNeighbors
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 from umap import UMAP
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
@@ -48,11 +41,16 @@ estimators = {
     "SVC": lambda: SVC(),
     "SVR": lambda: SVR(),
     "KernelRidge": lambda: KernelRidge(),
+    "LinearSVC": lambda: LinearSVC(),
+    "LinearSVR": lambda: LinearSVR(),
 }
 
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
+    if SKLEARN_18 and estimator_name in ("HDBSCAN", "UMAP"):
+        pytest.skip(f"{estimator_name} requires sklearn < 1.8.0")
+
     X_sparse = csr_matrix([[0.0, 1.0], [1.0, 0.0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])

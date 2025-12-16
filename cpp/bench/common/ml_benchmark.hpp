@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -21,7 +10,7 @@
 
 #include <raft/util/cudart_utils.hpp>
 
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
 
@@ -166,7 +155,7 @@ class Fixture : public ::benchmark::Fixture {
   {
     auto nBytes  = len * sizeof(T);
     auto d_alloc = rmm::mr::get_current_device_resource();
-    ptr          = (T*)d_alloc->allocate(nBytes, stream);
+    ptr          = (T*)d_alloc->allocate(stream, nBytes);
     if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
 
@@ -174,7 +163,7 @@ class Fixture : public ::benchmark::Fixture {
   void dealloc(T* ptr, size_t len)
   {
     auto d_alloc = rmm::mr::get_current_device_resource();
-    d_alloc->deallocate(ptr, len * sizeof(T), stream);
+    d_alloc->deallocate(stream, ptr, len * sizeof(T));
   }
 
   cudaStream_t stream = 0;

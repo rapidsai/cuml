@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "ols.cuh"
@@ -35,21 +24,11 @@ void olsFit(const raft::handle_t& handle,
             float* coef,
             float* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo,
             float* sample_weight)
 {
-  detail::olsFit(handle,
-                 input,
-                 n_rows,
-                 n_cols,
-                 labels,
-                 coef,
-                 intercept,
-                 fit_intercept,
-                 normalize,
-                 algo,
-                 sample_weight);
+  detail::olsFit(
+    handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept, algo, sample_weight);
 }
 
 void olsFit(const raft::handle_t& handle,
@@ -60,21 +39,11 @@ void olsFit(const raft::handle_t& handle,
             double* coef,
             double* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo,
             double* sample_weight)
 {
-  detail::olsFit(handle,
-                 input,
-                 n_rows,
-                 n_cols,
-                 labels,
-                 coef,
-                 intercept,
-                 fit_intercept,
-                 normalize,
-                 algo,
-                 sample_weight);
+  detail::olsFit(
+    handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept, algo, sample_weight);
 }
 
 void gemmPredict(const raft::handle_t& handle,
@@ -109,7 +78,6 @@ void ridgeFit(const raft::handle_t& handle,
               float* coef,
               float* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               float* sample_weight)
 {
@@ -123,7 +91,6 @@ void ridgeFit(const raft::handle_t& handle,
                    coef,
                    intercept,
                    fit_intercept,
-                   normalize,
                    algo,
                    sample_weight);
 }
@@ -138,7 +105,6 @@ void ridgeFit(const raft::handle_t& handle,
               double* coef,
               double* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               double* sample_weight)
 {
@@ -152,7 +118,6 @@ void ridgeFit(const raft::handle_t& handle,
                    coef,
                    intercept,
                    fit_intercept,
-                   normalize,
                    algo,
                    sample_weight);
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -21,18 +10,24 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
+#include <raft/linalg/init.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <thrust/device_ptr.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/shuffle.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/tuple.h>
 
 #include <curand.h>
 #include <math.h>
@@ -185,6 +180,47 @@ T create_gradient_rounding_factor(
   return create_rounding_factor(max_abs, n_edges);
 }
 
+template <typename nnz_t>
+CUML_KERNEL void compute_degrees_kernel(const int* rows, nnz_t nnz, int* degrees)
+{
+  nnz_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < nnz) {
+    int row = rows[i];
+    atomicAdd(&degrees[row], 1);
+  }
+}
+
+CUML_KERNEL void check_threshold_kernel(const int* degrees,
+                                        int n_vertices,
+                                        int threshold,
+                                        bool* flag)
+{
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n_vertices) {
+    if (degrees[i] > threshold) { *flag = true; }
+  }
+}
+
+template <typename nnz_t, int TPB_X>
+bool check_outliers(const int* rows, int m, nnz_t nnz, int threshold, cudaStream_t stream)
+{
+  rmm::device_uvector<int> graph_degree_head(m, stream);
+  raft::linalg::zero(graph_degree_head.data(), m, stream);
+
+  dim3 grid_nnz(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+  compute_degrees_kernel<<<grid_nnz, blk, 0, stream>>>(rows, nnz, graph_degree_head.data());
+
+  rmm::device_scalar<bool> has_outlier_d(0, stream);  // initialize to 0
+
+  dim3 grid_head_n(raft::ceildiv(static_cast<nnz_t>(m), static_cast<nnz_t>(TPB_X)), 1, 1);
+  check_threshold_kernel<<<grid_head_n, blk, 0, stream>>>(
+    graph_degree_head.data(), m, threshold, has_outlier_d.data());
+  cudaStreamSynchronize(stream);
+  bool has_outlier_h = has_outlier_d.value(stream);
+  return has_outlier_h;
+}
+
 /**
  * Runs gradient descent using sampling weights defined on
  * both the attraction and repulsion vectors.
@@ -199,8 +235,8 @@ void optimize_layout(T* head_embedding,
                      int head_n,
                      T* tail_embedding,
                      int tail_n,
-                     const int* head,
-                     const int* tail,
+                     int* head,
+                     int* tail,
                      nnz_t nnz,
                      T* epochs_per_sample,
                      float gamma,
@@ -213,6 +249,49 @@ void optimize_layout(T* head_embedding,
   T alpha         = params->initial_alpha;
 
   auto stream_view = rmm::cuda_stream_view(stream);
+
+  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
+
+  auto min_n                = min(head_n, tail_n);
+  int threshold_for_outlier = 1024;  // this is a heuristic value.
+  // for smaller datasets, could be a dense point even with a smaller graph degree
+  if (min_n <= 100000) {
+    threshold_for_outlier = 256;
+  } else if (min_n <= 1000000) {
+    threshold_for_outlier = 512;
+  }
+
+  int num_chunks = 1;
+
+  bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
+  if (move_other && !has_outlier) {
+    has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
+  }
+
+  if (has_outlier) {
+    // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
+    // updates). It is critical to avoid having too many threads update the same embedding vector
+    // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
+    // distributed across threads, rather than being processed by consecutive threads that are
+    // scheduled together. This approach relies on the GPU's inability to physically schedule all
+    // nnz edges at once.
+    auto first =
+      thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
+                                                   thrust::device_pointer_cast(tail),
+                                                   thrust::device_pointer_cast(epochs_per_sample)));
+
+    thrust::default_random_engine rng(params->random_state);
+    thrust::shuffle(first, first + nnz, rng);
+    if (min_n <= 100000) {
+      // related issue: https://github.com/rapidsai/cuml/issues/7431
+      // Heuristic value for forcing serial behavior to handle outliers in smaller datasets.
+      // Ideally this value should depend on nnz, maximum graph degree, number of SMs and maximum
+      // number of threads per SM, but it is difficult to generalize due to limited cases where this
+      // happens. Increase this value if we observe outliers on smaller datasets.
+      num_chunks = 4;
+    }
+  }
+
   rmm::device_uvector<T> epoch_of_next_negative_sample(nnz, stream);
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   raft::linalg::unaryOp<T>(
@@ -246,11 +325,12 @@ void optimize_layout(T* head_embedding,
     d_tail_buffer = tail_buffer.data();
   }
 
-  dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
+  // we keep the tpb and change the number of blocks we launch to handle the total number of threads
+  // launched
+  auto nnz_per_chunk = raft::ceildiv(nnz, static_cast<nnz_t>(num_chunks));
+  dim3 grid(raft::ceildiv(nnz_per_chunk, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
-
-  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
@@ -296,53 +376,25 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <typename T, typename nnz_t, int TPB_X>
-void launcher(
-  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(int m,
+              int n,
+              raft::sparse::COO<T>* in,
+              UMAPParams* params,
+              T* embedding,
+              int n_epochs,
+              cudaStream_t stream)
 {
   nnz_t nnz = in->nnz;
 
-  /**
-   * Find vals.max()
-   */
-  thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals());
-  T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
+  rmm::device_uvector<T> epochs_per_sample(nnz, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, nnz * sizeof(T), stream));
 
-  int n_epochs = params->n_epochs;
-  if (n_epochs <= 0) {
-    if (m <= 10000)
-      n_epochs = 500;
-    else
-      n_epochs = 200;
-  }
-
-  /**
-   * Go through COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
-   */
-  raft::linalg::unaryOp<T>(
-    in->vals(),
-    in->vals(),
-    nnz,
-    [=] __device__(T input) {
-      if (input < (max / float(n_epochs)))
-        return 0.0f;
-      else
-        return input;
-    },
-    stream);
-
-  raft::sparse::COO<T> out(stream);
-  raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
-
-  rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
-
-  make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
+  make_epochs_per_sample(in->vals(), nnz, n_epochs, epochs_per_sample.data(), stream);
 
   /*
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     std::stringstream ss;
-    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), nnz, "epochs_per_sample", stream);
     CUML_LOG_TRACE(ss.str().c_str());
   }
   */
@@ -351,9 +403,9 @@ void launcher(
                                    m,
                                    embedding,
                                    m,
-                                   out.rows(),
-                                   out.cols(),
-                                   out.nnz,
+                                   in->rows(),
+                                   in->cols(),
+                                   in->nnz,
                                    epochs_per_sample.data(),
                                    params->repulsion_strength,
                                    params,

@@ -1,8 +1,12 @@
 #!/bin/bash
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
+
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
@@ -36,7 +40,7 @@ rapids-logger "notebook tests cuml"
 
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
-SKIPNBS="cuml_benchmarks.ipynb"
+SKIPNBS="cuml_benchmarks.ipynb hdbscan_soft_clustering_benchmark.ipynb"
 NBTEST="$(realpath "$(dirname "$0")/utils/nbtest.sh")"
 
 cd notebooks
@@ -46,7 +50,7 @@ for nb in $(find . -name "*.ipynb"); do
     nbBasename=$(basename "${nb}")
     # Skip all NBs that use dask (in the code or even in their name)
     if (echo "${nb}" | grep -qi dask) || \
-        (grep -q dask "${nb}"); then
+        ( grep -q dask "${nb}" && [ "${nbBasename}" != 'forest_inference_demo.ipynb' ] ); then
         echo "--------------------------------------------------------------------------------"
         echo "SKIPPING: ${nb} (suspected Dask usage, not currently automatable)"
         echo "--------------------------------------------------------------------------------"
@@ -56,7 +60,7 @@ for nb in $(find . -name "*.ipynb"); do
         echo "--------------------------------------------------------------------------------"
     else
         nvidia-smi
-        ${NBTEST} "${nbBasename}"
+        ${NBTEST} "${nb}"
     fi
 done
 

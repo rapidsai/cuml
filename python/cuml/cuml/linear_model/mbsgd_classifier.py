@@ -1,28 +1,22 @@
 #
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+import cupy as cp
 
 import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
-from cuml.solvers import SGD
+from cuml.linear_model.base import LinearClassifierMixin
+from cuml.solvers.sgd import fit_sgd
 
 
-class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
+class MBSGDClassifier(
+    Base, LinearClassifierMixin, ClassifierMixin, FMajorInputTagMixin
+):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
@@ -38,42 +32,6 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
     not let the model learn as much as scikit learn does. Furthermore,
     decreasing the batch size might seen an increase in the time required
     to fit the model.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cudf
-        >>> from cuml.linear_model import MBSGDClassifier
-        >>> X = cudf.DataFrame()
-        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
-        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
-        >>> y = cudf.Series(cp.array([1, 1, 2, 2], dtype=cp.float32))
-        >>> pred_data = cudf.DataFrame()
-        >>> pred_data['col1'] = cp.asarray([3, 2], dtype=cp.float32)
-        >>> pred_data['col2'] = cp.asarray([5, 5], dtype=cp.float32)
-        >>> cu_mbsgd_classifier = MBSGDClassifier(learning_rate='constant',
-        ...                                       eta0=0.05, epochs=2000,
-        ...                                       fit_intercept=True,
-        ...                                       batch_size=1, tol=0.0,
-        ...                                       penalty='l2',
-        ...                                       loss='squared_loss',
-        ...                                       alpha=0.5)
-        >>> cu_mbsgd_classifier.fit(X, y)
-        MBSGDClassifier()
-        >>> print("cuML intercept : ", cu_mbsgd_classifier.intercept_)
-        cuML intercept :  0.725...
-        >>> print("cuML coef : ", cu_mbsgd_classifier.coef_)
-        cuML coef :  0    0.273...
-        1    0.182...
-        dtype: float32
-        >>> cu_pred = cu_mbsgd_classifier.predict(pred_data)
-        >>> print("cuML predictions : ", cu_pred)
-        cuML predictions :  0   1.0
-        1    1.0
-        dtype: float32
 
     Parameters
     ----------
@@ -115,11 +73,7 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'} \
-        (default = 'constant')
-
-        `optimal` option will be supported in a future version
-
+    learning_rate : {'constant', 'invscaling', 'adaptive'} (default = 'constant')
         `constant` keeps the learning rate constant
 
         `adaptive` changes the learning rate if the training loss or the
@@ -144,11 +98,52 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    coef_: array, shape=(n_features,)
+        The model coefficients.
+    intercept_: float
+        The independent term. If `fit_intercept` is False, will be 0.
+    classes_ : np.ndarray, shape=(n_classes,)
+        Array of the class labels.
+
     Notes
     -----
     For additional docs, see `scikitlearn's SGDClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> import cuml
+    >>> X = cp.array([[1, 1], [1, 2], [2, 2], [2, 3]], dtype=cp.float32)
+    >>> y = cp.array([1, 1, 2, 2])
+    >>> X_test = cp.asarray([[3, 5], [2, 5]], dtype=cp.float32)
+    >>> model = cuml.MBSGDClassifier().fit(X, y)
+    >>> model.predict(X_test)
+    array([2, 2])
     """
+
+    coef_ = CumlArrayDescriptor()
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]
 
     def __init__(
         self,
@@ -186,45 +181,44 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
 
         """
-        self.solver_model._estimator_type = self._estimator_type
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        y, classes = preprocess_labels(y)
+        if len(classes) > 2:
+            raise ValueError(
+                f"MBSGDClassifier only supports binary classification, got "
+                f"{len(classes)} classes"
+            )
+        self.classes_ = classes
+
+        coef, intercept = fit_sgd(
+            X,
+            y,
+            convert_dtype=convert_dtype,
+            loss=self.loss,
+            penalty=self.penalty,
+            alpha=self.alpha,
+            l1_ratio=self.l1_ratio,
+            fit_intercept=self.fit_intercept,
+            epochs=self.epochs,
+            tol=self.tol,
+            shuffle=self.shuffle,
+            learning_rate=self.learning_rate,
+            eta0=self.eta0,
+            power_t=self.power_t,
+            batch_size=self.batch_size,
+            n_iter_no_change=self.n_iter_no_change,
+            handle=self.handle,
+        )
+        self.coef_ = coef
+        self.intercept_ = intercept
         return self
-
-    @property
-    def dtype(self):
-        return self.solver_model.dtype
-
-    @property
-    def coef_(self) -> CumlArray:
-        return self.solver_model.coef_
-
-    @coef_.setter
-    def coef_(self, value):
-        self.solver_model.coef_ = value
-
-    @property
-    def intercept_(self) -> float:
-        return self.solver_model.intercept_
-
-    @intercept_.setter
-    def intercept_(self, value):
-        self.solver_model.intercept_ = value
-
-    @property
-    def classes_(self) -> CumlArray:
-        return self.solver_model.classes_
-
-    @classes_.setter
-    def classes_(self, value):
-        self.solver_model.classes_ = value
 
     @generate_docstring(
         return_values={
@@ -234,35 +228,18 @@ class MBSGDClassifier(Base, ClassifierMixin, FMajorInputTagMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_array_skipall
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @cuml.internals.run_in_internal_context
+    def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
 
         """
-        preds = self.solver_model.predictClass(X, convert_dtype=convert_dtype)
+        scores = self.decision_function(
+            X, convert_dtype=convert_dtype
+        ).to_output("cupy")
 
-        return preds
-
-    def set_params(self, **params):
-        super().set_params(**params)
-        self.solver_model.set_params(**params)
-        return self
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "loss",
-            "penalty",
-            "alpha",
-            "l1_ratio",
-            "fit_intercept",
-            "epochs",
-            "tol",
-            "shuffle",
-            "learning_rate",
-            "eta0",
-            "power_t",
-            "batch_size",
-            "n_iter_no_change",
-        ]
+        thresh = 0 if self.loss == "hinge" else 0.5
+        indices = (scores > thresh).view(cp.int8)
+        with cuml.internals.exit_internal_context():
+            output_type = self._get_output_type(X)
+        return decode_labels(indices, self.classes_, output_type=output_type)
