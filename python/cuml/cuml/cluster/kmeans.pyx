@@ -423,7 +423,7 @@ class KMeans(Base,
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
         elif isinstance(model.init, str):
             if model.init == "k-means++":
-                init = "k-means++"
+                init = "scalable-k-means++"
             elif model.init == "random":
                 init = "random"
             else:
