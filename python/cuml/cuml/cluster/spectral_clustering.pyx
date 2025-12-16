@@ -8,12 +8,11 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-from pylibraft.common.handle import Handle
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.utils import check_random_seed
 
@@ -138,8 +137,7 @@ def spectral_clustering(X,
     >>> X = np.random.rand(100, 10).astype(np.float32)
     >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
     """
-    if handle is None:
-        handle = Handle()
+    handle = get_handle(handle=handle)
 
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL

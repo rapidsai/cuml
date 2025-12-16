@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 
@@ -10,7 +9,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -399,7 +398,8 @@ class DBSCAN(Base,
         cdef uintptr_t core_sample_indices_ptr = (
             0 if core_sample_indices is None else core_sample_indices.ptr
         )
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool X_f32 = X.dtype == np.float32
         cdef bool labels_i32 = labels.dtype == np.int32
 
@@ -467,7 +467,7 @@ class DBSCAN(Base,
                         algorithm,
                         verbose,
                         multi_gpu)
-        self.handle.sync()
+        handle.sync()
 
         if core_sample_indices is not None:
             # Trim the core_sample_indices array if necessary. In the common case

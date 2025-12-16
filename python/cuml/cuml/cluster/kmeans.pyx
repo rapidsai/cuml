@@ -10,7 +10,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -582,12 +582,13 @@ class KMeans(Base,
                 )
 
         # Prepare for libcuml call
-        cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
         labels, inertia = _kmeans_predict(handle_[0], params, X_m, sample_weight_m, centers)
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes and return
         self.cluster_centers_ = centers
@@ -661,14 +662,15 @@ class KMeans(Base,
                 check_cols=1,
             )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         labels, inertia = _kmeans_predict(
             handle_[0], params, X_m, sample_weight_m, self.cluster_centers_
         )
-        self.handle.sync()
+        handle.sync()
         return labels, inertia
 
     @generate_docstring(return_values={'name': 'preds',
@@ -720,7 +722,8 @@ class KMeans(Base,
         cdef uintptr_t centers_ptr = self.cluster_centers_.ptr
         cdef uintptr_t out_ptr = out.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
@@ -770,7 +773,7 @@ class KMeans(Base,
                         <int64_t>n_cols,
                         <double*>out_ptr,
                     )
-        self.handle.sync()
+        handle.sync()
         return out
 
     @generate_docstring(return_values={'name': 'score',

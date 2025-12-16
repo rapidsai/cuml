@@ -8,7 +8,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 
@@ -194,7 +194,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         labels = CumlArray.empty(n_rows, dtype="int32", order="C")
         children = CumlArray.empty((n_rows - 1, 2), dtype="int32", order="C")
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int c = self.c
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef int* children_ptr = <int*><uintptr_t>children.ptr
@@ -214,7 +215,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                 use_knn,
                 c,
             )
-        self.handle.sync()
+        handle.sync()
 
         # We only support single linkage for now, for other linkage types
         # n_connected_components_ and n_leaves_ will differ
