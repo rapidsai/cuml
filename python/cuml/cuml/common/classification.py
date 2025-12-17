@@ -7,9 +7,8 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 
-from cuml.internals.array import CumlArray
+from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.internals.memory_utils import cuda_ptr
 from cuml.internals.output_utils import cudf_to_pandas
 
 is_integral = cp.ReductionKernel(

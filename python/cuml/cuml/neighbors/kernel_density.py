@@ -14,6 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
@@ -271,6 +272,7 @@ class KernelDensity(Base, InteropMixin):
         self.metric = metric
         self.metric_params = metric_params
 
+    @reflect(reset=True)
     def fit(
         self, X, y=None, sample_weight=None, *, convert_dtype=True
     ) -> "KernelDensity":
@@ -343,6 +345,7 @@ class KernelDensity(Base, InteropMixin):
 
         return self
 
+    @reflect
     def score_samples(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute the log-likelihood of each sample under the model.
 
@@ -430,6 +433,7 @@ class KernelDensity(Base, InteropMixin):
 
         return log_probabilities
 
+    @run_in_internal_context
     def score(self, X, y=None) -> float:
         """Compute the total log-likelihood under the model.
 
@@ -450,6 +454,7 @@ class KernelDensity(Base, InteropMixin):
         """
         return float(cp.sum(self.score_samples(X).to_output("cupy")))
 
+    @reflect
     def sample(self, n_samples=1, random_state=None) -> CumlArray:
         """Generate random samples from the model.
 

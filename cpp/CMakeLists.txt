@@ -23,6 +23,9 @@ project(
   LANGUAGES CXX CUDA
 )
 
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
@@ -561,9 +564,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   set_target_properties(
     cuml_objs
-    PROPERTIES CXX_STANDARD 17
+    PROPERTIES CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
@@ -646,9 +649,9 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
     ${CUML_CPP_TARGET}
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
                POSITION_INDEPENDENT_CODE ON
@@ -722,7 +725,7 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     ${CUML_CPP_TARGET}_static
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
