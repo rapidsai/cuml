@@ -176,8 +176,6 @@ class _BaseNB(Base, ClassifierMixin):
     classes_ = CumlArrayDescriptor()
     class_count_ = CumlArrayDescriptor()
     feature_count_ = CumlArrayDescriptor()
-    class_log_prior_ = CumlArrayDescriptor()
-    feature_log_prob_ = CumlArrayDescriptor()
 
     def _check_X(self, X):
         """To be overridden in subclasses with the actual checks."""
@@ -352,6 +350,8 @@ class GaussianNB(_BaseNB):
         [1]
     """
 
+    class_prior_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         *,
@@ -477,9 +477,9 @@ class GaussianNB(_BaseNB):
                     raise ValueError("The sum of the priors should be 1.")
                 if (self.priors < 0).any():
                     raise ValueError("Priors must be non-negative.")
-                self.class_prior, *_ = input_to_cupy_array(
+                self.class_prior_ = input_to_cupy_array(
                     self.priors, check_dtype=[cp.float32, cp.float64]
-                )
+                ).array
 
         else:
             self.sigma_[:, :] -= self.epsilon_
@@ -533,7 +533,7 @@ class GaussianNB(_BaseNB):
         self.sigma_[:, :] += self.epsilon_
 
         if self.priors is None:
-            self.class_prior = self.class_count_ / self.class_count_.sum()
+            self.class_prior_ = self.class_count_ / self.class_count_.sum()
 
         return self
 
@@ -685,7 +685,7 @@ class GaussianNB(_BaseNB):
         joint_log_likelihood = cp.zeros((n_samples, n_classes))
 
         for i in range(n_classes):
-            jointi = cp.log(self.class_prior[i])
+            jointi = cp.log(self.class_prior_[i])
 
             # Compute the constant term for this class
             n_ij = -0.5 * cp.sum(log_2pi_sigma[i, :])
@@ -711,6 +711,9 @@ class GaussianNB(_BaseNB):
 
 
 class _BaseDiscreteNB(_BaseNB):
+    class_log_prior_ = CumlArrayDescriptor()
+    feature_log_prob_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         *,
@@ -724,13 +727,7 @@ class _BaseDiscreteNB(_BaseNB):
         super().__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
-        if class_prior is not None:
-            self.class_prior, *_ = input_to_cuml_array(class_prior)
-        else:
-            self.class_prior = None
-
-        if alpha < 0:
-            raise ValueError("Smoothing parameter alpha should be >= 0.")
+        self.class_prior = class_prior
         self.alpha = alpha
         self.fit_prior = fit_prior
 
@@ -796,7 +793,7 @@ class _BaseDiscreteNB(_BaseNB):
                     "Number of classes must match number of priors"
                 )
 
-            self.class_log_prior_ = cp.log(class_prior)
+            self.class_log_prior_ = cp.log(cp.asarray(class_prior))
 
         elif self.fit_prior:
             log_class_count = cp.log(self.class_count_)
@@ -867,6 +864,9 @@ class _BaseDiscreteNB(_BaseNB):
         convert_dtype=True,
     ) -> "_BaseDiscreteNB":
         first_call = _refit or not hasattr(self, "classes_")
+
+        if self.alpha < 0:
+            raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
 
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
