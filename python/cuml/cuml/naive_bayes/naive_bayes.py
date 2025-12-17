@@ -7,7 +7,6 @@ import warnings
 
 import cupy as cp
 import cupyx
-import numpy as np
 import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
@@ -437,8 +436,12 @@ class GaussianNB(_BaseNB):
             check_dtype=expected_y_dtype,
         ).array
         if sample_weight is not None:
-            # XXX How to use `input_to_cupy_array` here with `list` as input?
-            sample_weight = cp.asarray(sample_weight, dtype=np.float32)
+            sample_weight = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=cp.float32,
+                check_dtype=cp.float32,
+                check_rows=X.shape[0],
+            ).array
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
@@ -885,20 +888,11 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            try:
-                X = input_to_cupy_array(
-                    X,
-                    order="K",
-                    check_dtype=[cp.float32, cp.float64, cp.int32],
-                ).array
-            except Exception as e:
-                if "CUDA" in str(e) or "cuda" in str(e):
-                    raise RuntimeError(
-                        f"CUDA error during input conversion. "
-                        f"This may indicate GPU memory corruption. "
-                        f"Original error: {str(e)}"
-                    )
-                raise
+            X = input_to_cupy_array(
+                X,
+                order="K",
+                check_dtype=[cp.float32, cp.float64, cp.int32],
+            ).array
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -942,21 +936,6 @@ class _BaseDiscreteNB(_BaseNB):
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
-
-        # Ensure all GPU operations complete before returning
-        # This is especially important for partial_fit in streaming scenarios
-        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
-            try:
-                cp.cuda.Stream.null.synchronize()
-            except Exception:
-                # Ignore synchronization errors but log them if verbose
-                if self.verbose:
-                    import warnings
-
-                    warnings.warn(
-                        "GPU synchronization failed, continuing anyway"
-                    )
-
         return self
 
     @reflect(reset=True)
@@ -1070,9 +1049,6 @@ class _BaseDiscreteNB(_BaseNB):
 
 
 class MultinomialNB(_BaseDiscreteNB):
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
-
     """
     Naive Bayes classifier for multinomial models
 
@@ -1340,13 +1316,10 @@ class BernoulliNB(_BaseDiscreteNB):
 
         # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
-            try:
-                if cupyx.scipy.sparse.isspmatrix(X):
-                    X.data = binarize(X.data, threshold=self.binarize)
-                else:
-                    X = binarize(X, threshold=self.binarize)
-            except Exception as e:
-                raise ValueError(f"Error during binarization: {str(e)}")
+            if cupyx.scipy.sparse.isspmatrix(X):
+                X.data = binarize(X.data, threshold=self.binarize)
+            else:
+                X = binarize(X, threshold=self.binarize)
 
         return X, y
 
@@ -1405,33 +1378,8 @@ class BernoulliNB(_BaseDiscreteNB):
         """
         # Reset internal state to ensure clean fit
         self.fit_called_ = False
-
-        try:
-            # Call parent's fit through partial_fit
-            return super().fit(X, y, sample_weight)
-
-        except MemoryError as e:
-            # Handle CUDA memory errors specifically
-            if "CUDA error" in str(e) or "cudaError" in str(e):
-                raise RuntimeError(
-                    "CUDA memory error detected. This may be due to:\n"
-                    "1. Insufficient GPU memory\n"
-                    "2. Prior GPU memory corruption\n"
-                    "3. Invalid input data\n"
-                    "Try restarting your Python session or checking your input data.\n"
-                    f"Original error: {str(e)}"
-                )
-            else:
-                raise
-        except Exception as e:
-            # Reset state on error
-            self.fit_called_ = False
-            # Provide more context for other errors
-            raise type(e)(
-                f"Error in BernoulliNB.fit: {str(e)}\n"
-                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
-                f"y={getattr(y, 'shape', 'unknown')}"
-            ) from e
+        # Call parent's fit through partial_fit
+        return super().fit(X, y, sample_weight)
 
     @classmethod
     def _get_param_names(cls):
