@@ -5,7 +5,7 @@
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -249,7 +249,7 @@ class ElasticNet(
                 tol=self.tol,
                 penalty_normalized=False,
                 verbose=self._verbose_level,
-                handle=self.handle,
+                handle=get_handle(model=self),
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
@@ -265,7 +265,7 @@ class ElasticNet(
                 shuffle=self.selection == "random",
                 max_iter=self.max_iter,
                 tol=self.tol,
-                handle=self.handle,
+                handle=get_handle(model=self),
             )
         else:
             raise ValueError(f"solver {self.solver} is not supported")

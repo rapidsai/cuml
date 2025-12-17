@@ -8,7 +8,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.sgd import fit_sgd
@@ -214,7 +214,7 @@ class MBSGDClassifier(
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            handle=self.handle,
+            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept

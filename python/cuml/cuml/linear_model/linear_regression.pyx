@@ -7,13 +7,12 @@ import warnings
 
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -269,11 +268,6 @@ class LinearRegression(Base,
         verbose=False,
         output_type=None
     ):
-        if handle is None and algorithm in ("auto", "eig"):
-            # if possible, create two streams, so that eigenvalue decomposition
-            # can benefit from running independent operations concurrently.
-            handle = Handle(n_streams=2)
-
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.algorithm = algorithm
@@ -376,7 +370,9 @@ class LinearRegression(Base,
         cdef bool is_float32 = X_m.dtype == np.float32
         cdef float intercept_f32
         cdef double intercept_f64
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        # Always use 2 streams to expose concurrency in the eig computation
+        handle = get_handle(model=self, n_streams=2)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool fit_intercept = self.fit_intercept
 
         with nogil:
@@ -406,7 +402,7 @@ class LinearRegression(Base,
                     algo,
                     <double*>sample_weight_ptr,
                 )
-        self.handle.sync()
+        handle.sync()
 
         self.intercept_ = intercept_f32 if is_float32 else intercept_f64
         self.coef_ = coef

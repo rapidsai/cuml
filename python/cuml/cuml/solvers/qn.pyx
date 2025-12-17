@@ -3,7 +3,6 @@
 #
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -11,7 +10,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.metrics import accuracy_score
 
@@ -165,7 +164,7 @@ def fit_qn(
         The value of the objective function.
     """
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
 
     cdef bool sparse_X = is_sparse(X)
     cdef int n_rows, n_cols
@@ -564,7 +563,7 @@ class QN(Base):
             penalty_normalized=self.penalty_normalized,
             init_coef=init_coef,
             verbose=self._verbose_level,
-            handle=self.handle,
+            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept

@@ -16,7 +16,7 @@ from cuml.common.classification import (
 )
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -341,7 +341,7 @@ class LogisticRegression(
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
             verbose=self._verbose_level,
-            handle=self.handle,
+            handle=get_handle(model=self),
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
         )

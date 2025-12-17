@@ -6,7 +6,7 @@ import numpy as np
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
@@ -114,6 +114,9 @@ def fit_coordinate_descent(
     n_iter : int
         The number of iterations the solver ran for.
     """
+    if handle is None:
+        handle = get_handle()
+
     # Process and validate parameters
     if loss != "squared_loss":
         raise ValueError(f"{loss=!r} is not supported")
@@ -351,7 +354,7 @@ class CD(Base, FMajorInputTagMixin):
             max_iter=self.max_iter,
             tol=self.tol,
             shuffle=self.shuffle,
-            handle=self.handle,
+            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -382,7 +385,8 @@ class CD(Base, FMajorInputTagMixin):
         cdef uintptr_t preds_ptr = preds.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef double intercept = self.intercept_
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool is_float32 = self.coef_.dtype == np.float32
 
         with nogil:
@@ -408,6 +412,6 @@ class CD(Base, FMajorInputTagMixin):
                     <double*>preds_ptr,
                     0,
                 )
-        self.handle.sync()
+        handle.sync()
 
         return preds
