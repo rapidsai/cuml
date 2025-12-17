@@ -36,7 +36,7 @@ fi
 
 if ! [ ${status} -eq 0 ]; then
     if [[ ${CUML_BUILD_DIR} == *"not a git repository"* ]]; then
-        echo "This script must be run inside the raft repository, or the RAFT_ROOT environment variable must be set."
+        echo "This script must be run inside the cuml repository, or the CUML_ROOT environment variable must be set."
     else
         echo "Script failed with unknown error attempting to determine project root:"
         echo "${CUML_BUILD_DIR}"
