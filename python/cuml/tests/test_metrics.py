@@ -139,13 +139,11 @@ def test_sklearn_search():
 
     alpha = np.array([1.0])
     fit_intercept = True
-    normalize = False
 
     params = {"alpha": np.logspace(-3, -1, 10)}
     cu_clf = cumlRidge(
         alpha=alpha,
         fit_intercept=fit_intercept,
-        normalize=normalize,
         solver="eig",
     )
 

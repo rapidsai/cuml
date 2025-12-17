@@ -22,10 +22,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import (
-    LinearPredictMixin,
-    check_deprecated_normalize,
-)
+from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -42,7 +39,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      float *sample_weight) except +
 
@@ -54,7 +50,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      double *sample_weight) except +
 
@@ -116,8 +111,7 @@ class LinearRegression(Base,
         >>> # Both import methods supported
         >>> from cuml import LinearRegression
         >>> from cuml.linear_model import LinearRegression
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression(fit_intercept = True, algorithm = "eig")
         >>> X = cudf.DataFrame()
         >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
         >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
@@ -174,14 +168,6 @@ class LinearRegression(Base,
             memory usage. This represents a change in behavior from previous
             versions. With `copy_X=False` a copy might still be created if
             necessary.
-
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a :class:`sklearn.preprocessing.StandardScaler`
-            to normalize your data before passing to ``fit``.
-
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -241,7 +227,6 @@ class LinearRegression(Base,
             "algorithm",
             "fit_intercept",
             "copy_X",
-            "normalize",
         ]
 
     @classmethod
@@ -280,7 +265,6 @@ class LinearRegression(Base,
         algorithm="auto",
         fit_intercept=True,
         copy_X=True,
-        normalize=False,
         handle=None,
         verbose=False,
         output_type=None
@@ -295,7 +279,6 @@ class LinearRegression(Base,
         self.algorithm = algorithm
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
-        self.normalize = normalize
 
     def _select_algo(self, X, y):
         """Select the solver algorithm based on `algorithm` and problem dimensions"""
@@ -328,8 +311,6 @@ class LinearRegression(Base,
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
@@ -397,7 +378,6 @@ class LinearRegression(Base,
         cdef double intercept_f64
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool normalize = self.normalize
 
         with nogil:
             if is_float32:
@@ -410,7 +390,6 @@ class LinearRegression(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
                     algo,
                     <float*>sample_weight_ptr,
                 )
@@ -424,7 +403,6 @@ class LinearRegression(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
                     algo,
                     <double*>sample_weight_ptr,
                 )
@@ -438,12 +416,6 @@ class LinearRegression(Base,
     def _fit_multi_target(
         self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False,
     ):
-        if self.normalize:
-            raise ValueError(
-                "The normalize option is not supported when `y` has "
-                "multiple columns."
-            )
-
         X = X_m.to_output("cupy")
         y = y_m.to_output("cupy")
 

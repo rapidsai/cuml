@@ -13,6 +13,9 @@ from sklearn.datasets import make_blobs, make_moons
 from sklearn.preprocessing import StandardScaler
 
 if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    # NOTE: Remove this skip when issue
+    # https://github.com/scikit-learn-contrib/hdbscan/issues/689 is resolved,
+    # as it blocks compatibility with scikit-learn >= 1.8.0.dev0.
     pytest.skip(
         "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
     )

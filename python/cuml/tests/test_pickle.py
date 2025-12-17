@@ -92,7 +92,6 @@ unfit_pickle_xfail = [
     "KalmanFilter",
     "BaseRandomForestModel",
     "ForestInference",
-    "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
 ]
@@ -100,7 +99,6 @@ unfit_clone_xfail = [
     "AutoARIMA",
     "ARIMA",
     "BaseRandomForestModel",
-    "MulticlassClassifier",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
     "UMAP",
@@ -876,7 +874,7 @@ def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
         )
         y_train = np.random.RandomState(42).rand(nrows)
         X_test = X_train
-        model = cuml.svm.SVR(max_iter=cuml.svm.SVR.TotalIters(300))
+        model = cuml.svm.SVR(max_iter=300)
         model.fit(X_train, y_train)
         result["svr"] = model.predict(X_test)
         return model, X_test

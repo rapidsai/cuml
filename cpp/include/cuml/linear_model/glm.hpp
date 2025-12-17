@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -20,7 +20,6 @@ namespace GLM {
  * @param coef          device pointer to hold the solution for weights of size n_cols
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
- * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
@@ -35,7 +34,6 @@ void olsFit(const raft::handle_t& handle,
             float* coef,
             float* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo             = 0,
             float* sample_weight = nullptr);
 void olsFit(const raft::handle_t& handle,
@@ -46,7 +44,6 @@ void olsFit(const raft::handle_t& handle,
             double* coef,
             double* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo              = 0,
             double* sample_weight = nullptr);
 /** @} */
@@ -62,7 +59,6 @@ void olsFit(const raft::handle_t& handle,
  * @param coef          device pointer to hold the solution for weights of size n_cols
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
- * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
    for uniform weights) This vector is modified during the computation
@@ -78,7 +74,6 @@ void ridgeFit(const raft::handle_t& handle,
               float* coef,
               float* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo             = 0,
               float* sample_weight = nullptr);
 void ridgeFit(const raft::handle_t& handle,
@@ -91,7 +86,6 @@ void ridgeFit(const raft::handle_t& handle,
               double* coef,
               double* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo              = 0,
               double* sample_weight = nullptr);
 /** @} */

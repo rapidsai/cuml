@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
@@ -7,7 +7,7 @@ include(ExternalProject)
 
 project(symreg_example VERSION 0.1.0 LANGUAGES CXX CUDA )
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(CUDAToolkit)
