@@ -14,7 +14,7 @@ from pathlib import Path
 
 import tomli
 
-EXPECTED_VERSION = "15.0.7"
+EXPECTED_VERSION = "20.1.4"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
