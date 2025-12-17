@@ -252,13 +252,8 @@ void optimize_layout(T* head_embedding,
     }
   }
 
-  // TODO: find heuristics for this
-  if (params->deterministic) {
-    if (min_n <= 100000) {
-      num_chunks = 4;
-    } else {
-      num_chunks = 210;
-    }
+  if (has_outlier && params->deterministic) {
+    if (min_n > 100000) { num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(100000)); }
   }
 
   rmm::device_uvector<T> epoch_of_next_negative_sample(nnz, stream);

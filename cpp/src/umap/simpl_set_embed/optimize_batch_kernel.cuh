@@ -616,6 +616,12 @@ void call_optimize_batch_kernel(T* head_embedding,
   };
 
   if (params->deterministic) {
+    // for deterministic mode, we enforce a sequential behavior using n_chunks. after 1 chunk
+    // (including TPB_X * grid.x threads each doing an update) is processed, we apply the gradients
+    // in the buffer to the resulting embedding. The next chunk is processed based on the updated
+    // embedding from the previous chunk. this ensures that the updates are applied in a sequential
+    // manner (which is crucial for avoiding outliers), and the resulting embedding is deterministic
+    // because we use buffers.
     for (size_t offset = 0; offset < nnz; offset += TPB_X * grid.x) {
       launch_kernel(offset);
       sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
@@ -631,6 +637,10 @@ void call_optimize_batch_kernel(T* head_embedding,
                                                       stream);
     }
   } else {
+    // for non-deterministic mode, we launch the kernel once with nnz/n_chunks threads.
+    // each thread strides through n_chunks updates and writes gradients immediately to the
+    // resulting embedding inside the kernel, increasing the chances of a sequential update which is
+    // crucial for avoiding outliers.
     launch_kernel(0);
   }
 }
