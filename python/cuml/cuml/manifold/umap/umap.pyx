@@ -323,6 +323,11 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             "is unstable"
         )
 
+    if build_algo == "nn_descent" and self.random_state is not None:
+        print("warning here")
+        warnings.warn("build_algo='nn_descent' is not deterministic. Please use "
+                      "build_algo='brute_force_knn' instead with random_state set.")
+
     params.n_neighbors = self._n_neighbors
     params.n_components = self.n_components
     params.n_epochs = self.n_epochs or 0
