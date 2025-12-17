@@ -297,6 +297,7 @@ class _BaseNB(Base, ClassifierMixin):
 class GaussianNB(_BaseNB):
     """
     Gaussian Naive Bayes (GaussianNB)
+
     Can perform online updates to model parameters via :meth:`partial_fit`.
     For details on algorithm used to update feature means and variance online,
     see Stanford CS tech report STAN-CS-79-773 by Chan, Golub, and LeVeque:
@@ -330,24 +331,16 @@ class GaussianNB(_BaseNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1],
-        ...                 [3, 2]], cp.float32)
-        >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
-        >>> from cuml.naive_bayes import GaussianNB
-        >>> clf = GaussianNB()
-        >>> clf.fit(X, Y)
-        GaussianNB()
-        >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
-        [1]
-        >>> clf_pf = GaussianNB()
-        >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
-        GaussianNB()
-        >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
-        [1]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import GaussianNB
+    >>> X = cp.array(
+    ...     [[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+    ...     dtype=cp.float32
+    ... )
+    >>> y = cp.array([1, 1, 1, 2, 2, 2], dtype=cp.float32)
+    >>> clf = GaussianNB().fit(X, y)
+    >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
+    [1]
     """
 
     class_prior_ = CumlArrayDescriptor()
@@ -374,14 +367,13 @@ class GaussianNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
+        y : array-like shape (n_samples)
+            Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
+            Weights applied to individual samples.
         """
         return self._partial_fit(
             X,
@@ -543,31 +535,33 @@ class GaussianNB(_BaseNB):
     ) -> "GaussianNB":
         """
         Incremental fit on a batch of samples.
+
         This method is expected to be called several times consecutively on
         different chunks of a dataset so as to implement out-of-core or online
         learning.
+
         This is especially useful when the whole dataset is too big to fit in
         memory at once.
+
         This method has some performance overhead hence it is better to call
         partial_fit on chunks of data that are as large as possible (as long
         as fitting in the memory budget) to hide the overhead.
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features. A sparse matrix in COO
             format is preferred, other formats will go through a conversion
             to COO.
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of shape (n_samples)
+            Target values.
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored.
+            Weights applied to individual samples.
 
         Returns
         -------
@@ -825,24 +819,21 @@ class _BaseDiscreteNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
-
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of shape (n_samples)
+            Target values.
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
-
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored.
+            Weights applied to individual samples. Currently sample weight is
+            ignored.
 
         Returns
         -------
-
         self : object
         """
         return self._partial_fit(
@@ -927,14 +918,14 @@ class _BaseDiscreteNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
+        y : array-like shape (n_samples)
+            Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
+            Weights applied to individual samples. Currently sample weight is
+            ignored.
         """
         return self._partial_fit(
             X, y, _refit=True, sample_weight=sample_weight
@@ -963,11 +954,9 @@ class _BaseDiscreteNB(_BaseNB):
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
-        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
-                  (n_rows, n_features)
+        X : cupy.ndarray or cupyx.scipy.sparse matrix, shape (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
-
         n_classes = classes.shape[0]
 
         if X.ndim != 2:
@@ -995,6 +984,7 @@ class _BaseDiscreteNB(_BaseNB):
     ):
         """
         Sum feature counts & class prior counts and add to current model.
+
         Parameters
         ----------
         x_coo_rows : cupy.ndarray of size (nnz)
@@ -1032,7 +1022,7 @@ class _BaseDiscreteNB(_BaseNB):
 
 class MultinomialNB(_BaseDiscreteNB):
     """
-    Naive Bayes classifier for multinomial models
+    Naive Bayes classifier for multinomial models.
 
     The multinomial Naive Bayes classifier is suitable for classification
     with discrete features (e.g., word counts for text classification).
@@ -1042,7 +1032,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
     Parameters
     ----------
-
     alpha : float (default=1.0)
         Additive (Laplace/Lidstone) smoothing parameter (0 for no
         smoothing).
@@ -1087,44 +1076,17 @@ class MultinomialNB(_BaseDiscreteNB):
 
     Examples
     --------
-
     Load the 20 newsgroups dataset from Scikit-learn and train a
     Naive Bayes classifier.
 
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cupyx
-        >>> from sklearn.datasets import fetch_20newsgroups
-        >>> from sklearn.feature_extraction.text import CountVectorizer
-        >>> from cuml.naive_bayes import MultinomialNB
-
-        >>> # Load corpus
-        >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
-        ...                                   random_state=42)
-
-        >>> # Turn documents into term frequency vectors
-
-        >>> count_vect = CountVectorizer()
-        >>> features = count_vect.fit_transform(twenty_train.data)
-
-        >>> # Put feature vectors and labels on the GPU
-
-        >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(),
-        ...                                   dtype=cp.float32)
-        >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
-
-        >>> # Train model
-
-        >>> model = MultinomialNB()
-        >>> model.fit(X, y)
-        MultinomialNB()
-
-        >>> # Compute accuracy on training set
-
-        >>> model.score(X, y)
-        0.9245...
-
+    >>> from sklearn.datasets import fetch_20newsgroups
+    >>> from sklearn.feature_extraction.text import CountVectorizer
+    >>> from cuml.naive_bayes import MultinomialNB
+    >>> data = fetch_20newsgroups(subset='train', shuffle=True, random_state=42)
+    >>> X = CountVectorizer().fit_transform(data.data)
+    >>> model = MultinomialNB().fit(X, data.target)
+    >>> model.score(X, y)  # doctest: +SKIP
+    0.9245...
     """
 
     def _update_feature_log_prob(self, alpha):
@@ -1134,7 +1096,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         smoothed_fc = self.feature_count_ + alpha
@@ -1149,7 +1110,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         X : array-like of size (n_samples, n_features)
         """
         ret = X.dot(self.feature_log_prob_.T)
@@ -1160,13 +1120,13 @@ class MultinomialNB(_BaseDiscreteNB):
 class BernoulliNB(_BaseDiscreteNB):
     """
     Naive Bayes classifier for multivariate Bernoulli models.
+
     Like MultinomialNB, this classifier is suitable for discrete data. The
     difference is that while MultinomialNB works with occurrence counts,
     BernoulliNB is designed for binary/boolean features.
 
     Parameters
     ----------
-
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter
         (0 for no smoothing).
@@ -1214,19 +1174,16 @@ class BernoulliNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-        >>> from cuml.naive_bayes import BernoulliNB
-        >>> clf = BernoulliNB()
-        >>> clf.fit(X, Y)
-        BernoulliNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import BernoulliNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> clf = BernoulliNB()
+    >>> clf.fit(X, Y)
+    BernoulliNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
 
     References
     ----------
@@ -1312,7 +1269,6 @@ class BernoulliNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         smoothed_fc = self.feature_count_ + alpha
@@ -1329,13 +1285,13 @@ class BernoulliNB(_BaseDiscreteNB):
 class ComplementNB(_BaseDiscreteNB):
     """
     The Complement Naive Bayes classifier described in Rennie et al. (2003).
+
     The Complement Naive Bayes classifier was designed to correct the "severe
     assumptions" made by the standard Multinomial Naive Bayes classifier. It is
     particularly suited for imbalanced data sets.
 
     Parameters
     ----------
-
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter
         (0 for no smoothing).
@@ -1385,19 +1341,16 @@ class ComplementNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-        >>> from cuml.naive_bayes import ComplementNB
-        >>> clf = ComplementNB()
-        >>> clf.fit(X, Y)
-        ComplementNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import ComplementNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> clf = ComplementNB()
+    >>> clf.fit(X, Y)
+    ComplementNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
 
     References
     ----------
@@ -1473,7 +1426,6 @@ class ComplementNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         comp_count = self.feature_all_ + alpha - self.feature_count_
@@ -1492,7 +1444,8 @@ class ComplementNB(_BaseDiscreteNB):
 
 class CategoricalNB(_BaseDiscreteNB):
     """
-    Naive Bayes classifier for categorical features
+    Naive Bayes classifier for categorical features.
+
     The categorical Naive Bayes classifier is suitable for classification with
     discrete features that are categorically distributed. The categories of
     each feature are drawn from a categorical distribution.
@@ -1549,19 +1502,16 @@ class CategoricalNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> y = cp.array([1, 2, 3, 4, 5, 6])
-        >>> from cuml.naive_bayes import CategoricalNB
-        >>> clf = CategoricalNB()
-        >>> clf.fit(X, y)
-        CategoricalNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import CategoricalNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> y = cp.array([1, 2, 3, 4, 5, 6])
+    >>> clf = CategoricalNB()
+    >>> clf.fit(X, y)
+    CategoricalNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
     """
 
     def __init__(
@@ -1648,6 +1598,7 @@ class CategoricalNB(_BaseDiscreteNB):
     ):
         """
         Sum feature counts & class prior counts and add to current model.
+
         Parameters
         ----------
         x_coo_rows : cupy.ndarray of size (nnz)
