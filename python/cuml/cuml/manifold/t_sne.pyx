@@ -14,7 +14,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -643,7 +643,8 @@ class TSNE(Base,
         cdef uintptr_t embed_ptr = embedding.ptr
 
         # Execute fit
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef float kl_divergence = 0
         cdef int n_iter = 0
 
@@ -677,7 +678,7 @@ class TSNE(Base,
                     &kl_divergence,
                     &n_iter,
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes
         self._kl_divergence_ = kl_divergence

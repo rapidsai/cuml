@@ -6,11 +6,10 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-from pylibraft.common.handle import Handle
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -139,8 +138,7 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-    if handle is None:
-        handle = Handle()
+    handle = get_handle(handle=handle)
 
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
@@ -263,9 +261,7 @@ def spectral_embedding(A,
     return eigenvectors
 
 
-class SpectralEmbedding(Base,
-                        InteropMixin,
-                        CMajorInputTagMixin):
+class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -445,7 +441,7 @@ class SpectralEmbedding(Base,
             affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors_,
-            handle=self.handle
+            handle=self.handle,
         )
 
         return self
