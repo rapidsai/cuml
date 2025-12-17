@@ -98,8 +98,7 @@ def make_regression(
         ...                                noise=0.3, random_state=10)
 
         >>> # Perform a linear regression on this problem
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression()
         >>> reg = lr.fit(data, values)
         >>> print(reg.coef_) # doctest: +SKIP
         [-2.6980877e-02  7.7027252e+01  1.1498465e+01  8.5468025e+00

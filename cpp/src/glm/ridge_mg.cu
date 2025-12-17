@@ -138,20 +138,17 @@ void fit_impl(raft::handle_t& handle,
               T* coef,
               T* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               cudaStream_t* streams,
               int n_streams,
               bool verbose)
 {
   rmm::device_uvector<T> mu_input(0, streams[0]);
-  rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);
     mu_labels.resize(1, streams[0]);
-    if (normalize) { norm2_input.resize(input_desc.N, streams[0]); }
 
     GLM::opg::preProcessData(handle,
                              input_data,
@@ -159,9 +156,7 @@ void fit_impl(raft::handle_t& handle,
                              labels,
                              mu_input.data(),
                              mu_labels.data(),
-                             norm2_input.data(),
                              fit_intercept,
-                             normalize,
                              streams,
                              n_streams,
                              verbose);
@@ -185,9 +180,7 @@ void fit_impl(raft::handle_t& handle,
                               intercept,
                               mu_input.data(),
                               mu_labels.data(),
-                              norm2_input.data(),
                               fit_intercept,
-                              normalize,
                               streams,
                               n_streams,
                               verbose);
@@ -210,7 +203,6 @@ void fit_impl(raft::handle_t& handle,
  * @output param coef: learned regression coefficients
  * @output param intercept: intercept value
  * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
  * @input param verbose
  */
 template <typename T>
@@ -223,7 +215,6 @@ void fit_impl(raft::handle_t& handle,
               T* coef,
               T* intercept,
               bool fit_intercept,
-              bool normalize,
               int algo,
               bool verbose)
 {
@@ -247,7 +238,6 @@ void fit_impl(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            streams,
            n_streams,
@@ -345,7 +335,6 @@ void fit(raft::handle_t& handle,
          float* coef,
          float* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose)
 {
@@ -358,7 +347,6 @@ void fit(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            verbose);
 }
@@ -372,7 +360,6 @@ void fit(raft::handle_t& handle,
          double* coef,
          double* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose)
 {
@@ -385,7 +372,6 @@ void fit(raft::handle_t& handle,
            coef,
            intercept,
            fit_intercept,
-           normalize,
            algo,
            verbose);
 }
