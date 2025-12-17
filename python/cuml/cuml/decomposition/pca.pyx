@@ -436,7 +436,7 @@ class PCA(Base,
         self.explained_variance_ratio_ = explained_variance_ratio
         self.mean_ = mean
         self.singular_values_ = singular_values
-        self.noise_variance_ = float(noise_variance.to_output("numpy"))
+        self.noise_variance_ = noise_variance.to_output("numpy").item()
 
     def _fit_sparse(self, X):
         covariance, mean, _ = cov(X, X, return_mean=True)
