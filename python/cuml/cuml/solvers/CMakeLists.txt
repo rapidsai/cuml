@@ -16,3 +16,7 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_mg_libraries}" MODULE_PREFIX solvers_
 )
+
+if(NOT SINGLEGPU)
+  target_include_directories(solvers_cd_mg PRIVATE "../../../../cpp/src_prims/")
+endif()

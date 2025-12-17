@@ -51,7 +51,7 @@ void mv_aTb_impl(const raft::handle_t& handle,
                      beta,
                      streams[0]);
 
-  for (int i = 1; i < A.size(); i++) {
+  for (size_t i = 1; i < A.size(); i++) {
     raft::linalg::gemm(handle,
                        A[i]->ptr,
                        local_blocks[i]->size,
