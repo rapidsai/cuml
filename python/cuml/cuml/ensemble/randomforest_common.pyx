@@ -11,10 +11,9 @@ from typing import Literal
 import cupy as cp
 import numpy as np
 import treelite.sklearn
-from pylibraft.common.handle import Handle
 
 from cuml.fil.fil import ForestInference
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
@@ -329,9 +328,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         verbose=False,
         output_type=None,
     ):
-        if handle is None:
-            handle = Handle(n_streams=n_streams)
-
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.split_criterion = split_criterion
@@ -478,7 +474,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
 
         cdef TreeliteModelHandle tl_handle
-        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+        handle = get_handle(model=self, n_streams=self.n_streams)
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block
         cdef bool use_oob_score = self.oob_score

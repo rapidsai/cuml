@@ -11,7 +11,7 @@ import treelite.sklearn
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
@@ -656,7 +656,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             else:
                 raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
-                self.handle,
+                get_handle(model=self),
                 treelite_model_bytes,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
