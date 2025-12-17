@@ -179,11 +179,6 @@ class _BaseNB(Base, ClassifierMixin):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
 
-    def __init__(self, *, verbose=False, handle=None, output_type=None):
-        super(_BaseNB, self).__init__(
-            verbose=verbose, handle=handle, output_type=output_type
-        )
-
     def _check_X(self, X):
         """To be overridden in subclasses with the actual checks."""
         return X
@@ -366,13 +361,11 @@ class GaussianNB(_BaseNB):
         handle=None,
         verbose=False,
     ):
-        super(GaussianNB, self).__init__(
+        super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
         self.priors = priors
         self.var_smoothing = var_smoothing
-        self.fit_called_ = False
-        self.classes_ = None
 
     @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
@@ -390,7 +383,6 @@ class GaussianNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
-        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -412,7 +404,9 @@ class GaussianNB(_BaseNB):
         sample_weight=None,
         convert_dtype=True,
     ) -> "GaussianNB":
-        if getattr(self, "classes_") is None and _classes is None:
+        first_call = _refit or not hasattr(self, "classes_")
+
+        if first_call and _classes is None:
             raise ValueError(
                 "classes must be passed on the first call to partial_fit."
             )
@@ -451,17 +445,12 @@ class GaussianNB(_BaseNB):
             )
 
         Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
-        if _refit:
-            self.classes_ = None
 
         self.epsilon_ = self.var_smoothing * (
             ((X - X.mean(axis=0)) ** 2).mean(axis=0).max()
         )
 
-        if not self.fit_called_:
-            self.fit_called_ = True
-
-            # Original labels are stored on the instance
+        if first_call:
             if _classes is not None:
                 check_labels(Y, _classes.to_output("cupy"))
                 self.classes_ = _classes
@@ -732,7 +721,7 @@ class _BaseDiscreteNB(_BaseNB):
         handle=None,
         output_type=None,
     ):
-        super(_BaseDiscreteNB, self).__init__(
+        super().__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
         if class_prior is not None:
@@ -744,12 +733,6 @@ class _BaseDiscreteNB(_BaseNB):
             raise ValueError("Smoothing parameter alpha should be >= 0.")
         self.alpha = alpha
         self.fit_prior = fit_prior
-        self.fit_called_ = False
-        self.n_classes_ = 0
-        self.n_features_ = None
-
-        # Needed until Base no longer assumed cumlHandle
-        self.handle = None
 
     def _check_X_y(self, X, y):
         """
@@ -875,8 +858,16 @@ class _BaseDiscreteNB(_BaseNB):
     )
     @reflect(reset=True)
     def _partial_fit(
-        self, X, y, sample_weight=None, _classes=None, convert_dtype=True
+        self,
+        X,
+        y,
+        sample_weight=None,
+        _classes=None,
+        _refit=False,
+        convert_dtype=True,
     ) -> "_BaseDiscreteNB":
+        first_call = _refit or not hasattr(self, "classes_")
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
@@ -906,8 +897,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         X, Y = self._check_X_y(X, Y)
 
-        if not self.fit_called_:
-            self.fit_called_ = True
+        if first_call:
             if _classes is not None:
                 check_labels(Y, _classes.to_output("cupy"))
                 self.classes_ = _classes
@@ -946,8 +936,9 @@ class _BaseDiscreteNB(_BaseNB):
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
-        self.fit_called_ = False
-        return self.partial_fit(X, y, sample_weight=sample_weight)
+        return self._partial_fit(
+            X, y, _refit=True, sample_weight=sample_weight
+        )
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
@@ -1136,25 +1127,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
     """
 
-    def __init__(
-        self,
-        *,
-        alpha=1.0,
-        fit_prior=True,
-        class_prior=None,
-        output_type=None,
-        handle=None,
-        verbose=False,
-    ):
-        super(MultinomialNB, self).__init__(
-            alpha=alpha,
-            fit_prior=fit_prior,
-            class_prior=class_prior,
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose,
-        )
-
     def _update_feature_log_prob(self, alpha):
         """
         Apply add-lambda smoothing to raw counts and recompute
@@ -1279,7 +1251,7 @@ class BernoulliNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(BernoulliNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
@@ -1446,7 +1418,7 @@ class ComplementNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(ComplementNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
@@ -1602,7 +1574,7 @@ class CategoricalNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(CategoricalNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
