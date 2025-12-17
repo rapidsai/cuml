@@ -17,8 +17,14 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
-from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
+
+_binarize = cp.ElementwiseKernel(
+    "T x, float32 threshold",
+    "T out",
+    "out = x > threshold ? 1 : 0",
+    "binarize",
+)
 
 
 def _count_classes(Y, n_classes, dtype):
@@ -198,9 +204,6 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
-
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -212,7 +215,6 @@ class _BaseNB(Base, ClassifierMixin):
                 check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
-            # todo: improve index management for cupy based codebases
             X = X.array.to_output("cupy")
 
         X = self._check_X(X)
@@ -242,8 +244,6 @@ class _BaseNB(Base, ClassifierMixin):
         Return log-probability estimates for the test vector X.
 
         """
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -255,7 +255,6 @@ class _BaseNB(Base, ClassifierMixin):
                 check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
-            # todo: improve index management for cupy based codebases
             X = X.array.to_output("cupy")
 
         X = self._check_X(X)
@@ -884,7 +883,6 @@ class _BaseDiscreteNB(_BaseNB):
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
-        # TODO: use SparseCumlArray
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
@@ -1302,9 +1300,9 @@ class BernoulliNB(_BaseDiscreteNB):
         X = super()._check_X(X)
         if self.binarize is not None:
             if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
+                X.data = _binarize(X.data, float(self.binarize))
             else:
-                X = binarize(X, threshold=self.binarize)
+                X = _binarize(X, float(self.binarize))
         return X
 
     def _check_X_y(self, X, y):
@@ -1317,9 +1315,9 @@ class BernoulliNB(_BaseDiscreteNB):
         # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
             if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
+                X.data = _binarize(X.data, float(self.binarize))
             else:
-                X = binarize(X, threshold=self.binarize)
+                X = _binarize(X, float(self.binarize))
 
         return X, y
 
