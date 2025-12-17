@@ -27,7 +27,6 @@ using namespace ML;
 
 /**
  * Set a bit in the flags to mark a vertex as modified.
- * Uses atomic OR for thread safety.
  */
 __device__ __forceinline__ void set_vertex_modified(uint32_t* flags, int vertex_id)
 {
@@ -51,10 +50,10 @@ CUML_KERNEL void sparse_apply_kernel(
   // each thread strides through the flags in word units
   for (int word_idx = tid; word_idx < n_words; word_idx += total_threads) {
     uint32_t word = flags[word_idx];
-    if (word == 0) continue;  // Skip if no bits set
+    if (word == 0) continue;  // skip if no bits set
 
     while (word != 0) {
-      int bit_pos   = __ffs(word) - 1;            // Find first set bit (1-indexed, so -1)
+      int bit_pos   = __ffs(word) - 1;            // find first set bit (1-indexed, so -1)
       int vertex_id = (word_idx << 5) + bit_pos;  // word_idx * 32 (word size) + bit_pos
 
       if (vertex_id < n_vertices) {
@@ -70,13 +69,13 @@ CUML_KERNEL void sparse_apply_kernel(
       word &= ~(1u << bit_pos);
     }
 
-    flags[word_idx] = 0;
+    flags[word_idx] = 0;  // clear flag for next chunk
   }
 }
 
 /**
- * Update the embeddings using sparse apply - only touches modified vertices.
- * use flags to track which vertices received gradient updates.
+ * Update the embeddings using sparse apply using bit flags to track which vertices received
+ * gradient updates.
  */
 template <typename T, typename nnz_t, int TPB_X = 256>
 void sparse_apply_embedding_updates(T* head_embedding,
@@ -91,8 +90,6 @@ void sparse_apply_embedding_updates(T* head_embedding,
                                     bool move_other,
                                     cudaStream_t stream)
 {
-  ASSERT(params->deterministic, "Only used when deterministic is set to true.");
-
   // flags: one thread per 32-vertex word
   int head_words = raft::ceildiv(head_n, 32);
   dim3 grid_head(raft::ceildiv(head_words, TPB_X), 1, 1);

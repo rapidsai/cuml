@@ -288,8 +288,7 @@ void optimize_layout(T* head_embedding,
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
 
-    // Bit flag: 1 bit per vertex, so (n_vertices + 31) / 32 uint32_t words
-    int head_flag_words = (head_n + 31) >> 5;
+    int head_flag_words = raft::ceildiv(head_n, 32);
     head_flags.resize(head_flag_words, stream_view);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_flags.data(), '\0', sizeof(uint32_t) * head_flag_words, stream));
@@ -300,7 +299,7 @@ void optimize_layout(T* head_embedding,
       tail_buffer.resize(tail_n * n_components, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
-      int tail_flag_words = (tail_n + 31) >> 5;
+      int tail_flag_words = raft::ceildiv(tail_n, 32);
       tail_flags.resize(tail_flag_words, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_flags.data(), '\0', sizeof(uint32_t) * tail_flag_words, stream));
