@@ -2,8 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import warnings
-
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
@@ -21,7 +19,7 @@ class LinearPredictMixin:
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
@@ -63,7 +61,7 @@ class LinearClassifierMixin:
             "shape": "(n_samples,) or (n_samples, n_classes)",
         },
     )
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
         if is_sparse(X):
@@ -94,17 +92,3 @@ class LinearClassifierMixin:
             out = out.reshape(-1)
 
         return CumlArray(out, index=out_index)
-
-
-def check_deprecated_normalize(model):
-    """Warn if the deprecated `normalize` option is used."""
-    if model.normalize:
-        cls_name = type(model).__name__
-        warnings.warn(
-            (
-                f"The `normalize` option to `{cls_name}` was deprecated in "
-                f"25.12 and will be removed in 26.02. Please use a `StandardScaler` "
-                f"to normalize your data external to `{cls_name}`."
-            ),
-            FutureWarning,
-        )

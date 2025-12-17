@@ -118,9 +118,6 @@ void sgdPredictBinaryClass(raft::handle_t& handle,
  *        once the function is executed
  * @param fit_intercept
  *        boolean parameter to control if the intercept will be fitted or not
- * @param normalize
- *        boolean parameter to control if the data will be normalized or not;
- *        NB: the input is scaled by the column-wise biased sample standard deviation estimator.
  * @param epochs
  *        Maximum number of iterations that solver will run
  * @param loss
@@ -148,7 +145,6 @@ int cdFit(raft::handle_t& handle,
           float* coef,
           float* intercept,
           bool fit_intercept,
-          bool normalize,
           int epochs,
           int loss,
           float alpha,
@@ -165,7 +161,6 @@ int cdFit(raft::handle_t& handle,
           double* coef,
           double* intercept,
           bool fit_intercept,
-          bool normalize,
           int epochs,
           int loss,
           double alpha,

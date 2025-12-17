@@ -203,6 +203,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -258,7 +259,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
@@ -400,6 +401,7 @@ class IncrementalPCA(PCA):
 
         return self
 
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.

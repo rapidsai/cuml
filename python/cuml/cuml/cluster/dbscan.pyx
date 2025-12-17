@@ -8,7 +8,7 @@ import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
@@ -308,6 +308,7 @@ class DBSCAN(Base,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
+    @reflect(reset=True)
     def fit(
         self,
         X,
@@ -497,6 +498,7 @@ class DBSCAN(Base,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
