@@ -11,7 +11,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
 
 from libc.stdint cimport uintptr_t
@@ -201,7 +201,8 @@ class Lars(Base, RegressorMixin):
 
     def _fit_cpp(self, X, y, Gram, x_scale, convert_dtype):
         """ Fit lars model using cpp solver"""
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         X_m, _, _, _ = \
             input_to_cuml_array(X,
                                 convert_to_dtype=(np.float32 if convert_dtype
@@ -252,6 +253,7 @@ class Lars(Base, RegressorMixin):
                     <double*> alphas_ptr, &n_active, <double*> Gram_ptr,
                     max_iter, <double*> coef_path_ptr, self._verbose_level,
                     ld_X, ld_G, <double> self.eps)
+        handle.sync()
         self.n_active = n_active
         self.n_iter_ = n_active
 
@@ -310,8 +312,6 @@ class Lars(Base, RegressorMixin):
 
         self._set_intercept(x_mean, x_scale, y_scale)
 
-        self.handle.sync()
-
         del X_m
         del y_m
         del Gram
@@ -346,7 +346,8 @@ class Lars(Base, RegressorMixin):
             X, check_dtype=self.dtype, convert_to_dtype=conv_dtype,
             check_cols=self.n_cols, order='F')
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t X_ptr = X_m.ptr
         cdef int ld_X = n_rows
         cdef uintptr_t beta_ptr = input_to_cuml_array(self.beta_).array.ptr
@@ -368,7 +369,7 @@ class Lars(Base, RegressorMixin):
                         <double> self.intercept_,
                         <double*><uintptr_t> preds.ptr)
 
-        self.handle.sync()
+        handle.sync()
         del X_m
 
         return preds
