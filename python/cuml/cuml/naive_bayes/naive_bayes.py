@@ -45,8 +45,7 @@ def _count_classes(Y, n_classes, dtype):
     class_counts : cupy.ndarray of shape (n_classes,)
         Count of samples per class
     """
-    class_counts = cp.bincount(Y, minlength=n_classes).astype(dtype)
-    return class_counts
+    return cp.bincount(Y, minlength=n_classes).astype(dtype, copy=False)
 
 
 def _count_features_dense(X, Y, n_classes, categorical=False):
@@ -455,11 +454,9 @@ class GaussianNB(_BaseNB):
         if _refit:
             self.classes_ = None
 
-        def var_sparse(X, axis=0):
-            # Compute the variance on dense and sparse matrices
-            return ((X - X.mean(axis=axis)) ** 2).mean(axis=axis)
-
-        self.epsilon_ = self.var_smoothing * var_sparse(X).max()
+        self.epsilon_ = self.var_smoothing * (
+            ((X - X.mean(axis=0)) ** 2).mean(axis=0).max()
+        )
 
         if not self.fit_called_:
             self.fit_called_ = True
@@ -687,11 +684,7 @@ class GaussianNB(_BaseNB):
         return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
-        """Calculate the posterior log probability of samples for each class.
-
-        This is a more efficient implementation using CuPy broadcasting,
-        following scikit-learn's approach.
-        """
+        """Calculate the posterior log probability of samples for each class."""
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
@@ -760,7 +753,8 @@ class _BaseDiscreteNB(_BaseNB):
 
     def _check_X_y(self, X, y):
         """
-        Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
+        Validate X and y.
+
         Common validation for all discrete naive bayes estimators.
         """
         n_samples_X = X.shape[0]
@@ -994,13 +988,12 @@ class _BaseDiscreteNB(_BaseNB):
                 "converted, which will increase memory consumption"
             )
 
-        # Make sure Y is a cupy array, not CumlArray
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
-        # Count features per class using CuPy
+        # Count features per class
         counts = _count_features_dense(X, Y, n_classes, categorical=False)
 
-        # Count samples per class using CuPy
+        # Count samples per class
         class_c = _count_classes(Y, n_classes, X.dtype)
 
         self.feature_count_ += counts
@@ -1026,7 +1019,7 @@ class _BaseDiscreteNB(_BaseNB):
                 "converted, which will increase memory consumption"
             )
 
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
         counts = _count_features_sparse(
             x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
@@ -1679,11 +1672,12 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _check_X(self, X):
         if cupyx.scipy.sparse.isspmatrix(X):
-            warnings.warn(
-                "X dtype is not int32. X will be "
-                "converted, which will increase memory consumption"
-            )
-            X.data = X.data.astype(cp.int32)
+            if X.dtype != cp.int32:
+                warnings.warn(
+                    "X dtype is not int32. X will be "
+                    "converted, which will increase memory consumption"
+                )
+                X.data = X.data.astype(cp.int32)
             x_min = X.data.min()
         else:
             if X.dtype not in [cp.int32]:
@@ -1788,10 +1782,9 @@ class CategoricalNB(_BaseDiscreteNB):
                 "converted, which will increase memory consumption"
             )
 
-        # Make sure Y is a cupy array, not CumlArray
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
-        # Count samples per class using CuPy
+        # Count samples per class
         class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
@@ -1808,7 +1801,7 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[1]
 
-        # Map sparse data to categorical counts using CuPy operations
+        # Map sparse data to categorical counts
         # For each non-zero element at (row, col) with value val:
         # - Get the class label for that row
         # - Create an entry at (col + n_cols * label, val)
