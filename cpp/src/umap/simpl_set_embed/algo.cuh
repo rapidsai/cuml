@@ -253,6 +253,8 @@ void optimize_layout(T* head_embedding,
   }
 
   if (has_outlier && params->deterministic) {
+    // for processing in deterministic mode on datasets that are likely to have outliers, we use the
+    // heuristic below to determine the number of chunks.
     if (min_n > 100000) { num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(100000)); }
   }
 
