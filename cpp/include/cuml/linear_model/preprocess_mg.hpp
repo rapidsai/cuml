@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,9 +20,7 @@ void preProcessData(raft::handle_t& handle,
                     std::vector<ML::Matrix::Data<float>*>& labels,
                     float* mu_input,
                     float* mu_labels,
-                    float* norm2_input,
                     bool fit_intercept,
-                    bool normalize,
                     cudaStream_t* streams,
                     int n_streams,
                     bool verbose);
@@ -33,9 +31,7 @@ void preProcessData(raft::handle_t& handle,
                     std::vector<ML::Matrix::Data<double>*>& labels,
                     double* mu_input,
                     double* mu_labels,
-                    double* norm2_input,
                     bool fit_intercept,
-                    bool normalize,
                     cudaStream_t* streams,
                     int n_streams,
                     bool verbose);
@@ -48,9 +44,7 @@ void postProcessData(raft::handle_t& handle,
                      float* intercept,
                      float* mu_input,
                      float* mu_labels,
-                     float* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
                      cudaStream_t* streams,
                      int n_streams,
                      bool verbose);
@@ -63,9 +57,7 @@ void postProcessData(raft::handle_t& handle,
                      double* intercept,
                      double* mu_input,
                      double* mu_labels,
-                     double* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
                      cudaStream_t* streams,
                      int n_streams,
                      bool verbose);

@@ -7,8 +7,6 @@
 
 #include <cuml/common/distance_type.hpp>
 
-#include <raft/spatial/knn/detail/processing.hpp>  // MetricProcessor
-
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -89,7 +87,6 @@ struct knnIndex {
   ML::distance::DistanceType metric;
   float metricArg;
   int nprobe;
-  std::unique_ptr<raft::spatial::knn::MetricProcessor<float>> metric_processor;
   int device;
 
   std::unique_ptr<knnIndexImpl> pimpl;

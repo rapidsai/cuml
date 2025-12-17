@@ -40,7 +40,6 @@ int fit_impl(raft::handle_t& handle,
              T* coef,
              T* intercept,
              bool fit_intercept,
-             bool normalize,
              int epochs,
              T alpha,
              T l1_ratio,
@@ -63,7 +62,6 @@ int fit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> residual(total_M, streams[0]);
   rmm::device_uvector<T> squared(input_desc.N, streams[0]);
   rmm::device_uvector<T> mu_input(0, streams[0]);
-  rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   std::vector<T> h_coef(input_desc.N, T(0));
@@ -71,7 +69,6 @@ int fit_impl(raft::handle_t& handle,
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);
     mu_labels.resize(1, streams[0]);
-    if (normalize) { norm2_input.resize(input_desc.N, streams[0]); }
 
     GLM::opg::preProcessData(handle,
                              input_data,
@@ -79,9 +76,7 @@ int fit_impl(raft::handle_t& handle,
                              labels,
                              mu_input.data(),
                              mu_labels.data(),
-                             norm2_input.data(),
                              fit_intercept,
-                             normalize,
                              streams,
                              n_streams,
                              verbose);
@@ -107,14 +102,9 @@ int fit_impl(raft::handle_t& handle,
   T l2_alpha = (1 - l1_ratio) * alpha * input_desc.M;
   alpha      = l1_ratio * alpha * input_desc.M;
 
-  if (normalize) {
-    T scalar = T(1.0) + l2_alpha;
-    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N, streams[0]);
-  } else {
-    Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
-    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc, streams, n_streams);
-    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N, streams[0]);
-  }
+  Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
+  LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc, streams, n_streams);
+  raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N, streams[0]);
 
   std::vector<Matrix::Data<T>*> input_data_temp;
   Matrix::PartDescriptor input_desc_temp = input_desc;
@@ -246,9 +236,7 @@ int fit_impl(raft::handle_t& handle,
                               intercept,
                               mu_input.data(),
                               mu_labels.data(),
-                              norm2_input.data(),
                               fit_intercept,
-                              normalize,
                               streams,
                               n_streams,
                               verbose);
@@ -268,7 +256,6 @@ int fit_impl(raft::handle_t& handle,
  * @output param coef: learned regression coefficients
  * @output param intercept: intercept value
  * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
  * @input param verbose
  */
 template <typename T>
@@ -279,7 +266,6 @@ int fit_impl(raft::handle_t& handle,
              T* coef,
              T* intercept,
              bool fit_intercept,
-             bool normalize,
              int epochs,
              T alpha,
              T l1_ratio,
@@ -306,7 +292,6 @@ int fit_impl(raft::handle_t& handle,
                         coef,
                         intercept,
                         fit_intercept,
-                        normalize,
                         epochs,
                         alpha,
                         l1_ratio,
@@ -408,7 +393,6 @@ int fit(raft::handle_t& handle,
         float* coef,
         float* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         float alpha,
         float l1_ratio,
@@ -423,7 +407,6 @@ int fit(raft::handle_t& handle,
                   coef,
                   intercept,
                   fit_intercept,
-                  normalize,
                   epochs,
                   alpha,
                   l1_ratio,
@@ -439,7 +422,6 @@ int fit(raft::handle_t& handle,
         double* coef,
         double* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         double alpha,
         double l1_ratio,
@@ -454,7 +436,6 @@ int fit(raft::handle_t& handle,
                   coef,
                   intercept,
                   fit_intercept,
-                  normalize,
                   epochs,
                   alpha,
                   l1_ratio,

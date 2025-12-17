@@ -4,9 +4,9 @@
 #
 import numpy as np
 
-import cuml.internals
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -53,7 +53,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
 
 class PCAMG(BaseDecompositionMG, PCA):
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
         # Validate and initialize parameters
         cdef paramsPCAMG params
@@ -133,4 +133,4 @@ class PCAMG(BaseDecompositionMG, PCA):
         self.explained_variance_ratio_ = explained_variance_ratio
         self.mean_ = mean
         self.singular_values_ = singular_values
-        self.noise_variance_ = float(noise_variance.to_output("numpy"))
+        self.noise_variance_ = noise_variance.to_output("numpy").item()

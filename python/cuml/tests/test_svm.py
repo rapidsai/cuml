@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
-import warnings
 
 import cudf
 import cupy as cp
@@ -703,31 +702,19 @@ def test_svm_no_support_vectors():
 @pytest.mark.parametrize("classifier", [False, True])
 def test_max_iter_n_iter(classifier):
     if classifier:
-        model = cuml.SVC()
+        cls = cuml.SVC
         X, y = make_classification(random_state=42)
     else:
-        model = cuml.SVR()
+        cls = cuml.SVR
         X, y = make_regression(random_state=42)
 
-    # Check that the default doesn't warn!
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
-        model.fit(X, y)
-    if classifier:
-        assert model.n_iter_.dtype == np.int32 and model.n_iter_.shape == (1,)
-    else:
-        assert isinstance(model.n_iter_, int)
+    # max_iter limit is respected
+    model = cls(max_iter=5).fit(X, y)
+    assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 
-    # Setting to an integer warns, but uses the old limit on max outer iterations
-    model.max_iter = 1
-    with pytest.warns(FutureWarning, match="max_iter"):
-        model.fit(X, y)
-    assert (model.n_iter_.item() if classifier else model.n_iter_) > 1
-
-    # Using TotalIters gets the new behavior without a warning
-    model.max_iter = model.TotalIters(5)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
+    # Using TotalIters results in the same behavior, but warns
+    model = cls(max_iter=cls.TotalIters(5))
+    with pytest.warns(FutureWarning, match="TotalIters"):
         model.fit(X, y)
     assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 

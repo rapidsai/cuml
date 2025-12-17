@@ -18,6 +18,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -321,11 +322,12 @@ class KMeans(Base,
     random_state : int or None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
-    init : {'scalable-k-means++', 'k-means||', 'random'} or an \
+    init : {'scalable-k-means++', 'k-means||', 'k-means++', 'random'} or an \
             ndarray (default = 'scalable-k-means++')
 
          - ``'scalable-k-means++'`` or ``'k-means||'``: Uses fast and stable
-           scalable kmeans++ initialization.
+           scalable kmeans++ initialization. k-means++ is the constrained case of k-means||
+           with `oversampling_factor=0`
          - ``'random'``: Choose `n_cluster` observations (rows) at random
            from data for the initial centroids.
          - If an ndarray is passed, it should be of
@@ -516,6 +518,7 @@ class KMeans(Base,
         return self.n_clusters
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
@@ -598,6 +601,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
@@ -671,6 +675,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def predict(
         self,
         X,
@@ -688,6 +693,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
@@ -772,6 +778,7 @@ class KMeans(Base,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
+    @run_in_internal_context
     def score(self, X, y=None, sample_weight=None, *, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
@@ -787,6 +794,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
+    @reflect
     def fit_transform(
         self, X, y=None, sample_weight=None, *, convert_dtype=False
     ) -> CumlArray:

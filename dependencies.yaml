@@ -272,10 +272,9 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          # clang 15 required by libcudacxx.
-          - clang==15.0.7
-          - clang-tools==15.0.7
-          - llvm-openmp==15.0.7
+          - clang==20.1.4
+          - clang-tools==20.1.4
+          - llvm-openmp==20.1.4
           - ninja
           - tomli
   common_build:
@@ -323,7 +322,7 @@ dependencies:
           - joblib>=0.11
           - numba>=0.60.0,<0.62.0
           - &numpy numpy>=1.23,<3.0
-          - scipy>=1.11.0
+          - scipy>=1.13.0
           - packaging
           - rich
           - &scikit_learn scikit-learn>=1.4
@@ -493,7 +492,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-ml
+          - dask-ml>=2024
   test_python_xgboost:
     common:
       - output_types: [conda]
@@ -539,7 +538,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - dask-ml==2023.3.24
+          - dask-ml==2025.1.0
           - jupyter
           - *numpy
           - pandas
@@ -761,18 +760,18 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.19.1,<0.20.0
+        - numba-cuda>=0.22.1,<0.23.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - numba-cuda[cu12]>=0.19.1,<0.20.0
+              - numba-cuda[cu12]>=0.22.1,<0.23.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - numba-cuda[cu13]>=0.19.1,<0.20.0
+              - numba-cuda[cu13]>=0.22.1,<0.23.0
   depends_on_pylibraft:
     common:
       - output_types: conda

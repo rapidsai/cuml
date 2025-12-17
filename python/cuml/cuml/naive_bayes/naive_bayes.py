@@ -7,115 +7,150 @@ import warnings
 
 import cupy as cp
 import cupyx
+import numpy as np
 import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import reflect
 from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
-def count_features_coo_kernel(float_dtype, int_dtype):
+def _count_classes(Y, n_classes, dtype):
     """
-    A simple reduction kernel that takes in a sparse (COO) array
-    of features and computes the sum (or sum squared) for each class
-    label
+    Count samples per class.
+
+    Parameters
+    ----------
+    Y : cupy.ndarray
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+    dtype : dtype
+        Output dtype
+
+    Returns
+    -------
+    class_counts : cupy.ndarray of shape (n_classes,)
+        Count of samples per class
     """
+    class_counts = cp.bincount(Y, minlength=n_classes).astype(dtype)
+    return class_counts
 
-    kernel_str = r"""({0} *out,
-                    int *rows, int *cols,
-                    {0} *vals, int nnz,
-                    int n_rows, int n_cols,
-                    {1} *labels,
-                    {0} *weights,
-                    bool has_weights,
-                    int n_classes,
-                    bool square) {
 
-      int i = blockIdx.x * blockDim.x + threadIdx.x;
+def _count_features_dense(X, Y, n_classes, categorical=False):
+    """
+    Count feature occurrences per class for dense arrays.
 
-      if(i >= nnz) return;
+    Parameters
+    ----------
+    X : cupy.ndarray of shape (n_samples, n_features)
+        Feature matrix
+    Y : cupy.ndarray of shape (n_samples,)
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+    categorical : bool
+        If True, treat features as categorical indices
 
-      int row = rows[i];
-      int col = cols[i];
-      {0} val = vals[i];
-      {1} label = labels[row];
-      unsigned out_idx = (col * n_classes) + label;
-      if(has_weights)
-        val *= weights[i];
+    Returns
+    -------
+    feature_counts : cupy.ndarray
+        For categorical=False: shape (n_classes, n_features)
+        For categorical=True: shape (n_features, n_classes, max_category+1)
+    """
+    n_samples, n_features = X.shape
 
-      if(square) val *= val;
-      atomicAdd(out + out_idx, val);
-    }"""
+    if not categorical:
+        # Standard multinomial/bernoulli counting
+        # Sum features per class: counts[class, feature] = sum of X[i, feature] where Y[i] == class
+        counts = cp.zeros((n_classes, n_features), dtype=X.dtype, order="F")
 
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_features_coo"
+        # Vectorized approach using advanced indexing
+        for class_idx in range(n_classes):
+            mask = Y == class_idx
+            if cp.any(mask):
+                counts[class_idx] = X[mask].sum(axis=0)
+
+        return counts
+    else:
+        # Categorical counting: count occurrences of each category per class per feature
+        highest_feature = int(X.max()) + 1
+        counts = cp.zeros(
+            (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
+        )
+
+        for feature_idx in range(n_features):
+            feature_vals = X[:, feature_idx].astype(cp.int32)
+
+            # Create flat indices into counts[feature_idx]
+            # Index is: class * highest_feature + category
+            flat_indices = Y.astype(cp.int32) * highest_feature + feature_vals
+
+            flat_counts = cp.bincount(
+                flat_indices, minlength=n_classes * highest_feature
+            )
+
+            counts[feature_idx] = flat_counts.reshape(
+                n_classes, highest_feature
+            ).astype(X.dtype)
+
+        return counts
+
+
+def _count_features_sparse(
+    x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
+):
+    """
+    Count feature occurrences per class for sparse COO matrices.
+
+    Parameters
+    ----------
+    x_coo_rows : cupy.ndarray
+        COO row indices
+    x_coo_cols : cupy.ndarray
+        COO column indices
+    x_coo_data : cupy.ndarray
+        COO data values
+    x_shape : tuple
+        Shape of the sparse matrix (n_rows, n_cols)
+    Y : cupy.ndarray
+        Class labels (monotonic, 0 to n_classes-1)
+    n_classes : int
+        Number of classes
+
+    Returns
+    -------
+    feature_counts : cupy.ndarray of shape (n_classes, n_features)
+        Count of features per class
+    """
+    n_rows, n_cols = x_shape
+    counts = cp.zeros((n_classes, n_cols), dtype=x_coo_data.dtype, order="F")
+
+    # For each non-zero element, add its value to the appropriate (class, feature) bin
+    # Get the class label for each non-zero element
+    labels_for_nnz = Y[x_coo_rows]
+
+    # Create flat indices for the counts array: col * n_classes + label
+    flat_indices = x_coo_cols * n_classes + labels_for_nnz
+
+    # Use bincount to accumulate values - this is the key GPU-efficient operation
+    flat_counts = cp.bincount(
+        flat_indices, weights=x_coo_data, minlength=n_cols * n_classes
     )
 
+    # Reshape to (n_classes, n_cols) but bincount gives us col-major order
+    # so we need to transpose
+    counts = flat_counts.reshape(n_cols, n_classes).T.astype(x_coo_data.dtype)
 
-def count_classes_kernel(float_dtype, int_dtype):
-    kernel_str = r"""
-    ({0} *out, int n_rows, {1} *labels) {
-
-      int row = blockIdx.x * blockDim.x + threadIdx.x;
-      if(row >= n_rows) return;
-      {1} label = labels[row];
-      atomicAdd(out + label, ({0})1);
-    }"""
-
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_classes"
-    )
-
-
-def count_features_dense_kernel(float_dtype, int_dtype):
-    kernel_str = r"""
-    ({0} *out,
-     {0} *in,
-     int n_rows,
-     int n_cols,
-     {1} *labels,
-     {0} *weights,
-     bool has_weights,
-     int n_classes,
-     bool square,
-     bool rowMajor,
-     bool categorical) {
-
-      int row = blockIdx.x * blockDim.x + threadIdx.x;
-      int col = blockIdx.y * blockDim.y + threadIdx.y;
-
-      if(row >= n_rows || col >= n_cols) return;
-
-      {0} val = !rowMajor ?
-            in[col * n_rows + row] : in[row * n_cols + col];
-      {1} label = labels[row];
-      unsigned out_idx = ((col * n_classes) + label);
-
-      if (categorical)
-      {
-        out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
-        val = 1;
-      }
-      if(has_weights)
-        val *= weights[row];
-
-      if(val == 0.0) return;
-
-      if(square) val *= val;
-
-      atomicAdd(out + out_idx, val);
-    }"""
-
-    return cuda_kernel_factory(
-        kernel_str, (float_dtype, int_dtype), "count_features_dense"
-    )
+    # Convert to F-contiguous as expected by the rest of the code
+    return cp.asfortranarray(counts)
 
 
 def _convert_x_sparse(X):
@@ -158,6 +193,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
@@ -201,6 +237,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
@@ -258,6 +295,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
+    @reflect
     def predict_proba(self, X) -> CumlArray:
         """
         Return probability estimates for the test vector X.
@@ -339,6 +377,7 @@ class GaussianNB(_BaseNB):
         self.fit_called_ = False
         self.classes_ = None
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -366,6 +405,7 @@ class GaussianNB(_BaseNB):
     @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
+    @reflect(reset=True)
     def _partial_fit(
         self,
         X,
@@ -396,6 +436,9 @@ class GaussianNB(_BaseNB):
             check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
+        if sample_weight is not None:
+            # XXX How to use `input_to_cupy_array` here with `list` as input?
+            sample_weight = cp.asarray(sample_weight, dtype=np.float32)
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
@@ -454,7 +497,8 @@ class GaussianNB(_BaseNB):
             self.sigma_[:, :] -= self.epsilon_
 
         unique_y = cp.unique(y)
-        unique_y_in_classes = cp.in1d(unique_y, cp.array(self.classes_))
+        classes_array = cp.asarray(self.classes_)
+        unique_y_in_classes = cp.in1d(unique_y, classes_array)
 
         if not cp.all(unique_y_in_classes):
             raise ValueError(
@@ -463,7 +507,40 @@ class GaussianNB(_BaseNB):
                 % (unique_y[~unique_y_in_classes], self.classes_)
             )
 
-        self.theta_, self.sigma_ = self._update_mean_variance(X, Y)
+        # Convert sparse matrices to CSR for efficient row indexing
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X = X.tocsr()
+
+        # Update mean and variance for each class
+        # Following scikit-learn's approach: iterate through unique labels
+        for y_i in unique_y:
+            i = int(cp.searchsorted(classes_array, y_i))
+            # Explicit indices can index sparse arrays
+            mask = y == y_i
+            indices = cp.where(mask)[0]
+
+            # Index X using integer indices (works efficiently with CSR)
+            X_i = X[indices, :]
+
+            if sample_weight is not None:
+                sw_i = sample_weight[indices]
+                N_i = float(sw_i.sum())
+            else:
+                sw_i = None
+                N_i = X_i.shape[0]
+
+            # Update mean and variance for this class
+            new_theta, new_sigma = self._update_mean_variance(
+                self.class_count_[i],
+                self.theta_[i, :],
+                self.sigma_[i, :],
+                X_i,
+                sw_i,
+            )
+
+            self.theta_[i, :] = new_theta
+            self.sigma_[i, :] = new_sigma
+            self.class_count_[i] += N_i
 
         self.sigma_[:, :] += self.epsilon_
 
@@ -472,6 +549,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -511,178 +589,137 @@ class GaussianNB(_BaseNB):
             X, y, classes, _refit=False, sample_weight=sample_weight
         )
 
-    def _update_mean_variance(self, X, Y, sample_weight=None):
-        if sample_weight is None:
-            sample_weight = cp.zeros(0)
+    @staticmethod
+    def _update_mean_variance(n_past, mu, var, X, sample_weight=None):
+        """Compute online update of Gaussian mean and variance.
 
-        labels_dtype = self.classes_.dtype
+        This is a direct port of scikit-learn's implementation to CuPy,
+        with efficient handling of both dense and sparse matrices.
+        Given starting sample count, mean, and variance, a new set of
+        points X, and optionally sample weights, return the updated mean and
+        variance.
 
-        mu = self.theta_
-        var = self.sigma_
+        Parameters
+        ----------
+        n_past : float
+            Number of samples represented in old mean and variance.
+        mu : cupy.ndarray of shape (n_features,)
+            Means for Gaussians in original set.
+        var : cupy.ndarray of shape (n_features,)
+            Variances for Gaussians in original set.
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of shape (n_samples, n_features)
+            New data points. Can be dense or sparse.
+        sample_weight : cupy.ndarray of shape (n_samples,), optional
+            Weights applied to individual samples.
 
-        early_return = self.class_count_.sum() == 0
-        n_past = cp.expand_dims(self.class_count_, axis=1).copy()
-        tpb = 32
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
+        Returns
+        -------
+        total_mu : cupy.ndarray of shape (n_features,)
+            Updated mean for each Gaussian over the combined set.
+        total_var : cupy.ndarray of shape (n_features,)
+            Updated variance for each Gaussian over the combined set.
+        """
         if X.shape[0] == 0:
             return mu, var
 
-        # Make sure Y is cp array not CumlArray
-        Y = cp.asarray(Y)
+        # Compute (potentially weighted) mean and variance of new datapoints
+        if sample_weight is not None:
+            n_new = float(sample_weight.sum())
+            if cp.isclose(n_new, 0.0):
+                return mu, var
 
-        new_mu = cp.zeros(
-            (self.n_classes_, self.n_features_), order="F", dtype=X.dtype
-        )
-        new_var = cp.zeros(
-            (self.n_classes_, self.n_features_), order="F", dtype=X.dtype
-        )
-        class_counts = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
-        if cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
-
-            count_features_coo = count_features_coo_kernel(
-                X.dtype, labels_dtype
-            )
-
-            # Run once for averages
-            count_features_coo(
-                (math.ceil(X.nnz / tpb),),
-                (tpb,),
-                (
-                    new_mu,
-                    X.row,
-                    X.col,
-                    X.data,
-                    X.nnz,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    False,
-                ),
-            )
-
-            # Run again for variance
-            count_features_coo(
-                (math.ceil(X.nnz / tpb),),
-                (tpb,),
-                (
-                    new_var,
-                    X.row,
-                    X.col,
-                    X.data,
-                    X.nnz,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    True,
-                ),
-            )
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse weighted mean - avoid densification
+                # X.T @ sample_weight gives sum of weighted features
+                new_mu = cp.asarray((X.T.dot(sample_weight) / n_new)).ravel()
+                # Sparse weighted variance using E[X²] - E[X]²
+                # This avoids creating a dense difference matrix
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(
+                        (X_squared.T.dot(sample_weight) / n_new)
+                    ).ravel()
+                    - new_mu**2
+                )
+            else:
+                # Dense weighted case
+                new_mu = cp.average(X, axis=0, weights=sample_weight)
+                new_var = cp.average(
+                    (X - new_mu) ** 2, axis=0, weights=sample_weight
+                )
         else:
-            count_features_dense = count_features_dense_kernel(
-                X.dtype, labels_dtype
-            )
+            n_new = X.shape[0]
 
-            # Run once for averages
-            count_features_dense(
-                (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-                (tpb, tpb, 1),
-                (
-                    new_mu,
-                    X,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    False,
-                    X.flags["C_CONTIGUOUS"],
-                    False,
-                ),
-            )
+            # Handle sparse vs dense differently for efficiency
+            if cupyx.scipy.sparse.isspmatrix(X):
+                # Sparse unweighted - efficient for sparse matrices
+                # mean() works efficiently on sparse matrices
+                new_mu = cp.asarray(X.mean(axis=0)).ravel()
+                # Variance: E[X²] - E[X]² (avoids creating dense diff matrix)
+                X_squared = X.power(2)
+                new_var = (
+                    cp.asarray(X_squared.mean(axis=0)).ravel() - new_mu**2
+                )
+            else:
+                # Dense unweighted case
+                new_var = cp.var(X, axis=0)
+                new_mu = cp.mean(X, axis=0)
 
-            # Run again for variance
-            count_features_dense(
-                (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-                (tpb, tpb, 1),
-                (
-                    new_var,
-                    X,
-                    n_rows,
-                    n_cols,
-                    Y,
-                    sample_weight,
-                    sample_weight.shape[0] > 0,
-                    self.n_classes_,
-                    True,
-                    X.flags["C_CONTIGUOUS"],
-                    False,
-                ),
-            )
-
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes(
-            (math.ceil(n_rows / tpb),), (tpb,), (class_counts, n_rows, Y)
-        )
-
-        self.class_count_ += class_counts
-        # Avoid any division by zero
-        class_counts = cp.expand_dims(class_counts, axis=1)
-        class_counts += cp.finfo(X.dtype).eps
-
-        new_mu /= class_counts
-
-        # Construct variance from sum squares
-        new_var = (new_var / class_counts) - new_mu**2
-
-        if early_return:
+        if n_past == 0:
             return new_mu, new_var
 
-        # Compute (potentially weighted) mean and variance of new datapoints
-        if sample_weight.shape[0] > 0:
-            n_new = float(sample_weight.sum())
-        else:
-            n_new = class_counts
+        n_total = float(n_past + n_new)
 
-        n_total = n_past + n_new
-        total_mu = (new_mu * n_new + mu * n_past) / n_total
+        # Combine mean of old and new data
+        total_mu = (n_new * new_mu + n_past * mu) / n_total
 
-        old_ssd = var * n_past
+        # Combine variance using sum-of-squared-differences
+        old_ssd = n_past * var
         new_ssd = n_new * new_var
-
-        ssd_sum = old_ssd + new_ssd
-        combined_feature_counts = n_new * n_past / n_total
-        mean_adj = (mu - new_mu) ** 2
-
-        total_ssd = ssd_sum + combined_feature_counts * mean_adj
-
+        total_ssd = (
+            old_ssd + new_ssd + (n_new * n_past / n_total) * (mu - new_mu) ** 2
+        )
         total_var = total_ssd / n_total
+
         return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
-        joint_log_likelihood = []
+        """Calculate the posterior log probability of samples for each class.
 
-        for i in range(len(self.classes_)):
+        This is a more efficient implementation using CuPy broadcasting,
+        following scikit-learn's approach.
+        """
+        n_samples, n_features = X.shape
+        n_classes = len(self.classes_)
+
+        # Pre-compute log of 2*pi*sigma for all classes at once
+        # Shape: (n_classes, n_features)
+        log_2pi_sigma = cp.log(2.0 * cp.pi * self.sigma_)
+
+        # Initialize joint log likelihood array
+        joint_log_likelihood = cp.zeros((n_samples, n_classes))
+
+        for i in range(n_classes):
             jointi = cp.log(self.class_prior[i])
 
-            n_ij = -0.5 * cp.sum(cp.log(2.0 * cp.pi * self.sigma_[i, :]))
+            # Compute the constant term for this class
+            n_ij = -0.5 * cp.sum(log_2pi_sigma[i, :])
 
-            centered = (X - self.theta_[i, :]) ** 2
-            zvals = centered / self.sigma_[i, :]
-            summed = cp.sum(zvals, axis=1)
+            # Compute squared Mahalanobis distance efficiently
+            # (X - theta[i])^2 / sigma[i]
+            diff = (
+                X - self.theta_[i, :]
+            )  # Broadcasting: (n_samples, n_features)
+            scaled_diff_sq = (diff**2) / self.sigma_[i, :]
 
-            n_ij = -(0.5 * summed) + n_ij
-            joint_log_likelihood.append(jointi + n_ij)
+            # Sum over features for each sample
+            mahalanobis = -0.5 * cp.sum(scaled_diff_sq, axis=1)
 
-        return cp.array(joint_log_likelihood).T
+            # Combine all terms
+            joint_log_likelihood[:, i] = jointi + n_ij + mahalanobis
+
+        return joint_log_likelihood
 
     @classmethod
     def _get_param_names(cls):
@@ -720,6 +757,57 @@ class _BaseDiscreteNB(_BaseNB):
         self.handle = None
 
     def _check_X_y(self, X, y):
+        """
+        Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
+        Common validation for all discrete naive bayes estimators.
+        """
+        n_samples_X = X.shape[0]
+
+        n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
+
+        if n_samples_X != n_samples_y:
+            raise ValueError(
+                f"X and y have incompatible shapes. "
+                f"X has {n_samples_X} samples, but y has {n_samples_y} samples."
+            )
+
+        if n_samples_X == 0:
+            raise ValueError("X has 0 samples, cannot fit model on empty data")
+
+        if X.size == 0:
+            raise ValueError("X cannot be empty")
+
+        if len(X.shape) != 2:
+            raise ValueError(f"X must be 2D, got {len(X.shape)}D")
+
+        if X.shape[0] < 1 or X.shape[1] < 1:
+            raise ValueError(
+                f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
+            )
+
+        if y.size == 0:
+            raise ValueError("y cannot be empty")
+
+        # Ensure y is 1D or can be squeezed to 1D
+        if len(y.shape) > 2:
+            raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
+
+        if len(y.shape) == 2 and y.shape[1] != 1:
+            raise ValueError(
+                f"y must be a column vector if 2D, got shape {y.shape}"
+            )
+
+        # Check for NaN or Inf values in floating point data
+        if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
+            if cupyx.scipy.sparse.isspmatrix(X):
+                if X.data.size > 0 and (
+                    cp.any(cp.isnan(X.data)) or cp.any(cp.isinf(X.data))
+                ):
+                    raise ValueError("Input X contains NaN or infinite values")
+            else:
+                if cp.any(cp.isnan(X)) or cp.any(cp.isinf(X)):
+                    raise ValueError("Input X contains NaN or infinite values")
+
         return X, y
 
     def _update_class_log_prior(self, class_prior=None):
@@ -741,6 +829,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -math.log(self.n_classes_)
             )
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "_BaseDiscreteNB":
@@ -788,6 +877,7 @@ class _BaseDiscreteNB(_BaseNB):
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )
+    @reflect(reset=True)
     def _partial_fit(
         self, X, y, sample_weight=None, _classes=None, convert_dtype=True
     ) -> "_BaseDiscreteNB":
@@ -795,9 +885,20 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
+            try:
+                X = input_to_cupy_array(
+                    X,
+                    order="K",
+                    check_dtype=[cp.float32, cp.float64, cp.int32],
+                ).array
+            except Exception as e:
+                if "CUDA" in str(e) or "cuda" in str(e):
+                    raise RuntimeError(
+                        f"CUDA error during input conversion. "
+                        f"This may indicate GPU memory corruption. "
+                        f"Original error: {str(e)}"
+                    )
+                raise
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -842,8 +943,23 @@ class _BaseDiscreteNB(_BaseNB):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
+        # Ensure all GPU operations complete before returning
+        # This is especially important for partial_fit in streaming scenarios
+        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
+            try:
+                cp.cuda.Stream.null.synchronize()
+            except Exception:
+                # Ignore synchronization errors but log them if verbose
+                if self.verbose:
+                    import warnings
+
+                    warnings.warn(
+                        "GPU synchronization failed, continuing anyway"
+                    )
+
         return self
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
@@ -860,7 +976,7 @@ class _BaseDiscreteNB(_BaseNB):
             Currently sample weight is ignored.
         """
         self.fit_called_ = False
-        return self.partial_fit(X, y, sample_weight)
+        return self.partial_fit(X, y, sample_weight=sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
@@ -891,7 +1007,6 @@ class _BaseDiscreteNB(_BaseNB):
         """
 
         n_classes = classes.shape[0]
-        sample_weight = cp.zeros(0)
 
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
@@ -905,42 +1020,11 @@ class _BaseDiscreteNB(_BaseNB):
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        counts = cp.zeros(
-            (n_classes, self.n_features_), order="F", dtype=X.dtype
-        )
+        # Count features per class using CuPy
+        counts = _count_features_dense(X, Y, n_classes, categorical=False)
 
-        class_c = cp.zeros(n_classes, order="F", dtype=X.dtype)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        tpb = 32
-        labels_dtype = classes.dtype
-
-        count_features_dense = count_features_dense_kernel(
-            X.dtype, labels_dtype
-        )
-        count_features_dense(
-            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-            (tpb, tpb, 1),
-            (
-                counts,
-                X,
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                n_classes,
-                False,
-                X.flags["C_CONTIGUOUS"],
-                False,
-            ),
-        )
-
-        tpb = 256
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes(Y, n_classes, X.dtype)
 
         self.feature_count_ += counts
         self.class_count_ += class_c
@@ -964,48 +1048,14 @@ class _BaseDiscreteNB(_BaseNB):
                 "Y dtype does not match classes_ dtype. Y will be "
                 "converted, which will increase memory consumption"
             )
-        sample_weight = cp.zeros(0)
 
-        # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        counts = cp.zeros(
-            (n_classes, self.n_features_), order="F", dtype=x_coo_data.dtype
+        counts = _count_features_sparse(
+            x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
         )
 
-        class_c = cp.zeros(n_classes, order="F", dtype=x_coo_data.dtype)
-
-        n_rows = x_shape[0]
-        n_cols = x_shape[1]
-
-        tpb = 256
-
-        labels_dtype = classes.dtype
-
-        count_features_coo = count_features_coo_kernel(
-            x_coo_data.dtype, labels_dtype
-        )
-        count_features_coo(
-            (math.ceil(x_coo_rows.shape[0] / tpb),),
-            (tpb,),
-            (
-                counts,
-                x_coo_rows,
-                x_coo_cols,
-                x_coo_data,
-                x_coo_rows.shape[0],
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                n_classes,
-                False,
-            ),
-        )
-
-        count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        class_c = _count_classes(Y, n_classes, x_coo_data.dtype)
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
@@ -1282,12 +1332,22 @@ class BernoulliNB(_BaseDiscreteNB):
         return X
 
     def _check_X_y(self, X, y):
+        """
+        BernoulliNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
         X, y = super()._check_X_y(X, y)
+
+        # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
-            if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
-            else:
-                X = binarize(X, threshold=self.binarize)
+            try:
+                if cupyx.scipy.sparse.isspmatrix(X):
+                    X.data = binarize(X.data, threshold=self.binarize)
+                else:
+                    X = binarize(X, threshold=self.binarize)
+            except Exception as e:
+                raise ValueError(f"Error during binarization: {str(e)}")
+
         return X, y
 
     def _joint_log_likelihood(self, X):
@@ -1324,6 +1384,54 @@ class BernoulliNB(_BaseDiscreteNB):
         self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
             smoothed_cc.reshape(-1, 1)
         )
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier with enhanced error handling
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Weights applied to individual samples (1. for unweighted).
+
+        Returns
+        -------
+        self : object
+        """
+        # Reset internal state to ensure clean fit
+        self.fit_called_ = False
+
+        try:
+            # Call parent's fit through partial_fit
+            return super().fit(X, y, sample_weight)
+
+        except MemoryError as e:
+            # Handle CUDA memory errors specifically
+            if "CUDA error" in str(e) or "cudaError" in str(e):
+                raise RuntimeError(
+                    "CUDA memory error detected. This may be due to:\n"
+                    "1. Insufficient GPU memory\n"
+                    "2. Prior GPU memory corruption\n"
+                    "3. Invalid input data\n"
+                    "Try restarting your Python session or checking your input data.\n"
+                    f"Original error: {str(e)}"
+                )
+            else:
+                raise
+        except Exception as e:
+            # Reset state on error
+            self.fit_called_ = False
+            # Provide more context for other errors
+            raise type(e)(
+                f"Error in BernoulliNB.fit: {str(e)}\n"
+                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
+                f"y={getattr(y, 'shape', 'unknown')}"
+            ) from e
 
     @classmethod
     def _get_param_names(cls):
@@ -1588,15 +1696,26 @@ class CategoricalNB(_BaseDiscreteNB):
         )
 
     def _check_X_y(self, X, y):
+        """
+        CategoricalNB-specific validation and preprocessing.
+        """
+        # First call parent's validation (includes all common checks)
+        X, y = super()._check_X_y(X, y)
+
+        # CategoricalNB-specific: Convert to int32 and check for negative values
         if cupyx.scipy.sparse.isspmatrix(X):
-            warnings.warn(
-                "X dtype is not int32. X will be "
-                "converted, which will increase memory consumption"
-            )
+            if X.dtype != cp.int32:
+                warnings.warn(
+                    "X dtype is not int32. X will be "
+                    "converted, which will increase memory consumption"
+                )
             X.data = X.data.astype(cp.int32)
+            # Check for empty sparse matrix
+            if X.data.size == 0:
+                raise ValueError("Sparse matrix X has no non-zero elements")
             x_min = X.data.min()
         else:
-            if X.dtype not in [cp.int32]:
+            if X.dtype != cp.int32:
                 warnings.warn(
                     "X dtype is not int32. X will be "
                     "converted, which will increase memory "
@@ -1606,8 +1725,10 @@ class CategoricalNB(_BaseDiscreteNB):
                     X, order="K", convert_to_dtype=cp.int32
                 ).array
             x_min = X.min()
+
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
+
         return X, y
 
     def _check_X(self, X):
@@ -1633,6 +1754,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X
 
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
         """Fit Naive Bayes classifier according to X, y
 
@@ -1658,6 +1780,7 @@ class CategoricalNB(_BaseDiscreteNB):
         """
         return super().fit(X, y, sample_weight=sample_weight)
 
+    @reflect(reset=True)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "CategoricalNB":
@@ -1710,11 +1833,8 @@ class CategoricalNB(_BaseDiscreteNB):
         Y : cupy.array of monotonic class labels
         """
         n_classes = classes.shape[0]
-        n_rows = x_shape[0]
         n_cols = x_shape[1]
         x_coo_nnz = x_coo_rows.shape[0]
-        labels_dtype = classes.dtype
-        tpb = 256
 
         if Y.dtype != classes.dtype:
             warnings.warn(
@@ -1725,11 +1845,8 @@ class CategoricalNB(_BaseDiscreteNB):
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        class_c = cp.zeros(n_classes, dtype=self.class_count_.dtype)
-        count_classes = count_classes_kernel(
-            self.class_count_.dtype, labels_dtype
-        )
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        # Count samples per class using CuPy
+        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
@@ -1745,22 +1862,15 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[1]
 
-        count_features_coo = cp.ElementwiseKernel(
-            "int32 row, int32 col, int32 val, int32 nnz, int32 n_classes, \
-             int32 n_cols, raw T labels",
-            "int32 out_row, int32 out_col",
-            """
-            T label = labels[row];
-            out_row = col + n_cols * label;
-            out_col = val;
-            """,
-            "count_features_categorical_coo_kernel",
-        )
-        counts_rows, counts_cols = count_features_coo(
-            x_coo_rows, x_coo_cols, x_coo_data, x_coo_nnz, n_classes, n_cols, Y
-        )
-        # Create the sparse category count matrix from the result of
-        # the raw kernel
+        # Map sparse data to categorical counts using CuPy operations
+        # For each non-zero element at (row, col) with value val:
+        # - Get the class label for that row
+        # - Create an entry at (col + n_cols * label, val)
+        labels_for_nnz = Y[x_coo_rows]
+        counts_rows = x_coo_cols + n_cols * labels_for_nnz
+        counts_cols = x_coo_data
+
+        # Create the sparse category count matrix
         counts = cupyx.scipy.sparse.coo_matrix(
             (cp.ones(x_coo_nnz), (counts_rows, counts_cols)),
             shape=(self.n_features_ * n_classes, highest_feature),
@@ -1776,13 +1886,8 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _count(self, X, Y, classes):
         Y = cp.asarray(Y)
-        tpb = 32
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
         n_classes = classes.shape[0]
-        labels_dtype = classes.dtype
 
-        sample_weight = cp.zeros(0, dtype=X.dtype)
         highest_feature = int(X.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[2]
         # In case of a partial fit, pad the array to have the highest feature
@@ -1793,35 +1898,23 @@ class CategoricalNB(_BaseDiscreteNB):
                 "constant",
             )
         highest_feature = self.category_count_.shape[2]
-        counts = cp.zeros(
-            (self.n_features_, n_classes, highest_feature),
-            order="F",
-            dtype=X.dtype,
-        )
 
-        count_features = count_features_dense_kernel(X.dtype, Y.dtype)
-        count_features(
-            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
-            (tpb, tpb, 1),
-            (
-                counts,
-                X,
-                n_rows,
-                n_cols,
-                Y,
-                sample_weight,
-                sample_weight.shape[0] > 0,
-                self.n_classes_,
-                False,
-                X.flags["C_CONTIGUOUS"],
-                True,
-            ),
-        )
+        counts_raw = _count_features_dense(X, Y, n_classes, categorical=True)
+
+        # Pad or trim to match expected highest_feature size
+        if counts_raw.shape[2] < highest_feature:
+            counts = cp.zeros(
+                (self.n_features_, n_classes, highest_feature),
+                order="F",
+                dtype=X.dtype,
+            )
+            counts[:, :, : counts_raw.shape[2]] = counts_raw
+        else:
+            counts = counts_raw[:, :, :highest_feature]
+
         self.category_count_ += counts
 
-        class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
-        count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,), (class_c, n_rows, Y))
+        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
         self.class_count_ += class_c
 
     def _init_counters(self, n_effective_classes, n_features, dtype):

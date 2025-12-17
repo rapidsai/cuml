@@ -15,8 +15,9 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. autofunction:: cuml.internals.memory_utils.set_global_output_type
- .. autofunction:: cuml.internals.memory_utils.using_output_type
+.. autofunction:: cuml.set_global_output_type
+
+.. autofunction:: cuml.using_output_type
 
 .. _verbosity-levels:
 
@@ -298,9 +299,6 @@ Mini Batch SGD Regressor
 
 Multiclass Classification
 -------------------------
-
-.. autoclass:: cuml.multiclass.MulticlassClassifier
-    :members:
 
 .. autoclass:: cuml.multiclass.OneVsOneClassifier
     :members:
