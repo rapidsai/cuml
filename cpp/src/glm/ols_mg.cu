@@ -6,8 +6,6 @@
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/stats/mean.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -15,9 +13,13 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <opg/linalg/lstsq.hpp>
+#include <opg/stats/mean.hpp>
+
 #include <cstddef>
 
 using namespace ML;
+using namespace MLCommon;
 
 namespace ML {
 namespace OLS {

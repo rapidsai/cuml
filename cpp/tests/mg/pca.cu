@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,13 +8,13 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 
-#include <cuml/src_prims/opg/linalg/gemm.hpp>
-#include <cuml/src_prims/opg/matrix/matrix_utils.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
+#include <opg/linalg/gemm.hpp>
+#include <opg/matrix/matrix_utils.hpp>
 #include <test_utils.h>
 
 namespace MLCommon {

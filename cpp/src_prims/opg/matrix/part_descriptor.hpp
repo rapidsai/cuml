@@ -5,14 +5,15 @@
 
 #pragma once
 
+#include "data.hpp"
+
 #include <stdint.h>
 
-#include <opg/matrix/data.hpp>
 #include <ostream>
 #include <set>
 #include <vector>
 
-namespace ML {
+namespace MLCommon {
 namespace Matrix {
 
 /** Describes the data layout */
@@ -95,5 +96,4 @@ std::ostream& operator<<(std::ostream& os, const PartDescriptor& desc);
 bool operator==(const PartDescriptor& a, const PartDescriptor& b);
 
 };  // end namespace Matrix
-};  // end namespace ML
-
+};  // end namespace MLCommon

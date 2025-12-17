@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/stats/mean_center.hpp>
+#include "mean_center.hpp"
+
 #include <raft/stats/mean_center.cuh>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace Stats {
 namespace opg {
 
@@ -22,7 +23,7 @@ void mean_center_impl(const std::vector<Matrix::Data<math_t>*>& data,
 {
   std::vector<Matrix::RankSizePair*> local_blocks = dataDesc.blocksOwnedBy(comm.get_rank());
 
-  for (int i = 0; i < data.size(); i++) {
+  for (size_t i = 0; i < data.size(); i++) {
     raft::stats::meanCenter<false, true>(data[i]->ptr,
                                          data[i]->ptr,
                                          mu.ptr,
@@ -42,7 +43,7 @@ void mean_add_impl(const std::vector<Matrix::Data<math_t>*>& data,
 {
   std::vector<Matrix::RankSizePair*> local_blocks = dataDesc.blocksOwnedBy(comm.get_rank());
 
-  for (int i = 0; i < data.size(); i++) {
+  for (size_t i = 0; i < data.size(); i++) {
     raft::stats::meanAdd<false, true>(data[i]->ptr,
                                       data[i]->ptr,
                                       mu.ptr,
@@ -94,5 +95,4 @@ void mean_add(const std::vector<Matrix::Data<float>*>& data,
 
 };  // end namespace opg
 };  // namespace Stats
-};  // end namespace ML
-
+};  // end namespace MLCommon

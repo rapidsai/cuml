@@ -2,14 +2,15 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
+#include "matrix_utils.hpp"
+
+#include <raft/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <opg/matrix/matrix_utils.hpp>
-#include <raft/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace Matrix {
 namespace opg {
 
@@ -24,7 +25,7 @@ void gatherPart(const raft::handle_t& h,
                 cudaStream_t stream)
 {
   ASSERT(partIndex < desc.partsToRanks.size(),
-         "ML::Matrix::opg::gatherPart: Part index is out of range");
+         "MLCommon::Matrix::opg::gatherPart: Part index is out of range");
   const auto& comm = h.get_comms();
   std::vector<raft::comms::request_t> requests;
   int items = desc.partsToRanks[partIndex]->size * desc.N;
@@ -55,7 +56,7 @@ void allGatherPart(const raft::handle_t& h,
                    cudaStream_t stream)
 {
   ASSERT(partIndex < desc.partsToRanks.size(),
-         "ML::Matrix::opg::allGatherPart: Part index is out of range");
+         "MLCommon::Matrix::opg::allGatherPart: Part index is out of range");
 
   const auto& comm = h.get_comms();
 
@@ -82,14 +83,14 @@ void gather(const raft::handle_t& h,
             cudaStream_t stream)
 {
   size_t maxPartSize = 0;
-  for (int i = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     if (maxPartSize < desc.partsToRanks[i]->size) { maxPartSize = desc.partsToRanks[i]->size; }
   }
 
   rmm::device_uvector<T> partBuffer(0, stream);
   if (myRank == rootRank) { partBuffer.resize(maxPartSize * desc.N, stream); }
   size_t offset = 0;
-  for (int i = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     gatherPart(h, partBuffer.data(), parts, desc, i, rootRank, myRank, stream);
 
     if (myRank == rootRank) {
@@ -119,13 +120,13 @@ void allGather(const raft::handle_t& h,
                cudaStream_t stream)
 {
   size_t maxPartSize = 0;
-  for (int i = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     if (maxPartSize < desc.partsToRanks[i]->size) { maxPartSize = desc.partsToRanks[i]->size; }
   }
 
   rmm::device_uvector<T> partBuffer(maxPartSize * desc.N, stream);
   size_t offset = 0;
-  for (int i = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     allGatherPart(h, partBuffer.data(), parts, desc, i, myRank, stream);
     if (desc.layout == Matrix::LayoutRowMajor) {
       raft::copy(
@@ -150,7 +151,7 @@ void allocate(const raft::handle_t& h,
               cudaStream_t stream)
 {
   auto* allocator = rmm::mr::get_current_device_resource();
-  for (int i = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       int partSize          = desc.partsToRanks[i]->size * desc.N;
       T* partMem            = (T*)allocator->allocate(stream, partSize * sizeof(T));
@@ -169,14 +170,14 @@ void deallocate(const raft::handle_t& h,
                 cudaStream_t stream)
 {
   auto* allocator = rmm::mr::get_current_device_resource();
-  for (int i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       int partSize = desc.partsToRanks[i]->size * desc.N;
       allocator->deallocate(stream, parts[localIndex]->ptr, partSize * sizeof(T));
       localIndex++;
     }
   }
-  for (int i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       delete parts[localIndex];
       localIndex++;
@@ -195,7 +196,7 @@ void randomize(const raft::handle_t& h,
                T low  = T(-1.0),
                T high = T(1.0))
 {
-  for (int i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       int partSize = desc.partsToRanks[i]->size * desc.N;
       r.uniform(parts[localIndex]->ptr, partSize, low, high, stream);
@@ -211,7 +212,7 @@ void reset(const raft::handle_t& h,
            int myRank,
            cudaStream_t stream)
 {
-  for (int i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
+  for (size_t i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       size_t partSize = desc.partsToRanks[i]->size * desc.N * sizeof(T);
       RAFT_CUDA_TRY(cudaMemsetAsync(parts[localIndex]->ptr, 0, partSize, stream));
@@ -462,5 +463,4 @@ void print(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace Matrix
-}  // end namespace ML
-
+}  // end namespace MLCommon

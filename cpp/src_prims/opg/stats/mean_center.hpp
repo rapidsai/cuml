@@ -4,11 +4,12 @@
  */
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "../matrix/data.hpp"
+#include "../matrix/part_descriptor.hpp"
+
 #include <raft/core/comms.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace Stats {
 namespace opg {
 
@@ -61,5 +62,4 @@ void mean_add(const std::vector<Matrix::Data<float>*>& data,
 
 }  // end namespace opg
 }  // end namespace Stats
-}  // end namespace ML
-
+}  // end namespace MLCommon

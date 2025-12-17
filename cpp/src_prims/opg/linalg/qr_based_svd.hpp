@@ -4,12 +4,13 @@
  */
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "../matrix/data.hpp"
+#include "../matrix/part_descriptor.hpp"
+
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -33,10 +34,10 @@ namespace opg {
  * \param[in]   maxSweeps     Number of sweeps in the single GPU SVD using
                               Jacobi algorithm. More sweeps provide better
                               accuracy.
- * \parms[in]   inParts       Parts of the tall input matrix, distributed among
+ * \param[in]   inParts       Parts of the tall input matrix, distributed among
                               ranks. The size of in matrix is M x N,
                               where M >> N.
- * \param[in]   desc          Discriptor of in matrix (inParts) and U matrix
+ * \param[in]   desc          Descriptor of in matrix (inParts) and U matrix
                               (uParts).
  * \param       myRank        MPI rank of the process
  */
@@ -67,5 +68,4 @@ void svdQR(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

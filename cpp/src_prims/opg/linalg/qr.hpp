@@ -4,12 +4,13 @@
  */
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "../matrix/data.hpp"
+#include "../matrix/part_descriptor.hpp"
+
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -17,7 +18,7 @@ namespace opg {
  * \brief    Multi-GPU QR decomposition for tall (rows > columns) matrices.
  *
  * This function implements multi-GPU QR decomposition for tall matrices
- * descibed in https://arxiv.org/abs/1301.1071.
+ * described in https://arxiv.org/abs/1301.1071.
  * \param       h               cuML handle object.
  * \param[out]  outQParts       Factor Q of input matrix QR decomposition. Q
                                 matrix is distributed among ranks according to
@@ -51,5 +52,4 @@ void qrDecomp(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

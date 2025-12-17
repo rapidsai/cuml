@@ -2,12 +2,13 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/linalg/mean_squared_error.hpp>
+#include "mean_squared_error.hpp"
+
 #include <raft/linalg/mean_squared_error.cuh>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -49,9 +50,9 @@ void meanSquaredError_impl(math_t* out,
   meanSquaredError<math_t>(out, in1.ptr, in2.ptr, len, w, stream);
 
   if (broadcastResult) {
-    ML::opg::allreduce_single_sum(out, out, comm, stream);
+    MLCommon::opg::allreduce_single_sum(out, out, comm, stream);
   } else {
-    ML::opg::reduce_single_sum(out, out, comm, stream, root);
+    MLCommon::opg::reduce_single_sum(out, out, comm, stream, root);
   }
 }
 
@@ -87,5 +88,4 @@ void meanSquaredError(float* out,
 
 };  // end namespace opg
 };  // end namespace LinAlg
-};  // end namespace ML
-
+};  // end namespace MLCommon

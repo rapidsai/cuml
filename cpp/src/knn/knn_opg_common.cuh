@@ -9,19 +9,21 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
-#include <cuml/src_prims/opg/matrix/data.hpp>
-#include <cuml/src_prims/opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuvs/neighbors/knn_merge_parts.hpp>
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 #include <selection/knn.cuh>
 
 #include <cstddef>
 #include <memory>
 #include <set>
+
+using namespace MLCommon;
 
 namespace ML {
 namespace KNN {

@@ -2,16 +2,17 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/stats/cov.hpp>
-#include <opg/stats/mean_center.hpp>
+#include "../linalg/mm_aTa.hpp"
+#include "cov.hpp"
+#include "mean_center.hpp"
+
 #include <raft/linalg/divide.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace Stats {
 namespace opg {
 
@@ -68,5 +69,4 @@ void cov(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace Stats
-};  // namespace ML
-
+};  // namespace MLCommon

@@ -1,16 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 
 #include <cuda_runtime.h>
+
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 
 #include <vector>
 using namespace ML;
@@ -28,8 +29,8 @@ namespace opg {
  */
 template <typename T>
 std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
-                                 Matrix::PartDescriptor& input_desc,
-                                 std::vector<Matrix::Data<T>*>& labels);
+                                 MLCommon::Matrix::PartDescriptor& input_desc,
+                                 std::vector<MLCommon::Matrix::Data<T>*>& labels);
 
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods
@@ -47,9 +48,9 @@ std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
  */
 template <typename T>
 void qnFit(raft::handle_t& handle,
-           std::vector<Matrix::Data<T>*>& input_data,
-           Matrix::PartDescriptor& input_desc,
-           std::vector<Matrix::Data<T>*>& labels,
+           std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+           MLCommon::Matrix::PartDescriptor& input_desc,
+           std::vector<MLCommon::Matrix::Data<T>*>& labels,
            T* coef,
            const qn_params& pams,
            bool X_col_major,
@@ -79,12 +80,12 @@ void qnFit(raft::handle_t& handle,
  */
 template <typename T, typename I>
 void qnFitSparse(raft::handle_t& handle,
-                 std::vector<Matrix::Data<T>*>& input_values,
+                 std::vector<MLCommon::Matrix::Data<T>*>& input_values,
                  I* input_cols,
                  I* input_row_ids,
                  I X_nnz,
-                 Matrix::PartDescriptor& input_desc,
-                 std::vector<Matrix::Data<T>*>& labels,
+                 MLCommon::Matrix::PartDescriptor& input_desc,
+                 std::vector<MLCommon::Matrix::Data<T>*>& labels,
                  T* coef,
                  const qn_params& pams,
                  bool standardization,

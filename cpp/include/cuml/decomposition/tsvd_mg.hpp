@@ -28,9 +28,9 @@ namespace opg {
  * < 1.5)
  */
 void fit(raft::handle_t& handle,
-         ML::Matrix::RankSizePair** rank_sizes,
+         MLCommon::Matrix::RankSizePair** rank_sizes,
          std::uint32_t n_parts,
-         ML::Matrix::floatData_t** input,
+         MLCommon::Matrix::floatData_t** input,
          float* components,
          float* singular_vals,
          paramsTSVDMG& prms,
@@ -38,9 +38,9 @@ void fit(raft::handle_t& handle,
          bool flip_signs_based_on_U = false);
 
 void fit(raft::handle_t& handle,
-         ML::Matrix::RankSizePair** rank_sizes,
+         MLCommon::Matrix::RankSizePair** rank_sizes,
          std::uint32_t n_parts,
-         ML::Matrix::doubleData_t** input,
+         MLCommon::Matrix::doubleData_t** input,
          double* components,
          double* singular_vals,
          paramsTSVDMG& prms,
@@ -64,10 +64,10 @@ void fit(raft::handle_t& handle,
  * < 1.5)
  */
 void fit_transform(raft::handle_t& handle,
-                   std::vector<ML::Matrix::Data<float>*>& input_data,
-                   ML::Matrix::PartDescriptor& input_desc,
-                   std::vector<ML::Matrix::Data<float>*>& trans_data,
-                   ML::Matrix::PartDescriptor& trans_desc,
+                   std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                   MLCommon::Matrix::PartDescriptor& input_desc,
+                   std::vector<MLCommon::Matrix::Data<float>*>& trans_data,
+                   MLCommon::Matrix::PartDescriptor& trans_desc,
                    float* components,
                    float* explained_var,
                    float* explained_var_ratio,
@@ -77,10 +77,10 @@ void fit_transform(raft::handle_t& handle,
                    bool flip_signs_based_on_U);
 
 void fit_transform(raft::handle_t& handle,
-                   std::vector<ML::Matrix::Data<double>*>& input_data,
-                   ML::Matrix::PartDescriptor& input_desc,
-                   std::vector<ML::Matrix::Data<double>*>& trans_data,
-                   ML::Matrix::PartDescriptor& trans_desc,
+                   std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                   MLCommon::Matrix::PartDescriptor& input_desc,
+                   std::vector<MLCommon::Matrix::Data<double>*>& trans_data,
+                   MLCommon::Matrix::PartDescriptor& trans_desc,
                    double* components,
                    double* explained_var,
                    double* explained_var_ratio,
@@ -101,20 +101,20 @@ void fit_transform(raft::handle_t& handle,
  * @param[in] verbose
  */
 void transform(raft::handle_t& handle,
-               ML::Matrix::RankSizePair** rank_sizes,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
                std::uint32_t n_parts,
-               ML::Matrix::Data<float>** input,
+               MLCommon::Matrix::Data<float>** input,
                float* components,
-               ML::Matrix::Data<float>** trans_input,
+               MLCommon::Matrix::Data<float>** trans_input,
                paramsTSVDMG& prms,
                bool verbose);
 
 void transform(raft::handle_t& handle,
-               ML::Matrix::RankSizePair** rank_sizes,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
                std::uint32_t n_parts,
-               ML::Matrix::Data<double>** input,
+               MLCommon::Matrix::Data<double>** input,
                double* components,
-               ML::Matrix::Data<double>** trans_input,
+               MLCommon::Matrix::Data<double>** trans_input,
                paramsTSVDMG& prms,
                bool verbose);
 
@@ -130,20 +130,20 @@ void transform(raft::handle_t& handle,
  * @param[in] verbose
  */
 void inverse_transform(raft::handle_t& handle,
-                       ML::Matrix::RankSizePair** rank_sizes,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
                        std::uint32_t n_parts,
-                       ML::Matrix::Data<float>** trans_input,
+                       MLCommon::Matrix::Data<float>** trans_input,
                        float* components,
-                       ML::Matrix::Data<float>** input,
+                       MLCommon::Matrix::Data<float>** input,
                        paramsTSVDMG& prms,
                        bool verbose);
 
 void inverse_transform(raft::handle_t& handle,
-                       ML::Matrix::RankSizePair** rank_sizes,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
                        std::uint32_t n_parts,
-                       ML::Matrix::Data<double>** trans_input,
+                       MLCommon::Matrix::Data<double>** trans_input,
                        double* components,
-                       ML::Matrix::Data<double>** input,
+                       MLCommon::Matrix::Data<double>** input,
                        paramsTSVDMG& prms,
                        bool verbose);
 

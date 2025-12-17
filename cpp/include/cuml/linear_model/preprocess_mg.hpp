@@ -5,19 +5,20 @@
 
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace GLM {
 namespace opg {
 
 void preProcessData(raft::handle_t& handle,
-                    std::vector<ML::Matrix::Data<float>*>& input_data,
-                    ML::Matrix::PartDescriptor& input_desc,
-                    std::vector<ML::Matrix::Data<float>*>& labels,
+                    std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                    MLCommon::Matrix::PartDescriptor& input_desc,
+                    std::vector<MLCommon::Matrix::Data<float>*>& labels,
                     float* mu_input,
                     float* mu_labels,
                     bool fit_intercept,
@@ -26,9 +27,9 @@ void preProcessData(raft::handle_t& handle,
                     bool verbose);
 
 void preProcessData(raft::handle_t& handle,
-                    std::vector<ML::Matrix::Data<double>*>& input_data,
-                    ML::Matrix::PartDescriptor& input_desc,
-                    std::vector<ML::Matrix::Data<double>*>& labels,
+                    std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                    MLCommon::Matrix::PartDescriptor& input_desc,
+                    std::vector<MLCommon::Matrix::Data<double>*>& labels,
                     double* mu_input,
                     double* mu_labels,
                     bool fit_intercept,
@@ -37,9 +38,9 @@ void preProcessData(raft::handle_t& handle,
                     bool verbose);
 
 void postProcessData(raft::handle_t& handle,
-                     std::vector<ML::Matrix::Data<float>*>& input_data,
-                     ML::Matrix::PartDescriptor& input_desc,
-                     std::vector<ML::Matrix::Data<float>*>& labels,
+                     std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                     MLCommon::Matrix::PartDescriptor& input_desc,
+                     std::vector<MLCommon::Matrix::Data<float>*>& labels,
                      float* coef,
                      float* intercept,
                      float* mu_input,
@@ -50,9 +51,9 @@ void postProcessData(raft::handle_t& handle,
                      bool verbose);
 
 void postProcessData(raft::handle_t& handle,
-                     std::vector<ML::Matrix::Data<double>*>& input_data,
-                     ML::Matrix::PartDescriptor& input_desc,
-                     std::vector<ML::Matrix::Data<double>*>& labels,
+                     std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                     MLCommon::Matrix::PartDescriptor& input_desc,
+                     std::vector<MLCommon::Matrix::Data<double>*>& labels,
                      double* coef,
                      double* intercept,
                      double* mu_input,

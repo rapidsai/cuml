@@ -2,16 +2,18 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/linalg/mv_aTb.hpp>
+#include "mv_aTb.hpp"
+
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/matrix/matrix.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -96,5 +98,4 @@ void mv_aTb(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace LinAlg
-};  // namespace ML
-
+};  // namespace MLCommon

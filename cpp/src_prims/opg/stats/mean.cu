@@ -3,17 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/stats/mean.hpp>
+#include "mean.hpp"
+
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace Stats {
 namespace opg {
 
@@ -33,7 +35,7 @@ void mean_impl(const raft::handle_t& handle,
   std::vector<Matrix::RankSizePair*> localBlocks = inDesc.blocksOwnedBy(comm.get_rank());
   T weight                                       = T(1) / T(inDesc.M);
 
-  for (int i = 0; i < localBlocks.size(); i++) {
+  for (size_t i = 0; i < localBlocks.size(); i++) {
     T* loc = local_means_tmp.data() + (i * inDesc.N);
     raft::stats::sum<false>(
       loc, in[i]->ptr, inDesc.N, localBlocks[i]->size, streams[i % n_streams]);
@@ -83,5 +85,4 @@ void mean(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace Stats
-};  // namespace ML
-
+};  // namespace MLCommon

@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/linalg/norm.hpp>
+#include "norm.hpp"
+
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/norm.cuh>
@@ -11,9 +12,10 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -32,14 +34,12 @@ void colNorm2NoSeq_impl(const raft::handle_t& handle,
 
   std::vector<Matrix::RankSizePair*> localBlocks = inDesc.blocksOwnedBy(comm.get_rank());
 
-  for (int i = 0; i < localBlocks.size(); i++) {
+  for (size_t i = 0; i < localBlocks.size(); i++) {
     T* loc = local_means_tmp.data() + (i * inDesc.N);
-    raft::linalg::colNorm<raft::linalg::L2Norm, false>(loc,
-                                                       in[i]->ptr,
-                                                       inDesc.N,
-                                                       localBlocks[i]->size,
-                                                       streams[i % n_streams],
-                                                       [] __device__(T v) { return v; });
+    raft::linalg::colNorm<raft::linalg::L2Norm, false>(
+      loc, in[i]->ptr, inDesc.N, localBlocks[i]->size, streams[i % n_streams], [] __device__(T v) {
+        return v;
+      });
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -116,5 +116,4 @@ void colNorm2NoSeq(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace LinAlg
-};  // namespace ML
-
+};  // namespace MLCommon

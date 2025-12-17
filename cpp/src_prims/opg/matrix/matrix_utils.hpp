@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "data.hpp"
+#include "part_descriptor.hpp"
+
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 
-namespace ML {
+namespace MLCommon {
 namespace Matrix {
 namespace opg {
 
@@ -150,5 +151,4 @@ void print(const raft::handle_t& h,
            cudaStream_t stream);
 }  // end namespace opg
 }  // namespace Matrix
-}  // end namespace ML
-
+}  // end namespace MLCommon

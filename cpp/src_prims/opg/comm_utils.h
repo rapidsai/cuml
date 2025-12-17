@@ -8,7 +8,7 @@
 #include <raft/core/comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace ML {
+namespace MLCommon {
 namespace opg {
 
 /** sum-reduce single float numbers across workers */
@@ -36,5 +36,4 @@ void allreduce_single_sum(T* out,
 }
 
 };  // end namespace opg
-};  // end namespace ML
-
+};  // end namespace MLCommon

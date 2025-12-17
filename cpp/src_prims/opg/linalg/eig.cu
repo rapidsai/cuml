@@ -2,11 +2,13 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/matrix/matrix_utils.hpp>
+#include "../matrix/matrix_utils.hpp"
+
 #include <raft/linalg/eig.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -20,7 +22,7 @@ void eigDC(const raft::handle_t& h,
            cudaStream_t stream)
 {
   ASSERT(desc.N == desc.M,
-         "ML::LinAlg::opg:Eig: Matrix needs to be square for Eigen"
+         "MLCommon::LinAlg::opg:Eig: Matrix needs to be square for Eigen"
          " computation");
 
   const auto& comm = h.get_comms();
@@ -108,5 +110,4 @@ void eigJacobi(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

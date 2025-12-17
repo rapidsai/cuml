@@ -9,10 +9,6 @@
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
 
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
-#include <opg/stats/stddev.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
@@ -21,9 +17,15 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <opg/linalg/mm_aTa.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
+#include <opg/stats/stddev.hpp>
+
 #include <cstddef>
 
 using namespace ML;
+using namespace MLCommon;
 
 namespace ML {
 namespace TSVD {

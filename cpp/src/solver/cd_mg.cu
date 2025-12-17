@@ -8,8 +8,6 @@
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/norm.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -23,10 +21,13 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <functions/softThres.cuh>
+#include <opg/linalg/mv_aTb.hpp>
+#include <opg/linalg/norm.hpp>
 
 #include <cstddef>
 
 using namespace ML;
+using namespace MLCommon;
 
 namespace ML {
 namespace CD {

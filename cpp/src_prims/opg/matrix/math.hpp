@@ -4,11 +4,12 @@
  */
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "data.hpp"
+#include "part_descriptor.hpp"
+
 #include <raft/core/comms.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace Matrix {
 namespace opg {
 
@@ -48,5 +49,4 @@ void matrixVectorBinaryMult(std::vector<Matrix::Data<float>*>& data,
 
 };  // namespace opg
 };  // end namespace Matrix
-};  // end namespace ML
-
+};  // end namespace MLCommon

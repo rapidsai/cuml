@@ -3,17 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/linalg/svd.hpp>
+#include "mm_aTa.hpp"
+#include "svd.hpp"
+
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -52,7 +54,7 @@ void svdEig_impl(const raft::handle_t& handle,
 
   if (gen_left_vec) {
     std::vector<Matrix::RankSizePair*> partsToRanks = ADesc.blocksOwnedBy(comm.get_rank());
-    for (int i = 0; i < partsToRanks.size(); i++) {
+    for (size_t i = 0; i < partsToRanks.size(); i++) {
       raft::linalg::gemm(handle,
                          A[i]->ptr,
                          partsToRanks[i]->size,
@@ -103,5 +105,4 @@ void svdEig(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace LinAlg
-};  // namespace ML
-
+};  // namespace MLCommon

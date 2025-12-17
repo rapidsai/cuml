@@ -32,9 +32,9 @@ namespace opg {
  * @return n_iter: the number of solver iterations run
  */
 int fit(raft::handle_t& handle,
-        std::vector<ML::Matrix::Data<float>*>& input_data,
-        ML::Matrix::PartDescriptor& input_desc,
-        std::vector<ML::Matrix::Data<float>*>& labels,
+        std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+        MLCommon::Matrix::PartDescriptor& input_desc,
+        std::vector<MLCommon::Matrix::Data<float>*>& labels,
         float* coef,
         float* intercept,
         bool fit_intercept,
@@ -46,9 +46,9 @@ int fit(raft::handle_t& handle,
         bool verbose);
 
 int fit(raft::handle_t& handle,
-        std::vector<ML::Matrix::Data<double>*>& input_data,
-        ML::Matrix::PartDescriptor& input_desc,
-        std::vector<ML::Matrix::Data<double>*>& labels,
+        std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+        MLCommon::Matrix::PartDescriptor& input_desc,
+        std::vector<MLCommon::Matrix::Data<double>*>& labels,
         double* coef,
         double* intercept,
         bool fit_intercept,
@@ -73,25 +73,25 @@ int fit(raft::handle_t& handle,
  * @param[in] verbose
  */
 void predict(raft::handle_t& handle,
-             ML::Matrix::RankSizePair** rank_sizes,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
              size_t n_parts,
-             ML::Matrix::Data<float>** input,
+             MLCommon::Matrix::Data<float>** input,
              size_t n_rows,
              size_t n_cols,
              float* coef,
              float intercept,
-             ML::Matrix::Data<float>** preds,
+             MLCommon::Matrix::Data<float>** preds,
              bool verbose);
 
 void predict(raft::handle_t& handle,
-             ML::Matrix::RankSizePair** rank_sizes,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
              size_t n_parts,
-             ML::Matrix::Data<double>** input,
+             MLCommon::Matrix::Data<double>** input,
              size_t n_rows,
              size_t n_cols,
              double* coef,
              double intercept,
-             ML::Matrix::Data<double>** preds,
+             MLCommon::Matrix::Data<double>** preds,
              bool verbose);
 
 };  // end namespace opg

@@ -3,17 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/stats/stddev.hpp>
+#include "stddev.hpp"
+
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace Stats {
 namespace opg {
 
@@ -61,7 +63,7 @@ void var_impl(const raft::handle_t& handle,
 
   std::vector<Matrix::RankSizePair*> localBlocks = inDesc.blocksOwnedBy(comm.get_rank());
 
-  for (int i = 0; i < localBlocks.size(); i++) {
+  for (size_t i = 0; i < localBlocks.size(); i++) {
     T* loc = local_vars_tmp.data() + (i * inDesc.N);
     Stats::opg::varPartition(
       loc, in[i]->ptr, mu, inDesc.N, localBlocks[i]->size, inDesc.M, streams[i % n_streams]);
@@ -110,5 +112,4 @@ void var(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace Stats
-};  // namespace ML
-
+};  // namespace MLCommon

@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/matrix/math.hpp>
+#include "math.hpp"
+
 #include <raft/linalg/divide.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace Matrix {
 namespace opg {
 
@@ -27,7 +28,7 @@ void matrixVectorBinaryDivSkipZero_impl(std::vector<Matrix::Data<T>*>& data,
 
   std::vector<Matrix::RankSizePair*> localBlocks = dataDesc.blocksOwnedBy(rank);
 
-  for (int i = 0; i < localBlocks.size(); i++) {
+  for (size_t i = 0; i < localBlocks.size(); i++) {
     raft::matrix::matrixVectorBinaryDivSkipZero<rowMajor, bcastAlongRows>(
       data[i]->ptr, vec.ptr, localBlocks[i]->size, dataDesc.N, streams[i], return_zero);
   }
@@ -49,7 +50,7 @@ void matrixVectorBinaryMult_impl(std::vector<Matrix::Data<T>*>& data,
 
   std::vector<Matrix::RankSizePair*> localBlocks = dataDesc.blocksOwnedBy(rank);
 
-  for (int i = 0; i < localBlocks.size(); i++) {
+  for (size_t i = 0; i < localBlocks.size(); i++) {
     raft::matrix::matrixVectorBinaryMult<rowMajor, bcastAlongRows>(
       data[i]->ptr, vec.ptr, localBlocks[i]->size, dataDesc.N, streams[i]);
   }
@@ -140,9 +141,5 @@ template void matrixVectorBinaryMult<false, true>(std::vector<Matrix::Data<float
                                                   int);
 
 };  // namespace opg
-// end namespace opg
 };  // namespace Matrix
-// end namespace LinAlg
-};  // namespace ML
-// end namespace ML
-
+};  // namespace MLCommon

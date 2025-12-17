@@ -2,14 +2,16 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/linalg/gemm.hpp>
-#include <opg/linalg/qr.hpp>
-#include <opg/linalg/qr_based_svd.hpp>
-#include <opg/matrix/matrix_utils.hpp>
+#include "../matrix/matrix_utils.hpp"
+#include "gemm.hpp"
+#include "qr.hpp"
+#include "qr_based_svd.hpp"
+
 #include <raft/linalg/svd.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -39,14 +41,14 @@ void svdQR(const raft::handle_t& h,
   }
 
   ASSERT(desc.M >= desc.N,
-         "ML::LinAlg::opg::SVD: Number of rows of"
+         "MLCommon::LinAlg::opg::SVD: Number of rows of"
          " input matrix can not be less than number of columns");
   ASSERT(minPartSize >= desc.N,
-         "ML::LinAlg::opg::SVD: Number of rows of "
+         "MLCommon::LinAlg::opg::SVD: Number of rows of "
          " any input matrix block can not be less than number of columns in"
          " the block");
   ASSERT(desc.layout == Matrix::Layout::LayoutColMajor,
-         "ML::LinAlg::opg::SVD: Intra block layout other than column"
+         "MLCommon::LinAlg::opg::SVD: Intra block layout other than column"
          " major is not supported.");
 
   std::vector<Matrix::Data<T>*> qParts;
@@ -152,5 +154,4 @@ void svdQR(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

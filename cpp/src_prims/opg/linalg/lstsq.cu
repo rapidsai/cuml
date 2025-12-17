@@ -3,17 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/svd.hpp>
+#include "lstsq.hpp"
+#include "mv_aTb.hpp"
+#include "svd.hpp"
+
 #include <raft/linalg/gemv.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -40,7 +42,7 @@ void lstsqEig_impl(const raft::handle_t& handle,
   std::vector<Matrix::RankSizePair*> partsToRanks = ADesc.blocksOwnedBy(rank);
   size_t total_size                               = 0;
 
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (size_t i = 0; i < partsToRanks.size(); i++) {
     total_size += partsToRanks[i]->size;
   }
   total_size = total_size * ADesc.N;
@@ -48,7 +50,7 @@ void lstsqEig_impl(const raft::handle_t& handle,
   rmm::device_uvector<T> U_parts(total_size, streams[0]);
   T* curr_ptr = U_parts.data();
 
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (size_t i = 0; i < partsToRanks.size(); i++) {
     Matrix::Data<T> d;
     d.totalSize = partsToRanks[i]->size;
     d.ptr       = curr_ptr;
@@ -56,7 +58,7 @@ void lstsqEig_impl(const raft::handle_t& handle,
     U_temp.push_back(d);
   }
 
-  for (int i = 0; i < A.size(); i++) {
+  for (size_t i = 0; i < A.size(); i++) {
     U.push_back(&(U_temp[i]));
   }
 
@@ -100,5 +102,4 @@ void lstsqEig(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace LinAlg
-};  // namespace ML
-
+};  // namespace MLCommon

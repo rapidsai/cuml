@@ -4,11 +4,12 @@
  */
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include "../matrix/data.hpp"
+#include "../matrix/part_descriptor.hpp"
+
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -57,5 +58,4 @@ void gemm(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

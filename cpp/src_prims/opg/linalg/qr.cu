@@ -3,15 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <opg/linalg/gemm.hpp>
-#include <opg/linalg/qr.hpp>
-#include <opg/matrix/matrix_utils.hpp>
+#include "../matrix/matrix_utils.hpp"
+#include "gemm.hpp"
+#include "qr.hpp"
+
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -74,10 +76,10 @@ void qrDecomp(const raft::handle_t& h,
   }
 
   ASSERT(desc.M >= desc.N,
-         "ML::LinAlg::opg Number of rows of input"
+         "MLCommon::LinAlg::opg Number of rows of input"
          " matrix can not be less than number of columns");
   ASSERT(minPartSize >= desc.N,
-         "ML::LinAlg::opg Number of rows in "
+         "MLCommon::LinAlg::opg Number of rows in "
          " any part of matrix can not be less than number of columns in the "
          "matrix");
   ASSERT(desc.layout == Matrix::Layout::LayoutColMajor,
@@ -226,5 +228,4 @@ void qrDecomp(const raft::handle_t& h,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace ML
-
+}  // end namespace MLCommon

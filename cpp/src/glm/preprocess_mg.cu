@@ -5,10 +5,6 @@
 
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/norm.hpp>
-#include <opg/matrix/math.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
@@ -18,7 +14,13 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <opg/linalg/norm.hpp>
+#include <opg/matrix/math.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
+
 using namespace ML;
+using namespace MLCommon;
 
 namespace ML {
 namespace GLM {

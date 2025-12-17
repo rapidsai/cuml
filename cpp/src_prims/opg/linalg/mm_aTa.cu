@@ -2,15 +2,17 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <opg/linalg/mm_aTa.hpp>
+#include "mm_aTa.hpp"
+
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+
 #include <rmm/device_uvector.hpp>
 
-#include "opg/comm_utils.h"
+#include <opg/comm_utils.h>
 
-namespace ML {
+namespace MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -47,7 +49,7 @@ void mm_aTa_impl(const raft::handle_t& handle,
                      beta,
                      streams[0]);
 
-  for (int i = 1; i < A.size(); i++) {
+  for (size_t i = 1; i < A.size(); i++) {
     raft::linalg::gemm(handle,
                        A[i]->ptr,
                        local_blocks[i]->size,
@@ -92,5 +94,4 @@ void mm_aTa(const raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace LinAlg
-};  // namespace ML
-
+};  // namespace MLCommon
