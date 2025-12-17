@@ -46,6 +46,7 @@ fi
 
 DEFAULT_FORMAT_FILE_LOCATIONS=(
   "${CUML_BUILD_DIR:-${HOME}}/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
+  "$(realpath "$(find cpp/ -name cmake-format-rapids-cmake.json | head -n 1)")"
 )
 
 if [ -z ${RAPIDS_CMAKE_FORMAT_FILE:+PLACEHOLDER} ]; then
