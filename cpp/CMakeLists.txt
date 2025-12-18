@@ -1,4 +1,20 @@
-# =============================================================================
+ake_write_version_file(include/cuml/version_config.hpp)
+
+# ##################################################################################################
+# * build type ---------------------------------------------------------------
+
+# Set a default build type if none was specified
+rapids_cmake_build_type(Release)
+
+# this is needed for clang-tidy runs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ##################################################################################################
+# * User Options  ------------------------------------------------------------
+
+option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
+option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
+option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library# =============================================================================
 # cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
@@ -27,23 +43,7 @@ project(
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # Write the version header
-rapids_cmake_write_version_file(include/cuml/version_config.hpp)
-
-# ##################################################################################################
-# * build type ---------------------------------------------------------------
-
-# Set a default build type if none was specified
-rapids_cmake_build_type(Release)
-
-# this is needed for clang-tidy runs
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# ##################################################################################################
-# * User Options  ------------------------------------------------------------
-
-option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
-option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
-option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
+rapids_cm. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
@@ -625,9 +625,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
   )
 
-  set(_cuml_cpp_libs_var_name "_cuml_cpp_public_libs")
   if(CUDA_STATIC_RUNTIME)
-    set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
     # Add CTK include paths because we're going to make our CTK library links private below
     target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
   endif()
