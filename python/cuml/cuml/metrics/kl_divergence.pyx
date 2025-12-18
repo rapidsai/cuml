@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -56,7 +56,7 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     float
         The KL Divergence value
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     P_m, n_features_p, _, dtype_p = \

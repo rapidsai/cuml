@@ -2,12 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from cuml.internals import get_handle
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
+
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -59,7 +58,7 @@ def cython_completeness_score(labels_true, labels_pred, handle=None) -> float:
       The completeness of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,

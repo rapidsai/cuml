@@ -4,9 +4,9 @@
 #
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 from cuml.metrics.pairwise_distances import _determine_metric
 from cuml.prims.label.classlabels import check_labels, make_monotonic
 
@@ -74,7 +74,7 @@ def _silhouette_coeff(
         handles in several streams.
         If it is None, a new one is created.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if chunksize is None:

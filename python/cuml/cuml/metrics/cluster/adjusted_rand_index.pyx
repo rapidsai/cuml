@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -38,10 +38,8 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
         float
             The adjusted rand index value between -1.0 and 1.0
     """
-    handle = Handle() \
-        if handle is None else handle
-    cdef handle_t* handle_ =\
-        <handle_t*><size_t>handle.getHandle()
+    handle = get_handle(handle=handle)
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \
         input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,

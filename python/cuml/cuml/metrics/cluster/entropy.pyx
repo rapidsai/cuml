@@ -6,8 +6,8 @@ import math
 
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
+from cuml.internals import get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 
 from libc.stdint cimport uintptr_t
@@ -48,7 +48,7 @@ def cython_entropy(clustering, base=None, handle=None) -> float:
     S : float
         The calculated entropy.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     clustering, n_rows, _, _ = input_to_cupy_array(
