@@ -31,8 +31,8 @@ void lstsqEig(const raft::handle_t& handle,
               double* w,
               cudaStream_t* streams,
               int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace LinAlg
 }  // end namespace MLCommon
+
