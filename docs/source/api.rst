@@ -300,9 +300,6 @@ Mini Batch SGD Regressor
 Multiclass Classification
 -------------------------
 
-.. autoclass:: cuml.multiclass.MulticlassClassifier
-    :members:
-
 .. autoclass:: cuml.multiclass.OneVsOneClassifier
     :members:
 

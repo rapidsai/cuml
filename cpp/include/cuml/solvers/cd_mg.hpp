@@ -23,7 +23,6 @@ namespace opg {
  * @param[out] coef: learned regression coefficients
  * @param[out] intercept: intercept value
  * @param[in] fit_intercept: fit intercept or not
- * @param[in] normalize: normalize the data or not
  * @param[in] epochs: number of epochs
  * @param[in] alpha: ridge parameter
  * @param[in] l1_ratio: l1 ratio
@@ -39,7 +38,6 @@ int fit(raft::handle_t& handle,
         float* coef,
         float* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         float alpha,
         float l1_ratio,
@@ -54,7 +52,6 @@ int fit(raft::handle_t& handle,
         double* coef,
         double* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         double alpha,
         double l1_ratio,
