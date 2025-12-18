@@ -544,7 +544,8 @@ def test_fit_fewer_rows_than_n_neighbors():
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_knn_graph(n_neighbors, build_algo):
+@pytest.mark.parametrize("data_on_gpu", [True, False])
+def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0
     )
@@ -557,9 +558,13 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        return model.fit_transform(
-            data, knn_graph=knn_graph, convert_dtype=True
+        embd = model.fit_transform(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
         )
+
+        return embd.get() if data_on_gpu else embd
 
     def transform_embed(knn_graph=None):
         model = cuUMAP(
@@ -568,8 +573,15 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        model.fit(data, knn_graph=knn_graph, convert_dtype=True)
-        return model.transform(data, convert_dtype=True)
+        model.fit(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
+        )
+        embd = model.transform(
+            cp.array(data) if data_on_gpu else data, convert_dtype=True
+        )
+        return embd.get() if data_on_gpu else embd
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
