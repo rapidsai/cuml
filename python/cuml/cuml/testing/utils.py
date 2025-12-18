@@ -14,10 +14,8 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from pylibraft.common.cuda import Stream
 from sklearn.metrics import brier_score_loss, mean_squared_error
 
-import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
@@ -243,14 +241,6 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
     # Note: we can also do it in a rand score fashion by checking that pairs
     # correspond in both label arrays for core points, if we need to drop the
     # requirement of minimality for core points
-
-
-def get_handle(use_handle, n_streams=0):
-    if not use_handle:
-        return None, None
-    s = Stream()
-    h = cuml.Handle(stream=s, n_streams=n_streams)
-    return h, s
 
 
 def unit_param(*args, **kwargs):
