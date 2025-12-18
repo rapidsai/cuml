@@ -16,8 +16,6 @@ namespace ML {
 namespace KNN {
 namespace opg {
 
-using namespace ML;
-
 /**
  * Performs a multi-node multi-GPU KNN.
  * @param[in] handle the raft::handle_t to use for managing resources

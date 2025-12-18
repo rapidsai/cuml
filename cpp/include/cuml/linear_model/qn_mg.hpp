@@ -13,7 +13,6 @@
 #include <cuda_runtime.h>
 
 #include <vector>
-using namespace ML;
 
 namespace ML {
 namespace GLM {

@@ -24,17 +24,14 @@
 
 #include <cstddef>
 
-using namespace ML;
-using namespace MLCommon;
-
 namespace ML {
 namespace PCA {
 namespace opg {
 
 template <typename T>
 void fit_impl(raft::handle_t& handle,
-              std::vector<Matrix::Data<T>*>& input_data,
-              Matrix::PartDescriptor& input_desc,
+              std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+              MLCommon::Matrix::PartDescriptor& input_desc,
               T* components,
               T* explained_var,
               T* explained_var_ratio,
@@ -49,15 +46,15 @@ void fit_impl(raft::handle_t& handle,
 {
   const auto& comm = handle.get_comms();
 
-  Matrix::Data<T> mu_data{mu, prms.n_cols};
+  MLCommon::Matrix::Data<T> mu_data{mu, prms.n_cols};
 
-  Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
+  MLCommon::Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
   rmm::device_uvector<T> cov_data(prms.n_cols * prms.n_cols, streams[0]);
   auto cov_data_size = cov_data.size();
-  Matrix::Data<T> cov{cov_data.data(), cov_data_size};
+  MLCommon::Matrix::Data<T> cov{cov_data.data(), cov_data_size};
 
-  Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
+  MLCommon::Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
   ML::truncCompExpVars<T, mg_solver>(
     handle, cov.ptr, components, explained_var, explained_var_ratio, noise_vars, prms, streams[0]);
@@ -65,7 +62,7 @@ void fit_impl(raft::handle_t& handle,
   T scalar = (prms.n_rows - 1);
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, streams[0], true);
 
-  Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
+  MLCommon::Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
   if (flip_signs_based_on_U) {
     sign_flip_components_u(handle,
@@ -110,8 +107,8 @@ void fit_impl(raft::handle_t& handle,
  */
 template <typename T>
 void fit_impl(raft::handle_t& handle,
-              std::vector<Matrix::Data<T>*>& input_data,
-              Matrix::PartDescriptor& input_desc,
+              std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+              MLCommon::Matrix::PartDescriptor& input_desc,
               T* components,
               T* explained_var,
               T* explained_var_ratio,
@@ -153,16 +150,16 @@ void fit_impl(raft::handle_t& handle,
     const auto& comm        = h.get_comms();
 
     // Center the data
-    Matrix::Data<T> mu_data{mu, prms.n_cols};
-    Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
-    Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
+    MLCommon::Matrix::Data<T> mu_data{mu, prms.n_cols};
+    MLCommon::Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
+    MLCommon::Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
     for (std::uint32_t i = 0; i < n_streams; i++) {
       handle.sync_stream(streams[i]);
     }
 
     // Allocate Q, S and V and call QR
-    std::vector<Matrix::Data<T>*> uMatrixParts;
-    Matrix::opg::allocate(h, uMatrixParts, input_desc, rank, stream);
+    std::vector<MLCommon::Matrix::Data<T>*> uMatrixParts;
+    MLCommon::Matrix::opg::allocate(h, uMatrixParts, input_desc, rank, stream);
 
     rmm::device_uvector<T> sVector(prms.n_cols, stream);
 
@@ -170,17 +167,17 @@ void fit_impl(raft::handle_t& handle,
 
     RAFT_CUDA_TRY(cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
 
-    LinAlg::opg::svdQR(h,
-                       sVector.data(),
-                       uMatrixParts,
-                       vMatrix.data(),
-                       true,
-                       true,
-                       prms.tol,
-                       prms.n_iterations,
-                       input_data,
-                       input_desc,
-                       rank);
+    MLCommon::LinAlg::opg::svdQR(h,
+                                 sVector.data(),
+                                 uMatrixParts,
+                                 vMatrix.data(),
+                                 true,
+                                 true,
+                                 prms.tol,
+                                 prms.n_iterations,
+                                 input_data,
+                                 input_desc,
+                                 rank);
 
     // sign flip
     if (flip_signs_based_on_U) {
@@ -251,10 +248,10 @@ void fit_impl(raft::handle_t& handle,
     raft::matrix::truncZeroOrigin(
       vMatrix.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
 
-    Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
+    MLCommon::Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
 
     // Re-add mean to centered data
-    Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
+    MLCommon::Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -268,10 +265,10 @@ void fit_impl(raft::handle_t& handle,
 
 template <typename T>
 void transform_impl(raft::handle_t& handle,
-                    std::vector<Matrix::Data<T>*>& input,
-                    const Matrix::PartDescriptor input_desc,
+                    std::vector<MLCommon::Matrix::Data<T>*>& input,
+                    const MLCommon::Matrix::PartDescriptor input_desc,
                     T* components,
-                    std::vector<Matrix::Data<T>*>& trans_input,
+                    std::vector<MLCommon::Matrix::Data<T>*>& trans_input,
                     T* singular_vals,
                     T* mu,
                     const paramsPCAMG prms,
@@ -279,7 +276,7 @@ void transform_impl(raft::handle_t& handle,
                     std::uint32_t n_streams,
                     bool verbose)
 {
-  std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
+  std::vector<MLCommon::Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
 
   if (prms.whiten) {
     T scalar = T(sqrt(prms.n_rows - 1));
@@ -343,11 +340,11 @@ void transform_impl(raft::handle_t& handle,
  */
 template <typename T>
 void transform_impl(raft::handle_t& handle,
-                    Matrix::RankSizePair** rank_sizes,
+                    MLCommon::Matrix::RankSizePair** rank_sizes,
                     std::uint32_t n_parts,
-                    Matrix::Data<T>** input,
+                    MLCommon::Matrix::Data<T>** input,
                     T* components,
-                    Matrix::Data<T>** trans_input,
+                    MLCommon::Matrix::Data<T>** trans_input,
                     T* singular_vals,
                     T* mu,
                     paramsPCAMG prms,
@@ -358,10 +355,10 @@ void transform_impl(raft::handle_t& handle,
 
   int rank = handle.get_comms().get_rank();
 
-  std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
-  std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
-  Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes, rank);
-  std::vector<Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
+  std::vector<MLCommon::Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
+  std::vector<MLCommon::Matrix::Data<T>*> input_data(input, input + n_parts);
+  MLCommon::Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes, rank);
+  std::vector<MLCommon::Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
 
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
@@ -393,10 +390,10 @@ void transform_impl(raft::handle_t& handle,
 
 template <typename T>
 void inverse_transform_impl(raft::handle_t& handle,
-                            std::vector<Matrix::Data<T>*>& trans_input,
-                            Matrix::PartDescriptor trans_input_desc,
+                            std::vector<MLCommon::Matrix::Data<T>*>& trans_input,
+                            MLCommon::Matrix::PartDescriptor trans_input_desc,
                             T* components,
-                            std::vector<Matrix::Data<T>*>& input,
+                            std::vector<MLCommon::Matrix::Data<T>*>& input,
                             T* singular_vals,
                             T* mu,
                             paramsPCAMG prms,
@@ -404,7 +401,7 @@ void inverse_transform_impl(raft::handle_t& handle,
                             std::uint32_t n_streams,
                             bool verbose)
 {
-  std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
+  std::vector<MLCommon::Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
   if (prms.whiten) {
     T scalar = T(1 / sqrt(prms.n_rows - 1));
@@ -465,11 +462,11 @@ void inverse_transform_impl(raft::handle_t& handle,
  */
 template <typename T>
 void inverse_transform_impl(raft::handle_t& handle,
-                            Matrix::RankSizePair** rank_sizes,
+                            MLCommon::Matrix::RankSizePair** rank_sizes,
                             std::uint32_t n_parts,
-                            Matrix::Data<T>** trans_input,
+                            MLCommon::Matrix::Data<T>** trans_input,
                             T* components,
-                            Matrix::Data<T>** input,
+                            MLCommon::Matrix::Data<T>** input,
                             T* singular_vals,
                             T* mu,
                             paramsPCAMG prms,
@@ -477,11 +474,11 @@ void inverse_transform_impl(raft::handle_t& handle,
 {
   int rank = handle.get_comms().get_rank();
 
-  std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
-  Matrix::PartDescriptor trans_desc(prms.n_rows, prms.n_components, ranksAndSizes, rank);
-  std::vector<Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
+  std::vector<MLCommon::Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
+  MLCommon::Matrix::PartDescriptor trans_desc(prms.n_rows, prms.n_components, ranksAndSizes, rank);
+  std::vector<MLCommon::Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
 
-  std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
+  std::vector<MLCommon::Matrix::Data<T>*> input_data(input, input + n_parts);
 
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
@@ -529,10 +526,10 @@ void inverse_transform_impl(raft::handle_t& handle,
  */
 template <typename T>
 void fit_transform_impl(raft::handle_t& handle,
-                        Matrix::RankSizePair** rank_sizes,
+                        MLCommon::Matrix::RankSizePair** rank_sizes,
                         std::uint32_t n_parts,
-                        Matrix::Data<T>** input,
-                        Matrix::Data<T>** trans_input,
+                        MLCommon::Matrix::Data<T>** input,
+                        MLCommon::Matrix::Data<T>** trans_input,
                         T* components,
                         T* explained_var,
                         T* explained_var_ratio,
@@ -545,10 +542,10 @@ void fit_transform_impl(raft::handle_t& handle,
 {
   int rank = handle.get_comms().get_rank();
 
-  std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
-  std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
-  Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes, rank);
-  std::vector<Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
+  std::vector<MLCommon::Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
+  std::vector<MLCommon::Matrix::Data<T>*> input_data(input, input + n_parts);
+  MLCommon::Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes, rank);
+  std::vector<MLCommon::Matrix::Data<T>*> trans_data(trans_input, trans_input + n_parts);
 
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
@@ -594,8 +591,8 @@ void fit_transform_impl(raft::handle_t& handle,
 }
 
 void fit(raft::handle_t& handle,
-         std::vector<Matrix::Data<float>*>& input_data,
-         Matrix::PartDescriptor& input_desc,
+         std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
          float* components,
          float* explained_var,
          float* explained_var_ratio,
@@ -621,8 +618,8 @@ void fit(raft::handle_t& handle,
 }
 
 void fit(raft::handle_t& handle,
-         std::vector<Matrix::Data<double>*>& input_data,
-         Matrix::PartDescriptor& input_desc,
+         std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
          double* components,
          double* explained_var,
          double* explained_var_ratio,
@@ -648,10 +645,10 @@ void fit(raft::handle_t& handle,
 }
 
 void fit_transform(raft::handle_t& handle,
-                   Matrix::RankSizePair** rank_sizes,
+                   MLCommon::Matrix::RankSizePair** rank_sizes,
                    std::uint32_t n_parts,
-                   Matrix::floatData_t** input,
-                   Matrix::floatData_t** trans_input,
+                   MLCommon::Matrix::floatData_t** input,
+                   MLCommon::Matrix::floatData_t** trans_input,
                    float* components,
                    float* explained_var,
                    float* explained_var_ratio,
@@ -679,10 +676,10 @@ void fit_transform(raft::handle_t& handle,
 }
 
 void fit_transform(raft::handle_t& handle,
-                   Matrix::RankSizePair** rank_sizes,
+                   MLCommon::Matrix::RankSizePair** rank_sizes,
                    std::uint32_t n_parts,
-                   Matrix::doubleData_t** input,
-                   Matrix::doubleData_t** trans_input,
+                   MLCommon::Matrix::doubleData_t** input,
+                   MLCommon::Matrix::doubleData_t** trans_input,
                    double* components,
                    double* explained_var,
                    double* explained_var_ratio,
@@ -710,11 +707,11 @@ void fit_transform(raft::handle_t& handle,
 }
 
 void transform(raft::handle_t& handle,
-               Matrix::RankSizePair** rank_sizes,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
                std::uint32_t n_parts,
-               Matrix::Data<float>** input,
+               MLCommon::Matrix::Data<float>** input,
                float* components,
-               Matrix::Data<float>** trans_input,
+               MLCommon::Matrix::Data<float>** trans_input,
                float* singular_vals,
                float* mu,
                paramsPCAMG prms,
@@ -725,11 +722,11 @@ void transform(raft::handle_t& handle,
 }
 
 void transform(raft::handle_t& handle,
-               Matrix::RankSizePair** rank_sizes,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
                std::uint32_t n_parts,
-               Matrix::Data<double>** input,
+               MLCommon::Matrix::Data<double>** input,
                double* components,
-               Matrix::Data<double>** trans_input,
+               MLCommon::Matrix::Data<double>** trans_input,
                double* singular_vals,
                double* mu,
                paramsPCAMG prms,
@@ -740,11 +737,11 @@ void transform(raft::handle_t& handle,
 }
 
 void inverse_transform(raft::handle_t& handle,
-                       Matrix::RankSizePair** rank_sizes,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
                        std::uint32_t n_parts,
-                       Matrix::Data<float>** trans_input,
+                       MLCommon::Matrix::Data<float>** trans_input,
                        float* components,
-                       Matrix::Data<float>** input,
+                       MLCommon::Matrix::Data<float>** input,
                        float* singular_vals,
                        float* mu,
                        paramsPCAMG prms,
@@ -755,11 +752,11 @@ void inverse_transform(raft::handle_t& handle,
 }
 
 void inverse_transform(raft::handle_t& handle,
-                       Matrix::RankSizePair** rank_sizes,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
                        std::uint32_t n_parts,
-                       Matrix::Data<double>** trans_input,
+                       MLCommon::Matrix::Data<double>** trans_input,
                        double* components,
-                       Matrix::Data<double>** input,
+                       MLCommon::Matrix::Data<double>** input,
                        double* singular_vals,
                        double* mu,
                        paramsPCAMG prms,
