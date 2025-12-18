@@ -5,10 +5,27 @@
 import cudf
 import cupy as cp
 import numpy as np
+import pylibraft.common.handle
 import pytest
 
 from cuml import LinearRegression as cuLR
 from cuml.explainer.base import SHAPBase
+
+
+def test_handle_deprecated():
+    bg = np.arange(10).reshape(5, 2).astype(np.float32)
+    y = np.arange(5).astype(np.float32)
+    bg_df = cudf.DataFrame(bg)
+    model = cuLR().fit(bg, y)
+
+    handle = pylibraft.common.handle.Handle()
+
+    with pytest.warns(FutureWarning, match="handle"):
+        explainer = SHAPBase(
+            model=model.predict, background=bg_df, handle=handle
+        )
+
+    assert explainer.handle is handle
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, None])
