@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "matrix_utils.hpp"
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
 
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "norm.hpp"
+#include <cuml/prims/opg/linalg/norm.hpp>
 
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>

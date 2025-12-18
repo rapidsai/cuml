@@ -63,3 +63,4 @@ void mean_add(const std::vector<Matrix::Data<float>*>& data,
 }  // end namespace opg
 }  // end namespace Stats
 }  // end namespace MLCommon
+

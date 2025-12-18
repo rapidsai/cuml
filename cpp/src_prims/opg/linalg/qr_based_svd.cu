@@ -2,10 +2,10 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "../matrix/matrix_utils.hpp"
-#include "gemm.hpp"
-#include "qr.hpp"
-#include "qr_based_svd.hpp"
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
+#include <cuml/prims/opg/linalg/gemm.hpp>
+#include <cuml/prims/opg/linalg/qr.hpp>
+#include <cuml/prims/opg/linalg/qr_based_svd.hpp>
 
 #include <raft/linalg/svd.cuh>
 

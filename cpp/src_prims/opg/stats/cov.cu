@@ -2,15 +2,15 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "../linalg/mm_aTa.hpp"
-#include "cov.hpp"
-#include "mean_center.hpp"
+#include <cuml/prims/opg/linalg/mm_aTa.hpp>
+#include <cuml/prims/opg/stats/cov.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
 
 #include <raft/linalg/divide.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
-#include <opg/comm_utils.h>
+#include <cuml/prims/opg/comm_utils.h>
 
 namespace MLCommon {
 namespace Stats {

@@ -15,8 +15,8 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuvs/neighbors/knn_merge_parts.hpp>
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 #include <selection/knn.cuh>
 
 #include <cstddef>

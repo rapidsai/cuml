@@ -14,10 +14,10 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <opg/linalg/norm.hpp>
-#include <opg/matrix/math.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
+#include <cuml/prims/opg/linalg/norm.hpp>
+#include <cuml/prims/opg/matrix/math.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
 
 using namespace ML;
 using namespace MLCommon;

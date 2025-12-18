@@ -13,8 +13,8 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/stats/mean.hpp>
+#include <cuml/prims/opg/linalg/lstsq.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
 
 #include <cstddef>
 

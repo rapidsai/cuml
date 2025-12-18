@@ -7,8 +7,8 @@
 
 #include "pca.hpp"
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace PCA {

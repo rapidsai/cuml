@@ -37,3 +37,4 @@ void allreduce_single_sum(T* out,
 
 };  // end namespace opg
 };  // end namespace MLCommon
+

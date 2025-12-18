@@ -17,10 +17,10 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
-#include <opg/stats/stddev.hpp>
+#include <cuml/prims/opg/linalg/mm_aTa.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
+#include <cuml/prims/opg/stats/stddev.hpp>
 
 #include <cstddef>
 

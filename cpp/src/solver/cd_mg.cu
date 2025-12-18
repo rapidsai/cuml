@@ -21,8 +21,8 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <functions/softThres.cuh>
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/norm.hpp>
+#include <cuml/prims/opg/linalg/mv_aTb.hpp>
+#include <cuml/prims/opg/linalg/norm.hpp>
 
 #include <cstddef>
 

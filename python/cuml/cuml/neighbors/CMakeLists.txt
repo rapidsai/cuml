@@ -21,11 +21,3 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_mg_libraries}" MODULE_PREFIX neighbors_
 )
-
-if(NOT SINGLEGPU)
-  target_include_directories(
-    neighbors_kneighbors_classifier_mg PRIVATE "../../../../cpp/src_prims/"
-  )
-  target_include_directories(neighbors_kneighbors_regressor_mg PRIVATE "../../../../cpp/src_prims/")
-  target_include_directories(neighbors_nearest_neighbors_mg PRIVATE "../../../../cpp/src_prims/")
-endif()

@@ -18,10 +18,6 @@ rapids_cython_create_modules(
   LINKED_LIBRARIES "${cuml_mg_libraries}" MODULE_PREFIX common_
 )
 
-if(NOT SINGLEGPU)
-  target_include_directories(common_opg_data_utils_mg PRIVATE "../../../../cpp/src_prims/")
-endif()
-
 if(${CUML_UNIVERSAL})
   # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality moved to
   # another file, pointer_utils.pyx needs it https://github.com/rapidsai/cuml/issues/4841

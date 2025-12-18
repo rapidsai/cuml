@@ -13,8 +13,8 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
-#include <opg/linalg/gemm.hpp>
-#include <opg/matrix/matrix_utils.hpp>
+#include <cuml/prims/opg/linalg/gemm.hpp>
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
 #include <test_utils.h>
 
 namespace MLCommon {

@@ -17,11 +17,11 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <opg/linalg/qr_based_svd.hpp>
-#include <opg/matrix/matrix_utils.hpp>
-#include <opg/stats/cov.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
+#include <cuml/prims/opg/linalg/qr_based_svd.hpp>
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
+#include <cuml/prims/opg/stats/cov.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
 
 #include <cstddef>
 

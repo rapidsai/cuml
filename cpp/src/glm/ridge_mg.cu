@@ -15,9 +15,9 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/svd.hpp>
-#include <opg/stats/mean.hpp>
+#include <cuml/prims/opg/linalg/mv_aTb.hpp>
+#include <cuml/prims/opg/linalg/svd.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
 
 #include <cstddef>
 

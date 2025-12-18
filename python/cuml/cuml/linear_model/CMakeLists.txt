@@ -21,12 +21,3 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_mg_libraries}" MODULE_PREFIX linear_model_
 )
-
-if(NOT SINGLEGPU)
-  target_include_directories(linear_model_base_mg PRIVATE "../../../../cpp/src_prims/")
-  target_include_directories(linear_model_linear_regression_mg PRIVATE "../../../../cpp/src_prims/")
-  target_include_directories(
-    linear_model_logistic_regression_mg PRIVATE "../../../../cpp/src_prims/"
-  )
-  target_include_directories(linear_model_ridge_mg PRIVATE "../../../../cpp/src_prims/")
-endif()

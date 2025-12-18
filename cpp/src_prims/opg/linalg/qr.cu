@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../matrix/matrix_utils.hpp"
-#include "gemm.hpp"
-#include "qr.hpp"
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
+#include <cuml/prims/opg/linalg/gemm.hpp>
+#include <cuml/prims/opg/linalg/qr.hpp>
 
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>

@@ -25,17 +25,19 @@ namespace opg {
  * @input param n_streams: number of streams
  * @input param handle: cublas handle
  */
-void mm_aTa(const raft::handle_t& handle,
+void mv_aTb(const raft::handle_t& handle,
             Matrix::Data<double>& out,
-            const std::vector<Matrix::Data<double>*>& in1,
-            const Matrix::PartDescriptor& in1Desc,
+            const std::vector<Matrix::Data<double>*>& A,
+            const Matrix::PartDescriptor& ADesc,
+            const std::vector<Matrix::Data<double>*>& b,
             cudaStream_t* streams,
             int n_streams);
 
-void mm_aTa(const raft::handle_t& handle,
+void mv_aTb(const raft::handle_t& handle,
             Matrix::Data<float>& out,
-            const std::vector<Matrix::Data<float>*>& in1,
-            const Matrix::PartDescriptor& in1Desc,
+            const std::vector<Matrix::Data<float>*>& A,
+            const Matrix::PartDescriptor& ADesc,
+            const std::vector<Matrix::Data<float>*>& b,
             cudaStream_t* streams,
             int n_streams);
 /** @} */
@@ -43,3 +45,4 @@ void mm_aTa(const raft::handle_t& handle,
 }  // end namespace opg
 }  // end namespace LinAlg
 }  // end namespace MLCommon
+

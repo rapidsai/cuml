@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "data.hpp"
-#include "part_descriptor.hpp"
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 #include <raft/util/cuda_utils.cuh>
 
