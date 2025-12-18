@@ -6,10 +6,10 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.weights import compute_weights
 
@@ -246,7 +246,8 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors)
             y_ptr = <float*><uintptr_t>col.ptr
             y_vec.push_back(y_ptr)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)
         weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
@@ -268,6 +269,6 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors)
                 weights_ctype
             )
 
-        self.handle.sync()
+        handle.sync()
 
         return out

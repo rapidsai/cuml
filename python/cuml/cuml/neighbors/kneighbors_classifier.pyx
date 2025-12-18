@@ -11,6 +11,7 @@ import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import get_handle
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
@@ -252,7 +253,8 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
@@ -268,7 +270,7 @@ class KNeighborsClassifier(ClassifierMixin,
                 weights_ptr
             )
 
-        self.handle.sync()
+        handle.sync()
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
@@ -331,7 +333,8 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
@@ -346,5 +349,5 @@ class KNeighborsClassifier(ClassifierMixin,
                 n_neighbors,
                 weights_ptr
             )
-        self.handle.sync()
+        handle.sync()
         return probas[0] if len(probas) == 1 else probas
