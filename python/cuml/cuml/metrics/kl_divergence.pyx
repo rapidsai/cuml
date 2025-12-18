@@ -44,7 +44,12 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     convert_dtype : bool, optional (default = True)
         When set to True, the method will, convert P and

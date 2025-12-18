@@ -138,8 +138,12 @@ def make_regression(
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'.
-    handle: cuml.Handle
-        If it is None, a new one is created just for this function call
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------

@@ -424,13 +424,13 @@ class ForestInference(Base, CMajorInputTagMixin):
         LightGBM, cuML, Scikit-Learn, or any other forest model framework
         so long as it can be loaded into a treelite.Model object (See
         https://treelite.readthedocs.io/en/latest/treelite-api.html).
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -769,9 +769,12 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : pylibraft.common.handle or None
-            For GPU execution, the RAFT handle containing the stream or stream
-            pool to use during loading and inference.
+        handle : cuml.Handle or None, default=None
+
+            .. deprecated:: 26.02
+                The `handle` argument was deprecated in 26.02 and will be removed
+                in 26.04. There's no need to pass in a handle, cuml now manages
+                this resource automatically.
         """
         if model_type is None:
             extension = pathlib.Path(path).suffix
@@ -879,9 +882,12 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : pylibraft.common.handle or None
-            For GPU execution, the RAFT handle containing the stream or stream
-            pool to use during loading and inference.
+        handle : cuml.Handle or None, default=None
+
+            .. deprecated:: 26.02
+                The `handle` argument was deprecated in 26.02 and will be removed
+                in 26.04. There's no need to pass in a handle, cuml now manages
+                this resource automatically.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
@@ -967,9 +973,12 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : pylibraft.common.handle or None
-            For GPU execution, the RAFT handle containing the stream or stream
-            pool to use during loading and inference.
+        handle : cuml.Handle or None, default=None
+
+            .. deprecated:: 26.02
+                The `handle` argument was deprecated in 26.02 and will be removed
+                in 26.04. There's no need to pass in a handle, cuml now manages
+                this resource automatically.
         """
         return cls(
             treelite_model=tl_model,

@@ -27,11 +27,16 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
 
     Parameters
     ----------
-        labels_true : Ground truth labels to be used as a reference
+    labels_true : Ground truth labels to be used as a reference
 
-        labels_pred : Array of predicted labels used to evaluate the model
+    labels_pred : Array of predicted labels used to evaluate the model
 
-        handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------

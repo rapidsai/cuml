@@ -82,9 +82,12 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'
+    handle : cuml.Handle or None, default=None
 
-    handle: cuml.Handle
-        If it is None, a new one is created just for this function call
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------

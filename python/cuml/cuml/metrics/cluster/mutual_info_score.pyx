@@ -40,7 +40,12 @@ def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
 
     Parameters
     ----------
-    handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
     labels_pred : array-like (device or host) shape = (n_samples,)
         A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device

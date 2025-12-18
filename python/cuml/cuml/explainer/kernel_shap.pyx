@@ -102,13 +102,13 @@ class KernelExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : pylibraft.common.handle (default = None)
-        Specifies the handle that holds internal CUDA state for
-        computations in this model, a new one is created if it is None.
-        Most importantly, this specifies the CUDA stream that will be used for
-        the model's computations, so users can run different models
-        concurrently in different streams by creating handles in several
-        streams.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
