@@ -9,6 +9,7 @@ import numpy as np
 
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -232,8 +233,8 @@ class PermutationExplainer(SHAPBase):
         total_timer = time.time()
         inds = cp.arange(self.ncols, dtype=cp.int32)
 
-        cdef handle_t* handle_ = \
-            <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, ds_ptr, shap_ptr, y_hat_ptr
         cdef uintptr_t ds_ptr_f32
         cdef uintptr_t bg_ptr_f32
@@ -286,7 +287,7 @@ class PermutationExplainer(SHAPBase):
                 # Cast result back to float64
                 self._synth_data[:] = synth_data_f32.astype(cp.float64)
 
-            self.handle.sync()
+            handle.sync()
 
             # evaluate model on combinations
             model_timer = time.time()
@@ -338,7 +339,7 @@ class PermutationExplainer(SHAPBase):
                     # Cast result back to float64
                     shap_values[i][idx] = shap_values_f32.astype(cp.float64)
 
-                self.handle.sync()
+                handle.sync()
 
         for i in range(self.model_dimensions):
             shap_values[i][idx] = shap_values[i][idx] / (2 * npermutations)
