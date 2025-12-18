@@ -6,7 +6,7 @@ import numpy as np
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -240,7 +240,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             ).array
 
         coef, intercept, n_iter, _ = cuml.svm.linear.fit(
-            self.handle,
+            get_handle(model=self),
             X,
             y,
             sample_weight=sample_weight,

@@ -14,7 +14,7 @@ from cuml.common.classification import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -70,6 +70,8 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     lbfgs_memory : int, default=5
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
+    n_streams : int (default = 1)
+        Number of parallel streams used for fitting.
     multi_class : {'ovr'}, default='ovr'
         Multiclass classification strategy. Currently only 'ovr' is supported.
     handle : cuml.Handle
@@ -149,6 +151,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "max_iter",
             "linesearch_max_iter",
             "lbfgs_memory",
+            "n_streams",
             "multi_class",
         ]
 
@@ -221,6 +224,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         max_iter=1000,
         linesearch_max_iter=100,
         lbfgs_memory=5,
+        n_streams=1,
         multi_class="ovr",
         handle=None,
         verbose=False,
@@ -241,6 +245,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
+        self.n_streams = n_streams
         self.multi_class = multi_class
 
     @generate_docstring()
@@ -267,7 +272,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         )
 
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
-            self.handle,
+            get_handle(model=self, n_streams=self.n_streams),
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
             sample_weight=sample_weight,
@@ -349,7 +354,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             order="C",
         ).array
         return cuml.svm.linear.compute_probabilities(
-            self.handle, scores, self.prob_scale_
+            get_handle(model=self, n_streams=self.n_streams),
+            scores,
+            self.prob_scale_,
         )
 
     @generate_docstring(
