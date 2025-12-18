@@ -42,4 +42,3 @@ typedef Data<double> doubleData_t;
 
 };  // end namespace Matrix
 };  // end namespace MLCommon
-

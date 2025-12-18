@@ -6,6 +6,8 @@
 #include "shuffle.h"
 
 #include <cuml/linear_model/preprocess_mg.hpp>
+#include <cuml/prims/opg/linalg/mv_aTb.hpp>
+#include <cuml/prims/opg/linalg/norm.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
 #include <raft/core/comms.hpp>
@@ -21,8 +23,6 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <functions/softThres.cuh>
-#include <cuml/prims/opg/linalg/mv_aTb.hpp>
-#include <cuml/prims/opg/linalg/norm.hpp>
 
 #include <cstddef>
 

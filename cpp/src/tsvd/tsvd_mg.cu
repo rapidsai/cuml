@@ -8,6 +8,10 @@
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
+#include <cuml/prims/opg/linalg/mm_aTa.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
+#include <cuml/prims/opg/stats/stddev.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
@@ -16,11 +20,6 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/prims/opg/linalg/mm_aTa.hpp>
-#include <cuml/prims/opg/stats/mean.hpp>
-#include <cuml/prims/opg/stats/mean_center.hpp>
-#include <cuml/prims/opg/stats/stddev.hpp>
 
 #include <cstddef>
 

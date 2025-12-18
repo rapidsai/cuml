@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/prims/opg/comm_utils.h>
 #include <cuml/prims/opg/stats/stddev.hpp>
 
 #include <raft/linalg/divide.cuh>
@@ -12,8 +13,6 @@
 #include <raft/stats/sum.cuh>
 
 #include <rmm/device_uvector.hpp>
-
-#include <cuml/prims/opg/comm_utils.h>
 
 namespace MLCommon {
 namespace Stats {

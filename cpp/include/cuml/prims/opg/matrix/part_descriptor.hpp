@@ -97,4 +97,3 @@ bool operator==(const PartDescriptor& a, const PartDescriptor& b);
 
 };  // end namespace Matrix
 };  // end namespace MLCommon
-

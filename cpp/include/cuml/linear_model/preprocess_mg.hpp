@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <raft/core/comms.hpp>
-#include <raft/core/handle.hpp>
-
 #include <cuml/prims/opg/matrix/data.hpp>
 #include <cuml/prims/opg/matrix/part_descriptor.hpp>
+
+#include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace GLM {

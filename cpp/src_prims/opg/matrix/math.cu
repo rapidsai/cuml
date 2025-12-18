@@ -3,13 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/prims/opg/comm_utils.h>
 #include <cuml/prims/opg/matrix/math.hpp>
 
 #include <raft/linalg/divide.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-
-#include <cuml/prims/opg/comm_utils.h>
 
 namespace MLCommon {
 namespace Matrix {

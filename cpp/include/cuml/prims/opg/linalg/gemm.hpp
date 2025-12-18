@@ -59,4 +59,3 @@ void gemm(const raft::handle_t& h,
 }  // end namespace opg
 }  // end namespace LinAlg
 }  // end namespace MLCommon
-

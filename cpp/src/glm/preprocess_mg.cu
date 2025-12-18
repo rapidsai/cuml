@@ -4,6 +4,10 @@
  */
 
 #include <cuml/linear_model/preprocess_mg.hpp>
+#include <cuml/prims/opg/linalg/norm.hpp>
+#include <cuml/prims/opg/matrix/math.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -13,11 +17,6 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
-
-#include <cuml/prims/opg/linalg/norm.hpp>
-#include <cuml/prims/opg/matrix/math.hpp>
-#include <cuml/prims/opg/stats/mean.hpp>
-#include <cuml/prims/opg/stats/mean_center.hpp>
 
 using namespace ML;
 using namespace MLCommon;

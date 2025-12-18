@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <cuml/prims/opg/comm_utils.h>
 #include <cuml/prims/opg/linalg/mv_aTb.hpp>
 
 #include <raft/linalg/add.cuh>
@@ -10,8 +11,6 @@
 #include <raft/matrix/matrix.cuh>
 
 #include <rmm/device_uvector.hpp>
-
-#include <cuml/prims/opg/comm_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

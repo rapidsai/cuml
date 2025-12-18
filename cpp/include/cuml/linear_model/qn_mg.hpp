@@ -5,13 +5,12 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 #include <raft/core/comms.hpp>
 
 #include <cuda_runtime.h>
-
-#include <cuml/prims/opg/matrix/data.hpp>
-#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 #include <vector>
 using namespace ML;

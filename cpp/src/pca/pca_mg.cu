@@ -8,6 +8,11 @@
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
+#include <cuml/prims/opg/linalg/qr_based_svd.hpp>
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
+#include <cuml/prims/opg/stats/cov.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
@@ -16,12 +21,6 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/prims/opg/linalg/qr_based_svd.hpp>
-#include <cuml/prims/opg/matrix/matrix_utils.hpp>
-#include <cuml/prims/opg/stats/cov.hpp>
-#include <cuml/prims/opg/stats/mean.hpp>
-#include <cuml/prims/opg/stats/mean_center.hpp>
 
 #include <cstddef>
 

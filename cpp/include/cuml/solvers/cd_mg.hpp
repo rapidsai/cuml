@@ -6,7 +6,6 @@
 #pragma once
 
 #include <cuml/linear_model/glm.hpp>
-
 #include <cuml/prims/opg/matrix/data.hpp>
 #include <cuml/prims/opg/matrix/part_descriptor.hpp>
 

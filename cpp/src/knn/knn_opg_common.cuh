@@ -8,6 +8,8 @@
 #include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
@@ -15,8 +17,6 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuvs/neighbors/knn_merge_parts.hpp>
-#include <cuml/prims/opg/matrix/data.hpp>
-#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 #include <selection/knn.cuh>
 
 #include <cstddef>

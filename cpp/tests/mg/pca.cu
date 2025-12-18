@@ -7,14 +7,14 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+#include <cuml/prims/opg/linalg/gemm.hpp>
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
-#include <cuml/prims/opg/linalg/gemm.hpp>
-#include <cuml/prims/opg/matrix/matrix_utils.hpp>
 #include <test_utils.h>
 
 namespace MLCommon {

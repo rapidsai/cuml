@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/prims/opg/comm_utils.h>
 #include <cuml/prims/opg/linalg/mm_aTa.hpp>
 #include <cuml/prims/opg/linalg/svd.hpp>
 
@@ -12,8 +13,6 @@
 #include <raft/matrix/matrix.cuh>
 
 #include <rmm/device_uvector.hpp>
-
-#include <cuml/prims/opg/comm_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
