@@ -24,6 +24,7 @@ from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
+from libcpp.optional cimport nullopt, optional
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
@@ -43,7 +44,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         int n_neighbors
         bool norm_laplacian
         bool drop_first
-        uint64_t seed
+        optional[uint64_t] seed
 
     cdef void transform(
         const device_resources &handle,
@@ -216,7 +217,13 @@ def spectral_embedding(A,
     )
 
     cdef params config
-    config.seed = check_random_seed(random_state)
+    cdef uint64_t seed_value
+    # No seed use nullopt (non-deterministic) or set user seed (deterministic)
+    if random_state is None:
+        config.seed = nullopt
+    else:
+        seed_value = check_random_seed(random_state)
+        config.seed = seed_value
     config.norm_laplacian = norm_laplacian
     config.drop_first = drop_first
     config.n_components = n_components + 1 if drop_first else n_components

@@ -47,9 +47,9 @@ if(BUILD_CUML_BENCH)
   set_target_properties(
     ${CUML_CPP_BENCH_TARGET}
     PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
   )
 

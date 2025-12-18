@@ -4,7 +4,6 @@
 import numpy as np
 
 from cuml.internals import run_in_internal_context
-from cuml.linear_model.base import check_deprecated_normalize
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model.linear_regression import Algo, LinearRegression
 
@@ -25,7 +24,6 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
                   float *coef,
                   float *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -36,7 +34,6 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
                   double *coef,
                   double *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -44,8 +41,6 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
 class LinearRegressionMG(MGFitMixin, LinearRegression):
     @run_in_internal_context
     def _fit(self, X, y, coef_ptr, input_desc):
-        check_deprecated_normalize(self)
-
         cdef int algo = (
             Algo.EIG if self.algorithm == "auto" else Algo.parse(self.algorithm)
         )
@@ -62,7 +57,6 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <float*><size_t>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
-                <bool>self.normalize,
                 algo,
                 False)
 
@@ -76,7 +70,6 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <double*><size_t>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
-                <bool>self.normalize,
                 algo,
                 False)
 
