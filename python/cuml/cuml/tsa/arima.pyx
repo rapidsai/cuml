@@ -9,7 +9,7 @@ import numpy as np
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, nvtx, reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
@@ -390,7 +390,8 @@ class ARIMA(Base):
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef uintptr_t d_exog_ptr
         cdef uintptr_t d_exog_diff_ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef ARIMAOrder cpp_order_diff = self.order
 
         # Detect missing observations
@@ -436,7 +437,8 @@ class ARIMA(Base):
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
@@ -663,7 +665,8 @@ class ARIMA(Base):
             raise ValueError("A value was given for `exog` but only in-sample"
                              " predictions were requested")
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         predict_size = end - start
 
         # Future values of the exogenous variables
@@ -813,7 +816,8 @@ class ARIMA(Base):
         cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
         if order.n_exog:
             d_exog_ptr = self.d_exog.ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call C++ function
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
@@ -969,7 +973,8 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
 
@@ -1046,7 +1051,8 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -1074,7 +1080,8 @@ class ARIMA(Base):
         # as it uses the device parameter arrays and not a host vector.
         # Also, it always uses the MLE method, trans=False and truncate=0
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
@@ -1124,7 +1131,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self._create_arrays()
 
@@ -1153,7 +1161,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -1187,7 +1196,8 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         N = self.complexity
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr

@@ -8,7 +8,7 @@ import numpy as np
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.outputs import run_in_internal_context
 
@@ -298,7 +298,8 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
         self.level = CumlArray.zeros(components_len, dtype=self.dtype)
@@ -343,7 +344,7 @@ class ExponentialSmoothing(Base):
             self.season = self.season.reshape((self.ts_num, num_rows),
                                               order='F')
 
-        self.handle.sync()
+        handle.sync()
         self.fit_executed_flag = True
         return self
 
@@ -369,7 +370,8 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         if not isinstance(h, int) or (not isinstance(index, int) and index is not None):
             raise TypeError("Input arguments must be of type int."
@@ -414,7 +416,7 @@ class ExponentialSmoothing(Base):
                     self.forecasted_points =\
                         self.forecasted_points.reshape((self.ts_num, h),
                                                        order='F')
-                self.handle.sync()
+                handle.sync()
 
             if index is None:
                 if self.ts_num == 1:

@@ -2,11 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
-from cuml.internals.outputs import reflect
-
-# TODO: #2234 and #2235
 
 
 def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
@@ -60,6 +58,9 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
                 s
             )
         )
+    # `handle` is fully unused in this function - calling `get_handle` here just
+    # to raise the uniform deprecation warning
+    get_handle(handle=handle)
 
     # At the moment we use a host array
     h_y, n_obs, batch_size, _ = input_to_host_array(
@@ -68,7 +69,6 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
         check_dtype=[np.float32, np.float64],
     )
 
-    # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
     d_res, *_ = input_to_cuml_array(
         np.array(python_res),
