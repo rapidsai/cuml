@@ -329,6 +329,11 @@ def test_handle_deprecated(cls):
         assert "n_streams" in str(rec[0].message)
 
 
+def test_cuml_handle_deprecated():
+    with pytest.warns(FutureWarning, match="cuml.Handle"):
+        assert cuml.Handle is pylibraft.common.handle.Handle
+
+
 def test_get_handle():
     # Threadlocal is cached
     assert get_handle() is get_handle()
