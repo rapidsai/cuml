@@ -26,7 +26,8 @@ class DeprecatedHandleDescriptor:
     """A descriptor to ease deprecating the `handle` parameter."""
 
     def __set__(self, obj, value):
-        if value is not None:
+        # Only warn if set to non-None on *non-multiGPU classes*
+        if value is not None and not type(obj).__name__.endswith("MG"):
             params = obj._get_param_names() if isinstance(obj, Base) else []
             if "n_streams" in params:
                 suffix = (

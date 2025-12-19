@@ -294,6 +294,7 @@ def test_common_signatures(cls, method):
         for cls in all_base_children.values()
         if not (
             "Base" in cls.__name__
+            or cls.__name__.endswith("MG")
             or cls.__module__.startswith("cuml.tsa")
             or cls.__name__ in ["ColumnTransformer"]
         )
