@@ -397,16 +397,19 @@ class BaseRandomForestModel(Base, InteropMixin):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        return ForestInference(
-            handle=self.handle,
-            verbose=self.verbose,
-            output_type=self.output_type,
-            treelite_model=self._treelite_model_bytes,
-            is_classifier=(self._estimator_type == "classifier"),
-            layout=layout,
-            default_chunk_size=default_chunk_size,
-            align_bytes=align_bytes,
-        )
+        with warnings.catch_warnings():
+            # Ignore potential handle deprecation warning
+            warnings.simplefilter("ignore", category=FutureWarning)
+            return ForestInference(
+                handle=self.handle,
+                verbose=self.verbose,
+                output_type=self.output_type,
+                treelite_model=self._treelite_model_bytes,
+                is_classifier=(self._estimator_type == "classifier"),
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+            )
 
     def _fit_forest(self, X, y):
         cdef bool is_classifier = self._estimator_type == "classifier"

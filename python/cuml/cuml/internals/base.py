@@ -93,6 +93,7 @@ def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
         return _THREAD_STATE.handle
     elif device_ids is not None:
         if n_streams != 0:
+            # DeviceResourcesSNMG doesn't support `n_streams` at this time
             raise ValueError(
                 "Cannot specify both `device_ids` and `n_streams`"
             )
