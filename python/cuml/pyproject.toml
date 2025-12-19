@@ -64,6 +64,8 @@ filterwarnings = [
   "ignore:Estimator .* does not inherit from.*:UserWarning",
   # From numba - GPU under-utilization warnings in tests with small data
   "ignore::numba.core.errors.NumbaPerformanceWarning",
+  # numba-cuda makes use of deprecated cuda.core.experimental apis
+  "ignore:The cuda.core.experimental namespace is deprecated:DeprecationWarning",
   # Allow informational benchmark warnings (pytest-benchmark plugin)
   "default::pytest_benchmark.logger.PytestBenchmarkWarning",
 ]

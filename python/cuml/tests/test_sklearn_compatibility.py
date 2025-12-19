@@ -678,6 +678,7 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_fit1d": "GaussianNB does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "GaussianNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "GaussianNB does not handle y=None",
+        "check_sample_weights_list": "GaussianNB does not handle list sample weights",
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
