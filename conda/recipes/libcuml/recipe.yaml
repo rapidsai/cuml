@@ -77,7 +77,6 @@ cache:
       - librmm =${{ minor_version }}
       - rapids-logger =0.2
       - treelite ${{ treelite_version }}
-      - cuda-cudart-dev
       - libcublas-dev
       - libcufft-dev
       - libcurand-dev
@@ -111,7 +110,6 @@ outputs:
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
-        - cuda-cudart-dev
         - libcublas
         - libcufft
         - libcurand
@@ -119,7 +117,6 @@ outputs:
         - libcusparse
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - cuda-cudart
         - libcublas
         - libcufft
         - libcurand
@@ -132,7 +129,6 @@ outputs:
         - treelite ${{ treelite_version }}
       ignore_run_exports:
         by_name:
-          - cuda-cudart
           - cuda-version
           - flatbuffers
           - libcurand
@@ -162,14 +158,11 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.2
         - ${{ pin_subpackage("libcuml", exact=True) }}
-        - cuda-cudart-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libcuml", exact=True) }}
-        - cuda-cudart
       ignore_run_exports:
         by_name:
-          - cuda-cudart
           - cuda-version
           - libcublas
           - libcufft

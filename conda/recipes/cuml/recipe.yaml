@@ -84,7 +84,6 @@ requirements:
     - rapids-logger =0.2
     - scikit-build-core >=0.10.0
     - treelite ${{ treelite_version }}
-    - cuda-cudart-dev
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0
       else: cuda-python >=13.0.1,<14.0
@@ -106,13 +105,11 @@ requirements:
     - rapids-logger =0.2
     - rich
     - treelite ${{ treelite_version }}
-    - cuda-cudart
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0
       else: cuda-python >=13.0.1,<14.0
   ignore_run_exports:
     by_name:
-      - cuda-cudart
       - cuda-version
 
 about:

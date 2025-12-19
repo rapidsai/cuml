@@ -41,7 +41,7 @@ function(ConfigureTest)
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cudart${_ctk_static_suffix}
+            CUDA::cudart_static
             CUDA::cusparse${_ctk_static_suffix}
             $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
             rmm::rmm
