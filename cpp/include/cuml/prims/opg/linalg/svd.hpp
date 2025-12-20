@@ -34,7 +34,6 @@ void svdEig(const raft::handle_t& handle,
             double* V,
             cudaStream_t* streams,
             int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace LinAlg

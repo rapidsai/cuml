@@ -58,7 +58,6 @@ void mean_add(const std::vector<Matrix::Data<float>*>& data,
               const raft::comms::comms_t& comm,
               cudaStream_t* streams,
               int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace Stats

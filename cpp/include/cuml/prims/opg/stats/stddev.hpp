@@ -39,7 +39,6 @@ void var(const raft::handle_t& handle,
          const double* mu,
          cudaStream_t* streams,
          int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace Stats

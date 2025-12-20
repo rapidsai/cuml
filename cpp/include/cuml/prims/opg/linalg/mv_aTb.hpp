@@ -40,7 +40,6 @@ void mv_aTb(const raft::handle_t& handle,
             const std::vector<Matrix::Data<float>*>& b,
             cudaStream_t* streams,
             int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace LinAlg

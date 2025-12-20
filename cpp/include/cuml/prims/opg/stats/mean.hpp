@@ -37,7 +37,6 @@ void mean(const raft::handle_t& handle,
           const Matrix::PartDescriptor& inDesc,
           cudaStream_t* streams,
           int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace Stats
