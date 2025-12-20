@@ -38,7 +38,6 @@ void mm_aTa(const raft::handle_t& handle,
             const Matrix::PartDescriptor& in1Desc,
             cudaStream_t* streams,
             int n_streams);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace LinAlg
