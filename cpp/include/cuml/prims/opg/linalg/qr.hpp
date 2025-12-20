@@ -21,18 +21,18 @@ namespace opg {
  * described in https://arxiv.org/abs/1301.1071.
  * \param       h               cuML handle object.
  * \param[out]  outQParts       Factor Q of input matrix QR decomposition. Q
-                                matrix is distributed among ranks according to
-                                desc description. The size of Q matrix is
-                                same as size of 'in' matrix, i.e. M x N.
+ *                              matrix is distributed among ranks according to
+ *                              desc description. The size of Q matrix is
+ *                              same as size of 'in' matrix, i.e. M x N.
  * \param[out]  outR            Factor R of input matrix QR decomposition. R is
-                                N x N matrix and is duplicated on all ranks.
-                                Note that, only upper triangular part of outR,
-                                including diagonal, is modified. Lower
-                                triangular part is left as it is.
+ *                              N x N matrix and is duplicated on all ranks.
+ *                              Note that, only upper triangular part of outR,
+ *                              including diagonal, is modified. Lower
+ *                              triangular part is left as it is.
  * \param[in]   inParts         The tall input matrix, distributed among ranks.
-                                The size of 'in' matrix is M x N, where M > N.
+ *                              The size of 'in' matrix is M x N, where M > N.
  * \param[in]   desc            Description of input matrix. The output matrix
-                                'outQParts' follows the same description.
+ *                              'outQParts' follows the same description.
  * \param       myRank          MPI rank of the process.
  */
 

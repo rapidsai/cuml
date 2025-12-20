@@ -27,8 +27,7 @@ namespace opg {
  * @param stream cuda stream where to launch work
  * @param root worker ID which is supposed to be considered as root
  * @param broadcastResult if false, only root process will have the result,
- *   else all ranks
- * @{
+ *        else all ranks
  */
 void meanSquaredError(double* out,
                       const Matrix::Data<double>& in1,
@@ -48,7 +47,6 @@ void meanSquaredError(float* out,
                       cudaStream_t stream,
                       int root             = 0,
                       bool broadcastResult = true);
-/** @} */
 
 }  // end namespace opg
 }  // end namespace LinAlg

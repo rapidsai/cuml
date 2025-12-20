@@ -18,28 +18,28 @@ namespace opg {
  * \brief       Multi-GPU SVD decomposition for tall (rows >= columns) matrices
  * \param       h             cuML handle object.
  * \param[out]  sVector       A vector of size 1 x N with eigen values of
-                              in matrix.
+ *                            in matrix.
  * \param[out]  uParts        Parts of output U matrix from SVD decomposition
-                              with size M x N. It is distributed among ranks.
-                              Descriptor desc describes the matrix.
+ *                            with size M x N. It is distributed among ranks.
+ *                            Descriptor desc describes the matrix.
  * \param[out]  vMatrix       Full output V matrix from SVD decomposition with
-                              size N x N. It is duplicated on all ranks.
+ *                            size N x N. It is duplicated on all ranks.
  * \param[in]   genUMatrix    Currently ignored.
-                              U matrix is generated only if this is true.
+ *                            U matrix is generated only if this is true.
  * \param[in]   genVMatrix    Currently ignored.
-                              V matrix is generated only if this is true.
+ *                            V matrix is generated only if this is true.
  * \param[in]   tolerance     Error tolerance used for single GPU SVD.
-                              Algorithm stops when the error is below
-                              tolerance
+ *                            Algorithm stops when the error is below
+ *                            tolerance.
  * \param[in]   maxSweeps     Number of sweeps in the single GPU SVD using
-                              Jacobi algorithm. More sweeps provide better
-                              accuracy.
+ *                            Jacobi algorithm. More sweeps provide better
+ *                            accuracy.
  * \param[in]   inParts       Parts of the tall input matrix, distributed among
-                              ranks. The size of in matrix is M x N,
-                              where M >> N.
+ *                            ranks. The size of in matrix is M x N,
+ *                            where M >> N.
  * \param[in]   desc          Descriptor of in matrix (inParts) and U matrix
-                              (uParts).
- * \param       myRank        MPI rank of the process
+ *                            (uParts).
+ * \param       myRank        MPI rank of the process.
  */
 
 void svdQR(const raft::handle_t& h,

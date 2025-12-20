@@ -15,15 +15,15 @@ namespace LinAlg {
 namespace opg {
 
 /**
- * @brief performs MNMG A^T x A calculation.
- * @output param out: resulting A^T x A matrix
- * @input param A: input data
- * @input param ADesc: MNMG description of the A
- * @input param comm: communicator
- * @input param allocator: data allocator
- * @input param streams: cuda streams
- * @input param n_streams: number of streams
- * @input param handle: cublas handle
+ * @brief performs MNMG A^T x b calculation.
+ * @param[out] out resulting A^T x b matrix
+ * @param[in] A input data
+ * @param[in] ADesc MNMG description of the A
+ * @param[in] comm communicator
+ * @param[in] allocator data allocator
+ * @param[in] streams cuda streams
+ * @param[in] n_streams number of streams
+ * @param[in] handle cublas handle
  */
 void mv_aTb(const raft::handle_t& handle,
             Matrix::Data<double>& out,

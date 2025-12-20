@@ -16,15 +16,15 @@ namespace opg {
 
 /**
  * @brief performs MNMG covariance calculation.
- * @output param covar: resulting covariance matrix
- * @input param data: the data that cov matrix is calculated for
- * @input param dataDesc: MNMG description of the input data
- * @input param mu: mean of every column in data
- * @input param comm: communicator
- * @input param allocator: data allocator
- * @input param streams: cuda streams
- * @input param n_streams: number of streams
- * @input param handle: cublas handle
+ * @param[out] covar resulting covariance matrix
+ * @param[in] data the data that cov matrix is calculated for
+ * @param[in] dataDesc MNMG description of the input data
+ * @param[in] mu mean of every column in data
+ * @param[in] comm communicator
+ * @param[in] allocator data allocator
+ * @param[in] streams cuda streams
+ * @param[in] n_streams number of streams
+ * @param[in] handle cublas handle
  */
 void cov(const raft::handle_t& handle,
          Matrix::Data<float>& covar,

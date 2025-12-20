@@ -15,12 +15,12 @@ namespace opg {
 
 /**
  * @brief performs MNMG mean subtraction calculation.
- * @input/output param data: the data that mean of every column is added
- * @input param dataDesc: MNMG description of the input data
- * @input param mu: mean of every column in data
- * @input param comm: communicator
- * @input param streams: cuda streams
- * @input param n_streams: number of streams
+ * @param[in,out] data the data that mean of every column is added
+ * @param[in] dataDesc MNMG description of the input data
+ * @param[in] mu mean of every column in data
+ * @param[in] comm communicator
+ * @param[in] streams cuda streams
+ * @param[in] n_streams number of streams
  */
 void mean_center(const std::vector<Matrix::Data<double>*>& data,
                  const Matrix::PartDescriptor& dataDesc,
@@ -38,12 +38,12 @@ void mean_center(const std::vector<Matrix::Data<float>*>& data,
 
 /**
  * @brief performs MNMG mean add calculation.
- * @input/output param data: the data that mean of every column is added
- * @input param dataDesc: MNMG description of the input data
- * @input param mu: mean of every column in data
- * @input param comm: communicator
- * @input param streams: cuda streams
- * @input param n_streams: number of streams
+ * @param[in,out] data the data that mean of every column is added
+ * @param[in] dataDesc MNMG description of the input data
+ * @param[in] mu mean of every column in data
+ * @param[in] comm communicator
+ * @param[in] streams cuda streams
+ * @param[in] n_streams number of streams
  */
 void mean_add(const std::vector<Matrix::Data<double>*>& data,
               const Matrix::PartDescriptor& dataDesc,
