@@ -57,6 +57,8 @@ struct PartDescriptor {
    * @param _M total number of rows of this matrix
    * @param _N total number of columns
    * @param _partsToRanks mapping of ranks to parts and sizes
+   * @param rank MPI rank of the process
+   * @param _layout data layout (row or column major)
    */
   PartDescriptor(size_t _M,
                  size_t _N,

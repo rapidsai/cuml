@@ -16,18 +16,16 @@ namespace opg {
 
 /**
  * @brief multi-gpu mean squared error
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam TPB threads-per-block
- * @param out the output data (device pointer)
- * @param in1 the first input data
- * @param in1Desc descriptor for the first input data
- * @param in2 the second input data
- * @param in2Desc descriptor for the second input data
- * @param comm the communicator object
- * @param stream cuda stream where to launch work
- * @param root worker ID which is supposed to be considered as root
- * @param broadcastResult if false, only root process will have the result,
- *        else all ranks
+ * @param[out] out the output data (device pointer)
+ * @param[in] in1 the first input data
+ * @param[in] in1Desc descriptor for the first input data
+ * @param[in] in2 the second input data
+ * @param[in] in2Desc descriptor for the second input data
+ * @param[in] comm the communicator object
+ * @param[in] stream cuda stream where to launch work
+ * @param[in] root worker ID which is supposed to be considered as root
+ * @param[in] broadcastResult if false, only root process will have the result,
+ *            else all ranks
  */
 void meanSquaredError(double* out,
                       const Matrix::Data<double>& in1,

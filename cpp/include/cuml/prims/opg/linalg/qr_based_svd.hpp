@@ -19,10 +19,10 @@ namespace opg {
  * \param       h             cuML handle object.
  * \param[out]  sVector       A vector of size 1 x N with eigen values of
  *                            in matrix.
- * \param[out]  uParts        Parts of output U matrix from SVD decomposition
+ * \param[out]  uMatrixParts  Parts of output U matrix from SVD decomposition
  *                            with size M x N. It is distributed among ranks.
  *                            Descriptor desc describes the matrix.
- * \param[out]  vMatrix       Full output V matrix from SVD decomposition with
+ * \param[out]  vMatrixParts  Full output V matrix from SVD decomposition with
  *                            size N x N. It is duplicated on all ranks.
  * \param[in]   genUMatrix    Currently ignored.
  *                            U matrix is generated only if this is true.
