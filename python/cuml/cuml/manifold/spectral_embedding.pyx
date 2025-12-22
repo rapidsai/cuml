@@ -6,11 +6,10 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-from pylibraft.common.handle import Handle
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -111,13 +110,12 @@ def spectral_embedding(A,
         should be True as the first eigenvector should be constant vector for
         connected graph, but for spectral clustering, this should be kept as
         False to retain the first eigenvector.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -139,8 +137,7 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-    if handle is None:
-        handle = Handle()
+    handle = get_handle(handle=handle)
 
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
@@ -263,9 +260,7 @@ def spectral_embedding(A,
     return eigenvectors
 
 
-class SpectralEmbedding(Base,
-                        InteropMixin,
-                        CMajorInputTagMixin):
+class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -290,13 +285,13 @@ class SpectralEmbedding(Base,
     n_neighbors : int or None, default=2
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -445,7 +440,7 @@ class SpectralEmbedding(Base,
             affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors_,
-            handle=self.handle
+            handle=self.handle,
         )
 
         return self

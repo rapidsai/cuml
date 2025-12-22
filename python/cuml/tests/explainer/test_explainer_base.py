@@ -2,31 +2,40 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cudf
 import cupy as cp
 import numpy as np
+import pylibraft.common.handle
 import pytest
-from pylibraft.common.handle import Handle
 
 from cuml import LinearRegression as cuLR
 from cuml.explainer.base import SHAPBase
 
 
-@pytest.mark.parametrize("handle", [True, False])
+def test_handle_deprecated():
+    bg = np.arange(10).reshape(5, 2).astype(np.float32)
+    y = np.arange(5).astype(np.float32)
+    bg_df = cudf.DataFrame(bg)
+    model = cuLR().fit(bg, y)
+
+    handle = pylibraft.common.handle.Handle()
+
+    with pytest.warns(FutureWarning, match="handle"):
+        explainer = SHAPBase(
+            model=model.predict, background=bg_df, handle=handle
+        )
+
+    assert explainer.handle is handle
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, None])
 @pytest.mark.parametrize("order", ["C", None])
-def test_init_explainer_base_init_cuml_model(handle, dtype, order):
+def test_init_explainer_base_init_cuml_model(dtype, order):
     bg = np.arange(10).reshape(5, 2).astype(np.float32)
     y = np.arange(5).astype(np.float32)
     bg_df = cudf.DataFrame(bg)
 
     model = cuLR().fit(bg, y)
-
-    if handle:
-        handle = Handle()
-    else:
-        handle = None
 
     explainer = SHAPBase(
         model=model.predict,
@@ -36,7 +45,6 @@ def test_init_explainer_base_init_cuml_model(handle, dtype, order):
         verbose=2,
         random_state=None,
         is_gpu_model=None,
-        handle=handle,
         dtype=None,
         output_type=None,
     )
@@ -54,27 +62,15 @@ def test_init_explainer_base_init_cuml_model(handle, dtype, order):
     else:
         assert explainer.order == order
 
-    # check that we keep the model's handle if one is not passed explicitly
-    if handle is not None:
-        assert explainer.handle == handle
-    else:
-        assert explainer.handle == model.handle
 
-
-@pytest.mark.parametrize("handle", [True, False])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, None])
 @pytest.mark.parametrize("order", ["C", None])
 @pytest.mark.parametrize("is_gpu_model", [True, False, None])
 @pytest.mark.parametrize("output_type", ["cupy", None])
 def test_init_explainer_base_init_abritrary_model(
-    handle, dtype, order, is_gpu_model, output_type
+    dtype, order, is_gpu_model, output_type
 ):
     bg = np.arange(10).reshape(5, 2).astype(np.float32)
-
-    if handle:
-        handle = Handle()
-    else:
-        handle = None
 
     explainer = SHAPBase(
         model=dummy_func,
@@ -85,7 +81,6 @@ def test_init_explainer_base_init_abritrary_model(
         verbose=2,
         random_state=None,
         is_gpu_model=is_gpu_model,
-        handle=handle,
         dtype=None,
         output_type=output_type,
     )
@@ -109,12 +104,6 @@ def test_init_explainer_base_init_abritrary_model(
         assert explainer.order == "F"
     else:
         assert explainer.order == order
-
-    # check that we keep the model's handle if one is not passed explicitly
-    if handle is not None:
-        assert explainer.handle == handle
-    else:
-        isinstance(explainer.handle, Handle)
 
 
 def test_init_explainer_base_wrong_dtype():
