@@ -30,6 +30,14 @@ if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
         "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
     )
 
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of hdbscan use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
+
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 
 
