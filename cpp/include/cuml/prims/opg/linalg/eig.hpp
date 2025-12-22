@@ -22,8 +22,10 @@ namespace opg {
  * \param       h               cuML handle object.
  * \param[out]  eigenValues     Output N Eigen values.
  * \param[out]  eigenVectors    Output N Eigen vectors of size N x 1.
- * \param[in]   in              Input symmetric matrix of size N x N.
- * \param[in]   desc            Descriptor of input matrix in.
+ * \param[in]   inParts         Input symmetric matrix of size N x N.
+ * \param[in]   desc            Descriptor of input matrix.
+ * \param[in]   myRank          MPI rank of the process.
+ * \param[in]   stream          CUDA stream.
  */
 
 void eigDC(const raft::handle_t& h,
