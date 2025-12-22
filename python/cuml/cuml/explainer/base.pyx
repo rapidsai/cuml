@@ -10,12 +10,12 @@ import pandas as pd
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
     get_cai_ptr,
-    get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
     model_func_call,
     output_list_shap_values,
 )
+from cuml.internals.base import DeprecatedHandleDescriptor, get_handle
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 
 from libc.stdint cimport uintptr_t
@@ -64,13 +64,13 @@ class SHAPBase():
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : pylibraft.common.handle
-        Specifies the handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
@@ -81,6 +81,7 @@ class SHAPBase():
         For compatibility with SHAP's graphing libraries, specify `numpy`.
 
     """
+    handle = DeprecatedHandleDescriptor()
 
     def __init__(self,
                  *,
@@ -108,11 +109,7 @@ class SHAPBase():
         else:
             self.time_performance = False
 
-        if handle is None:
-            self.handle = get_handle_from_cuml_model_func(model,
-                                                          create_new=True)
-        else:
-            self.handle = handle
+        self.handle = handle
 
         if order is None:
             self.order = get_tag_from_model_func(func=model,
@@ -341,8 +338,8 @@ class SHAPBase():
             order=self.masker.order
         )
 
-        cdef handle_t* handle_ = \
-            <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
 
         masked_ptr = get_cai_ptr(masked_inputs)
@@ -387,7 +384,7 @@ class SHAPBase():
             # Cast result back to float64
             masked_inputs[:] = masked_inputs_f32.astype(cp.float64)
 
-        self.handle.sync()
+        handle.sync()
 
         main_effects = model_func_call(masked_inputs) - self._expected_value
         return main_effects

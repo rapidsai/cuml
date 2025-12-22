@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
+import warnings
 
 import numpy as np
 import numpydoc.docscrape
 import pandas as pd
+import pylibraft.common.handle
 import pytest
-from pylibraft.common.cuda import Stream
 from sklearn.datasets import (
     make_classification,
     make_multilabel_classification,
@@ -18,31 +19,11 @@ import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
+from cuml.internals import get_handle
 from cuml.testing.datasets import small_classification_dataset
 from cuml.testing.utils import get_all_base_subclasses
 
 all_base_children = get_all_base_subclasses()
-
-
-def test_base_class_usage():
-    # Ensure base class returns the 3 main properties needed by all classes
-    base = cuml.Base()
-    base.handle.sync()
-    base_params = base._get_param_names()
-
-    assert "handle" in base_params
-    assert "verbose" in base_params
-    assert "output_type" in base_params
-
-    del base
-
-
-def test_base_class_usage_with_handle():
-    stream = Stream()
-    handle = cuml.Handle(stream=stream)
-    base = cuml.Base(handle=handle)
-    base.handle.sync()
-    del base
 
 
 @pytest.mark.parametrize("datatype", ["float32", "float64"])
@@ -135,16 +116,21 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
-            if not (
-                found_doc.type.startswith("cuml.Handle")
-                and klass == cuml.manifold.umap.UMAP
-            ):
-                # Ensure the docstring is identical
-                assert found_doc.type == base_item_doc.type, (
-                    "Docstring mismatch for {}".format(name)
-                )
+            assert found_doc.type == base_item_doc.type, (
+                f"Docstring mismatch for {name}"
+            )
 
-                assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+            found = " ".join(found_doc.desc)
+            expected = " ".join(base_item_doc.desc)
+
+            if name == "handle":
+                # Handle may have a trailing suffix, class dependent
+                assert found.startswith(expected), (
+                    f"Docstring mismatch for {name}"
+                )
+            else:
+                # Exact match
+                assert found == expected, f"Docstring mismatch for {name}"
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
@@ -299,6 +285,94 @@ def test_common_signatures(cls, method):
             inspect.Parameter.VAR_KEYWORD,
         }
         assert param.name not in {"X", "y", "sample_weight"}
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cls
+        for cls in all_base_children.values()
+        if not (
+            "Base" in cls.__name__
+            or cls.__name__.endswith("MG")
+            or cls.__module__.startswith("cuml.tsa")
+            or cls.__name__ in ["ColumnTransformer"]
+        )
+    ],
+)
+def test_handle_deprecated(cls):
+    if cls.__name__ in ("OneVsRestClassifier", "OneVsOneClassifier"):
+
+        def create(handle=None):
+            return cls(cuml.SVC(), handle=handle)
+    else:
+        create = cls
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # No warning by default
+        model = create()
+    assert get_handle(model=model) is get_handle()
+
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle") as rec:
+        model = create(handle=handle)
+
+    assert get_handle(model=model) is handle
+
+    if cls in (cuml.UMAP, cuml.HDBSCAN):
+        assert "device_ids" in str(rec[0].message)
+    elif cls in (
+        cuml.LinearSVC,
+        cuml.RandomForestClassifier,
+        cuml.RandomForestRegressor,
+    ):
+        assert "n_streams" in str(rec[0].message)
+
+
+def test_cuml_handle_deprecated():
+    with pytest.warns(FutureWarning, match="cuml.Handle"):
+        assert cuml.Handle is pylibraft.common.handle.Handle
+
+
+def test_get_handle():
+    # Threadlocal is cached
+    assert get_handle() is get_handle()
+
+    # Handle arg warns and returns
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle)
+    assert res is handle
+
+    # Handle arg takes precedence
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle, n_streams=4)
+    assert res is handle
+
+    # n_streams doesn't use the threadlocal handle
+    res = get_handle(n_streams=4)
+    assert res is not get_handle()
+    assert isinstance(res, pylibraft.common.handle.Handle)
+
+
+def test_get_handle_device_ids():
+    for device_ids in ["all", [0]]:
+        res = get_handle(device_ids=device_ids)
+        assert isinstance(res, pylibraft.common.handle.DeviceResourcesSNMG)
+
+    # None uses default handle
+    assert get_handle(device_ids=None) is get_handle()
+
+    # Handle arg takes precedence
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle, device_ids="all")
+    assert res is handle
+
+    with pytest.raises(ValueError, match="n_streams"):
+        # Can't mix n_streams and device_ids
+        get_handle(n_streams=4, device_ids="all")
 
 
 @pytest.mark.parametrize(
