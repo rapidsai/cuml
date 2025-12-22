@@ -20,4 +20,10 @@ jobs:
           REPOSITORY:  ${{ github.repository }}
         run: |
           # use gh pr edit to add the PR author as assignee
-          gh pr edit "$PR_NUMBER" --add-assignee "$LOGIN" --repo "$REPOSITORY"
+          # fail gracefully if the author cannot be assigned (e.g., not a collaborator)
+          if gh pr edit "$PR_NUMBER" --add-assignee "$LOGIN" --repo "$REPOSITORY"; then
+            echo "Successfully assigned PR #$PR_NUMBER to $LOGIN"
+          else
+            echo "Could not assign PR #$PR_NUMBER to $LOGIN (user may not be a collaborator)"
+            echo "This is expected for bot accounts or external contributors without write access"
+          fi

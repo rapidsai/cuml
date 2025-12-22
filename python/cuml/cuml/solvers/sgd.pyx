@@ -9,6 +9,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.outputs import reflect
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -401,6 +402,7 @@ class SGD(Base, FMajorInputTagMixin):
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.
@@ -437,6 +439,7 @@ class SGD(Base, FMajorInputTagMixin):
             "shape": "(n_samples,)"
         }
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.

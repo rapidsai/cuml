@@ -12,13 +12,11 @@ import numpy as np
 import scipy.sparse
 from pylibraft.common.handle import Handle
 
-import cuml.accel
-import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -325,6 +323,10 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             "is unstable"
         )
 
+    if build_algo == "nn_descent" and self.random_state is not None:
+        warnings.warn("build_algo='nn_descent' is not deterministic. Please use "
+                      "build_algo='brute_force_knn' instead with random_state set.")
+
     params.n_neighbors = self._n_neighbors
     params.n_components = self.n_components
     params.n_epochs = self.n_epochs or 0
@@ -522,20 +524,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         sparse array (preferably CSR/COO). This feature allows
         the precomputation of the KNN outside of UMAP
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings. For most efficient
-        memory usage, the precomputed knn graph should be CPU-accessible arrays
-        such as numpy arrays.
+        should match the metric used to train the UMAP embeedings.
     random_state : int, RandomState instance or None, optional (default=None)
-        random_state is the seed used by the random number generator during
-        embedding initialization and during sampling used by the optimizer.
-        Note: Unfortunately, achieving a high amount of parallelism during the
-        optimization stage often comes at the expense of determinism, since
-        many floating-point additions are being made in parallel without a
-        deterministic ordering. This causes slightly different results across
-        training sessions, even when the same seed is used for random number
-        generation. Setting a random_state will enable consistency of trained
-        embeddings, but will do so at the expense of potentially slower
-        training and increased memory usage.
+        Seed used by the random number generator for embedding initialization
+        and optimizer sampling. Setting a random_state enables reproducible
+        embeddings, but at the cost of slower training and increased memory
+        usage. This is because high parallelism during optimization involves
+        non-deterministic floating-point addition ordering.
+
+        Note: Explicitly setting ``build_algo='nn_descent'`` will break
+        reproducibility, as NN Descent produces non-deterministic KNN graphs.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -888,6 +886,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         X="dense_sparse",
         skip_parameters_heading=True,
     )
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -902,9 +901,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+            Takes precedence over the precomputed_knn parameter.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
@@ -930,8 +927,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
+
+        # Don't coerce to device memory when using a precomputed KNN, so
+        # that X may be dropped earlier if passed on host.
+        mem_type = (
+            MemoryType.device
+            if knn_graph is None and self.precomputed_knn is None
+            else False
+        )
+
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
@@ -945,7 +951,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 convert_to_mem_type=(
                     MemoryType.host
                     if params.build_algo == lib.graph_build_algo.NN_DESCENT
-                    else MemoryType.device
+                    else mem_type
                 )
             ).array
             X_ptr = X_m.ptr
@@ -972,7 +978,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
                 self._n_neighbors,
-                mem_type=False,     # mirrors the input graph mem type
             )
             if X_is_sparse:
                 knn_indices = input_to_cuml_array(
@@ -1053,7 +1058,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(
         self, X, y=None, *, convert_dtype=True, knn_graph=None
     ) -> CumlArray:
@@ -1077,9 +1082,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
             should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+            Takes precedence over the precomputed_knn parameter.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
@@ -1093,6 +1096,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
@@ -1357,7 +1361,7 @@ def fuzzy_simplicial_set(
     return fss_graph.view_cupy_coo()
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@reflect
 def simplicial_set_embedding(
     data,
     graph,

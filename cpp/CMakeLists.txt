@@ -23,6 +23,9 @@ project(
   LANGUAGES CXX CUDA
 )
 
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
@@ -514,8 +517,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(all_algo OR spectralclustering_algo)
     target_sources(
-      cuml_objs PRIVATE src/spectral/spectral.cu src/spectral/spectral_clustering.cu
-                        src/spectral/spectral_embedding.cu
+      cuml_objs PRIVATE src/spectral/spectral_clustering.cu src/spectral/spectral_embedding.cu
     )
   endif()
 
@@ -562,9 +564,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   set_target_properties(
     cuml_objs
-    PROPERTIES CXX_STANDARD 17
+    PROPERTIES CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
@@ -626,8 +628,8 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(
     cuml_objs
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -647,9 +649,9 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
     ${CUML_CPP_TARGET}
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
                POSITION_INDEPENDENT_CODE ON
@@ -687,8 +689,8 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -723,7 +725,7 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     ${CUML_CPP_TARGET}_static
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
@@ -764,8 +766,8 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 

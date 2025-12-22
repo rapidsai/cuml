@@ -31,9 +31,7 @@ void preProcessData_impl(raft::handle_t& handle,
                          std::vector<Matrix::Data<T>*>& labels,
                          T* mu_input,
                          T* mu_labels,
-                         T* norm2_input,
                          bool fit_intercept,
-                         bool normalize,
                          cudaStream_t* streams,
                          int n_streams,
                          bool verbose)
@@ -53,14 +51,6 @@ void preProcessData_impl(raft::handle_t& handle,
     Matrix::Data<T> mu_labels_data{mu_labels, size_t(1)};
     Stats::opg::mean(handle, mu_labels_data, labels, labels_desc, streams, n_streams);
     Stats::opg::mean_center(labels, labels_desc, mu_labels_data, comm, streams, n_streams);
-
-    if (normalize) {
-      Matrix::Data<T> norm2_input_data{norm2_input, size_t(input_desc.N)};
-      LinAlg::opg::colNorm2(handle, norm2_input_data, input_data, input_desc, streams, n_streams);
-
-      Matrix::opg::matrixVectorBinaryDivSkipZero<false, true>(
-        input_data, input_desc, norm2_input_data, true, comm, streams, n_streams);
-    }
   }
 }
 
@@ -73,9 +63,7 @@ void postProcessData_impl(raft::handle_t& handle,
                           T* intercept,
                           T* mu_input,
                           T* mu_labels,
-                          T* norm2_input,
                           bool fit_intercept,
-                          bool normalize,
                           cudaStream_t* streams,
                           int n_streams,
                           bool verbose)
@@ -85,14 +73,6 @@ void postProcessData_impl(raft::handle_t& handle,
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
 
   rmm::device_uvector<T> d_intercept(1, streams[0]);
-
-  if (normalize) {
-    Matrix::Data<T> norm2_input_data{norm2_input, input_desc.N};
-    Matrix::opg::matrixVectorBinaryMult<false, true>(
-      input_data, input_desc, norm2_input_data, comm, streams, n_streams);
-    raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-      coef, norm2_input, size_t(1), input_desc.N, streams[0], true);
-  }
 
   raft::linalg::gemm(handle,
                      mu_input,
@@ -124,9 +104,7 @@ void preProcessData(raft::handle_t& handle,
                     std::vector<Matrix::Data<float>*>& labels,
                     float* mu_input,
                     float* mu_labels,
-                    float* norm2_input,
                     bool fit_intercept,
-                    bool normalize,
                     cudaStream_t* streams,
                     int n_streams,
                     bool verbose)
@@ -137,9 +115,7 @@ void preProcessData(raft::handle_t& handle,
                       labels,
                       mu_input,
                       mu_labels,
-                      norm2_input,
                       fit_intercept,
-                      normalize,
                       streams,
                       n_streams,
                       verbose);
@@ -151,9 +127,7 @@ void preProcessData(raft::handle_t& handle,
                     std::vector<Matrix::Data<double>*>& labels,
                     double* mu_input,
                     double* mu_labels,
-                    double* norm2_input,
                     bool fit_intercept,
-                    bool normalize,
                     cudaStream_t* streams,
                     int n_streams,
                     bool verbose)
@@ -164,9 +138,7 @@ void preProcessData(raft::handle_t& handle,
                       labels,
                       mu_input,
                       mu_labels,
-                      norm2_input,
                       fit_intercept,
-                      normalize,
                       streams,
                       n_streams,
                       verbose);
@@ -180,9 +152,7 @@ void postProcessData(raft::handle_t& handle,
                      float* intercept,
                      float* mu_input,
                      float* mu_labels,
-                     float* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
                      cudaStream_t* streams,
                      int n_streams,
                      bool verbose)
@@ -195,9 +165,7 @@ void postProcessData(raft::handle_t& handle,
                        intercept,
                        mu_input,
                        mu_labels,
-                       norm2_input,
                        fit_intercept,
-                       normalize,
                        streams,
                        n_streams,
                        verbose);
@@ -211,9 +179,7 @@ void postProcessData(raft::handle_t& handle,
                      double* intercept,
                      double* mu_input,
                      double* mu_labels,
-                     double* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
                      cudaStream_t* streams,
                      int n_streams,
                      bool verbose)
@@ -226,9 +192,7 @@ void postProcessData(raft::handle_t& handle,
                        intercept,
                        mu_input,
                        mu_labels,
-                       norm2_input,
                        fit_intercept,
-                       normalize,
                        streams,
                        n_streams,
                        verbose);

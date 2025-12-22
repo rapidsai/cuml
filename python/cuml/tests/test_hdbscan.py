@@ -6,6 +6,8 @@ import hdbscan
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
+from packaging.version import Version
 from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.datasets import make_blobs
@@ -23,15 +25,10 @@ from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
 
-# Ignore FutureWarning from third-party hdbscan package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. This is not in cuml's control. Note: this will break when
-# sklearn 1.8 removes the deprecated parameter entirely - hdbscan will
-# need to be updated at that point.
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
-)
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip(
+        "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
+    )
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 

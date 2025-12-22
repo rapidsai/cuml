@@ -8,7 +8,6 @@ import numpy as np
 import scipy.sparse as sp
 from pylibraft.common.handle import Handle
 
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -20,10 +19,12 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
+from libcpp.optional cimport nullopt, optional
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
@@ -43,7 +44,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         int n_neighbors
         bool norm_laplacian
         bool drop_first
-        uint64_t seed
+        optional[uint64_t] seed
 
     cdef void transform(
         const device_resources &handle,
@@ -60,7 +61,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@reflect
 def spectral_embedding(A,
                        *,
                        int n_components=8,
@@ -216,7 +217,13 @@ def spectral_embedding(A,
     )
 
     cdef params config
-    config.seed = check_random_seed(random_state)
+    cdef uint64_t seed_value
+    # No seed use nullopt (non-deterministic) or set user seed (deterministic)
+    if random_state is None:
+        config.seed = nullopt
+    else:
+        seed_value = check_random_seed(random_state)
+        config.seed = seed_value
     config.norm_laplacian = norm_laplacian
     config.drop_first = drop_first
     config.n_components = n_components + 1 if drop_first else n_components
@@ -379,6 +386,7 @@ class SpectralEmbedding(Base,
             **super()._attrs_to_cpu(model),
         }
 
+    @reflect
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
@@ -402,6 +410,7 @@ class SpectralEmbedding(Base,
         self.fit(X, y)
         return self.embedding_
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 
