@@ -16,14 +16,12 @@ namespace opg {
 
 /**
  * @brief performs MNMG A^T x A calculation.
+ * @param[in] handle cuML handle object
  * @param[out] out resulting A^T x A matrix
- * @param[in] A input data
- * @param[in] ADesc MNMG description of the A
- * @param[in] comm communicator
- * @param[in] allocator data allocator
+ * @param[in] in1 input data
+ * @param[in] in1Desc MNMG description of the input
  * @param[in] streams cuda streams
  * @param[in] n_streams number of streams
- * @param[in] handle cublas handle
  */
 void mm_aTa(const raft::handle_t& handle,
             Matrix::Data<double>& out,

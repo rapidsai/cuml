@@ -26,10 +26,10 @@ namespace opg {
  *                        descriptor.
  * \param[out] outZDesc   Descriptor for outZParts matrix. It has to be
  *                        same as inXDesc.
- * \param[in]  inX        Input matrix X with dimensions M x K. Distributed
+ * \param[in]  inXParts   Input matrix X with dimensions M x K. Distributed
  *                        across ranks according to inXDesc descriptor.
  * \param[in]  inXDesc    Descriptor for X matrix.
- * \param[in]  inY        Input matrix Y with dimensions K x N. Distributed
+ * \param[in]  inYParts   Input matrix Y with dimensions K x N. Distributed
  *                        across ranks according to inYDesc descriptor.
  * \param[in]  inYDesc    Descriptor for Y matrix.
  * \param[in]  myRank     Rank of calling process.

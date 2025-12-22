@@ -16,11 +16,10 @@ namespace opg {
 
 /**
  * @brief performs MNMG mean calculation.
+ * @param[in] handle cuML handle object
  * @param[out] out mean of every column of the input
  * @param[in] in all the data partitions
  * @param[in] inDesc MNMG description of the input data
- * @param[in] comm communicator
- * @param[in] allocator allocator
  * @param[in] streams cuda streams
  * @param[in] n_streams number of streams
  */
