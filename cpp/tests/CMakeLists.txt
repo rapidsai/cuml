@@ -17,7 +17,7 @@ rapids_test_init()
 
 function(ConfigureTest)
 
-  set(options CUMLPRIMS MPI ML_INCLUDE RAFT_DISTRIBUTED)
+  set(options MPI ML_INCLUDE RAFT_DISTRIBUTED)
   set(one_value PREFIX NAME GPUS PERCENT)
   set(multi_value TARGETS CONFIGURATIONS)
   cmake_parse_arguments(_CUML_TEST "${options}" "${one_value}" "${multi_value}" ${ARGN})
@@ -51,7 +51,6 @@ function(ConfigureTest)
             GTest::gmock
             ${OpenMP_CXX_LIB_NAMES}
             Threads::Threads
-            $<$<BOOL:${_CUML_TEST_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
             $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
             $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
             ${TREELITE_LIBS}
@@ -210,18 +209,16 @@ if(BUILD_CUML_MG_TESTS)
 
   # This test needs to be rewritten to use the MPI comms, not the std comms, and moved to RAFT:
   # https://github.com/rapidsai/cuml/issues/5058 ConfigureTest(PREFIX MG NAME KMEANS_TEST
-  # mg/kmeans_test.cu NCCL CUMLPRIMS ML_INCLUDE)
+  # mg/kmeans_test.cu NCCL ML_INCLUDE)
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
-    ConfigureTest(PREFIX MG NAME KNN_TEST mg/knn.cu CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME KNN_TEST mg/knn.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
     ConfigureTest(
-      PREFIX MG NAME KNN_CLASSIFY_TEST mg/knn_classify.cu CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE
+      PREFIX MG NAME KNN_CLASSIFY_TEST mg/knn_classify.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
     )
-    ConfigureTest(
-      PREFIX MG NAME KNN_REGRESS_TEST mg/knn_regress.cu CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE
-    )
-    ConfigureTest(PREFIX MG NAME MAIN_TEST mg/main.cu CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME PCA_TEST mg/pca.cu CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME KNN_REGRESS_TEST mg/knn_regress.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME MAIN_TEST mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME PCA_TEST mg/pca.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
   else(MPI_CXX_FOUND)
     message("OpenMPI not found. Skipping MultiGPU tests '${CUML_MG_TEST_TARGET}'")
   endif()
