@@ -7,8 +7,8 @@
 
 #include "tsvd.hpp"
 
-#include <cumlprims/opg/matrix/data.hpp>
-#include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace TSVD {

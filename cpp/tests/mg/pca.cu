@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,9 +7,9 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+#include <cuml/prims/opg/linalg/gemm.hpp>
+#include <cuml/prims/opg/matrix/matrix_utils.hpp>
 
-#include <cumlprims/opg/linalg/gemm.hpp>
-#include <cumlprims/opg/matrix/matrix_utils.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
