@@ -66,7 +66,10 @@ class SVC(SVMBase, ClassifierMixin):
         Penalty parameter C
     kernel : string (default='rbf')
         Specifies the kernel function. Possible options: 'linear', 'poly',
-        'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
+        'rbf', 'sigmoid', 'precomputed'. When using 'precomputed', X is
+        expected to be a precomputed kernel matrix of shape
+        (n_samples, n_samples) at fit time, and (n_samples_test,
+        n_samples_train) at predict time.
     degree : int (default=3)
         Degree of polynomial kernel function.
     gamma : float or string (default = 'scale')
@@ -464,7 +467,26 @@ class SVC(SVMBase, ClassifierMixin):
         if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
-        if is_sparse(X):
+        # Handle precomputed kernels
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise ValueError(
+                    "Sparse input is not supported for precomputed kernels"
+                )
+            X = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                check_rows=y.shape[0],
+                order="F",
+            ).array
+            # Validate that X is square for precomputed kernels
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    f"Precomputed kernel matrix must be square, "
+                    f"got shape ({X.shape[0]}, {X.shape[1]})"
+                )
+        elif is_sparse(X):
             X = SparseCumlArray(
                 X,
                 convert_to_dtype=(
@@ -604,13 +626,30 @@ class SVC(SVMBase, ClassifierMixin):
         """
         Calculates the decision function values for X.
 
+        For precomputed kernels, X should be a kernel matrix of shape
+        (n_samples_test, n_samples_train) where n_samples_train is the
+        number of samples used during fit.
+
         """
         if hasattr(self, "_multiclass"):
             return self._multiclass.decision_function(X)
 
         dtype = self.support_vectors_.dtype
 
-        if is_sparse(X):
+        # For precomputed kernels, check that columns match training set size
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise ValueError(
+                    "Sparse input is not supported for precomputed kernels"
+                )
+            X = input_to_cuml_array(
+                X,
+                check_dtype=[dtype],
+                convert_to_dtype=(dtype if convert_dtype else None),
+                order="F",
+                check_cols=self.shape_fit_[0],  # Number of training samples
+            ).array
+        elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
             X = input_to_cuml_array(

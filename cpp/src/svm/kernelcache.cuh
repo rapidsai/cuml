@@ -27,7 +27,9 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/reverse.h>
+#include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/distance/grammian.hpp>
@@ -39,6 +41,56 @@ namespace ML {
 namespace SVM {
 
 namespace {  // unnamed namespace to avoid multiple definition error
+
+/**
+ * @brief Extract columns from a matrix for precomputed kernels
+ *
+ * Given a matrix src of shape (n_rows_src, n_cols_src), extract columns
+ * specified by col_indices and store in dst of shape (n_rows_src, n_cols_dst).
+ *
+ * @param [out] dst destination matrix, size [n_rows_src x n_cols_dst]
+ * @param [in] src source matrix, size [n_rows_src x n_cols_src]
+ * @param [in] n_rows_src number of rows in source matrix
+ * @param [in] n_cols_src number of columns in source matrix
+ * @param [in] col_indices column indices to extract, size [n_cols_dst]
+ * @param [in] n_cols_dst number of columns to extract
+ */
+template <typename math_t>
+CUML_KERNEL void extractColumnsKernel(math_t* dst,
+                                      const math_t* src,
+                                      int n_rows_src,
+                                      int n_cols_src,
+                                      const int* col_indices,
+                                      int n_cols_dst)
+{
+  int tid   = threadIdx.x + blockIdx.x * blockDim.x;
+  int total = n_rows_src * n_cols_dst;
+  if (tid < total) {
+    int row     = tid % n_rows_src;
+    int col     = tid / n_rows_src;
+    int src_col = col_indices[col];
+    // Both source and destination are column-major:
+    // src[row, col] = src[row + col * n_rows_src]
+    // dst[row, col] = dst[row + col * n_rows_src] = dst[tid]
+    dst[tid] = src[row + src_col * n_rows_src];
+  }
+}
+
+template <typename math_t>
+void extractColumnsForPrecomputed(math_t* dst,
+                                  const math_t* src,
+                                  int n_rows_src,
+                                  int n_cols_src,
+                                  const int* col_indices,
+                                  int n_cols_dst,
+                                  cudaStream_t stream)
+{
+  int total    = n_rows_src * n_cols_dst;
+  int TPB      = 256;
+  int n_blocks = raft::ceildiv(total, TPB);
+  extractColumnsKernel<math_t>
+    <<<n_blocks, TPB, 0, stream>>>(dst, src, n_rows_src, n_cols_src, col_indices, n_cols_dst);
+}
 
 /**
  * @brief Re-raise working set indexes to SVR scope [0..2*n_rows)
@@ -322,6 +374,8 @@ class KernelCache {
    * @param dense_extract_byte_limit sparse rows will be extracted as dense
    *        up to this limit to speed up kernel computation. Only valid
    *        for sparse input. (default 1GB)
+   * @param is_precomputed if true, the matrix is a precomputed kernel matrix
+   *        and no kernel computation is performed
    */
   KernelCache(const raft::handle_t& handle,
               MatrixViewType matrix,
@@ -333,7 +387,8 @@ class KernelCache {
               float cache_size                = 200,
               SvmType svmType                 = C_SVC,
               size_t kernel_tile_byte_limit   = 1 << 30,
-              size_t dense_extract_byte_limit = 1 << 30)
+              size_t dense_extract_byte_limit = 1 << 30,
+              bool is_precomputed             = false)
     : batch_cache(n_rows, cache_size, handle.get_stream()),
       handle(handle),
       kernel(kernel),
@@ -343,6 +398,7 @@ class KernelCache {
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
+      is_precomputed(is_precomputed),
       kernel_tile(0, handle.get_stream()),
       matrix_l2(0, handle.get_stream()),
       matrix_l2_ws(0, handle.get_stream()),
@@ -353,7 +409,7 @@ class KernelCache {
       indptr_batched(0, handle.get_stream()),
       ws_cache_idx(n_ws * 2, handle.get_stream())
   {
-    ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
+    ASSERT(kernel != nullptr || is_precomputed, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
 
     batching_enabled = false;
@@ -386,8 +442,8 @@ class KernelCache {
       x_ws_dense.resize(n_ws * static_cast<size_t>(n_cols), stream);
     }
 
-    // store matrix l2 norm for RBF kernels
-    if (kernel_type == cuvs::distance::kernels::KernelType::RBF) {
+    // store matrix l2 norm for RBF kernels (not needed for precomputed)
+    if (!is_precomputed && kernel_type == cuvs::distance::kernels::KernelType::RBF) {
       matrix_l2.resize(n_rows, stream);
       matrix_l2_ws.resize(n_ws, stream);
       ML::SVM::matrixRowNorm(handle, matrix, matrix_l2.data(), raft::linalg::NormType::L2Norm);
@@ -507,33 +563,41 @@ class KernelCache {
       ML::SVM::extractRows<math_t>(matrix, x_ws_dense.data(), ws_idx_mod.data(), n_ws, handle);
     }
 
-    // extract dot array for RBF
-    if (kernel_type == cuvs::distance::kernels::KernelType::RBF) {
-      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_idx_mod.data(), n_ws);
-    }
+    if (is_precomputed) {
+      // For precomputed kernels, x_ws_dense contains K[ws, :] (shape n_ws x n_cols)
+      // We need to extract columns ws to get K[ws, ws]
+      // Since n_cols == n_rows for precomputed, we extract columns using ws_idx_mod
+      extractColumnsForPrecomputed(
+        kernel_tile.data(), x_ws_dense.data(), n_ws, n_cols, ws_idx_mod.data(), n_ws, stream);
+    } else {
+      // extract dot array for RBF
+      if (kernel_type == cuvs::distance::kernels::KernelType::RBF) {
+        selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_idx_mod.data(), n_ws);
+      }
 
-    // compute kernel
-    {
-      if (sparse_extract) {
-        auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_ws, n_cols);
-        KernelOp(handle,
-                 kernel,
-                 ws_view,
-                 ws_view,
-                 kernel_tile.data(),
-                 matrix_l2_ws.data(),
-                 matrix_l2_ws.data());
-      } else {
-        KernelOp(handle,
-                 kernel,
-                 x_ws_dense.data(),
-                 n_ws,
-                 n_cols,
-                 x_ws_dense.data(),
-                 n_ws,
-                 kernel_tile.data(),
-                 matrix_l2_ws.data(),
-                 matrix_l2_ws.data());
+      // compute kernel
+      {
+        if (sparse_extract) {
+          auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_ws, n_cols);
+          KernelOp(handle,
+                   kernel,
+                   ws_view,
+                   ws_view,
+                   kernel_tile.data(),
+                   matrix_l2_ws.data(),
+                   matrix_l2_ws.data());
+        } else {
+          KernelOp(handle,
+                   kernel,
+                   x_ws_dense.data(),
+                   n_ws,
+                   n_cols,
+                   x_ws_dense.data(),
+                   n_ws,
+                   kernel_tile.data(),
+                   matrix_l2_ws.data(),
+                   matrix_l2_ws.data());
+        }
       }
     }
     return kernel_tile.data();
@@ -641,24 +705,51 @@ class KernelCache {
       int* ws_idx_new  = batch_descriptor.nz_da_idx + n_cached;
       math_t* tile_new = kernel_tile.data() + (size_t)n_cached * batch_size;
 
-      auto batch_matrix = getMatrixBatch(
-        matrix, batch_size, offset, host_indptr.data(), indptr_batched.data(), stream);
-
-      // compute kernel
-      math_t* norm_with_offset = matrix_l2.data() != nullptr ? matrix_l2.data() + offset : nullptr;
-      if (sparse_extract) {
-        auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_uncached, n_cols);
-        KernelOp(
-          handle, kernel, batch_matrix, ws_view, tile_new, norm_with_offset, matrix_l2_ws.data());
+      if (is_precomputed) {
+        // For precomputed kernels, extract K[offset:offset+batch_size, ws_idx_new]
+        // Input matrix is column-major: K[row, col] = K[row + col * n_rows]
+        // Output tile_new is column-major: tile_new[i, j] = tile_new[i + j * batch_size]
+        if constexpr (isDenseType<MatrixViewType>()) {
+          math_t* matrix_data = getDenseData(matrix);
+          thrust::counting_iterator<int> iter(0);
+          int n_elems     = batch_size * n_uncached;
+          int matrix_rows = n_rows;  // Copy member to local for lambda capture
+          thrust::transform(
+            thrust::cuda::par.on(stream),
+            iter,
+            iter + n_elems,
+            tile_new,
+            [matrix_data, ws_idx_new, matrix_rows, offset, batch_size] __device__(int tid) {
+              // Column-major output: tile_new[row, col] = tile_new[row + col * batch_size]
+              int row     = tid % batch_size;
+              int col     = tid / batch_size;
+              int src_row = offset + row;
+              int src_col = ws_idx_new[col];
+              // Column-major input: K[row, col] = K[row + col * matrix_rows]
+              return matrix_data[src_row + src_col * matrix_rows];
+            });
+        }
       } else {
-        KernelOp(handle,
-                 kernel,
-                 batch_matrix,
-                 x_ws_dense.data(),
-                 n_uncached,
-                 tile_new,
-                 norm_with_offset,
-                 matrix_l2_ws.data());
+        auto batch_matrix = getMatrixBatch(
+          matrix, batch_size, offset, host_indptr.data(), indptr_batched.data(), stream);
+
+        // compute kernel
+        math_t* norm_with_offset =
+          matrix_l2.data() != nullptr ? matrix_l2.data() + offset : nullptr;
+        if (sparse_extract) {
+          auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_uncached, n_cols);
+          KernelOp(
+            handle, kernel, batch_matrix, ws_view, tile_new, norm_with_offset, matrix_l2_ws.data());
+        } else {
+          KernelOp(handle,
+                   kernel,
+                   batch_matrix,
+                   x_ws_dense.data(),
+                   n_uncached,
+                   tile_new,
+                   norm_with_offset,
+                   matrix_l2_ws.data());
+        }
       }
 
       RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -757,6 +848,7 @@ class KernelCache {
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel;
   cuvs::distance::kernels::KernelType kernel_type;
+  bool is_precomputed;  //!< if true, matrix is precomputed kernel
 
   int n_rows;  //!< number of rows in x
   int n_cols;  //!< number of columns in x
