@@ -71,7 +71,6 @@ cache:
       - ${{ stdlib("c") }}
     host:
       - cuda-version =${{ cuda_version }}
-      - libcumlprims =${{ minor_version }}
       - libcuvs =${{ minor_version }}
       - libraft-headers =${{ minor_version }}
       - librmm =${{ minor_version }}
@@ -107,7 +106,6 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.2
-        - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
@@ -125,7 +123,6 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
-        - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
