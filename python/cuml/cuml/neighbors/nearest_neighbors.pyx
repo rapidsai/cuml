@@ -473,9 +473,11 @@ class NearestNeighbors(Base,
           partial information allowing faster distances calculations
 
     metric : string (default='euclidean').
-        Distance metric to use. Supported distances are ['l1, 'cityblock',
-        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+        Distance metric to use. Supported distances are: 
+        ['l1', 'cityblock', 'taxicab', 'manhattan', 'euclidean', 'l2',
+         'sqeuclidean', 'braycurtis', 'canberra', 'minkowski', 'lp',
+         'chebyshev', 'linf', 'jensenshannon', 'cosine', 'correlation',
+         'inner_product', 'jaccard', 'hellinger', 'haversine']
     p : float (default=2)
         Parameter for the Minkowski metric. When p = 1, this is equivalent to
         manhattan distance (l1), and euclidean distance (l2) for p = 2. For
