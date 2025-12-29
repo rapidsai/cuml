@@ -1,16 +1,95 @@
 import cupy as cp
+from _expected_mutual_information import expected_mutual_information
+from scipy import sparse as sp
+from cuml.metrics.cluster import mutual_info_score
+from cuml.metrics.cluster import entropy
+from cupyx.scipy import sparse as cp_sparse
 
-@validate_params(
-    {
-        "labels_true": ["array-like"],
-        "labels_pred": ["array-like"],
-        "average_method": [StrOptions({"arthematic", "max", "min", "geometric"})]
+def check_clustering(labels_true, labels_pred):
+    """
+    """
+    labels_true = cp.asarray(labels_true)
+    labels_pred = cp.asarray(labels_pred)
 
-    },
-    prefer_skip_nested_validation=True,
-)
+    if labels_true.ndim != 1 or labels_pred.ndim != 1:
+        raise ValueError("labels_true and labels_pred must be 1-D arrays")
+    if labels_true.shape != labels_pred.shape:
+        raise ValueError("labels_true and labels_pred must have same length")
 
-def adjusted_mututal_info_score(
+    # Optional: Handle continuous label values
+
+    return labels_true, labels_pred
+
+# @validate_params(
+#     {
+#         "labels_true": ["array-like", None],
+#         "labels_pred": ["array-like", None],
+#         "eps": [Interval(Real, 0, None, closed="left"), None],
+#         "sparse": ["boolean"],
+#         "dtype": "no_validation",  # delegate the validation to SciPy
+#     },
+#     prefer_skip_nested_validation=True,
+#     )
+def contingency_matrix(labels_true, labels_pred, *, eps=None, sparse=False, dtype=cp.float64):
+    """
+    """
+    if eps is not None and sparse:
+        raise ValueError("Cannot set 'eps' when sparse=True")
+
+    classes, class_idx = cp.unique(labels_true, return_inverse=True)
+    clusters, cluster_idx = cp.unique(labels_pred, return_inverse=True)
+    n_classes = classes.shape[0]
+    n_clusters = clusters.shape[0]
+
+    # Using coo_matrix to calculate contingency matrix from scipy.sparse
+    contingency = cp_sparse.coo_matrix(
+        (cp.ones(class_idx.shape[0], dtype=cp.float64), (class_idx, cluster_idx)),
+        shape=(n_classes, n_clusters),
+        dtype=cp.float64,
+    )
+    if sparse:
+        contingency = contingency.tocsr()
+        contingency.sum_duplicates()
+    else:
+        contingency = contingency.toarray()
+        if eps is not None:
+            # don't use += as contigency is integer
+            contingency = contingency + eps
+
+    return contingency
+
+def _generalized_average(U,V,average_method):
+    """ Return a particular mean of two numbers"""
+    if average_method == "min":
+        return min(U,V)
+    elif average_method == "max":
+        return max(U,V)
+    elif average_method == "geometric":
+        return cp.sqrt(U * V)
+    elif average_method == "arthematic":
+        return cp.mean(cp.asarray([U,V]))
+    else:
+        raise ValueError(
+            "'average_method' must be 'arthematic', 'max', 'min' or 'geometric'"
+        )
+
+def _entropy(labels):
+    # cuml.metrics.entropy has a strict type requirement as int32
+    if labels.dtype != cp.int32:
+        labels = labels.astype(cp.int32)
+    return entropy(labels)
+
+# @validate_params(
+#     {
+#         "labels_true": ["array-like"],
+#         "labels_pred": ["array-like"],
+#         "average_method": [StrOptions({"arthematic", "max", "min", "geometric"})]
+
+#     },
+#     prefer_skip_nested_validation=True,
+# )
+
+def adjusted_mutual_info_score(
         labels_true, labels_pred, *, average_method="arthematic"
 ):
     """Adjusted Mutual Information between two clusterings.
@@ -74,11 +153,11 @@ def adjusted_mututal_info_score(
     elif classes.shape[0] == 1 or clusters.shape[0] == 1:
         return 0.0
 
-    contingency = contingency_matrix(labels_true, labels_false, sparse=True)
+    contingency = contingency_matrix(labels_true, labels_pred, sparse=True)
     # Calcualte the MI for the two clusterings
-    mi = mututal_info_score(labels_true, labels_false, contingency=contingency)
+    mi = mutual_info_score(labels_true, labels_pred)
     # Calculate the expected value for the mutual information
-    emi = expected_mutual_info_score(contingency, n_samples)
+    emi = expected_mutual_information(contingency, n_samples)
     # Calculate entropy for each labeling
     h_true, h_pred = _entropy(labels_true), _entropy(labels_pred)
     normalizer = _generalized_average(h_true, h_pred, average_method)

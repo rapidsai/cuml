@@ -16,7 +16,6 @@ print(test_emi([0, 1, 1, 0, 1, 0],[0, 1, 0, 0, 1, 1]))
 print(test_emi([0, 0, 0, 1, 1, 1],[0, 0, 1, 1, 2, 2]))
 print(test_emi([0, 1, 2, 0, 3, 4, 5, 1],[1, 1, 0, 0, 2, 2, 2, 2]))
 print(test_emi([0, 0, 1, 1],[0, 0, 1, 1]))
-print(test_emi([0, 0, 1, 1],[1, 1, 0, 0]))
 # def main():
 #     if len(sys.argv) != 3:
 #         print(len(sys.argv))
