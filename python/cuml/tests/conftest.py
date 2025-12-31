@@ -14,13 +14,11 @@ import cudf.pandas
 import cupy as cp
 import hypothesis
 import numpy as np
-import pandas as pd
 import pynvml
 import pytest
 from sklearn import datasets
 from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.utils import Bunch
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 # =============================================================================
@@ -469,48 +467,11 @@ def housing_dataset():
     return X, y, feature_names
 
 
-@pytest.fixture(scope="session")
-def deprecated_boston_dataset():
-    """Load and preprocess the deprecated Boston housing dataset.
-
-    This fixture loads the Boston housing dataset from a GitHub URL since
-    it was removed from scikit-learn. It returns the feature matrix and
-    target vector.
-
-    Note: This dataset is deprecated and should be replaced with a better
-    alternative. See https://github.com/rapidsai/cuml/issues/5158
-
-    Returns
-    -------
-    Bunch
-        A Bunch object containing the data and target arrays
-    """
-
-    @dataset_fetch_retry
-    def _get_boston_data():
-        url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
-        return pd.read_csv(url, header=None)
-
-    try:
-        df = _get_boston_data()
-    except Exception as e:
-        pytest.xfail(f"Error fetching Boston housing dataset: {str(e)}")
-
-    n_samples = int(df[0][0])
-    data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
-    targets = df[13].values[2:n_samples].astype(np.float64)
-
-    return Bunch(
-        data=data,
-        target=targets,
-    )
-
-
 @pytest.fixture(
     scope="session",
-    params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
+    params=["digits", "diabetes", "cancer"],
 )
-def supervised_learning_dataset(request, deprecated_boston_dataset):
+def supervised_learning_dataset(request):
     """Provide various supervised learning datasets for testing.
 
     This fixture provides access to multiple standard supervised learning
@@ -518,7 +479,6 @@ def supervised_learning_dataset(request, deprecated_boston_dataset):
     """
     datasets_dict = {
         "digits": datasets.load_digits(),
-        "deprecated_boston_dataset": deprecated_boston_dataset,
         "diabetes": datasets.load_diabetes(),
         "cancer": datasets.load_breast_cancer(),
     }
