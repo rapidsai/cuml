@@ -376,7 +376,7 @@ def random_seed(request):
 
 
 @pytest.fixture(scope="session")
-def nlp_20news():
+def sparse_text_dataset():
     """Generate a sparse text-like dataset similar to 20 newsgroups.
 
     Returns
