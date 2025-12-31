@@ -1,7 +1,6 @@
 import cupy as cp
 from _expected_mutual_information import expected_mutual_information
 from scipy import sparse as sp
-from cuml.metrics.cluster import mutual_info_score
 from cuml.metrics.cluster import entropy
 from cupyx.scipy import sparse as cp_sparse
 
@@ -50,12 +49,14 @@ def contingency_matrix(labels_true, labels_pred, *, eps=None, sparse=False, dtyp
     if sparse:
         contingency = contingency.tocsr()
         contingency.sum_duplicates()
+        return contingency.toarray() # Returns contingecy as a cupy.ndarray
     else:
         contingency = contingency.toarray()
         if eps is not None:
             # don't use += as contigency is integer
             contingency = contingency + eps
 
+        # return contingency
     return contingency
 
 def _generalized_average(U,V,average_method):
@@ -66,11 +67,11 @@ def _generalized_average(U,V,average_method):
         return max(U,V)
     elif average_method == "geometric":
         return cp.sqrt(U * V)
-    elif average_method == "arthematic":
+    elif average_method == "arithmetic":
         return cp.mean(cp.asarray([U,V]))
     else:
         raise ValueError(
-            "'average_method' must be 'arthematic', 'max', 'min' or 'geometric'"
+            "'average_method' must be 'arithmetic', 'max', 'min' or 'geometric'"
         )
 
 def _entropy(labels):
@@ -78,6 +79,28 @@ def _entropy(labels):
     if labels.dtype != cp.int32:
         labels = labels.astype(cp.int32)
     return entropy(labels)
+
+def raw_mutual_info_score(contingency):
+    """ Compute raw (unnormalized) mutual information from contingency matrix.
+    Exact CuPy translation of sklearn's implementation."""
+    contingency = cp.asarray(contingency, dtype=cp.float64)
+    contingency_sum = contingency.sum()
+    if contingency_sum == 0 or contingency.shape[0] <= 1 or contingency.shape[1] <= 1:
+        return 0.0
+
+    row_sums = contingency.sum(axis=1)
+    col_sums = contingency.sum(axis=0)
+
+    nz_idx = contingency > 0
+    nij_nz = contingency[nz_idx]
+
+    expected = (row_sums[:, None] @ col_sums[None, :])[nz_idx]
+
+    mi = cp.sum(
+        (nij_nz / contingency_sum) * cp.log((nij_nz * contingency_sum) / expected)
+    )
+    return float(cp.maximum(mi, 0.0))
+
 
 # @validate_params(
 #     {
@@ -90,7 +113,7 @@ def _entropy(labels):
 # )
 
 def adjusted_mutual_info_score(
-        labels_true, labels_pred, *, average_method="arthematic"
+        labels_true, labels_pred, *, average_method="arithmetic"
 ):
     """Adjusted Mutual Information between two clusterings.
 
@@ -155,7 +178,7 @@ def adjusted_mutual_info_score(
 
     contingency = contingency_matrix(labels_true, labels_pred, sparse=True)
     # Calcualte the MI for the two clusterings
-    mi = mutual_info_score(labels_true, labels_pred)
+    mi = raw_mutual_info_score(contingency)
     # Calculate the expected value for the mutual information
     emi = expected_mutual_information(contingency, n_samples)
     # Calculate entropy for each labeling
