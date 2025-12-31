@@ -140,7 +140,7 @@ outputs:
           - libcusolver
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/libcuml/pyproject.toml").project.description }}
 
   - package:
@@ -176,5 +176,5 @@ outputs:
           - librmm
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
       summary: libcuml test & benchmark executables
