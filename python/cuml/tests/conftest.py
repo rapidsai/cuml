@@ -15,10 +15,7 @@ import pynvml
 import pytest
 from sklearn import datasets
 
-from cuml.testing.datasets import (
-    make_housing_dataset,
-    make_text_classification_dataset,
-)
+from cuml.testing.datasets import make_text_classification_dataset
 
 # =============================================================================
 # Pytest Configuration
@@ -389,19 +386,6 @@ def nlp_20news():
     """
     X, y = make_text_classification_dataset()
     return X, cp.array(y)
-
-
-@pytest.fixture(scope="session")
-def housing_dataset():
-    """Generate a regression dataset similar to California housing.
-
-    Returns
-    -------
-    tuple
-        (X, y) where X and y are cupy arrays
-    """
-    X, y = make_housing_dataset()
-    return cp.array(X), cp.array(y)
 
 
 @pytest.fixture(
