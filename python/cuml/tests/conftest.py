@@ -13,8 +13,12 @@ import hypothesis
 import numpy as np
 import pynvml
 import pytest
-from scipy import sparse
 from sklearn import datasets
+
+from cuml.testing.datasets import (
+    make_housing_dataset,
+    make_text_classification_dataset,
+)
 
 # =============================================================================
 # Pytest Configuration
@@ -378,99 +382,26 @@ def random_seed(request):
 def nlp_20news():
     """Generate a sparse text-like dataset similar to 20 newsgroups.
 
-    This fixture generates a sparse bag-of-words matrix and target vector
-    that mimic the characteristics of the 20 newsgroups dataset after
-    CountVectorizer/TF-IDF transformation, using topic-like word distributions.
-
     Returns
     -------
     tuple
-        (X, Y) where X is a sparse feature matrix and Y is the target vector
+        (X, Y) where X is a sparse feature matrix and Y is a cupy target vector
     """
-    n_docs = 11314  # Similar to 20 newsgroups training set
-    n_features = 10000  # Vocabulary size
-    n_classes = 20
-    avg_nonzero_per_doc = 150
-
-    rng = np.random.RandomState(0)
-
-    # Class labels (balanced)
-    y = rng.randint(0, n_classes, size=n_docs)
-
-    # Class-specific word distributions (topic-like)
-    # Each class has its own word preference distribution over the vocabulary
-    class_word_probs = []
-    for _ in range(n_classes):
-        # Dirichlet distribution to simulate "topic" structure with sparsity
-        alpha = np.ones(n_features) * 0.01
-        topic = rng.dirichlet(alpha)
-        class_word_probs.append(topic)
-    class_word_probs = np.vstack(class_word_probs)
-
-    # Generate sparse bag-of-words for each document
-    data = []
-    rows = []
-    cols = []
-
-    for i in range(n_docs):
-        label = y[i]
-        # Document length ~ Poisson around avg_nonzero_per_doc
-        doc_len = max(1, rng.poisson(avg_nonzero_per_doc))
-        # Sample word indices from the class distribution
-        word_indices = rng.choice(
-            n_features,
-            size=doc_len,
-            replace=True,
-            p=class_word_probs[label],
-        )
-        # Count word occurrences
-        unique, counts = np.unique(word_indices, return_counts=True)
-        rows.extend([i] * len(unique))
-        cols.extend(unique.tolist())
-        data.extend(counts.tolist())
-
-    X_bow = sparse.csr_matrix(
-        (data, (rows, cols)),
-        shape=(n_docs, n_features),
-        dtype=np.float64,
-    )
-
-    # Apply TF-IDF-like weighting
-    df = (X_bow > 0).sum(axis=0).A1 + 1.0  # document frequency + 1
-    idf = np.log((1.0 + n_docs) / df)
-    X = X_bow.multiply(idf).tocsr()
-
-    Y = cp.array(y)
-
-    return X, Y
+    X, y = make_text_classification_dataset()
+    return X, cp.array(y)
 
 
 @pytest.fixture(scope="session")
 def housing_dataset():
     """Generate a regression dataset similar to California housing.
 
-    This fixture generates a regression dataset that mimics the
-    characteristics of the California housing dataset.
-
     Returns
     -------
     tuple
-        (X, y) where X is the feature matrix and y is the target vector
+        (X, y) where X and y are cupy arrays
     """
-    n_samples = 20640  # Same as California housing
-    n_features = 8
-
-    X, y = datasets.make_regression(
-        n_samples=n_samples,
-        n_features=n_features,
-        noise=0.5,
-        random_state=42,
-    )
-
-    X = cp.array(X)
-    y = cp.array(y)
-
-    return X, y
+    X, y = make_housing_dataset()
+    return cp.array(X), cp.array(y)
 
 
 @pytest.fixture(

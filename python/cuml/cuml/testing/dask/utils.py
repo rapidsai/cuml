@@ -4,9 +4,9 @@
 import cupy as cp
 import dask
 import numpy as np
-from scipy import sparse
 
 from cuml.dask.common import to_sparse_dask_array
+from cuml.testing.datasets import make_text_classification_dataset
 
 
 def load_text_corpus(client):
@@ -14,53 +14,27 @@ def load_text_corpus(client):
 
     This function generates a sparse bag-of-words matrix and target vector
     that mimic the characteristics of the 20 newsgroups dataset (4 categories)
-    after HashingVectorizer transformation.
+    as a distributed dask array.
+
+    Parameters
+    ----------
+    client : distributed.Client
+        Dask distributed client
+
+    Returns
+    -------
+    tuple
+        (X, y) where X is a sparse dask array and y is a dask array
     """
-    n_docs = 2257  # Similar to 20 newsgroups with 4 categories
-    n_features = 10000
-    n_classes = 4
-    avg_nonzero_per_doc = 150
-
-    rng = np.random.RandomState(42)
-
-    # Class labels (balanced)
-    y = rng.randint(0, n_classes, size=n_docs)
-
-    # Class-specific word distributions (topic-like)
-    class_word_probs = []
-    for _ in range(n_classes):
-        alpha = np.ones(n_features) * 0.01
-        topic = rng.dirichlet(alpha)
-        class_word_probs.append(topic)
-    class_word_probs = np.vstack(class_word_probs)
-
-    # Generate sparse bag-of-words for each document
-    data = []
-    rows = []
-    cols = []
-
-    for i in range(n_docs):
-        label = y[i]
-        doc_len = max(1, rng.poisson(avg_nonzero_per_doc))
-        word_indices = rng.choice(
-            n_features,
-            size=doc_len,
-            replace=True,
-            p=class_word_probs[label],
-        )
-        unique, counts = np.unique(word_indices, return_counts=True)
-        rows.extend([i] * len(unique))
-        cols.extend(unique.tolist())
-        data.extend(counts.tolist())
-
-    xformed = sparse.csr_matrix(
-        (data, (rows, cols)),
-        shape=(n_docs, n_features),
+    X, y = make_text_classification_dataset(
+        n_docs=2257,  # Similar to 20 newsgroups with 4 categories
+        n_classes=4,
+        apply_tfidf=False,
         dtype=np.float32,
+        random_state=42,
     )
 
-    X = to_sparse_dask_array(xformed, client)
-
+    X = to_sparse_dask_array(X, client)
     y = dask.array.from_array(y, asarray=False, fancy=False).astype(cp.int32)
 
     return X, y
