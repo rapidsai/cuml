@@ -359,7 +359,10 @@ def check_numpy_order(ary, order):
 def check_ptr(a, b, input_type):
     if input_type == "cudf":
         for col_a, col_b in zip(a._columns, b._columns, strict=True):
-            assert col_a.base_data.ptr == col_b.base_data.ptr
+            assert (
+                col_a.to_pylibcudf().data().ptr
+                == col_b.to_pylibcudf().data().ptr
+            )
     else:
 
         def get_ptr(x):
