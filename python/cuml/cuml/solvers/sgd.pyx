@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
 
@@ -186,7 +185,7 @@ def fit_sgd(
 
     # Perform fit
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef uintptr_t X_ptr = X.ptr
     cdef uintptr_t y_ptr = y.ptr
@@ -327,13 +326,13 @@ class SGD(Base, FMajorInputTagMixin):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         The number of epochs to train without any improvement in the model
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -425,7 +424,7 @@ class SGD(Base, FMajorInputTagMixin):
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            handle=self.handle,
+            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -455,7 +454,8 @@ class SGD(Base, FMajorInputTagMixin):
 
         preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int loss_code = _LOSSES[self.loss]
         cdef bool use_f32 = self.coef_.dtype == np.float32
         cdef uintptr_t preds_ptr = preds.ptr
@@ -486,19 +486,6 @@ class SGD(Base, FMajorInputTagMixin):
                     <double*>preds_ptr,
                     loss_code,
                 )
-        self.handle.sync()
+        handle.sync()
 
         return preds
-
-    def predictClass(self, X, convert_dtype=True):
-        """This method has been removed.
-
-        Instead use ``sgd.predict() > 0.5`` for ``loss="hinge"`` and
-        ``sgd.predict() > 0`` otherwise. For actual classifier support
-        please use ``MBSGDClassifier`` instead.
-        """
-        raise NotImplementedError(
-            "This method was removed in 25.12 as a breaking change.\n\n"
-            "Please use ``sgd.predict() > 0.5`` for ``loss='hinge'`` and "
-            "``sgd.predict() > 0`` otherwise."
-        )
