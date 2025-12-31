@@ -359,8 +359,8 @@ def check_ptr(a, b, input_type):
     if input_type == "cudf":
         for col_a, col_b in zip(a._columns, b._columns, strict=True):
             assert (
-                col_a.to_pylibcudf().data().ptr
-                == col_b.to_pylibcudf().data().ptr
+                col_a.to_pylibcudf(mode="read").data().ptr
+                == col_b.to_pylibcudf(mode="read").data().ptr
             )
     else:
 
