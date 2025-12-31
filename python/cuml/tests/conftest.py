@@ -246,8 +246,6 @@ def pytest_configure(config):
     https_handler = HTTPSHandler(context=ssl_context)
     install_opener(build_opener(https_handler))
 
-    config.pluginmanager.register(DownloadDataPlugin(), "download_data")
-
 
 def pytest_pyfunc_call(pyfuncitem):
     """Skip tests that require the cudf.pandas accelerator.
@@ -385,20 +383,6 @@ def random_seed(request):
 # =============================================================================
 # Dataset Fixtures
 # =============================================================================
-
-
-class DownloadDataPlugin:
-    """Download data before workers are spawned.
-
-    This avoids downloading data in each worker, which can lead to races.
-    """
-
-    def pytest_configure(self, config):
-        if not hasattr(config, "workerinput"):
-            # We're in the controller process, not a worker. Let's fetch all
-            # the datasets we might use.
-            fetch_20newsgroups()
-            fetch_california_housing()
 
 
 def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
