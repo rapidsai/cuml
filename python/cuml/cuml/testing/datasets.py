@@ -429,41 +429,6 @@ def make_text_classification_dataset(
     return X, y
 
 
-def make_housing_dataset(
-    n_samples=20640,
-    n_features=8,
-    noise=0.5,
-    random_state=42,
-):
-    """Generate a regression dataset similar to California housing.
-
-    This function generates a regression dataset that mimics the
-    characteristics of the California housing dataset.
-
-    Parameters
-    ----------
-    n_samples : int, default=20640
-        Number of samples (same as California housing)
-    n_features : int, default=8
-        Number of features (same as California housing)
-    noise : float, default=0.5
-        Standard deviation of Gaussian noise
-    random_state : int, default=42
-        Random seed for reproducibility
-
-    Returns
-    -------
-    tuple
-        (X, y) where X is the feature matrix and y is the target vector
-    """
-    return make_regression(
-        n_samples=n_samples,
-        n_features=n_features,
-        noise=noise,
-        random_state=random_state,
-    )
-
-
 __all__ = [
     # Dataset compatibility
     "is_sklearn_compatible_dataset",
@@ -472,7 +437,6 @@ __all__ = [
     "generate_mnist_like_dataset",
     "make_classification",
     "make_classification_dataset",
-    "make_housing_dataset",
     "make_pattern",
     "make_regression",
     "make_regression_dataset",
