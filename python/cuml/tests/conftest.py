@@ -6,20 +6,15 @@
 import os
 from datetime import timedelta
 from math import ceil
-from ssl import create_default_context
-from urllib.request import HTTPSHandler, build_opener, install_opener
 
-import certifi
 import cudf.pandas
 import cupy as cp
 import hypothesis
 import numpy as np
 import pynvml
 import pytest
+from scipy import sparse
 from sklearn import datasets
-from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
-from sklearn.feature_extraction.text import CountVectorizer
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 # =============================================================================
 # Pytest Configuration
@@ -240,12 +235,6 @@ def pytest_configure(config):
     else:
         hypothesis.settings.load_profile("unit")
 
-    # Initialize SSL certificates for secure HTTP connections. This ensures
-    # we use the certifi certs for all urllib downloads.
-    ssl_context = create_default_context(cafile=certifi.where())
-    https_handler = HTTPSHandler(context=ssl_context)
-    install_opener(build_opener(https_handler))
-
 
 def pytest_pyfunc_call(pyfuncitem):
     """Skip tests that require the cudf.pandas accelerator.
@@ -385,70 +374,103 @@ def random_seed(request):
 # =============================================================================
 
 
-def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
-    """Decorator for retrying dataset fetching operations with exponential backoff.
-
-    This decorator implements retry logic for dataset fetching
-    operations with exponential backoff. Wait times are in seconds.
-    """
-    return retry(
-        stop=stop_after_attempt(attempts),
-        wait=wait_exponential(multiplier=min_wait, max=max_wait),
-        reraise=True,
-    )(func)
-
-
 @pytest.fixture(scope="session")
 def nlp_20news():
-    """Load and preprocess the 20 newsgroups dataset.
+    """Generate a sparse text-like dataset similar to 20 newsgroups.
 
-    This fixture loads the 20 newsgroups dataset, preprocesses it using
-    CountVectorizer, and returns the feature matrix and target vector.
+    This fixture generates a sparse bag-of-words matrix and target vector
+    that mimic the characteristics of the 20 newsgroups dataset after
+    CountVectorizer/TF-IDF transformation, using topic-like word distributions.
 
     Returns
     -------
     tuple
-        (X, Y) where X is the feature matrix and Y is the target vector
+        (X, Y) where X is a sparse feature matrix and Y is the target vector
     """
+    n_docs = 11314  # Similar to 20 newsgroups training set
+    n_features = 10000  # Vocabulary size
+    n_classes = 20
+    avg_nonzero_per_doc = 150
 
-    try:
-        twenty_train = fetch_20newsgroups(
-            subset="train", shuffle=True, random_state=42
+    rng = np.random.RandomState(0)
+
+    # Class labels (balanced)
+    y = rng.randint(0, n_classes, size=n_docs)
+
+    # Class-specific word distributions (topic-like)
+    # Each class has its own word preference distribution over the vocabulary
+    class_word_probs = []
+    for _ in range(n_classes):
+        # Dirichlet distribution to simulate "topic" structure with sparsity
+        alpha = np.ones(n_features) * 0.01
+        topic = rng.dirichlet(alpha)
+        class_word_probs.append(topic)
+    class_word_probs = np.vstack(class_word_probs)
+
+    # Generate sparse bag-of-words for each document
+    data = []
+    rows = []
+    cols = []
+
+    for i in range(n_docs):
+        label = y[i]
+        # Document length ~ Poisson around avg_nonzero_per_doc
+        doc_len = max(1, rng.poisson(avg_nonzero_per_doc))
+        # Sample word indices from the class distribution
+        word_indices = rng.choice(
+            n_features,
+            size=doc_len,
+            replace=True,
+            p=class_word_probs[label],
         )
-    except Exception as e:
-        pytest.xfail(f"Error fetching 20 newsgroup dataset: {str(e)}")
+        # Count word occurrences
+        unique, counts = np.unique(word_indices, return_counts=True)
+        rows.extend([i] * len(unique))
+        cols.extend(unique.tolist())
+        data.extend(counts.tolist())
 
-    count_vect = CountVectorizer()
-    X = count_vect.fit_transform(twenty_train.data)
-    Y = cp.array(twenty_train.target)
+    X_bow = sparse.csr_matrix(
+        (data, (rows, cols)),
+        shape=(n_docs, n_features),
+        dtype=np.float64,
+    )
+
+    # Apply TF-IDF-like weighting
+    df = (X_bow > 0).sum(axis=0).A1 + 1.0  # document frequency + 1
+    idf = np.log((1.0 + n_docs) / df)
+    X = X_bow.multiply(idf).tocsr()
+
+    Y = cp.array(y)
 
     return X, Y
 
 
 @pytest.fixture(scope="session")
 def housing_dataset():
-    """Load and preprocess the California housing dataset.
+    """Generate a regression dataset similar to California housing.
 
-    This fixture loads the California housing dataset and returns the
-    feature matrix, target vector, and feature names.
+    This fixture generates a regression dataset that mimics the
+    characteristics of the California housing dataset.
 
     Returns
     -------
     tuple
-        (X, y, feature_names) where X is the feature matrix, y is the target
-        vector, and feature_names is a list of feature names
+        (X, y) where X is the feature matrix and y is the target vector
     """
+    n_samples = 20640  # Same as California housing
+    n_features = 8
 
-    try:
-        data = fetch_california_housing()
-    except Exception as e:
-        pytest.xfail(f"Error fetching housing dataset: {str(e)}")
+    X, y = datasets.make_regression(
+        n_samples=n_samples,
+        n_features=n_features,
+        noise=0.5,
+        random_state=42,
+    )
 
-    X = cp.array(data["data"])
-    y = cp.array(data["target"])
-    feature_names = data["feature_names"]
+    X = cp.array(X)
+    y = cp.array(y)
 
-    return X, y, feature_names
+    return X, y
 
 
 @pytest.fixture(

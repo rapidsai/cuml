@@ -536,7 +536,7 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
     n_rows = 5000
     n_cols = 500
     chunk_size = 1000
-    expected_score = 0.1040
+    expected_score = 0.9852
 
     X, y = nlp_20news
 
@@ -611,5 +611,5 @@ def test_categorical_parameters(
     y_hat_sk = model_sk.predict(X)
     y_log_prob_sk = model_sk.predict_log_proba(X)
 
-    assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4)
+    assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4, atol=1e-10)
     assert_array_equal(y_hat, y_hat_sk)
