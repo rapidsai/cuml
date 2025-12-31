@@ -234,9 +234,7 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             )
 
 
-@pytest.mark.xfail(
-    reason="requires https://github.com/rapidsai/cuml/pull/7636"
-)
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7638")
 @pytest.mark.parametrize("num_rows", test_num_rows)
 @pytest.mark.parametrize("num_cols", test_num_cols)
 @pytest.mark.parametrize("to_dtype", test_dtypes_acceptable)
