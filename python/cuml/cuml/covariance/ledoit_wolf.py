@@ -304,14 +304,14 @@ class LedoitWolf(Base, InteropMixin):
             return precision
 
     @run_in_internal_context
-    def score(self, X, y=None) -> float:
-        """Compute the log-likelihood of X under the estimated model.
+    def score(self, X_test, y=None) -> float:
+        """Compute the log-likelihood of X_test under the estimated model.
 
         The log-likelihood is computed using the Gaussian model.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X_test : array-like of shape (n_samples, n_features)
             Test data of which we compute the likelihood.
         y : Ignored
             Not used, present for API consistency.
@@ -322,7 +322,7 @@ class LedoitWolf(Base, InteropMixin):
             Log-likelihood of the data under the fitted Gaussian model.
         """
         X_arr, _, n_features, _ = input_to_cupy_array(
-            X,
+            X_test,
             check_dtype=[np.float32, np.float64],
             check_cols=self.n_features_in_,
             order="C",
