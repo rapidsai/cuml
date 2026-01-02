@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 import pytest
 import sklearn
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import make_regression
 from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
@@ -152,7 +152,9 @@ def test_lars_collinear(datatype, nrows, column_info, precompute):
     ],
 )
 def test_lars_attributes(datatype, params):
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = make_regression(
+        n_samples=20000, n_features=8, n_informative=5, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
 
@@ -197,7 +199,12 @@ def test_lars_attributes(datatype, params):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_lars_copy_X(datatype):
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = make_regression(
+        n_samples=20000,
+        n_features=8,
+        n_informative=5,
+        random_state=0,
+    )
     X = cp.asarray(X, dtype=datatype, order="F")
     y = cp.asarray(y, dtype=datatype, order="F")
 

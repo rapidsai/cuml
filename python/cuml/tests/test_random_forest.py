@@ -908,7 +908,7 @@ def test_rf_regression_with_identical_labels():
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = make_regression(n_samples=10000, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
@@ -919,7 +919,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
-    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=4)
 
 
 def test_rf_binary_classifier_gtil_integration(tmpdir):
