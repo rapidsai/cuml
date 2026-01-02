@@ -113,6 +113,13 @@ class LedoitWolf(Base, InteropMixin):
         Size of blocks into which the covariance matrix will be split
         during its Ledoit-Wolf estimation. This is purely a memory
         optimization and does not affect results.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -218,10 +225,12 @@ class LedoitWolf(Base, InteropMixin):
         store_precision=True,
         assume_centered=False,
         block_size=1000,
+        handle=None,
         verbose=False,
         output_type=None,
     ):
         super().__init__(
+            handle=handle,
             verbose=verbose,
             output_type=output_type,
         )
