@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -234,7 +234,6 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             )
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7638")
 @pytest.mark.parametrize("num_rows", test_num_rows)
 @pytest.mark.parametrize("num_cols", test_num_cols)
 @pytest.mark.parametrize("to_dtype", test_dtypes_acceptable)
@@ -359,11 +358,10 @@ def check_numpy_order(ary, order):
 def check_ptr(a, b, input_type):
     if input_type == "cudf":
         for col_a, col_b in zip(a._columns, b._columns, strict=True):
-            # get_ptr could spill the buffer data, but possibly OK
-            # if this is only used for testing
-            assert col_a.base_data.get_ptr(
-                mode="read"
-            ) == col_b.base_data.get_ptr(mode="read")
+            assert (
+                col_a.to_pylibcudf(mode="read").data().ptr
+                == col_b.to_pylibcudf(mode="read").data().ptr
+            )
     else:
 
         def get_ptr(x):
