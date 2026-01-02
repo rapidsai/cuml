@@ -43,9 +43,6 @@ filterwarnings = [
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
-  # TODO: https://github.com/rapidsai/cuml/issues/5879
-  "ignore::FutureWarning:sklearn",
-  "ignore::DeprecationWarning:sklearn",
   # From sklearn
   "ignore:A column-vector y was passed:sklearn.exceptions.DataConversionWarning",
   # From dask-glm
