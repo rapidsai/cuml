@@ -105,8 +105,18 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
   WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
   n_ws = ws.GetSize();
   Initialize(&y, sample_weight, n_rows, n_cols);
-  KernelCache<math_t, MatrixViewType> cache(
-    handle, matrix, n_rows, n_cols, n_ws, kernel, kernel_type, cache_size, svmType);
+  KernelCache<math_t, MatrixViewType> cache(handle,
+                                            matrix,
+                                            n_rows,
+                                            n_cols,
+                                            n_ws,
+                                            kernel,
+                                            kernel_type,
+                                            cache_size,
+                                            svmType,
+                                            1 << 30,  // kernel_tile_byte_limit
+                                            1 << 30,  // dense_extract_byte_limit
+                                            is_precomputed);
 
   // Init counters
   max_outer_iter        = GetDefaultMaxIter(n_train, max_outer_iter);
