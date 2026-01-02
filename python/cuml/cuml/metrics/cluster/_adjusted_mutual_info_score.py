@@ -31,6 +31,7 @@ def check_clustering(labels_true, labels_pred):
 #     )
 def contingency_matrix(labels_true, labels_pred, *, eps=None, sparse=False, dtype=cp.float64):
     """
+    contingency_matrix
     """
     if eps is not None and sparse:
         raise ValueError("Cannot set 'eps' when sparse=True")
