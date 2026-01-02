@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -23,6 +23,7 @@ from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
 from cuml.common.pointer_utils import device_of_gpu_matrix
+from cuml.covariance.ledoit_wolf import LedoitWolf
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
 from cuml.datasets.classification import make_classification
@@ -133,6 +134,7 @@ __all__ = [
     "KNeighborsClassifier",
     "KNeighborsRegressor",
     "Lasso",
+    "LedoitWolf",
     "LinearRegression",
     "LinearSVC",
     "LinearSVR",
