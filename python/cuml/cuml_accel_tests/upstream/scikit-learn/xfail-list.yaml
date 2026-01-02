@@ -1468,7 +1468,7 @@
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_n_iter"
 - reason: Ridge tests too strict of tolerances due to solver differences
-  condition: scikit-learn>=1.7
+  condition: scikit-learn>1.7
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-lsqr-None]"
