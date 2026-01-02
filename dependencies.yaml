@@ -482,7 +482,6 @@ dependencies:
           - seaborn
           - *scikit_learn
           - statsmodels
-          - tenacity
           - umap-learn==0.5.7
           - pynndescent
       - output_types: conda
