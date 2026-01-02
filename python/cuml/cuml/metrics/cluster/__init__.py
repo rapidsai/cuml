@@ -21,3 +21,6 @@ from cuml.metrics.cluster.silhouette_score import (
     cython_silhouette_score as silhouette_score,
 )
 from cuml.metrics.cluster.v_measure import cython_v_measure as v_measure_score
+
+from ._adjusted_mutual_info_score import adjusted_mutual_info_score
+from ._expected_mutual_information import expected_mutual_information
