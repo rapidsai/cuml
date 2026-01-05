@@ -329,7 +329,6 @@ def test_logistic_regression(
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
-                multi_class="auto",
             )
         else:
             sklog = skLog(
@@ -337,7 +336,6 @@ def test_logistic_regression(
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
-                multi_class="auto",
             )
     else:
         sklog = skLog(
@@ -345,7 +343,6 @@ def test_logistic_regression(
             solver="lbfgs",
             C=C,
             fit_intercept=fit_intercept,
-            multi_class="auto",
         )
 
     sklog.fit(X_train, y_train)
@@ -417,7 +414,7 @@ def test_logistic_regression_model_default(dtype):
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    sklog = skLog(multi_class="auto")
+    sklog = skLog()
 
     sklog.fit(X_train, y_train)
 
@@ -480,12 +477,12 @@ def test_logistic_regression_model_digits(
 @given(dtype=dataset_dtypes())
 @example(dtype=np.float32)
 @example(dtype=np.float64)
-def test_logistic_regression_sparse_only(dtype, nlp_20news):
+def test_logistic_regression_sparse_only(dtype, sparse_text_dataset):
     # sklearn score with max_iter = 10000
     sklearn_score = 0.878
     acceptable_score = sklearn_score - 0.01
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = csr_matrix(X.astype(dtype))
     y = y.get().astype(dtype)
@@ -586,11 +583,7 @@ def test_logistic_regression_predict_proba(
 
     sklog = skLog(
         fit_intercept=fit_intercept,
-        **(
-            {"solver": "lbfgs", "multi_class": "multinomial"}
-            if num_classes > 2
-            else {}
-        ),
+        **({"solver": "lbfgs"} if num_classes > 2 else {}),
     )
     sklog.coef_ = culog.coef_
     sklog.intercept_ = culog.intercept_ if fit_intercept else 0
@@ -1056,14 +1049,3 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
-
-
-@pytest.mark.parametrize(
-    "cls", [cuml.Ridge, cuml.ElasticNet, cuml.Lasso, cuml.LinearRegression]
-)
-def test_deprecated_normalize(cls):
-    X, y = make_regression()
-    model = cls(normalize=True)
-
-    with pytest.raises(FutureWarning, match="normalize"):
-        model.fit(X, y)

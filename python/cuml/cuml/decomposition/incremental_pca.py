@@ -41,14 +41,13 @@ class IncrementalPCA(PCA):
 
     Parameters
     ----------
+    handle : cuml.Handle or None, default=None
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     n_components : int or None, (default=None)
         Number of components to keep. If `n_components` is ``None``,
         then `n_components` is set to :py:`min(n_samples, n_features)`.

@@ -4,6 +4,8 @@
 #
 import inspect
 import os
+import threading
+import warnings
 
 import pylibraft.common.handle
 
@@ -16,6 +18,90 @@ import cuml.internals.nvtx as nvtx
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
 from cuml.internals.outputs import check_output_type
+
+_THREAD_STATE = threading.local()
+
+
+class DeprecatedHandleDescriptor:
+    """A descriptor to ease deprecating the `handle` parameter."""
+
+    def __set__(self, obj, value):
+        # Only warn if set to non-None on *non-multiGPU classes*
+        if value is not None and not type(obj).__name__.endswith("MG"):
+            params = obj._get_param_names() if isinstance(obj, Base) else []
+            if "n_streams" in params:
+                suffix = (
+                    " To configure the number of streams used, please use the "
+                    "`n_streams` parameter instead."
+                )
+            elif "device_ids" in params:
+                suffix = (
+                    " To configure multi-device execution, please use the "
+                    "`device_ids` parameter instead."
+                )
+            else:
+                suffix = ""
+            warnings.warn(
+                f"The `handle` argument to `{type(obj).__name__}` was deprecated "
+                f"in 26.02 and will be removed in 26.04. There is no need to "
+                f"manually specify a `handle`, cuml now manages this resource "
+                f"for you automatically.{suffix}",
+                FutureWarning,
+            )
+        obj.__dict__["handle"] = value
+
+
+def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
+    """Get a `pylibraft.common.Handle`.
+
+    Parameters
+    ----------
+    handle : pylibraft.common.Handle or None, optional
+        A `handle` argument to a function. Will raise a nice deprecation
+        warning and return if provided. Will be removed once the deprecation of
+        `handle` arguments is complete.
+    model : cuml.Base or None, optional
+        A model to extract the handle from (if one is configured). Will be removed
+        once the deprecation of `handle` arguments is complete.
+    n_streams : int, default=0
+        The number of streams to use for a backing stream pool. If non-zero
+        a temporary `Handle` with a pool that size will be created. Otherwise
+        the default threadlocal `Handle` will be used.
+    device_ids : list[int], "all", or None, default=None
+        If non-None, will return a `pylibraft.common.DeviceResourcesSNMG`,
+        enabling multi-device execution. May be a list of device IDs, or
+        ``"all"`` to use all available devices.
+    """
+    if handle is not None:
+        warnings.warn(
+            (
+                "The `handle` argument was deprecated in 26.02 and will be "
+                "removed in 26.04. There is no need to manually specify a "
+                "`handle`, cuml manages this resource for you automatically."
+            ),
+            FutureWarning,
+        )
+        return handle
+
+    if model is not None and model.handle is not None:
+        # Deprecation of model.handle is handled separately by the descriptor
+        return model.handle
+
+    if n_streams == 0 and device_ids is None:
+        if not hasattr(_THREAD_STATE, "handle"):
+            _THREAD_STATE.handle = pylibraft.common.handle.Handle()
+        return _THREAD_STATE.handle
+    elif device_ids is not None:
+        if n_streams != 0:
+            # DeviceResourcesSNMG doesn't support `n_streams` at this time
+            raise ValueError(
+                "Cannot specify both `device_ids` and `n_streams`"
+            )
+        return pylibraft.common.handle.DeviceResourcesSNMG(
+            device_ids=(None if device_ids == "all" else device_ids)
+        )
+    else:
+        return pylibraft.common.handle.Handle(n_streams=n_streams)
 
 
 class Base(TagsMixin):
@@ -34,13 +120,13 @@ class Base(TagsMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -86,6 +172,8 @@ class Base(TagsMixin):
                 return cp.ones(len(X), dtype="int32")
     """
 
+    handle = DeprecatedHandleDescriptor()
+
     def __init__(
         self,
         *,
@@ -93,9 +181,7 @@ class Base(TagsMixin):
         verbose=False,
         output_type=None,
     ):
-        self.handle = (
-            pylibraft.common.handle.Handle() if handle is None else handle
-        )
+        self.handle = handle
         self.verbose = verbose
         if output_type is None:
             output_type = cuml.global_settings.output_type or "input"

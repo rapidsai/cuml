@@ -9,7 +9,6 @@ from cuml.dask.common.base import (
     BaseEstimator,
     DelayedPredictionMixin,
     SyncFitMixinLinearModel,
-    check_deprecated_normalize,
     mnmg_import,
 )
 
@@ -37,12 +36,6 @@ class LinearRegression(
         LinearRegression adds an additional term c to correct for the global
         mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
 
     Attributes
     ----------
@@ -66,8 +59,6 @@ class LinearRegression(
         y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
-        check_deprecated_normalize(self)
-
         models = self._fit(
             model_func=LinearRegression._create_model, data=(X, y)
         )

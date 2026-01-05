@@ -7,13 +7,12 @@ import typing
 
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -107,13 +106,13 @@ class AutoARIMA(Base):
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     simple_differencing: bool or int, default=True
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
@@ -191,7 +190,8 @@ class AutoARIMA(Base):
     @run_in_internal_context
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Detect missing observations
         missing = detect_missing(handle_[0], <double*> d_y_ptr,
@@ -575,13 +575,12 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
         Boolean mask: False for the 1st sub-batch and True for the second
     batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -603,7 +602,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     index = CumlArray.empty(batch_size, np.int32)
@@ -699,13 +698,12 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         Matrix of shape (batch_size, n_sub) containing the metrics to minimize
     batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -723,7 +721,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     batch_buffer = CumlArray.empty(batch_size, np.int32)
@@ -830,7 +828,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
         Position of each member in the respective sub-batch
     """
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     n_sub = len(id_tracker)
@@ -888,7 +886,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     n_sub = len(data_in)
 
     if handle is None:
-        handle = Handle()
+        handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     cdef vector[uintptr_t] in_ptr

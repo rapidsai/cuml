@@ -105,9 +105,6 @@ CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  *        once the function is executed
  * @param fit_intercept
  *        boolean parameter to control if the intercept will be fitted or not
- * @param normalize
- *        boolean parameter to control if the data will be normalized or not;
- *        NB: the input is scaled by the column-wise biased sample standard deviation estimator.
  * @param epochs
  *        Maximum number of iterations that solver will run
  * @param loss
@@ -136,7 +133,6 @@ int cdFit(const raft::handle_t& handle,
           math_t* coef,
           math_t* intercept,
           bool fit_intercept,
-          bool normalize,
           int epochs,
           ML::loss_funct loss,
           math_t alpha,
@@ -156,7 +152,6 @@ int cdFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> squared(n_cols, stream);
   rmm::device_uvector<math_t> mu_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
-  rmm::device_uvector<math_t> norm2_input(0, stream);
   math_t h_sum_sw = 0;
 
   if (sample_weight != nullptr) {
@@ -171,7 +166,6 @@ int cdFit(const raft::handle_t& handle,
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
-    if (normalize) { norm2_input.resize(n_cols, stream); }
 
     GLM::preProcessData(handle,
                         input,
@@ -181,9 +175,7 @@ int cdFit(const raft::handle_t& handle,
                         intercept,
                         mu_input.data(),
                         mu_labels.data(),
-                        norm2_input.data(),
                         fit_intercept,
-                        normalize,
                         sample_weight);
   }
   if (sample_weight != nullptr) {
@@ -207,17 +199,10 @@ int cdFit(const raft::handle_t& handle,
   math_t l1_alpha = l1_ratio * alpha * n_rows;
 
   // Precompute the residual
-  if (normalize) {
-    // if we normalized the data, we know sample variance for each column is 1,
-    // thus no need to compute the norm again.
-    math_t scalar = math_t(n_rows) + l2_alpha;
-    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
-  } else {
-    /* (n_cols * n_rows) may overflow, upcast for indexing */
-    raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
-      squared.data(), input, int64_t(n_cols), int64_t(n_rows), stream);
-    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
-  }
+  /* (n_cols * n_rows) may overflow, upcast for indexing */
+  raft::linalg::colNorm<raft::linalg::NormType::L2Norm, false>(
+    squared.data(), input, int64_t(n_cols), int64_t(n_rows), stream);
+  raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
 
   raft::copy(residual.data(), labels, n_rows, stream);
 
@@ -307,9 +292,7 @@ int cdFit(const raft::handle_t& handle,
                          intercept,
                          mu_input.data(),
                          mu_labels.data(),
-                         norm2_input.data(),
-                         fit_intercept,
-                         normalize);
+                         fit_intercept);
 
   } else {
     *intercept = math_t(0);

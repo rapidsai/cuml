@@ -6,7 +6,7 @@ import typing
 
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg import _build_part_inputs
-from cuml.internals import logger, reflect
+from cuml.internals import get_handle, logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
 
@@ -106,7 +106,8 @@ class NearestNeighborsMG(NearestNeighbors):
         # Build indices and distances outputs for native code interfacing
         result = type(self).alloc_local_output(local_query_rows, self.n_neighbors)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
@@ -126,7 +127,7 @@ class NearestNeighborsMG(NearestNeighbors):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-        self.handle.sync()
+        handle.sync()
 
         # Release memory
         type(self).free_mem(input, result)

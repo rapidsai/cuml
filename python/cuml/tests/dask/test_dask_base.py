@@ -161,20 +161,3 @@ def test_getattr(client):
 
     assert nb_model.feature_count_ is not None
     assert isinstance(nb_model.feature_count_, cupy.ndarray)
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [
-        cuml.dask.linear_model.LinearRegression,
-        cuml.dask.linear_model.Lasso,
-        cuml.dask.linear_model.Ridge,
-        cuml.dask.linear_model.ElasticNet,
-    ],
-)
-def test_deprecated_normalize(client, cls):
-    X, y = make_regression(random_state=42)
-    model = cls(normalize=True, client=client)
-
-    with pytest.warns(FutureWarning, match="normalize"):
-        model.fit(X, y)

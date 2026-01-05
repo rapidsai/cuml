@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -113,7 +113,6 @@ void sgdFit(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> mu_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
-  rmm::device_uvector<math_t> norm2_input(0, stream);
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
@@ -127,9 +126,7 @@ void sgdFit(const raft::handle_t& handle,
                         intercept,
                         mu_input.data(),
                         mu_labels.data(),
-                        norm2_input.data(),
-                        fit_intercept,
-                        false);
+                        fit_intercept);
   }
 
   rmm::device_uvector<math_t> grads(n_cols, stream);
@@ -297,9 +294,7 @@ void sgdFit(const raft::handle_t& handle,
                          intercept,
                          mu_input.data(),
                          mu_labels.data(),
-                         norm2_input.data(),
-                         fit_intercept,
-                         false);
+                         fit_intercept);
   } else {
     *intercept = math_t(0);
   }

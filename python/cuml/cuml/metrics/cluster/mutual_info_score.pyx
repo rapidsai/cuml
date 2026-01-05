@@ -2,12 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from cuml.internals import get_handle
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
+
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -41,7 +40,12 @@ def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
 
     Parameters
     ----------
-    handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
     labels_pred : array-like (device or host) shape = (n_samples,)
         A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -56,7 +60,7 @@ def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
     float
       Mutual information, a non-negative value
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,

@@ -462,8 +462,8 @@ def test_sparse_from_dense(reg_dtype, client):
 @pytest.mark.filterwarnings(
     "ignore:The max_iter was reached which means the coef_ did not converge:sklearn.exceptions.ConvergenceWarning"
 )
-def test_sparse_nlp20news(dtype, nlp_20news, client):
-    X, y = nlp_20news
+def test_sparse_nlp20news(dtype, sparse_text_dataset, client):
+    X, y = sparse_text_dataset
     n_parts = 2  # partitions_per_worker
 
     from scipy.sparse import csr_matrix

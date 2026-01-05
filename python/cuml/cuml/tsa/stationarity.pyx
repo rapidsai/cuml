@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
-from pylibraft.common.handle import Handle
 
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.outputs import reflect
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
@@ -53,13 +52,12 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         Seasonal period if D > 0
     pval_threshold : float
         The p-value threshold above which a series is considered stationary.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -73,8 +71,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
                             check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
-    if handle is None:
-        handle = Handle()
+    handle = get_handle(handle=handle)
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     results = CumlArray.empty(batch_size, dtype=bool)

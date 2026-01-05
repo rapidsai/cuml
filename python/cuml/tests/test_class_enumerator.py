@@ -56,21 +56,18 @@ def test_class_enumerator_actual_module():
             cuml.MBSGDRegressor,
         ],
         custom_constructors={
-            "LogisticRegression": lambda: cuml.LogisticRegression(handle=1)
+            "LogisticRegression": lambda: cuml.LogisticRegression(C=5.5)
         },
     )
     models = module.get_models()
     ref = {
         "ElasticNet": cuml.ElasticNet,
         "Lasso": cuml.Lasso,
-        "LogisticRegression": lambda: cuml.LogisticRegression(handle=1),
+        "LogisticRegression": lambda: cuml.LogisticRegression(C=5.5),
         "Ridge": cuml.Ridge,
     }
 
-    assert (
-        models["LogisticRegression"]().handle
-        == ref["LogisticRegression"]().handle
-    )
+    assert models["LogisticRegression"]().C == ref["LogisticRegression"]().C
     models.pop("LogisticRegression")
     ref.pop("LogisticRegression")
     assert models == ref

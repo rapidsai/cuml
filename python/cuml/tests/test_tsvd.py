@@ -10,7 +10,6 @@ from sklearn.utils import check_random_state
 from cuml import TruncatedSVD as cuTSVD
 from cuml.testing.utils import (
     array_equal,
-    get_handle,
     quality_param,
     stress_param,
     unit_param,
@@ -18,11 +17,10 @@ from cuml.testing.utils import (
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("random"), stress_param("blobs")]
 )
-def test_tsvd_fit(datatype, name, use_handle):
+def test_tsvd_fit(datatype, name):
     if name == "blobs":
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
 
@@ -43,11 +41,9 @@ def test_tsvd_fit(datatype, name, use_handle):
         sktsvd = skTSVD(n_components=1)
         sktsvd.fit(X)
 
-    handle, stream = get_handle(use_handle)
-    cutsvd = cuTSVD(n_components=1, handle=handle)
+    cutsvd = cuTSVD(n_components=1)
 
     cutsvd.fit(X)
-    cutsvd.handle.sync()
 
     if name != "blobs":
         for attr in [
@@ -64,11 +60,10 @@ def test_tsvd_fit(datatype, name, use_handle):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("random"), stress_param("blobs")]
 )
-def test_tsvd_fit_transform(datatype, name, use_handle):
+def test_tsvd_fit_transform(datatype, name):
     if name == "blobs":
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
 
@@ -89,22 +84,19 @@ def test_tsvd_fit_transform(datatype, name, use_handle):
         skpca = skTSVD(n_components=1)
         Xsktsvd = skpca.fit_transform(X)
 
-    handle, stream = get_handle(use_handle)
-    cutsvd = cuTSVD(n_components=1, handle=handle)
+    cutsvd = cuTSVD(n_components=1)
 
     Xcutsvd = cutsvd.fit_transform(X)
-    cutsvd.handle.sync()
 
     if name != "blobs":
         assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("random"), stress_param("blobs")]
 )
-def test_tsvd_inverse_transform(datatype, name, use_handle):
+def test_tsvd_inverse_transform(datatype, name):
     if name == "blobs":
         pytest.skip("fails when using blobs dataset")
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
@@ -126,5 +118,4 @@ def test_tsvd_inverse_transform(datatype, name, use_handle):
     Xcutsvd = cutsvd.fit_transform(X)
     input_gdf = cutsvd.inverse_transform(Xcutsvd)
 
-    cutsvd.handle.sync()
     assert array_equal(input_gdf, X, 0.4, with_sign=True)

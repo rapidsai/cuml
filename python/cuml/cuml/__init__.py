@@ -14,7 +14,6 @@ else:
     del libcuml
 
 import cupy
-from pylibraft.common import Handle
 from rmm.allocators.cupy import rmm_cupy_allocator
 
 import cuml.feature_extraction
@@ -87,6 +86,18 @@ def __getattr__(name):
         except AttributeError:
             _global_settings_data.settings = GlobalSettings()
             return _global_settings_data.settings
+    elif name == "Handle":
+        import warnings
+
+        from pylibraft.common import Handle
+
+        warnings.warn(
+            "cuml.Handle was deprecated in 26.02 and will be removed in 26.04. "
+            "There is no need to manually specify a `handle`, cuml now manages "
+            "this resource for you automatically.",
+            FutureWarning,
+        )
+        return Handle
 
     raise AttributeError(f"module {__name__} has no attribute {name}")
 

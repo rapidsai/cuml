@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -35,16 +35,12 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
       stream(handle.get_stream()),
       coef(params.n_col, stream),
       coef2(params.n_col, stream),
-      coef3(params.n_col, stream),
       coef_ref(params.n_col, stream),
       coef2_ref(params.n_col, stream),
-      coef3_ref(params.n_col, stream),
       pred(params.n_row_2, stream),
       pred_ref(params.n_row_2, stream),
       pred2(params.n_row_2, stream),
       pred2_ref(params.n_row_2, stream),
-      pred3(params.n_row_2, stream),
-      pred3_ref(params.n_row_2, stream),
       coef_sc(1, stream),
       coef_sc_ref(1, stream),
       coef_sw(1, stream),
@@ -102,9 +98,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     T coef2_ref_h[params.n_col] = {0.3454546, 0.34545454};
     raft::update_device(coef2_ref.data(), coef2_ref_h, params.n_col, stream);
 
-    T coef3_ref_h[params.n_col] = {0.43846154, 0.43846154};
-    raft::update_device(coef3_ref.data(), coef3_ref_h, params.n_col, stream);
-
     T pred_data_h[len2] = {0.5, 2.0, 0.2, 1.0};
     raft::update_device(pred_data.data(), pred_data_h, len2, stream);
 
@@ -113,9 +106,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
 
     T pred2_ref_h[params.n_row_2] = {0.37818182, 1.17272727};
     raft::update_device(pred2_ref.data(), pred2_ref_h, params.n_row_2, stream);
-
-    T pred3_ref_h[params.n_row_2] = {0.38128205, 1.38974359};
-    raft::update_device(pred3_ref.data(), pred3_ref_h, params.n_row_2, stream);
 
     intercept = T(0);
 
@@ -128,7 +118,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              1,
              coef.data(),
              &intercept,
-             false,
              false,
              params.algo);
 
@@ -149,7 +138,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              coef2.data(),
              &intercept2,
              true,
-             false,
              params.algo);
 
     gemmPredict(handle,
@@ -159,31 +147,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
                 coef2.data(),
                 intercept2,
                 pred2.data());
-
-    raft::update_device(data.data(), data_h, len, stream);
-    raft::update_device(labels.data(), labels_h, params.n_row, stream);
-
-    intercept3 = T(0);
-    ridgeFit(handle,
-             data.data(),
-             params.n_row,
-             params.n_col,
-             labels.data(),
-             &alpha,
-             1,
-             coef3.data(),
-             &intercept3,
-             true,
-             true,
-             params.algo);
-
-    gemmPredict(handle,
-                pred_data.data(),
-                params.n_row_2,
-                params.n_col,
-                coef3.data(),
-                intercept3,
-                pred3.data());
   }
 
   void basicTest2()
@@ -218,7 +181,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              coef_sc.data(),
              &intercept_sc,
              true,
-             false,
              params.algo);
   }
 
@@ -259,7 +221,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              coef_sw.data(),
              &intercept_sw,
              true,
-             false,
              params.algo,
              sample_weight.data());
   }
@@ -271,7 +232,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
   RidgeInputs<T> params;
   rmm::device_uvector<T> coef, coef_ref, pred, pred_ref;
   rmm::device_uvector<T> coef2, coef2_ref, pred2, pred2_ref;
-  rmm::device_uvector<T> coef3, coef3_ref, pred3, pred3_ref;
   rmm::device_uvector<T> coef_sc, coef_sc_ref;
   rmm::device_uvector<T> coef_sw, coef_sw_ref;
   T intercept, intercept2, intercept3;
@@ -293,16 +253,10 @@ TEST_P(RidgeTestF, Fit)
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
     pred2_ref.data(), pred2.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<float>(params.tol)));
@@ -321,18 +275,10 @@ TEST_P(RidgeTestD, Fit)
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(pred2_ref.data(),
                                     pred2.data(),
-                                    params.n_row_2,
-                                    MLCommon::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(pred3_ref.data(),
-                                    pred3.data(),
                                     params.n_row_2,
                                     MLCommon::CompareApproxAbs<double>(params.tol)));
 

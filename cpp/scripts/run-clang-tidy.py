@@ -14,7 +14,7 @@ from pathlib import Path
 
 import tomli
 
-EXPECTED_VERSION = "15.0.7"
+EXPECTED_VERSION = "20.1.8"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
@@ -172,7 +172,7 @@ def get_tidy_args(cmd, exe):
     # Adjust compiler command
     if "c++" in command[0]:
         command[0] = "clang-cpp"
-        command.insert(1, "-std=c++17")
+        command.insert(1, "-std=c++20")
     elif command[0][-2:] == "cc":
         command[0] = "clang"
     else:

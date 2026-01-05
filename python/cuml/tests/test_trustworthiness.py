@@ -4,6 +4,8 @@
 import cudf
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from umap import UMAP
@@ -18,6 +20,10 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 @pytest.mark.parametrize("batch_size", [128, 1024])
 @pytest.mark.filterwarnings(
     "ignore:n_jobs value.*overridden.*by setting random_state.*:UserWarning"
+)
+@pytest.mark.xfail(
+    condition=Version(sklearn.__version__) >= Version("1.8.0.dev0"),
+    reason="umap-learn is incompatible with sklearn >= 1.8.0",
 )
 def test_trustworthiness(
     input_type, n_samples, n_features, n_components, batch_size

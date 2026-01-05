@@ -11,6 +11,7 @@ import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import get_handle
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
@@ -75,13 +76,13 @@ class KNeighborsClassifier(ClassifierMixin,
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -252,7 +253,8 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
@@ -268,7 +270,7 @@ class KNeighborsClassifier(ClassifierMixin,
                 weights_ptr
             )
 
-        self.handle.sync()
+        handle.sync()
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
@@ -331,7 +333,8 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
@@ -346,5 +349,5 @@ class KNeighborsClassifier(ClassifierMixin,
                 n_neighbors,
                 weights_ptr
             )
-        self.handle.sync()
+        handle.sync()
         return probas[0] if len(probas) == 1 else probas
