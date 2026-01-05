@@ -2,14 +2,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import cupy as cp
-from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -23,7 +19,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-@cuml.internals.api_return_any()
 def adjusted_rand_score(labels_true, labels_pred, handle=None,
                         convert_dtype=True) -> float:
     """
@@ -32,21 +27,24 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
 
     Parameters
     ----------
-        labels_true : Ground truth labels to be used as a reference
+    labels_true : Ground truth labels to be used as a reference
 
-        labels_pred : Array of predicted labels used to evaluate the model
+    labels_pred : Array of predicted labels used to evaluate the model
 
-        handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
         float
             The adjusted rand index value between -1.0 and 1.0
     """
-    handle = Handle() \
-        if handle is None else handle
-    cdef handle_t* handle_ =\
-        <handle_t*><size_t>handle.getHandle()
+    handle = get_handle(handle=handle)
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \
         input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,

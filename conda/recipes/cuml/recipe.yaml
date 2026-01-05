@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -76,13 +76,12 @@ requirements:
     - cudf =${{ minor_version }}
     - cython >=3.0.0,<3.2.0
     - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
     - pip
     - pylibraft =${{ minor_version }}
     - python =${{ py_version }}
     - rapids-build-backend >=0.4.0,<0.5.0
     - rapids-logger =0.2
-    - scikit-build-core >=0.10.0
+    - scikit-build-core>=0.11.0
     - treelite ${{ treelite_version }}
     - cuda-cudart-dev
     - if: cuda_major == "12"
@@ -94,9 +93,8 @@ requirements:
     - cupy >=13.6.0
     - joblib >=0.11
     - libcuml =${{ version }}
-    - libcumlprims =${{ minor_version }}
     - numba >=0.60.0,<0.62.0
-    - numba-cuda >=0.19.1,<0.20.0
+    - numba-cuda >=0.22.1,<0.23.0
     - numpy >=1.23,<3.0
     - scikit-learn >=1.4
     - scipy >=1.11.0
@@ -117,5 +115,5 @@ requirements:
 
 about:
   homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
-  license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
+  license: ${{ load_from_file("python/cuml/pyproject.toml").project.license }}
   summary: ${{ load_from_file("python/cuml/pyproject.toml").project.description }}

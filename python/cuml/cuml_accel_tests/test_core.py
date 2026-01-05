@@ -59,6 +59,18 @@ def test_enabled_in_loky_executor():
         assert cuml.accel.is_proxy(remote)
 
 
+def get_level():
+    return cuml.accel.core.logger.level.name.lower()
+
+
+def test_log_level_forwarded_to_subprocesses(monkeypatch):
+    monkeypatch.setenv("CUML_ACCEL_LOG_LEVEL", "debug")
+    ctx = multiprocessing.get_context("spawn")
+    with ctx.Pool(processes=1) as pool:
+        log_level = pool.apply(get_level)
+    assert log_level == "debug"
+
+
 def iter_proxy_class_methods():
     """Generate test cases of (cls, method_name) for all ProxyBase proxied methods"""
     classes = proxy_base_subclasses()

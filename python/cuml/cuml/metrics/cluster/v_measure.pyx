@@ -2,17 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-import cuml.internals
+from cuml.internals import get_handle
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -25,7 +19,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                      const double beta) except +
 
 
-@cuml.internals.api_return_any()
 def cython_v_measure(labels_true, labels_pred, beta=1.0, handle=None) -> float:
     """
     V-measure metric of a cluster labeling given a ground truth.
@@ -59,20 +52,19 @@ def cython_v_measure(labels_true, labels_pred, beta=1.0, handle=None) -> float:
         If ``beta`` is greater than 1, ``completeness`` is weighted more
         strongly in the calculation. If ``beta`` is less than 1,
         ``homogeneity`` is weighted more strongly.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
     v_measure_value : float
        score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,

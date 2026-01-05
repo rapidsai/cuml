@@ -2,29 +2,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
+from typing import Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
-import cuml.internals.nvtx as nvtx
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger, nvtx, reflect, run_in_internal_context
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-
-from typing import Dict, Mapping, Optional, Tuple, Union
-
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-
 from pylibraft.common.handle cimport handle_t
-
-import cuml.internals.logger as logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML" nogil:
@@ -182,13 +174,13 @@ class ARIMA(Base):
         Note: that forecasts are always for the original series, whereas
         statsmodels computes forecasts for the differenced series when
         simple_differencing is True.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -387,7 +379,7 @@ class ARIMA(Base):
 
         self._initial_calc()
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _initial_calc(self):
         """
         This separates the initial calculation from the initialization to make
@@ -398,7 +390,8 @@ class ARIMA(Base):
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef uintptr_t d_exog_ptr
         cdef uintptr_t d_exog_diff_ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef ARIMAOrder cpp_order_diff = self.order
 
         # Detect missing observations
@@ -441,11 +434,11 @@ class ARIMA(Base):
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
@@ -488,16 +481,19 @@ class ARIMA(Base):
         return ic
 
     @property
+    @reflect
     def aic(self) -> CumlArray:
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
+    @reflect
     def aicc(self) -> CumlArray:
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
+    @reflect
     def bic(self) -> CumlArray:
         """Bayesian Information Criterion"""
         return self._ic("bic")
@@ -509,7 +505,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @cuml.internals.api_base_return_generic(input_arg=None)
+    @reflect
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -585,7 +581,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @cuml.internals.api_base_return_generic(input_arg=None)
+    @reflect(array=None)
     def predict(
         self,
         start=0,
@@ -669,7 +665,8 @@ class ARIMA(Base):
             raise ValueError("A value was given for `exog` but only in-sample"
                              " predictions were requested")
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         predict_size = end - start
 
         # Future values of the exogenous variables
@@ -734,7 +731,7 @@ class ARIMA(Base):
                     d_upper)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
-    @cuml.internals.api_base_return_generic_skipall
+    @reflect(array=None)
     def forecast(
         self,
         nsteps: int,
@@ -780,7 +777,6 @@ class ARIMA(Base):
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level, exog)
 
-    @cuml.internals.api_base_return_any_skipall
     def _create_arrays(self):
         """Create the parameter arrays if non-existing"""
         cdef ARIMAOrder order = self.order
@@ -807,7 +803,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -820,14 +816,15 @@ class ARIMA(Base):
         cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
         if order.n_exog:
             d_exog_ptr = self.d_exog.ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call C++ function
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
                     <double*> d_exog_ptr, <int> self.batch_size,
                     <int> self.n_obs, order, <bool> self.missing)
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
@@ -929,7 +926,7 @@ class ARIMA(Base):
         return self
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -976,7 +973,8 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
 
@@ -997,7 +995,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
                       convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
@@ -1053,7 +1051,8 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -1073,6 +1072,7 @@ class ARIMA(Base):
         return grad.to_output("numpy")
 
     @property
+    @run_in_internal_context
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
@@ -1080,7 +1080,8 @@ class ARIMA(Base):
         # as it uses the device parameter arrays and not a host vector.
         # Also, it always uses the MLE method, trans=False and truncate=0
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
@@ -1119,6 +1120,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
+    @run_in_internal_context
     def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1129,7 +1131,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self._create_arrays()
 
@@ -1148,6 +1151,7 @@ class ARIMA(Base):
                    <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
+    @run_in_internal_context
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -1157,7 +1161,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -1173,7 +1178,6 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 
@@ -1192,7 +1196,8 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         N = self.complexity
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr

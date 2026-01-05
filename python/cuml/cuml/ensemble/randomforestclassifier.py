@@ -122,13 +122,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically. To configure the number of streams
+            used please use the `n_streams` parameter instead.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -218,6 +219,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y="dense_intdtype",
         convert_dtype_cast="np.float32",
     )
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
@@ -252,7 +254,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def predict(
         self,
         X,
@@ -294,7 +296,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         inds = fil.predict(X, threshold=threshold).to_output("cupy")
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -302,6 +304,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
+    @cuml.internals.reflect
     def predict_proba(
         self,
         X,
@@ -355,6 +358,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
+    @cuml.internals.run_in_internal_context
     def score(
         self,
         X,

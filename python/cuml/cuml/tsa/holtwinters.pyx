@@ -1,22 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import cudf
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
-import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.outputs import run_in_internal_context
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 
@@ -144,13 +140,13 @@ class ExponentialSmoothing(Base):
     eps : np.number > 0 (default=2.24e-3)
         The accuracy to which gradient descent should achieve.
         Note that changing this value may affect the forecasted results.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -264,9 +260,9 @@ class ExponentialSmoothing(Base):
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
-        return mod_ts_input
+        return CumlArray(data=mod_ts_input)
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -302,7 +298,8 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
         self.level = CumlArray.zeros(components_len, dtype=self.dtype)
@@ -347,11 +344,11 @@ class ExponentialSmoothing(Base):
             self.season = self.season.reshape((self.ts_num, num_rows),
                                               order='F')
 
-        self.handle.sync()
+        handle.sync()
         self.fit_executed_flag = True
-        del X_m
         return self
 
+    @run_in_internal_context
     def forecast(self, h=1, index=None):
         """
         Forecasts future points based on the fitted model.
@@ -373,7 +370,8 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         if not isinstance(h, int) or (not isinstance(index, int) and index is not None):
             raise TypeError("Input arguments must be of type int."
@@ -418,7 +416,7 @@ class ExponentialSmoothing(Base):
                     self.forecasted_points =\
                         self.forecasted_points.reshape((self.ts_num, h),
                                                        order='F')
-                self.handle.sync()
+                handle.sync()
 
             if index is None:
                 if self.ts_num == 1:
@@ -437,6 +435,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before forecast()")
 
+    @run_in_internal_context
     def score(self, index=None):
         """
         Returns the score of the model.
@@ -468,6 +467,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before score()")
 
+    @run_in_internal_context
     def get_level(self, index=None):
         """
         Returns the level component of the model.
@@ -499,6 +499,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get level values")
 
+    @run_in_internal_context
     def get_trend(self, index=None):
         """
         Returns the trend component of the model.
@@ -530,6 +531,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get trend values")
 
+    @run_in_internal_context
     def get_season(self, index=None):
         """
         Returns the season component of the model.

@@ -2,22 +2,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 from cuml.metrics.pairwise_distances import _determine_metric
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nogil:
@@ -70,15 +66,14 @@ def _silhouette_coeff(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if chunksize is None:
@@ -179,13 +174,12 @@ def cython_silhouette_score(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
     """
 
     return _silhouette_coeff(
@@ -225,13 +219,12 @@ def cython_silhouette_samples(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
     """
 
     sil_scores = cp.empty((X.shape[0],), dtype=X.dtype)

@@ -10,7 +10,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -18,6 +18,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -302,13 +303,13 @@ class KMeans(Base,
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
@@ -321,11 +322,12 @@ class KMeans(Base,
     random_state : int or None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
-    init : {'scalable-k-means++', 'k-means||', 'random'} or an \
+    init : {'scalable-k-means++', 'k-means||', 'k-means++', 'random'} or an \
             ndarray (default = 'scalable-k-means++')
 
          - ``'scalable-k-means++'`` or ``'k-means||'``: Uses fast and stable
-           scalable kmeans++ initialization.
+           scalable kmeans++ initialization. k-means++ is the constrained case of k-means||
+           with `oversampling_factor=0`
          - ``'random'``: Choose `n_cluster` observations (rows) at random
            from data for the initial centroids.
          - If an ndarray is passed, it should be of
@@ -516,6 +518,7 @@ class KMeans(Base,
         return self.n_clusters
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
@@ -579,12 +582,13 @@ class KMeans(Base,
                 )
 
         # Prepare for libcuml call
-        cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X_m, sample_weight_m, centers)
         labels, inertia = _kmeans_predict(handle_[0], params, X_m, sample_weight_m, centers)
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes and return
         self.cluster_centers_ = centers
@@ -598,6 +602,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
@@ -657,20 +662,22 @@ class KMeans(Base,
                 check_cols=1,
             )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
         labels, inertia = _kmeans_predict(
             handle_[0], params, X_m, sample_weight_m, self.cluster_centers_
         )
-        self.handle.sync()
+        handle.sync()
         return labels, inertia
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def predict(
         self,
         X,
@@ -688,6 +695,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
@@ -714,7 +722,8 @@ class KMeans(Base,
         cdef uintptr_t centers_ptr = self.cluster_centers_.ptr
         cdef uintptr_t out_ptr = out.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
 
@@ -764,7 +773,7 @@ class KMeans(Base,
                         <int64_t>n_cols,
                         <double*>out_ptr,
                     )
-        self.handle.sync()
+        handle.sync()
         return out
 
     @generate_docstring(return_values={'name': 'score',
@@ -772,6 +781,7 @@ class KMeans(Base,
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
+    @run_in_internal_context
     def score(self, X, y=None, sample_weight=None, *, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
@@ -787,6 +797,7 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
+    @reflect
     def fit_transform(
         self, X, y=None, sample_weight=None, *, convert_dtype=False
     ) -> CumlArray:

@@ -2,9 +2,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import inspect
 import os
+import threading
+import warnings
 
 import pylibraft.common.handle
 
@@ -16,85 +17,116 @@ import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
-from cuml.internals.output_type import (
-    INTERNAL_VALID_OUTPUT_TYPES,
-    VALID_OUTPUT_TYPES,
-)
+from cuml.internals.outputs import check_output_type
+
+_THREAD_STATE = threading.local()
 
 
-class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
-    """
-    Base class for all the ML algos. It handles some of the common operations
-    across all algos. Every ML algo class exposed at cython level must inherit
-    from this class.
+class DeprecatedHandleDescriptor:
+    """A descriptor to ease deprecating the `handle` parameter."""
 
-    Typical estimator design using Base requires three main things:
+    def __set__(self, obj, value):
+        # Only warn if set to non-None on *non-multiGPU classes*
+        if value is not None and not type(obj).__name__.endswith("MG"):
+            params = obj._get_param_names() if isinstance(obj, Base) else []
+            if "n_streams" in params:
+                suffix = (
+                    " To configure the number of streams used, please use the "
+                    "`n_streams` parameter instead."
+                )
+            elif "device_ids" in params:
+                suffix = (
+                    " To configure multi-device execution, please use the "
+                    "`device_ids` parameter instead."
+                )
+            else:
+                suffix = ""
+            warnings.warn(
+                f"The `handle` argument to `{type(obj).__name__}` was deprecated "
+                f"in 26.02 and will be removed in 26.04. There is no need to "
+                f"manually specify a `handle`, cuml now manages this resource "
+                f"for you automatically.{suffix}",
+                FutureWarning,
+            )
+        obj.__dict__["handle"] = value
 
-    1. Call the base __init__ method explicitly from inheriting estimators in
-        their __init__.
 
-    2. Attributes that users will want to access, and are array-like should
-        use cuml.internals.array, and have a preceding underscore `_` before
-        the name the user expects. That way the __getattr__ of Base will
-        convert it automatically to the appropriate output format for the
-        user. For example, in DBSCAN the user expects to be able to access
-        `model.labels_`, so the code actually has an attribute
-        `model._labels_` that gets converted at the moment the user accesses
-        `labels_` automatically. No need for extra code in inheriting classes
-        as long as they follow that naming convention. It is recommended to
-        create the attributes in the constructor assigned to None, and
-        add a note for users that might look into the code to see what
-        attributes the class might have. For example, in KMeans:
-
-    .. code-block:: python
-
-        def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, output_type)
-
-            # initialize numeric variables
-
-            # internal array attributes
-            self._labels_ = None # accessed via estimator.labels_
-            self._cluster_centers_ = None # accessed via estimator.cluster_centers_  # noqa
-
-    3. To appropriately work for outputs mirroring the format of inputs of the
-        user when appropriate, the code in the inheriting estimator must call
-        the following methods, with input being the data sent by the user:
-
-    - `self._set_output_type(input)` in `fit` methods that modify internal
-        structures. This will allow users to receive the correct format when
-        accessing internal attributes of the class (eg. labels_ in KMeans).:
-
-    .. code-block:: python
-
-        def fit(self, X):
-            self._set_output_type(X)
-            # rest of the fit code
-
-    - `out_type = self._get_output_type(input)` in `predict`/`transform` style
-        methods, that don't modify class attributes. out_type then can be used
-        to return the correct format to the user. For example, in KMeans:
-
-    .. code-block:: python
-
-        def transform(self, X, convert_dtype=False):
-            out_type = self._get_output_type(X)
-            X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
-            preds = CumlArray.zeros(...)
-
-            # method code and call to C++ and whatever else is needed
-
-            return preds.to_output(out_type)
+def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
+    """Get a `pylibraft.common.Handle`.
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : pylibraft.common.Handle or None, optional
+        A `handle` argument to a function. Will raise a nice deprecation
+        warning and return if provided. Will be removed once the deprecation of
+        `handle` arguments is complete.
+    model : cuml.Base or None, optional
+        A model to extract the handle from (if one is configured). Will be removed
+        once the deprecation of `handle` arguments is complete.
+    n_streams : int, default=0
+        The number of streams to use for a backing stream pool. If non-zero
+        a temporary `Handle` with a pool that size will be created. Otherwise
+        the default threadlocal `Handle` will be used.
+    device_ids : list[int], "all", or None, default=None
+        If non-None, will return a `pylibraft.common.DeviceResourcesSNMG`,
+        enabling multi-device execution. May be a list of device IDs, or
+        ``"all"`` to use all available devices.
+    """
+    if handle is not None:
+        warnings.warn(
+            (
+                "The `handle` argument was deprecated in 26.02 and will be "
+                "removed in 26.04. There is no need to manually specify a "
+                "`handle`, cuml manages this resource for you automatically."
+            ),
+            FutureWarning,
+        )
+        return handle
+
+    if model is not None and model.handle is not None:
+        # Deprecation of model.handle is handled separately by the descriptor
+        return model.handle
+
+    if n_streams == 0 and device_ids is None:
+        if not hasattr(_THREAD_STATE, "handle"):
+            _THREAD_STATE.handle = pylibraft.common.handle.Handle()
+        return _THREAD_STATE.handle
+    elif device_ids is not None:
+        if n_streams != 0:
+            # DeviceResourcesSNMG doesn't support `n_streams` at this time
+            raise ValueError(
+                "Cannot specify both `device_ids` and `n_streams`"
+            )
+        return pylibraft.common.handle.DeviceResourcesSNMG(
+            device_ids=(None if device_ids == "all" else device_ids)
+        )
+    else:
+        return pylibraft.common.handle.Handle(n_streams=n_streams)
+
+
+class Base(TagsMixin):
+    """Base class for cuml estimators.
+
+    Subclasses should:
+
+    - Define ``_get_param_names`` to extend the base implementation with
+      any additional parameter names.
+
+    - Decorate their ``fit`` method with ``cuml.internals.reflect(reset=True)``
+      to store their fitted input type.
+
+    - Decorate methods that return array likes with ``cuml.internals.reflect``
+      to properly coerce outputs to the proper type.
+
+    Parameters
+    ----------
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -110,43 +142,37 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
 
     .. code-block:: python
 
-        from cuml import Base
+        import cupy as cp
+        from cuml.internals import Base, reflect
 
-        # assuming this ML algo has separate 'fit' and 'predict' methods
         class MyAlgo(Base):
-            def __init__(self, ...):
-                super(MyAlgo, self).__init__(...)
-                # other setup logic
-
-            def fit(self, data, ...):
-                # check output format
-                self._check_output_type(data)
-                # train logic goes here
-
-            def predict(self, data, ...):
-                # check output format
-                self._check_output_type(data)
-                # inference logic goes here
+            def __init__(
+                self,
+                *,
+                param=123,
+                handle=None,
+                verbose=False,
+                output_type=None,
+            ):
+                super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+                self.param = param
 
             @classmethod
             def _get_param_names(cls):
-                # return a list of hyperparam names supported by this algo
+                return [*super()._get_param_names(), "param"]
 
-        # stream and handle example:
+            @reflect(reset=True)
+            def fit(self, X, y):
+                # Training logic goes here...
+                return self
 
-        stream = pylibraft.common.Stream()
-        handle = pylibraft.common.Handle(stream=stream)
-
-        algo = MyAlgo(handle=handle)
-        algo.fit(...)
-        result = algo.predict(...)
-
-        # final sync of all gpu-work launched inside this object
-        # this is same as `pylibraft.common.Stream.sync()` call, but safer in case
-        # the default stream inside the `raft::handle_t` is being used
-        base.handle.sync()
-        del base  # optional!
+            @reflect
+            def predict(self, X):
+                # Inference logic goes here...
+                return cp.ones(len(X), dtype="int32")
     """
+
+    handle = DeprecatedHandleDescriptor()
 
     def __init__(
         self,
@@ -155,15 +181,18 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         verbose=False,
         output_type=None,
     ):
-        self.handle = (
-            pylibraft.common.handle.Handle() if handle is None else handle
-        )
+        self.handle = handle
         self.verbose = verbose
-        self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type
-            if output_type is None
-            else output_type
-        )
+        if output_type is None:
+            output_type = cuml.global_settings.output_type or "input"
+            if output_type == "mirror":
+                raise ValueError(
+                    "Cannot pass output_type='mirror' to Base.__init__(). Did you forget "
+                    "to pass `output_type=self.output_type` to a child estimator? "
+                )
+        else:
+            output_type = check_output_type(output_type)
+        self.output_type = output_type
         self._input_type = None
 
         nvtx_benchmark = os.getenv("NVTX_BENCHMARK")
@@ -245,15 +274,14 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
         Returns the appropriate output type depending on the type of the input,
         class output type and global output type.
         """
-
         # Default to the global type
         output_type = cuml.global_settings.output_type
 
-        # If its None, default to our type
-        if output_type is None or output_type == "mirror":
+        # If not set to an explicit value, use the estimator's setting
+        if output_type in (None, "input", "mirror"):
             output_type = self.output_type
 
-        # If we are input, get the type from the input (if available)
+        # If input, get the type from the input (if available)
         if output_type == "input":
             if inp is None:
                 # No input value provided, use the estimator input type
@@ -313,30 +341,3 @@ class Base(TagsMixin, metaclass=cuml.internals.BaseMetaClass):
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
-
-
-# Internal, non class owned helper functions
-def _check_output_type_str(output_str):
-    if output_str is None:
-        return "input"
-
-    assert output_str != "mirror", (
-        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
-        "to pass `output_type=self.output_type` to a child estimator? "
-        "Currently `cuml.global_settings.output_type==`{}`"
-    ).format(cuml.global_settings.output_type)
-
-    if isinstance(output_str, str):
-        output_type = output_str.lower()
-        # Check for valid output types + "input"
-        if output_type in INTERNAL_VALID_OUTPUT_TYPES:
-            # Return the original version if nothing has changed, otherwise
-            # return the lowered. This is to try and keep references the same
-            # to support sklearn.base.clone() where possible
-            return output_str if output_type == output_str else output_type
-
-    valid_output_types_str = ", ".join([f"'{x}'" for x in VALID_OUTPUT_TYPES])
-    raise ValueError(
-        f"output_type must be one of {valid_output_types_str}"
-        f" Got: {output_str}"
-    )

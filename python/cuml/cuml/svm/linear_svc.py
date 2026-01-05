@@ -14,7 +14,7 @@ from cuml.common.classification import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -23,6 +23,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -69,15 +70,18 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     lbfgs_memory : int, default=5
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
+    n_streams : int (default = 1)
+        Number of parallel streams used for fitting.
     multi_class : {'ovr'}, default='ovr'
         Multiclass classification strategy. Currently only 'ovr' is supported.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically. To configure the number of streams
+            used please use the `n_streams` parameter instead.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -148,6 +152,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "max_iter",
             "linesearch_max_iter",
             "lbfgs_memory",
+            "n_streams",
             "multi_class",
         ]
 
@@ -220,6 +225,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         max_iter=1000,
         linesearch_max_iter=100,
         lbfgs_memory=5,
+        n_streams=1,
         multi_class="ovr",
         handle=None,
         verbose=False,
@@ -240,9 +246,11 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
+        self.n_streams = n_streams
         self.multi_class = multi_class
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
@@ -265,7 +273,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         )
 
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
-            self.handle,
+            get_handle(model=self, n_streams=self.n_streams),
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
             sample_weight=sample_weight,
@@ -298,7 +306,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples,)",
         },
     )
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
         if self.probability:
@@ -314,7 +322,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         else:
             inds = scores.argmax(axis=1)
 
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -326,6 +334,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute probabilities of possible outcomes for samples in X.
 
@@ -346,7 +355,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             order="C",
         ).array
         return cuml.svm.linear.compute_probabilities(
-            self.handle, scores, self.prob_scale_
+            get_handle(model=self, n_streams=self.n_streams),
+            scores,
+            self.prob_scale_,
         )
 
     @generate_docstring(
@@ -357,6 +368,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute log probabilities of possible outcomes for samples in X.
 

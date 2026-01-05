@@ -15,8 +15,9 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. autofunction:: cuml.internals.memory_utils.set_global_output_type
- .. autofunction:: cuml.internals.memory_utils.using_output_type
+.. autofunction:: cuml.set_global_output_type
+
+.. autofunction:: cuml.using_output_type
 
 .. _verbosity-levels:
 
@@ -214,29 +215,24 @@ Metrics (regression, classification, and distance)
 
 Metrics (clustering and manifold learning)
 ------------------------------------------
-  .. automodule:: cuml.metrics.trustworthiness
-    :members:
 
-  .. automodule:: cuml.metrics.cluster.adjusted_rand_index
-    :members:
+  .. autofunction:: cuml.metrics.trustworthiness
 
-  .. automodule:: cuml.metrics.cluster.entropy
-    :members:
+  .. autofunction:: cuml.metrics.cluster.adjusted_rand_score
 
-  .. automodule:: cuml.metrics.cluster.homogeneity_score
-    :members:
+  .. autofunction:: cuml.metrics.cluster.entropy
 
-  .. automodule:: cuml.metrics.cluster.silhouette_score
-    :members:
+  .. autofunction:: cuml.metrics.cluster.homogeneity_score
 
-  .. automodule:: cuml.metrics.cluster.completeness_score
-    :members:
+  .. autofunction:: cuml.metrics.cluster.silhouette_score
 
-  .. automodule:: cuml.metrics.cluster.mutual_info_score
-    :members:
+  .. autofunction:: cuml.metrics.cluster.silhouette_samples
 
-  .. automodule:: cuml.metrics.cluster.v_measure_score
-    :members:
+  .. autofunction:: cuml.metrics.cluster.completeness_score
+
+  .. autofunction:: cuml.metrics.cluster.mutual_info_score
+
+  .. autofunction:: cuml.metrics.cluster.v_measure_score
 
 Benchmarking
 ------------
@@ -298,9 +294,6 @@ Mini Batch SGD Regressor
 
 Multiclass Classification
 -------------------------
-
-.. autoclass:: cuml.multiclass.MulticlassClassifier
-    :members:
 
 .. autoclass:: cuml.multiclass.OneVsOneClassifier
     :members:

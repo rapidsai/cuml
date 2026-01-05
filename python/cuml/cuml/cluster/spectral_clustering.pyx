@@ -2,19 +2,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import warnings
 
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-from pylibraft.common.handle import Handle
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.utils import check_random_seed
 
@@ -56,7 +54,7 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
         device_vector_view[int, int] labels) except +
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.reflect
 def spectral_clustering(X,
                         *,
                         int n_clusters=8,
@@ -111,13 +109,12 @@ def spectral_clustering(X,
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.
          - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -139,8 +136,7 @@ def spectral_clustering(X,
     >>> X = np.random.rand(100, 10).astype(np.float32)
     >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
     """
-    if handle is None:
-        handle = Handle()
+    handle = get_handle(handle=handle)
 
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
@@ -309,13 +305,13 @@ class SpectralClustering(Base):
            graph of nearest neighbors from the input data.
          - 'precomputed' : interpret X as a precomputed affinity matrix,
            where larger values indicate greater similarity between instances.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -394,6 +390,7 @@ class SpectralClustering(Base):
             "affinity",
         ]
 
+    @cuml.internals.reflect
     def fit_predict(self, X, y=None) -> CumlArray:
         """Perform spectral clustering on ``X`` and return cluster labels.
 
@@ -414,19 +411,10 @@ class SpectralClustering(Base):
         labels : cupy.ndarray of shape (n_samples,)
             Cluster labels.
         """
-        self.labels_ = spectral_clustering(
-            X,
-            n_clusters=self.n_clusters,
-            n_components=self.n_components,
-            random_state=self.random_state,
-            n_neighbors=self.n_neighbors,
-            n_init=self.n_init,
-            eigen_tol=self.eigen_tol,
-            affinity=self.affinity,
-            handle=self.handle
-        )
+        self.fit(X, y=y)
         return self.labels_
 
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 
@@ -447,5 +435,15 @@ class SpectralClustering(Base):
         self : object
             Returns the instance itself.
         """
-        self.fit_predict(X, y)
+        self.labels_ = spectral_clustering(
+            X,
+            n_clusters=self.n_clusters,
+            n_components=self.n_components,
+            random_state=self.random_state,
+            n_neighbors=self.n_neighbors,
+            n_init=self.n_init,
+            eigen_tol=self.eigen_tol,
+            affinity=self.affinity,
+            handle=self.handle
+        )
         return self

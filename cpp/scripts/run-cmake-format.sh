@@ -36,7 +36,7 @@ fi
 
 if ! [ ${status} -eq 0 ]; then
     if [[ ${CUML_BUILD_DIR} == *"not a git repository"* ]]; then
-        echo "This script must be run inside the raft repository, or the RAFT_ROOT environment variable must be set."
+        echo "This script must be run inside the cuml repository, or the CUML_ROOT environment variable must be set."
     else
         echo "Script failed with unknown error attempting to determine project root:"
         echo "${CUML_BUILD_DIR}"
@@ -46,6 +46,7 @@ fi
 
 DEFAULT_FORMAT_FILE_LOCATIONS=(
   "${CUML_BUILD_DIR:-${HOME}}/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
+  "${CUML_BUILD_DIR:-cpp/build}/latest/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
 )
 
 if [ -z ${RAPIDS_CMAKE_FORMAT_FILE:+PLACEHOLDER} ]; then

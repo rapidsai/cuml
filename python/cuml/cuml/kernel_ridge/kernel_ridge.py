@@ -12,7 +12,7 @@ from cupyx import geterr, lapack, seterr
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_array
+from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -137,13 +137,13 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -289,6 +289,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         )
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
@@ -324,7 +325,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
-    @api_base_return_array()
+    @reflect
     def predict(self, X, *, convert_dtype=True):
         """
         Predict using the kernel ridge model.

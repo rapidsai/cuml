@@ -2,16 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import warnings
-
 import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import reflect
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -81,13 +80,13 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         Indirectly influences the number of neighbors to use when
         ``connectivity="knn"``, with ``n_neighbors = log(n_samples) + c``. The
         default of 15 should suffice for most problems.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -124,7 +123,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             "linkage",
             "connectivity",
             "c",
-            "n_neighbors",
         ]
 
     def __init__(
@@ -138,7 +136,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         handle=None,
         verbose=False,
         output_type=None,
-        n_neighbors="deprecated",
     ):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
@@ -147,9 +144,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
         self.linkage = linkage
         self.c = c
-        self.n_neighbors = n_neighbors
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
@@ -183,37 +180,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'connectivity' can only be one of {'knn', 'pairwise'}")
         cdef bool use_knn = self.connectivity == "knn"
 
-        cdef int c
-        if self.n_neighbors != "deprecated":
-            warnings.warn(
-                (
-                    "`n_neighbors` was deprecated in 25.12 and will be removed "
-                    "in 26.02. Please use `c` instead, where "
-                    "`n_neighbors = log(n_samples) + c`"
-                ),
-                FutureWarning
-            )
-            # Before we were passing `c = n_neighbors`, so we continue to do so,
-            # understanding that this was a bug then and didn't directly indicate
-            # the number of neighbors.
-            c = self.n_neighbors
-        else:
-            c = self.c
-
-        cdef DistanceType metric
-        if self.metric is None:
-            warnings.warn(
-                (
-                    "metric=None was deprecated in 25.12 and will be removed "
-                    "in 26.02, please use metric='euclidean' instead",
-                ),
-                FutureWarning
-            )
-            metric = DistanceType.L2SqrtExpanded
-        elif self.metric not in _metrics_mapping:
+        if self.metric not in _metrics_mapping:
             raise ValueError("metric={self.metric!r} not supported")
-        else:
-            metric = _metrics_mapping[self.metric]
+        cdef DistanceType metric = _metrics_mapping[self.metric]
 
         cdef size_t n_clusters = self.n_clusters
         if n_clusters < 1 or n_clusters > n_rows:
@@ -225,7 +194,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         labels = CumlArray.empty(n_rows, dtype="int32", order="C")
         children = CumlArray.empty((n_rows - 1, 2), dtype="int32", order="C")
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef int c = self.c
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef int* children_ptr = <int*><uintptr_t>children.ptr
         cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
@@ -244,7 +215,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                 use_knn,
                 c,
             )
-        self.handle.sync()
+        handle.sync()
 
         # We only support single linkage for now, for other linkage types
         # n_connected_components_ and n_leaves_ will differ
@@ -260,6 +231,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
+    @reflect
     def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit and return the assigned cluster labels.

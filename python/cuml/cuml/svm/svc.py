@@ -4,7 +4,6 @@
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.common.classification import (
     decode_labels,
     preprocess_labels,
@@ -23,6 +22,11 @@ from cuml.internals.input_utils import (
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -51,13 +55,13 @@ class SVC(SVMBase, ClassifierMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -90,19 +94,8 @@ class SVC(SVMBase, ClassifierMixin):
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVC.TotalIters`.
-            For example ``SVC(max_iter=SVC.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVC.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -298,7 +291,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -313,7 +306,7 @@ class SVC(SVMBase, ClassifierMixin):
         self._support_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -327,7 +320,7 @@ class SVC(SVMBase, ClassifierMixin):
     def intercept_(self, value):
         self._intercept_ = value
 
-    def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
+    def _fit_multiclass(self, X, y, sample_weight):
         if sample_weight is not None:
             warn(
                 "Sample weights are currently ignored for multi class classification"
@@ -380,7 +373,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight):
         from sklearn.calibration import CalibratedClassifierCV
         from sklearn.model_selection import StratifiedKFold
 
@@ -407,7 +400,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_context():
             cccv.fit(X, y, sample_weight=sample_weight)
 
         cal_clf = cccv.calibrated_classifiers_[0]
@@ -439,6 +432,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -502,7 +496,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -517,7 +511,7 @@ class SVC(SVMBase, ClassifierMixin):
             res = self.decision_function(X, convert_dtype=convert_dtype)
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -530,6 +524,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -586,6 +581,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         }
     )
+    @reflect
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -603,6 +599,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.

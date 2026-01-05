@@ -2,27 +2,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle, logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
+
+from cuml.common.opg_data_utils_mg cimport *
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
@@ -58,7 +52,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     def __init__(self, **kwargs):
         super(KNeighborsClassifierMG, self).__init__(**kwargs)
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         index,
@@ -141,7 +135,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             out_result_local_parts.push_back(new intData_t(
                 <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         is_verbose = logger.should_log_for(logger.level_enum.debug)
         knn_classify(
@@ -165,7 +160,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <bool>is_verbose
         )
 
-        self.handle.sync()
+        handle.sync()
 
         # Release memory
         type(self).free_mem(input)
@@ -178,7 +173,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return output_cais
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,
@@ -254,7 +249,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                 probas_local_parts.at(query_idx).push_back(<float*><uintptr_t>
                                                            p_cai.ptr)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
@@ -278,7 +274,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-        self.handle.sync()
+        handle.sync()
 
         # Release memory
         type(self).free_mem(input)
