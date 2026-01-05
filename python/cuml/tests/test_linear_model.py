@@ -431,12 +431,12 @@ def test_logistic_regression_model_digits(
 @given(dtype=dataset_dtypes())
 @example(dtype=np.float32)
 @example(dtype=np.float64)
-def test_logistic_regression_sparse_only(dtype, nlp_20news):
+def test_logistic_regression_sparse_only(dtype, sparse_text_dataset):
     # sklearn score with max_iter = 10000
     sklearn_score = 0.878
     acceptable_score = sklearn_score - 0.01
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = csr_matrix(X.astype(dtype))
     y = y.get().astype(dtype)
