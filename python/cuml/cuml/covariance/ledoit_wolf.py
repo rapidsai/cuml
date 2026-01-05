@@ -9,7 +9,6 @@ import cupy as cp
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.doc_utils import generate_docstring
 from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -241,7 +240,6 @@ class LedoitWolf(Base, InteropMixin):
         self.shrinkage_ = None
 
     @reflect(reset=True)
-    @generate_docstring()
     def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
@@ -252,6 +250,8 @@ class LedoitWolf(Base, InteropMixin):
             and `n_features` is the number of features.
         y : Ignored
             Not used, present for API consistency.
+        convert_dtype : bool, default=True
+            If True, convert the input data to float32.
 
         Returns
         -------
