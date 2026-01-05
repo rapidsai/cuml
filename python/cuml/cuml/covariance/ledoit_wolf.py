@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
+
 import cupy as cp
 import numpy as np
 
@@ -256,12 +258,24 @@ class LedoitWolf(Base, InteropMixin):
         self : LedoitWolf
             Returns the instance itself.
         """
-        X_arr, _, n_features, dtype = input_to_cupy_array(
+        X_arr, n_samples, n_features, dtype = input_to_cupy_array(
             X,
             check_dtype=[np.float32, np.float64],
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
         )
+
+        if n_samples == 0:
+            raise ValueError(
+                f"Found array with 0 sample(s) (shape={tuple(X_arr.shape)}) while a "
+                "minimum of 1 is required."
+            )
+
+        if n_samples == 1:
+            warnings.warn(
+                "Only one sample available. "
+                "You may want to reshape your data array"
+            )
 
         if self.assume_centered:
             location = cp.zeros(n_features, dtype=dtype)
