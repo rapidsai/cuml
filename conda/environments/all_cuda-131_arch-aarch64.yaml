@@ -13,7 +13,7 @@ dependencies:
 - cuda-nvcc
 - cuda-profiler-api
 - cuda-python>=13.0.1,<14.0
-- cuda-version=13.0
+- cuda-version=13.1
 - cudf==26.2.*,>=0.0.0a0
 - cupy>=13.6.0
 - cuvs==26.2.*,>=0.0.0a0
@@ -78,4 +78,4 @@ dependencies:
 - sysroot_linux-aarch64==2.28
 - treelite>=4.6.1,<5.0.0
 - umap-learn==0.5.7
-name: all_cuda-130_arch-aarch64
+name: all_cuda-131_arch-aarch64

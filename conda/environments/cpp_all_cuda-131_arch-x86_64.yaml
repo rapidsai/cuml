@@ -10,7 +10,7 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-version=13.0
+- cuda-version=13.1
 - cxx-compiler
 - gcc_linux-64=14.*
 - libcublas-dev
@@ -23,4 +23,4 @@ dependencies:
 - librmm==26.2.*,>=0.0.0a0
 - ninja
 - sysroot_linux-64==2.28
-name: cpp_all_cuda-130_arch-x86_64
+name: cpp_all_cuda-131_arch-x86_64

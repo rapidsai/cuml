@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -66,7 +66,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64]
     includes:
       - common_build
@@ -83,7 +83,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -356,6 +356,10 @@ dependencies:
               cuda: "13.0"
             packages:
               - cuda-version=13.0
+          - matrix:
+              cuda: "13.1"
+            packages:
+              - cuda-version=13.1
   cuda:
     common:
       - output_types: [conda]
