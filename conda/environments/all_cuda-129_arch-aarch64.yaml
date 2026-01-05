@@ -67,8 +67,8 @@ dependencies:
 - recommonmark
 - rich
 - rmm==26.2.*,>=0.0.0a0
-- scikit-build-core>=0.10.0
-- scikit-learn>=1.4
+- scikit-build-core>=0.11.0
+- scikit-learn>=1.5
 - scipy>=1.13.0
 - seaborn
 - sphinx
@@ -76,7 +76,6 @@ dependencies:
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-aarch64==2.28
-- tenacity
 - treelite>=4.6.1,<5.0.0
 - umap-learn==0.5.7
 name: all_cuda-129_arch-aarch64
