@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
-from cuml.internals import run_in_internal_context
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -90,7 +90,8 @@ class PCAMG(BaseDecompositionMG, PCA):
         cdef uintptr_t mean_ptr = mean.ptr
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool use_float32 = (dtype == np.float32)
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
@@ -125,7 +126,7 @@ class PCAMG(BaseDecompositionMG, PCA):
                     False,
                     flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components

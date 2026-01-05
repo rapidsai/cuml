@@ -12,7 +12,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -422,7 +422,8 @@ class SVMBase(Base,
         else:
             param.max_iter = self.max_iter
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int n_rows, n_cols, X_nnz
         n_rows, n_cols = X.shape
         cdef uintptr_t X_ptr, X_data_ptr, y_ptr, sample_weight_ptr
@@ -440,7 +441,7 @@ class SVMBase(Base,
         sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
 
         cdef int n_iter
-        cdef _SVMModel internal = _SVMModel.new(self.handle, is_float32)
+        cdef _SVMModel internal = _SVMModel.new(handle, is_float32)
 
         with nogil:
             if is_sparse:
@@ -499,7 +500,7 @@ class SVMBase(Base,
                         internal.model_d[0],
                         <double*>sample_weight_ptr,
                     )
-        self.handle.sync()
+        handle.sync()
 
         support, support_vectors, dual_coef, intercept = internal.unpack()
 
@@ -595,7 +596,8 @@ class SVMBase(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef double cache_size = self.cache_size
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call predict
         with nogil:
@@ -655,7 +657,7 @@ class SVMBase(Base,
                         <double>cache_size,
                         False,
                     )
-        self.handle.sync()
+        handle.sync()
 
         return out
 

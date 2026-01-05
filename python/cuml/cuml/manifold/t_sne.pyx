@@ -14,7 +14,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -347,13 +347,13 @@ class TSNE(Base,
         the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
         should match the metric used to train the TSNE embeedings.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -643,7 +643,8 @@ class TSNE(Base,
         cdef uintptr_t embed_ptr = embedding.ptr
 
         # Execute fit
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef float kl_divergence = 0
         cdef int n_iter = 0
 
@@ -677,7 +678,7 @@ class TSNE(Base,
                     &kl_divergence,
                     &n_iter,
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes
         self._kl_divergence_ = kl_divergence

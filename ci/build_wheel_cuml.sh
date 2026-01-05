@@ -21,7 +21,6 @@ echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUML_WHEELHOUSE}"/l
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
-  --exclude "libcumlprims_mg.so"
   --exclude "libcuvs.so"
   --exclude "libraft.so"
   --exclude "libcublas.so.*"
