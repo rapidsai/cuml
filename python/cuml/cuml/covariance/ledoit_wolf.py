@@ -240,7 +240,7 @@ class LedoitWolf(Base, InteropMixin):
 
     @reflect(reset=True)
     @generate_docstring()
-    def fit(self, X, y=None) -> "LedoitWolf":
+    def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
         Parameters
@@ -260,6 +260,7 @@ class LedoitWolf(Base, InteropMixin):
             X,
             check_dtype=[np.float32, np.float64],
             order="C",
+            convert_to_dtype=(np.float32 if convert_dtype else None),
         )
 
         if self.assume_centered:
