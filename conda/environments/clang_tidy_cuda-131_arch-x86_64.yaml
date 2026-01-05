@@ -12,7 +12,7 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-version=13.0
+- cuda-version=13.1
 - cxx-compiler
 - gcc_linux-64=14.*
 - libcublas-dev
@@ -27,4 +27,4 @@ dependencies:
 - ninja
 - sysroot_linux-64==2.28
 - tomli
-name: clang_tidy_cuda-130_arch-x86_64
+name: clang_tidy_cuda-131_arch-x86_64
