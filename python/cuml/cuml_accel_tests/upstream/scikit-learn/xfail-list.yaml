@@ -815,6 +815,7 @@
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
   tests:
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LedoitWolf()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)0]"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
