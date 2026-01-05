@@ -12,7 +12,6 @@ import scipy.sparse as scipy_sparse
 import sklearn
 import umap
 from packaging.version import Version
-from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
@@ -544,7 +543,8 @@ def test_fit_fewer_rows_than_n_neighbors():
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_knn_graph(n_neighbors, build_algo):
+@pytest.mark.parametrize("data_on_gpu", [True, False])
+def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0
     )
@@ -557,9 +557,13 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        return model.fit_transform(
-            data, knn_graph=knn_graph, convert_dtype=True
+        embd = model.fit_transform(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
         )
+
+        return embd.get() if data_on_gpu else embd
 
     def transform_embed(knn_graph=None):
         model = cuUMAP(
@@ -568,8 +572,15 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        model.fit(data, knn_graph=knn_graph, convert_dtype=True)
-        return model.transform(data, convert_dtype=True)
+        model.fit(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
+        )
+        embd = model.transform(
+            cp.array(data) if data_on_gpu else data, convert_dtype=True
+        )
+        return embd.get() if data_on_gpu else embd
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
@@ -841,23 +852,19 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("num_clusters", [3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
-@pytest.mark.parametrize("do_snmg", [True, False])
+@pytest.mark.parametrize("device_ids", [None, "all"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, do_snmg
+    num_clusters, fit_then_transform, metric, device_ids
 ):
     digits = datasets.load_digits()
 
-    umap_handle = None
-    if do_snmg:
-        umap_handle = DeviceResourcesSNMG()
-
     cuml_model = cuUMAP(
-        handle=umap_handle,
         n_neighbors=10,
         min_dist=0.01,
         build_algo="nn_descent",
         build_kwds={"nnd_n_clusters": num_clusters},
         metric=metric,
+        device_ids=device_ids,
     )
 
     if fit_then_transform:

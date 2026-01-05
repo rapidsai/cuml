@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
-import warnings
 
 import cudf
 import cupy as cp
@@ -452,105 +451,6 @@ def get_memsize(svc):
     return ms
 
 
-@pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
-@pytest.mark.memleak
-@pytest.mark.parametrize("params", [{"kernel": "rbf", "C": 1, "gamma": 1}])
-@pytest.mark.parametrize(
-    "n_rows", [unit_param(500), quality_param(1000), stress_param(1000)]
-)
-@pytest.mark.parametrize(
-    "n_iter", [unit_param(10), quality_param(100), stress_param(1000)]
-)
-@pytest.mark.parametrize("n_cols", [1000])
-def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset="blobs"):
-    """
-    Test whether there is any memory leak.
-
-    .. note:: small `n_rows`, and `n_cols` values will result in small model
-        size, that will not be measured by get_memory_info.
-
-    """
-    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
-    handle = cuml.Handle()
-    # Warmup. Some modules that are used in SVC allocate space on the device
-    # and consume memory. Here we make sure that this allocation is done
-    # before the first call to get_memory_info.
-    tmp = cu_svm.SVC(handle=handle, **params)
-    tmp.fit(X_train, y_train)
-    ms = get_memsize(tmp)
-    print(
-        "Memory consumption of SVC object is {} MiB".format(
-            ms / (1024 * 1024.0)
-        )
-    )
-
-    free_mem = cuda.current_context().get_memory_info()[0]
-
-    # Check first whether the get_memory_info gives us the correct memory
-    # footprint
-    cuSVC = cu_svm.SVC(handle=handle, **params)
-    cuSVC.fit(X_train, y_train)
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    assert delta_mem >= ms
-
-    # Main test loop
-    b_sum = 0
-    for i in range(n_iter):
-        cuSVC = cu_svm.SVC(handle=handle, **params)
-        cuSVC.fit(X_train, y_train)
-        b_sum += cuSVC.intercept_
-        cuSVC.predict(X_train)
-
-    del cuSVC
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print("Delta GPU mem: {} bytes".format(delta_mem))
-    assert delta_mem == 0
-
-
-@pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
-@pytest.mark.memleak
-@pytest.mark.parametrize(
-    "params", [{"kernel": "poly", "degree": 30, "C": 1, "gamma": 1}]
-)
-def test_svm_memleak_on_exception(
-    params, n_rows=1000, n_iter=10, n_cols=1000, dataset="blobs"
-):
-    """
-    Test whether there is any mem leak when we exit training with an exception.
-    The poly kernel with degree=30 will overflow, and triggers the
-    'SMO error: NaN found...' exception.
-    """
-    X_train, y_train = make_blobs(
-        n_samples=n_rows, n_features=n_cols, random_state=137, centers=2
-    )
-    X_train = X_train.astype(np.float32)
-    handle = cuml.Handle()
-
-    # Warmup. Some modules that are used in SVC allocate space on the device
-    # and consume memory. Here we make sure that this allocation is done
-    # before the first call to get_memory_info.
-    tmp = cu_svm.SVC(handle=handle, **params)
-    with pytest.raises(RuntimeError):
-        tmp.fit(X_train, y_train)
-        # SMO error: NaN found during fitting.
-
-    free_mem = cuda.current_context().get_memory_info()[0]
-
-    # Main test loop
-    for i in range(n_iter):
-        cuSVC = cu_svm.SVC(handle=handle, **params)
-        with pytest.raises(RuntimeError):
-            cuSVC.fit(X_train, y_train)
-            # SMO error: NaN found during fitting.
-
-    del cuSVC
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print("Delta GPU mem: {} bytes".format(delta_mem))
-    assert delta_mem == 0
-
-
 def make_regression_dataset(dataset, n_rows, n_cols):
     np.random.seed(137)
     if dataset == "reg1":
@@ -703,31 +603,19 @@ def test_svm_no_support_vectors():
 @pytest.mark.parametrize("classifier", [False, True])
 def test_max_iter_n_iter(classifier):
     if classifier:
-        model = cuml.SVC()
+        cls = cuml.SVC
         X, y = make_classification(random_state=42)
     else:
-        model = cuml.SVR()
+        cls = cuml.SVR
         X, y = make_regression(random_state=42)
 
-    # Check that the default doesn't warn!
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
-        model.fit(X, y)
-    if classifier:
-        assert model.n_iter_.dtype == np.int32 and model.n_iter_.shape == (1,)
-    else:
-        assert isinstance(model.n_iter_, int)
+    # max_iter limit is respected
+    model = cls(max_iter=5).fit(X, y)
+    assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 
-    # Setting to an integer warns, but uses the old limit on max outer iterations
-    model.max_iter = 1
-    with pytest.warns(FutureWarning, match="max_iter"):
-        model.fit(X, y)
-    assert (model.n_iter_.item() if classifier else model.n_iter_) > 1
-
-    # Using TotalIters gets the new behavior without a warning
-    model.max_iter = model.TotalIters(5)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
+    # Using TotalIters results in the same behavior, but warns
+    model = cls(max_iter=cls.TotalIters(5))
+    with pytest.warns(FutureWarning, match="TotalIters"):
         model.fit(X, y)
     assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 

@@ -2,17 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 from random import randint
 
 import numpy as np
-from pylibraft.common.handle import Handle
 
-import cuml.internals
 import cuml.internals.nvtx as nvtx
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -63,7 +59,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@cuml.internals.reflect(array=None)
+@reflect(array=None)
 def make_regression(
     n_samples=100,
     n_features=2,
@@ -98,8 +94,7 @@ def make_regression(
         ...                                noise=0.3, random_state=10)
 
         >>> # Perform a linear regression on this problem
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression()
         >>> reg = lr.fit(data, values)
         >>> print(reg.coef_) # doctest: +SKIP
         [-2.6980877e-02  7.7027252e+01  1.1498465e+01  8.5468025e+00
@@ -143,8 +138,12 @@ def make_regression(
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'.
-    handle: cuml.Handle
-        If it is None, a new one is created just for this function call
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     Returns
     -------
@@ -166,7 +165,7 @@ def make_regression(
     if effective_rank is None:
         effective_rank = -1
 
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')

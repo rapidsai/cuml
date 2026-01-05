@@ -55,13 +55,13 @@ class SVC(SVMBase, ClassifierMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -94,19 +94,8 @@ class SVC(SVMBase, ClassifierMixin):
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVC.TotalIters`.
-            For example ``SVC(max_iter=SVC.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVC.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_

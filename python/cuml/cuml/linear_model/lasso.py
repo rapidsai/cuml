@@ -43,20 +43,13 @@ class Lasso(ElasticNet):
         rather than looping over features sequentially by default.
         This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
-    normalize : boolean, default=False
+    handle : cuml.Handle or None, default=None
 
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -135,7 +128,6 @@ class Lasso(ElasticNet):
         tol=1e-3,
         solver="cd",
         selection="cyclic",
-        normalize=False,
         handle=None,
         output_type=None,
         verbose=False,
@@ -149,7 +141,6 @@ class Lasso(ElasticNet):
             tol=tol,
             solver=solver,
             selection=selection,
-            normalize=normalize,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
