@@ -16,7 +16,7 @@ from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
@@ -447,13 +447,13 @@ class NearestNeighbors(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     algorithm : string (default='auto')
         The query algorithm to use. Valid options are:
 
@@ -676,13 +676,14 @@ class NearestNeighbors(Base,
             # recreate them on load.
             with using_output_type("cuml"):
                 X = getattr(self, "_fit_X", None)
+            handle = get_handle(model=self)
             if fit_method == "rbc":
                 self._index = RBCIndex.build(
-                    self.handle, X, self.effective_metric_,
+                    handle, X, self.effective_metric_,
                 )
             else:
                 self._index = ApproxIndex.build(
-                    self.handle,
+                    handle,
                     X,
                     self.effective_metric_,
                     fit_method,
@@ -742,7 +743,7 @@ class NearestNeighbors(Base,
 
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
-                self.handle,
+                get_handle(model=self),
                 self._fit_X,
                 self.effective_metric_,
                 self._fit_method,
@@ -750,7 +751,9 @@ class NearestNeighbors(Base,
                 p=self.p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(self.handle, self._fit_X, self.effective_metric_)
+            self._index = RBCIndex.build(
+                get_handle(model=self), self._fit_X, self.effective_metric_
+            )
 
         return self
 
@@ -873,8 +876,10 @@ class NearestNeighbors(Base,
             )
             use_index = False
 
+        handle = get_handle(model=self)
+
         if use_index:
-            return self._index.kneighbors(self.handle, X_m, n_neighbors)
+            return self._index.kneighbors(handle, X_m, n_neighbors)
 
         distances = CumlArray.zeros(
             (X_m.shape[0], n_neighbors), dtype=np.float32, order="C", index=X_m.index,
@@ -883,7 +888,7 @@ class NearestNeighbors(Base,
             (X_m.shape[0], n_neighbors), dtype=np.int64, order="C", index=X_m.index,
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef vector[float*] inputs
         cdef vector[int] sizes
         inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
@@ -910,7 +915,7 @@ class NearestNeighbors(Base,
                 distance_type,
                 metric_arg
             )
-        self.handle.sync()
+        handle.sync()
 
         if two_pass_precision:
             distances, indices = self._maybe_apply_two_pass_precision(
@@ -990,7 +995,8 @@ class NearestNeighbors(Base,
         cdef int* indices_ptr = <int *><uintptr_t>indices.ptr
         cdef float* distances_ptr = <float *><uintptr_t>distances.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         with nogil:
             brute_force_knn(
                 handle_[0],
@@ -1014,7 +1020,7 @@ class NearestNeighbors(Base,
                 metric,
                 metric_arg,
             )
-        self.handle.sync()
+        handle.sync()
 
         return distances, indices
 
@@ -1125,13 +1131,12 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are:

@@ -7,13 +7,12 @@ import warnings
 
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -22,10 +21,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import (
-    LinearPredictMixin,
-    check_deprecated_normalize,
-)
+from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -42,7 +38,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      float *sample_weight) except +
 
@@ -54,7 +49,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      double *sample_weight) except +
 
@@ -116,8 +110,7 @@ class LinearRegression(Base,
         >>> # Both import methods supported
         >>> from cuml import LinearRegression
         >>> from cuml.linear_model import LinearRegression
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression(fit_intercept = True, algorithm = "eig")
         >>> X = cudf.DataFrame()
         >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
         >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
@@ -174,21 +167,13 @@ class LinearRegression(Base,
             memory usage. This represents a change in behavior from previous
             versions. With `copy_X=False` a copy might still be created if
             necessary.
+    handle : cuml.Handle or None, default=None
 
-    normalize : boolean, default=False
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a :class:`sklearn.preprocessing.StandardScaler`
-            to normalize your data before passing to ``fit``.
-
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -241,7 +226,6 @@ class LinearRegression(Base,
             "algorithm",
             "fit_intercept",
             "copy_X",
-            "normalize",
         ]
 
     @classmethod
@@ -280,22 +264,15 @@ class LinearRegression(Base,
         algorithm="auto",
         fit_intercept=True,
         copy_X=True,
-        normalize=False,
         handle=None,
         verbose=False,
         output_type=None
     ):
-        if handle is None and algorithm in ("auto", "eig"):
-            # if possible, create two streams, so that eigenvalue decomposition
-            # can benefit from running independent operations concurrently.
-            handle = Handle(n_streams=2)
-
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.algorithm = algorithm
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
-        self.normalize = normalize
 
     def _select_algo(self, X, y):
         """Select the solver algorithm based on `algorithm` and problem dimensions"""
@@ -328,8 +305,6 @@ class LinearRegression(Base,
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
@@ -395,9 +370,10 @@ class LinearRegression(Base,
         cdef bool is_float32 = X_m.dtype == np.float32
         cdef float intercept_f32
         cdef double intercept_f64
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        # Always use 2 streams to expose concurrency in the eig computation
+        handle = get_handle(model=self, n_streams=2)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool normalize = self.normalize
 
         with nogil:
             if is_float32:
@@ -410,7 +386,6 @@ class LinearRegression(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
                     algo,
                     <float*>sample_weight_ptr,
                 )
@@ -424,11 +399,10 @@ class LinearRegression(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
                     algo,
                     <double*>sample_weight_ptr,
                 )
-        self.handle.sync()
+        handle.sync()
 
         self.intercept_ = intercept_f32 if is_float32 else intercept_f64
         self.coef_ = coef
@@ -438,12 +412,6 @@ class LinearRegression(Base,
     def _fit_multi_target(
         self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False,
     ):
-        if self.normalize:
-            raise ValueError(
-                "The normalize option is not supported when `y` has "
-                "multiple columns."
-            )
-
         X = X_m.to_output("cupy")
         y = y_m.to_output("cupy")
 

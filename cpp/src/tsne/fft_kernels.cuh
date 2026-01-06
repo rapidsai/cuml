@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -363,8 +363,9 @@ CUML_KERNEL void IntegrationKernel(volatile value_t* __restrict__ points,
     ux = momentum * ux - eta * gx * dx;
     uy = momentum * uy - eta * gy * dy;
 
-    points[i] += ux;
-    points[i + num_points] += uy;
+    // C++20: compound assignment to volatile is deprecated, use explicit read-modify-write
+    points[i]              = points[i] + ux;
+    points[i + num_points] = points[i + num_points] + uy;
 
     attr_forces[i]              = 0.0f;
     attr_forces[num_points + i] = 0.0f;
