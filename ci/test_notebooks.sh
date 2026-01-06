@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -40,7 +40,7 @@ rapids-logger "notebook tests cuml"
 
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
-SKIPNBS="cuml_benchmarks.ipynb hdbscan_soft_clustering_benchmark.ipynb forest_inference_demo.ipynb target_encoder_walkthrough.ipynb"
+SKIPNBS="cuml_benchmarks.ipynb hdbscan_soft_clustering_benchmark.ipynb"
 NBTEST="$(realpath "$(dirname "$0")/utils/nbtest.sh")"
 
 cd notebooks
