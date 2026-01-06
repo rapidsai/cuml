@@ -7,6 +7,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
+#include <optional>
+
 namespace cuvs::preprocessing::spectral_embedding {
 
 struct params;
@@ -32,7 +34,7 @@ struct params {
   bool drop_first;
 
   /** @brief Random seed for reproducibility */
-  uint64_t seed;
+  std::optional<uint64_t> seed = std::nullopt;
 };
 
 cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::params& config);

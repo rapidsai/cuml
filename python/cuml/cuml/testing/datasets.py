@@ -3,6 +3,7 @@
 #
 
 import numpy as np
+from scipy import sparse
 from sklearn.datasets import make_blobs as sklearn_make_blobs
 from sklearn.datasets import (
     make_circles,
@@ -343,6 +344,91 @@ def with_dtype(data, dtype):
     return tuple(arr.astype(dtype) for arr in data)
 
 
+def make_text_classification_dataset(
+    n_docs=11314,
+    n_features=10000,
+    n_classes=20,
+    avg_nonzero_per_doc=150,
+    apply_tfidf=True,
+    dtype=np.float64,
+    random_state=0,
+):
+    """Generate a sparse text-like classification dataset.
+
+    This function generates a sparse bag-of-words matrix and target vector
+    that mimic the characteristics of text classification datasets (like
+    20 newsgroups) after vectorization, using topic-like word distributions.
+
+    Parameters
+    ----------
+    n_docs : int, default=11314
+        Number of documents to generate
+    n_features : int, default=10000
+        Vocabulary size (number of features)
+    n_classes : int, default=20
+        Number of classes/topics
+    avg_nonzero_per_doc : int, default=150
+        Average number of non-zero features per document
+    apply_tfidf : bool, default=True
+        Whether to apply TF-IDF-like weighting
+    dtype : numpy.dtype, default=np.float64
+        Data type for the sparse matrix
+    random_state : int, default=0
+        Random seed for reproducibility
+
+    Returns
+    -------
+    tuple
+        (X, y) where X is a sparse CSR matrix and y is the target array
+    """
+    rng = np.random.RandomState(random_state)
+
+    # Class labels (balanced)
+    y = rng.randint(0, n_classes, size=n_docs)
+
+    # Class-specific word distributions (topic-like)
+    class_word_probs = []
+    for _ in range(n_classes):
+        # Dirichlet distribution to simulate "topic" structure with sparsity
+        alpha = np.ones(n_features) * 0.01
+        topic = rng.dirichlet(alpha)
+        class_word_probs.append(topic)
+    class_word_probs = np.vstack(class_word_probs)
+
+    # Generate sparse bag-of-words for each document
+    data = []
+    rows = []
+    cols = []
+
+    for i in range(n_docs):
+        label = y[i]
+        doc_len = max(1, rng.poisson(avg_nonzero_per_doc))
+        word_indices = rng.choice(
+            n_features,
+            size=doc_len,
+            replace=True,
+            p=class_word_probs[label],
+        )
+        unique, counts = np.unique(word_indices, return_counts=True)
+        rows.extend([i] * len(unique))
+        cols.extend(unique.tolist())
+        data.extend(counts.tolist())
+
+    X = sparse.csr_matrix(
+        (data, (rows, cols)),
+        shape=(n_docs, n_features),
+        dtype=dtype,
+    )
+
+    if apply_tfidf:
+        # Apply TF-IDF-like weighting
+        df = (X > 0).sum(axis=0).A1 + 1.0
+        idf = np.log((1.0 + n_docs) / df)
+        X = X.multiply(idf).tocsr()
+
+    return X, y
+
+
 __all__ = [
     # Dataset compatibility
     "is_sklearn_compatible_dataset",
@@ -354,6 +440,7 @@ __all__ = [
     "make_pattern",
     "make_regression",
     "make_regression_dataset",
+    "make_text_classification_dataset",
     "small_classification_dataset",
     "small_regression_dataset",
     # Dataset strategies
