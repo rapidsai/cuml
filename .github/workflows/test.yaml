@@ -108,7 +108,7 @@ jobs:
       sha: ${{ inputs.sha }}
       script: ci/test_wheel.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
-  wheel-tests-cuml-nightly-versions:
+  wheel-tests-cuml-nightly-dependencies-versions:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
     with:

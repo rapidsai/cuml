@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Test cuml with the nightly versions of its dependencies.
@@ -14,7 +14,7 @@ LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rap
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"
 
-# Explicitly install those packages that we want to have from the nightly index.
+# Explicitly install the packages (and their dependencies) that we want to have from the nightly index.
 rapids-pip-retry install \
   --pre \
   --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
