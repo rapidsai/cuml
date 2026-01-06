@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
-from cuml.internals import run_in_internal_context
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -96,7 +96,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform Fit
@@ -131,7 +132,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     False,
                     flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components
