@@ -74,9 +74,7 @@ find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
-if(NOT SINGLEGPU)
-  list(APPEND cuml_mg_libraries cumlprims_mg::cumlprims_mg)
-endif()
+# MNMG code is now built directly into libcuml++
 
 # ##################################################################################################
 # * Build Cython artifacts -----------------------------------------------------

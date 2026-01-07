@@ -44,14 +44,11 @@ set(CUML_ALGORITHMS
       "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list."
 )
 
-# for libcuml wheels, always compile in the multi-node, multi-GPU stuff from cumlprims_mg
+# for libcuml wheels, always compile in the multi-node, multi-GPU functionality
 set(SINGLEGPU OFF)
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../../cpp")
-
-# ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
-set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuVS --- #
 set(CUML_USE_CUVS_STATIC ON)

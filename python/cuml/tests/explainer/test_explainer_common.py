@@ -6,7 +6,6 @@
 import cupy as cp
 import numpy as np
 import pytest
-from pylibraft.common.handle import Handle
 from sklearn.linear_model import LinearRegression as skreg
 
 import cuml
@@ -15,7 +14,6 @@ from cuml import LinearRegression as reg
 from cuml.datasets import make_regression
 from cuml.explainer.common import (
     get_cai_ptr,
-    get_handle_from_cuml_model_func,
     get_link_fn_from_str_or_fn,
     get_tag_from_model_func,
     link_dict,
@@ -99,26 +97,6 @@ def test_get_tag_from_model_func(model):
 
         if tag != "preferred_input_order":
             assert res != "FFF"
-
-
-@pytest.mark.parametrize("model", list(models.values()))
-def test_get_handle_from_cuml_model_func(model):
-    mod = create_dummy_model(model)
-
-    handle = get_handle_from_cuml_model_func(
-        mod._get_param_names, create_new=True
-    )
-
-    assert isinstance(handle, Handle)
-
-
-@pytest.mark.parametrize("create_new", [True, False])
-def test_get_handle_from_dummy_func(create_new):
-    handle = get_handle_from_cuml_model_func(dummy_func, create_new=create_new)
-
-    res = isinstance(handle, Handle)
-
-    assert res == create_new
 
 
 def test_model_func_call_gpu():
