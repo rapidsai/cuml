@@ -79,7 +79,7 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<cuml/' # cuML includes
     Priority:        3
-  - Regex:           '^<(cudf|raft|kvikio|cumlprims)' # Other RAPIDS includes
+  - Regex:           '^<(cudf|raft|kvikio)' # Other RAPIDS includes
     Priority:        4
   - Regex:           '^<rmm/' # RMM includes
     Priority:        5
