@@ -70,9 +70,6 @@ void launcher(const raft::handle_t& handle,
   ML::SpectralEmbedding::transform(
     handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
 
-  // raft::print_device_vector("tmp_embedding", tmp_embedding.data_handle(), n *
-  // params->n_components, std::cout);
-
   raft::linalg::transpose(
     handle, tmp_embedding.data_handle(), embedding, n, params->n_components, stream);
 

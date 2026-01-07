@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -167,7 +167,6 @@ T create_gradient_rounding_factor(
   const int* head, nnz_t nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
-
   // calculate the maximum number of edges connected to 1 vertex.
   thrust::reduce_by_key(rmm::exec_policy(stream),
                         head,
@@ -388,7 +387,6 @@ void launcher(int m,
   nnz_t nnz = in->nnz;
 
   rmm::device_uvector<T> epochs_per_sample(nnz, stream);
-
   RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, nnz * sizeof(T), stream));
 
   make_epochs_per_sample(in->vals(), nnz, n_epochs, epochs_per_sample.data(), stream);
