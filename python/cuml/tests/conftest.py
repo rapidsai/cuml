@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -22,7 +22,10 @@ from cuml.testing.datasets import make_text_classification_dataset
 # =============================================================================
 
 # Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
+pytest_plugins = [
+    "cuml.testing.plugins.quick_run_plugin",
+    "cuml.testing.plugins.cuda_health_plugin",
+]
 
 
 # =============================================================================
