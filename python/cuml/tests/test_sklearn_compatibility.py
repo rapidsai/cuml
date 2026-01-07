@@ -593,7 +593,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_no_attributes_set_in_init": "LedoitWolf sets attributes during init",
         "check_do_not_raise_errors_in_init_or_set_params": "LedoitWolf raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LedoitWolf does not check n_features_in consistency",
         "check_complex_data": "LedoitWolf does not handle complex data",
@@ -604,7 +603,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimator_sparse_array": "LedoitWolf does not handle sparse arrays gracefully",
         "check_estimator_sparse_matrix": "LedoitWolf does not handle sparse matrices gracefully",
         "check_parameters_default_constructible": "LedoitWolf parameters are mutated on init",
-        "check_fit_check_is_fitted": "LedoitWolf passes check_is_fitted before being fit",
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

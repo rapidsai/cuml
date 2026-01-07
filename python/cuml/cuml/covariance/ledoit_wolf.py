@@ -237,7 +237,6 @@ class LedoitWolf(Base, InteropMixin):
         self.store_precision = store_precision
         self.assume_centered = assume_centered
         self.block_size = block_size
-        self.shrinkage_ = None
 
     @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
