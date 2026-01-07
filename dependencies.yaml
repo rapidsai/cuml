@@ -34,7 +34,7 @@ files:
       - rapids_build_backend
       - test_python
       - test_python_dask
-      # - test_python_xgboost
+      - test_python_xgboost
   devcontainers:
     output: none
     includes:
@@ -120,7 +120,7 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      # - test_python_xgboost
+      - test_python_xgboost
   test_python_dask:
     output: none
     includes:
@@ -129,7 +129,7 @@ files:
       - depends_on_libcuml
       - py_version
       - test_python
-      # - test_python_xgboost
+      - test_python_xgboost
       - test_python_dask
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cudf
@@ -151,7 +151,7 @@ files:
       - py_run_cuml
       - py_version
       - test_notebooks
-      # - test_python_xgboost
+      - test_python_xgboost
   py_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -198,7 +198,7 @@ files:
       key: test
     includes:
       - test_python
-      # - test_python_xgboost
+      - test_python_xgboost
   py_dask_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -496,47 +496,47 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml>=2024
-  # test_python_xgboost:
-  #   common:
-  #     - output_types: [conda]
-  #       packages:
-  #         # We must separate xgboost into its own list so that it is not
-  #         # included in the "devcontainers" key. The libxgboost package depends
-  #         # on librmm but we do not want to have a package depending on librmm
-  #         # in devcontainers since it should be built from source.
-  #         - rapids-xgboost==26.2.*,>=0.0.0a0
-  #   specific:
-  #     - output_types: [requirements, pyproject]
-  #       matrices:
-  #         - matrix:
-  #             cuda: "12.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             - xgboost-cu12>=2.1.0
-  #         - matrix:
-  #             arch: aarch64
-  #             cuda: "13.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             # TODO: always install xgboost-cu13 once there are xgboost-cu13 aarch64 wheels
-  #             #
-  #             # xgboost-cu13 originally shipped without aarch64 wheels
-  #             # Using the unsuffixed name pulls in CUDA 12 packages for some versions and may
-  #             # at some point in the future pull in CUDA 13 packages.
-  #             #
-  #             # ref: https://github.com/rapidsai/cuml/pull/7550#issuecomment-3603279934
-  #             - &xgboost_unsuffixed xgboost>=2.1.0
-  #         - matrix:
-  #             arch: x86_64
-  #             cuda: "13.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             - xgboost-cu13>=2.1.0
-  #         # this unsuffixed dependency is useful in environments where xgboost is built from source
-  #         # (like RAPIDS DLFW builds)
-  #         - matrix:
-  #           packages:
-  #             - *xgboost_unsuffixed
+  test_python_xgboost:
+    common:
+      - output_types: [conda]
+        packages:
+          # We must separate xgboost into its own list so that it is not
+          # included in the "devcontainers" key. The libxgboost package depends
+          # on librmm but we do not want to have a package depending on librmm
+          # in devcontainers since it should be built from source.
+          - rapids-xgboost==26.2.*,>=0.0.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu12>=2.1.0
+          - matrix:
+              arch: aarch64
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              # TODO: always install xgboost-cu13 once there are xgboost-cu13 aarch64 wheels
+              #
+              # xgboost-cu13 originally shipped without aarch64 wheels
+              # Using the unsuffixed name pulls in CUDA 12 packages for some versions and may
+              # at some point in the future pull in CUDA 13 packages.
+              #
+              # ref: https://github.com/rapidsai/cuml/pull/7550#issuecomment-3603279934
+              - &xgboost_unsuffixed xgboost>=2.1.0
+          - matrix:
+              arch: x86_64
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu13>=2.1.0
+          # this unsuffixed dependency is useful in environments where xgboost is built from source
+          # (like RAPIDS DLFW builds)
+          - matrix:
+            packages:
+              - *xgboost_unsuffixed
   test_notebooks:
     common:
       - output_types: [conda, requirements]
