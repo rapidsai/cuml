@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -57,8 +57,6 @@ void make_epochs_per_sample(
   T* weights, idx_t weights_n, nnz_t n_epochs, T* result, cudaStream_t stream)
 {
   thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
-  // raft::print_device_vector("d_weights", weights, 1, std::cout);
-  // raft::print_device_vector("d_weights + weights_n", weights + weights_n - 1, 1, std::cout);
   T weights_max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_weights, d_weights + weights_n));
 
@@ -170,14 +168,6 @@ T create_gradient_rounding_factor(
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
 
-  // if (std::is_same_v<nnz_t, uint64_t>) {
-  //   std::cout << "nnz_t is uint64_t" << std::endl;
-  // } else {
-  //   std::cout << "nnz_t is int" << std::endl;
-  // }
-  // std::cout << "head + nnz: " << head + nnz << std::endl;
-  // raft::print_device_vector("head", head, 1, std::cout);
-  // raft::print_device_vector("head + nnz", head + nnz - 1, 1, std::cout);
   // calculate the maximum number of edges connected to 1 vertex.
   thrust::reduce_by_key(rmm::exec_policy(stream),
                         head,
@@ -399,14 +389,9 @@ void launcher(int m,
 
   rmm::device_uvector<T> epochs_per_sample(nnz, stream);
 
-  // std::cout << "nnz*sizeof(T): " << nnz * sizeof(T) << std::endl;
-  // raft::print_device_vector("launcher in->rows()", in->rows(), 1, std::cout);
   RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, nnz * sizeof(T), stream));
-  // raft::print_device_vector("in->rows()", in->rows(), 1, std::cout);
 
   make_epochs_per_sample(in->vals(), nnz, n_epochs, epochs_per_sample.data(), stream);
-
-  // raft::print_device_vector("in->rows()2", in->rows(), 1, std::cout);
 
   /*
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {

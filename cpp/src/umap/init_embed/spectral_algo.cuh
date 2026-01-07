@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -51,22 +51,11 @@ void launcher(const raft::handle_t& handle,
   using SpectralEmbeddingNNZType =
     std::conditional_t<std::is_same_v<nnz_t, uint64_t>, int64_t, int>;
 
-  // using SpectralEmbeddingNNZType = int;
-
-  if (std::is_same_v<nnz_t, uint64_t> && std::is_same_v<SpectralEmbeddingNNZType, int64_t>) {
-    std::cout << "Using int64_t for SpectralEmbeddingNNZType" << std::endl;
-  }
-
-  std::cout << "coo->nnz: " << coo->nnz << std::endl;
-
   auto connectivity_graph_view =
     raft::make_device_coo_matrix_view<float, int, int, SpectralEmbeddingNNZType>(
       coo->vals(),
       raft::make_device_coordinate_structure_view<int, int, SpectralEmbeddingNNZType>(
         coo->rows(), coo->cols(), n, n, coo->nnz));
-
-  std::cout << "connectivity_graph_view.structure_view().get_nnz(): "
-            << connectivity_graph_view.structure_view().get_nnz() << std::endl;
 
   ML::SpectralEmbedding::params spectral_params;
   spectral_params.n_neighbors    = params->n_neighbors;
@@ -77,16 +66,6 @@ void launcher(const raft::handle_t& handle,
     spectral_params.drop_first ? params->n_components + 1 : params->n_components;
 
   uint64_t seed = params->random_state;
-
-  // raft::print_device_vector("connectivity_rows",
-  // connectivity_graph_view.structure_view().get_rows().data(),
-  // connectivity_graph_view.structure_view().get_nnz(), std::cout);
-  // raft::print_device_vector("connectivity_cols",
-  // connectivity_graph_view.structure_view().get_cols().data(),
-  // connectivity_graph_view.structure_view().get_nnz(), std::cout);
-  // raft::print_device_vector("connectivity_vals", connectivity_graph_view.get_elements().data(),
-  // connectivity_graph_view.structure_view().get_nnz(), std::cout); std::cout << "n: " << n <<
-  // std::endl;
 
   ML::SpectralEmbedding::transform(
     handle, spectral_params, connectivity_graph_view, tmp_embedding.view());
@@ -108,13 +87,9 @@ void launcher(const raft::handle_t& handle,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * params->n_components)));
 
-  // T scale = max == 0.0f ? 1.0f : 10.0f / max;
-
   // Reuse tmp_storage to add random noise
   raft::random::Rng r(seed);
   r.normal(tmp_embedding.data_handle(), n * params->n_components, 0.0f, 0.0001f, stream);
-
-  // std::cout << "max: " << max << std::endl;
 
   raft::linalg::unaryOp<T>(
     embedding,
