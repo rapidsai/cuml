@@ -489,6 +489,15 @@ Spectral Embedding
 
 .. autofunction:: cuml.manifold.spectral_embedding
 
+Covariance Estimation
+=====================
+
+Ledoit-Wolf Shrinkage
+---------------------
+
+.. autoclass:: cuml.covariance.LedoitWolf
+    :members:
+
 Neighbors
 ==========
 

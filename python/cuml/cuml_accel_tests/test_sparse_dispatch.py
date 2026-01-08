@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -46,6 +46,15 @@ estimators = {
 }
 
 
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. This is not in cuml's control. Note: this will break when
+# sklearn 1.8 removes the deprecated parameter entirely - hdbscan will
+# need to be updated at that point.
+@pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
     if SKLEARN_18 and estimator_name in ("HDBSCAN", "UMAP"):
