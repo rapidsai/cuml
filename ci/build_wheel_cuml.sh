@@ -6,6 +6,11 @@ set -euo pipefail
 
 source rapids-init-pip
 
+# Only use stable ABI package for Python >= 3.11
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+  source ./ci/use_upstream_sabi_wheels.sh
+fi
+
 package_name="cuml"
 package_dir="python/cuml"
 
@@ -44,3 +49,9 @@ python -m auditwheel repair \
     ${package_dir}/dist/*
 
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
+
+# Only use stable ABI package naming for Python >= 3.11
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+  RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python cuml --stable --cuda)"
+  export RAPIDS_PACKAGE_NAME
+fi
