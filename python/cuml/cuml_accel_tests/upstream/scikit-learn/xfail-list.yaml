@@ -402,6 +402,7 @@
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[lil_matrix]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.dbscan-sklearn.cluster.DBSCAN]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.k_means-sklearn.cluster.KMeans]"
+  - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.covariance.ledoit_wolf-sklearn.covariance.LedoitWolf]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_dataframe_column_names_consistency"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
@@ -814,6 +815,7 @@
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
   tests:
+  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LedoitWolf()]"
   - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)0]"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
@@ -863,6 +865,7 @@
   - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[PCA()-check_n_features_in_after_fitting]"
@@ -882,6 +885,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KernelDensity()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KernelRidge()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[Lasso()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[LedoitWolf()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[NearestNeighbors()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[PCA()]"
@@ -1223,6 +1227,10 @@
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_supervised_y_no_nan]"
+  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_estimators_empty_data_messages]"
