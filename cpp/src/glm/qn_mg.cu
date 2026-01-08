@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -31,10 +31,10 @@
 #include <vector>
 using namespace MLCommon;
 
-#include <cumlprims/opg/matrix/math.hpp>
-#include <cumlprims/opg/stats/mean.hpp>
-#include <cumlprims/opg/stats/mean_center.hpp>
-#include <cumlprims/opg/stats/stddev.hpp>
+#include <cuml/prims/opg/matrix/math.hpp>
+#include <cuml/prims/opg/stats/mean.hpp>
+#include <cuml/prims/opg/stats/mean_center.hpp>
+#include <cuml/prims/opg/stats/stddev.hpp>
 
 namespace ML {
 namespace GLM {

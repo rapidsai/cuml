@@ -29,7 +29,6 @@ These RAPIDS libraries must match the cuML version (e.g., all version 25.10 if b
 - [librmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager (C++ library)
 - [libraft](https://github.com/rapidsai/raft) - RAPIDS CUDA accelerated algorithms (C++ library)
 - [libcuvs](https://github.com/rapidsai/cuvs) - CUDA Vector Search library
-- [libcumlprims](https://github.com/rapidsai/cuml) - cuML primitives
 
 *Python Packages:*
 - [rmm](https://github.com/rapidsai/rmm) - RAPIDS Memory Manager (Python package)
@@ -64,7 +63,7 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.13
-conda env update -n cuml_dev --file=conda/environments/all_cuda-130_arch-$(uname -m).yaml
+conda env update -n cuml_dev --file=conda/environments/all_cuda-131_arch-$(uname -m).yaml
 conda activate cuml_dev
 ```
 

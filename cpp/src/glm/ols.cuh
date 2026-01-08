@@ -37,7 +37,6 @@ namespace detail {
  * @param coef          device pointer to hold the solution for weights of size n_cols
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
- * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
@@ -52,7 +51,6 @@ void olsFit(const raft::handle_t& handle,
             math_t* coef,
             math_t* intercept,
             bool fit_intercept,
-            bool normalize,
             int algo              = 0,
             math_t* sample_weight = nullptr)
 {
@@ -64,13 +62,11 @@ void olsFit(const raft::handle_t& handle,
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
 
   rmm::device_uvector<math_t> mu_input(0, stream);
-  rmm::device_uvector<math_t> norm2_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
-    if (normalize) { norm2_input.resize(n_cols, stream); }
     preProcessData(handle,
                    input,
                    n_rows,
@@ -79,9 +75,7 @@ void olsFit(const raft::handle_t& handle,
                    intercept,
                    mu_input.data(),
                    mu_labels.data(),
-                   norm2_input.data(),
                    fit_intercept,
-                   normalize,
                    sample_weight);
   }
 
@@ -138,9 +132,7 @@ void olsFit(const raft::handle_t& handle,
                     intercept,
                     mu_input.data(),
                     mu_labels.data(),
-                    norm2_input.data(),
-                    fit_intercept,
-                    normalize);
+                    fit_intercept);
   } else {
     *intercept = math_t(0);
   }

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import pytest
 from sklearn import cluster
@@ -67,26 +66,6 @@ def test_single_linkage_sklearn_compare(
     assert cuml_agg.n_clusters_ == sk_agg.n_clusters_
     # The children in the tree may differ, just compare shapes
     assert cuml_agg.children_.shape == sk_agg.children_.shape
-
-
-def test_metric_none_deprecated():
-    X, _ = make_blobs()
-
-    model = AgglomerativeClustering(metric=None)
-    with pytest.warns(FutureWarning, match="metric=None"):
-        model.fit(X)
-
-    assert hasattr(model, "labels_")
-
-
-def test_n_neighobrs_deprecated():
-    X, _ = make_blobs()
-
-    model = AgglomerativeClustering(n_neighbors=15)
-    with pytest.warns(FutureWarning, match="n_neighbors"):
-        model.fit(X)
-
-    assert hasattr(model, "labels_")
 
 
 def test_invalid_inputs():

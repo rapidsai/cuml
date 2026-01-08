@@ -31,7 +31,6 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      symbol_exclusions: raft_cutlass
   conda-cpp-tests:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
@@ -97,6 +96,18 @@ jobs:
       script: "ci/test_python_cuml_accel_upstream.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  conda-notebook-tests:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    with:
+      build_type: ${{ inputs.build_type }}
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
+      node_type: "gpu-l4-latest-1"
+      arch: "amd64"
+      script: "ci/test_notebooks.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml:
     secrets: inherit

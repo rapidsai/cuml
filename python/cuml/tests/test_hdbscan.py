@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -8,7 +8,6 @@ import pandas as pd
 import pytest
 import sklearn
 from packaging.version import Version
-from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
@@ -29,6 +28,14 @@ if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
     pytest.skip(
         "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
     )
+
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of hdbscan use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 
@@ -1196,9 +1203,9 @@ def test_approximate_predict_output_type():
 
 @pytest.mark.parametrize("n_clusters", [1, 4, 7])
 @pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
-@pytest.mark.parametrize("do_snmg", [False, True])
+@pytest.mark.parametrize("device_ids", [None, "all"])
 @pytest.mark.parametrize("min_samples", [15, 30])
-def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
+def test_hdbscan_build_algo(n_clusters, build_algo, device_ids, min_samples):
     X, y = make_blobs(
         n_samples=10_000,
         n_features=16,
@@ -1206,14 +1213,10 @@ def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
         random_state=42,
     )
 
-    hdbscan_handle = None
-    if do_snmg:
-        hdbscan_handle = DeviceResourcesSNMG()
-
     cuml_agg = HDBSCAN(
         build_algo=build_algo,
         build_kwds={"knn_n_clusters": n_clusters, "nnd_graph_degree": 32},
-        handle=hdbscan_handle,
+        device_ids=device_ids,
         min_samples=min_samples,
     ).fit(X)
 

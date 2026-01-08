@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -59,16 +59,12 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
       stream(handle.get_stream()),
       coef(params.n_col, stream),
       coef2(params.n_col, stream),
-      coef3(params.n_col, stream),
       coef_ref(params.n_col, stream),
       coef2_ref(params.n_col, stream),
-      coef3_ref(params.n_col, stream),
       pred(params.n_row_2, stream),
       pred_ref(params.n_row_2, stream),
       pred2(params.n_row_2, stream),
       pred2_ref(params.n_row_2, stream),
-      pred3(params.n_row_2, stream),
-      pred3_ref(params.n_row_2, stream),
       coef_sc(1, stream),
       coef_sc_ref(1, stream)
   {
@@ -102,10 +98,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     coef2_ref_h.resize(params.n_col);
     raft::update_device(coef2_ref.data(), coef2_ref_h.data(), params.n_col, stream);
 
-    std::vector<T> coef3_ref_h = {0.99999, 2.00000};
-    coef3_ref_h.resize(params.n_col);
-    raft::update_device(coef3_ref.data(), coef3_ref_h.data(), params.n_col, stream);
-
     std::vector<T> pred_data_h = {3.0, 2.0, 5.0, 5.0};
     pred_data_h.resize(len2);
     raft::update_device(pred_data.data(), pred_data_h.data(), len2, stream);
@@ -118,10 +110,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     pred2_ref_h.resize(params.n_row_2);
     raft::update_device(pred2_ref.data(), pred2_ref_h.data(), params.n_row_2, stream);
 
-    std::vector<T> pred3_ref_h = {16.0, 15.0};
-    pred3_ref_h.resize(params.n_row_2);
-    raft::update_device(pred3_ref.data(), pred3_ref_h.data(), params.n_row_2, stream);
-
     intercept = T(0);
 
     olsFit(handle,
@@ -131,7 +119,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            labels.data(),
            coef.data(),
            &intercept,
-           false,
            false,
            params.algo);
 
@@ -150,7 +137,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            coef2.data(),
            &intercept2,
            true,
-           false,
            params.algo);
 
     gemmPredict(handle,
@@ -160,29 +146,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
                 coef2.data(),
                 intercept2,
                 pred2.data());
-
-    raft::update_device(data.data(), data_h.data(), len, stream);
-    raft::update_device(labels.data(), labels_h.data(), params.n_row, stream);
-
-    intercept3 = T(0);
-    olsFit(handle,
-           data.data(),
-           params.n_row,
-           params.n_col,
-           labels.data(),
-           coef3.data(),
-           &intercept3,
-           true,
-           true,
-           params.algo);
-
-    gemmPredict(handle,
-                pred_data.data(),
-                params.n_row_2,
-                params.n_col,
-                coef3.data(),
-                intercept3,
-                pred3.data());
   }
 
   void basicTest2()
@@ -214,7 +177,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            coef_sc.data(),
            &intercept_sc,
            true,
-           false,
            params.algo);
   }
 
@@ -226,7 +188,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
   rmm::device_uvector<T> coef, coef_ref, pred, pred_ref;
   rmm::device_uvector<T> coef2, coef2_ref, pred2, pred2_ref;
-  rmm::device_uvector<T> coef3, coef3_ref, pred3, pred3_ref;
   rmm::device_uvector<T> coef_sc, coef_sc_ref;
   T *data, *labels, *data_sc, *labels_sc;
   T intercept, intercept2, intercept3;
@@ -252,16 +213,10 @@ TEST_P(OlsTestF, Fit)
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
     pred2_ref.data(), pred2.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<float>(params.tol)));
@@ -277,20 +232,12 @@ TEST_P(OlsTestD, Fit)
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(pred2_ref.data(),
                           pred2.data(),
                           params.n_row_2,
                           MLCommon::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(MLCommon::devArrMatch(pred3_ref.data(),
-                                    pred3.data(),
-                                    params.n_row_2,
-                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<double>(params.tol)));

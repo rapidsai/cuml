@@ -4,26 +4,24 @@
 #
 import warnings
 
-from libc.stdint cimport uintptr_t
-from libcpp cimport bool
-from pylibraft.common.handle cimport handle_t
-
 import cudf
 import cupy as cp
 import numpy as np
 import pandas as pd
 import scipy.sparse
-from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import CumlArray, input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
+from cuml.internals import get_handle, reflect
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.thirdparty_adapters import _get_mask
+
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.thirdparty_adapters import _get_mask
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -247,7 +245,7 @@ def nan_euclidean_distances(
     return distances
 
 
-@cuml.internals.reflect
+@reflect
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, metric_arg=2, **kwds):
     """
@@ -330,7 +328,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         return sparse_pairwise_distances(X, Y, metric, handle,
                                          convert_dtype, **kwds)
 
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if metric in ['nan_euclidean']:
@@ -438,7 +436,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     return dest_m
 
 
-@cuml.internals.reflect
+@reflect
 def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                               convert_dtype=True, metric_arg=2, **kwds):
     """
@@ -522,7 +520,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         array([[3.],
             [2.]])
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
     if (not is_sparse(X)) or (Y is not None and not is_sparse(Y)):
         raise ValueError("Input matrices are not sparse.")

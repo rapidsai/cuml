@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
@@ -20,6 +20,13 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 @pytest.mark.parametrize("batch_size", [128, 1024])
 @pytest.mark.filterwarnings(
     "ignore:n_jobs value.*overridden.*by setting random_state.*:UserWarning"
+)
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of umap-learn use a deprecated parameter.
+@pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
 )
 @pytest.mark.xfail(
     condition=Version(sklearn.__version__) >= Version("1.8.0.dev0"),

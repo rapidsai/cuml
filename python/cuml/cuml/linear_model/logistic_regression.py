@@ -16,7 +16,7 @@ from cuml.common.classification import (
 )
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -92,13 +92,13 @@ class LogisticRegression(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -341,7 +341,7 @@ class LogisticRegression(
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
             verbose=self._verbose_level,
-            handle=self.handle,
+            handle=get_handle(model=self),
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
         )

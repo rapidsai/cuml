@@ -6,10 +6,10 @@
 #include "shuffle.h"
 
 #include <cuml/linear_model/preprocess_mg.hpp>
+#include <cuml/prims/opg/linalg/mv_aTb.hpp>
+#include <cuml/prims/opg/linalg/norm.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
-#include <cumlprims/opg/linalg/mv_aTb.hpp>
-#include <cumlprims/opg/linalg/norm.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -26,21 +26,18 @@
 
 #include <cstddef>
 
-using namespace MLCommon;
-
 namespace ML {
 namespace CD {
 namespace opg {
 
 template <typename T>
 int fit_impl(raft::handle_t& handle,
-             std::vector<Matrix::Data<T>*>& input_data,
-             Matrix::PartDescriptor& input_desc,
-             std::vector<Matrix::Data<T>*>& labels,
+             std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+             MLCommon::Matrix::PartDescriptor& input_desc,
+             std::vector<MLCommon::Matrix::Data<T>*>& labels,
              T* coef,
              T* intercept,
              bool fit_intercept,
-             bool normalize,
              int epochs,
              T alpha,
              T l1_ratio,
@@ -52,7 +49,8 @@ int fit_impl(raft::handle_t& handle,
 {
   const auto& comm = handle.get_comms();
 
-  std::vector<Matrix::RankSizePair*> partsToRanks = input_desc.blocksOwnedBy(comm.get_rank());
+  std::vector<MLCommon::Matrix::RankSizePair*> partsToRanks =
+    input_desc.blocksOwnedBy(comm.get_rank());
 
   size_t total_M = 0.0;
   for (std::size_t i = 0; i < partsToRanks.size(); i++) {
@@ -63,7 +61,6 @@ int fit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> residual(total_M, streams[0]);
   rmm::device_uvector<T> squared(input_desc.N, streams[0]);
   rmm::device_uvector<T> mu_input(0, streams[0]);
-  rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   std::vector<T> h_coef(input_desc.N, T(0));
@@ -71,7 +68,6 @@ int fit_impl(raft::handle_t& handle,
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);
     mu_labels.resize(1, streams[0]);
-    if (normalize) { norm2_input.resize(input_desc.N, streams[0]); }
 
     GLM::opg::preProcessData(handle,
                              input_data,
@@ -79,9 +75,7 @@ int fit_impl(raft::handle_t& handle,
                              labels,
                              mu_input.data(),
                              mu_labels.data(),
-                             norm2_input.data(),
                              fit_intercept,
-                             normalize,
                              streams,
                              n_streams,
                              verbose);
@@ -107,32 +101,28 @@ int fit_impl(raft::handle_t& handle,
   T l2_alpha = (1 - l1_ratio) * alpha * input_desc.M;
   alpha      = l1_ratio * alpha * input_desc.M;
 
-  if (normalize) {
-    T scalar = T(1.0) + l2_alpha;
-    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N, streams[0]);
-  } else {
-    Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
-    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc, streams, n_streams);
-    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N, streams[0]);
-  }
+  MLCommon::Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
+  MLCommon::LinAlg::opg::colNorm2NoSeq(
+    handle, squared_data, input_data, input_desc, streams, n_streams);
+  raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N, streams[0]);
 
-  std::vector<Matrix::Data<T>*> input_data_temp;
-  Matrix::PartDescriptor input_desc_temp = input_desc;
-  input_desc_temp.N                      = size_t(1);
-  std::vector<Matrix::Data<T>*> residual_temp;
-  Matrix::Data<T> coef_loc_data;
+  std::vector<MLCommon::Matrix::Data<T>*> input_data_temp;
+  MLCommon::Matrix::PartDescriptor input_desc_temp = input_desc;
+  input_desc_temp.N                                = size_t(1);
+  std::vector<MLCommon::Matrix::Data<T>*> residual_temp;
+  MLCommon::Matrix::Data<T> coef_loc_data;
 
   T* rs = residual.data();
   for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
-    Matrix::Data<T>* rs_data = new Matrix::Data<T>();
-    rs_data->ptr             = rs;
-    rs_data->totalSize       = partsToRanks[i]->size;
+    MLCommon::Matrix::Data<T>* rs_data = new MLCommon::Matrix::Data<T>();
+    rs_data->ptr                       = rs;
+    rs_data->totalSize                 = partsToRanks[i]->size;
     residual_temp.push_back(rs_data);
 
-    Matrix::Data<T>* temp_data = new Matrix::Data<T>();
-    temp_data->totalSize       = partsToRanks[i]->size;
+    MLCommon::Matrix::Data<T>* temp_data = new MLCommon::Matrix::Data<T>();
+    temp_data->totalSize                 = partsToRanks[i]->size;
     input_data_temp.push_back(temp_data);
 
     rs += partsToRanks[i]->size;
@@ -186,10 +176,11 @@ int fit_impl(raft::handle_t& handle,
 
       coef_loc_data.ptr       = coef_loc;
       coef_loc_data.totalSize = size_t(1);
-      LinAlg::opg::mv_aTb(
+      MLCommon::LinAlg::opg::mv_aTb(
         handle, coef_loc_data, input_data_temp, input_desc_temp, residual_temp, streams, n_streams);
 
-      if (l1_ratio > T(0.0)) Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
+      if (l1_ratio > T(0.0))
+        MLCommon::Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
       raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1, streams[0]);
 
@@ -246,9 +237,7 @@ int fit_impl(raft::handle_t& handle,
                               intercept,
                               mu_input.data(),
                               mu_labels.data(),
-                              norm2_input.data(),
                               fit_intercept,
-                              normalize,
                               streams,
                               n_streams,
                               verbose);
@@ -268,18 +257,16 @@ int fit_impl(raft::handle_t& handle,
  * @output param coef: learned regression coefficients
  * @output param intercept: intercept value
  * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
  * @input param verbose
  */
 template <typename T>
 int fit_impl(raft::handle_t& handle,
-             std::vector<Matrix::Data<T>*>& input_data,
-             Matrix::PartDescriptor& input_desc,
-             std::vector<Matrix::Data<T>*>& labels,
+             std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+             MLCommon::Matrix::PartDescriptor& input_desc,
+             std::vector<MLCommon::Matrix::Data<T>*>& labels,
              T* coef,
              T* intercept,
              bool fit_intercept,
-             bool normalize,
              int epochs,
              T alpha,
              T l1_ratio,
@@ -306,7 +293,6 @@ int fit_impl(raft::handle_t& handle,
                         coef,
                         intercept,
                         fit_intercept,
-                        normalize,
                         epochs,
                         alpha,
                         l1_ratio,
@@ -328,18 +314,18 @@ int fit_impl(raft::handle_t& handle,
 
 template <typename T>
 void predict_impl(raft::handle_t& handle,
-                  std::vector<Matrix::Data<T>*>& input_data,
-                  Matrix::PartDescriptor& input_desc,
+                  std::vector<MLCommon::Matrix::Data<T>*>& input_data,
+                  MLCommon::Matrix::PartDescriptor& input_desc,
                   T* coef,
                   T intercept,
-                  std::vector<Matrix::Data<T>*>& preds,
+                  std::vector<MLCommon::Matrix::Data<T>*>& preds,
                   cudaStream_t* streams,
                   int n_streams,
                   bool verbose)
 {
-  std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
-  T alpha                                         = T(1);
-  T beta                                          = T(0);
+  std::vector<MLCommon::Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
+  T alpha                                                   = T(1);
+  T beta                                                    = T(0);
 
   for (std::size_t i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
@@ -364,22 +350,22 @@ void predict_impl(raft::handle_t& handle,
 
 template <typename T>
 void predict_impl(raft::handle_t& handle,
-                  Matrix::RankSizePair** rank_sizes,
+                  MLCommon::Matrix::RankSizePair** rank_sizes,
                   size_t n_parts,
-                  Matrix::Data<T>** input,
+                  MLCommon::Matrix::Data<T>** input,
                   size_t n_rows,
                   size_t n_cols,
                   T* coef,
                   T intercept,
-                  Matrix::Data<T>** preds,
+                  MLCommon::Matrix::Data<T>** preds,
                   bool verbose)
 {
   int rank = handle.get_comms().get_rank();
 
-  std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
-  std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
-  Matrix::PartDescriptor input_desc(n_rows, n_cols, ranksAndSizes, rank);
-  std::vector<Matrix::Data<T>*> preds_data(preds, preds + n_parts);
+  std::vector<MLCommon::Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
+  std::vector<MLCommon::Matrix::Data<T>*> input_data(input, input + n_parts);
+  MLCommon::Matrix::PartDescriptor input_desc(n_rows, n_cols, ranksAndSizes, rank);
+  std::vector<MLCommon::Matrix::Data<T>*> preds_data(preds, preds + n_parts);
 
   // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
@@ -402,13 +388,12 @@ void predict_impl(raft::handle_t& handle,
 }
 
 int fit(raft::handle_t& handle,
-        std::vector<Matrix::Data<float>*>& input_data,
-        Matrix::PartDescriptor& input_desc,
-        std::vector<Matrix::Data<float>*>& labels,
+        std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+        MLCommon::Matrix::PartDescriptor& input_desc,
+        std::vector<MLCommon::Matrix::Data<float>*>& labels,
         float* coef,
         float* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         float alpha,
         float l1_ratio,
@@ -423,7 +408,6 @@ int fit(raft::handle_t& handle,
                   coef,
                   intercept,
                   fit_intercept,
-                  normalize,
                   epochs,
                   alpha,
                   l1_ratio,
@@ -433,13 +417,12 @@ int fit(raft::handle_t& handle,
 }
 
 int fit(raft::handle_t& handle,
-        std::vector<Matrix::Data<double>*>& input_data,
-        Matrix::PartDescriptor& input_desc,
-        std::vector<Matrix::Data<double>*>& labels,
+        std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+        MLCommon::Matrix::PartDescriptor& input_desc,
+        std::vector<MLCommon::Matrix::Data<double>*>& labels,
         double* coef,
         double* intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         double alpha,
         double l1_ratio,
@@ -454,7 +437,6 @@ int fit(raft::handle_t& handle,
                   coef,
                   intercept,
                   fit_intercept,
-                  normalize,
                   epochs,
                   alpha,
                   l1_ratio,
@@ -464,28 +446,28 @@ int fit(raft::handle_t& handle,
 }
 
 void predict(raft::handle_t& handle,
-             Matrix::RankSizePair** rank_sizes,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
              size_t n_parts,
-             Matrix::Data<float>** input,
+             MLCommon::Matrix::Data<float>** input,
              size_t n_rows,
              size_t n_cols,
              float* coef,
              float intercept,
-             Matrix::Data<float>** preds,
+             MLCommon::Matrix::Data<float>** preds,
              bool verbose)
 {
   predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef, intercept, preds, verbose);
 }
 
 void predict(raft::handle_t& handle,
-             Matrix::RankSizePair** rank_sizes,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
              size_t n_parts,
-             Matrix::Data<double>** input,
+             MLCommon::Matrix::Data<double>** input,
              size_t n_rows,
              size_t n_cols,
              double* coef,
              double intercept,
-             Matrix::Data<double>** preds,
+             MLCommon::Matrix::Data<double>** preds,
              bool verbose)
 {
   predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef, intercept, preds, verbose);

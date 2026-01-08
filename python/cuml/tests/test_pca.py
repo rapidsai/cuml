@@ -17,7 +17,6 @@ from cuml import PCA as cuPCA
 from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     array_equal,
-    get_handle,
     quality_param,
     stress_param,
     unit_param,
@@ -28,9 +27,8 @@ SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("sparse", [True, False])
-def test_pca_fit(datatype, input_type, sparse, use_handle):
+def test_pca_fit(datatype, input_type, sparse):
     solver = "auto"
     if sparse:
         X = scipy.sparse.random(
@@ -58,10 +56,8 @@ def test_pca_fit(datatype, input_type, sparse, use_handle):
     skpca = skPCA(n_components=2, svd_solver=solver)
     skpca.fit(X)
 
-    handle, stream = get_handle(use_handle)
-    cupca = cuPCA(n_components=2, handle=handle)
+    cupca = cuPCA(n_components=2)
     cupca.fit(X)
-    cupca.handle.sync()
 
     for attr in [
         "singular_values_",
@@ -109,7 +105,6 @@ def test_pca_defaults(n_samples, n_features, sparse):
     cupca = cuPCA()
     cupca.fit(X)
     curesult = cupca.transform(X)
-    cupca.handle.sync()
 
     if sparse:
         X = X.toarray().get()
@@ -125,11 +120,10 @@ def test_pca_defaults(n_samples, n_features, sparse):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
 )
-def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
+def test_pca_fit_then_transform(datatype, input_type, name):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -166,12 +160,10 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
         skpca.fit(X)
         Xskpca = skpca.transform(X)
 
-    handle, stream = get_handle(use_handle)
-    cupca = cuPCA(n_components=2, handle=handle)
+    cupca = cuPCA(n_components=2)
 
     cupca.fit(X)
     X_cupca = cupca.transform(X)
-    cupca.handle.sync()
 
     if name != "blobs":
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
@@ -181,11 +173,10 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
 )
-def test_pca_fit_transform(datatype, input_type, name, use_handle):
+def test_pca_fit_transform(datatype, input_type, name):
     # Assume at least 4GB memory
     max_gpu_memory = pytest.max_gpu_memory or 4
 
@@ -222,11 +213,9 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
         skpca = skPCA(n_components=2)
         Xskpca = skpca.fit_transform(X)
 
-    handle, stream = get_handle(use_handle)
-    cupca = cuPCA(n_components=2, handle=handle)
+    cupca = cuPCA(n_components=2)
 
     X_cupca = cupca.fit_transform(X)
-    cupca.handle.sync()
 
     if name != "blobs":
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
@@ -236,12 +225,11 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "name", [unit_param(None), quality_param("quality"), stress_param("blobs")]
 )
 @pytest.mark.parametrize("nrows", [unit_param(500), quality_param(5000)])
-def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
+def test_pca_inverse_transform(datatype, input_type, name, nrows):
     if name == "blobs":
         pytest.skip("fails when using blobs dataset")
         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
@@ -253,13 +241,11 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
         X[:, 1] *= 0.00001  # make middle component relatively small
         X += [3, 4, 2]  # make a large mean
 
-    handle, stream = get_handle(use_handle)
-    cupca = cuPCA(n_components=2, handle=handle)
+    cupca = cuPCA(n_components=2)
 
     X_cupca = cupca.fit_transform(X)
 
     input_gdf = cupca.inverse_transform(X_cupca)
-    cupca.handle.sync()
     assert array_equal(input_gdf, X, 5e-5, with_sign=True)
 
 

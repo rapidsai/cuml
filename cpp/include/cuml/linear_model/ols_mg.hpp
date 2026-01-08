@@ -1,14 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/linear_model/glm.hpp>
-
-#include <cumlprims/opg/matrix/data.hpp>
-#include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace OLS {
@@ -23,7 +22,6 @@ namespace opg {
  * @param[out] coef: learned regression coefficients
  * @param[out] intercept: intercept value
  * @param[in] fit_intercept: fit intercept or not
- * @param[in] normalize: normalize the data or not
  * @param[in] algo: which algorithm is used for OLS. 0 is for SVD, 1 is for eig.
  * @param[in] verbose
  */
@@ -34,7 +32,6 @@ void fit(raft::handle_t& handle,
          float* coef,
          float* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose);
 
@@ -45,7 +42,6 @@ void fit(raft::handle_t& handle,
          double* coef,
          double* intercept,
          bool fit_intercept,
-         bool normalize,
          int algo,
          bool verbose);
 

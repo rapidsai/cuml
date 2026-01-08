@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -44,7 +44,12 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    handle : cuml.Handle
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     convert_dtype : bool, optional (default = True)
         When set to True, the method will, convert P and
@@ -56,7 +61,7 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     float
         The KL Divergence value
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle(handle=handle)
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     P_m, n_features_p, _, dtype_p = \

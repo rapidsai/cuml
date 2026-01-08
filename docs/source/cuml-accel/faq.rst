@@ -51,6 +51,7 @@ the following estimators are mostly or entirely accelerated when run with
 * Scikit-Learn
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
+    * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
     * ``sklearn.decomposition.TruncatedSVD``
     * ``sklearn.ensemble.RandomForestClassifier``
