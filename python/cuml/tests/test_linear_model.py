@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,11 +7,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from hypothesis import target
-from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -243,7 +241,6 @@ def test_linear_regression_model_default_generalized(dataset):
 @given(
     num_classes=st.integers(min_value=2, max_value=10),
     dtype=dataset_dtypes(),
-    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
     l1_ratio=st.floats(min_value=0.0, max_value=1.0),
     fit_intercept=st.booleans(),
     nrows=st.integers(min_value=1000, max_value=5000),
@@ -253,32 +250,20 @@ def test_linear_regression_model_default_generalized(dataset):
 @example(
     num_classes=2,
     dtype=np.float32,
-    penalty=None,
     l1_ratio=1.0,
     fit_intercept=True,
     nrows=1000,
-    C=1.0,
+    C=np.inf,
     tol=1e-3,
 )
 @example(
     num_classes=10,
     dtype=np.float64,
-    penalty="l2",
-    l1_ratio=1.0,
+    l1_ratio=0.0,
     fit_intercept=True,
     nrows=5000,
     C=1.0,
     tol=1e-8,
-)
-@example(
-    num_classes=10,
-    dtype=np.float32,
-    penalty="elasticnet",
-    l1_ratio=0.0,
-    fit_intercept=True,
-    nrows=1000,
-    C=1.0,
-    tol=1e-3,
 )
 # ignoring UserWarnings in sklearn about setting unused parameters
 # like l1 for none penalty
@@ -286,7 +271,6 @@ def test_linear_regression_model_default_generalized(dataset):
 def test_logistic_regression(
     num_classes,
     dtype,
-    penalty,
     l1_ratio,
     fit_intercept,
     nrows,
@@ -294,12 +278,6 @@ def test_logistic_regression(
     tol,
 ):
     ncols, n_info = 20, 10
-    # Checking sklearn >= 0.21 for testing elasticnet
-    sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
-    if not sk_check and penalty == "elasticnet":
-        pytest.skip(
-            "Need sklearn > 0.21 for testing logistic withelastic net."
-        )
 
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype,
@@ -312,7 +290,6 @@ def test_logistic_regression(
     y_test = y_test.astype(dtype)
 
     culog = cuLog(
-        penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
         fit_intercept=fit_intercept,
@@ -320,30 +297,12 @@ def test_logistic_regression(
     )
     culog.fit(X_train, y_train)
 
-    # Only solver=saga supports elasticnet in scikit
-    if penalty in ["elasticnet", "l1"]:
-        if sk_check:
-            sklog = skLog(
-                penalty=penalty,
-                l1_ratio=l1_ratio,
-                solver="saga",
-                C=C,
-                fit_intercept=fit_intercept,
-            )
-        else:
-            sklog = skLog(
-                penalty=penalty,
-                solver="saga",
-                C=C,
-                fit_intercept=fit_intercept,
-            )
-    else:
-        sklog = skLog(
-            penalty=penalty,
-            solver="lbfgs",
-            C=C,
-            fit_intercept=fit_intercept,
-        )
+    sklog = skLog(
+        solver="lbfgs",
+        l1_ratio=l1_ratio,
+        C=C,
+        fit_intercept=fit_intercept,
+    )
 
     sklog.fit(X_train, y_train)
     cu_preds = culog.predict(X_test)
@@ -365,16 +324,12 @@ def test_logistic_regression(
 @given(
     dtype=dataset_dtypes(),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
-    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
+    C=st.sampled_from([1.0, np.inf]),
 )
-@example(dtype=np.float32, l1_ratio=None, penalty=None)
-@example(dtype=np.float64, l1_ratio=None, penalty="l1")
-@example(dtype=np.float64, l1_ratio=0.5, penalty="elasticnet")
-@example(dtype=np.float64, l1_ratio=0.5, penalty="l2")
-def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
-    if penalty == "elasticnet":
-        assume(l1_ratio is not None)
-
+@example(dtype=np.float32, l1_ratio=None, C=np.inf)
+@example(dtype=np.float64, l1_ratio=1.0, C=1.0)
+@example(dtype=np.float64, l1_ratio=0.0, C=1.0)
+def test_logistic_regression_unscaled(dtype, l1_ratio, C):
     # Test logistic regression on the breast cancer dataset. We do not scale
     # the dataset which could lead to numerical problems (fixed in PR #2543).
     X, y = load_breast_cancer(return_X_y=True)
@@ -382,8 +337,7 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     y = y.astype(dtype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
     params = {
-        "penalty": penalty,
-        "C": 1,
+        "C": C,
         "tol": 1e-4,
         "fit_intercept": True,
         "max_iter": 5000,
