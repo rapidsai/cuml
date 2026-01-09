@@ -146,8 +146,8 @@ class SVR(SVMBase, RegressorMixin):
         # Handle precomputed kernels
         if self.kernel == "precomputed":
             if is_sparse(X):
-                raise ValueError(
-                    "Sparse input is not supported for precomputed kernels"
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
                 )
             X = input_to_cuml_array(
                 X,
@@ -220,8 +220,8 @@ class SVR(SVMBase, RegressorMixin):
         # For precomputed kernels, check that columns match training set size
         if self.kernel == "precomputed":
             if is_sparse(X):
-                raise ValueError(
-                    "Sparse input is not supported for precomputed kernels"
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
                 )
             X = input_to_cuml_array(
                 X,
