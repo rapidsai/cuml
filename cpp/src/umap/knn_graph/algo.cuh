@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -59,27 +59,18 @@ inline void launcher(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
   bool data_on_device = attr.type == cudaMemoryTypeDevice;
 
+  auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
+  all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
+  all_neighbors_params.n_clusters     = params->build_params.n_clusters;
+  all_neighbors_params.metric         = static_cast<cuvs::distance::DistanceType>(params->metric);
+
   if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
-    auto idx = [&]() {
-      if (data_on_device) {  // inputsA on device
-        return cuvs::neighbors::brute_force::build(
-          handle,
-          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
-          raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
-      } else {  // inputsA on host
-        return cuvs::neighbors::brute_force::build(
-          handle,
-          {static_cast<cuvs::distance::DistanceType>(params->metric), params->p},
-          raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
-      }
-    }();
-    cuvs::neighbors::brute_force::search(
-      handle,
-      idx,
-      raft::make_device_matrix_view<const float, int64_t>(inputsB.X, inputsB.n, inputsB.d),
-      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
-  } else {  // nn_descent
+    auto brute_force_params =
+      cuvs::neighbors::all_neighbors::graph_build_params::brute_force_params{};
+    brute_force_params.build_params = {static_cast<cuvs::distance::DistanceType>(params->metric),
+                                       params->p};
+    all_neighbors_params.graph_build_params = brute_force_params;
+  } else {
     RAFT_EXPECTS(
       static_cast<size_t>(n_neighbors) <= params->build_params.nn_descent_params.graph_degree,
       "n_neighbors should be smaller than the graph degree computed by nn descent");
@@ -87,11 +78,6 @@ inline void launcher(const raft::handle_t& handle,
       params->build_params.nn_descent_params.graph_degree <=
         params->build_params.nn_descent_params.intermediate_graph_degree,
       "graph_degree should be smaller than intermediate_graph_degree computed by nn descent");
-
-    auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
-    all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
-    all_neighbors_params.n_clusters     = params->build_params.n_clusters;
-    all_neighbors_params.metric         = static_cast<cuvs::distance::DistanceType>(params->metric);
 
     auto nn_descent_params =
       cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
@@ -103,27 +89,27 @@ inline void launcher(const raft::handle_t& handle,
       params->build_params.nn_descent_params.termination_threshold;
     nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(params->metric);
     all_neighbors_params.graph_build_params = nn_descent_params;
+  }
 
-    auto indices_view =
-      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
-    auto distances_view =
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
+  auto indices_view =
+    raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
+  auto distances_view =
+    raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
 
-    if (data_on_device) {  // inputsA on device
-      cuvs::neighbors::all_neighbors::build(
-        handle,
-        all_neighbors_params,
-        raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
-        indices_view,
-        distances_view);
-    } else {  // inputsA on host
-      cuvs::neighbors::all_neighbors::build(
-        handle,
-        all_neighbors_params,
-        raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
-        indices_view,
-        distances_view);
-    }
+  if (data_on_device) {  // inputsA on device
+    cuvs::neighbors::all_neighbors::build(
+      handle,
+      all_neighbors_params,
+      raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+      indices_view,
+      distances_view);
+  } else {  // inputsA on host
+    cuvs::neighbors::all_neighbors::build(
+      handle,
+      all_neighbors_params,
+      raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+      indices_view,
+      distances_view);
   }
 }
 

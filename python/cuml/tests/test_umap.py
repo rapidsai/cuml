@@ -861,15 +861,16 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 @pytest.mark.parametrize("device_ids", [None, "all"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, device_ids
+    num_clusters, fit_then_transform, metric, device_ids, build_algo
 ):
     digits = datasets.load_digits()
 
     cuml_model = cuUMAP(
         n_neighbors=10,
         min_dist=0.01,
-        build_algo="nn_descent",
+        build_algo=build_algo,
         build_kwds={"nnd_n_clusters": num_clusters},
         metric=metric,
         device_ids=device_ids,
