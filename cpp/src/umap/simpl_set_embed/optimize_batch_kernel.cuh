@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -619,7 +619,8 @@ void call_optimize_batch_kernel(T* head_embedding,
     // embedding from the previous chunk. this ensures that the updates are applied in a sequential
     // manner (which is crucial for avoiding outliers), and the resulting embedding is deterministic
     // because we use buffers.
-    for (size_t offset = 0; offset < nnz; offset += TPB_X * grid.x) {
+    size_t chunk_size = static_cast<size_t>(TPB_X) * static_cast<size_t>(grid.x);
+    for (size_t offset = 0; offset < nnz; offset += chunk_size) {
       launch_kernel(offset);
       sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
                                                       head_buffer,
