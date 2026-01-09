@@ -14,10 +14,8 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from pylibraft.common.cuda import Stream
 from sklearn.metrics import brier_score_loss, mean_squared_error
 
-import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
@@ -245,14 +243,6 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
     # requirement of minimality for core points
 
 
-def get_handle(use_handle, n_streams=0):
-    if not use_handle:
-        return None, None
-    s = Stream()
-    h = cuml.Handle(stream=s, n_streams=n_streams)
-    return h, s
-
-
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -404,22 +394,6 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cp.array(a), cp.array(b), a, b
     else:
         return cuda.to_device(a), cuda.to_device(b), a, b
-
-
-def score_labeling_with_handle(
-    func, ground_truth, predictions, use_handle, dtype=np.int32
-):
-    """Test helper to standardize inputs between sklearn and our prims metrics.
-
-    Using this function we can pass python lists as input of a test just like
-    with sklearn as well as an option to use handle with our metrics.
-    """
-    a = cp.array(ground_truth, dtype=dtype)
-    b = cp.array(predictions, dtype=dtype)
-
-    handle, stream = get_handle(use_handle)
-
-    return func(a, b, handle=handle)
 
 
 def get_number_positional_args(func, default=2):

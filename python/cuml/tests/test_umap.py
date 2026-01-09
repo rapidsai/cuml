@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -12,7 +12,6 @@ import scipy.sparse as scipy_sparse
 import sklearn
 import umap
 from packaging.version import Version
-from pylibraft.common import DeviceResourcesSNMG
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
@@ -33,6 +32,14 @@ from cuml.testing.utils import (
 
 if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
     pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
+
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of umap-learn use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
@@ -853,23 +860,19 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("num_clusters", [3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
-@pytest.mark.parametrize("do_snmg", [True, False])
+@pytest.mark.parametrize("device_ids", [None, "all"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, do_snmg
+    num_clusters, fit_then_transform, metric, device_ids
 ):
     digits = datasets.load_digits()
 
-    umap_handle = None
-    if do_snmg:
-        umap_handle = DeviceResourcesSNMG()
-
     cuml_model = cuUMAP(
-        handle=umap_handle,
         n_neighbors=10,
         min_dist=0.01,
         build_algo="nn_descent",
         build_kwds={"nnd_n_clusters": num_clusters},
         metric=metric,
+        device_ids=device_ids,
     )
 
     if fit_then_transform:

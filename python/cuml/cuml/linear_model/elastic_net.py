@@ -5,7 +5,7 @@
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -62,13 +62,13 @@ class ElasticNet(
         features sequentially by default. This (setting to 'random') often
         leads to significantly faster convergence especially when tol is higher
         than 1e-4.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -249,7 +249,7 @@ class ElasticNet(
                 tol=self.tol,
                 penalty_normalized=False,
                 verbose=self._verbose_level,
-                handle=self.handle,
+                handle=get_handle(model=self),
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
@@ -265,7 +265,7 @@ class ElasticNet(
                 shuffle=self.selection == "random",
                 max_iter=self.max_iter,
                 tol=self.tol,
-                handle=self.handle,
+                handle=get_handle(model=self),
             )
         else:
             raise ValueError(f"solver {self.solver} is not supported")

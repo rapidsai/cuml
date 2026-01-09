@@ -10,7 +10,6 @@ import cupyx.scipy.sparse
 import joblib
 import numpy as np
 import scipy.sparse
-from pylibraft.common.handle import Handle
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -19,7 +18,7 @@ from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.interop import (
     InteropMixin,
@@ -552,16 +551,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
-        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
-        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
-        `nnd_n_clusters > 1`.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically. To configure multi-device execution,
+            please use the `device_ids` parameter instead.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -616,6 +613,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
           memory usage. This is independent from nnd_overlap_factor as long as
           'nnd_overlap_factor' < 'nnd_n_clusters'.
+    device_ids : list[int], "all", or None, default=None
+        The device IDs to use during fitting (only used when
+        `build_algo=nn_descent` and `nnd_n_clusters > 1`). May be a list of
+        ids, ``"all"`` (to use all available devices), or ``None`` (to fit
+        using a single GPU only). Default is None.
 
     Notes
     -----
@@ -674,7 +676,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "metric_kwds",
             "precomputed_knn",
             "build_algo",
-            "build_kwds"
+            "build_kwds",
+            "device_ids",
         ]
 
     @classmethod
@@ -849,6 +852,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         callback=None,
         build_algo="auto",
         build_kwds=None,
+        device_ids=None,
         handle=None,
         verbose=False,
         output_type=None,
@@ -880,6 +884,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.callback = callback
         self.build_algo = build_algo
         self.build_kwds = build_kwds
+        self.device_ids = device_ids
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
@@ -988,7 +993,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             knn_indices = knn_dists = None
 
-        cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
+        handle = get_handle(model=self, device_ids=self.device_ids)
+        cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
 
@@ -1022,7 +1028,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     embeddings_buffer,
                     fss_graph,
                 )
-        self.handle.sync()
+        handle.sync()
 
         buffer = DeviceBuffer.c_from_unique_ptr(move(embeddings_buffer))
         embedding = cp.ndarray(
@@ -1188,7 +1194,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
-        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+        handle = get_handle(model=self, device_ids=self.device_ids)
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         with nogil:
             if X_is_sparse:
@@ -1223,7 +1230,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     &params,
                     <float*> out_ptr
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out
 
@@ -1345,7 +1352,7 @@ def fuzzy_simplicial_set(
         knn_indices_ptr = 0
         knn_dists_ptr = 0
 
-    handle = Handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef unique_ptr[lib.COO] fss_graph_ptr = lib.get_graph(
         handle_[0],
@@ -1509,7 +1516,7 @@ def simplicial_set_embedding(
     if not isinstance(graph, cupyx.scipy.sparse.coo_matrix):
         graph = cupyx.scipy.sparse.coo_matrix(graph)
 
-    handle = Handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef RaftCOO fss_graph = RaftCOO.from_cupy_coo(handle, graph)
     cdef uintptr_t embedding_ptr = embedding.ptr

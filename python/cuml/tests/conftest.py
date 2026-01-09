@@ -6,22 +6,16 @@
 import os
 from datetime import timedelta
 from math import ceil
-from ssl import create_default_context
-from urllib.request import HTTPSHandler, build_opener, install_opener
 
-import certifi
 import cudf.pandas
 import cupy as cp
 import hypothesis
 import numpy as np
-import pandas as pd
 import pynvml
 import pytest
 from sklearn import datasets
-from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.utils import Bunch
-from tenacity import retry, stop_after_attempt, wait_exponential
+
+from cuml.testing.datasets import make_text_classification_dataset
 
 # =============================================================================
 # Pytest Configuration
@@ -242,14 +236,6 @@ def pytest_configure(config):
     else:
         hypothesis.settings.load_profile("unit")
 
-    # Initialize SSL certificates for secure HTTP connections. This ensures
-    # we use the certifi certs for all urllib downloads.
-    ssl_context = create_default_context(cafile=certifi.where())
-    https_handler = HTTPSHandler(context=ssl_context)
-    install_opener(build_opener(https_handler))
-
-    config.pluginmanager.register(DownloadDataPlugin(), "download_data")
-
 
 def pytest_pyfunc_call(pyfuncitem):
     """Skip tests that require the cudf.pandas accelerator.
@@ -389,128 +375,24 @@ def random_seed(request):
 # =============================================================================
 
 
-class DownloadDataPlugin:
-    """Download data before workers are spawned.
-
-    This avoids downloading data in each worker, which can lead to races.
-    """
-
-    def pytest_configure(self, config):
-        if not hasattr(config, "workerinput"):
-            # We're in the controller process, not a worker. Let's fetch all
-            # the datasets we might use.
-            fetch_20newsgroups()
-            fetch_california_housing()
-
-
-def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
-    """Decorator for retrying dataset fetching operations with exponential backoff.
-
-    This decorator implements retry logic for dataset fetching
-    operations with exponential backoff. Wait times are in seconds.
-    """
-    return retry(
-        stop=stop_after_attempt(attempts),
-        wait=wait_exponential(multiplier=min_wait, max=max_wait),
-        reraise=True,
-    )(func)
-
-
 @pytest.fixture(scope="session")
-def nlp_20news():
-    """Load and preprocess the 20 newsgroups dataset.
-
-    This fixture loads the 20 newsgroups dataset, preprocesses it using
-    CountVectorizer, and returns the feature matrix and target vector.
+def sparse_text_dataset():
+    """Generate a sparse text-like dataset similar to 20 newsgroups.
 
     Returns
     -------
     tuple
-        (X, Y) where X is the feature matrix and Y is the target vector
+        (X, Y) where X is a sparse feature matrix and Y is a cupy target vector
     """
-
-    try:
-        twenty_train = fetch_20newsgroups(
-            subset="train", shuffle=True, random_state=42
-        )
-    except Exception as e:
-        pytest.xfail(f"Error fetching 20 newsgroup dataset: {str(e)}")
-
-    count_vect = CountVectorizer()
-    X = count_vect.fit_transform(twenty_train.data)
-    Y = cp.array(twenty_train.target)
-
-    return X, Y
-
-
-@pytest.fixture(scope="session")
-def housing_dataset():
-    """Load and preprocess the California housing dataset.
-
-    This fixture loads the California housing dataset and returns the
-    feature matrix, target vector, and feature names.
-
-    Returns
-    -------
-    tuple
-        (X, y, feature_names) where X is the feature matrix, y is the target
-        vector, and feature_names is a list of feature names
-    """
-
-    try:
-        data = fetch_california_housing()
-    except Exception as e:
-        pytest.xfail(f"Error fetching housing dataset: {str(e)}")
-
-    X = cp.array(data["data"])
-    y = cp.array(data["target"])
-    feature_names = data["feature_names"]
-
-    return X, y, feature_names
-
-
-@pytest.fixture(scope="session")
-def deprecated_boston_dataset():
-    """Load and preprocess the deprecated Boston housing dataset.
-
-    This fixture loads the Boston housing dataset from a GitHub URL since
-    it was removed from scikit-learn. It returns the feature matrix and
-    target vector.
-
-    Note: This dataset is deprecated and should be replaced with a better
-    alternative. See https://github.com/rapidsai/cuml/issues/5158
-
-    Returns
-    -------
-    Bunch
-        A Bunch object containing the data and target arrays
-    """
-
-    @dataset_fetch_retry
-    def _get_boston_data():
-        url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
-        return pd.read_csv(url, header=None)
-
-    try:
-        df = _get_boston_data()
-    except Exception as e:
-        pytest.xfail(f"Error fetching Boston housing dataset: {str(e)}")
-
-    n_samples = int(df[0][0])
-    data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
-    targets = df[13].values[2:n_samples].astype(np.float64)
-
-    return Bunch(
-        data=data,
-        target=targets,
-    )
+    X, y = make_text_classification_dataset()
+    return X, cp.array(y)
 
 
 @pytest.fixture(
     scope="session",
-    params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
+    params=["digits", "diabetes", "cancer"],
 )
-def supervised_learning_dataset(request, deprecated_boston_dataset):
+def supervised_learning_dataset(request):
     """Provide various supervised learning datasets for testing.
 
     This fixture provides access to multiple standard supervised learning
@@ -518,7 +400,6 @@ def supervised_learning_dataset(request, deprecated_boston_dataset):
     """
     datasets_dict = {
         "digits": datasets.load_digits(),
-        "deprecated_boston_dataset": deprecated_boston_dataset,
         "diabetes": datasets.load_diabetes(),
         "cancer": datasets.load_breast_cancer(),
     }
