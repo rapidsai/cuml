@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
@@ -933,8 +933,14 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             logger.warn("Using data on host memory because knn_n_clusters > 1.")
             convert_to_mem_type = MemoryType.host
         else:
-            logger.warn("Using data on device memory because knn_n_clusters = 1.")
-            convert_to_mem_type = MemoryType.device
+            if self.build_algo == "nn_descent":
+                logger.warn("Mirroring original input data memory type to avoid "
+                            "unnecessary data transfer.")
+                convert_to_mem_type = False  # mirror original input type
+            else:
+                logger.warn("Using data on device memory because knn_n_clusters = 1 "
+                            "and build_algo is brute_force.")
+                convert_to_mem_type = MemoryType.device
 
         self._raw_data = input_to_cuml_array(
             X,
