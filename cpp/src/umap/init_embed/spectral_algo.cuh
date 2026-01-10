@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -48,9 +48,9 @@ void launcher(const raft::handle_t& handle,
   auto tmp_embedding =
     raft::make_device_matrix<float, int, raft::col_major>(handle, n, params->n_components);
 
-  auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int>(
+  auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int64_t>(
     coo->vals(),
-    raft::make_device_coordinate_structure_view<int, int, int>(
+    raft::make_device_coordinate_structure_view<int, int, int64_t>(
       coo->rows(), coo->cols(), n, n, coo->nnz));
 
   ML::SpectralEmbedding::params spectral_params;
