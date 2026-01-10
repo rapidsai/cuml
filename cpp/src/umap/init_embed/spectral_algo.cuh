@@ -48,14 +48,10 @@ void launcher(const raft::handle_t& handle,
   auto tmp_embedding =
     raft::make_device_matrix<float, int, raft::col_major>(handle, n, params->n_components);
 
-  using SpectralEmbeddingNNZType =
-    std::conditional_t<std::is_same_v<nnz_t, uint64_t>, int64_t, int>;
-
-  auto connectivity_graph_view =
-    raft::make_device_coo_matrix_view<float, int, int, SpectralEmbeddingNNZType>(
-      coo->vals(),
-      raft::make_device_coordinate_structure_view<int, int, SpectralEmbeddingNNZType>(
-        coo->rows(), coo->cols(), n, n, coo->nnz));
+  auto connectivity_graph_view = raft::make_device_coo_matrix_view<float, int, int, int64_t>(
+    coo->vals(),
+    raft::make_device_coordinate_structure_view<int, int, int64_t>(
+      coo->rows(), coo->cols(), n, n, coo->nnz));
 
   ML::SpectralEmbedding::params spectral_params;
   spectral_params.n_neighbors    = params->n_neighbors;
