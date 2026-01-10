@@ -1039,3 +1039,56 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
     )
     with pytest.raises(ValueError, match=".*fewer neighbors.*"):
         model.fit(data)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+def test_umap_custom_init(input_type):
+    n_samples = 500
+    n_features = 20
+    n_components = 2
+
+    data, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=5, random_state=42
+    )
+    data = data.astype(np.float32)
+
+    # Custom initial positions
+    init_pos = (
+        np.random.RandomState(42)
+        .randn(n_samples, n_components)
+        .astype(np.float32)
+    )
+
+    if input_type == "cupy":
+        init_pos = cp.array(init_pos)
+
+    model = cuUMAP(
+        n_neighbors=10,
+        init=init_pos,
+        n_epochs=0,
+        learning_rate=0,
+        random_state=42,
+    )
+
+    # Should return the init_pos since learning_rate=0
+    embedding = model.fit_transform(data)
+
+    assert array_equal(embedding, init_pos)
+
+
+def test_umap_custom_init_errors():
+    n_samples = 100
+    data, _ = make_blobs(n_samples=n_samples, n_features=10, random_state=42)
+    data = data.astype(np.float32)
+
+    # Wrong number of samples
+    init_wrong_samples = np.zeros((n_samples + 1, 2), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_samples)
+    with pytest.raises(ValueError, match=".*rows.*"):
+        model.fit(data)
+
+    # Wrong number of components
+    init_wrong_components = np.zeros((n_samples, 3), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_components, n_components=2)
+    with pytest.raises(ValueError, match=".*columns.*"):
+        model.fit(data)

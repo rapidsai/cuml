@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -40,6 +40,8 @@ void run(const raft::handle_t& handle,
         RandomInit::launcher<T, nnz_t>(n, d, params, embedding, handle.get_stream());
       }
       break;
+
+    case 2: break;  // custom initialization case
   }
 }
 }  // namespace InitEmbed
