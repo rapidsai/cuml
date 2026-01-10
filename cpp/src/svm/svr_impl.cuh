@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -53,13 +53,17 @@ int svrFitX(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
 
-  SmoSolver<math_t> smo(handle_impl,
-                        param,
-                        static_cast<cuvs::distance::kernels::KernelType>(kernel_params.kernel),
-                        kernel);
+  bool is_precomputed = kernel_params.kernel == ML::matrix::KernelType::PRECOMPUTED;
+
+  // For precomputed kernels, we don't need to create a cuvs kernel
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel = nullptr;
+  cuvs::distance::kernels::KernelParams cuvs_params       = kernel_params.to_cuvs();
+  if (!is_precomputed) {
+    kernel = cuvs::distance::kernels::KernelFactory<math_t>::create(cuvs_params);
+  }
+
+  SmoSolver<math_t> smo(handle_impl, param, cuvs_params.kernel, kernel, is_precomputed);
   smo.Solve(matrix,
             n_rows,
             n_cols,
@@ -73,7 +77,7 @@ int svrFitX(const raft::handle_t& handle,
             param.max_iter,
             param.max_outer_iter);
   model.n_cols = n_cols;
-  delete kernel;
+  if (kernel) delete kernel;
   return smo.GetNIter();
 }
 
