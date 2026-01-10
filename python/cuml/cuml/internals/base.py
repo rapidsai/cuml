@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -17,7 +17,6 @@ import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
-from cuml.internals.outputs import check_output_type
 
 _THREAD_STATE = threading.local()
 
@@ -183,15 +182,6 @@ class Base(TagsMixin):
     ):
         self.handle = handle
         self.verbose = verbose
-        if output_type is None:
-            output_type = cuml.global_settings.output_type or "input"
-            if output_type == "mirror":
-                raise ValueError(
-                    "Cannot pass output_type='mirror' to Base.__init__(). Did you forget "
-                    "to pass `output_type=self.output_type` to a child estimator? "
-                )
-        else:
-            output_type = check_output_type(output_type)
         self.output_type = output_type
         self._input_type = None
 
@@ -282,7 +272,7 @@ class Base(TagsMixin):
             output_type = self.output_type
 
         # If input, get the type from the input (if available)
-        if output_type == "input":
+        if output_type in (None, "input"):
             if inp is None:
                 # No input value provided, use the estimator input type
                 output_type = self._input_type

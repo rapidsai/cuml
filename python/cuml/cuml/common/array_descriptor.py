@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -118,7 +118,7 @@ class CumlArrayDescriptor:
                 # Default to the owning base object output_type
                 output_type = instance.output_type
 
-            if output_type == "input":
+            if output_type in (None, "input"):
                 # Default to the owning base object, _input_type
                 output_type = instance._input_type
 
