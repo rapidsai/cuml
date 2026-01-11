@@ -6,6 +6,9 @@ from cupyx.scipy import sparse as cp_sparse
 
 def check_clustering(labels_true, labels_pred):
     """
+    Checks and validates input clustering label arrays.
+    Ensures both arrays are 1-D and of the same length. Converts input to CuPy arrays.
+    Primarily used for input validation before computation.
     """
     labels_true = cp.asarray(labels_true)
     labels_pred = cp.asarray(labels_pred)
@@ -31,7 +34,11 @@ def check_clustering(labels_true, labels_pred):
 #     )
 def contingency_matrix(labels_true, labels_pred, *, eps=None, sparse=False, dtype=cp.float64):
     """
-    contingency_matrix
+    Constructs the contingency matrix for two cluster labelings,
+    representing the joint distribution of classes and clusters.
+    This matrix forms the basis for computing mutual information,
+    entropy, and other metrics. Accepts options for sparse output
+    and numeric precision.
     """
     if eps is not None and sparse:
         raise ValueError("Cannot set 'eps' when sparse=True")
@@ -61,7 +68,11 @@ def contingency_matrix(labels_true, labels_pred, *, eps=None, sparse=False, dtyp
     return contingency
 
 def _generalized_average(U,V,average_method):
-    """ Return a particular mean of two numbers"""
+    """
+    Computes various types of averages (arithmetic, geometric, min, max)
+    between two values. Used for normalizing the adjusted mutual information denominator
+    according to a user-specified method.
+    """
     if average_method == "min":
         return min(U,V)
     elif average_method == "max":
@@ -76,14 +87,20 @@ def _generalized_average(U,V,average_method):
         )
 
 def _entropy(labels):
+    """
+    Calculates the entropy of a set of integer labels using cuML's GPU-accelerated implementation.
+    Used to measure the randomness or uncertainty in cluster/class assignments.
+    """
     # cuml.metrics.entropy has a strict type requirement as int32
     if labels.dtype != cp.int32:
         labels = labels.astype(cp.int32)
     return entropy(labels)
 
 def raw_mutual_info_score(contingency):
-    """ Compute raw (unnormalized) mutual information from contingency matrix.
-    Exact CuPy translation of sklearn's implementation."""
+    """
+    Compute raw (unnormalized) mutual information from contingency matrix.
+    Exact CuPy translation of sklearn's implementation.
+    """
     contingency = cp.asarray(contingency, dtype=cp.float64)
     contingency_sum = contingency.sum()
     if contingency_sum == 0 or contingency.shape[0] <= 1 or contingency.shape[1] <= 1:
