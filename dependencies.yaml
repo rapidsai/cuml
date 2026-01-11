@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -66,7 +66,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64]
     includes:
       - common_build
@@ -83,7 +83,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.9", "13.0"]
+      cuda: ["12.9", "13.1"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -259,10 +259,10 @@ dependencies:
           - rapids-build-backend>=0.4.0,<0.5.0
       - output_types: [conda]
         packages:
-          - scikit-build-core>=0.10.0
+          - scikit-build-core>=0.11.0
       - output_types: [requirements, pyproject]
         packages:
-          - scikit-build-core[pyproject]>=0.10.0
+          - scikit-build-core[pyproject]>=0.11.0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -325,7 +325,7 @@ dependencies:
           - scipy>=1.13.0
           - packaging
           - rich
-          - &scikit_learn scikit-learn>=1.4
+          - &scikit_learn scikit-learn>=1.5
           - *treelite
       - output_types: requirements
         packages:
@@ -356,6 +356,10 @@ dependencies:
               cuda: "13.0"
             packages:
               - cuda-version=13.0
+          - matrix:
+              cuda: "13.1"
+            packages:
+              - cuda-version=13.1
   cuda:
     common:
       - output_types: [conda]
@@ -455,10 +459,10 @@ dependencies:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.4.2
+              - scikit-learn==1.5.0
           - matrix: {dependencies: "intermediate"}
             packages:
-              - scikit-learn==1.5.2
+              - scikit-learn==1.7.2
           - matrix:
             packages:
     common:
@@ -482,7 +486,6 @@ dependencies:
           - seaborn
           - *scikit_learn
           - statsmodels
-          - tenacity
           - umap-learn==0.5.7
           - pynndescent
       - output_types: conda
@@ -493,47 +496,47 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml>=2024
-  # test_python_xgboost:
-  #   common:
-  #     - output_types: [conda]
-  #       packages:
-  #         # We must separate xgboost into its own list so that it is not
-  #         # included in the "devcontainers" key. The libxgboost package depends
-  #         # on librmm but we do not want to have a package depending on librmm
-  #         # in devcontainers since it should be built from source.
-  #         - rapids-xgboost==26.2.*,>=0.0.0a0
-  #   specific:
-  #     - output_types: [requirements, pyproject]
-  #       matrices:
-  #         - matrix:
-  #             cuda: "12.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             - xgboost-cu12>=2.1.0
-  #         - matrix:
-  #             arch: aarch64
-  #             cuda: "13.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             # TODO: always install xgboost-cu13 once there are xgboost-cu13 aarch64 wheels
-  #             #
-  #             # xgboost-cu13 originally shipped without aarch64 wheels
-  #             # Using the unsuffixed name pulls in CUDA 12 packages for some versions and may
-  #             # at some point in the future pull in CUDA 13 packages.
-  #             #
-  #             # ref: https://github.com/rapidsai/cuml/pull/7550#issuecomment-3603279934
-  #             - &xgboost_unsuffixed xgboost>=2.1.0
-  #         - matrix:
-  #             arch: x86_64
-  #             cuda: "13.*"
-  #             cuda_suffixed: "true"
-  #           packages:
-  #             - xgboost-cu13>=2.1.0
-  #         # this unsuffixed dependency is useful in environments where xgboost is built from source
-  #         # (like RAPIDS DLFW builds)
-  #         - matrix:
-  #           packages:
-  #             - *xgboost_unsuffixed
+  test_python_xgboost:
+    common:
+      - output_types: [conda]
+        packages:
+          # We must separate xgboost into its own list so that it is not
+          # included in the "devcontainers" key. The libxgboost package depends
+          # on librmm but we do not want to have a package depending on librmm
+          # in devcontainers since it should be built from source.
+          - rapids-xgboost==26.2.*,>=0.0.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu12>=2.1.0
+          - matrix:
+              arch: aarch64
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              # TODO: always install xgboost-cu13 once there are xgboost-cu13 aarch64 wheels
+              #
+              # xgboost-cu13 originally shipped without aarch64 wheels
+              # Using the unsuffixed name pulls in CUDA 12 packages for some versions and may
+              # at some point in the future pull in CUDA 13 packages.
+              #
+              # ref: https://github.com/rapidsai/cuml/pull/7550#issuecomment-3603279934
+              - &xgboost_unsuffixed xgboost>=2.1.0
+          - matrix:
+              arch: x86_64
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - xgboost-cu13>=2.1.0
+          # this unsuffixed dependency is useful in environments where xgboost is built from source
+          # (like RAPIDS DLFW builds)
+          - matrix:
+            packages:
+              - *xgboost_unsuffixed
   test_notebooks:
     common:
       - output_types: [conda, requirements]
