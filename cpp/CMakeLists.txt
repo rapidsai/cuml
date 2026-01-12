@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -338,7 +338,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR arima_algo)
-    target_sources(cuml_objs PRIVATE src/arima/batched_arima.cu src/arima/batched_kalman.cu)
+    target_sources(
+      cuml_objs PRIVATE src/arima/arima_common.cu src/arima/batched_arima.cu
+                        src/arima/batched_kalman.cu
+    )
   endif()
 
   if(all_algo OR datasets_algo)
