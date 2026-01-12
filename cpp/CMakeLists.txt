@@ -856,6 +856,12 @@ install(
   COMPONENT cuml
 )
 
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/common/logger_macros.hpp
+  DESTINATION include/cuml/common
+  COMPONENT cuml
+)
+
 # ##################################################################################################
 # # - install export -------------------------------------------------------------------------------
 set(doc_string
