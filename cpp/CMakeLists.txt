@@ -270,6 +270,7 @@ endif()
 
 # CCCL before RMM, and RMM before RAFT
 include(cmake/thirdparty/get_cccl.cmake)
+rapids_cpm_cccl()
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 if(LINK_CUVS)
@@ -845,11 +846,20 @@ install(
   TARGETS ${_cuml_lib_targets}
   DESTINATION ${lib_dir}
   EXPORT cuml-exports
+  COMPONENT cuml
 )
 
-install(DIRECTORY include/cuml/ DESTINATION include/cuml)
+install(
+  DIRECTORY include/cuml/
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp DESTINATION include/cuml)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
 
 # ##################################################################################################
 # # - install export -------------------------------------------------------------------------------
