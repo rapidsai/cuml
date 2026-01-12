@@ -1018,7 +1018,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 order="C",
                 check_dtype=np.float32,
                 convert_to_dtype=np.float32,
-                convert_to_mem_type=MemoryType.device,
+                convert_to_mem_type=False,
                 check_rows=n_rows,
                 check_cols=self.n_components,
             ).array
