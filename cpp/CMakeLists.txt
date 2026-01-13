@@ -269,7 +269,7 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
 endif()
 
 # CCCL before RMM, and RMM before RAFT
-include(${rapids-cmake-dir}/cpm/cccl.cmake)
+include(cmake/thirdparty/get_cccl.cmake)
 rapids_cpm_cccl()
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
