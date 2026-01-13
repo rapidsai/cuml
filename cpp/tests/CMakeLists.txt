@@ -173,18 +173,11 @@ if(all_algo OR solvers_algo)
   ConfigureTest(PREFIX SG NAME SGD_TEST sg/sgd.cu ML_INCLUDE)
 endif()
 
-if(all_algo OR svm_algo)
-  ConfigureTest(
-    PREFIX SG
-    NAME SVC_TEST sg/svc_test.cu ML_INCLUDE
-    GPUS 1
-    PERCENT 100
-  )
-  # The SVC Test tries to verify it has no memory leaks by checking how much free memory on the GPU
-  # exists after execution. This check requires no other GPU tests to be running or it fails since
-  # it thinks it has a memory leak
-  set_tests_properties(SG_SVC_TEST PROPERTIES RUN_SERIAL ON DISABLED TRUE)
-endif()
+# if(all_algo OR svm_algo) ConfigureTest( PREFIX SG NAME SVC_TEST sg/svc_test.cu ML_INCLUDE GPUS 1
+# PERCENT 100 ) # The SVC Test tries to verify it has no memory leaks by checking how much free
+# memory on the GPU # exists after execution. This check requires no other GPU tests to be running
+# or it fails since # it thinks it has a memory leak set_tests_properties(SG_SVC_TEST PROPERTIES
+# RUN_SERIAL ON) endif()
 
 if(all_algo OR tsne_algo)
   ConfigureTest(PREFIX SG NAME TSNE_TEST sg/tsne_test.cu ML_INCLUDE)
