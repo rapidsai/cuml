@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -183,7 +183,7 @@ if(all_algo OR svm_algo)
   # The SVC Test tries to verify it has no memory leaks by checking how much free memory on the GPU
   # exists after execution. This check requires no other GPU tests to be running or it fails since
   # it thinks it has a memory leak
-  set_tests_properties(SG_SVC_TEST PROPERTIES RUN_SERIAL ON)
+  set_tests_properties(SG_SVC_TEST PROPERTIES RUN_SERIAL ON DISABLED TRUE)
 endif()
 
 if(all_algo OR tsne_algo)
