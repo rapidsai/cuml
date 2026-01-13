@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -586,7 +586,7 @@ def _get_output(
     out: "cudf.DataFrame",
     dtype,
 ):
-    if output_type == "input":
+    if output_type in (None, "input"):
         if input_type == "array":
             output_type = "cupy"
         elif input_type == "df":
