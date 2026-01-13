@@ -327,7 +327,7 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  curr_mr->deallocate(stream, d_finalprogs, params.population_size);
+  curr_mr.deallocate(stream, d_finalprogs, params.population_size);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   return 0;
