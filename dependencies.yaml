@@ -454,17 +454,21 @@ dependencies:
           - *cmake_ver
   test_python:
     specific:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         matrices:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
+              - ipython==7.34.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
+              - ipython==8.37.0
           - matrix:
             packages:
+              - *scikit_learn
+              - ipython>=7.34.0
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -484,7 +488,6 @@ dependencies:
           - pytest-cov
           - pytest-xdist
           - seaborn
-          - *scikit_learn
           - statsmodels
           - umap-learn==0.5.7
           - pynndescent
