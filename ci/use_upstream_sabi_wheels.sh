@@ -20,7 +20,13 @@ LIBRAFT_WHEELHOUSE=$(
   RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-artifact raft 2915 cpp wheel
 )
 PYLIBRAFT_WHEELHOUSE=$(
-  ./ci/rapids-get-pr-artifact raft 2915 python wheel --stable --pkg_name pylibraft
+  rapids-get-pr-artifact raft 2915 python wheel --stable --pkg_name pylibraft
+)
+LIBCUDF_WHEELHOUSE=$(
+  RAPIDS_PY_WHEEL_NAME="libcudf_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-artifact cudf 20974 cpp wheel
+)
+PYLIBCUDF_WHEELHOUSE=$(
+  rapids-get-pr-artifact cudf 20974 python wheel --stable --pkg_name pylibcudf
 )
 CUDF_WHEELHOUSE=$(
   rapids-get-pr-artifact cudf 20974 python wheel --stable
@@ -31,6 +37,8 @@ librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBRMM_WHEELHOUSE}"/librmm_*.
 rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${RMM_WHEELHOUSE}"/rmm_*.whl)
 libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBRAFT_WHEELHOUSE}"/libraft_*.whl)
 pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${PYLIBRAFT_WHEELHOUSE}"/pylibraft_*.whl)
+libcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUDF_WHEELHOUSE}"/libcudf_*.whl)
+pylibcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${PYLIBCUDF_WHEELHOUSE}"/pylibcudf_*.whl)
 cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${CUDF_WHEELHOUSE}"/cudf_*.whl)
 EOF
 
