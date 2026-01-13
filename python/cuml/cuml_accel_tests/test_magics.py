@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-pytest.importorskip("IPython")
+ipython_core_magic = pytest.importorskip("IPython.core.magic")
 
 
 SCRIPT_HEADER = """
@@ -151,6 +151,10 @@ def test_profiler_magics(magics):
         assert "get_ipython()" not in stdout
 
 
+@pytest.mark.skipif(
+    not hasattr(ipython_core_magic, "output_can_be_silenced"),
+    reason="IPython < 8.10 doesn't handle semicolons in magic cells the same way",
+)
 def test_profiler_magics_output():
     """Check the profiler magic handles outputs from cells properly"""
     # Multi-line interactive cell
