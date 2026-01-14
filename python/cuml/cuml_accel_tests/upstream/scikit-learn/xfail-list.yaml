@@ -1299,6 +1299,11 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
+- reason: test_estimators checks fail (1.5)
+  marker: cuml_accel_test_estimators
+  condition: scikit-learn==1.5
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_fit_returns_self(readonly_memmap=True)]"
 - reason: test_estimators checks fail (1.7.2+)
   marker: cuml_accel_test_estimators
   condition: scikit-learn>=1.7.2
