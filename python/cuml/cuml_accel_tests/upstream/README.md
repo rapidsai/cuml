@@ -97,6 +97,7 @@ Generate a new xfail list from test results:
 ### Format
 The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
 - `reason`: Description of why the tests in this group are expected to fail
+- `marker`: Optional pytest marker name for selecting/filtering tests (e.g., for `-m` flag)
 - `strict`: Whether to enforce xfail (default: true)
 - `tests`: List of test IDs in format "module::test_name"
 - `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
@@ -104,6 +105,7 @@ The xfail list is a YAML file containing groups of tests to mark as xfail. Each 
 Example:
 ```yaml
 - reason: "Known issues with sparse inputs"
+  marker: cuml_accel_sparse_inputs
   strict: true
   tests:
     - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
