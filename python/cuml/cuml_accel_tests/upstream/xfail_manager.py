@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 """
@@ -228,9 +228,12 @@ class XfailManager:
             run: New run value (if provided)
 
         Returns:
-            Dictionary with 'moved', 'added', and 'not_found' lists
+            Dictionary with 'moved' and 'added' lists
+
+        Raises:
+            ValueError: If a test ID is not found and no reason is provided
         """
-        results = {"moved": [], "added": [], "not_found": []}
+        results = {"moved": [], "added": []}
 
         for test_id in test_ids:
             test_id = QuoteTestID(test_id)
@@ -260,10 +263,12 @@ class XfailManager:
                 self.remove_test(test_id)
                 results["moved"].append(test_id)
             else:
-                # Test not found - use provided values or defaults
+                # Test not found - require reason to add new tests
                 if reason is None:
-                    results["not_found"].append(test_id)
-                    continue
+                    raise ValueError(
+                        f"Test '{test_id}' not found in xfail list. "
+                        "Provide --reason to add it as a new test."
+                    )
 
                 new_reason = reason
                 new_condition = condition
@@ -541,15 +546,6 @@ def cmd_set(args):
             for test_id in results["added"]:
                 print(f"  {test_id}")
 
-        if results["not_found"]:
-            print(
-                f"Warning: {len(results['not_found'])} test(s) not found "
-                "(--reason required to add new tests):",
-                file=sys.stderr,
-            )
-            for test_id in results["not_found"]:
-                print(f"  {test_id}", file=sys.stderr)
-
         # Clean up empty groups
         manager.cleanup_empty_groups()
 
@@ -564,7 +560,7 @@ def cmd_set(args):
         manager.save(xfail_path)
         print(f"Updated {xfail_path}")
 
-        return 0 if not results["not_found"] else 1
+        return 0
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
