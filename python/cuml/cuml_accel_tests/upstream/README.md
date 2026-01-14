@@ -94,6 +94,45 @@ Generate a new xfail list from test results:
 ./summarize-results.py --format=xfail_list report.xml > xfail-list.yaml
 ```
 
+### Format
+The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
+- `reason`: Description of why the tests in this group are expected to fail
+- `strict`: Whether to enforce xfail (default: true)
+- `tests`: List of test IDs in format "module::test_name"
+- `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
+
+Example:
+```yaml
+- reason: "Known issues with sparse inputs"
+  strict: true
+  tests:
+    - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
+    - "sklearn.linear_model.tests.test_ridge::test_ridge_sparse"
+
+- reason: "Unsupported hyperparameters for older scikit-learn version"
+  condition: "scikit-learn<1.5.2"
+  tests:
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
+    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+
+- reason: "Flaky tests due to random seed sensitivity"
+  strict: false
+  tests:
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
+    - "sklearn.ensemble.tests.test_forest::test_random_forest_regressor"
+```
+
+**Note on `strict: false`**:
+The `strict` flag should be set to `true` by default. Use `strict: false` only for:
+- Tests that are genuinely non-deterministic (e.g., due to floating-point arithmetic)
+- Tests that fail intermittently due to external factors (e.g., network timeouts)
+- Tests that are known to be flaky but cannot be fixed immediately
+
+Ideally, Each use of `strict: false` should include:
+- A clear explanation of why the test is non-deterministic
+- A plan to fix the underlying issue
+- Regular review to ensure the flag is still necessary
+
 ### Modifying an Xfail List
 Use `xfail_manager.py` to modify existing xfail lists.
 
@@ -137,45 +176,6 @@ When tests fail only on specific versions of a dependency, use the `--condition`
 ```
 
 This ensures xfails only apply to the relevant versions, keeping the test suite accurate across different dependency combinations.
-
-### Format
-The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
-- `reason`: Description of why the tests in this group are expected to fail
-- `strict`: Whether to enforce xfail (default: true)
-- `tests`: List of test IDs in format "module::test_name"
-- `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
-
-Example:
-```yaml
-- reason: "Known issues with sparse inputs"
-  strict: true
-  tests:
-    - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
-    - "sklearn.linear_model.tests.test_ridge::test_ridge_sparse"
-
-- reason: "Unsupported hyperparameters for older scikit-learn version"
-  condition: "scikit-learn<1.5.2"
-  tests:
-    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
-    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
-
-- reason: "Flaky tests due to random seed sensitivity"
-  strict: false
-  tests:
-    - "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
-    - "sklearn.ensemble.tests.test_forest::test_random_forest_regressor"
-```
-
-**Note on `strict: false`**:
-The `strict` flag should be set to `true` by default. Use `strict: false` only for:
-- Tests that are genuinely non-deterministic (e.g., due to floating-point arithmetic)
-- Tests that fail intermittently due to external factors (e.g., network timeouts)
-- Tests that are known to be flaky but cannot be fixed immediately
-
-Ideally, Each use of `strict: false` should include:
-- A clear explanation of why the test is non-deterministic
-- A plan to fix the underlying issue
-- Regular review to ensure the flag is still necessary
 
 ### Handling Unmatched Test IDs
 
