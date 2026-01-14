@@ -67,7 +67,7 @@ struct ARIMAParams {
    */
   void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
     if (order.k && !tr) mu = (DataT*)rmm_alloc.allocate(stream, batch_size * sizeof(DataT));
     if (order.n_exog && !tr)
       beta = (DataT*)rmm_alloc.allocate(stream, order.n_exog * batch_size * sizeof(DataT));
@@ -89,7 +89,7 @@ struct ARIMAParams {
    */
   void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
     if (order.k && !tr) rmm_alloc.deallocate(stream, mu, batch_size * sizeof(DataT));
     if (order.n_exog && !tr)
       rmm_alloc.deallocate(stream, beta, order.n_exog * batch_size * sizeof(DataT));
