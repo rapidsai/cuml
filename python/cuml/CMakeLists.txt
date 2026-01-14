@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -69,7 +69,7 @@ set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
 # --- libcuml --- #
-find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
+find_package(cuml "${RAPIDS_VERSION}" REQUIRED COMPONENTS cuml)
 
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
