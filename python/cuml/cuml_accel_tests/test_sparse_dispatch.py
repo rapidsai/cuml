@@ -57,7 +57,7 @@ estimators = {
 )
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
-    if SKLEARN_18 and estimator_name in ("HDBSCAN", "UMAP"):
+    if SKLEARN_18 and estimator_name == "HDBSCAN":
         pytest.skip(f"{estimator_name} requires sklearn < 1.8.0")
 
     X_sparse = csr_matrix([[0.0, 1.0], [1.0, 0.0]])

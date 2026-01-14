@@ -9,9 +9,7 @@ import joblib
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
-import sklearn
 import umap
-from packaging.version import Version
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
@@ -29,9 +27,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
 
 # Ignore FutureWarning from third-party umap-learn package calling
 # sklearn.utils.validation.check_array with deprecated 'force_all_finite'
