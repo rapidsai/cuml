@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from functools import partial
@@ -8,6 +8,7 @@ import pytest
 from sklearn.utils import estimator_checks
 
 from cuml.cluster import DBSCAN, HDBSCAN, AgglomerativeClustering, KMeans
+from cuml.covariance import LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.kernel_ridge import KernelRidge
@@ -590,6 +591,19 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_n_features_in": "KernelDensity does not set n_features_in properly",
         "check_fit1d": "KernelDensity does not raise ValueError for 1D input",
     },
+    LedoitWolf: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_do_not_raise_errors_in_init_or_set_params": "LedoitWolf raises errors in init or set_params",
+        "check_n_features_in_after_fitting": "LedoitWolf does not check n_features_in consistency",
+        "check_complex_data": "LedoitWolf does not handle complex data",
+        "check_dtype_object": "LedoitWolf does not handle object dtype",
+        "check_estimators_empty_data_messages": "LedoitWolf does not handle empty data",
+        "check_estimators_nan_inf": "LedoitWolf does not check for NaN and inf",
+        "check_estimator_sparse_tag": "LedoitWolf does not support sparse data",
+        "check_estimator_sparse_array": "LedoitWolf does not handle sparse arrays gracefully",
+        "check_estimator_sparse_matrix": "LedoitWolf does not handle sparse matrices gracefully",
+        "check_parameters_default_constructible": "LedoitWolf parameters are mutated on init",
+    },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "DBSCAN sets attributes during init",
@@ -678,6 +692,7 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_fit1d": "GaussianNB does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "GaussianNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "GaussianNB does not handle y=None",
+        "check_sample_weights_list": "GaussianNB does not handle list sample weights",
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -940,6 +955,7 @@ def _check_name(check):
         KNeighborsRegressor(),
         KNeighborsClassifier(),
         KernelDensity(),
+        LedoitWolf(),
         Ridge(),
         ElasticNet(),
         Lasso(),

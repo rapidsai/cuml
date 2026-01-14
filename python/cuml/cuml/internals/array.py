@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -660,8 +660,10 @@ class CumlArray:
                 )
             except TypeError:
                 raise ValueError("Unsupported dtype for DataFrame")
-
-        return self
+        elif output_type == "cuml":
+            return self
+        else:
+            raise ValueError(f"`output_type={output_type!r}` is not supported")
 
     @nvtx.annotate(
         message="common.CumlArray.host_serialize",

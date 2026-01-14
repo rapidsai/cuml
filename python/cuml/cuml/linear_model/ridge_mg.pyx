@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-from cuml.internals import run_in_internal_context
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
@@ -71,7 +71,8 @@ class RidgeMG(MGFitMixin, Ridge):
         cdef double intercept_f64
         cdef float alpha_f32 = self.alpha
         cdef double alpha_f64 = self.alpha
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool use_float32 = self.dtype == np.float32
 
         if use_float32:
@@ -99,7 +100,7 @@ class RidgeMG(MGFitMixin, Ridge):
                 algo,
                 False)
 
-        self.handle.sync()
+        handle.sync()
 
         self.solver_ = solver
         self.intercept_ = (intercept_f32 if use_float32 else intercept_f64)

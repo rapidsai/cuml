@@ -6,7 +6,7 @@ import numpy as np
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
@@ -114,6 +114,9 @@ def fit_coordinate_descent(
     n_iter : int
         The number of iterations the solver ran for.
     """
+    if handle is None:
+        handle = get_handle()
+
     # Process and validate parameters
     if loss != "squared_loss":
         raise ValueError(f"{loss=!r} is not supported")
@@ -255,13 +258,13 @@ class CD(Base, FMajorInputTagMixin):
        than looping over features sequentially by default.
        This (setting to 'True') often leads to significantly faster convergence
        especially when tol is higher than 1e-4.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -351,7 +354,7 @@ class CD(Base, FMajorInputTagMixin):
             max_iter=self.max_iter,
             tol=self.tol,
             shuffle=self.shuffle,
-            handle=self.handle,
+            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -382,7 +385,8 @@ class CD(Base, FMajorInputTagMixin):
         cdef uintptr_t preds_ptr = preds.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef double intercept = self.intercept_
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool is_float32 = self.coef_.dtype == np.float32
 
         with nogil:
@@ -408,6 +412,6 @@ class CD(Base, FMajorInputTagMixin):
                     <double*>preds_ptr,
                     0,
                 )
-        self.handle.sync()
+        handle.sync()
 
         return preds

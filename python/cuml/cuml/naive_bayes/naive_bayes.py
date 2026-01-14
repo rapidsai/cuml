@@ -7,7 +7,6 @@ import warnings
 
 import cupy as cp
 import cupyx
-import numpy as np
 import scipy.sparse
 
 import cuml.internals.nvtx as nvtx
@@ -18,8 +17,14 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
-from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
+
+_binarize = cp.ElementwiseKernel(
+    "T x, float32 threshold",
+    "T out",
+    "out = x > threshold ? 1 : 0",
+    "binarize",
+)
 
 
 def _count_classes(Y, n_classes, dtype):
@@ -40,8 +45,7 @@ def _count_classes(Y, n_classes, dtype):
     class_counts : cupy.ndarray of shape (n_classes,)
         Count of samples per class
     """
-    class_counts = cp.bincount(Y, minlength=n_classes).astype(dtype)
-    return class_counts
+    return cp.bincount(Y, minlength=n_classes).astype(dtype, copy=False)
 
 
 def _count_features_dense(X, Y, n_classes, categorical=False):
@@ -172,13 +176,6 @@ class _BaseNB(Base, ClassifierMixin):
     classes_ = CumlArrayDescriptor()
     class_count_ = CumlArrayDescriptor()
     feature_count_ = CumlArrayDescriptor()
-    class_log_prior_ = CumlArrayDescriptor()
-    feature_log_prob_ = CumlArrayDescriptor()
-
-    def __init__(self, *, verbose=False, handle=None, output_type=None):
-        super(_BaseNB, self).__init__(
-            verbose=verbose, handle=handle, output_type=output_type
-        )
 
     def _check_X(self, X):
         """To be overridden in subclasses with the actual checks."""
@@ -199,9 +196,6 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
-
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -213,7 +207,6 @@ class _BaseNB(Base, ClassifierMixin):
                 check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
-            # todo: improve index management for cupy based codebases
             X = X.array.to_output("cupy")
 
         X = self._check_X(X)
@@ -243,8 +236,6 @@ class _BaseNB(Base, ClassifierMixin):
         Return log-probability estimates for the test vector X.
 
         """
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -256,7 +247,6 @@ class _BaseNB(Base, ClassifierMixin):
                 check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
-            # todo: improve index management for cupy based codebases
             X = X.array.to_output("cupy")
 
         X = self._check_X(X)
@@ -307,6 +297,7 @@ class _BaseNB(Base, ClassifierMixin):
 class GaussianNB(_BaseNB):
     """
     Gaussian Naive Bayes (GaussianNB)
+
     Can perform online updates to model parameters via :meth:`partial_fit`.
     For details on algorithm used to update feature means and variance online,
     see Stanford CS tech report STAN-CS-79-773 by Chan, Golub, and LeVeque:
@@ -327,38 +318,32 @@ class GaussianNB(_BaseNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1],
-        ...                 [3, 2]], cp.float32)
-        >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
-        >>> from cuml.naive_bayes import GaussianNB
-        >>> clf = GaussianNB()
-        >>> clf.fit(X, Y)
-        GaussianNB()
-        >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
-        [1]
-        >>> clf_pf = GaussianNB()
-        >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
-        GaussianNB()
-        >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
-        [1]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import GaussianNB
+    >>> X = cp.array(
+    ...     [[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+    ...     dtype=cp.float32
+    ... )
+    >>> y = cp.array([1, 1, 1, 2, 2, 2], dtype=cp.float32)
+    >>> clf = GaussianNB().fit(X, y)
+    >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
+    [1]
     """
+
+    class_prior_ = CumlArrayDescriptor()
 
     def __init__(
         self,
@@ -369,13 +354,11 @@ class GaussianNB(_BaseNB):
         handle=None,
         verbose=False,
     ):
-        super(GaussianNB, self).__init__(
+        super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
         self.priors = priors
         self.var_smoothing = var_smoothing
-        self.fit_called_ = False
-        self.classes_ = None
 
     @reflect(reset=True)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
@@ -384,16 +367,14 @@ class GaussianNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
+        y : array-like shape (n_samples)
+            Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
+            Weights applied to individual samples.
         """
-        self.fit_called_ = False
         return self._partial_fit(
             X,
             y,
@@ -415,7 +396,9 @@ class GaussianNB(_BaseNB):
         sample_weight=None,
         convert_dtype=True,
     ) -> "GaussianNB":
-        if getattr(self, "classes_") is None and _classes is None:
+        first_call = _refit or not hasattr(self, "classes_")
+
+        if first_call and _classes is None:
             raise ValueError(
                 "classes must be passed on the first call to partial_fit."
             )
@@ -437,8 +420,12 @@ class GaussianNB(_BaseNB):
             check_dtype=expected_y_dtype,
         ).array
         if sample_weight is not None:
-            # XXX How to use `input_to_cupy_array` here with `list` as input?
-            sample_weight = cp.asarray(sample_weight, dtype=np.float32)
+            sample_weight = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=cp.float32,
+                check_dtype=cp.float32,
+                check_rows=X.shape[0],
+            ).array
 
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
@@ -450,19 +437,12 @@ class GaussianNB(_BaseNB):
             )
 
         Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
-        if _refit:
-            self.classes_ = None
 
-        def var_sparse(X, axis=0):
-            # Compute the variance on dense and sparse matrices
-            return ((X - X.mean(axis=axis)) ** 2).mean(axis=axis)
+        self.epsilon_ = self.var_smoothing * (
+            ((X - X.mean(axis=0)) ** 2).mean(axis=0).max()
+        )
 
-        self.epsilon_ = self.var_smoothing * var_sparse(X).max()
-
-        if not self.fit_called_:
-            self.fit_called_ = True
-
-            # Original labels are stored on the instance
+        if first_call:
             if _classes is not None:
                 check_labels(Y, _classes.to_output("cupy"))
                 self.classes_ = _classes
@@ -489,9 +469,9 @@ class GaussianNB(_BaseNB):
                     raise ValueError("The sum of the priors should be 1.")
                 if (self.priors < 0).any():
                     raise ValueError("Priors must be non-negative.")
-                self.class_prior, *_ = input_to_cupy_array(
+                self.class_prior_ = input_to_cupy_array(
                     self.priors, check_dtype=[cp.float32, cp.float64]
-                )
+                ).array
 
         else:
             self.sigma_[:, :] -= self.epsilon_
@@ -545,7 +525,7 @@ class GaussianNB(_BaseNB):
         self.sigma_[:, :] += self.epsilon_
 
         if self.priors is None:
-            self.class_prior = self.class_count_ / self.class_count_.sum()
+            self.class_prior_ = self.class_count_ / self.class_count_.sum()
 
         return self
 
@@ -555,31 +535,33 @@ class GaussianNB(_BaseNB):
     ) -> "GaussianNB":
         """
         Incremental fit on a batch of samples.
+
         This method is expected to be called several times consecutively on
         different chunks of a dataset so as to implement out-of-core or online
         learning.
+
         This is especially useful when the whole dataset is too big to fit in
         memory at once.
+
         This method has some performance overhead hence it is better to call
         partial_fit on chunks of data that are as large as possible (as long
         as fitting in the memory budget) to hide the overhead.
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features. A sparse matrix in COO
             format is preferred, other formats will go through a conversion
             to COO.
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of shape (n_samples)
+            Target values.
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored.
+            Weights applied to individual samples.
 
         Returns
         -------
@@ -685,11 +667,7 @@ class GaussianNB(_BaseNB):
         return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
-        """Calculate the posterior log probability of samples for each class.
-
-        This is a more efficient implementation using CuPy broadcasting,
-        following scikit-learn's approach.
-        """
+        """Calculate the posterior log probability of samples for each class."""
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
@@ -701,7 +679,7 @@ class GaussianNB(_BaseNB):
         joint_log_likelihood = cp.zeros((n_samples, n_classes))
 
         for i in range(n_classes):
-            jointi = cp.log(self.class_prior[i])
+            jointi = cp.log(self.class_prior_[i])
 
             # Compute the constant term for this class
             n_ij = -0.5 * cp.sum(log_2pi_sigma[i, :])
@@ -727,6 +705,9 @@ class GaussianNB(_BaseNB):
 
 
 class _BaseDiscreteNB(_BaseNB):
+    class_log_prior_ = CumlArrayDescriptor()
+    feature_log_prob_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         *,
@@ -737,28 +718,17 @@ class _BaseDiscreteNB(_BaseNB):
         handle=None,
         output_type=None,
     ):
-        super(_BaseDiscreteNB, self).__init__(
+        super().__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
-        if class_prior is not None:
-            self.class_prior, *_ = input_to_cuml_array(class_prior)
-        else:
-            self.class_prior = None
-
-        if alpha < 0:
-            raise ValueError("Smoothing parameter alpha should be >= 0.")
+        self.class_prior = class_prior
         self.alpha = alpha
         self.fit_prior = fit_prior
-        self.fit_called_ = False
-        self.n_classes_ = 0
-        self.n_features_ = None
-
-        # Needed until Base no longer assumed cumlHandle
-        self.handle = None
 
     def _check_X_y(self, X, y):
         """
-        Validate X and y to prevent CUDA_ERROR_ILLEGAL_ADDRESS.
+        Validate X and y.
+
         Common validation for all discrete naive bayes estimators.
         """
         n_samples_X = X.shape[0]
@@ -817,7 +787,7 @@ class _BaseDiscreteNB(_BaseNB):
                     "Number of classes must match number of priors"
                 )
 
-            self.class_log_prior_ = cp.log(class_prior)
+            self.class_log_prior_ = cp.log(cp.asarray(class_prior))
 
         elif self.fit_prior:
             log_class_count = cp.log(self.class_count_)
@@ -849,24 +819,21 @@ class _BaseDiscreteNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
-
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of shape (n_samples)
+            Target values.
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
-
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored.
+            Weights applied to individual samples. Currently sample weight is
+            ignored.
 
         Returns
         -------
-
         self : object
         """
         return self._partial_fit(
@@ -879,26 +846,27 @@ class _BaseDiscreteNB(_BaseNB):
     )
     @reflect(reset=True)
     def _partial_fit(
-        self, X, y, sample_weight=None, _classes=None, convert_dtype=True
+        self,
+        X,
+        y,
+        sample_weight=None,
+        _classes=None,
+        _refit=False,
+        convert_dtype=True,
     ) -> "_BaseDiscreteNB":
-        # TODO: use SparseCumlArray
+        first_call = _refit or not hasattr(self, "classes_")
+
+        if self.alpha < 0:
+            raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            try:
-                X = input_to_cupy_array(
-                    X,
-                    order="K",
-                    check_dtype=[cp.float32, cp.float64, cp.int32],
-                ).array
-            except Exception as e:
-                if "CUDA" in str(e) or "cuda" in str(e):
-                    raise RuntimeError(
-                        f"CUDA error during input conversion. "
-                        f"This may indicate GPU memory corruption. "
-                        f"Original error: {str(e)}"
-                    )
-                raise
+            X = input_to_cupy_array(
+                X,
+                order="K",
+                check_dtype=[cp.float32, cp.float64, cp.int32],
+            ).array
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -920,8 +888,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         X, Y = self._check_X_y(X, Y)
 
-        if not self.fit_called_:
-            self.fit_called_ = True
+        if first_call:
             if _classes is not None:
                 check_labels(Y, _classes.to_output("cupy"))
                 self.classes_ = _classes
@@ -942,21 +909,6 @@ class _BaseDiscreteNB(_BaseNB):
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
-
-        # Ensure all GPU operations complete before returning
-        # This is especially important for partial_fit in streaming scenarios
-        if hasattr(cp, "cuda") and hasattr(cp.cuda, "Stream"):
-            try:
-                cp.cuda.Stream.null.synchronize()
-            except Exception:
-                # Ignore synchronization errors but log them if verbose
-                if self.verbose:
-                    import warnings
-
-                    warnings.warn(
-                        "GPU synchronization failed, continuing anyway"
-                    )
-
         return self
 
     @reflect(reset=True)
@@ -966,17 +918,18 @@ class _BaseDiscreteNB(_BaseNB):
 
         Parameters
         ----------
-
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
+        y : array-like shape (n_samples)
+            Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
+            Weights applied to individual samples. Currently sample weight is
+            ignored.
         """
-        self.fit_called_ = False
-        return self.partial_fit(X, y, sample_weight=sample_weight)
+        return self._partial_fit(
+            X, y, _refit=True, sample_weight=sample_weight
+        )
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
@@ -1001,11 +954,9 @@ class _BaseDiscreteNB(_BaseNB):
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
-        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
-                  (n_rows, n_features)
+        X : cupy.ndarray or cupyx.scipy.sparse matrix, shape (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
-
         n_classes = classes.shape[0]
 
         if X.ndim != 2:
@@ -1017,13 +968,12 @@ class _BaseDiscreteNB(_BaseNB):
                 "converted, which will increase memory consumption"
             )
 
-        # Make sure Y is a cupy array, not CumlArray
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
-        # Count features per class using CuPy
+        # Count features per class
         counts = _count_features_dense(X, Y, n_classes, categorical=False)
 
-        # Count samples per class using CuPy
+        # Count samples per class
         class_c = _count_classes(Y, n_classes, X.dtype)
 
         self.feature_count_ += counts
@@ -1034,6 +984,7 @@ class _BaseDiscreteNB(_BaseNB):
     ):
         """
         Sum feature counts & class prior counts and add to current model.
+
         Parameters
         ----------
         x_coo_rows : cupy.ndarray of size (nnz)
@@ -1049,7 +1000,7 @@ class _BaseDiscreteNB(_BaseNB):
                 "converted, which will increase memory consumption"
             )
 
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
         counts = _count_features_sparse(
             x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
@@ -1070,11 +1021,8 @@ class _BaseDiscreteNB(_BaseNB):
 
 
 class MultinomialNB(_BaseDiscreteNB):
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
-
     """
-    Naive Bayes classifier for multinomial models
+    Naive Bayes classifier for multinomial models.
 
     The multinomial Naive Bayes classifier is suitable for classification
     with discrete features (e.g., word counts for text classification).
@@ -1084,7 +1032,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
     Parameters
     ----------
-
     alpha : float (default=1.0)
         Additive (Laplace/Lidstone) smoothing parameter (0 for no
         smoothing).
@@ -1100,13 +1047,13 @@ class MultinomialNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1129,64 +1076,18 @@ class MultinomialNB(_BaseDiscreteNB):
 
     Examples
     --------
-
     Load the 20 newsgroups dataset from Scikit-learn and train a
     Naive Bayes classifier.
 
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cupyx
-        >>> from sklearn.datasets import fetch_20newsgroups
-        >>> from sklearn.feature_extraction.text import CountVectorizer
-        >>> from cuml.naive_bayes import MultinomialNB
-
-        >>> # Load corpus
-        >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
-        ...                                   random_state=42)
-
-        >>> # Turn documents into term frequency vectors
-
-        >>> count_vect = CountVectorizer()
-        >>> features = count_vect.fit_transform(twenty_train.data)
-
-        >>> # Put feature vectors and labels on the GPU
-
-        >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(),
-        ...                                   dtype=cp.float32)
-        >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
-
-        >>> # Train model
-
-        >>> model = MultinomialNB()
-        >>> model.fit(X, y)
-        MultinomialNB()
-
-        >>> # Compute accuracy on training set
-
-        >>> model.score(X, y)
-        0.9245...
-
+    >>> from sklearn.datasets import fetch_20newsgroups
+    >>> from sklearn.feature_extraction.text import CountVectorizer
+    >>> from cuml.naive_bayes import MultinomialNB
+    >>> data = fetch_20newsgroups(subset='train', shuffle=True, random_state=42)
+    >>> X = CountVectorizer().fit_transform(data.data)
+    >>> model = MultinomialNB().fit(X, data.target)
+    >>> model.score(X, y)  # doctest: +SKIP
+    0.9245...
     """
-
-    def __init__(
-        self,
-        *,
-        alpha=1.0,
-        fit_prior=True,
-        class_prior=None,
-        output_type=None,
-        handle=None,
-        verbose=False,
-    ):
-        super(MultinomialNB, self).__init__(
-            alpha=alpha,
-            fit_prior=fit_prior,
-            class_prior=class_prior,
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose,
-        )
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1195,7 +1096,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         smoothed_fc = self.feature_count_ + alpha
@@ -1210,7 +1110,6 @@ class MultinomialNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         X : array-like of size (n_samples, n_features)
         """
         ret = X.dot(self.feature_log_prob_.T)
@@ -1221,13 +1120,13 @@ class MultinomialNB(_BaseDiscreteNB):
 class BernoulliNB(_BaseDiscreteNB):
     """
     Naive Bayes classifier for multivariate Bernoulli models.
+
     Like MultinomialNB, this classifier is suitable for discrete data. The
     difference is that while MultinomialNB works with occurrence counts,
     BernoulliNB is designed for binary/boolean features.
 
     Parameters
     ----------
-
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter
         (0 for no smoothing).
@@ -1246,13 +1145,13 @@ class BernoulliNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1275,19 +1174,16 @@ class BernoulliNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-        >>> from cuml.naive_bayes import BernoulliNB
-        >>> clf = BernoulliNB()
-        >>> clf.fit(X, Y)
-        BernoulliNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import BernoulliNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> clf = BernoulliNB()
+    >>> clf.fit(X, Y)
+    BernoulliNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
 
     References
     ----------
@@ -1312,7 +1208,7 @@ class BernoulliNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(BernoulliNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
@@ -1326,9 +1222,9 @@ class BernoulliNB(_BaseDiscreteNB):
         X = super()._check_X(X)
         if self.binarize is not None:
             if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = binarize(X.data, threshold=self.binarize)
+                X.data = _binarize(X.data, float(self.binarize))
             else:
-                X = binarize(X, threshold=self.binarize)
+                X = _binarize(X, float(self.binarize))
         return X
 
     def _check_X_y(self, X, y):
@@ -1340,13 +1236,10 @@ class BernoulliNB(_BaseDiscreteNB):
 
         # Apply binarization with validation (BernoulliNB-specific)
         if self.binarize is not None:
-            try:
-                if cupyx.scipy.sparse.isspmatrix(X):
-                    X.data = binarize(X.data, threshold=self.binarize)
-                else:
-                    X = binarize(X, threshold=self.binarize)
-            except Exception as e:
-                raise ValueError(f"Error during binarization: {str(e)}")
+            if cupyx.scipy.sparse.isspmatrix(X):
+                X.data = _binarize(X.data, float(self.binarize))
+            else:
+                X = _binarize(X, float(self.binarize))
 
         return X, y
 
@@ -1376,7 +1269,6 @@ class BernoulliNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         smoothed_fc = self.feature_count_ + alpha
@@ -1384,54 +1276,6 @@ class BernoulliNB(_BaseDiscreteNB):
         self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
             smoothed_cc.reshape(-1, 1)
         )
-
-    def fit(self, X, y, sample_weight=None):
-        """
-        Fit Naive Bayes classifier with enhanced error handling
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
-        y : array-like of shape (n_samples,)
-            Target values.
-        sample_weight : array-like of shape (n_samples,), default=None
-            Weights applied to individual samples (1. for unweighted).
-
-        Returns
-        -------
-        self : object
-        """
-        # Reset internal state to ensure clean fit
-        self.fit_called_ = False
-
-        try:
-            # Call parent's fit through partial_fit
-            return super().fit(X, y, sample_weight)
-
-        except MemoryError as e:
-            # Handle CUDA memory errors specifically
-            if "CUDA error" in str(e) or "cudaError" in str(e):
-                raise RuntimeError(
-                    "CUDA memory error detected. This may be due to:\n"
-                    "1. Insufficient GPU memory\n"
-                    "2. Prior GPU memory corruption\n"
-                    "3. Invalid input data\n"
-                    "Try restarting your Python session or checking your input data.\n"
-                    f"Original error: {str(e)}"
-                )
-            else:
-                raise
-        except Exception as e:
-            # Reset state on error
-            self.fit_called_ = False
-            # Provide more context for other errors
-            raise type(e)(
-                f"Error in BernoulliNB.fit: {str(e)}\n"
-                f"Input shapes: X={getattr(X, 'shape', 'unknown')}, "
-                f"y={getattr(y, 'shape', 'unknown')}"
-            ) from e
 
     @classmethod
     def _get_param_names(cls):
@@ -1441,13 +1285,13 @@ class BernoulliNB(_BaseDiscreteNB):
 class ComplementNB(_BaseDiscreteNB):
     """
     The Complement Naive Bayes classifier described in Rennie et al. (2003).
+
     The Complement Naive Bayes classifier was designed to correct the "severe
     assumptions" made by the standard Multinomial Naive Bayes classifier. It is
     particularly suited for imbalanced data sets.
 
     Parameters
     ----------
-
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter
         (0 for no smoothing).
@@ -1468,13 +1312,13 @@ class ComplementNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1497,19 +1341,16 @@ class ComplementNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-        >>> from cuml.naive_bayes import ComplementNB
-        >>> clf = ComplementNB()
-        >>> clf.fit(X, Y)
-        ComplementNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import ComplementNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> clf = ComplementNB()
+    >>> clf.fit(X, Y)
+    ComplementNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
 
     References
     ----------
@@ -1530,7 +1371,7 @@ class ComplementNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(ComplementNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
@@ -1585,7 +1426,6 @@ class ComplementNB(_BaseDiscreteNB):
 
         Parameters
         ----------
-
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         comp_count = self.feature_all_ + alpha - self.feature_count_
@@ -1604,7 +1444,8 @@ class ComplementNB(_BaseDiscreteNB):
 
 class CategoricalNB(_BaseDiscreteNB):
     """
-    Naive Bayes classifier for categorical features
+    Naive Bayes classifier for categorical features.
+
     The categorical Naive Bayes classifier is suitable for classification with
     discrete features that are categorically distributed. The categories of
     each feature are drawn from a categorical distribution.
@@ -1626,13 +1467,13 @@ class CategoricalNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1661,19 +1502,16 @@ class CategoricalNB(_BaseDiscreteNB):
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> rng = cp.random.RandomState(1)
-        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-        >>> y = cp.array([1, 2, 3, 4, 5, 6])
-        >>> from cuml.naive_bayes import CategoricalNB
-        >>> clf = CategoricalNB()
-        >>> clf.fit(X, y)
-        CategoricalNB()
-        >>> print(clf.predict(X[2:3]))
-        [3]
+    >>> import cupy as cp
+    >>> from cuml.naive_bayes import CategoricalNB
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> y = cp.array([1, 2, 3, 4, 5, 6])
+    >>> clf = CategoricalNB()
+    >>> clf.fit(X, y)
+    CategoricalNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
     """
 
     def __init__(
@@ -1686,7 +1524,7 @@ class CategoricalNB(_BaseDiscreteNB):
         handle=None,
         verbose=False,
     ):
-        super(CategoricalNB, self).__init__(
+        super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
@@ -1733,11 +1571,12 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _check_X(self, X):
         if cupyx.scipy.sparse.isspmatrix(X):
-            warnings.warn(
-                "X dtype is not int32. X will be "
-                "converted, which will increase memory consumption"
-            )
-            X.data = X.data.astype(cp.int32)
+            if X.dtype != cp.int32:
+                warnings.warn(
+                    "X dtype is not int32. X will be "
+                    "converted, which will increase memory consumption"
+                )
+                X.data = X.data.astype(cp.int32)
             x_min = X.data.min()
         else:
             if X.dtype not in [cp.int32]:
@@ -1754,77 +1593,12 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X
 
-    @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
-        """Fit Naive Bayes classifier according to X, y
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features. Here, each feature of X is
-            assumed to be from a different categorical distribution.
-            It is further assumed that all categories of each feature are
-            represented by the numbers 0, ..., n - 1, where n refers to the
-            total number of categories for the given feature. This can, for
-            instance, be achieved with the help of OrdinalEncoder.
-        y : array-like of shape (n_samples,)
-            Target values.
-        sample_weight : array-like of shape (n_samples), default=None
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
-
-        Returns
-        -------
-        self : object
-        """
-        return super().fit(X, y, sample_weight=sample_weight)
-
-    @reflect(reset=True)
-    def partial_fit(
-        self, X, y, classes=None, sample_weight=None
-    ) -> "CategoricalNB":
-        """Incremental fit on a batch of samples.
-        This method is expected to be called several times consecutively
-        on different chunks of a dataset so as to implement out-of-core
-        or online learning.
-        This is especially useful when the whole dataset is too big to fit in
-        memory at once.
-        This method has some performance overhead hence it is better to call
-        partial_fit on chunks of data that are as large as possible
-        (as long as fitting in the memory budget) to hide the overhead.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features. Here, each feature of X is
-            assumed to be from a different categorical distribution.
-            It is further assumed that all categories of each feature are
-            represented by the numbers 0, ..., n - 1, where n refers to the
-            total number of categories for the given feature. This can, for
-            instance, be achieved with the help of OrdinalEncoder.
-        y : array-like of shape (n_samples)
-            Target values.
-        classes : array-like of shape (n_classes), default=None
-            List of all the classes that can possibly appear in the y vector.
-            Must be provided at the first call to partial_fit, can be omitted
-            in subsequent calls.
-        sample_weight : array-like of shape (n_samples), default=None
-            Weights applied to individual samples (1. for unweighted).
-            Currently sample weight is ignored.
-
-        Returns
-        -------
-        self : object
-        """
-        return super().partial_fit(X, y, classes, sample_weight=sample_weight)
-
     def _count_sparse(
         self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes
     ):
         """
         Sum feature counts & class prior counts and add to current model.
+
         Parameters
         ----------
         x_coo_rows : cupy.ndarray of size (nnz)
@@ -1842,10 +1616,9 @@ class CategoricalNB(_BaseDiscreteNB):
                 "converted, which will increase memory consumption"
             )
 
-        # Make sure Y is a cupy array, not CumlArray
-        Y = cp.asarray(Y)
+        Y = cp.asarray(Y, dtype=classes.dtype)
 
-        # Count samples per class using CuPy
+        # Count samples per class
         class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
@@ -1862,7 +1635,7 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[1]
 
-        # Map sparse data to categorical counts using CuPy operations
+        # Map sparse data to categorical counts
         # For each non-zero element at (row, col) with value val:
         # - Get the class label for that row
         # - Create an entry at (col + n_cols * label, val)

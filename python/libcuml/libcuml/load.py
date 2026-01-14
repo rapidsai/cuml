@@ -56,7 +56,7 @@ def load_library():
     )
 
     libs_to_return = []
-    for soname in ["libcumlprims_mg.so", "libcuml++.so"]:
+    for soname in ["libcuml++.so"]:
         libcuml_lib = None
         if prefer_system_installation:
             # Prefer a system library if one is present to
