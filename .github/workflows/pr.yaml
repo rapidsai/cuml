@@ -119,10 +119,9 @@ jobs:
       script: ci/build_cpp.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
-    needs: [conda-cpp-build, changed-files]
+    needs: conda-cpp-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
@@ -141,19 +140,17 @@ jobs:
       build_type: pull-request
       script: ci/build_python.sh
   conda-python-tests-singlegpu:
-    needs: [conda-python-build, changed-files]
+    needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   optional-job-conda-python-tests-cudf-pandas-integration:
-    needs: [conda-python-build, changed-files]
+    needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       # Select the amd64 entry with the highest CUDA and Python version
       matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
@@ -161,19 +158,17 @@ jobs:
       script: "ci/test_python_integration.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-tests-dask:
-    needs: [conda-python-build, changed-files]
+    needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-scikit-learn-accel-tests:
-    needs: [conda-python-build, changed-files]
+    needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
@@ -192,10 +187,9 @@ jobs:
         | map(.DEPENDENCIES = "intermediate")
       )'
   conda-python-cuml-accel-upstream-tests:
-    needs: [conda-python-build, changed-files]
+    needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: "ci/test_python_cuml_accel_upstream.sh"
@@ -251,19 +245,17 @@ jobs:
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml:
-    needs: [wheel-build-cuml, changed-files]
+    needs: wheel-build-cuml
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml-dask:
-    needs: [wheel-build-cuml, changed-files]
+    needs: wheel-build-cuml
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@cuda-13.1.0
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
