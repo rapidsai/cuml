@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>
 
@@ -154,16 +155,16 @@ class Fixture : public ::benchmark::Fixture {
   void alloc(T*& ptr, size_t len, bool init = false)
   {
     auto nBytes  = len * sizeof(T);
-    auto d_alloc = rmm::mr::get_current_device_resource();
-    ptr          = (T*)d_alloc->allocate(stream, nBytes);
+    auto d_alloc = rmm::mr::get_current_device_resource_ref();
+    ptr          = (T*)d_alloc.allocate(stream, nBytes);
     if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
 
   template <typename T>
   void dealloc(T* ptr, size_t len)
   {
-    auto d_alloc = rmm::mr::get_current_device_resource();
-    d_alloc->deallocate(stream, ptr, len * sizeof(T));
+    auto d_alloc = rmm::mr::get_current_device_resource_ref();
+    d_alloc.deallocate(stream, ptr, len * sizeof(T));
   }
 
   cudaStream_t stream = 0;
