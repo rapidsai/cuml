@@ -1,0 +1,128 @@
+#!/bin/bash
+# Common functionality for downloading artifacts from GitHub PR builds
+#
+# Arguments:
+#   1) repo name
+#   2) PR number
+#   3) "cpp" or "python", to get the artifact for the C++ or Python build, respectively
+#   4) "wheel" or "conda", to get the wheel or conda package artifact, respectively
+#   5) [optional] full commit hash, to get the artifact for a specific commit
+# Flags:
+#   --noarch: for conda python packages that use RAPIDS_PY_NOARCH_SUFFIX
+#   --stable: for wheel python packages that use stable ABI (abi3)
+#   --pkg_name: specify the package name to download if different from repo name (e.g. pylibraft)
+set -euo pipefail
+
+# Parse flags
+noarch_flag=0
+stable_flag=0
+pkg_name_arg=""
+positional_args=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --noarch)
+      noarch_flag=1
+      shift
+      ;;
+    --stable)
+      stable_flag=1
+      shift
+      ;;
+    --pkg_name)
+      pkg_name_arg="$2"
+      shift 2
+      ;;
+    -*)
+      echo "Unknown flag: $1" >&2
+      exit 1
+      ;;
+    *)
+      positional_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Check for minimum required arguments
+if [[ ${#positional_args[@]} -lt 4 ]]; then
+  echo "Must specify: REPO_NAME PR_NUMBER PACKAGE_TYPE PACKAGE_FORMAT [COMMIT]" >&2
+  exit 1
+fi
+
+repo="rapidsai/${positional_args[0]}"
+pr="${positional_args[1]}"
+package_type="${positional_args[2]}"
+package_format="${positional_args[3]}"
+commit="${positional_args[4]:-}"
+
+# Validate mutually exclusive flags
+if (( noarch_flag == 1 )) && (( stable_flag == 1 )); then
+  rapids-echo-stderr "Error: --noarch and --stable flags are mutually exclusive"
+  exit 1
+fi
+
+# Validate --noarch flag
+if (( noarch_flag == 1 )); then
+  if [[ "${package_format}" != "conda" ]] || [[ "${package_type}" != "python" ]] || [[ -z "${RAPIDS_PY_NOARCH_SUFFIX:-}" ]]; then
+    rapids-echo-stderr "Error: --noarch flag requires package_format='conda', package_type='python', and RAPIDS_PY_NOARCH_SUFFIX environment variable to be set"
+    rapids-echo-stderr "Got: package_format='${package_format}' package_type='${package_type}' RAPIDS_PY_NOARCH_SUFFIX='${RAPIDS_PY_NOARCH_SUFFIX:-<unset>}'"
+    exit 1
+  fi
+fi
+
+# Validate --stable flag
+if (( stable_flag == 1 )); then
+  if [[ "${package_type}" != "python" ]]; then
+    rapids-echo-stderr "Error: --stable flag is only compatible with package_type='python'"
+    rapids-echo-stderr "Got: package_format='${package_format}'"
+    exit 1
+  fi
+fi
+
+source rapids-prompt-local-github-auth
+
+# If commit is not provided, get the latest commit on the PR
+if [[ -z "${commit}" ]]; then
+    commit=$(rapids-retry --quiet gh pr view "${pr}" --repo "${repo}" --json headRefOid --jq '.headRefOid')
+fi
+
+# Generate the artifact name
+if ((stable_flag == 0)); then
+pkg_name=$(
+    RAPIDS_REPOSITORY="${pkg_name_arg:-${repo}}"                   \
+        rapids-package-name "${package_format}_${package_type}"
+)
+# If it's a stable build, pass through stable and cuda flags
+else
+  pkg_name=$(
+      RAPIDS_REPOSITORY="${pkg_name_arg:-${repo}}"                 \
+          rapids-package-name "${package_format}_${package_type}" --stable --cuda "${RAPIDS_CUDA_VERSION}"
+  )
+fi
+
+# get run ID
+# NOTE: cannot reuse rapids-github-run-id here, because the environment variable
+#       GITHUB_RUN_ID will refer to the run this is being called from, not
+#       the run that generated the artifact we're looking for.
+#
+#       For example, if this is called on a 'cudf' PR to download 'rmm' artifacts,
+#       here we want a run ID from an 'rmm' CI run, not the current 'cudf' one.
+github_run_id=$(
+    rapids-retry --quiet gh run list  \
+        --repo "${repo}"              \
+        --branch "pull-request/${pr}" \
+        --commit "${commit}"          \
+        --json 'createdAt,databaseId' \
+        --jq 'sort_by(.createdAt) | reverse | .[0] | .databaseId'
+)
+unzip_dest="${RAPIDS_UNZIP_DIR:-$(mktemp -d)}"
+
+rapids-echo-stderr "Downloading and decompressing ${pkg_name} from Run ID ${github_run_id} into ${unzip_dest}"
+rapids-retry gh run download \
+    "${github_run_id}"       \
+    --repo "${repo}"         \
+    --name "${pkg_name}"     \
+    --dir "${unzip_dest}"
+
+echo -n "${unzip_dest}"
