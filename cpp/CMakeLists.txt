@@ -270,7 +270,6 @@ endif()
 
 # CCCL before RMM, and RMM before RAFT
 include(cmake/thirdparty/get_cccl.cmake)
-rapids_cpm_cccl()
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 if(LINK_CUVS)
