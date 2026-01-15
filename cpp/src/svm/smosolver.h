@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -337,10 +337,10 @@ class SmoSolver {
 
   void ReleaseBuffers()
   {
-    alpha.release();
-    delta_alpha.release();
-    f.release();
-    y_label.release();
+    alpha.resize(0, stream);
+    delta_alpha.resize(0, stream);
+    f.resize(0, stream);
+    y_label.resize(0, stream);
   }
 };
 

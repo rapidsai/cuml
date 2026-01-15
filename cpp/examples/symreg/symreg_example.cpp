@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -234,8 +234,8 @@ int main(int argc, char* argv[])
     dw_test.data(), w_test.data(), sizeof(float) * n_test_rows, cudaMemcpyHostToDevice, stream));
 
   // Initialize AST
-  auto curr_mr = rmm::mr::get_current_device_resource();
-  d_finalprogs = static_cast<cg::program_t>(curr_mr->allocate(stream, params.population_size));
+  auto curr_mr = rmm::mr::get_current_device_resource_ref();
+  d_finalprogs = static_cast<cg::program_t>(curr_mr.allocate(stream, params.population_size));
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
@@ -327,7 +327,7 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  curr_mr->deallocate(stream, d_finalprogs, params.population_size);
+  curr_mr.deallocate(stream, d_finalprogs, params.population_size);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   return 0;

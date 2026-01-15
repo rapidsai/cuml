@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,6 +20,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <device_launch_parameters.h>
 
@@ -219,7 +220,7 @@ void parallel_evolve(const raft::handle_t& h,
     delete[] tmp.nodes;
 
     // Set current generation device nodes
-    tmp.nodes = (node*)rmm::mr::get_current_device_resource()->allocate(
+    tmp.nodes = (node*)rmm::mr::get_current_device_resource_ref().allocate(
       stream, h_nextprogs[i].len * sizeof(node));
     raft::copy(tmp.nodes, h_nextprogs[i].nodes, h_nextprogs[i].len, stream);
     raft::copy(d_nextprogs + i, &tmp, 1, stream);
@@ -227,7 +228,7 @@ void parallel_evolve(const raft::handle_t& h,
     if (generation > 1) {
       // Free device memory allocated to program nodes in previous generation
       raft::copy(&tmp, d_oldprogs + i, 1, stream);
-      rmm::mr::get_current_device_resource()->deallocate(
+      rmm::mr::get_current_device_resource_ref().deallocate(
         stream, tmp.nodes, h_nextprogs[i].len * sizeof(node));
     }
 
@@ -397,7 +398,7 @@ void symFit(const raft::handle_t& handle,
   std::vector<float> h_fitness(params.population_size, 0.0f);
 
   program_t d_currprogs;  // pointer to current programs
-  d_currprogs = (program_t)rmm::mr::get_current_device_resource()->allocate(
+  d_currprogs = (program_t)rmm::mr::get_current_device_resource_ref().allocate(
     stream, params.population_size * sizeof(program));
   program_t d_nextprogs = final_progs;  // Reuse memory already allocated for final_progs
   final_progs           = nullptr;
@@ -479,7 +480,7 @@ void symFit(const raft::handle_t& handle,
   if (growAuto) { params.terminalRatio = 0.0f; }
 
   // Deallocate the previous generation device memory
-  rmm::mr::get_current_device_resource()->deallocate(
+  rmm::mr::get_current_device_resource_ref().deallocate(
     stream, d_nextprogs, params.population_size * sizeof(program));
   d_currprogs = nullptr;
   d_nextprogs = nullptr;

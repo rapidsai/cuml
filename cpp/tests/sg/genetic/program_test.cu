@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -90,10 +90,10 @@ class GeneticProgramTest : public ::testing::Test {
     d_lY.resize(250, stream);
     d_lunitW.resize(250, stream);
     d_lW.resize(250, stream);
-    d_nodes1 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
-    d_nodes2 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
+    d_nodes1 = (node*)rmm::mr::get_current_device_resource_ref().allocate(stream, 7 * sizeof(node));
+    d_nodes2 = (node*)rmm::mr::get_current_device_resource_ref().allocate(stream, 7 * sizeof(node));
     d_progs =
-      (program_t)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(program), stream);
+      (program_t)rmm::mr::get_current_device_resource_ref().allocate(stream, 2 * sizeof(program));
 
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       d_lYpred.data(), h_lYpred.data(), 500 * sizeof(float), cudaMemcpyHostToDevice, stream));
@@ -146,9 +146,9 @@ class GeneticProgramTest : public ::testing::Test {
 
   void TearDown() override
   {
-    rmm::mr::get_current_device_resource()->deallocate(d_nodes1, 7 * sizeof(node), stream);
-    rmm::mr::get_current_device_resource()->deallocate(d_nodes2, 7 * sizeof(node), stream);
-    rmm::mr::get_current_device_resource()->deallocate(d_progs, 2 * sizeof(program), stream);
+    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_nodes1, 7 * sizeof(node));
+    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_nodes2, 7 * sizeof(node));
+    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_progs, 2 * sizeof(program));
   }
 
   raft::handle_t handle;

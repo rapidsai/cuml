@@ -298,7 +298,7 @@ def test_logistic_regression(
     culog.fit(X_train, y_train)
 
     sklog = skLog(
-        solver="lbfgs",
+        solver="saga",
         l1_ratio=l1_ratio,
         C=C,
         fit_intercept=fit_intercept,

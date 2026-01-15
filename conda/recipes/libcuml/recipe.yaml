@@ -90,7 +90,7 @@ outputs:
     build:
       script:
         content: |
-          cmake --install cpp/build
+          cmake --install cpp/build --component cuml
       dynamic_linking:
         overlinking_behavior: "error"
       prefix_detection:

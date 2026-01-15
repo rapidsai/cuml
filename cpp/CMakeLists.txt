@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -282,11 +282,6 @@ endif()
 
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
-  # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
-  if(NOT BUILD_SHARED_LIBS)
-    rapids_export_package(BUILD GPUTreeShap cuml-exports)
-    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
-  endif()
 endif()
 
 # cumlprims_mg functionality has been moved into cuML directly
@@ -338,7 +333,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR arima_algo)
-    target_sources(cuml_objs PRIVATE src/arima/batched_arima.cu src/arima/batched_kalman.cu)
+    target_sources(
+      cuml_objs PRIVATE src/arima/arima_common.cu src/arima/batched_arima.cu
+                        src/arima/batched_kalman.cu
+    )
   endif()
 
   if(all_algo OR datasets_algo)
@@ -842,11 +840,26 @@ install(
   TARGETS ${_cuml_lib_targets}
   DESTINATION ${lib_dir}
   EXPORT cuml-exports
+  COMPONENT cuml
 )
 
-install(DIRECTORY include/cuml/ DESTINATION include/cuml)
+install(
+  DIRECTORY include/cuml/
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp DESTINATION include/cuml)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/common/logger_macros.hpp
+  DESTINATION include/cuml/common
+  COMPONENT cuml
+)
 
 # ##################################################################################################
 # # - install export -------------------------------------------------------------------------------

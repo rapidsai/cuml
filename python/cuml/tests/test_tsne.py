@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -370,6 +370,7 @@ def test_tsne_distance_metrics(metric):
     assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/6682")
 @pytest.mark.parametrize("method", ["fft", "barnes_hut", "exact"])
 @pytest.mark.parametrize(
     "metric", ["l2", "euclidean", "cityblock", "l1", "manhattan", "cosine"]

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <cuml/prims/opg/matrix/matrix_utils.hpp>
@@ -9,6 +9,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 namespace MLCommon {
 namespace Matrix {
@@ -150,11 +151,11 @@ void allocate(const raft::handle_t& h,
               int myRank,
               cudaStream_t stream)
 {
-  auto* allocator = rmm::mr::get_current_device_resource();
+  auto allocator = rmm::mr::get_current_device_resource_ref();
   for (size_t i = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       int partSize          = desc.partsToRanks[i]->size * desc.N;
-      T* partMem            = (T*)allocator->allocate(stream, partSize * sizeof(T));
+      T* partMem            = (T*)allocator.allocate(stream, partSize * sizeof(T));
       Matrix::Data<T>* part = new Matrix::Data<T>(partMem, partSize);
       parts.push_back(part);
     }
@@ -169,11 +170,11 @@ void deallocate(const raft::handle_t& h,
                 int myRank,
                 cudaStream_t stream)
 {
-  auto* allocator = rmm::mr::get_current_device_resource();
+  auto allocator = rmm::mr::get_current_device_resource_ref();
   for (size_t i = 0, localIndex = 0; i < desc.partsToRanks.size(); i++) {
     if (myRank == desc.partsToRanks[i]->rank) {
       int partSize = desc.partsToRanks[i]->size * desc.N;
-      allocator->deallocate(stream, parts[localIndex]->ptr, partSize * sizeof(T));
+      allocator.deallocate(stream, parts[localIndex]->ptr, partSize * sizeof(T));
       localIndex++;
     }
   }
