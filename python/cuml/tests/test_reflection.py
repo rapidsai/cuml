@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import pickle
 
@@ -177,6 +177,21 @@ def test_global_output_type(input_type, output_type):
     labels = model.fit_predict(X)
     assert_output_type(labels, output_type)
     assert_output_type(model.components_, output_type)
+
+
+def test_invalid_estimator_output_type():
+    X = rand_array("numpy")
+    model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type="invalid")
+    model.fit(X)
+    assert model.output_type == "invalid"
+
+    # Descriptor raises appropriately
+    with pytest.raises(ValueError, match="`output_type='invalid'`"):
+        model.components_
+
+    # Method raises appropriately
+    with pytest.raises(ValueError, match="`output_type='invalid'`"):
+        model.fit_predict(X)
 
 
 def test_global_overrides_estimator_output_type():
