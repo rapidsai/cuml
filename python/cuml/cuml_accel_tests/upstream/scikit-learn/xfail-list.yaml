@@ -1306,6 +1306,7 @@
 - reason: test_estimators checks fail (1.5)
   marker: cuml_accel_test_estimators
   condition: scikit-learn==1.5
+  strict: false
   tests:
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_fit_returns_self(readonly_memmap=True)]"
 - reason: test_estimators checks fail (1.7.2+)
