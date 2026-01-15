@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -69,12 +69,15 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          std::unique_ptr<rmm::device_buffer>& embeddings,
-         raft::host_coo_matrix<float, int, int, uint64_t>& graph)
+         raft::host_coo_matrix<float, int, int, uint64_t>& graph,
+         float* sigmas,
+         float* rhos)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
-    _fit<uint64_t>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph);
+    _fit<uint64_t>(
+      handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph, sigmas, rhos);
   else
-    _fit<int>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph);
+    _fit<int>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph, sigmas, rhos);
 }
 
 void fit_sparse(const raft::handle_t& handle,
@@ -190,6 +193,38 @@ void transform_sparse(const raft::handle_t& handle,
                            embedding_n,
                            params,
                            transformed);
+}
+
+void inverse_transform(const raft::handle_t& handle,
+                       float* inv_transformed,
+                       int n,
+                       int n_features,
+                       float* orig_X,
+                       int orig_n,
+                       int* graph_rows,
+                       int* graph_cols,
+                       float* graph_vals,
+                       int nnz,
+                       float* sigmas,
+                       float* rhos,
+                       UMAPParams* params,
+                       int n_epochs)
+{
+  // For inverse transform, n_features could be large, so use int for nnz type
+  _inverse_transform<int>(handle,
+                          inv_transformed,
+                          n,
+                          n_features,
+                          orig_X,
+                          orig_n,
+                          graph_rows,
+                          graph_cols,
+                          graph_vals,
+                          nnz,
+                          sigmas,
+                          rhos,
+                          params,
+                          n_epochs);
 }
 
 }  // namespace UMAP
