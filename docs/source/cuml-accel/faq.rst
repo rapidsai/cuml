@@ -198,7 +198,7 @@ active, in which case they'll be accelerated ``cuml.accel`` backed models.
 .. warning::
 
    Only unpickle or deserialize models from trusted sources. The ``pickle``
-   module is not secure—malicious pickle data can execute arbitrary code
+   module is not secure - malicious pickle data can execute arbitrary code
    during deserialization, potentially compromising your entire system.
    See the `Python pickle documentation <https://docs.python.org/3/library/pickle.html>`_
    for more information.
