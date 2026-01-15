@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -67,3 +67,18 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
             assert array_equal(monotonic, arr_orig)
 
     assert array_equal(inverted, original)
+
+
+@pytest.mark.parametrize("dtype", [cp.int32, cp.int64])
+def test_labels_with_many_classes(dtype):
+    """Test label functions work when classes exceed shared memory limit."""
+    n_classes = 15000  # Exceeds ~48KB shared memory limit
+    labels = cp.random.randint(0, n_classes, size=35000, dtype=dtype)
+    classes = cp.arange(n_classes, dtype=dtype)
+
+    assert check_labels(labels, classes)
+    assert not check_labels(labels, cp.arange(100, dtype=dtype))
+
+    monotonic, mapped = make_monotonic(labels.copy())
+    inverted = invert_labels(monotonic, mapped)
+    assert array_equal(inverted, labels)
