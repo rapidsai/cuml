@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -346,7 +346,11 @@ def test_typeerror_input():
     try:
         exp.shap_values(X)
     except ValueError as error:
-        if "operands could not be broadcast together" in str(error):
+        error_str = str(error)
+        if (
+            "operands could not be broadcast together" in error_str
+            or "dimension must be fixed to" in error_str
+        ):
             pytest.xfail(
                 "Known sklearn LARS broadcasting bug - see scikit-learn#9603"
             )

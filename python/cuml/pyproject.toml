@@ -109,6 +109,7 @@ test = [
     "cython>=3.0.0,<3.2.0",
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",
+    "ipython>=7.32.0",
     "nltk",
     "numpydoc<1.9",
     "nvidia-ml-py>=12",

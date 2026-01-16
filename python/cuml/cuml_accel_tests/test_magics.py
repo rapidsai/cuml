@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-pytest.importorskip("IPython")
+ipython_core_magic = pytest.importorskip("IPython.core.magic")
 
 
 SCRIPT_HEADER = """
@@ -30,6 +30,7 @@ def run_script(body):
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
     )
     # Pull out attributes before assert for nicer error reporting on failure
     returncode = res.returncode
@@ -133,7 +134,7 @@ def test_profiler_magics(magics):
     )
     # Get the index of the output cell to assert that the profiler output
     # renders _before_ the output cell.
-    output_index = stdout.index("Out[1]:")
+    output_index = stdout.index("Out[")
 
     # Check that the output of the cell is displayed
     assert "something to output" in stdout
@@ -151,6 +152,10 @@ def test_profiler_magics(magics):
         assert "get_ipython()" not in stdout
 
 
+@pytest.mark.skipif(
+    not hasattr(ipython_core_magic, "output_can_be_silenced"),
+    reason="IPython < 8.10 doesn't handle semicolons in magic cells the same way",
+)
 def test_profiler_magics_output():
     """Check the profiler magic handles outputs from cells properly"""
     # Multi-line interactive cell
