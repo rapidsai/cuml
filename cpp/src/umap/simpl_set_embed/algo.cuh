@@ -311,9 +311,9 @@ void optimize_layout(T* head_embedding,
       tail_flags.resize(tail_flag_words, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_flags.data(), '\0', sizeof(uint32_t) * tail_flag_words, stream));
-      d_tail_flags = tail_flags.data();
+      d_tail_flags  = tail_flags.data();
+      d_tail_buffer = tail_buffer.data();
     }
-    d_tail_buffer = tail_buffer.data();
   }
 
   // we keep the tpb and change the number of blocks we launch to handle the total number of threads
