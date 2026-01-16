@@ -61,7 +61,9 @@ def run_cell_with_profiler(source, namespace, profiler):
         # into non-interactive/interactive bits.
         blocks = []
         if head := tree.body[:-1]:
-            blocks.append(compile(ast.Module(head), filename, "exec"))
+            blocks.append(
+                compile(ast.Module(head, type_ignores=[]), filename, "exec")
+            )
         blocks.append(
             compile(ast.Interactive([tree.body[-1]]), filename, "single")
         )
