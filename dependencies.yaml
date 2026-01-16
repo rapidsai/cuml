@@ -621,6 +621,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
+          # Nightly dependencies with pre-release specifiers
+          - matrix:
+              cuda: "12.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda12x>=13.6.0a0
+          - matrix:
+              cuda: "13.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
@@ -629,6 +645,14 @@ dependencies:
           - matrix:
             packages:
               - cupy-cuda13x>=13.6.0
+      - output_types: requirements
+        matrices:
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - --find-links=https://pip.cupy.dev/pre
+          - matrix:
+            packages:
   depends_on_rapids_dask_dependency:
     common:
       - output_types: [conda, pyproject, requirements]
