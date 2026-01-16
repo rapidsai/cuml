@@ -1223,3 +1223,27 @@ def test_hdbscan_build_algo(n_clusters, build_algo, device_ids, min_samples):
     sk_agg = hdbscan.HDBSCAN().fit(X)
 
     assert adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.9
+
+
+@pytest.mark.parametrize("n_clusters", [1, 4])
+@pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
+@pytest.mark.parametrize("data_on_device", [False, True])
+def test_hdbscan_data_memory_type(n_clusters, build_algo, data_on_device):
+    X, y = make_blobs(
+        n_samples=10_000,
+        n_features=32,
+        centers=10,
+        random_state=42,
+    )
+
+    sk_agg = hdbscan.HDBSCAN().fit(X)
+
+    if data_on_device:
+        X = cp.asarray(X)
+
+    cuml_agg = HDBSCAN(
+        build_algo=build_algo,
+        build_kwds={"knn_n_clusters": n_clusters},
+    ).fit(X)
+
+    assert adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.9
