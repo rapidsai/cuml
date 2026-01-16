@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -89,48 +89,6 @@ void optimization_iteration_finalization(
   if (params->callback) params->callback->on_epoch_end(head_embedding);
   alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
   seed += 1;
-}
-
-/**
- * Update the embeddings and clear the buffers when using deterministic algorithm.
- */
-template <typename T, typename nnz_t>
-void apply_embedding_updates(T* head_embedding,
-                             T* head_buffer,
-                             int head_n,
-                             T* tail_embedding,
-                             T* tail_buffer,
-                             int tail_n,
-                             UMAPParams* params,
-                             bool move_other,
-                             rmm::cuda_stream_view stream)
-{
-  ASSERT(params->deterministic, "Only used when deterministic is set to true.");
-  nnz_t n_components = params->n_components;
-  if (move_other) {
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
-                     [=] __device__(uint32_t i) {
-                       if (i < head_n * n_components) {
-                         head_embedding[i] += head_buffer[i];
-                         head_buffer[i] = 0.0f;
-                       }
-                       if (i < tail_n * n_components) {
-                         tail_embedding[i] += tail_buffer[i];
-                         tail_buffer[i] = 0.0f;
-                       }
-                     });
-  } else {
-    // No need to update reference embedding
-    thrust::for_each(rmm::exec_policy(stream),
-                     thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + head_n * n_components,
-                     [=] __device__(uint32_t i) {
-                       head_embedding[i] += head_buffer[i];
-                       head_buffer[i] = 0.0f;
-                     });
-  }
 }
 
 /**
@@ -268,13 +226,15 @@ void optimize_layout(T* head_embedding,
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier) {
+  if (has_outlier || params->deterministic) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
     // distributed across threads, rather than being processed by consecutive threads that are
     // scheduled together. This approach relies on the GPU's inability to physically schedule all
     // nnz edges at once.
+    // also shuffle when want deterministic behavior to ensure that updates for the same vertex are
+    // processed in different kernel launches.
     auto first =
       thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
                                                    thrust::device_pointer_cast(tail),
@@ -289,6 +249,20 @@ void optimize_layout(T* head_embedding,
       // number of threads per SM, but it is difficult to generalize due to limited cases where this
       // happens. Increase this value if we observe outliers on smaller datasets.
       num_chunks = 4;
+    }
+  }
+
+  if (has_outlier && params->deterministic) {
+    // for processing in deterministic mode on datasets that are likely to have outliers, we use the
+    // heuristic below to determine the number of chunks.
+    // Empirically determined: 100000 edges per chunk provides good balance between determinism and
+    // avoiding gradient accumulation issues on large datasets. See benchmarks in
+    // https://github.com/rapidsai/cuml/pull/7597
+    if (nnz > 100000) {
+      num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(100000));
+    } else if (nnz > 10000) {
+      // more fine-grained chunks for smaller number of edges
+      num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(10000));
     }
   }
 
@@ -307,22 +281,39 @@ void optimize_layout(T* head_embedding,
   // Buffers used to store the gradient updates to avoid conflicts
   rmm::device_uvector<T> head_buffer(0, stream_view);
   rmm::device_uvector<T> tail_buffer(0, stream_view);
+
+  // Flags to track which vertices were modified per chunk (for sparse apply)
+  rmm::device_uvector<uint32_t> head_flags(0, stream_view);
+  rmm::device_uvector<uint32_t> tail_flags(0, stream_view);
   // Write to embedding directly if deterministic is not needed.
-  T* d_head_buffer = head_embedding;
-  T* d_tail_buffer = tail_embedding;
+  T* d_head_buffer       = head_embedding;
+  T* d_tail_buffer       = tail_embedding;
+  uint32_t* d_head_flags = nullptr;
+  uint32_t* d_tail_flags = nullptr;
   if (params->deterministic) {
     nnz_t n_components = params->n_components;
     head_buffer.resize(head_n * n_components, stream_view);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
+
+    int head_flag_words = raft::ceildiv(head_n, 32);
+    head_flags.resize(head_flag_words, stream_view);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(head_flags.data(), '\0', sizeof(uint32_t) * head_flag_words, stream));
+    d_head_buffer = head_buffer.data();
+    d_head_flags  = head_flags.data();
     // No need for tail if it's not being written.
     if (move_other) {
       tail_buffer.resize(tail_n * n_components, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
+      int tail_flag_words = raft::ceildiv(tail_n, 32);
+      tail_flags.resize(tail_flag_words, stream_view);
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(tail_flags.data(), '\0', sizeof(uint32_t) * tail_flag_words, stream));
+      d_tail_flags  = tail_flags.data();
+      d_tail_buffer = tail_buffer.data();
     }
-    d_head_buffer = head_buffer.data();
-    d_tail_buffer = tail_buffer.data();
   }
 
   // we keep the tpb and change the number of blocks we launch to handle the total number of threads
@@ -335,8 +326,11 @@ void optimize_layout(T* head_embedding,
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
+                                                d_head_flags,
+                                                head_n,
                                                 tail_embedding,
                                                 d_tail_buffer,
+                                                d_tail_flags,
                                                 tail_n,
                                                 head,
                                                 tail,
@@ -354,17 +348,6 @@ void optimize_layout(T* head_embedding,
                                                 blk,
                                                 stream,
                                                 rounding);
-    if (params->deterministic) {
-      apply_embedding_updates<T, nnz_t>(head_embedding,
-                                        d_head_buffer,
-                                        head_n,
-                                        tail_embedding,
-                                        d_tail_buffer,
-                                        tail_n,
-                                        params,
-                                        move_other,
-                                        stream_view);
-    }
     RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }
