@@ -740,10 +740,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         init = self.init
         if is_array_like(init):
-            if isinstance(init, CumlArray):
-                init = to_cpu(init)
-            else:
-                init = cp.asnumpy(init)
+            init = cp.asnumpy(init)
 
         return {
             "n_neighbors": self.n_neighbors,
