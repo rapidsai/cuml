@@ -238,9 +238,9 @@ def spectral_embedding(A,
             transform(
                 handle_[0],
                 config,
-                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
-                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
-                make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view[float, int64_t](affinity_data_ptr, affinity_nnz),
                 make_device_matrix_view[float, int, col_major](
                     eigenvectors_ptr, n_samples, n_components,
                 )
