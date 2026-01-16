@@ -460,7 +460,7 @@ dependencies:
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
-              - ipython==7.34.0
+              - ipython==7.32.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
@@ -468,7 +468,7 @@ dependencies:
           - matrix:
             packages:
               - *scikit_learn
-              - ipython>=7.34.0
+              - ipython>=7.32.0
     common:
       - output_types: [conda, requirements, pyproject]
         packages:

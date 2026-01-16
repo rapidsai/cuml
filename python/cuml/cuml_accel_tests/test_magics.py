@@ -133,7 +133,7 @@ def test_profiler_magics(magics):
     )
     # Get the index of the output cell to assert that the profiler output
     # renders _before_ the output cell.
-    output_index = stdout.index("Out[1]:")
+    output_index = stdout.index("Out[")
 
     # Check that the output of the cell is displayed
     assert "something to output" in stdout
