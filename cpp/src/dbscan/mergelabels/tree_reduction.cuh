@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,7 @@
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/nvtx.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace Dbscan {
@@ -44,21 +45,21 @@ void tree_reduction(const raft::handle_t& handle,
   while (s < n_rank) {
     CUML_LOG_DEBUG("Tree reduction, s=", s);
 
-    raft::comms::request_t request;
-
     // Find out whether the node is a receiver / sender / passive
     bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
     bool sender   = my_rank % (2 * s) == s;
 
+    // Use device_send/device_recv for GPU memory transfers (via NCCL)
     if (receiver) {
       CUML_LOG_DEBUG("--> Receive labels (from %d)", my_rank + s);
-      comm.irecv(labels_temp, N, my_rank + s, 0, &request);
+      comm.device_recv(labels_temp, N, my_rank + s, stream);
     } else if (sender) {
-      CUML_LOG_DEBUG("--> Send labels (from %d)", my_rank - s);
-      comm.isend(labels, N, my_rank - s, 0, &request);
+      CUML_LOG_DEBUG("--> Send labels (to %d)", my_rank - s);
+      comm.device_send(labels, N, my_rank - s, stream);
     }
 
-    if (receiver || sender) { comm.waitall(1, &request); }
+    // Sync stream to ensure transfer is complete
+    if (receiver || sender) { RAFT_CUDA_TRY(cudaStreamSynchronize(stream)); }
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
