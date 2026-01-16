@@ -255,9 +255,13 @@ void optimize_layout(T* head_embedding,
   if (has_outlier && params->deterministic) {
     // for processing in deterministic mode on datasets that are likely to have outliers, we use the
     // heuristic below to determine the number of chunks.
+    // Empirically determined: 100000 edges per chunk provides good balance between determinism and
+    // avoiding gradient accumulation issues on large datasets. See benchmarks in
+    // https://github.com/rapidsai/cuml/pull/7597
     if (nnz > 100000) {
       num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(100000));
     } else if (nnz > 10000) {
+      // more fine-grained chunks for smaller number of edges
       num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(10000));
     }
   }

@@ -206,6 +206,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
       if (params.deterministic) {
+        // we return immediately in deterministic mode instead of continuing the grid-stride loop
+        // because we launch a new kernel for the next chunk
         return;
       } else {
         row += skip_size;
@@ -344,6 +346,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     auto _epoch_of_next_sample = epoch_of_next_sample[row];
     if (_epoch_of_next_sample > epoch) {
       if (params.deterministic) {
+        // we return immediately in deterministic mode instead of continuing the grid-stride loop
+        // because we launch a new kernel for the next chunk
         return;
       } else {
         row += skip_size;
