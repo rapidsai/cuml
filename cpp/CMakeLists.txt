@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -282,11 +282,6 @@ endif()
 
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
-  # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
-  if(NOT BUILD_SHARED_LIBS)
-    rapids_export_package(BUILD GPUTreeShap cuml-exports)
-    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
-  endif()
 endif()
 
 # cumlprims_mg functionality has been moved into cuML directly
@@ -338,7 +333,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR arima_algo)
-    target_sources(cuml_objs PRIVATE src/arima/batched_arima.cu src/arima/batched_kalman.cu)
+    target_sources(
+      cuml_objs PRIVATE src/arima/arima_common.cu src/arima/batched_arima.cu
+                        src/arima/batched_kalman.cu
+    )
   endif()
 
   if(all_algo OR datasets_algo)
@@ -555,7 +553,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src_prims/opg/matrix/part_descriptor.cu
               src_prims/opg/matrix/matrix_utils.cu
               src_prims/opg/matrix/math.cu
-              src_prims/opg/linalg/qr.cu
               src_prims/opg/linalg/eig.cu
               src_prims/opg/linalg/svd.cu
               src_prims/opg/linalg/gemm.cu
@@ -564,7 +561,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src_prims/opg/linalg/mv_aTb.cu
               src_prims/opg/linalg/norm.cu
               src_prims/opg/linalg/mean_squared_error.cu
-              src_prims/opg/linalg/qr_based_svd.cu
               src_prims/opg/stats/mean.cu
               src_prims/opg/stats/mean_center.cu
               src_prims/opg/stats/stddev.cu
@@ -842,11 +838,26 @@ install(
   TARGETS ${_cuml_lib_targets}
   DESTINATION ${lib_dir}
   EXPORT cuml-exports
+  COMPONENT cuml
 )
 
-install(DIRECTORY include/cuml/ DESTINATION include/cuml)
+install(
+  DIRECTORY include/cuml/
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp DESTINATION include/cuml)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/common/logger_macros.hpp
+  DESTINATION include/cuml/common
+  COMPONENT cuml
+)
 
 # ##################################################################################################
 # # - install export -------------------------------------------------------------------------------

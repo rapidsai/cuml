@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,6 @@
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
-#include <cuml/prims/opg/linalg/qr_based_svd.hpp>
 #include <cuml/prims/opg/matrix/matrix_utils.hpp>
 #include <cuml/prims/opg/stats/cov.hpp>
 #include <cuml/prims/opg/stats/mean.hpp>
@@ -144,114 +143,6 @@ void fit_impl(raft::handle_t& handle,
              n_streams,
              verbose,
              flip_signs_based_on_U);
-  } else if (prms.algorithm == mg_solver::QR) {
-    const raft::handle_t& h = handle;
-    cudaStream_t stream     = h.get_stream();
-    const auto& comm        = h.get_comms();
-
-    // Center the data
-    MLCommon::Matrix::Data<T> mu_data{mu, prms.n_cols};
-    MLCommon::Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
-    MLCommon::Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
-    for (std::uint32_t i = 0; i < n_streams; i++) {
-      handle.sync_stream(streams[i]);
-    }
-
-    // Allocate Q, S and V and call QR
-    std::vector<MLCommon::Matrix::Data<T>*> uMatrixParts;
-    MLCommon::Matrix::opg::allocate(h, uMatrixParts, input_desc, rank, stream);
-
-    rmm::device_uvector<T> sVector(prms.n_cols, stream);
-
-    rmm::device_uvector<T> vMatrix(prms.n_cols * prms.n_cols, stream);
-
-    RAFT_CUDA_TRY(cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
-
-    MLCommon::LinAlg::opg::svdQR(h,
-                                 sVector.data(),
-                                 uMatrixParts,
-                                 vMatrix.data(),
-                                 true,
-                                 true,
-                                 prms.tol,
-                                 prms.n_iterations,
-                                 input_data,
-                                 input_desc,
-                                 rank);
-
-    // sign flip
-    if (flip_signs_based_on_U) {
-      sign_flip_components_u(handle,
-                             input_data,
-                             input_desc,
-                             vMatrix.data(),
-                             prms.n_rows,
-                             prms.n_cols,
-                             prms.n_cols,
-                             streams,
-                             n_streams,
-                             true);
-    } else {
-      for (std::uint32_t i = 0; i < n_streams; i++) {
-        handle.sync_stream(streams[i]);
-      }
-      signFlipComponents(h,
-                         input_data[0]->ptr,
-                         vMatrix.data(),
-                         prms.n_rows,
-                         prms.n_cols,
-                         prms.n_cols,
-                         stream,
-                         true,
-                         false);
-    }
-
-    // Calculate instance variables
-    rmm::device_uvector<T> explained_var_all(prms.n_cols, stream);
-    rmm::device_uvector<T> explained_var_ratio_all(prms.n_cols, stream);
-
-    T scalar = 1.0 / (prms.n_rows - 1);
-    raft::matrix::power(sVector.data(), explained_var_all.data(), scalar, prms.n_cols, stream);
-    raft::matrix::ratio(
-      handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
-
-    raft::matrix::truncZeroOrigin(
-      sVector.data(), prms.n_cols, singular_vals, prms.n_components, std::size_t(1), stream);
-
-    raft::matrix::truncZeroOrigin(explained_var_all.data(),
-                                  prms.n_cols,
-                                  explained_var,
-                                  prms.n_components,
-                                  std::size_t(1),
-                                  stream);
-    raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
-                                  prms.n_cols,
-                                  explained_var_ratio,
-                                  prms.n_components,
-                                  std::size_t(1),
-                                  stream);
-
-    // Compute the scalar noise_vars defined as (pseudocode)
-    // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
-    if (prms.n_components < prms.n_cols && prms.n_components < prms.n_rows) {
-      raft::stats::mean<true>(noise_vars,
-                              explained_var_all.data() + prms.n_components,
-                              std::size_t{1},
-                              prms.n_cols - prms.n_components,
-                              false,
-                              stream);
-    } else {
-      raft::matrix::setValue(noise_vars, noise_vars, T{0}, 1, stream);
-    }
-
-    raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
-    raft::matrix::truncZeroOrigin(
-      vMatrix.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
-
-    MLCommon::Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
-
-    // Re-add mean to centered data
-    MLCommon::Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
