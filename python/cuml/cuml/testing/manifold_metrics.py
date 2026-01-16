@@ -1,11 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import typing as t
 
-import cudf
-import cugraph
 import cupy as cp
 import numpy as np
 from cuvs.common import MultiGpuResources
@@ -13,21 +11,24 @@ from cuvs.distance import pairwise_distance
 from cuvs.neighbors import all_neighbors, brute_force, nn_descent
 from scipy.linalg import orthogonal_procrustes
 from scipy.sparse import csr_matrix
-
-# from scipy.sparse.csgraph import shortest_path  # replaced by cuGraph for speed
+from scipy.sparse.csgraph import shortest_path
 from scipy.stats import pearsonr, spearmanr
 from sklearn.neighbors import NearestNeighbors
 
+# Try to import cuGraph for GPU-accelerated shortest path computation
+try:
+    import cudf
+    import cugraph
+
+    HAS_CUGRAPH = True
+except ImportError:
+    HAS_CUGRAPH = False
+
 # Reference UMAP implementation
 from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
-from umap.umap_ import spectral_layout
-
-from cuml.manifold import SpectralEmbedding
 
 # cuML implementation
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.metrics import trustworthiness
 
 
@@ -105,110 +106,98 @@ def compute_knn_metrics(
     return avg_recall, mae_dist
 
 
-def compare_spectral_embeddings(
-    fuzzy_graph_cpu, n_components=2, n_neighbors=15, random_state=42
-):
+def compare_spectral_embeddings(ref_embedding, cu_embedding, n_components=2):
     """Compare UMAP's spectral_layout with cuML's SpectralEmbedding.
 
     Parameters
     ----------
-    fuzzy_graph_cpu : csr_matrix
-        Precomputed fuzzy simplicial set graph (CPU)
+    ref_embedding : np.ndarray
+        Reference spectral embedding from UMAP's spectral_layout
+    cu_embedding : np.ndarray
+        cuML SpectralEmbedding result
     n_components : int, default=2
         Number of embedding dimensions
-    n_neighbors : int, default=15
-        Number of neighbors (ignored when affinity="precomputed")
-    random_state : int, default=42
-        Random state for reproducibility
 
     Returns
     -------
-    dict with keys: ref_embedding, cu_embedding, rmse, correlations, stats
+    dict with keys: rmse, correlations, stats
     """
-    # Reference UMAP spectral layout
-    ref_spectral_init = spectral_layout(
-        data=None,
-        graph=fuzzy_graph_cpu,
-        dim=n_components,
-        random_state=np.random.RandomState(random_state),
-    )
+    ref_np = np.asarray(ref_embedding, dtype=np.float32)
+    cu_np = np.asarray(cu_embedding, dtype=np.float32)
 
-    # cuML SpectralEmbedding
-    se = SpectralEmbedding(
-        affinity="precomputed",
-        n_components=n_components,
-        n_neighbors=n_neighbors,
-        random_state=random_state,
-    )
-    cu_spectral_init = se.fit_transform(fuzzy_graph_cpu)
-
-    # Convert to numpy arrays
-    ref_init_np = (
-        cp.asnumpy(ref_spectral_init)
-        if isinstance(ref_spectral_init, cp.ndarray)
-        else np.asarray(ref_spectral_init, dtype=np.float32)
-    )
-    cu_init_np = (
-        cp.asnumpy(cu_spectral_init)
-        if isinstance(cu_spectral_init, cp.ndarray)
-        else np.asarray(cu_spectral_init, dtype=np.float32)
-    )
-
-    # Validate shapes
-    expected_shape = (fuzzy_graph_cpu.shape[0], n_components)
-    if ref_init_np.shape != expected_shape:
+    # Validate inputs
+    if ref_np.shape != cu_np.shape or ref_np.shape[1] != n_components:
         raise ValueError(
-            f"Reference embedding shape {ref_init_np.shape} != expected {expected_shape}"
-        )
-    if cu_init_np.shape != expected_shape:
-        raise ValueError(
-            f"cuML embedding shape {cu_init_np.shape} != expected {expected_shape}"
+            f"Shape mismatch: ref={ref_np.shape}, cu={cu_np.shape}, expected n_comp={n_components}"
         )
 
-    # Center and normalize
-    def center_and_normalize(arr):
+    for name, arr in [("Reference", ref_np), ("cuML", cu_np)]:
+        if (nan_cnt := np.isnan(arr).sum()) > 0:
+            raise ValueError(f"{name} contains {nan_cnt} NaN values")
+        if (inf_cnt := np.isinf(arr).sum()) > 0:
+            raise ValueError(f"{name} contains {inf_cnt} infinite values")
+
+    # Center and normalize with validation
+    def normalize(arr, label):
         centered = arr - arr.mean(axis=0, keepdims=True)
         std = np.std(centered, axis=0, keepdims=True)
-        std = np.where(std > 1e-8, std, 1.0)
-        return centered / std
+        if np.any(std < 1e-4):
+            raise ValueError(
+                f"{label} has low variance dims: {np.where(std < 1e-4)[0].tolist()}"
+            )
+        normalized = centered / std
+        if not np.all(np.isfinite(normalized)):
+            raise ValueError(
+                f"{label} normalization produced non-finite values"
+            )
+        return normalized
 
-    ref_norm = center_and_normalize(ref_init_np)
-    cu_norm = center_and_normalize(cu_init_np)
+    ref_norm = normalize(ref_np, "Reference")
+    cu_norm = normalize(cu_np, "cuML")
 
-    # Compute metrics
+    # Compute RMSE
     rmse = procrustes_rmse(ref_norm, cu_norm)
+    if not (0 <= rmse < float("inf")):
+        raise ValueError(f"Invalid RMSE: {rmse}")
 
+    # Compute correlations
     correlations = []
     for dim in range(n_components):
-        ref_col, cu_col = ref_norm[:, dim], cu_norm[:, dim]
-        if np.std(ref_col) < 1e-10 or np.std(cu_col) < 1e-10:
-            corr = 0.0
-        else:
-            corr = np.corrcoef(ref_col, cu_col)[0, 1]
-            if not np.isfinite(corr):
-                corr = 0.0
+        if np.std(ref_norm[:, dim]) < 1e-6 or np.std(cu_norm[:, dim]) < 1e-6:
+            raise ValueError(
+                f"Component {dim} has insufficient post-norm variance"
+            )
+        corr = np.corrcoef(ref_norm[:, dim], cu_norm[:, dim])[0, 1]
+        if not np.isfinite(corr):
+            raise ValueError(
+                f"Component {dim} correlation is non-finite: {corr}"
+            )
         correlations.append(corr)
 
     # Compute statistics
-    ref_stats = {
-        "mean": np.mean(ref_norm, axis=0).tolist(),
-        "std": np.std(ref_norm, axis=0).tolist(),
-        "min": np.min(ref_norm, axis=0).tolist(),
-        "max": np.max(ref_norm, axis=0).tolist(),
-    }
-    cu_stats = {
-        "mean": np.mean(cu_norm, axis=0).tolist(),
-        "std": np.std(cu_norm, axis=0).tolist(),
-        "min": np.min(cu_norm, axis=0).tolist(),
-        "max": np.max(cu_norm, axis=0).tolist(),
-    }
+    def get_stats(arr):
+        return {
+            "mean": np.mean(arr, axis=0).tolist(),
+            "std": np.std(arr, axis=0).tolist(),
+            "min": np.min(arr, axis=0).tolist(),
+            "max": np.max(arr, axis=0).tolist(),
+        }
 
     return {
-        "ref_embedding": ref_norm,
-        "cu_embedding": cu_norm,
         "rmse": rmse,
         "correlations": correlations,
-        "stats": {"ref": ref_stats, "cu": cu_stats},
+        "stats": {
+            "ref": get_stats(ref_norm),
+            "cu": get_stats(cu_norm),
+            "ref_raw": {
+                **get_stats(ref_np),
+                "abs_max": float(np.abs(ref_np).max()),
+            },
+            "cu_raw": {
+                **get_stats(cu_np),
+                "abs_max": float(np.abs(cu_np).max()),
+            },
+        },
     }
 
 
@@ -278,19 +267,28 @@ def _align_edge_weights(g1, g2, reduce: str = "max"):
         return d
 
     d1, d2 = build_dict(c1), build_dict(c2)
+
+    # Only compare edges that exist in at least one graph with non-trivial weight
+    # Use intersection + edges with significant weight in either graph
     edges = d1.keys() | d2.keys()
     p = np.array([d1.get(e, 0.0) for e in edges])
     q = np.array([d2.get(e, 0.0) for e in edges])
-    mask = np.isfinite(p) & np.isfinite(q)
+
+    # Filter: keep edges where at least one graph has weight > 1e-6
+    # This avoids extreme KL values from comparing near-zero weights
+    mask = np.isfinite(p) & np.isfinite(q) & ((p > 1e-6) | (q > 1e-6))
     return p[mask], q[mask]
 
 
 def compute_fuzzy_kl_divergence(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """KL divergence KL(P||Q) between aligned Bernoulli edge weights of g1 and g2.
 
     Returns the sum over edges by default; set average=True for mean per-edge KL.
+
+    Note: eps is used to clip probabilities away from 0 and 1 to avoid log(0).
+    A larger eps reduces sensitivity to structural differences (missing edges).
     """
     p, q = _align_edge_weights(g1, g2)
     if p.size == 0:
@@ -307,7 +305,7 @@ def compute_fuzzy_kl_divergence(
 
 
 def compute_fuzzy_kl_sym(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """Symmetric KL divergence: KL(P||Q) + KL(Q||P)."""
     return compute_fuzzy_kl_divergence(
@@ -316,7 +314,7 @@ def compute_fuzzy_kl_sym(
 
 
 def compute_fuzzy_js_divergence(
-    g1, g2, eps: float = 1e-8, average: bool = False
+    g1, g2, eps: float = 1e-7, average: bool = False
 ) -> float:
     """Jensen–Shannon divergence between aligned Bernoulli edge weights.
 
@@ -365,8 +363,8 @@ def compute_edge_jaccard(g1, g2, eps: float = 0.0) -> float:
 
 
 def compute_fuzzy_simplicial_set_metrics(ref_fss_graph, cu_fss_graph):
-    # Symmetric KL divergence between the two fuzzy graphs
-    kl_sym = compute_fuzzy_kl_sym(ref_fss_graph, cu_fss_graph)
+    # Symmetric KL divergence between the two fuzzy graphs (per-edge average for scale-invariance)
+    kl_sym = compute_fuzzy_kl_sym(ref_fss_graph, cu_fss_graph, average=True)
 
     # Jaccard over undirected edges (ignore near-zero weights for stability)
     jacc = compute_edge_jaccard(ref_fss_graph, cu_fss_graph, eps=1e-6)
@@ -545,37 +543,54 @@ def _compute_geodesic_correlations(
     dst_all = np.concatenate([dst_sub, src_sub])
     w_all = np.concatenate([w_sub, w_sub]).astype(np.float32, copy=False)
 
-    # cuGraph on GPU
-    edgelist = cudf.DataFrame(
-        {
-            "src": cp.asarray(src_all),
-            "dst": cp.asarray(dst_all),
-            "w": cp.asarray(w_all),
-        }
-    )
-    G = cugraph.Graph(directed=False)
-    G.from_cudf_edgelist(
-        edgelist,
-        source="src",
-        destination="dst",
-        edge_attr="w",
-        renumber=False,
-    )
-
     # Sources inside the subgraph (heuristic applied to subset)
     num_sources = int(max(256, 0.05 * subset_size))
     num_sources = max(1, min(subset_size - 1, num_sources))
     sources_local = rng.choice(subset_size, size=num_sources, replace=False)
 
-    # Compute distances from multiple sources with per-source SSSP (version-compatible)
+    # Compute distances from multiple sources with per-source SSSP
     high_geo = np.full((num_sources, subset_size), np.inf, dtype=np.float32)
-    for r, s in enumerate(sources_local):
-        res = cugraph.sssp(G, source=int(s))
-        v_np = res["vertex"].to_numpy()
-        d_np = res["distance"].to_numpy()
-        if d_np.dtype != np.float32:
-            d_np = d_np.astype(np.float32, copy=False)
-        high_geo[r, v_np] = d_np
+
+    if HAS_CUGRAPH:
+        # GPU-accelerated path using cuGraph
+        edgelist = cudf.DataFrame(
+            {
+                "src": cp.asarray(src_all),
+                "dst": cp.asarray(dst_all),
+                "w": cp.asarray(w_all),
+            }
+        )
+        G = cugraph.Graph(directed=False)
+        G.from_cudf_edgelist(
+            edgelist,
+            source="src",
+            destination="dst",
+            edge_attr="w",
+            renumber=False,
+        )
+
+        for r, s in enumerate(sources_local):
+            res = cugraph.sssp(G, source=int(s))
+            v_np = res["vertex"].to_numpy()
+            d_np = res["distance"].to_numpy()
+            if d_np.dtype != np.float32:
+                d_np = d_np.astype(np.float32, copy=False)
+            high_geo[r, v_np] = d_np
+    else:
+        # CPU fallback using scipy
+        graph_csr = csr_matrix(
+            (w_all, (src_all, dst_all)), shape=(subset_size, subset_size)
+        )
+
+        for r, s in enumerate(sources_local):
+            dist_matrix = shortest_path(
+                graph_csr,
+                method="auto",
+                directed=False,
+                indices=int(s),
+                return_predecessors=False,
+            )
+            high_geo[r, :] = dist_matrix.astype(np.float32, copy=False)
 
     # Low-d Euclidean distances on GPU, restricted to the same subset/sources
     Y_cp_sub = Y_cp[subset]
@@ -675,8 +690,13 @@ def compute_simplicial_set_embedding_metrics(
         knn_indices=cp.asarray(ld_inds_np),
         knn_dists=cp.asarray(ld_dists_np),
     )
-    metrics["fuzzy_kl_divergence"] = float(compute_fuzzy_kl_divergence(hg, lg))
-    metrics["fuzzy_sym_kl_divergence"] = float(compute_fuzzy_kl_sym(hg, lg))
+    # Use average=True to get per-edge KL, making it scale-invariant and comparable across datasets
+    metrics["fuzzy_kl_divergence"] = float(
+        compute_fuzzy_kl_divergence(hg, lg, average=True)
+    )
+    metrics["fuzzy_sym_kl_divergence"] = float(
+        compute_fuzzy_kl_sym(hg, lg, average=True)
+    )
 
     # 4) Topology Preservation via Persistent Homology (CPU via ripser)
 
