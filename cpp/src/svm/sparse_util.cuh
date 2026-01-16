@@ -388,12 +388,24 @@ CUML_KERNEL void extractCSRRowsFromCSR(int* indptr_out,  // already holds end po
  * @return true if MatrixViewType is device dense mdspan
  */
 template <typename MatrixViewType>
-bool isDenseType()
+constexpr bool isDenseType()
 {
   return (std::is_same<MatrixViewType,
                        raft::device_matrix_view<float, int, raft::layout_stride>>::value ||
           std::is_same<MatrixViewType,
                        raft::device_matrix_view<double, int, raft::layout_stride>>::value);
+}
+
+/**
+ * @brief Get raw data pointer from a dense matrix view
+ *
+ * @param [in] matrix dense matrix view
+ * @return pointer to the underlying data
+ */
+template <typename math_t>
+math_t* getDenseData(raft::device_matrix_view<math_t, int, raft::layout_stride> matrix)
+{
+  return const_cast<math_t*>(matrix.data_handle());
 }
 
 /**

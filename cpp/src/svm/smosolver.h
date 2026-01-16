@@ -61,12 +61,14 @@ class SmoSolver {
   SmoSolver(const raft::handle_t& handle,
             SvmParameter param,
             cuvs::distance::kernels::KernelType kernel_type,
-            cuvs::distance::kernels::GramMatrixBase<math_t>* kernel)
+            cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
+            bool is_precomputed = false)
     : handle(handle),
       C(param.C),
       tol(param.tol),
       kernel(kernel),
       kernel_type(kernel_type),
+      is_precomputed(is_precomputed),
       cache_size(param.cache_size),
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
@@ -250,7 +252,8 @@ class SmoSolver {
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel;
   cuvs::distance::kernels::KernelType kernel_type;
-  float cache_size;  //!< size of kernel cache in MiB
+  bool is_precomputed;  //!< if true, input is a precomputed kernel matrix
+  float cache_size;     //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve
 

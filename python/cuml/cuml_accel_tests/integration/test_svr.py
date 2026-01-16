@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -45,3 +45,35 @@ def test_svr_sinusoid(sinusoid_X_y, kernel):
     X, y = sinusoid_X_y
     svr = SVR(kernel=kernel).fit(X, y)
     assert svr.score(X, y) > 0.5
+
+
+def test_svr_precomputed(linear_X_y):
+    """Test SVR with precomputed kernel matrix."""
+    X, y = linear_X_y
+    # Compute linear kernel matrix
+    K = X @ X.T
+    svr = SVR(kernel="precomputed").fit(K, y)
+    assert svr.score(K, y) > 0.5
+
+
+def test_svr_precomputed_train_test():
+    """Test SVR precomputed kernel with separate train/test sets."""
+    X, y = make_regression(
+        n_samples=150,
+        n_features=10,
+        n_informative=5,
+        noise=0.1,
+        random_state=42,
+    )
+    X = StandardScaler().fit_transform(X)
+    X_train, X_test = X[:100], X[100:]
+    y_train, y_test = y[:100], y[100:]
+
+    # Compute kernel matrices
+    K_train = X_train @ X_train.T
+    K_test = X_test @ X_train.T
+
+    svr = SVR(kernel="precomputed").fit(K_train, y_train)
+    # Just check it runs and produces reasonable output
+    predictions = svr.predict(K_test)
+    assert predictions.shape == y_test.shape
