@@ -1,8 +1,17 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+
+# Temporary workaround to test with 'nightly' dependencies
+# until https://github.com/rapidsai/gha-tools/pull/239 is merged.
+git clone https://github.com/rapidsai/gha-tools.git \
+  --branch pip-intermediate-constraints \
+  /tmp/gha-tools
+
+export PATH="/tmp/gha-tools/tools:${PATH}"
+# End of temporary workaround
 
 source rapids-init-pip
 
