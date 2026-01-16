@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 
+#include <optional>
 #include <string>
 
 namespace UMAPAlgo {
@@ -274,21 +275,43 @@ void compute_membership_strength(nnz_t n,
                                  int n_neighbors,
                                  raft::sparse::COO<value_t>& out,
                                  UMAPParams* params,
-                                 cudaStream_t stream)
+                                 cudaStream_t stream,
+                                 value_t* out_sigmas = nullptr,
+                                 value_t* out_rhos   = nullptr)
 {
   /**
    * Calculate mean distance through a parallel reduction
    */
-  rmm::device_uvector<value_t> sigmas(n, stream);
-  rmm::device_uvector<value_t> rhos(n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+
+  // Use caller-provided buffers if available, otherwise allocate internal ones
+  std::optional<rmm::device_uvector<value_t>> sigmas_storage;
+  std::optional<rmm::device_uvector<value_t>> rhos_storage;
+
+  value_t* sigmas;
+  value_t* rhos;
+
+  if (out_sigmas != nullptr) {
+    sigmas = out_sigmas;
+  } else {
+    sigmas_storage.emplace(n, stream);
+    sigmas = sigmas_storage->data();
+  }
+
+  if (out_rhos != nullptr) {
+    rhos = out_rhos;
+  } else {
+    rhos_storage.emplace(n, stream);
+    rhos = rhos_storage->data();
+  }
+
+  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas, 0, n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(rhos, 0, n * sizeof(value_t), stream));
 
   smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(n,
                                                     knn_indices,
                                                     knn_dists,
-                                                    rhos.data(),
-                                                    sigmas.data(),
+                                                    rhos,
+                                                    sigmas,
                                                     params,
                                                     n_neighbors,
                                                     params->local_connectivity,
@@ -306,8 +329,8 @@ void compute_membership_strength(nnz_t n,
   compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
     <<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
                                        knn_dists,
-                                       sigmas.data(),
-                                       rhos.data(),
+                                       sigmas,
+                                       rhos,
                                        out.vals(),
                                        out.rows(),
                                        out.cols(),

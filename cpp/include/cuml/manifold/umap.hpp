@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -111,6 +111,8 @@ void init_and_refine(const raft::handle_t& handle,
  * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
  * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
+ * @param[out] sigmas: optional output array for per-point sigma values (size n, device memory)
+ * @param[out] rhos: optional output array for per-point rho values (size n, device memory)
  */
 void fit(const raft::handle_t& handle,
          float* X,
@@ -121,7 +123,9 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          std::unique_ptr<rmm::device_buffer>& embeddings,
-         raft::host_coo_matrix<float, int, int, uint64_t>& graph);
+         raft::host_coo_matrix<float, int, int, uint64_t>& graph,
+         float* sigmas = nullptr,
+         float* rhos   = nullptr);
 
 /**
  * Sparse fit
@@ -216,6 +220,40 @@ void transform_sparse(const raft::handle_t& handle,
                       int embedding_n,
                       UMAPParams* params,
                       float* transformed);
+
+/**
+ * Inverse transform - optimize layout in original space
+ *
+ * @param[in] handle: raft::handle_t
+ * @param[in,out] inv_transformed: pointer to initial inverse-transformed positions (will be
+ * optimized in-place)
+ * @param[in] n: number of points to inverse transform
+ * @param[in] n_features: number of features in original space
+ * @param[in] orig_X: pointer to original training data
+ * @param[in] orig_n: number of rows in original training data
+ * @param[in] graph_rows: row indices of the inverse transform graph (COO format)
+ * @param[in] graph_cols: column indices of the inverse transform graph (COO format)
+ * @param[in] graph_vals: edge weights of the inverse transform graph
+ * @param[in] nnz: number of edges in the graph
+ * @param[in] sigmas: per-point sigma values from fuzzy simplicial set
+ * @param[in] rhos: per-point rho values from fuzzy simplicial set
+ * @param[in] params: pointer to ML::UMAPParams object
+ * @param[in] n_epochs: number of optimization epochs
+ */
+void inverse_transform(const raft::handle_t& handle,
+                       float* inv_transformed,
+                       int n,
+                       int n_features,
+                       float* orig_X,
+                       int orig_n,
+                       int* graph_rows,
+                       int* graph_cols,
+                       float* graph_vals,
+                       int nnz,
+                       float* sigmas,
+                       float* rhos,
+                       UMAPParams* params,
+                       int n_epochs);
 
 }  // namespace UMAP
 }  // namespace ML

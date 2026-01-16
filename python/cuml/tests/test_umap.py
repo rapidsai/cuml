@@ -1039,3 +1039,186 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
     )
     with pytest.raises(ValueError, match=".*fewer neighbors.*"):
         model.fit(data)
+
+
+def test_umap_sigmas_rhos():
+    """Test that sigmas and rhos are correctly produced and valid."""
+    n_samples = 200
+    n_features = 10
+    n_neighbors = 15
+    X, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, random_state=42
+    )
+    X = X.astype(np.float32)
+
+    # Compute KNN once to use for both implementations
+    # This ensures both cuML and umap-learn use identical neighbors
+    knn = NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean")
+    knn.fit(X)
+    knn_dists, knn_indices = knn.kneighbors(X)
+
+    # Test Dense with precomputed KNN
+    cu_model = cuUMAP(n_neighbors=n_neighbors, random_state=42)
+    cu_model.fit(X, knn_graph=(knn_indices, knn_dists))
+
+    # Compare with umap-learn using the same precomputed KNN
+    ref_model = umap.UMAP(
+        n_neighbors=n_neighbors,
+        random_state=42,
+        precomputed_knn=(knn_indices, knn_dists),
+    )
+    ref_model.fit(X)
+
+    # With identical KNN inputs, sigmas and rhos should match closely
+    np.testing.assert_allclose(cu_model._rhos, ref_model._rhos, atol=1e-3)
+
+    # Sigmas are more sensitive to numerical differences
+    np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
+
+
+def test_inverse_transform():
+    """Test cuML UMAP inverse_transform produces valid output."""
+    from sklearn.neighbors import KDTree
+
+    X, _ = make_blobs(n_samples=200, n_features=10, centers=4, random_state=42)
+    X = X.astype(np.float32)
+
+    random_state = 42
+    umap_model = cuUMAP(
+        n_neighbors=15, n_components=2, random_state=random_state
+    )
+    embedding = umap_model.fit_transform(X)
+
+    def to_np(arr):
+        return cp.asnumpy(arr) if hasattr(arr, "get") else np.asarray(arr)
+
+    embedding_np = to_np(embedding)
+
+    # Inverse transform the entire embedding
+    inv = umap_model.inverse_transform(embedding_np)
+    inv_np = to_np(inv)
+
+    # 1. Basic checks
+    assert inv_np.shape == (X.shape[0], X.shape[1])
+    assert np.all(np.isfinite(inv_np))
+
+    # 2. Neighborhood preservation check (KDTree check like upstream)
+    # Reconstructed high-D points should have similar neighbors as their low-D counterparts
+    highd_tree = KDTree(X)
+    lowd_tree = KDTree(embedding_np)
+
+    overlaps = []
+    for i in range(X.shape[0]):
+        # Find neighbors in low-D space for the original point
+        query_point_low = embedding_np[i : i + 1]
+        near_indices_low = lowd_tree.query(
+            query_point_low, k=10, return_distance=False
+        )[0]
+
+        # Find neighbors of reconstructed point in high-D space
+        query_point_high = inv_np[i : i + 1]
+        near_indices_high = highd_tree.query(
+            query_point_high, k=15, return_distance=False
+        )[0]
+
+        # Check for intersection of neighborhoods
+        intersection = np.intersect1d(near_indices_low, near_indices_high)
+        overlaps.append(intersection.shape[0])
+
+    # We expect a significant average overlap.
+    mean_overlap = np.mean(overlaps)
+    assert mean_overlap >= 4.0, (
+        f"Average neighborhood overlap too low: {mean_overlap:.2f}. "
+        "Reconstructed points do not preserve local structure well."
+    )
+
+    # Ensure most points have at least some overlap
+    overlap_count = np.sum(np.array(overlaps) >= 2)
+    overlap_ratio = overlap_count / X.shape[0]
+    assert overlap_ratio >= 0.85, (
+        f"Only {overlap_ratio:.2%} of points have >= 2 common neighbors. "
+        "Neighborhood preservation is poor for too many points."
+    )
+
+    # 3. Trustworthiness check
+    # Check if the high-D reconstruction preserves the neighborhood structure of the low-D embedding
+    trust = trustworthiness(embedding_np, inv_np, n_neighbors=10)
+    assert trust > 0.80, (
+        f"Trustworthiness of reconstruction is too low: {trust:.2f}"
+    )
+
+    # 4. Comparison to Reference implementation quality
+    ref_model = umap.UMAP(
+        n_neighbors=15, n_components=2, random_state=random_state
+    )
+    ref_model.fit(X)
+    ref_inv = ref_model.inverse_transform(embedding_np)
+    ref_inv_np = to_np(ref_inv)
+
+    nn = NearestNeighbors(n_neighbors=1).fit(X)
+    dists_cu, _ = nn.kneighbors(inv_np)
+    dists_ref, _ = nn.kneighbors(ref_inv_np)
+
+    mean_dist_cu = np.mean(dists_cu)
+    mean_dist_ref = np.mean(dists_ref)
+
+    # cuML reconstruction should be comparable to reference in terms of distance to training data
+    assert mean_dist_cu < mean_dist_ref * 2.0 + 0.5, (
+        f"cuML reconstruction quality ({mean_dist_cu:.4f}) is significantly worse "
+        f"than reference ({mean_dist_ref:.4f})"
+    )
+
+
+def test_inverse_transform_sparse_error():
+    """Test that inverse_transform raises error for sparse input data."""
+    # Create sparse data
+    X_sparse = scipy_sparse.random(
+        100, 20, density=0.3, format="csr", random_state=42
+    )
+    X_sparse = X_sparse.astype(np.float32)
+
+    # Fit UMAP on sparse data
+    umap_model = cuUMAP(
+        n_neighbors=10,
+        n_components=2,
+        random_state=42,
+        verbose=False,
+    )
+    umap_model.fit(X_sparse)
+
+    # inverse_transform should raise ValueError for sparse input
+    embedding = umap_model.embedding_
+    embedding_np = (
+        cp.asnumpy(embedding)
+        if isinstance(embedding, cp.ndarray)
+        else np.asarray(embedding)
+    )
+
+    with pytest.raises(ValueError, match="sparse"):
+        umap_model.inverse_transform(embedding_np[:10])
+
+
+def test_inverse_transform_dimension_mismatch():
+    """Test that inverse_transform raises error for wrong embedding dimension."""
+    X, _ = make_blobs(
+        n_samples=100,
+        n_features=10,
+        centers=3,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+
+    # Fit UMAP with 2 components
+    umap_model = cuUMAP(
+        n_neighbors=10,
+        n_components=2,
+        random_state=42,
+        verbose=False,
+    )
+    umap_model.fit(X)
+
+    # Try to inverse_transform with wrong number of components
+    wrong_embedding = np.random.rand(10, 3).astype(np.float32)
+
+    with pytest.raises(ValueError, match="components"):
+        umap_model.inverse_transform(wrong_embedding)

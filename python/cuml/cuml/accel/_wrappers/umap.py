@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -27,3 +27,6 @@ class UMAP(ProxyBase):
 
     def _gpu_transform(self, X, force_all_finite=True):
         return self._gpu.transform(X)
+
+    def _gpu_inverse_transform(self, X):
+        return self._gpu.inverse_transform(X)

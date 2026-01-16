@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include "optimize_batch_kernel.cuh"
+#include "optimize_inverse_kernel.cuh"
 
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
