@@ -465,10 +465,21 @@ dependencies:
             packages:
               - scikit-learn==1.7.2
               - ipython==8.37.0
+          - matrix: {dependencies: "nightly"}
+            packages:
+              # Pre-release specifier tells pip to accept dev/alpha/beta versions
+              - scikit-learn>=1.5.0a0
           - matrix:
             packages:
               - *scikit_learn
               - ipython>=7.32.0
+      - output_types: requirements
+        matrices:
+          - matrix: {dependencies: "nightly"}
+            packages:
+              - --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+          - matrix:  # fallback for non-nightly dependencies
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
