@@ -128,7 +128,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       node_type: "gpu-l4-latest-1"
-      script: ci/test_wheel_nightly_versions.sh
+      script: ci/test_wheel_nightly_dependencies_versions.sh
       continue-on-error: true
   wheel-tests-cuml-dask:
     secrets: inherit
