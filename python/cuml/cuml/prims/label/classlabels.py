@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -8,6 +8,14 @@ import cupy as cp
 
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.input_utils import input_to_cupy_array
+
+
+def _get_max_shared_memory_per_block():
+    """Get the maximum shared memory per block for the current device."""
+    device = cp.cuda.Device()
+    # CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK = 8
+    return device.attributes.get("MaxSharedMemoryPerBlock", 49152)
+
 
 map_kernel_str = r"""
 ({0} *x, int x_n, {0} *labels, int n_labels) {
@@ -95,6 +103,36 @@ def _validate_kernel(dtype):
     )
 
 
+def _make_monotonic_fallback(labels, classes):
+    """
+    Fallback implementation using CuPy when shared memory is insufficient.
+    Maps labels to monotonic indices [0, n_classes-1].
+    Labels not in classes are mapped to n_classes+1.
+    """
+    # Create a mapping using searchsorted on sorted classes
+    sorted_indices = cp.argsort(classes)
+    sorted_classes = classes[sorted_indices]
+
+    # Find where each label would be inserted in sorted classes
+    insert_positions = cp.searchsorted(sorted_classes, labels)
+
+    # Check if the labels actually match the classes at those positions
+    # Clamp positions to valid range for comparison
+    clamped_positions = cp.clip(insert_positions, 0, len(classes) - 1)
+    matches = sorted_classes[clamped_positions] == labels
+
+    # Map back to original class indices
+    mapped_labels = cp.where(
+        matches,
+        sorted_indices[clamped_positions],
+        len(classes) + 1,
+    )
+
+    # Copy result back to labels array (in-place modification)
+    labels[:] = mapped_labels.astype(labels.dtype)
+    return labels, classes
+
+
 def make_monotonic(labels, classes=None, copy=False):
     """
     Takes a set of labels that might not be drawn from the
@@ -129,6 +167,11 @@ def make_monotonic(labels, classes=None, copy=False):
         classes = input_to_cupy_array(classes).array
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
+    max_smem = _get_max_shared_memory_per_block()
+
+    # Use fallback if shared memory requirement exceeds device limit
+    if smem > max_smem:
+        return _make_monotonic_fallback(labels, classes)
 
     map_labels = _map_kernel(labels.dtype)
     map_labels(
@@ -139,6 +182,13 @@ def make_monotonic(labels, classes=None, copy=False):
     )
 
     return labels, classes
+
+
+def _check_labels_fallback(labels, classes) -> bool:
+    """
+    Fallback implementation using CuPy when shared memory is insufficient.
+    """
+    return bool(cp.all(cp.isin(labels, classes)))
 
 
 def check_labels(labels, classes) -> bool:
@@ -171,9 +221,15 @@ def check_labels(labels, classes) -> bool:
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
+    smem = labels.dtype.itemsize * int(classes.shape[0])
+    max_smem = _get_max_shared_memory_per_block()
+
+    # Use fallback if shared memory requirement exceeds device limit
+    if smem > max_smem:
+        return _check_labels_fallback(labels, classes)
+
     valid = cp.array([1])
 
-    smem = labels.dtype.itemsize * int(classes.shape[0])
     validate = _validate_kernel(labels.dtype)
     validate(
         (math.ceil(labels.shape[0] / 32),),
@@ -183,6 +239,16 @@ def check_labels(labels, classes) -> bool:
     )
 
     return valid[0] == 1
+
+
+def _invert_labels_fallback(labels, classes):
+    """
+    Fallback implementation using CuPy when shared memory is insufficient.
+    """
+    # Simple indexing: labels contains indices into classes
+    inverted = classes[labels]
+    labels[:] = inverted
+    return labels
 
 
 def invert_labels(labels, classes, copy=False):
@@ -216,7 +282,14 @@ def invert_labels(labels, classes, copy=False):
             "Labels and classes must have same dtype (%s != %s"
             % (labels.dtype, classes.dtype)
         )
+
     smem = labels.dtype.itemsize * len(classes)
+    max_smem = _get_max_shared_memory_per_block()
+
+    # Use fallback if shared memory requirement exceeds device limit
+    if smem > max_smem:
+        return _invert_labels_fallback(labels, classes)
+
     inverse_map = _inverse_map_kernel(labels.dtype)
     inverse_map(
         (math.ceil(len(labels) / 32),),
