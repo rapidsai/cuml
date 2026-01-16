@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # This script runs the umap tests with the cuml.accel plugin.
@@ -40,7 +40,7 @@ fi
 # Run upstream tests
 pytest -p cuml.accel \
     "${UMAP_REPO}/umap/tests/" \
-    --rootdir="${THIS_DIRECTORY}" \
+    --rootdir="${UMAP_REPO}" \
     --config-file="${THIS_DIRECTORY}/../pytest.ini" \
     --xfail-list="${THIS_DIRECTORY}/xfail-list.yaml" \
     "$@"
